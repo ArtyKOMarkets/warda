@@ -1,0 +1,30 @@
+{
+  "name": "@warda/core",
+  "version": "0.1.0",
+  "description": "Reference implementation of the Warda agent grant protocol. Defines the exact semantics a Toccata covenant must enforce.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.6"
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --test test/*.test.ts",
+    "vectors": "node --experimental-strip-types vectors/generate.ts",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm test"
+  },
+  "keywords": [
+    "kaspa",
+    "toccata",
+    "covenant",
+    "agent",
+    "payments",
+    "x402"
+  ],
+  "dependencies": {
+    "typescript": "^5.9.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.3.0"
+  }
+}

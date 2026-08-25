@@ -1,0 +1,148 @@
+{
+  "$comment": "Warda protocol test vectors. Hash is a PLACEHOLDER — see src/hash.ts. Regenerate after swapping it.",
+  "version": 1,
+  "generatedFrom": "@warda/core reference implementation",
+  "grant": {
+    "grantId": "abfc3e4507b0cd2e2f97e1f7cd15c9bae3008a659985ae8b04a27867ab0dc373",
+    "encodingHex": "0000000100000000000000000000000000000000000000000000000000000000000000001111111111111111111111111111111111111111111111111111111111111111222222222222222222222222222222222222222222222222222222222222222244444444444444444444444444444444444444444444444444444444444444444b4153000000000000000000000000000000000000000000000000000000000000000002540be400000000000bebc200000000003b9aca0000000000000003e813196bf3d84f17f9ddd4d88cad8c9ea586560fcdd282eb6d227b64a14b12daf30000000200000000000f424000000000000f5d98000000020101010101010101010101010101010101010101010101010101010101010101",
+    "budgetSompi": "10000000000",
+    "maxPerSpendSompi": "200000000",
+    "epochLimitSompi": "1000000000",
+    "epochLength": "1000",
+    "notBefore": "1000000",
+    "expiresAt": "1007000",
+    "delegationDepth": 2
+  },
+  "recipients": {
+    "root": "13196bf3d84f17f9ddd4d88cad8c9ea586560fcdd282eb6d227b64a14b12daf3",
+    "depth": 2,
+    "members": [
+      "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2",
+      "a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3"
+    ]
+  },
+  "initialState": {
+    "encodingHex": "abfc3e4507b0cd2e2f97e1f7cd15c9bae3008a659985ae8b04a27867ab0dc373000000000000000000000000000000000000000000000000000000000000000001"
+  },
+  "spendVectors": [
+    {
+      "name": "honest_micropayment",
+      "note": "0.05 KAS to an allowlisted API",
+      "daaScore": "1000500",
+      "amountSompi": "5000000",
+      "amountKas": "0.05",
+      "recipient": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "expect": "ACCEPT",
+      "failures": []
+    },
+    {
+      "name": "at_max_per_spend",
+      "note": "exactly at the cap, must be accepted",
+      "daaScore": "1000500",
+      "amountSompi": "200000000",
+      "amountKas": "2",
+      "recipient": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "expect": "ACCEPT",
+      "failures": []
+    },
+    {
+      "name": "over_max_per_spend",
+      "note": "prompt-injected 20 KAS",
+      "daaScore": "1000500",
+      "amountSompi": "2000000000",
+      "amountKas": "20",
+      "recipient": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "expect": "REJECT",
+      "failures": [
+        "EXCEEDS_MAX_PER_SPEND",
+        "EXCEEDS_EPOCH_LIMIT"
+      ]
+    },
+    {
+      "name": "unlisted_recipient",
+      "note": "attacker address not in the tree",
+      "daaScore": "1000500",
+      "amountSompi": "100000000",
+      "amountKas": "1",
+      "recipient": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "expect": "REJECT",
+      "failures": [
+        "RECIPIENT_NOT_AUTHORIZED"
+      ]
+    },
+    {
+      "name": "expired",
+      "note": "one DAA past expiry",
+      "daaScore": "1007000",
+      "amountSompi": "100000000",
+      "amountKas": "1",
+      "recipient": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "expect": "REJECT",
+      "failures": [
+        "EXPIRED"
+      ]
+    },
+    {
+      "name": "before_not_before",
+      "note": "grant has not opened",
+      "daaScore": "999999",
+      "amountSompi": "100000000",
+      "amountKas": "1",
+      "recipient": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "expect": "REJECT",
+      "failures": [
+        "NOT_YET_VALID",
+        "INVALID_SUCCESSOR"
+      ]
+    },
+    {
+      "name": "zero_amount",
+      "note": "non-positive amount",
+      "daaScore": "1000500",
+      "amountSompi": "0",
+      "amountKas": "0",
+      "recipient": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "expect": "REJECT",
+      "failures": [
+        "AMOUNT_NOT_POSITIVE"
+      ]
+    },
+    {
+      "name": "successor_budget_unchanged",
+      "note": "spends without recording the spend",
+      "daaScore": "1000500",
+      "amountSompi": "200000000",
+      "amountKas": "2",
+      "recipient": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "expect": "REJECT",
+      "failures": [
+        "INVALID_SUCCESSOR"
+      ]
+    },
+    {
+      "name": "successor_budget_inflated",
+      "note": "negative spent_total",
+      "daaScore": "1000500",
+      "amountSompi": "200000000",
+      "amountKas": "2",
+      "recipient": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "expect": "REJECT",
+      "failures": [
+        "INVALID_SUCCESSOR"
+      ]
+    },
+    {
+      "name": "successor_epoch_forged",
+      "note": "claims a future epoch to dodge the limit",
+      "daaScore": "1000500",
+      "amountSompi": "200000000",
+      "amountKas": "2",
+      "recipient": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "expect": "REJECT",
+      "failures": [
+        "INVALID_SUCCESSOR"
+      ]
+    }
+  ]
+}
