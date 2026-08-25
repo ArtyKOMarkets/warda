@@ -160,3 +160,152 @@ fn scaffolding_executes_against_the_node_engine() {
     // a rejection here is CORRECT. What matters is that the engine ran.
     assert!(result.is_err(), "unsigned reclaim before expiry must not pass");
 }
+
+// ---------------------------------------------------------------------------
+// Attack path — proven at bytecode level.
+//
+// The covenant calls checkSig LAST, so every guard fires before signing is
+// reached. That means the attack claims are provable without a covenant-aware
+// signer, which is the expensive part. The happy path needs one; these do not.
+// ---------------------------------------------------------------------------
+
+use silverscript_lang::ast::{ArrayDim, TypeBase, TypeRef};
+use silverscript_lang::compiler::struct_object;
+
+/// `byte[32][]` — fixed inner dimension, DYNAMIC outer. Neither
+/// `inferred_array` (gives byte[][]) nor `TryFrom<Vec<Vec<u8>>>` (gives
+/// byte[32][N], a fixed outer) matches the parameter type. The TypeRef has to
+/// be built by hand.
+fn byte32_array(items: Vec<[u8; 32]>) -> Expr<'static> {
+    Expr::array(
+        TypeRef { base: TypeBase::Byte, array_dims: vec![ArrayDim::Fixed(32), ArrayDim::Dynamic] },
+        items.into_iter().map(|b| Expr::bytes(b.to_vec())).collect(),
+    )
+}
+
+fn bool_array(items: Vec<bool>) -> Expr<'static> {
+    Expr::array(
+        TypeRef { base: TypeBase::Bool, array_dims: vec![ArrayDim::Dynamic] },
+        items.into_iter().map(Expr::bool).collect(),
+    )
+}
+
+const KAS: i64 = 100_000_000;
+
+fn state(spent: i64, reserved: i64, epoch_index: i64, epoch_spent: i64) -> Expr<'static> {
+    struct_object(
+        "State",
+        vec![
+            ("spentTotal", Expr::int(spent)),
+            ("reserved", Expr::int(reserved)),
+            ("epochIndex", Expr::int(epoch_index)),
+            ("epochSpent", Expr::int(epoch_spent)),
+        ],
+    )
+}
+
+/// Build a spend attempt. The Merkle proof is deliberately a single dummy
+/// sibling: every guard we exercise here fires before the proof is checked,
+/// so a real proof would not change the verdict — and pretending otherwise
+/// would make these tests prove less than they appear to.
+fn spend_attempt(c: &CompiledContract<'_>, amount: i64, claimed_daa: i64, new_state: Expr<'static>) -> Vec<u8> {
+    sigscript(
+        c,
+        "spend",
+        vec![
+            new_state,
+            Expr::int(amount),
+            Expr::bytes(vec![0xa1; 32]),                                        // recipient
+            byte32_array(vec![[0u8; 32]]),                                      // proofSiblings
+            bool_array(vec![false]),                                            // proofSiblingIsLeft
+            Expr::int(claimed_daa),
+            Expr::bytes(vec![0u8; 65]),                                         // agentSig (65, not 64)
+        ],
+    )
+}
+
+fn run_spend(c: &CompiledContract<'_>, amount: i64, claimed_daa: i64, new_state: Expr<'static>) -> Result<(), TxScriptError> {
+    run_spend_with_locktime(c, amount, claimed_daa, new_state, claimed_daa.max(0) as u64)
+}
+
+fn run_spend_with_locktime(
+    c: &CompiledContract<'_>,
+    amount: i64,
+    claimed_daa: i64,
+    new_state: Expr<'static>,
+    lock_time: u64,
+) -> Result<(), TxScriptError> {
+    let tx = Transaction::new(
+        1,
+        vec![tx_input(0, spend_attempt(c, amount, claimed_daa, new_state))],
+        vec![continuation_output(c, 1_000), payment_output(amount.max(1) as u64)],
+        lock_time,
+        Default::default(),
+        0,
+        vec![],
+    );
+    execute(tx, vec![covenant_utxo(c, 1_500)], 0)
+}
+
+#[test]
+fn attack_overspend_is_rejected() {
+    let c = compile(4);
+    // maxPerSpend is 2 KAS. Ask for 20 — the prompt-injection scenario.
+    let over = run_spend(&c, 20 * KAS, 1_000_500, state(20 * KAS, 0, 0, 20 * KAS));
+    println!("overspend  -> {over:?}");
+    assert!(over.is_err(), "20 KAS against a 2 KAS per-spend cap must not pass");
+}
+
+#[test]
+fn attack_zero_amount_is_rejected() {
+    let c = compile(4);
+    let zero = run_spend(&c, 0, 1_000_500, state(0, 0, 0, 0));
+    println!("zero       -> {zero:?}");
+    assert!(zero.is_err(), "non-positive amount must not pass");
+}
+
+#[test]
+fn attack_before_not_before_is_rejected() {
+    let c = compile(4);
+    // notBefore is 1_000_000. Claim an earlier DAA.
+    let early = run_spend(&c, KAS / 2, 999_999, state(KAS / 2, 0, 0, KAS / 2));
+    println!("too early  -> {early:?}");
+    assert!(early.is_err(), "spend before not_before must not pass");
+}
+
+/// KNOWN LIMITATION, recorded so nobody mistakes these tests for more than
+/// they are: the engine collapses EVERY failed `require` into one opaque
+/// `VerifyError`. It never says which rule rejected.
+///
+/// So "assert it was rejected" cannot, on its own, prove a specific guard
+/// works — a malformed sigscript would produce the same verdict as a working
+/// per-spend cap. Two ways to close that gap:
+///
+///   1. this test — arrange for a DISTINGUISHABLE failure downstream, so an
+///      over-limit spend and an in-limit spend fail at provably different
+///      points;
+///   2. a valid happy path that flips to rejection when one field changes.
+///      That needs a real Merkle proof and a covenant-aware Rust signature,
+///      and is the next piece of work.
+///
+/// Until (2) exists, treat every `is_err()` below as "the covenant rejected
+/// this", never as "the covenant rejected this FOR THE STATED REASON".
+#[test]
+fn per_spend_cap_fires_before_the_daa_lock() {
+    let c = compile(4);
+    // lock_time deliberately 0, so an otherwise-valid spend fails at CLTV with
+    // a NAMED error. An over-limit spend never gets that far: its require()
+    // fires first and yields VerifyError. Different verdicts, same transaction
+    // shape, one field changed — that is what makes the guard provable.
+    let over = run_spend_with_locktime(&c, 20 * KAS, 1_000_500, state(20 * KAS, 0, 0, 20 * KAS), 0);
+    let within = run_spend_with_locktime(&c, KAS / 2, 1_000_500, state(KAS / 2, 0, 0, KAS / 2), 0);
+
+    println!("over-limit  (locktime 0) -> {over:?}");
+    println!("within-limit(locktime 0) -> {within:?}");
+
+    assert!(matches!(over, Err(TxScriptError::VerifyError)), "over-limit must die at a require()");
+    assert!(
+        matches!(within, Err(TxScriptError::UnsatisfiedLockTime(_))),
+        "an in-limit spend must clear every amount guard and reach the DAA lock"
+    );
+}
