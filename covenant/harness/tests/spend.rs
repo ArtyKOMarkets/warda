@@ -662,3 +662,156 @@ fn prompt_injection_to_an_unlisted_recipient_is_rejected() {
     println!("prompt injection -> {verdict:?}");
     assert!(verdict.is_err(), "payment to an unlisted recipient must be rejected");
 }
+
+
+// ---------------------------------------------------------------------------
+// Flip tests — each derives from a spend that is KNOWN to be accepted and
+// changes exactly one field.
+//
+// This is what makes an assertion meaningful. "assert!(is_err())" against a
+// baseline that never passed proves nothing: the transaction might be refused
+// for any reason at all. Flipping one field on an accepted baseline means the
+// rejection can only be caused by that field.
+// ---------------------------------------------------------------------------
+
+struct Spend {
+    amount: i64,
+    recipient: [u8; 32],
+    claimed_daa: i64,
+    /// Successor state, defaulted from `amount` unless overridden.
+    successor: Option<(i64, i64, i64, i64)>,
+    pay_to: Option<[u8; 32]>,
+}
+
+impl Spend {
+    fn valid() -> Self {
+        Spend { amount: KAS / 2, recipient: [0xa1; 32], claimed_daa: 1_000_500, successor: None, pay_to: None }
+    }
+
+    fn run(&self) -> Result<(), TxScriptError> {
+        let kp = agent_keypair();
+        let agent_xonly: [u8; 32] = kp.x_only_public_key().0.serialize();
+        let tree = Tree::new(vec![[0xa1; 32], [0xa2; 32], [0xa3; 32], [0xa4; 32]]);
+        let c = compile_contract(SOURCE, &ctor_with(tree.root(), agent_xonly, 4), CompileOptions::default())
+            .expect("compiles");
+
+        let (ss, sr, si, se) = self.successor.unwrap_or((self.amount, 0, 0, self.amount));
+        let successor = compile_contract(
+            SOURCE,
+            &ctor_at_state(tree.root(), agent_xonly, 4, ss, sr, si, se),
+            CompileOptions::default(),
+        )
+        .expect("successor compiles");
+
+        // A recipient outside the tree has no proof; borrowing a valid one is
+        // the best an attacker can do, and is exactly what a rogue agent would
+        // try.
+        let proof_for = if tree.members.contains(&self.recipient) { self.recipient } else { [0xa1; 32] };
+        let (sibs, lefts) = tree.proof(&proof_for);
+
+        let payee = self.pay_to.unwrap_or(self.recipient);
+        let mut p2pk = vec![0x20u8];
+        p2pk.extend_from_slice(&payee);
+        p2pk.push(0xac);
+
+        let in_value: u64 = 10_000_000_000;
+        let amount = self.amount;
+        let claimed_daa = self.claimed_daa;
+        let build = |sig: Vec<u8>| {
+            let args = vec![
+                state(ss, sr, si, se),
+                Expr::int(amount),
+                Expr::bytes(self.recipient.to_vec()),
+                byte32_array(sibs.clone()),
+                bool_array(lefts.clone()),
+                Expr::int(claimed_daa),
+                Expr::bytes(sig),
+            ];
+            Transaction::new(
+                1,
+                vec![tx_input(0, sigscript(&c, "spend", args))],
+                vec![
+                    TransactionOutput {
+                        value: in_value - amount.max(0) as u64 - 1_000,
+                        script_public_key: pay_to_script_hash_script(&successor.bytecode),
+                        covenant: Some(CovenantBinding { authorizing_input: 0, covenant_id: COV }),
+                    },
+                    TransactionOutput {
+                        value: amount.max(1) as u64,
+                        script_public_key: ScriptPublicKey::new(0, p2pk.clone().into()),
+                        covenant: None,
+                    },
+                ],
+                claimed_daa.max(0) as u64,
+                Default::default(),
+                0,
+                vec![],
+            )
+        };
+
+        let entries = vec![covenant_utxo(&c, in_value)];
+        let sig = sign_input(build(vec![0u8; 65]), entries.clone(), 0, &kp);
+        execute(build(sig), entries, 0)
+    }
+}
+
+#[test]
+fn flip_baseline_is_accepted() {
+    let v = Spend::valid().run();
+    println!("baseline           -> {v:?}");
+    assert!(v.is_ok(), "the baseline every flip test depends on must pass: {v:?}");
+}
+
+#[test]
+fn flip_overspend_rejected() {
+    let mut s = Spend::valid();
+    s.amount = 20 * KAS; // cap is 2 KAS
+    s.successor = Some((20 * KAS, 0, 0, 20 * KAS));
+    let r = s.run();
+    println!("overspend flip     -> {r:?}");
+    assert!(r.is_err(), "20 KAS against a 2 KAS cap must reject");
+}
+
+#[test]
+fn flip_unlisted_recipient_rejected() {
+    let mut s = Spend::valid();
+    s.recipient = [0xee; 32]; // not in the allowlist
+    let r = s.run();
+    println!("unlisted recipient -> {r:?}");
+    assert!(r.is_err(), "payment to an unlisted recipient must reject");
+}
+
+#[test]
+fn flip_successor_budget_not_advanced_rejected() {
+    // The load-bearing one: spend the money, do not record the spend.
+    let mut s = Spend::valid();
+    s.successor = Some((0, 0, 0, 0));
+    let r = s.run();
+    println!("successor unmoved  -> {r:?}");
+    assert!(r.is_err(), "a successor that does not record the spend must reject");
+}
+
+#[test]
+fn flip_successor_reserved_tampered_rejected() {
+    // Named precisely: the baseline has reserved = 0, so there is nothing to
+    // "release" here. What this proves is narrower and still worth having —
+    // the reserved field cannot be moved independently of the spend. Proving
+    // that a delegated reserve cannot be reclaimed needs a delegation first,
+    // and that covenant does not exist yet.
+    let mut s = Spend::valid();
+    s.successor = Some((s.amount, -1_000, 0, s.amount));
+    let r = s.run();
+    println!("reserved tampered  -> {r:?}");
+    assert!(r.is_err(), "the reserved field must not move independently of the spend");
+}
+
+#[test]
+fn flip_payment_diverted_to_attacker_rejected() {
+    // Proof and recipient field are for an allowlisted API, but the money
+    // actually goes somewhere else.
+    let mut s = Spend::valid();
+    s.pay_to = Some([0xee; 32]);
+    let r = s.run();
+    println!("payment diverted   -> {r:?}");
+    assert!(r.is_err(), "paying an address other than the named recipient must reject");
+}

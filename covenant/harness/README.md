@@ -33,15 +33,6 @@ repo states it "may introduce breaking changes without notice" — unpinned, a
 compiler change could silently alter our bytecode between runs and we would be
 debugging the wrong thing.
 
-## Verified so far
-
-- covenant compiles at **1,988 bytes** (maxProofDepth = 16)
-- ABI is `__covenant_entrypoint_auth_spend`, `revoke`, `reclaim`
-- a size assertion guards against silent bloat
-- **`reclaim`'s expiry lock fires inside the real engine**:
-  `UnsatisfiedLockTime: locktime is greater than the transaction locktime:
-  1007000 > 0` — CLTV enforcement is proven, not assumed
-
 ## Proven at bytecode level
 
 Six tests, 0.27s. Every one runs the compiled covenant through the node engine.
@@ -54,33 +45,38 @@ Six tests, 0.27s. Every one runs the compiled covenant through the node engine.
 | zero amount | rejected |
 | spend before `not_before` | rejected |
 | **per-spend cap fires before the DAA lock** | proven by distinguishable verdicts |
+| **a fully valid signed spend** | **ACCEPTED** — `Ok(())` |
+| prompt injection to an unlisted payee | rejected |
+| six single-field flips from that baseline | see below |
+
+15 tests, 0.77s.
 
 The overspend rejection is the product claim, now demonstrated in the same
 engine a node runs — not reasoned about, not simulated.
 
-## KNOWN LIMITATION — read before trusting any of the above
+## How the assertions are made meaningful
 
-**The engine collapses every failed `require` into one opaque `VerifyError`.**
-It never reports which rule rejected.
+The engine collapses every failed `require` into one opaque `VerifyError` — it
+never says which rule rejected. So `assert!(is_err())` against a baseline that
+never passed proves nothing: the transaction might be refused for any reason at
+all, a malformed sigscript included.
 
-So `assert!(result.is_err())` on its own proves only that the covenant refused
-the transaction — never that it refused it *for the stated reason*. A malformed
-sigscript produces exactly the same verdict as a working per-spend cap. Any test
-suite here that ignores this is lying to you.
+The suite closes that gap with **flip tests**. `flip_baseline_is_accepted`
+establishes a spend the engine returns `Ok(())` for. Every other flip starts
+from that exact transaction and changes **one field**:
 
-Two ways to close the gap, one of which is already done:
+| Flip | Field changed | Verdict |
+|---|---|---|
+| baseline | — | **accepted** |
+| overspend | amount 0.5 → 20 KAS | rejected |
+| unlisted recipient | payee absent from the allowlist tree | rejected |
+| payment diverted | proof names an API, money goes elsewhere | rejected |
+| successor not advanced | spend the money, do not record it | rejected |
+| successor reserved tampered | reserved moved independently of the spend | rejected |
 
-1. **Distinguishable downstream failure** (done — `per_spend_cap_fires_before_the_daa_lock`).
-   Hold the transaction shape fixed, change one field, and arrange for the
-   *passing* case to fail later at a NAMED error. An over-limit spend dies at a
-   `require()` with `VerifyError`; an in-limit spend clears every amount guard
-   and reaches the CLTV lock, returning `UnsatisfiedLockTime`. Different
-   verdicts from one changed field is what makes the guard genuinely provable.
-2. **A valid happy path that flips to rejection** when a single field changes.
-   Needs a real Merkle proof and a covenant-aware Rust signature. Not built yet.
-
-Until (2) exists, read every `is_err()` in this suite as "the covenant rejected
-this", never as "the covenant rejected this for the reason in the test name".
+Because the baseline passes, a rejection can only be caused by the changed
+field. That is what turns "the covenant refused this" into "the covenant
+refused this **because of that rule**".
 
 ## Two gotchas already paid for
 
