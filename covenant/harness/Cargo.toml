@@ -1,0 +1,17 @@
+[package]
+name = "warda-harness"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# Deliberately depends on kaspa-txscript but NOT kaspa-consensus. The full
+# consensus crate pulls librocksdb-sys, which takes minutes to build and OOMs
+# small machines. The script engine is all this harness needs.
+[dependencies]
+# Pinned deliberately: the Silverscript repo states it "may introduce
+# breaking changes without notice". An unpinned dep would let a compiler
+# change silently alter our bytecode between runs.
+silverscript-lang = { git = "https://github.com/kaspanet/silverscript", rev = "84eb797abdae4a67a46bcd1e7b97e4393e07e3b6" }
+kaspa-consensus-core = { git = "https://github.com/kaspanet/rusty-kaspa", rev = "a41a333b08848f41bf737b72592e463a6011b8ac" }
+kaspa-txscript = { git = "https://github.com/kaspanet/rusty-kaspa", rev = "a41a333b08848f41bf737b72592e463a6011b8ac" }
+kaspa-txscript-errors = { git = "https://github.com/kaspanet/rusty-kaspa", rev = "a41a333b08848f41bf737b72592e463a6011b8ac" }
