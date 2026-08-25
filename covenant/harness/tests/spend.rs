@@ -1187,3 +1187,119 @@ fn delegate_over_reserving_is_rejected() {
     println!("over-reserve by 1    -> {r:?}");
     assert!(r.is_err(), "reserving more than the child's budget must be rejected");
 }
+
+// ---------------------------------------------------------------------------
+// COMPUTE BUDGET — the last unmeasured claim in the project.
+//
+// Script SIZE turned out to be a non-issue: MAX_SCRIPTS_SIZE_POST_TOCCATA is
+// 1,000,000 bytes and the covenant is ~3.3KB. The real limits are the 244-slot
+// stack and the per-input compute budget, which is a u16 (max 65,535 units).
+// ---------------------------------------------------------------------------
+
+fn measure_units(tx: Transaction, entries: Vec<UtxoEntry>, input_idx: usize) -> (Result<(), TxScriptError>, u64) {
+    let reused = SigHashReusedValuesUnsync::new();
+    let sig_cache = Cache::new(10_000);
+    let input = tx.inputs[input_idx].clone();
+    let populated = PopulatedTransaction::new(&tx, entries);
+    let cov_ctx = CovenantsContext::from_tx(&populated).expect("covenant ctx");
+    let utxo = populated.utxo(input_idx).expect("utxo");
+    let mut vm = TxScriptEngine::from_transaction_input(
+        &populated,
+        &input,
+        input_idx,
+        utxo,
+        EngineCtx::new(&sig_cache).with_reused(&reused).with_covenants_ctx(&cov_ctx),
+        EngineFlags { covenants_enabled: true, sigop_script_units: 0.into() },
+    );
+    let r = vm.execute();
+    let used = vm.used_script_units().0;
+    (r, used)
+}
+
+#[test]
+fn report_compute_budget_consumption() {
+    // Same construction as the accepted baseline, with the meter read out.
+    let kp = agent_keypair();
+    let agent_xonly: [u8; 32] = kp.x_only_public_key().0.serialize();
+    let tree = Tree::new(vec![[0xa1; 32], [0xa2; 32], [0xa3; 32], [0xa4; 32]]);
+    let recipient = [0xa1u8; 32];
+    let (sibs, lefts) = tree.proof(&recipient);
+    let amount: i64 = KAS / 2;
+    let claimed_daa: i64 = 1_000_500;
+    let in_value: u64 = 10_000_000_000;
+
+    for depth in [4i64, 8, 16] {
+        let c = compile_contract(SOURCE, &ctor_with(tree.root(), agent_xonly, depth), CompileOptions::default())
+            .expect("compiles");
+        let successor = compile_contract(
+            SOURCE,
+            &ctor_at_state(tree.root(), agent_xonly, depth, amount, 0, 0, amount),
+            CompileOptions::default(),
+        )
+        .expect("successor");
+
+        let mut p2pk = vec![0x20u8];
+        p2pk.extend_from_slice(&recipient);
+        p2pk.push(0xac);
+
+        let build = |sig: Vec<u8>| {
+            let args = vec![
+                state_full(tree.root(), agent_xonly, amount, 0, 0, amount),
+                Expr::int(amount),
+                Expr::bytes(recipient.to_vec()),
+                byte32_array(sibs.clone()),
+                bool_array(lefts.clone()),
+                Expr::int(claimed_daa),
+                Expr::bytes(sig),
+            ];
+            Transaction::new(
+                1,
+                vec![TransactionInput::new_with_compute_budget(
+                    TransactionOutpoint { transaction_id: TransactionId::from_bytes([1; 32]), index: 0 },
+                    sigscript(&c, "spend", args),
+                    0,
+                    u16::MAX, // generous, so the meter is not what stops us
+                )],
+                vec![
+                    TransactionOutput {
+                        value: in_value - amount as u64 - 1_000,
+                        script_public_key: pay_to_script_hash_script(&successor.bytecode),
+                        covenant: Some(CovenantBinding { authorizing_input: 0, covenant_id: COV }),
+                    },
+                    TransactionOutput {
+                        value: amount as u64,
+                        script_public_key: ScriptPublicKey::new(0, p2pk.clone().into()),
+                        covenant: None,
+                    },
+                ],
+                claimed_daa as u64,
+                Default::default(),
+                0,
+                vec![],
+            )
+        };
+
+        let entries = vec![covenant_utxo(&c, in_value)];
+        let sig = sign_input(build(vec![0u8; 65]), entries.clone(), 0, &kp);
+        let (r, used) = measure_units(build(sig), entries.clone(), 0);
+        // Peak combined stack depth, against MAX_STACK_SIZE = 244.
+        let sig2 = sign_input(build(vec![0u8; 65]), entries.clone(), 0, &kp);
+        let (_, trace) = execute_traced(build(sig2), entries, 0);
+        let peak = trace
+            .lines()
+            .map(|l| {
+                let a = l.matches("astack: [").next().map(|_| l.split("astack: [").nth(1).unwrap_or(""));
+                let d = l.split("dstack: [").nth(1).unwrap_or("");
+                let count = |x: &str| if x.trim_start().starts_with(']') { 0 } else { x.matches("0x").count() };
+                count(a.unwrap_or("")) + count(d)
+            })
+            .max()
+            .unwrap_or(0);
+        // Budget units: SCRIPT_UNITS_PER_COMPUTE_BUDGET_UNIT = 10_000, u16 max.
+        let budget = used / 10_000 + 1;
+        println!(
+            "BUDGET depth={depth:<3} bytes={:<5} script_units={used:<7} budget_units={budget:<4} peak_stack={peak:<4}/244 verdict={r:?}",
+            c.bytecode.len()
+        );
+    }
+}

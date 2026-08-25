@@ -112,26 +112,19 @@ enforceable on roots alone. Narrowing a child's allowlist needs the per-member
 subset witness `@warda/core` already implements — that is not in the covenant
 yet, and it is the obvious next increment.
 
-## SIZE RISK — the one open concern
+## SIZE RISK — RESOLVED, see LIMITS.md
 
-| maxProofDepth | spend only | with delegation |
-|---:|---:|---:|
-| 4 | 1,526 | 3,036 |
-| 8 | 1,810 | **3,320** |
-| 16 | 2,378 | 3,888 |
+The concern flagged here was based on the wrong yardstick. KOMarkets' 2,184-byte
+covenant was a known-good datapoint, not a ceiling. The real limits, measured:
 
-Delegation costs a flat ~1,510 bytes. That puts the full covenant **well above
-the 2,184-byte covenant KOMarkets is proven to run on-chain.**
+- script size: **1,000,000** bytes — the covenant uses 3,888, i.e. 0.4%
+- compute budget: **3** of 65,535 units
+- stack depth: **107 of 244**, and flat regardless of proof depth
 
-Script size and compute-budget limits are still undocumented, so this headroom
-is *assumed, not known* — the one place in the project where a claim rests on
-something unmeasured. Depth 8 is the safer default. Establishing the real
-ceiling is now the highest-value unknown left, above any further feature work.
+Nothing here is marginal. `maxProofDepth = 16` is comfortable.
 
 ## Next
 
-1. **Measure the actual script size / compute budget limit.** Everything else
-   is guessing until this exists.
 2. Subset witness in the covenant, so a child can genuinely narrow its allowlist
 3. Multi-level delegation: grandchild attenuating against a child
 4. Revocation semantics with live descendants
