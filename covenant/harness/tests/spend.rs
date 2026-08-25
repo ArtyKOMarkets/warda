@@ -151,10 +151,17 @@ fn covenant_compiles_and_exposes_expected_abi() {
     println!("bytecode = {} bytes", c.bytecode.len());
     println!("abi = {names:?}");
     assert!(names.iter().any(|n| n.contains("spend")), "spend entrypoint present");
+    assert!(names.iter().any(|n| n.contains("delegate")), "delegate entrypoint present");
     assert!(names.iter().any(|n| n == "revoke"));
     assert!(names.iter().any(|n| n == "reclaim"));
-    // Guard against silent bloat: depth 16 measured at 1,988 bytes.
-    assert!(c.bytecode.len() < 2_500, "bytecode grew unexpectedly: {}", c.bytecode.len());
+    // Bloat guard, and it has already earned its keep — it caught delegation
+    // pushing the covenant past the previous 2,500-byte ceiling.
+    //
+    // SIZE RISK: with delegation, depth 16 is ~3,888 bytes, well above the
+    // 2,184-byte covenant KOMarkets is proven to run on-chain. Script size
+    // limits remain undocumented, so that headroom is assumed, not known.
+    // Depth 8 (3,320) is the safer default until a limit is measured.
+    assert!(c.bytecode.len() < 4_200, "bytecode grew unexpectedly: {}", c.bytecode.len());
 }
 
 #[test]
@@ -916,4 +923,267 @@ fn flip_agent_inflates_its_own_budget_rejected() {
     let r = s.run();
     println!("budget inflated    -> {r:?}");
     assert!(r.is_err(), "an agent must not inflate its own total budget");
+}
+
+// ---------------------------------------------------------------------------
+// DELEGATION — conservation proven against the engine.
+//
+// The spec calls conservation its strongest structural property: authority is
+// neither created nor destroyed by delegation, only subdivided. These tests
+// are what turn that from a claim into a demonstration.
+// ---------------------------------------------------------------------------
+
+/// Child authority — deliberately narrower than the parent on every axis.
+struct Child {
+    budget: i64,
+    max_per_spend: i64,
+    epoch_limit: i64,
+    expires_at: i64,
+    not_before: i64,
+    delegation_depth: i64,
+    root: Option<[u8; 32]>,
+    accounting: (i64, i64, i64, i64),
+}
+
+impl Child {
+    fn narrower() -> Self {
+        Child {
+            budget: 25 * KAS,
+            max_per_spend: KAS,
+            epoch_limit: 5 * KAS,
+            expires_at: 1_007_000,
+            not_before: 1_000_000,
+            delegation_depth: 1,
+            root: None,
+            accounting: (0, 0, 0, 0),
+        }
+    }
+}
+
+fn child_state(root: [u8; 32], child_key: [u8; 32], ch: &Child) -> Expr<'static> {
+    let (s, r, ei, es) = ch.accounting;
+    struct_object(
+        "State",
+        vec![
+            ("agentKey", Expr::bytes(child_key.to_vec())),
+            ("budgetTotal", Expr::int(ch.budget)),
+            ("maxPerSpend", Expr::int(ch.max_per_spend)),
+            ("epochLimit", Expr::int(ch.epoch_limit)),
+            ("epochLength", Expr::int(1_000)),
+            ("recipientsRoot", Expr::bytes(ch.root.unwrap_or(root).to_vec())),
+            ("notBefore", Expr::int(ch.not_before)),
+            ("expiresAt", Expr::int(ch.expires_at)),
+            ("delegationDepth", Expr::int(ch.delegation_depth)),
+            ("spentTotal", Expr::int(s)),
+            ("reserved", Expr::int(r)),
+            ("epochIndex", Expr::int(ei)),
+            ("epochSpent", Expr::int(es)),
+        ],
+    )
+}
+
+fn child_ctor(root: [u8; 32], child_key: [u8; 32], ch: &Child, depth: i64) -> Vec<Expr<'static>> {
+    let (s, r, ei, es) = ch.accounting;
+    vec![
+        Expr::bytes(vec![0x11; 32]),
+        Expr::bytes(vec![0x44; 32]),
+        Expr::int(100_000),
+        Expr::bytes(child_key.to_vec()),
+        Expr::int(ch.budget),
+        Expr::int(ch.max_per_spend),
+        Expr::int(ch.epoch_limit),
+        Expr::int(1_000),
+        Expr::bytes(ch.root.unwrap_or(root).to_vec()),
+        Expr::int(ch.not_before),
+        Expr::int(ch.expires_at),
+        Expr::int(ch.delegation_depth),
+        Expr::int(depth),
+        Expr::int(s),
+        Expr::int(r),
+        Expr::int(ei),
+        Expr::int(es),
+    ]
+}
+
+fn run_delegation(ch: &Child, parent_reserved_override: Option<i64>) -> Result<(), TxScriptError> {
+    let kp = agent_keypair();
+    let agent_xonly: [u8; 32] = kp.x_only_public_key().0.serialize();
+    let child_key = [0x99u8; 32];
+    let tree = Tree::new(vec![[0xa1; 32], [0xa2; 32], [0xa3; 32], [0xa4; 32]]);
+    let depth = 4;
+
+    let parent = compile_contract(SOURCE, &ctor_with(tree.root(), agent_xonly, depth), CompileOptions::default())
+        .expect("parent compiles");
+
+    let reserved_after = parent_reserved_override.unwrap_or(ch.budget);
+
+    // Parent continuation: same authority, reserved advanced.
+    let parent_next = compile_contract(
+        SOURCE,
+        &ctor_at_state(tree.root(), agent_xonly, depth, 0, reserved_after, 0, 0),
+        CompileOptions::default(),
+    )
+    .expect("parent successor compiles");
+
+    let child_contract = compile_contract(SOURCE, &child_ctor(tree.root(), child_key, ch, depth), CompileOptions::default())
+        .expect("child compiles");
+
+    let mut parent_fields = authority_fields(tree.root(), agent_xonly);
+    parent_fields.push(("spentTotal", Expr::int(0)));
+    parent_fields.push(("reserved", Expr::int(reserved_after)));
+    parent_fields.push(("epochIndex", Expr::int(0)));
+    parent_fields.push(("epochSpent", Expr::int(0)));
+    let parent_next_state = struct_object("State", parent_fields);
+
+    // `State[]` needs an explicit TypeRef — inferred_array cannot derive a
+    // custom struct element type from struct literals.
+    let new_states = Expr::array(
+        TypeRef { base: TypeBase::Custom("State".to_string()), array_dims: vec![ArrayDim::Dynamic] },
+        vec![parent_next_state, child_state(tree.root(), child_key, ch)],
+    );
+
+    let in_value: u64 = 10_000_000_000;
+    let build = |sig: Vec<u8>| {
+        let args = vec![new_states.clone(), Expr::bytes(sig)];
+        Transaction::new(
+            1,
+            vec![tx_input(0, sigscript(&parent, "delegate", args))],
+            vec![
+                TransactionOutput {
+                    // Saturating: a hostile child budget can exceed the input
+                    // value, and the test harness must produce a transaction
+                    // for the ENGINE to reject rather than panicking itself.
+                    value: in_value
+                        .saturating_sub(ch.budget.max(0) as u64)
+                        .saturating_sub(1_000),
+                    script_public_key: pay_to_script_hash_script(&parent_next.bytecode),
+                    covenant: Some(CovenantBinding { authorizing_input: 0, covenant_id: COV }),
+                },
+                TransactionOutput {
+                    value: ch.budget.max(0) as u64,
+                    script_public_key: pay_to_script_hash_script(&child_contract.bytecode),
+                    covenant: Some(CovenantBinding { authorizing_input: 0, covenant_id: COV }),
+                },
+            ],
+            0,
+            Default::default(),
+            0,
+            vec![],
+        )
+    };
+
+    let entries = vec![covenant_utxo(&parent, in_value)];
+    let sig = sign_input(build(vec![0u8; 65]), entries.clone(), 0, &kp);
+    execute(build(sig), entries, 0)
+}
+
+#[test]
+fn delegation_baseline_is_accepted() {
+    let r = run_delegation(&Child::narrower(), None);
+    println!("delegation baseline -> {r:?}");
+    assert!(r.is_ok(), "a properly attenuated child must be accepted: {r:?}");
+}
+
+#[test]
+fn delegate_child_raising_per_spend_cap_rejected() {
+    let mut ch = Child::narrower();
+    ch.max_per_spend = 10 * KAS; // parent allows 2
+    let r = run_delegation(&ch, None);
+    println!("child cap raised     -> {r:?}");
+    assert!(r.is_err(), "a child must not exceed its parent's per-spend cap");
+}
+
+#[test]
+fn delegate_child_raising_epoch_limit_rejected() {
+    let mut ch = Child::narrower();
+    ch.epoch_limit = 50 * KAS; // parent allows 10
+    let r = run_delegation(&ch, None);
+    println!("child epoch raised   -> {r:?}");
+    assert!(r.is_err(), "a child must not exceed its parent's epoch limit");
+}
+
+#[test]
+fn delegate_child_outliving_parent_rejected() {
+    let mut ch = Child::narrower();
+    ch.expires_at = 2_000_000; // parent expires at 1_007_000
+    let r = run_delegation(&ch, None);
+    println!("child outlives       -> {r:?}");
+    assert!(r.is_err(), "a child must not outlive its parent");
+}
+
+#[test]
+fn delegate_child_starting_before_parent_rejected() {
+    let mut ch = Child::narrower();
+    ch.not_before = 999_000; // parent opens at 1_000_000
+    let r = run_delegation(&ch, None);
+    println!("child starts early   -> {r:?}");
+    assert!(r.is_err(), "a child must not open before its parent");
+}
+
+#[test]
+fn delegate_depth_cannot_be_extended() {
+    let mut ch = Child::narrower();
+    ch.delegation_depth = 2; // parent is 2; child must be strictly less
+    let r = run_delegation(&ch, None);
+    println!("child depth equal    -> {r:?}");
+    assert!(r.is_err(), "delegation depth must strictly decrease");
+}
+
+#[test]
+fn delegate_child_widening_allowlist_rejected() {
+    let mut ch = Child::narrower();
+    ch.root = Some([0xee; 32]);
+    let r = run_delegation(&ch, None);
+    println!("child root swapped   -> {r:?}");
+    assert!(r.is_err(), "a child must not carry a different recipient root");
+}
+
+#[test]
+fn delegate_child_born_pre_spent_rejected() {
+    let mut ch = Child::narrower();
+    ch.accounting = (0, 0, 0, -5 * KAS); // negative epochSpent = free allowance
+    let r = run_delegation(&ch, None);
+    println!("child born pre-spent -> {r:?}");
+    assert!(r.is_err(), "a child must start with zeroed accounting");
+}
+
+#[test]
+fn delegate_child_exceeding_available_budget_rejected() {
+    let mut ch = Child::narrower();
+    ch.budget = 200 * KAS; // parent's whole budget is 100 KAS
+    let r = run_delegation(&ch, None);
+    println!("child over-budget    -> {r:?}");
+    assert!(r.is_err(), "a child must not receive more than the parent still has");
+}
+
+// --- CONSERVATION. The spec's strongest structural claim. ---
+
+#[test]
+fn delegate_without_reserving_is_rejected() {
+    // The attack that would break conservation outright: hand the child 25 KAS
+    // of authority while the parent's reserve stays at zero, so the tree now
+    // holds 125 KAS of authority against 100 KAS of budget.
+    let r = run_delegation(&Child::narrower(), Some(0));
+    println!("no reserve           -> {r:?}");
+    assert!(r.is_err(), "delegating without reserving must be rejected");
+}
+
+#[test]
+fn delegate_under_reserving_is_rejected() {
+    // Subtler: reserve something, but less than the child received.
+    let ch = Child::narrower();
+    let r = run_delegation(&ch, Some(ch.budget - 1));
+    println!("under-reserve by 1   -> {r:?}");
+    assert!(r.is_err(), "reserving less than the child's budget must be rejected");
+}
+
+#[test]
+fn delegate_over_reserving_is_rejected() {
+    // The mirror image. Over-reserving destroys authority rather than creating
+    // it, which is safe for the principal but still not conservation — and a
+    // covenant that tolerates it has a sloppy equality somewhere.
+    let ch = Child::narrower();
+    let r = run_delegation(&ch, Some(ch.budget + 1));
+    println!("over-reserve by 1    -> {r:?}");
+    assert!(r.is_err(), "reserving more than the child's budget must be rejected");
 }

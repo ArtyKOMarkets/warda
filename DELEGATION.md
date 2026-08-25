@@ -71,44 +71,67 @@ That strengthens spec section 18: a counterparty verifying remaining budget is
 not trusting an indexer, and not even reading a state blob — the address itself
 is the commitment.
 
-## Next
+## DONE — delegation is proven
 
-1. Port the harness ctor to v2 and re-prove all 15 tests
-2. Add `delegate` as `#[covenant.fanout(to = 2)]`
-3. Prove conservation on-chain: `parent.reserved += child.budgetTotal`, and no
-   transaction that widens total authority
-4. Then the honest version of `flip_successor_reserved_tampered` — a real
-   delegated reserve that cannot be reclaimed
+`delegate` is a `#[covenant.fanout(to = 2)]`: parent continuation at auth
+output 0, child grant at auth output 1. **31/31 against the engine.**
 
+### Conservation
 
-## Adopted — result
+The spec's strongest structural claim, now demonstrated rather than asserted:
 
-The port was mechanical for the harness (constructor order, a 13-field State)
-and revealed nothing broken. All 15 original tests pass unchanged on v2.
-
-Four tests were **added**, because v2 creates an attack that v1 made impossible
-by construction: with authority in State, an agent can try to write *better*
-authority into its own successor.
-
-| New flip | Attempt | Verdict |
+| Test | Attempt | Verdict |
 |---|---|---|
-| cap raised | rewrite maxPerSpend to 100 KAS | rejected |
-| allowlist swapped | replace recipientsRoot | rejected |
-| expiry extended | push expiresAt out | rejected |
-| budget inflated | raise budgetTotal | rejected |
+| baseline | properly attenuated child | **accepted** |
+| no reserve | child gets 25 KAS, parent reserves 0 | rejected |
+| under-reserve | parent reserves child.budget − 1 | rejected |
+| over-reserve | parent reserves child.budget + 1 | rejected |
 
-Each spends a perfectly legal amount and only tampers with the successor's
-authority half. Without the nine immutability guards every one of these would
-succeed, and the protocol's entire claim would be false — an agent that can
-raise its own cap has no cap.
+The first attack is the one that would break the protocol outright: a tree
+holding 125 KAS of authority against 100 KAS of budget. The other two prove the
+covenant uses an equality, not an inequality — over-reserving is *safe* for the
+principal, and still rejected, because a covenant that tolerates it has a sloppy
+comparison somewhere that a subtler attack will find.
 
-Adopted at **maxProofDepth = 8, 1,810 bytes** — a 256-entry allowlist, smaller
-than the 2,184-byte covenant KOMarkets already runs on-chain.
+**Real value moves with authority.** A child holding authority but no coins
+could not pay anyone; a child holding coins with no reserve against the parent
+would double the tree's authority. `reserved` is what keeps the state and the
+UTXO split aligned.
+
+### Attenuation
+
+Eight flips, each narrowing one axis the wrong way: per-spend cap, epoch limit,
+expiry, not-before, delegation depth, recipient root, pre-spent accounting, and
+a budget larger than the parent still holds. All rejected.
+
+### Allowlist inheritance only
+
+The covenant enforces `child.recipientsRoot == recipientsRoot`. Set inclusion
+is not decidable from a Merkle root, so equality is the only relation
+enforceable on roots alone. Narrowing a child's allowlist needs the per-member
+subset witness `@warda/core` already implements — that is not in the covenant
+yet, and it is the obvious next increment.
+
+## SIZE RISK — the one open concern
+
+| maxProofDepth | spend only | with delegation |
+|---:|---:|---:|
+| 4 | 1,526 | 3,036 |
+| 8 | 1,810 | **3,320** |
+| 16 | 2,378 | 3,888 |
+
+Delegation costs a flat ~1,510 bytes. That puts the full covenant **well above
+the 2,184-byte covenant KOMarkets is proven to run on-chain.**
+
+Script size and compute-budget limits are still undocumented, so this headroom
+is *assumed, not known* — the one place in the project where a claim rests on
+something unmeasured. Depth 8 is the safer default. Establishing the real
+ceiling is now the highest-value unknown left, above any further feature work.
 
 ## Next
 
-1. `delegate` as `#[covenant.fanout(to = 2)]` — parent continuation + child grant
-2. Conservation proven on-chain: `parent.reserved += child.budgetTotal`, with no
-   transaction that widens total authority
-3. Attenuation flips: a child that raises any authority field above its parent
-4. The honest `reserved` test — a real delegated reserve that cannot be reclaimed
+1. **Measure the actual script size / compute budget limit.** Everything else
+   is guessing until this exists.
+2. Subset witness in the covenant, so a child can genuinely narrow its allowlist
+3. Multi-level delegation: grandchild attenuating against a child
+4. Revocation semantics with live descendants

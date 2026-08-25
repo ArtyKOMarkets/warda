@@ -175,6 +175,79 @@ contract WardaGrant(
         require(checkSig(agentSig, pubkey(agentKey)));
     }
 
+
+    // ------------------------------------------------------------------
+    // DELEGATION — 1:2 fanout. Parent continuation at auth output 0, child
+    // grant at auth output 1.
+    //
+    // Conservation is the whole point: authority is neither created nor
+    // destroyed here, only subdivided. The parent RESERVES exactly what the
+    // child receives, and real KAS moves with it — a child that held authority
+    // but no coins could not pay anyone, and a child that held coins but no
+    // reserve against the parent would double the tree's total authority.
+    // ------------------------------------------------------------------
+    #[covenant.fanout(to = 2)]
+    function delegate(State prevState, State[] newStates, sig agentSig) {
+        State parentNext = newStates[0];
+        State child      = newStates[1];
+
+        // Bound the attacker-controlled figure BEFORE any arithmetic. Overflow
+        // is undefined behaviour in Silverscript and UB may SUCCEED, so a
+        // range check after the addition is not a check at all.
+        require(child.budgetTotal > 0);
+        int committed = spentTotal + reserved;
+        require(committed <= budgetTotal);
+        require(child.budgetTotal <= budgetTotal - committed);
+
+        // ---- attenuation: a child may only ever be narrower ----
+        require(child.maxPerSpend     <= maxPerSpend);
+        require(child.epochLimit      <= epochLimit);
+        require(child.epochLength     == epochLength);
+        require(child.notBefore       >= notBefore);
+        require(child.expiresAt       <= expiresAt);
+        require(child.delegationDepth <  delegationDepth);
+
+        // Inherit mode. Set inclusion is not decidable from a Merkle root, so
+        // the only allowlist relation enforceable on roots alone is equality.
+        // Narrowing needs per-member inclusion proofs — see @warda/core's
+        // subset witness; not in this covenant yet.
+        require(child.recipientsRoot == recipientsRoot);
+
+        // A child starts spent-out-of-nothing. Without this it could be born
+        // mid-epoch with a used allowance, or worse, with a negative one.
+        require(child.spentTotal == 0);
+        require(child.reserved   == 0);
+        require(child.epochIndex == 0);
+        require(child.epochSpent == 0);
+
+        // ---- the parent only reserves; nothing else about it may move ----
+        require(parentNext.agentKey        == agentKey);
+        require(parentNext.budgetTotal     == budgetTotal);
+        require(parentNext.maxPerSpend     == maxPerSpend);
+        require(parentNext.epochLimit      == epochLimit);
+        require(parentNext.epochLength     == epochLength);
+        require(parentNext.recipientsRoot  == recipientsRoot);
+        require(parentNext.notBefore       == notBefore);
+        require(parentNext.expiresAt       == expiresAt);
+        require(parentNext.delegationDepth == delegationDepth);
+        require(parentNext.spentTotal      == spentTotal);
+        require(parentNext.epochIndex      == epochIndex);
+        require(parentNext.epochSpent      == epochSpent);
+        require(parentNext.reserved        == reserved + child.budgetTotal);
+
+        // ---- value follows authority ----
+        require(OpAuthOutputCount(this.activeInputIndex) == 2);
+        require(OpAuthOutputIdx(this.activeInputIndex, 0) == 0);
+        require(OpAuthOutputIdx(this.activeInputIndex, 1) == 1);
+
+        int inValue = tx.inputs[this.activeInputIndex].value;
+        require(inValue >= child.budgetTotal);
+        require(tx.outputs[1].value == child.budgetTotal);
+        require(tx.outputs[0].value >= inValue - child.budgetTotal - maxFee);
+
+        require(checkSig(agentSig, pubkey(agentKey)));
+    }
+
     // Revocation: the principal pulls the funds back. This does not race-proof
     // an in-flight agent spend — it makes the remaining balance unreachable
     // from the next block on. See PHASE0.md.
