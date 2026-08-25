@@ -1,25 +1,21 @@
-import { createHash } from "node:crypto";
+import { blake2b } from "@noble/hashes/blake2.js";
 
 /**
- * PLACEHOLDER HASH.
+ * SETTLED — this is the real hash, verified against the script engine.
  *
- * Kaspa uses blake2b-256 with domain separation. Node's crypto exposes
- * blake2b512; truncating it is NOT equivalent to blake2b-256, because the
- * two are parameterised differently in the IV.
+ * Kaspa's OpBlake2b is `blake2b_simd::Params::new().hash_length(32)`:
+ * plain BLAKE2b with a 32-byte digest, unkeyed, no personalization, no salt.
  *
- * This is deliberately pluggable. Before ANY on-chain work, swap this for
- * the exact hash Kaspa's script engine uses, then regenerate the test
- * vectors. Every grant_id and merkle root in this repo changes when you do.
+ * Node's crypto cannot produce this — it exposes only blake2b512, and
+ * truncating that is NOT blake2b-256 (the two differ in IV parameterisation).
+ * Hence the one runtime dependency.
  */
 export type Hasher = (data: Uint8Array) => Uint8Array;
 
-export const placeholderBlake2b256: Hasher = (data) => {
-  const h = createHash("blake2b512");
-  h.update(data);
-  return new Uint8Array(h.digest()).slice(0, 32);
-};
+export const kaspaBlake2b256: Hasher = (data) =>
+  blake2b.create({ dkLen: 32 }).update(data).digest();
 
-let active: Hasher = placeholderBlake2b256;
+let active: Hasher = kaspaBlake2b256;
 
 /** Swap the hash function used protocol-wide. Regenerate vectors after. */
 export function setHasher(h: Hasher): void {

@@ -22,9 +22,6 @@ contract WardaGrant(
     int     notBefore,
     int     expiresAt,
     int     maxFee,
-    // maxProofDepth: MEASURED — ~71 bytes of bytecode per level, ~852 base.
-    // 16 gives a 65,536-entry allowlist at 1,988 bytes, inside the size of a
-    // covenant KOMarkets already runs on-chain (2,184). Use 16. See PHASE0.md.
     int     maxProofDepth,
     int     initSpentTotal,
     int     initReserved,
@@ -37,8 +34,12 @@ contract WardaGrant(
     int epochIndex = initEpochIndex;
     int epochSpent = initEpochSpent;
 
-    byte constant LEAF = 0x00;
-    byte constant NODE = 0x01;
+    // Domain separators MUST be non-zero. Kaspa script encodes the value zero
+    // as the EMPTY byte string, so `byte[](0x00)` compiles to nothing and the
+    // separator silently disappears — the source reads as domain-separated
+    // while the bytecode is not. Caught by opcode tracing, not by review.
+    byte constant LEAF = 0x01;
+    byte constant NODE = 0x02;
 
     // Domain-separated Merkle fold. Sibling side travels per-level because
     // odd nodes are promoted without a sibling, so index parity alone cannot

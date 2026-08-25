@@ -309,3 +309,356 @@ fn per_spend_cap_fires_before_the_daa_lock() {
         "an in-limit spend must clear every amount guard and reach the DAA lock"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Recipient allowlist — a real Merkle proof.
+//
+// OpBlake2b is `blake2b_simd::Params::new().hash_length(32)`: plain
+// BLAKE2b-256, unkeyed, no personalization. Anything else here silently
+// produces a root the covenant will never match.
+// ---------------------------------------------------------------------------
+
+// Non-zero on purpose — 0x00 compiles to an empty push in Kaspa script and the
+// domain separation vanishes. Must match warda_grant.sil exactly.
+const LEAF: u8 = 0x01;
+const NODE: u8 = 0x02;
+
+fn b2b(parts: &[&[u8]]) -> [u8; 32] {
+    let mut state = blake2b_simd::Params::new().hash_length(32).to_state();
+    for p in parts {
+        state.update(p);
+    }
+    let mut out = [0u8; 32];
+    out.copy_from_slice(state.finalize().as_bytes());
+    out
+}
+
+fn leaf_hash(recipient: &[u8; 32]) -> [u8; 32] {
+    b2b(&[&[LEAF], recipient])
+}
+
+/// Mirrors RecipientSet in @warda/core: domain-separated leaves and nodes,
+/// odd nodes promoted rather than duplicated, canonical sort.
+struct Tree {
+    levels: Vec<Vec<[u8; 32]>>,
+    members: Vec<[u8; 32]>,
+}
+
+impl Tree {
+    fn new(mut members: Vec<[u8; 32]>) -> Self {
+        members.sort();
+        let mut levels = vec![members.iter().map(leaf_hash).collect::<Vec<_>>()];
+        while levels.last().unwrap().len() > 1 {
+            let prev = levels.last().unwrap();
+            let mut next = Vec::new();
+            let mut i = 0;
+            while i < prev.len() {
+                if i + 1 < prev.len() {
+                    next.push(b2b(&[&[NODE], &prev[i], &prev[i + 1]]));
+                } else {
+                    next.push(prev[i]); // promoted, not duplicated
+                }
+                i += 2;
+            }
+            levels.push(next);
+        }
+        Self { levels, members }
+    }
+
+    fn root(&self) -> [u8; 32] {
+        self.levels.last().unwrap()[0]
+    }
+
+    /// (siblings, is_left) — side travels per-sibling because promotion skips
+    /// a level and index parity alone desynchronises.
+    fn proof(&self, recipient: &[u8; 32]) -> (Vec<[u8; 32]>, Vec<bool>) {
+        let mut idx = self.members.iter().position(|m| m == recipient).expect("member");
+        let (mut sibs, mut lefts) = (Vec::new(), Vec::new());
+        for level in &self.levels[..self.levels.len() - 1] {
+            let pair = if idx % 2 == 0 { idx + 1 } else { idx - 1 };
+            if pair < level.len() {
+                sibs.push(level[pair]);
+                lefts.push(pair < idx);
+            }
+            idx /= 2;
+        }
+        (sibs, lefts)
+    }
+}
+
+#[test]
+fn merkle_root_matches_between_rust_and_the_covenant() {
+    // Four recipients, so no promotion edge case in the tree itself.
+    let members: Vec<[u8; 32]> = vec![[0xa1; 32], [0xa2; 32], [0xa3; 32], [0xa4; 32]];
+    let tree = Tree::new(members.clone());
+    let (sibs, lefts) = tree.proof(&[0xa1; 32]);
+
+    // Recompute the fold exactly as the covenant does, to confirm the Rust
+    // side agrees with itself before asking the engine.
+    let mut node = leaf_hash(&[0xa1; 32]);
+    for (s, is_left) in sibs.iter().zip(lefts.iter()) {
+        node = if *is_left { b2b(&[&[NODE], s, &node]) } else { b2b(&[&[NODE], &node, s]) };
+    }
+    assert_eq!(node, tree.root(), "rust fold must reproduce the root");
+    println!("root = {}", hex(&tree.root()));
+    println!("proof depth = {}", sibs.len());
+}
+
+fn hex(b: &[u8]) -> String {
+    b.iter().map(|x| format!("{x:02x}")).collect()
+}
+
+// ---------------------------------------------------------------------------
+// Happy path — the piece that upgrades every rejection above from "refused"
+// to "refused FOR THIS REASON".
+//
+// Signing must happen here in Rust. Per KOM bug #3 the WASM signer's
+// hash_output omits covenant data, so createInputSignature cannot sign a
+// covenant transaction at all.
+// ---------------------------------------------------------------------------
+
+use kaspa_consensus_core::hashing::sighash::calc_schnorr_signature_hash;
+use kaspa_consensus_core::hashing::sighash_type::SIG_HASH_ALL;
+use kaspa_consensus_core::tx::MutableTransaction;
+use secp256k1::{Keypair, Secp256k1};
+
+fn agent_keypair() -> Keypair {
+    let secp = Secp256k1::new();
+    Keypair::from_seckey_slice(&secp, &[0x42u8; 32]).expect("valid secret key")
+}
+
+/// 64-byte schnorr signature + the SIG_HASH_ALL byte = 65. Anything else is
+/// rejected as a type mismatch before it ever reaches the engine.
+fn sign_input(tx: Transaction, entries: Vec<UtxoEntry>, input_idx: usize, kp: &Keypair) -> Vec<u8> {
+    let mtx = MutableTransaction::with_entries(tx, entries);
+    let reused = SigHashReusedValuesUnsync::new();
+    let sig_hash = calc_schnorr_signature_hash(&mtx.as_verifiable(), input_idx, SIG_HASH_ALL, &reused);
+    let msg = secp256k1::Message::from_digest_slice(sig_hash.as_bytes().as_slice()).expect("sighash");
+    let mut sig = kp.sign_schnorr(msg).as_ref().to_vec();
+    sig.push(SIG_HASH_ALL.to_u8());
+    sig
+}
+
+fn ctor_with(root: [u8; 32], agent_xonly: [u8; 32], depth: i64) -> Vec<Expr<'static>> {
+    let mut v = ctor(depth);
+    v[0] = Expr::bytes(agent_xonly.to_vec());
+    v[7] = Expr::bytes(root.to_vec());
+    v
+}
+
+/// KOM bug #6, confirmed here: **each UTXO's ADDRESS commits its state.**
+///
+/// The continuation output must be sent to the P2SH of the covenant compiled
+/// with the NEW state, not the current one. The covenant derives that expected
+/// script itself and OpEqualVerify-checks it, so sending to the input's own
+/// address — the obvious thing to do, and what Mecenas does — always fails.
+///
+/// Practical consequence: the SDK cannot build a spend without first compiling
+/// the successor and deriving its address. That is the transaction, not
+/// plumbing around it.
+fn ctor_at_state(
+    root: [u8; 32],
+    agent_xonly: [u8; 32],
+    depth: i64,
+    spent: i64,
+    reserved: i64,
+    epoch_index: i64,
+    epoch_spent: i64,
+) -> Vec<Expr<'static>> {
+    let mut v = ctor_with(root, agent_xonly, depth);
+    v[12] = Expr::int(spent);
+    v[13] = Expr::int(reserved);
+    v[14] = Expr::int(epoch_index);
+    v[15] = Expr::int(epoch_spent);
+    v
+}
+
+#[test]
+fn happy_path_spend_is_accepted_by_the_engine() {
+    let kp = agent_keypair();
+    let agent_xonly: [u8; 32] = kp.x_only_public_key().0.serialize();
+
+    let members: Vec<[u8; 32]> = vec![[0xa1; 32], [0xa2; 32], [0xa3; 32], [0xa4; 32]];
+    let tree = Tree::new(members);
+    let recipient = [0xa1u8; 32];
+    let (sibs, lefts) = tree.proof(&recipient);
+
+    let c = compile_contract(SOURCE, &ctor_with(tree.root(), agent_xonly, 4), CompileOptions::default())
+        .expect("compiles with real root");
+
+    let amount: i64 = KAS / 2; // 0.5 KAS, inside the 2 KAS per-spend cap
+    let claimed_daa: i64 = 1_000_500;
+    let in_value: u64 = 10_000_000_000; // 100 KAS, matching budgetTotal
+
+    // Kaspa P2PK is 34 bytes: 0x20 push, 32-byte x-only pubkey, 0xac OpCheckSig.
+    // The covenant builds this itself via `new ScriptPubKeyP2PK(pubkey(recipient))`
+    // and compares byte-for-byte, so an OpTrue placeholder output cannot pass.
+    let mut p2pk = vec![0x20u8];
+    p2pk.extend_from_slice(&recipient);
+    p2pk.push(0xac);
+    let pay_out = TransactionOutput {
+        value: amount as u64,
+        script_public_key: ScriptPublicKey::new(0, p2pk.clone().into()),
+        covenant: None,
+    };
+
+    // The successor lives at a DIFFERENT address — one encoding the new state.
+    let successor = compile_contract(
+        SOURCE,
+        &ctor_at_state(tree.root(), agent_xonly, 4, amount, 0, 0, amount),
+        CompileOptions::default(),
+    )
+    .expect("successor compiles");
+    let successor_spk = pay_to_script_hash_script(&successor.bytecode);
+
+    let build = |sig: Vec<u8>| {
+        let args = vec![
+            state(amount, 0, 0, amount),
+            Expr::int(amount),
+            Expr::bytes(recipient.to_vec()),
+            byte32_array(sibs.clone()),
+            bool_array(lefts.clone()),
+            Expr::int(claimed_daa),
+            Expr::bytes(sig),
+        ];
+        Transaction::new(
+            1,
+            vec![tx_input(0, sigscript(&c, "spend", args))],
+            vec![
+                TransactionOutput {
+                    value: in_value - amount as u64 - 1_000,
+                    script_public_key: successor_spk.clone(),
+                    covenant: Some(CovenantBinding { authorizing_input: 0, covenant_id: COV }),
+                },
+                pay_out.clone(),
+            ],
+            claimed_daa as u64,
+            Default::default(),
+            0,
+            vec![],
+        )
+    };
+
+    // Sighash covers transaction structure, not signature scripts, so a
+    // placeholder sig yields the same hash as the real one.
+    let entries = vec![covenant_utxo(&c, in_value)];
+    let sig = sign_input(build(vec![0u8; 65]), entries.clone(), 0, &kp);
+    let (verdict, trace) = execute_traced(build(sig), entries, 0);
+
+    println!("happy path -> {verdict:?}");
+    if false {
+        let lines: Vec<&str> = trace.lines().collect();
+        println!("--- last 12 opcodes before failure ---");
+        for l in lines.iter().rev().take(2).rev() {
+            println!("{}", l);
+        }
+    }
+    assert!(verdict.is_ok(), "a fully valid spend must be ACCEPTED, got {verdict:?}");
+}
+
+/// Same as `execute`, but captures a per-opcode trace. The engine has this
+/// built in via `with_opcode_execution_log_buffer` — no need to patch
+/// rusty-kaspa locally the way KOM had to.
+fn execute_traced(tx: Transaction, entries: Vec<UtxoEntry>, input_idx: usize) -> (Result<(), TxScriptError>, String) {
+    let reused = SigHashReusedValuesUnsync::new();
+    let sig_cache = Cache::new(10_000);
+    let input = tx.inputs[input_idx].clone();
+    let populated = PopulatedTransaction::new(&tx, entries);
+    let cov_ctx = match CovenantsContext::from_tx(&populated) {
+        Ok(c) => c,
+        Err(e) => return (Err(TxScriptError::from(e)), String::new()),
+    };
+    let utxo = populated.utxo(input_idx).expect("input utxo");
+    let mut log: Vec<u8> = Vec::new();
+    let result = {
+        let mut vm = TxScriptEngine::from_transaction_input(
+            &populated,
+            &input,
+            input_idx,
+            utxo,
+            EngineCtx::new(&sig_cache).with_reused(&reused).with_covenants_ctx(&cov_ctx),
+            EngineFlags { covenants_enabled: true, sigop_script_units: 0.into() },
+        )
+        .with_opcode_execution_log_buffer(&mut log);
+        vm.execute()
+    };
+    (result, String::from_utf8_lossy(&log).into_owned())
+}
+
+
+/// THE demo. A valid spend, with exactly one field changed: the payee.
+///
+/// This is the flip test the whole harness was built to make possible. The
+/// baseline is ACCEPTED, so a rejection here can only be caused by the changed
+/// field — which is what upgrades "the covenant refused it" into "the covenant
+/// refused it because the recipient is not on the allowlist".
+#[test]
+fn prompt_injection_to_an_unlisted_recipient_is_rejected() {
+    let kp = agent_keypair();
+    let agent_xonly: [u8; 32] = kp.x_only_public_key().0.serialize();
+    let members: Vec<[u8; 32]> = vec![[0xa1; 32], [0xa2; 32], [0xa3; 32], [0xa4; 32]];
+    let tree = Tree::new(members);
+    let attacker = [0xeeu8; 32]; // not in the tree
+
+    let c = compile_contract(SOURCE, &ctor_with(tree.root(), agent_xonly, 4), CompileOptions::default())
+        .expect("compiles");
+
+    let amount: i64 = KAS / 2;
+    let claimed_daa: i64 = 1_000_500;
+    let in_value: u64 = 10_000_000_000;
+
+    let successor = compile_contract(
+        SOURCE,
+        &ctor_at_state(tree.root(), agent_xonly, 4, amount, 0, 0, amount),
+        CompileOptions::default(),
+    )
+    .expect("successor compiles");
+
+    // The agent genuinely attempts the payment. It is not filtered, sandboxed
+    // or flagged — it builds the transaction and signs it. There is simply no
+    // proof that puts the attacker in the tree, so it borrows a valid one.
+    let (sibs, lefts) = tree.proof(&[0xa1; 32]);
+
+    let mut p2pk = vec![0x20u8];
+    p2pk.extend_from_slice(&attacker);
+    p2pk.push(0xac);
+
+    let build = |sig: Vec<u8>| {
+        let args = vec![
+            state(amount, 0, 0, amount),
+            Expr::int(amount),
+            Expr::bytes(attacker.to_vec()),
+            byte32_array(sibs.clone()),
+            bool_array(lefts.clone()),
+            Expr::int(claimed_daa),
+            Expr::bytes(sig),
+        ];
+        Transaction::new(
+            1,
+            vec![tx_input(0, sigscript(&c, "spend", args))],
+            vec![
+                TransactionOutput {
+                    value: in_value - amount as u64 - 1_000,
+                    script_public_key: pay_to_script_hash_script(&successor.bytecode),
+                    covenant: Some(CovenantBinding { authorizing_input: 0, covenant_id: COV }),
+                },
+                TransactionOutput {
+                    value: amount as u64,
+                    script_public_key: ScriptPublicKey::new(0, p2pk.clone().into()),
+                    covenant: None,
+                },
+            ],
+            claimed_daa as u64,
+            Default::default(),
+            0,
+            vec![],
+        )
+    };
+
+    let entries = vec![covenant_utxo(&c, in_value)];
+    let sig = sign_input(build(vec![0u8; 65]), entries.clone(), 0, &kp);
+    let verdict = execute(build(sig), entries, 0);
+
+    println!("prompt injection -> {verdict:?}");
+    assert!(verdict.is_err(), "payment to an unlisted recipient must be rejected");
+}

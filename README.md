@@ -66,12 +66,18 @@ expressible would depend on how addresses happen to sort. Unusable.
 Toccata's script budget allows, which is undocumented. Set it from a
 measurement, not from taste.
 
-### 2. The hash is a placeholder — blocks every on-chain step
+### 2. The hash — SETTLED
 
-`src/hash.ts` uses Node's `blake2b512` truncated to 32 bytes. That is **not**
-blake2b-256 — the two are parameterised differently. Swap it for the exact hash
-Kaspa's script engine uses, then regenerate the vectors. Every `grant_id` and
-Merkle root in this repo changes when you do.
+Kaspa's `OpBlake2b` is `blake2b_simd::Params::new().hash_length(32)`: plain
+BLAKE2b-256, unkeyed, no personalization, no salt. Read straight out of the
+script engine, not inferred.
+
+Node's crypto cannot produce it — it exposes only `blake2b512`, and truncating
+that is **not** BLAKE2b-256 (different IV parameterisation). Hence the single
+runtime dependency on `@noble/hashes`.
+
+Verified: `RecipientSet` here and the Rust tree in `covenant/harness` produce
+**byte-identical roots**, and the covenant accepts a proof built from either.
 
 ### 3. Fixed epochs permit 2× the limit across a boundary
 
@@ -88,6 +94,17 @@ because the budget binds first. Rejecting it breaks small delegations. Worth an
 SDK warning; not a protocol rule.
 
 ---
+
+### 5. Domain separators must be NON-ZERO
+
+`0x00` as a Merkle domain separator is a **silent no-op** in Kaspa script,
+which encodes the value zero as the EMPTY byte string. `byte[](0x00)` compiles
+to nothing, so leaves were hashed unprefixed while nodes got their `0x01` —
+the source read as domain-separated, the bytecode was not.
+
+Found by per-opcode tracing against the real engine. Review would not have
+caught it; nor would any test that only checks TypeScript against itself.
+`LEAF` is now `0x01` and `NODE` is `0x02`, matching `warda_grant.sil`.
 
 ## Two bugs the test suite caught
 

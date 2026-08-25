@@ -12,8 +12,13 @@ import type { Hex, MerkleProof, MerkleSibling } from "./types.ts";
  * makes distinct sets collide to the same root in edge cases. The proof
  * carries an explicit index instead.
  */
-const LEAF = new Uint8Array([0x00]);
-const NODE = new Uint8Array([0x01]);
+// MUST be non-zero. Kaspa script encodes the value zero as the EMPTY byte
+// string, so a 0x00 separator compiles to nothing and the domain separation
+// silently disappears — source reads as separated, bytecode is not. Found by
+// opcode tracing against the real engine, not by review. Must match the
+// constants in covenant/warda_grant.sil exactly.
+const LEAF = new Uint8Array([0x01]);
+const NODE = new Uint8Array([0x02]);
 
 export function leafHash(recipient: Hex): Uint8Array {
   return hash(LEAF, fromHex(recipient));
