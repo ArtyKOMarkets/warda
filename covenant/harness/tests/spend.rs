@@ -27,24 +27,44 @@ use silverscript_lang::compiler::{
 const COV: Hash = Hash::from_bytes(*b"WARDAWARDAWARDAWARDAWARDAWARDAWA");
 const SOURCE: &str = include_str!("../../warda_grant.sil");
 
+/// v2 constructor order. Authority is now GENESIS values for state fields,
+/// not immutable params — see DELEGATION.md for why that had to change.
 fn ctor(max_proof_depth: i64) -> Vec<Expr<'static>> {
     vec![
-        Expr::bytes(vec![0x22; 32]),      // agentKey
-        Expr::bytes(vec![0x11; 32]),      // principalKey
-        Expr::bytes(vec![0x44; 32]),      // revocationKey
-        Expr::int(10_000_000_000),        // budgetTotal   100 KAS
-        Expr::int(200_000_000),           // maxPerSpend     2 KAS
-        Expr::int(1_000_000_000),         // epochLimit     10 KAS
-        Expr::int(1_000),                 // epochLength
-        Expr::bytes(vec![0x13; 32]),      // recipientsRoot
-        Expr::int(1_000_000),             // notBefore
-        Expr::int(1_007_000),             // expiresAt
-        Expr::int(100_000),               // maxFee
-        Expr::int(max_proof_depth),
-        Expr::int(0),                     // spentTotal
-        Expr::int(0),                     // reserved
-        Expr::int(0),                     // epochIndex
-        Expr::int(0),                     // epochSpent
+        Expr::bytes(vec![0x11; 32]),      //  0 principalKey
+        Expr::bytes(vec![0x44; 32]),      //  1 revocationKey
+        Expr::int(100_000),               //  2 maxFee
+        Expr::bytes(vec![0x22; 32]),      //  3 genesisAgentKey
+        Expr::int(10_000_000_000),        //  4 genesisBudgetTotal    100 KAS
+        Expr::int(200_000_000),           //  5 genesisMaxPerSpend      2 KAS
+        Expr::int(1_000_000_000),         //  6 genesisEpochLimit      10 KAS
+        Expr::int(1_000),                 //  7 genesisEpochLength
+        Expr::bytes(vec![0x13; 32]),      //  8 genesisRecipientsRoot
+        Expr::int(1_000_000),             //  9 genesisNotBefore
+        Expr::int(1_007_000),             // 10 genesisExpiresAt
+        Expr::int(2),                     // 11 genesisDelegationDepth
+        Expr::int(max_proof_depth),       // 12 maxProofDepth
+        Expr::int(0),                     // 13 initSpentTotal
+        Expr::int(0),                     // 14 initReserved
+        Expr::int(0),                     // 15 initEpochIndex
+        Expr::int(0),                     // 16 initEpochSpent
+    ]
+}
+
+/// The authority half of State, constant across every spend. `spend` asserts
+/// each of these is unchanged in the successor — without that an agent
+/// rewrites its own cap and every limit becomes decorative.
+fn authority_fields(root: [u8; 32], agent_xonly: [u8; 32]) -> Vec<(&'static str, Expr<'static>)> {
+    vec![
+        ("agentKey", Expr::bytes(agent_xonly.to_vec())),
+        ("budgetTotal", Expr::int(10_000_000_000)),
+        ("maxPerSpend", Expr::int(200_000_000)),
+        ("epochLimit", Expr::int(1_000_000_000)),
+        ("epochLength", Expr::int(1_000)),
+        ("recipientsRoot", Expr::bytes(root.to_vec())),
+        ("notBefore", Expr::int(1_000_000)),
+        ("expiresAt", Expr::int(1_007_000)),
+        ("delegationDepth", Expr::int(2)),
     ]
 }
 
@@ -192,16 +212,28 @@ fn bool_array(items: Vec<bool>) -> Expr<'static> {
 
 const KAS: i64 = 100_000_000;
 
+/// Full State: nine authority fields plus four accounting fields, in
+/// declaration order. The authority half must match the contract instance
+/// exactly or the successor comparison fails for the wrong reason.
+fn state_full(
+    root: [u8; 32],
+    agent_xonly: [u8; 32],
+    spent: i64,
+    reserved: i64,
+    epoch_index: i64,
+    epoch_spent: i64,
+) -> Expr<'static> {
+    let mut fields = authority_fields(root, agent_xonly);
+    fields.push(("spentTotal", Expr::int(spent)));
+    fields.push(("reserved", Expr::int(reserved)));
+    fields.push(("epochIndex", Expr::int(epoch_index)));
+    fields.push(("epochSpent", Expr::int(epoch_spent)));
+    struct_object("State", fields)
+}
+
+/// Default-instance shorthand, matching `ctor()`'s genesis values.
 fn state(spent: i64, reserved: i64, epoch_index: i64, epoch_spent: i64) -> Expr<'static> {
-    struct_object(
-        "State",
-        vec![
-            ("spentTotal", Expr::int(spent)),
-            ("reserved", Expr::int(reserved)),
-            ("epochIndex", Expr::int(epoch_index)),
-            ("epochSpent", Expr::int(epoch_spent)),
-        ],
-    )
+    state_full([0x13; 32], [0x22; 32], spent, reserved, epoch_index, epoch_spent)
 }
 
 /// Build a spend attempt. The Merkle proof is deliberately a single dummy
@@ -441,8 +473,8 @@ fn sign_input(tx: Transaction, entries: Vec<UtxoEntry>, input_idx: usize, kp: &K
 
 fn ctor_with(root: [u8; 32], agent_xonly: [u8; 32], depth: i64) -> Vec<Expr<'static>> {
     let mut v = ctor(depth);
-    v[0] = Expr::bytes(agent_xonly.to_vec());
-    v[7] = Expr::bytes(root.to_vec());
+    v[3] = Expr::bytes(agent_xonly.to_vec());   // genesisAgentKey
+    v[8] = Expr::bytes(root.to_vec());          // genesisRecipientsRoot
     v
 }
 
@@ -466,10 +498,10 @@ fn ctor_at_state(
     epoch_spent: i64,
 ) -> Vec<Expr<'static>> {
     let mut v = ctor_with(root, agent_xonly, depth);
-    v[12] = Expr::int(spent);
-    v[13] = Expr::int(reserved);
-    v[14] = Expr::int(epoch_index);
-    v[15] = Expr::int(epoch_spent);
+    v[13] = Expr::int(spent);
+    v[14] = Expr::int(reserved);
+    v[15] = Expr::int(epoch_index);
+    v[16] = Expr::int(epoch_spent);
     v
 }
 
@@ -513,7 +545,7 @@ fn happy_path_spend_is_accepted_by_the_engine() {
 
     let build = |sig: Vec<u8>| {
         let args = vec![
-            state(amount, 0, 0, amount),
+            state_full(tree.root(), agent_xonly, amount, 0, 0, amount),
             Expr::int(amount),
             Expr::bytes(recipient.to_vec()),
             byte32_array(sibs.clone()),
@@ -625,7 +657,7 @@ fn prompt_injection_to_an_unlisted_recipient_is_rejected() {
 
     let build = |sig: Vec<u8>| {
         let args = vec![
-            state(amount, 0, 0, amount),
+            state_full(tree.root(), agent_xonly, amount, 0, 0, amount),
             Expr::int(amount),
             Expr::bytes(attacker.to_vec()),
             byte32_array(sibs.clone()),
@@ -675,6 +707,9 @@ fn prompt_injection_to_an_unlisted_recipient_is_rejected() {
 // ---------------------------------------------------------------------------
 
 struct Spend {
+    /// Override the successor's authority half — used to prove the v2
+    /// immutability guards. `None` keeps it identical to the instance.
+    authority_override: Option<(&'static str, Expr<'static>)>,
     amount: i64,
     recipient: [u8; 32],
     claimed_daa: i64,
@@ -685,7 +720,14 @@ struct Spend {
 
 impl Spend {
     fn valid() -> Self {
-        Spend { amount: KAS / 2, recipient: [0xa1; 32], claimed_daa: 1_000_500, successor: None, pay_to: None }
+        Spend {
+            authority_override: None,
+            amount: KAS / 2,
+            recipient: [0xa1; 32],
+            claimed_daa: 1_000_500,
+            successor: None,
+            pay_to: None,
+        }
     }
 
     fn run(&self) -> Result<(), TxScriptError> {
@@ -719,7 +761,21 @@ impl Spend {
         let claimed_daa = self.claimed_daa;
         let build = |sig: Vec<u8>| {
             let args = vec![
-                state(ss, sr, si, se),
+                {
+                    let mut fields = authority_fields(tree.root(), agent_xonly);
+                    if let Some((name, ref v)) = self.authority_override {
+                        for f in fields.iter_mut() {
+                            if f.0 == name {
+                                f.1 = v.clone();
+                            }
+                        }
+                    }
+                    fields.push(("spentTotal", Expr::int(ss)));
+                    fields.push(("reserved", Expr::int(sr)));
+                    fields.push(("epochIndex", Expr::int(si)));
+                    fields.push(("epochSpent", Expr::int(se)));
+                    struct_object("State", fields)
+                },
                 Expr::int(amount),
                 Expr::bytes(self.recipient.to_vec()),
                 byte32_array(sibs.clone()),
@@ -814,4 +870,50 @@ fn flip_payment_diverted_to_attacker_rejected() {
     let r = s.run();
     println!("payment diverted   -> {r:?}");
     assert!(r.is_err(), "paying an address other than the named recipient must reject");
+}
+
+
+// ---------------------------------------------------------------------------
+// v2 only: authority now lives in State, so it CAN be tampered with. These
+// prove the nine immutability guards that the move made necessary. Under v1
+// these attacks were impossible by construction; under v2 they are impossible
+// only because the covenant checks.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn flip_agent_raises_its_own_per_spend_cap_rejected() {
+    // The attack the v2 architecture creates: spend a legal amount, but write
+    // a HIGHER cap into the successor so the next spend can be larger.
+    let mut s = Spend::valid();
+    s.authority_override = Some(("maxPerSpend", Expr::int(100 * KAS)));
+    let r = s.run();
+    println!("cap raised         -> {r:?}");
+    assert!(r.is_err(), "an agent must not rewrite its own per-spend cap");
+}
+
+#[test]
+fn flip_agent_widens_its_own_allowlist_rejected() {
+    let mut s = Spend::valid();
+    s.authority_override = Some(("recipientsRoot", Expr::bytes(vec![0xee; 32])));
+    let r = s.run();
+    println!("allowlist swapped  -> {r:?}");
+    assert!(r.is_err(), "an agent must not swap its own recipient root");
+}
+
+#[test]
+fn flip_agent_extends_its_own_expiry_rejected() {
+    let mut s = Spend::valid();
+    s.authority_override = Some(("expiresAt", Expr::int(9_999_999)));
+    let r = s.run();
+    println!("expiry extended    -> {r:?}");
+    assert!(r.is_err(), "an agent must not extend its own expiry");
+}
+
+#[test]
+fn flip_agent_inflates_its_own_budget_rejected() {
+    let mut s = Spend::valid();
+    s.authority_override = Some(("budgetTotal", Expr::int(1_000_000_000_000)));
+    let r = s.run();
+    println!("budget inflated    -> {r:?}");
+    assert!(r.is_err(), "an agent must not inflate its own total budget");
 }

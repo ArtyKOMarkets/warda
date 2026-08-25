@@ -11,24 +11,43 @@ pragma silverscript ^0.1.0;
 // to the successor output via the covenant declaration.
 
 contract WardaGrant(
-    pubkey  agentKey,
     pubkey  principalKey,
     pubkey  revocationKey,
-    int     budgetTotal,
-    int     maxPerSpend,
-    int     epochLimit,
-    int     epochLength,
-    byte[32] recipientsRoot,
-    int     notBefore,
-    int     expiresAt,
     int     maxFee,
+    // --- genesis values for the authority fields, which are STATE ---
+    byte[32] genesisAgentKey,
+    int     genesisBudgetTotal,
+    int     genesisMaxPerSpend,
+    int     genesisEpochLimit,
+    int     genesisEpochLength,
+    byte[32] genesisRecipientsRoot,
+    int     genesisNotBefore,
+    int     genesisExpiresAt,
+    int     genesisDelegationDepth,
     int     maxProofDepth,
     int     initSpentTotal,
     int     initReserved,
     int     initEpochIndex,
     int     initEpochSpent
 ) {
-    // ---- mutable state: this is the implicit State struct ----
+    // ---- STATE ----
+    // Authority lives here, not in constructor params. A child grant differs
+    // from its parent in budget, cap and expiry; if those were ctor params the
+    // child would be a DIFFERENT TEMPLATE, and DECL.md is explicit that
+    // cross-template routing is not available to declaration lowering. Same
+    // template, different state, is the only shape delegation can take.
+    //
+    // Consequence: `spend` must now assert every authority field is unchanged.
+    byte[32] agentKey        = genesisAgentKey;
+    int budgetTotal          = genesisBudgetTotal;
+    int maxPerSpend          = genesisMaxPerSpend;
+    int epochLimit           = genesisEpochLimit;
+    int epochLength          = genesisEpochLength;
+    byte[32] recipientsRoot  = genesisRecipientsRoot;
+    int notBefore            = genesisNotBefore;
+    int expiresAt            = genesisExpiresAt;
+    int delegationDepth      = genesisDelegationDepth;
+
     int spentTotal = initSpentTotal;
     int reserved   = initReserved;
     int epochIndex = initEpochIndex;
@@ -80,9 +99,20 @@ contract WardaGrant(
         // bounded BEFORE it reaches any arithmetic. A range check performed
         // after the addition is not a check at all.
         // ------------------------------------------------------------------
+        // Authority is immutable across a spend. Without these, an agent
+        // rewrites its own cap in the successor and every limit is decorative.
+        require(newState.agentKey       == prevState.agentKey);
+        require(newState.budgetTotal    == prevState.budgetTotal);
+        require(newState.maxPerSpend    == prevState.maxPerSpend);
+        require(newState.epochLimit     == prevState.epochLimit);
+        require(newState.epochLength    == prevState.epochLength);
+        require(newState.recipientsRoot == recipientsRoot);
+        require(newState.notBefore      == prevState.notBefore);
+        require(newState.expiresAt      == prevState.expiresAt);
+        require(newState.delegationDepth == delegationDepth);
+
         require(amount > 0);
         require(amount <= maxPerSpend);
-        require(maxPerSpend <= budgetTotal);
 
         // Lower bound only. `tx.daa` is write-only — it emits a CLTV lock and
         // cannot be read as a value — so the agent supplies claimedDaa and the
@@ -142,7 +172,7 @@ contract WardaGrant(
         require(inValue >= amount);
         require(tx.outputs[0].value >= inValue - amount - maxFee);
 
-        require(checkSig(agentSig, agentKey));
+        require(checkSig(agentSig, pubkey(agentKey)));
     }
 
     // Revocation: the principal pulls the funds back. This does not race-proof
