@@ -1303,3 +1303,117 @@ fn report_compute_budget_consumption() {
         );
     }
 }
+
+// ---------------------------------------------------------------------------
+// SIGNING — is covenant data actually in the digest?
+//
+// KOM bug #3 reported that WASM's signer omitted covenant data, making it
+// unable to sign covenant transactions. At rusty-kaspa rev a41a333 there is no
+// separate client implementation left to diverge: consensus/client/src/sign.rs
+// calls consensus-core's `calc_schnorr_signature_hash`, and that hashes the
+// covenant binding — gated on `version >= 1`.
+//
+// Comparing the two code paths would be tautological now that they are one
+// function. So this reproduces the FAILURE instead: sign a digest computed
+// with the covenant binding stripped, attach it to the real transaction, and
+// require the engine to reject it. That proves the data is load-bearing rather
+// than merely present in the source.
+// ---------------------------------------------------------------------------
+
+/// `tx` with every output's covenant binding removed — exactly what an
+/// omitting signer would hash.
+fn strip_covenants(tx: &Transaction) -> Transaction {
+    Transaction::new(
+        tx.version,
+        tx.inputs.clone(),
+        tx.outputs
+            .iter()
+            .map(|o| TransactionOutput {
+                value: o.value,
+                script_public_key: o.script_public_key.clone(),
+                covenant: None,
+            })
+            .collect(),
+        tx.lock_time,
+        tx.subnetwork_id.clone(),
+        tx.gas,
+        tx.payload.clone(),
+    )
+}
+
+#[test]
+fn covenant_binding_is_committed_by_the_signature() {
+    let kp = agent_keypair();
+    let agent_xonly: [u8; 32] = kp.x_only_public_key().0.serialize();
+    let tree = Tree::new(vec![[0xa1; 32], [0xa2; 32], [0xa3; 32], [0xa4; 32]]);
+    let recipient = [0xa1u8; 32];
+    let (sibs, lefts) = tree.proof(&recipient);
+    let amount: i64 = KAS / 2;
+    let claimed_daa: i64 = 1_000_500;
+    let in_value: u64 = 10_000_000_000;
+
+    let c = compile_contract(SOURCE, &ctor_with(tree.root(), agent_xonly, 4), CompileOptions::default())
+        .expect("compiles");
+    let successor = compile_contract(
+        SOURCE,
+        &ctor_at_state(tree.root(), agent_xonly, 4, amount, 0, 0, amount),
+        CompileOptions::default(),
+    )
+    .expect("successor");
+
+    let mut p2pk = vec![0x20u8];
+    p2pk.extend_from_slice(&recipient);
+    p2pk.push(0xac);
+
+    let build = |sig: Vec<u8>| {
+        let args = vec![
+            state_full(tree.root(), agent_xonly, amount, 0, 0, amount),
+            Expr::int(amount),
+            Expr::bytes(recipient.to_vec()),
+            byte32_array(sibs.clone()),
+            bool_array(lefts.clone()),
+            Expr::int(claimed_daa),
+            Expr::bytes(sig),
+        ];
+        Transaction::new(
+            1, // VERSION 1 — the gate. At v0 the covenant binding is not hashed.
+            vec![tx_input(0, sigscript(&c, "spend", args))],
+            vec![
+                TransactionOutput {
+                    value: in_value - amount as u64 - 1_000,
+                    script_public_key: pay_to_script_hash_script(&successor.bytecode),
+                    covenant: Some(CovenantBinding { authorizing_input: 0, covenant_id: COV }),
+                },
+                TransactionOutput {
+                    value: amount as u64,
+                    script_public_key: ScriptPublicKey::new(0, p2pk.clone().into()),
+                    covenant: None,
+                },
+            ],
+            claimed_daa as u64,
+            Default::default(),
+            0,
+            vec![],
+        )
+    };
+
+    let entries = vec![covenant_utxo(&c, in_value)];
+    let placeholder = build(vec![0u8; 65]);
+
+    let good_sig = sign_input(placeholder.clone(), entries.clone(), 0, &kp);
+    let bad_sig = sign_input(strip_covenants(&placeholder), entries.clone(), 0, &kp);
+
+    let accepted = execute(build(good_sig.clone()), entries.clone(), 0);
+    let rejected = execute(build(bad_sig.clone()), entries, 0);
+
+    println!("digests differ           = {}", good_sig != bad_sig);
+    println!("correct signature        -> {accepted:?}");
+    println!("covenant-stripped digest -> {rejected:?}");
+
+    assert!(good_sig != bad_sig, "stripping the covenant binding must change the digest");
+    assert!(accepted.is_ok(), "a correctly signed v1 covenant spend must be accepted");
+    assert!(
+        rejected.is_err(),
+        "a signature over a covenant-stripped digest must NOT validate — this is KOM bug #3"
+    );
+}
