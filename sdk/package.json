@@ -1,10 +1,18 @@
 {
   "name": "@warda/kaspa",
-  "version": "0.1.0",
-  "description": "Derive Warda grant addresses and build agent spends. No Silverscript compiler required.",
+  "version": "0.2.0",
+  "description": "Build and sign Warda agent spends on Kaspa. Derives grant addresses and assembles covenant transactions with no Silverscript compiler.",
   "type": "module",
   "license": "MIT",
   "engines": { "node": ">=22.6" },
-  "scripts": { "test": "node --experimental-strip-types --test test/*.test.ts" },
-  "dependencies": { "@noble/hashes": "^2.3.0" }
+  "exports": { ".": "./src/index.ts" },
+  "files": ["src", "covenant-template.json", "golden-spend.json", "README.md"],
+  "scripts": {
+    "test": "node --experimental-strip-types --test test/*.test.ts"
+  },
+  "keywords": ["kaspa", "covenant", "agent", "payments", "warda"],
+  "dependencies": {
+    "@noble/hashes": "^2.3.0",
+    "@noble/curves": "^2.3.0"
+  }
 }

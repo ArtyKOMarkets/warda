@@ -6,4 +6,4 @@ _gitjunk/
 *.key
 target/
 grant.json
-covenant-template.json
+_to_delete/

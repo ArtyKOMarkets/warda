@@ -1,4 +1,5 @@
 import { blake2b } from "@noble/hashes/blake2.js";
+import { fromHex, toHex } from "./bytes.ts";
 
 /**
  * Grant addresses without a compiler.
@@ -7,42 +8,66 @@ import { blake2b } from "@noble/hashes/blake2.js";
  * moves every time the agent spends. JavaScript cannot compile Silverscript,
  * which would make an npm SDK impossible.
  *
- * It does not have to. The state occupies a contiguous, fixed-width slice of
- * the bytecode, so splicing new values into a prefix/suffix template produces
- * output byte-identical to compiling. `warda-deploy template` verifies that
- * equality every time it regenerates this file — if the two ever disagree,
- * every address computed here would be wrong and funds would land somewhere
- * unspendable, so it is checked rather than trusted.
+ * It does not have to. Every constructor value that can vary lands in a
+ * fixed-width slice of the bytecode, so splicing new values into a template
+ * produces output byte-identical to compiling. `warda-deploy template`
+ * verifies that equality every time it regenerates this file — if the two ever
+ * disagree, every address computed here would be wrong and funds would land
+ * somewhere unspendable, so it is checked rather than trusted.
+ *
+ * Two properties of the layout are easy to assume wrongly, and both were:
+ *
+ *   A value can appear MORE THAN ONCE. `principalKey` is embedded three
+ *   times — the revoke and reclaim entrypoints each check it. Writing only
+ *   the first occurrence leaves a covenant that answers to two different
+ *   principals, so every occurrence is written.
+ *
+ *   Not every constructor value is spliceable. `maxProofDepth` and `maxFee`
+ *   have value-dependent widths, so they are compiled in; they describe which
+ *   template you are holding, not what you can change about it.
  */
 
 export interface FieldSlot {
   name: string;
-  offset: number;
-  end: number;
+  group: "authority" | "state";
+  kind: "bytes32" | "int64";
+  width: number;
+  /** Every position this value occupies. Never just the first. */
+  offsets: number[];
 }
 
 export interface CovenantTemplate {
   bytecodeLen: number;
+  /** Values compiled in rather than spliced. A grant that changes one of
+   *  these needs a different template, not a different splice. */
+  baked: { maxProofDepth: number; maxFee: number };
   stateStart: number;
   stateLen: number;
   /** The FULL baseline bytecode. Not prefix+suffix: the state region has push
    *  opcodes interleaved between field slots, and exporting only the ends
    *  would zero them out and silently produce wrong addresses. */
   baselineHex: string;
+  baseline: Record<string, string | number>;
   fields: FieldSlot[];
-  params: Record<string, string | number>;
   addressVectors: {
     label: string;
-    spentTotal: number;
-    reserved: number;
-    epochIndex: number;
-    epochSpent: number;
+    authority: GrantAuthority;
+    state: GrantState;
     scriptHash: string;
     address: string;
   }[];
 }
 
-export type GrantState = {
+/** The parts of a grant the agent can never change, at any state. */
+export interface GrantAuthority {
+  /** Who may reclaim after expiry, and who the covenant answers to. */
+  principalKey: string;
+  /** Who may revoke. Usually the principal, but not necessarily. */
+  revocationKey: string;
+}
+
+/** The parts the address moves with. */
+export interface GrantState {
   agentKey: string;
   budgetTotal: bigint;
   maxPerSpend: bigint;
@@ -56,22 +81,16 @@ export type GrantState = {
   reserved: bigint;
   epochIndex: bigint;
   epochSpent: bigint;
-};
-
-const HEX32 = new Set(["agentKey", "recipientsRoot"]);
-
-function fromHex(s: string): Uint8Array {
-  const c = s.startsWith("0x") ? s.slice(2) : s;
-  const o = new Uint8Array(c.length / 2);
-  for (let i = 0; i < o.length; i++) o[i] = Number.parseInt(c.slice(i * 2, i * 2 + 2), 16);
-  return o;
 }
 
-export function toHex(b: Uint8Array): string {
-  return Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
+export interface Grant {
+  authority: GrantAuthority;
+  state: GrantState;
 }
 
-/** Little-endian i64, matching the compiler's integer encoding. */
+export { toHex };
+
+/** Little-endian i64, matching the compiler's fixed-width state encoding. */
 function i64le(v: bigint): Uint8Array {
   const out = new Uint8Array(8);
   let x = v < 0n ? (1n << 64n) + v : v;
@@ -82,28 +101,43 @@ function i64le(v: bigint): Uint8Array {
   return out;
 }
 
-/** Rebuild the covenant bytecode for a given state. */
-export function bytecodeFor(tpl: CovenantTemplate, state: GrantState): Uint8Array {
+function encodeField(f: FieldSlot, value: unknown): Uint8Array {
+  if (f.kind === "bytes32") {
+    if (typeof value !== "string") throw new Error(`${f.name}: expected a hex string`);
+    const bytes = fromHex(value);
+    if (bytes.length !== f.width) {
+      throw new Error(`${f.name}: expected ${f.width} bytes, got ${bytes.length}`);
+    }
+    return bytes;
+  }
+  if (typeof value !== "bigint") throw new Error(`${f.name}: expected a bigint`);
+  const bytes = i64le(value);
+  if (bytes.length !== f.width) {
+    throw new Error(`${f.name}: expected ${f.width} bytes, encoded ${bytes.length}`);
+  }
+  return bytes;
+}
+
+/** Rebuild the covenant bytecode for a given grant. */
+export function bytecodeFor(tpl: CovenantTemplate, grant: Grant): Uint8Array {
   const out = fromHex(tpl.baselineHex);
   if (out.length !== tpl.bytecodeLen) {
     throw new Error(`template baseline is ${out.length} bytes, declared ${tpl.bytecodeLen}`);
   }
 
   for (const f of tpl.fields) {
-    const value = (state as unknown as Record<string, unknown>)[f.name];
-    if (value === undefined) throw new Error(`state is missing field ${f.name}`);
-    const bytes = HEX32.has(f.name) ? fromHex(value as string) : i64le(value as bigint);
-    const width = f.end - f.offset;
-    if (bytes.length !== width) {
-      throw new Error(`${f.name}: expected ${width} bytes, encoded ${bytes.length}`);
-    }
-    out.set(bytes, f.offset);
+    const source = f.group === "authority" ? grant.authority : grant.state;
+    const value = (source as unknown as Record<string, unknown>)[f.name];
+    if (value === undefined) throw new Error(`grant is missing ${f.group} field ${f.name}`);
+    const bytes = encodeField(f, value);
+    // Every occurrence, not the first.
+    for (const offset of f.offsets) out.set(bytes, offset);
   }
 
   return out;
 }
 
 /** blake2b-256 of the redeem script — what Kaspa's P2SH commits to. */
-export function scriptHashFor(tpl: CovenantTemplate, state: GrantState): string {
-  return toHex(blake2b.create({ dkLen: 32 }).update(bytecodeFor(tpl, state)).digest());
+export function scriptHashFor(tpl: CovenantTemplate, grant: Grant): string {
+  return toHex(blake2b.create({ dkLen: 32 }).update(bytecodeFor(tpl, grant)).digest());
 }

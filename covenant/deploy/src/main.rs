@@ -4,6 +4,8 @@
 //!   status    node readiness
 //!   address   the funding address for WARDA_SK (fund this from the faucet)
 //!   genesis   create the grant covenant UTXO
+//!   golden    write golden-spend.json, the reference transaction the JS SDK
+//!             must reproduce (no node, no key, fully deterministic inputs)
 //!
 //! Key comes from WARDA_SK as 32 hex bytes. Testnet only — do not point this
 //! at a mainnet key.
@@ -237,7 +239,38 @@ struct SpendPlan {
     prev_epoch_spent: i64,
 }
 
+/// Everything a build produced, not only the transaction. `golden` needs the
+/// intermediates — the unsigned form, the digest that was actually signed, the
+/// compiled contract — to write a vector another implementation can be checked
+/// against. Every other command keeps using the two-value wrapper below, so
+/// there is still exactly ONE construction path.
+struct BuiltSpend {
+    tx: Transaction,
+    entry: UtxoEntry,
+    /// The transaction as it stood when the digest was taken: identical to
+    /// `tx` except the signature is 65 zero bytes. This is the form a second
+    /// implementation can reproduce byte-for-byte without needing to match a
+    /// randomised nonce.
+    unsigned: Transaction,
+    sighash: [u8; 32],
+    signature: Vec<u8>,
+    contract: CompiledContract<'static>,
+    successor: CompiledContract<'static>,
+    grant_spk: ScriptPublicKey,
+    successor_spk: ScriptPublicKey,
+    recipient: [u8; 32],
+    sibs: Vec<[u8; 32]>,
+    lefts: Vec<bool>,
+    epoch_index: i64,
+    epoch_spent: i64,
+}
+
 fn build_spend(plan: &SpendPlan, kp: &Keypair) -> Result<(Transaction, UtxoEntry), Box<dyn Error>> {
+    let b = build_spend_full(plan, kp)?;
+    Ok((b.tx, b.entry))
+}
+
+fn build_spend_full(plan: &SpendPlan, kp: &Keypair) -> Result<BuiltSpend, Box<dyn Error>> {
     let members = demo_recipients();
     let allowed = members[0];
     let recipient = if plan.injecting { attacker() } else { allowed };
@@ -268,7 +301,7 @@ fn build_spend(plan: &SpendPlan, kp: &Keypair) -> Result<(Transaction, UtxoEntry
     p2pk.extend_from_slice(&recipient);
     p2pk.push(0xac);
 
-    let entry = UtxoEntry::new(plan.in_value, grant_spk, plan.block_daa, plan.is_coinbase, Some(plan.cov));
+    let entry = UtxoEntry::new(plan.in_value, grant_spk.clone(), plan.block_daa, plan.is_coinbase, Some(plan.cov));
 
     let make = |sig: Vec<u8>| -> Result<Transaction, Box<dyn Error>> {
         let args = vec![
@@ -307,8 +340,45 @@ fn build_spend(plan: &SpendPlan, kp: &Keypair) -> Result<(Transaction, UtxoEntry
         ))
     };
 
-    let sig = sign_covenant(make(vec![0u8; 65])?, vec![entry.clone()], 0, kp)?;
-    Ok((make(sig)?, entry))
+    let unsigned = make(vec![0u8; 65])?;
+    let sighash = sighash_of(&unsigned, vec![entry.clone()], 0);
+    let signature = sign_covenant(unsigned.clone(), vec![entry.clone()], 0, kp)?;
+    let tx = make(signature.clone())?;
+    Ok(BuiltSpend {
+        tx,
+        entry,
+        unsigned,
+        sighash,
+        signature,
+        contract,
+        successor,
+        grant_spk,
+        successor_spk,
+        recipient,
+        sibs,
+        lefts,
+        epoch_index,
+        epoch_spent: epoch_spent_now + plan.amount,
+    })
+}
+
+/// The digest a signer must reproduce. At v1 this commits to the covenant
+/// binding as well as the usual fields — SIGNING.md — which is the single
+/// thing a second implementation is most likely to get wrong, and the reason
+/// it is recorded in the golden vector on its own.
+fn sighash_of(tx: &Transaction, entries: Vec<UtxoEntry>, idx: usize) -> [u8; 32] {
+    let mtx = MutableTransaction::with_entries(tx.clone(), entries);
+    let reused = SigHashReusedValuesUnsync::new();
+    let verifiable = mtx.as_verifiable();
+    calc_schnorr_signature_hash(&verifiable, idx, SIG_HASH_ALL, &reused).as_bytes()
+}
+
+/// Fixed, public, and never to be funded. A vector anyone can regenerate is
+/// worth more than one only this machine can produce, so the golden spend is
+/// signed with a key derived from a printed string rather than WARDA_SK.
+fn golden_key() -> Keypair {
+    let seed = b2b(&[b"warda-golden-vector-v1"]);
+    Keypair::from_seckey_slice(&Secp256k1::new(), &seed).expect("valid golden key")
 }
 
 /// Runs a built transaction through the node's own script engine locally.
@@ -580,17 +650,44 @@ async fn main() -> Result<(), Box<dyn Error>> {
             // Emits the covenant template the JS SDK needs.
             //
             // A grant's ADDRESS is P2SH(covenant compiled with its state), and
-            // JavaScript cannot compile Silverscript. But the state occupies a
-            // contiguous, fixed-width slice of the bytecode, so JS can splice
-            // new values into a prefix/suffix template and hash the result.
+            // JavaScript cannot compile Silverscript. But every constructor
+            // value lands in fixed-width slices of the bytecode, so JS can
+            // splice new values into a template and hash the result.
             //
-            // Field offsets are derived by DIFFING, not by reading the
-            // compiler's layout struct — if the encoding ever changes, this
-            // notices instead of silently producing wrong addresses.
+            // Two things this got wrong before, both worth stating plainly:
+            //
+            //   1. It probed only the 13 STATE fields. The principal and
+            //      revocation keys are compiled in too — in the revoke and
+            //      reclaim entrypoints — and without slots for them the SDK
+            //      could only derive addresses for a grant whose principal key
+            //      was literally the probe value. Every real address was
+            //      wrong, and the self-check below could not see it because it
+            //      also held those fields fixed. A check run with the varying
+            //      part held constant measures the constant.
+            //
+            //   2. A field can appear MORE THAN ONCE. Taking first..last of
+            //      the diff spans everything in between, including bytes that
+            //      must not move. Occurrences are found as contiguous runs and
+            //      exported individually.
+            //
+            // Offsets are derived by DIFFING, not by reading the compiler's
+            // layout struct — if the encoding ever changes, this notices
+            // instead of silently producing wrong addresses.
+            let principal = [0x21u8; 32];
+            let revocation = [0x23u8; 32];
             let agent = [0x22u8; 32];
             let root = [0x13u8; 32];
             let (nb, ex) = (1_000_000i64, 1_007_000i64);
-            let base = compile(grant_ctor(agent, agent, root, nb, ex, 0, 0, 0, 0))?;
+
+            // Baseline constructor: distinct values in every key slot, so a
+            // probe of one cannot be confused with another.
+            let base_ctor = |sp: i64, rs: i64, ei: i64, es: i64| {
+                let mut c = grant_ctor(agent, principal, root, nb, ex, sp, rs, ei, es);
+                c[1] = Expr::bytes(revocation.to_vec()); // revocationKey, independent of principal
+                c
+            };
+
+            let base = compile(base_ctor(0, 0, 0, 0))?;
             let layout = (base.state_layout.start, base.state_layout.len);
             println!("bytecode  : {} bytes", base.bytecode.len());
             println!("state slice: {}..{}", layout.0, layout.0 + layout.1);
@@ -601,106 +698,177 @@ async fn main() -> Result<(), Box<dyn Error>> {
             // byte — which is exactly the bug this comment exists to prevent.
             const PROBE_INT: i64 = 0x0102_0304_0506_0708;
 
-            // (name, ctor index, probe value) for every mutable state field.
-            let probes: Vec<(&str, usize, Expr)> = vec![
-                ("agentKey", 3, Expr::bytes(vec![0x77; 32])),
-                ("budgetTotal", 4, Expr::int(PROBE_INT)),
-                ("maxPerSpend", 5, Expr::int(PROBE_INT)),
-                ("epochLimit", 6, Expr::int(PROBE_INT)),
-                ("epochLength", 7, Expr::int(PROBE_INT)),
-                ("recipientsRoot", 8, Expr::bytes(vec![0x88; 32])),
-                ("notBefore", 9, Expr::int(PROBE_INT)),
-                ("expiresAt", 10, Expr::int(PROBE_INT)),
-                ("delegationDepth", 11, Expr::int(PROBE_INT)),
-                ("spentTotal", 13, Expr::int(PROBE_INT)),
-                ("reserved", 14, Expr::int(PROBE_INT)),
-                ("epochIndex", 15, Expr::int(PROBE_INT)),
-                ("epochSpent", 16, Expr::int(PROBE_INT)),
+            // (name, group, kind, ctor index, probe). `authority` fields are
+            // compiled-in constants outside the state slice; `state` fields
+            // are the mutable ones the address moves with.
+            let probes: Vec<(&str, &str, &str, usize, Expr)> = vec![
+                ("principalKey", "authority", "bytes32", 0, Expr::bytes(vec![0x91; 32])),
+                ("revocationKey", "authority", "bytes32", 1, Expr::bytes(vec![0x92; 32])),
+                ("agentKey", "state", "bytes32", 3, Expr::bytes(vec![0x77; 32])),
+                ("budgetTotal", "state", "int64", 4, Expr::int(PROBE_INT)),
+                ("maxPerSpend", "state", "int64", 5, Expr::int(PROBE_INT)),
+                ("epochLimit", "state", "int64", 6, Expr::int(PROBE_INT)),
+                ("epochLength", "state", "int64", 7, Expr::int(PROBE_INT)),
+                ("recipientsRoot", "state", "bytes32", 8, Expr::bytes(vec![0x88; 32])),
+                ("notBefore", "state", "int64", 9, Expr::int(PROBE_INT)),
+                ("expiresAt", "state", "int64", 10, Expr::int(PROBE_INT)),
+                ("delegationDepth", "state", "int64", 11, Expr::int(PROBE_INT)),
+                ("spentTotal", "state", "int64", 13, Expr::int(PROBE_INT)),
+                ("reserved", "state", "int64", 14, Expr::int(PROBE_INT)),
+                ("epochIndex", "state", "int64", 15, Expr::int(PROBE_INT)),
+                ("epochSpent", "state", "int64", 16, Expr::int(PROBE_INT)),
             ];
 
             let mut fields = Vec::new();
+            let mut slots: Vec<(String, &str, usize, Vec<usize>)> = Vec::new();
             let mut ok = true;
-            for (name, idx, probe) in probes {
-                let mut c = grant_ctor(agent, agent, root, nb, ex, 0, 0, 0, 0);
+            for (name, group, kind, idx, probe) in probes {
+                let expected_width = if kind == "bytes32" { 32 } else { 8 };
+                let mut c = base_ctor(0, 0, 0, 0);
                 c[idx] = probe;
                 let v = compile(c)?;
                 if v.bytecode.len() != base.bytecode.len() {
-                    println!("{name:<16} LENGTH CHANGED — not fixed-width");
+                    println!("{name:<16} LENGTH CHANGED — compiled in, not spliceable");
                     ok = false;
                     continue;
                 }
-                let d: Vec<usize> = base.bytecode.iter().zip(v.bytecode.iter()).enumerate()
+                let diff: Vec<usize> = base.bytecode.iter().zip(v.bytecode.iter()).enumerate()
                     .filter(|(_, (x, y))| x != y).map(|(i, _)| i).collect();
-                match (d.first(), d.last()) {
-                    (Some(&a), Some(&b)) => {
-                        let inside = a >= layout.0 && b < layout.0 + layout.1;
-                        println!("{name:<16} offset {a:>4} .. {:<4} {}", b + 1,
-                            if inside { "" } else { "OUTSIDE STATE SLICE" });
-                        if !inside { ok = false; }
-                        fields.push(format!(
-                            "    {{ \"name\": \"{name}\", \"offset\": {a}, \"end\": {} }}", b + 1));
+                if diff.is_empty() {
+                    println!("{name:<16} NO BYTES CHANGED — probe ineffective");
+                    ok = false;
+                    continue;
+                }
+
+                // Group the differing indices into contiguous runs; each run
+                // is one occurrence of the field in the bytecode.
+                let mut runs: Vec<(usize, usize)> = Vec::new();
+                for i in diff {
+                    match runs.last_mut() {
+                        Some(last) if last.1 == i => last.1 = i + 1,
+                        _ => runs.push((i, i + 1)),
                     }
-                    _ => {
-                        println!("{name:<16} NO BYTES CHANGED — probe ineffective");
-                        ok = false;
-                    }
+                }
+                let widths: Vec<usize> = runs.iter().map(|(a, b)| b - a).collect();
+                if widths.iter().any(|w| *w != expected_width) {
+                    println!("{name:<16} RUNS OF UNEXPECTED WIDTH {widths:?}, expected {expected_width}");
+                    ok = false;
+                    continue;
+                }
+                let offsets: Vec<usize> = runs.iter().map(|(a, _)| *a).collect();
+                let inside = group != "state"
+                    || offsets.iter().all(|a| *a >= layout.0 && a + expected_width <= layout.0 + layout.1);
+                println!("{name:<16} {group:<9} width {expected_width:<2} x{} at {:?} {}",
+                    offsets.len(), offsets,
+                    if inside { "" } else { "OUTSIDE STATE SLICE" });
+                if !inside { ok = false; }
+                fields.push(format!(
+                    "    {{ \"name\": \"{name}\", \"group\": \"{group}\", \"kind\": \"{kind}\", \"width\": {expected_width}, \"offsets\": [{}] }}",
+                    offsets.iter().map(|o| o.to_string()).collect::<Vec<_>>().join(", ")));
+                slots.push((name.to_string(), kind, expected_width, offsets));
+            }
+
+            // Two constructor values are deliberately absent above, and for
+            // the same underlying reason: their encoded WIDTH depends on their
+            // value, so they cannot occupy a fixed slot.
+            //
+            //   maxProofDepth sets the Merkle loop's unroll count, so a deeper
+            //   grant is a longer program outright.
+            //
+            //   maxFee is pushed with Kaspa's minimal script-number encoding —
+            //   5,000,000 takes three bytes, a larger value takes more. It
+            //   looked spliceable only because every test used one value.
+            //
+            // Both are properties OF a template rather than values spliced
+            // into one, so a grant that changes either needs its own template.
+            // Demonstrated rather than asserted, so the claim keeps being true.
+            {
+                let mut c = base_ctor(0, 0, 0, 0);
+                c[12] = Expr::int(MAX_PROOF_DEPTH + 1);
+                let deeper = compile(c)?;
+                println!("maxProofDepth    baked in: depth {} is {} bytes, depth {} is {} bytes",
+                    MAX_PROOF_DEPTH, base.bytecode.len(), MAX_PROOF_DEPTH + 1, deeper.bytecode.len());
+                if deeper.bytecode.len() == base.bytecode.len() {
+                    println!("  (unexpected: proof depth no longer changes the bytecode — re-check this assumption)");
+                }
+
+                let mut c = base_ctor(0, 0, 0, 0);
+                c[2] = Expr::int(PROBE_INT);
+                let costly = compile(c)?;
+                println!("maxFee           baked in: {} is {} bytes, a wider value is {} bytes",
+                    MAX_FEE, base.bytecode.len(), costly.bytecode.len());
+                if costly.bytecode.len() == base.bytecode.len() {
+                    println!("  (unexpected: maxFee is now fixed-width — it could become a spliceable field)");
                 }
             }
 
-            let manifest = format!(
-                "{{\n  \"bytecodeLen\": {},\n  \"stateStart\": {},\n  \"stateLen\": {},\n  \"baselineHex\": \"{}\",\n  \"fields\": [\n{}\n  ]\n}}\n",
-                base.bytecode.len(), layout.0, layout.1,
-                // The FULL baseline, not prefix+suffix. The state region has
-                // push opcodes interleaved between field slots; exporting only
-                // the ends would leave them zeroed and silently produce wrong
-                // addresses. Splice into a copy of this.
-                hex(&base.bytecode),
-                fields.join(",\n"));
-            // TRUST ANCHOR. The SDK will splice values into this template and
-            // derive addresses from the result. If splicing and compiling ever
-            // disagree, every address the SDK computes is wrong and the funds
-            // go somewhere unspendable. So prove they agree, here, every time
-            // the template is regenerated.
-            let spent_probe: i64 = 3 * KAS;
-            let epoch_probe: i64 = 1;
-            let compiled = compile(grant_ctor(
-                agent, agent, root, nb, ex, spent_probe, 0, epoch_probe, spent_probe,
-            ))?;
-
-            let mut spliced = base.bytecode.clone();
-            let put = |buf: &mut Vec<u8>, name: &str, v: i64| {
-                if let Some(f) = fields.iter().find(|f| f.contains(&format!("\"{name}\""))) {
-                    let off: usize = f.split("\"offset\": ").nth(1).unwrap()
-                        .split(',').next().unwrap().trim().parse().unwrap();
-                    buf[off..off + 8].copy_from_slice(&v.to_le_bytes());
+            let put = |buf: &mut Vec<u8>, name: &str, bytes: &[u8]| {
+                if let Some((_, _, w, offsets)) = slots.iter().find(|(n, ..)| n == name) {
+                    assert_eq!(bytes.len(), *w, "{name}: wrong width for splice");
+                    for off in offsets { buf[*off..off + w].copy_from_slice(bytes); }
                 }
             };
-            put(&mut spliced, "spentTotal", spent_probe);
-            put(&mut spliced, "epochIndex", epoch_probe);
-            put(&mut spliced, "epochSpent", spent_probe);
+
+            // TRUST ANCHOR. The SDK splices values into this template and
+            // derives addresses from the result. If splicing and compiling
+            // ever disagree, every address the SDK computes is wrong and funds
+            // go somewhere unspendable. So prove they agree, here, every time
+            // the template is regenerated — and prove it while varying EVERY
+            // field, authority included. Holding the authority fixed is what
+            // hid a whole missing half of this manifest.
+            let alt_principal = [0x41u8; 32];
+            let alt_revocation = [0x42u8; 32];
+            let alt_agent = [0x43u8; 32];
+            let alt_root = [0x44u8; 32];
+            let (alt_nb, alt_ex) = (2_500_000i64, 9_900_000i64);
+            let (sp, rs, ei, es) = (3 * KAS, KAS, 7i64, KAS / 4);
+
+            let mut alt_ctor = grant_ctor(alt_agent, alt_principal, alt_root, alt_nb, alt_ex, sp, rs, ei, es);
+            alt_ctor[1] = Expr::bytes(alt_revocation.to_vec());
+            let compiled = compile(alt_ctor)?;
+
+            let mut spliced = base.bytecode.clone();
+            put(&mut spliced, "principalKey", &alt_principal);
+            put(&mut spliced, "revocationKey", &alt_revocation);
+            put(&mut spliced, "agentKey", &alt_agent);
+            put(&mut spliced, "recipientsRoot", &alt_root);
+            for (name, v) in [
+                ("budgetTotal", BUDGET), ("maxPerSpend", MAX_PER_SPEND),
+                ("epochLimit", EPOCH_LIMIT), ("epochLength", EPOCH_LENGTH),
+                ("notBefore", alt_nb), ("expiresAt", alt_ex), ("delegationDepth", DELEGATION_DEPTH),
+                ("spentTotal", sp), ("reserved", rs), ("epochIndex", ei), ("epochSpent", es),
+            ] {
+                put(&mut spliced, name, &v.to_le_bytes());
+            }
 
             if spliced == compiled.bytecode {
-                println!("\nsplice == compile: byte-identical. The template is safe to build on.");
+                println!("\nsplice == compile across authority AND state: byte-identical.");
             } else {
                 let d: Vec<usize> = spliced.iter().zip(compiled.bytecode.iter()).enumerate()
                     .filter(|(_, (x, y))| x != y).map(|(i, _)| i).collect();
                 println!("\nSPLICE DISAGREES WITH COMPILE at {} bytes: {:?}", d.len(),
                     &d[..d.len().min(12)]);
-                println!("integers are NOT plain little-endian in this encoding.");
                 println!("do NOT build the SDK on this template until the encoding is pinned.");
+                ok = false;
             }
 
-            // Known-good (state -> address) vectors. The JS SDK derives
-            // addresses by splicing; these are what prove it agrees with the
-            // compiler. Without them the SDK is trusted, not checked.
+            // Known-good (authority + state -> address) vectors. These are
+            // what prove the SDK agrees with the compiler. At least one MUST
+            // vary the authority, or the vectors re-create the blind spot.
             let mut vectors = Vec::new();
-            for (label, sp, rs, ei, es) in [
-                ("zero", 0i64, 0i64, 0i64, 0i64),
-                ("after_one_spend", KAS / 2, 0, 0, KAS / 2),
-                ("with_reserve", KAS, 3 * KAS, 0, KAS),
-                ("later_epoch", 2 * KAS, 0, 7, KAS / 4),
+            for (label, pk, rk, ak, rt, sp, rs, ei, es) in [
+                ("zero", principal, revocation, agent, root, 0i64, 0i64, 0i64, 0i64),
+                ("after_one_spend", principal, revocation, agent, root, KAS / 2, 0, 0, KAS / 2),
+                ("with_reserve", principal, revocation, agent, root, KAS, 3 * KAS, 0, KAS),
+                ("later_epoch", principal, revocation, agent, root, 2 * KAS, 0, 7, KAS / 4),
+                ("other_principal", alt_principal, revocation, agent, root, 0, 0, 0, 0),
+                ("other_revocation", principal, alt_revocation, agent, root, 0, 0, 0, 0),
+                ("other_agent", principal, revocation, alt_agent, root, 0, 0, 0, 0),
+                ("all_different", alt_principal, alt_revocation, alt_agent, alt_root, sp, rs, ei, es),
             ] {
-                let c = compile(grant_ctor(agent, agent, root, nb, ex, sp, rs, ei, es))?;
+                let mut c = grant_ctor(ak, pk, rt, nb, ex, sp, rs, ei, es);
+                c[1] = Expr::bytes(rk.to_vec());
+                let c = compile(c)?;
                 let spk = pay_to_script_hash_script(&c.bytecode);
                 let addr = extract_script_pub_key_address(&spk, Prefix::Testnet)?;
                 // The script hash is what JS can verify without porting
@@ -709,19 +877,52 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 let script_hash = blake2b_simd::Params::new().hash_length(32)
                     .to_state().update(&c.bytecode).finalize();
                 vectors.push(format!(
-                    "    {{ \"label\": \"{label}\", \"spentTotal\": {sp}, \"reserved\": {rs}, \"epochIndex\": {ei}, \"epochSpent\": {es}, \"scriptHash\": \"{}\", \"address\": \"{addr}\" }}",
-                    hex(script_hash.as_bytes())));
-                println!("{label:<16} {}  {addr}", hex(script_hash.as_bytes())[..16].to_string());
+                    "    {{ \"label\": \"{label}\", \"authority\": {{ \"principalKey\": \"{}\", \"revocationKey\": \"{}\" }}, \"state\": {{ \"agentKey\": \"{}\", \"budgetTotal\": {BUDGET}, \"maxPerSpend\": {MAX_PER_SPEND}, \"epochLimit\": {EPOCH_LIMIT}, \"epochLength\": {EPOCH_LENGTH}, \"recipientsRoot\": \"{}\", \"notBefore\": {nb}, \"expiresAt\": {ex}, \"delegationDepth\": {DELEGATION_DEPTH}, \"spentTotal\": {sp}, \"reserved\": {rs}, \"epochIndex\": {ei}, \"epochSpent\": {es} }}, \"scriptHash\": \"{}\", \"address\": \"{addr}\" }}",
+                    hex(&pk), hex(&rk), hex(&ak), hex(&rt), hex(script_hash.as_bytes())));
+                println!("{label:<17} {}  {addr}", &hex(script_hash.as_bytes())[..16]);
             }
 
-            let manifest = manifest.trim_end().trim_end_matches('}').to_string()
-                + &format!(",\n  \"params\": {{ \"agentKey\": \"{}\", \"recipientsRoot\": \"{}\", \"notBefore\": {nb}, \"expiresAt\": {ex}, \"budgetTotal\": {BUDGET}, \"maxPerSpend\": {MAX_PER_SPEND}, \"epochLimit\": {EPOCH_LIMIT}, \"epochLength\": {EPOCH_LENGTH}, \"delegationDepth\": {DELEGATION_DEPTH} }},\n  \"addressVectors\": [\n{}\n  ]\n}}\n",
-                    hex(&agent), hex(&root), vectors.join(",\n"));
+            let manifest = format!(
+"{{
+  \"bytecodeLen\": {},
+  \"baked\": {{
+    \"_comment\": \"Compiled in, not spliced. Both have value-dependent widths, so they cannot occupy a fixed slot: maxProofDepth sets the Merkle loop's unroll count, and maxFee uses minimal script-number encoding. A grant that changes either needs its own template.\",
+    \"maxProofDepth\": {},
+    \"maxFee\": {}
+  }},
+  \"stateStart\": {},
+  \"stateLen\": {},
+  \"baselineHex\": \"{}\",
+  \"baseline\": {{
+    \"_comment\": \"The values the baseline was compiled with. Probe constants, never keys. Splice over every one of them.\",
+    \"principalKey\": \"{}\",
+    \"revocationKey\": \"{}\",
+    \"agentKey\": \"{}\",
+    \"recipientsRoot\": \"{}\",
+    \"notBefore\": {},
+    \"expiresAt\": {}
+  }},
+  \"fields\": [
+{}
+  ],
+  \"addressVectors\": [
+{}
+  ]
+}}
+",
+                base.bytecode.len(), MAX_PROOF_DEPTH, MAX_FEE, layout.0, layout.1,
+                // The FULL baseline, not prefix+suffix. The state region has
+                // push opcodes interleaved between field slots; exporting only
+                // the ends would leave them zeroed and silently produce wrong
+                // addresses. Splice into a copy of this.
+                hex(&base.bytecode),
+                hex(&principal), hex(&revocation), hex(&agent), hex(&root), nb, ex,
+                fields.join(",\n"), vectors.join(",\n"));
 
             std::fs::write("covenant-template.json", &manifest)?;
             println!("\nwrote covenant-template.json");
             if ok {
-                println!("every field is a fixed-width slice inside the state range.");
+                println!("every field is a fixed-width slice, and splicing reproduces the compiler.");
                 println!("a JS SDK can derive grant addresses with no compiler.");
             } else {
                 println!("SOME FIELDS DO NOT SPLICE CLEANLY — see above. Do not ship the SDK on this.");
@@ -729,61 +930,271 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
         }
 
-        "dry-run" => {
-            // No node, no manifest, no network. Validates the CONSTRUCTION
-            // path — the code that will actually submit — against the same
-            // script engine a node runs.
-            let kp = keypair()?;
+        "golden" => {
+            // A reference transaction for cross-implementation testing.
+            //
+            // These bytes come from the same build_spend_full() that produced
+            // the spend testnet-10 accepted, so an implementation that
+            // reproduces them is reproducing something the network has already
+            // validated — not agreeing with a second guess.
+            //
+            // Duplicating the RULES in another language would be dangerous: a
+            // divergence there fails by wrongly PERMITTING. Duplicating
+            // ASSEMBLY is safe: a divergence fails by producing a transaction
+            // the network rejects. This vector is what turns the second kind
+            // of failure from a testnet surprise into a unit test.
+            //
+            // The signature is deliberately not the thing being compared —
+            // schnorr signing draws a random nonce, so two correct
+            // implementations produce different bytes. What IS compared is the
+            // unsigned sigscript (every argument, serialized) and the sighash
+            // (the digest, which commits to the covenant binding). Get those
+            // right and the signature is correct by construction.
+            let kp = golden_key();
             let agent = kp.x_only_public_key().0.serialize();
-            let root = merkle_root(&demo_recipients());
+            let members = demo_recipients();
+            let root = merkle_root(&members);
             let not_before = 1_000_000i64;
-            let plan = |injecting: bool| SpendPlan {
+            let claimed_daa = not_before + 500;
+            let amount = KAS / 2;
+            let cov = kaspa_consensus_core::Hash::from_bytes([7u8; 32]);
+            let outpoint = TransactionOutpoint {
+                transaction_id: kaspa_consensus_core::Hash::from_bytes([9u8; 32]),
+                index: 0,
+            };
+            let plan = SpendPlan {
                 agent,
                 root,
                 not_before,
                 expires_at: not_before + 864_000,
-                cov: kaspa_consensus_core::Hash::from_bytes([7u8; 32]),
-                outpoint: TransactionOutpoint {
-                    transaction_id: kaspa_consensus_core::Hash::from_bytes([9u8; 32]),
-                    index: 0,
-                },
+                cov,
+                outpoint,
                 in_value: BUDGET as u64,
                 block_daa: not_before as u64,
                 is_coinbase: false,
-                claimed_daa: not_before + 500,
-                amount: KAS / 2,
-                injecting,
+                claimed_daa,
+                amount,
+                injecting: false,
                 prev_spent: 0,
                 prev_reserved: 0,
                 prev_epoch_index: 0,
                 prev_epoch_spent: 0,
             };
 
-            let (ok_tx, ok_entry) = build_spend(&plan(false), &kp)?;
-            let legit = validate_locally(&ok_tx, ok_entry);
-            let (bad_tx, bad_entry) = build_spend(&plan(true), &kp)?;
-            let inject = validate_locally(&bad_tx, bad_entry);
+            let b = build_spend_full(&plan, &kp)?;
 
-            println!("legitimate spend -> {legit:?}");
-            println!("prompt injection -> {inject:?}");
-
-            let good = legit.is_ok() && inject.is_err();
-            println!(
-                "\n{}",
-                if good {
-                    "construction is sound: valid spend accepted, injection rejected."
-                } else if legit.is_err() {
-                    "PROBLEM: the deploy tool builds a spend the engine refuses."
-                } else {
-                    "PROBLEM: the injection was ACCEPTED. Do not broadcast."
-                }
-            );
-            if !good {
-                std::process::exit(1);
+            // A vector that the engine would refuse is worse than no vector:
+            // it would teach a second implementation to be wrong confidently.
+            let verdict = validate_locally(&b.tx, b.entry.clone());
+            println!("reference spend -> {verdict:?}");
+            if verdict.is_err() {
+                return Err("refusing to write a golden vector the engine rejects".into());
             }
+
+            let grant_addr = extract_script_pub_key_address(&b.grant_spk, Prefix::Testnet)?;
+            let succ_addr = extract_script_pub_key_address(&b.successor_spk, Prefix::Testnet)?;
+
+            // The ABI, so the vector describes its own argument layout rather
+            // than making a second implementation guess at it. The dispatch tag
+            // is the first 4 bytes of blake3("name(type,type,...)") — derived
+            // from these strings, so a rename here changes the tag and every
+            // spend built against the old one stops dispatching.
+            let entry = b
+                .contract
+                .entry_by_name("__covenant_entrypoint_auth_spend")
+                .ok_or("compiled contract has no auth_spend entrypoint")?;
+            let abi_inputs = entry
+                .inputs
+                .iter()
+                .map(|i| format!("      {{ \"name\": \"{}\", \"typeName\": \"{}\" }}", i.name, i.type_name))
+                .collect::<Vec<_>>()
+                .join(",\n");
+            let dispatch_tag = hex(&entry.dispatch_tag());
+
+            let hexlist = |v: &[[u8; 32]]| -> String {
+                v.iter().map(|x| format!("\"{}\"", hex(x))).collect::<Vec<_>>().join(", ")
+            };
+            let boollist = |v: &[bool]| -> String {
+                v.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(", ")
+            };
+            let outputs = b
+                .tx
+                .outputs
+                .iter()
+                .map(|o| {
+                    let covenant = match &o.covenant {
+                        Some(c) => format!(
+                            "{{ \"authorizingInput\": {}, \"covenantId\": \"{}\" }}",
+                            c.authorizing_input, c.covenant_id
+                        ),
+                        None => "null".to_string(),
+                    };
+                    format!(
+                        "    {{ \"value\": {}, \"scriptPublicKeyVersion\": {}, \"scriptPublicKeyHex\": \"{}\", \"covenant\": {} }}",
+                        o.value,
+                        o.script_public_key.version(),
+                        hex(o.script_public_key.script()),
+                        covenant
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(",\n");
+
+            let json = format!(
+r#"{{
+  "note": "Reference spend for cross-implementation testing. Produced by the same construction path as the transaction testnet-10 accepted. Compare unsignedSignatureScriptHex and sighashHex; the signature itself is nondeterministic and is recorded for reference only.",
+  "generatedBy": "warda-deploy golden",
+  "network": "kaspatest",
+
+  "key": {{
+    "_comment": "Fixed and public. NEVER FUND THIS. Derived from blake2b-256(\"warda-golden-vector-v1\") so any implementation can regenerate the whole vector.",
+    "secretHex": "{sk}",
+    "xonlyPublicHex": "{agent}"
+  }},
+
+  "params": {{
+    "principalKey": "{agent}",
+    "revocationKey": "{agent}",
+    "agentKey": "{agent}",
+    "maxFee": {max_fee},
+    "budgetTotal": {budget},
+    "maxPerSpend": {max_per_spend},
+    "epochLimit": {epoch_limit},
+    "epochLength": {epoch_length},
+    "recipientsRoot": "{root}",
+    "notBefore": {not_before},
+    "expiresAt": {expires_at},
+    "delegationDepth": {deleg_depth},
+    "maxProofDepth": {max_proof_depth},
+    "prevState": {{ "spentTotal": 0, "reserved": 0, "epochIndex": 0, "epochSpent": 0 }},
+    "nextState": {{ "spentTotal": {next_spent}, "reserved": 0, "epochIndex": {next_epoch}, "epochSpent": {next_epoch_spent} }}
+  }},
+
+  "abi": {{
+    "entrypoint": "{abi_name}",
+    "dispatchTag": "{dispatch_tag}",
+    "inputs": [
+{abi_inputs}
+    ]
+  }},
+
+  "recipients": {{
+    "_comment": "Unsorted as given; the tree sorts canonically before hashing.",
+    "members": [{members}],
+    "target": "{recipient}",
+    "proof": {{ "siblings": [{sibs}], "left": [{lefts}] }}
+  }},
+
+  "spend": {{
+    "amount": {amount},
+    "claimedDaa": {claimed_daa},
+    "fee": {fee},
+    "computeBudget": {compute_budget}
+  }},
+
+  "grant": {{
+    "redeemScriptHex": "{redeem}",
+    "scriptPublicKeyHex": "{grant_spk}",
+    "address": "{grant_addr}"
+  }},
+
+  "successor": {{
+    "_comment": "A different address: the state is part of what the address commits to, so spending MOVES the grant.",
+    "redeemScriptHex": "{succ_redeem}",
+    "scriptPublicKeyHex": "{succ_spk}",
+    "address": "{succ_addr}"
+  }},
+
+  "utxo": {{
+    "outpointTransactionId": "{op_txid}",
+    "outpointIndex": {op_index},
+    "value": {in_value},
+    "scriptPublicKeyVersion": 0,
+    "scriptPublicKeyHex": "{grant_spk}",
+    "blockDaaScore": {block_daa},
+    "isCoinbase": false,
+    "covenantId": "{cov}"
+  }},
+
+  "transaction": {{
+    "version": 1,
+    "lockTime": {claimed_daa},
+    "subnetworkId": "0000000000000000000000000000000000000000",
+    "gas": 0,
+    "payloadHex": "",
+    "input": {{
+      "_comment": "A version-1 input commits to a COMPUTE BUDGET, not a sigop count; the sigop field does not exist on it.",
+      "sequence": {sequence},
+      "computeBudget": {input_budget}
+    }},
+    "outputs": [
+{outputs}
+    ],
+    "txid": "{txid}"
+  }},
+
+  "unsignedSignatureScriptHex": "{unsigned_ss}",
+  "sighashHex": "{sighash}",
+  "signatureHex": "{signature}",
+  "signedSignatureScriptHex": "{signed_ss}"
+}}
+"#,
+                sk = hex(&kp.secret_key().secret_bytes()),
+                agent = hex(&agent),
+                max_fee = MAX_FEE,
+                budget = BUDGET,
+                max_per_spend = MAX_PER_SPEND,
+                epoch_limit = EPOCH_LIMIT,
+                epoch_length = EPOCH_LENGTH,
+                root = hex(&root),
+                not_before = not_before,
+                expires_at = plan.expires_at,
+                deleg_depth = DELEGATION_DEPTH,
+                max_proof_depth = MAX_PROOF_DEPTH,
+                next_spent = amount,
+                next_epoch = b.epoch_index,
+                next_epoch_spent = b.epoch_spent,
+                abi_name = entry.name,
+                dispatch_tag = dispatch_tag,
+                abi_inputs = abi_inputs,
+                members = hexlist(&members),
+                recipient = hex(&b.recipient),
+                sibs = hexlist(&b.sibs),
+                lefts = boollist(&b.lefts),
+                amount = amount,
+                claimed_daa = claimed_daa,
+                fee = SPEND_FEE,
+                compute_budget = SPEND_COMPUTE_BUDGET,
+                redeem = hex(&b.contract.bytecode),
+                grant_spk = hex(b.grant_spk.script()),
+                grant_addr = grant_addr,
+                succ_redeem = hex(&b.successor.bytecode),
+                succ_spk = hex(b.successor_spk.script()),
+                succ_addr = succ_addr,
+                op_txid = plan.outpoint.transaction_id,
+                op_index = plan.outpoint.index,
+                in_value = plan.in_value,
+                block_daa = plan.block_daa,
+                cov = cov,
+                sequence = b.tx.inputs[0].sequence,
+                input_budget = b.tx.inputs[0].compute_commit.compute_budget().unwrap_or_default(),
+                outputs = outputs,
+                txid = b.tx.id(),
+                unsigned_ss = hex(&b.unsigned.inputs[0].signature_script),
+                sighash = hex(&b.sighash),
+                signature = hex(&b.signature),
+                signed_ss = hex(&b.tx.inputs[0].signature_script),
+            );
+
+            std::fs::write("golden-spend.json", &json)?;
+            println!("wrote golden-spend.json");
+            println!("  redeem script : {} bytes", b.contract.bytecode.len());
+            println!("  unsigned sigscript: {} bytes", b.unsigned.inputs[0].signature_script.len());
+            println!("  sighash       : {}", hex(&b.sighash));
+            println!("  txid          : {}", b.tx.id());
         }
 
-        other => println!("unknown command {other:?}\nusage: warda-deploy <status|address|template|dry-run|genesis|spend|inject>"),
+        other => println!("unknown command {other:?}\nusage: warda-deploy <status|address|template|golden|dry-run|genesis|spend|inject>"),
     }
     Ok(())
 }
