@@ -1,0 +1,965 @@
+//! warda-deploy — put the Warda covenant on testnet-10.
+//!
+//! Commands:
+//!   status    node readiness
+//!   address   the funding address for WARDA_SK (fund this from the faucet)
+//!   genesis   create the grant covenant UTXO
+//!
+//! Key comes from WARDA_SK as 32 hex bytes. Testnet only — do not point this
+//! at a mainnet key.
+
+use kaspa_addresses::{Address, Prefix, Version};
+use kaspa_consensus_core::hashing::covenant_id::covenant_id;
+use kaspa_consensus_core::hashing::sighash::{calc_schnorr_signature_hash, SigHashReusedValuesUnsync};
+use kaspa_consensus_core::hashing::sighash_type::SIG_HASH_ALL;
+use kaspa_consensus_core::subnets::SUBNETWORK_ID_NATIVE;
+use kaspa_consensus_core::tx::{
+    CovenantBinding, MutableTransaction, Transaction, TransactionInput, TransactionOutpoint,
+    TransactionOutput, UtxoEntry,
+};
+use kaspa_txscript::script_builder::ScriptBuilder;
+use kaspa_txscript::{extract_script_pub_key_address, pay_to_address_script, pay_to_script_hash_script};
+use kaspa_consensus_core::tx::ScriptPublicKey;
+use kaspa_wrpc_client::prelude::*;
+use kaspa_wrpc_client::{KaspaRpcClient, WrpcEncoding};
+use secp256k1::{Keypair, Secp256k1};
+use kaspa_txscript::caches::Cache;
+use kaspa_txscript::covenants::CovenantsContext;
+use kaspa_txscript::{EngineCtx, EngineFlags, TxScriptEngine};
+use kaspa_txscript_errors::TxScriptError;
+use kaspa_consensus_core::tx::{PopulatedTransaction, VerifiableTransaction};
+use silverscript_lang::ast::{ArrayDim, Expr, TypeBase, TypeRef};
+use silverscript_lang::compiler::{
+    compile_contract, struct_object, CompileOptions, CompiledContract, CovenantDeclCallOptions,
+};
+use std::error::Error;
+
+const DEFAULT_URL: &str = "ws://127.0.0.1:17210";
+const SOURCE: &str = include_str!("../warda_grant.sil");
+const KAS: i64 = 100_000_000;
+/// Fees are charged per unit of transaction MASS, at 100 sompi per unit.
+/// A spend carries the ~3KB redeem script in its signature script, so its mass
+/// is dominated by size; genesis is a plain P2PK spend and is far smaller.
+const GENESIS_FEE: u64 = 1_000_000;
+const SPEND_FEE: u64 = 1_000_000;
+
+/// COMPUTE BUDGET: charged as mass, so over-provisioning costs real money —
+/// but under-provisioning is rejected outright. Both directions bite.
+///
+/// The dominant cost is not the covenant logic. **One signature verification
+/// costs 100,000 script units** (GRAMS_PER_SIGOP_COUNT_UNIT 1000 ×
+/// SCRIPT_UNITS_PER_GRAM 100). The covenant's own arithmetic and Merkle fold
+/// add only ~24,000 on top of that.
+///
+/// So: 1 checksig = 100,000, less the 9,999 free per-input allowance, over
+/// 10,000 units per budget = 10 budget units minimum for ANY signed input.
+///   genesis (plain P2PK, one checksig)     ~100,000 units -> 10, use 12
+///   spend   (checksig + covenant logic)    ~124,000 units -> 12, use 16
+///
+/// Note this is why the harness's measurement read low: it runs with
+/// `sigop_script_units: 0`, which zeroes the signature charge.
+const GENESIS_COMPUTE_BUDGET: u16 = 12;
+const SPEND_COMPUTE_BUDGET: u16 = 16;
+
+/// Grant parameters for the demo. Deliberately small: this is a public
+/// testnet artefact, and the numbers should be legible in a screenshot.
+const BUDGET: i64 = 10 * KAS;
+const MAX_PER_SPEND: i64 = 2 * KAS;
+const EPOCH_LIMIT: i64 = 5 * KAS;
+const EPOCH_LENGTH: i64 = 1_000;
+const MAX_PROOF_DEPTH: i64 = 4;
+/// Must exceed the real fee a spend pays, or the covenant's value-conservation
+/// check refuses the transaction the SDK just built.
+const MAX_FEE: i64 = 5_000_000;
+const DELEGATION_DEPTH: i64 = 2;
+
+// ---- recipient allowlist -------------------------------------------------
+
+const LEAF: u8 = 0x01;
+const NODE: u8 = 0x02;
+
+fn b2b(parts: &[&[u8]]) -> [u8; 32] {
+    let mut st = blake2b_simd::Params::new().hash_length(32).to_state();
+    for p in parts {
+        st.update(p);
+    }
+    let mut o = [0u8; 32];
+    o.copy_from_slice(st.finalize().as_bytes());
+    o
+}
+
+fn merkle_root(members: &[[u8; 32]]) -> [u8; 32] {
+    let mut sorted = members.to_vec();
+    sorted.sort();
+    let mut level: Vec<[u8; 32]> = sorted.iter().map(|r| b2b(&[&[LEAF], r])).collect();
+    while level.len() > 1 {
+        let mut next = Vec::new();
+        let mut i = 0;
+        while i < level.len() {
+            if i + 1 < level.len() {
+                next.push(b2b(&[&[NODE], &level[i], &level[i + 1]]));
+            } else {
+                next.push(level[i]);
+            }
+            i += 2;
+        }
+        level = next;
+    }
+    level[0]
+}
+
+/// The allowlist. Slot 0 is a REAL derived key so the demo pays somewhere
+/// spendable; the rest are filler to give the tree depth.
+fn demo_recipients() -> Vec<[u8; 32]> {
+    vec![
+        demo_api_key().x_only_public_key().0.serialize(),
+        [0xa2; 32],
+        [0xa3; 32],
+        [0xa4; 32],
+    ]
+}
+
+/// Not in the allowlist. No proof exists that places this in the tree.
+fn attacker() -> [u8; 32] {
+    [0xee; 32]
+}
+
+// ---- covenant ------------------------------------------------------------
+
+#[allow(clippy::too_many_arguments)]
+fn grant_ctor(
+    agent_xonly: [u8; 32],
+    principal_xonly: [u8; 32],
+    root: [u8; 32],
+    not_before: i64,
+    expires_at: i64,
+    spent: i64,
+    reserved: i64,
+    epoch_index: i64,
+    epoch_spent: i64,
+) -> Vec<Expr<'static>> {
+    vec![
+        Expr::bytes(principal_xonly.to_vec()), //  0 principalKey
+        Expr::bytes(principal_xonly.to_vec()), //  1 revocationKey
+        Expr::int(MAX_FEE),                    //  2 maxFee
+        Expr::bytes(agent_xonly.to_vec()),     //  3 genesisAgentKey
+        Expr::int(BUDGET),                     //  4 genesisBudgetTotal
+        Expr::int(MAX_PER_SPEND),              //  5 genesisMaxPerSpend
+        Expr::int(EPOCH_LIMIT),                //  6 genesisEpochLimit
+        Expr::int(EPOCH_LENGTH),               //  7 genesisEpochLength
+        Expr::bytes(root.to_vec()),            //  8 genesisRecipientsRoot
+        Expr::int(not_before),                 //  9 genesisNotBefore
+        Expr::int(expires_at),                 // 10 genesisExpiresAt
+        Expr::int(DELEGATION_DEPTH),           // 11 genesisDelegationDepth
+        Expr::int(MAX_PROOF_DEPTH),            // 12 maxProofDepth
+        Expr::int(spent),                      // 13 initSpentTotal
+        Expr::int(reserved),                   // 14 initReserved
+        Expr::int(epoch_index),                // 15 initEpochIndex
+        Expr::int(epoch_spent),                // 16 initEpochSpent
+    ]
+}
+
+fn compile(ctor: Vec<Expr<'static>>) -> Result<CompiledContract<'static>, Box<dyn Error>> {
+    compile_contract(SOURCE, &ctor, CompileOptions::default()).map_err(|e| format!("compile: {e:?}").into())
+}
+
+// ---- keys ----------------------------------------------------------------
+
+fn keypair() -> Result<Keypair, Box<dyn Error>> {
+    let hex = std::env::var("WARDA_SK")
+        .map_err(|_| "set WARDA_SK to 32 hex bytes (testnet key only)")?;
+    let bytes = (0..hex.len() / 2)
+        .map(|i| u8::from_str_radix(&hex[i * 2..i * 2 + 2], 16))
+        .collect::<Result<Vec<u8>, _>>()?;
+    if bytes.len() != 32 {
+        return Err("WARDA_SK must be exactly 32 bytes of hex".into());
+    }
+    Ok(Keypair::from_seckey_slice(&Secp256k1::new(), &bytes)?)
+}
+
+fn address_of(kp: &Keypair) -> Address {
+    Address::new(Prefix::Testnet, Version::PubKey, &kp.x_only_public_key().0.serialize())
+}
+
+/// Signs a standard P2PK input. Not a covenant spend — this is the ordinary
+/// wallet UTXO that funds the grant.
+fn sign_p2pk(tx: Transaction, entries: Vec<UtxoEntry>, idx: usize, kp: &Keypair) -> Result<Vec<u8>, Box<dyn Error>> {
+    let mtx = MutableTransaction::with_entries(tx, entries);
+    let reused = SigHashReusedValuesUnsync::new();
+    let sig_hash = calc_schnorr_signature_hash(&mtx.as_verifiable(), idx, SIG_HASH_ALL, &reused);
+    let msg = secp256k1::Message::from_digest_slice(sig_hash.as_bytes().as_slice())?;
+    let mut sig = kp.sign_schnorr(msg).as_ref().to_vec();
+    sig.push(SIG_HASH_ALL.to_u8()); // 65 bytes, never 64
+    Ok(ScriptBuilder::new().add_data(&sig)?.drain())
+}
+
+async fn connect(url: &str) -> Result<KaspaRpcClient, Box<dyn Error>> {
+    let client = KaspaRpcClient::new(WrpcEncoding::Borsh, Some(url), None, None, None)?;
+    client.connect(None).await?;
+    Ok(client)
+}
+
+async fn require_ready(client: &KaspaRpcClient) -> Result<u64, Box<dyn Error>> {
+    let info = client.get_info().await?;
+    if !info.is_utxo_indexed {
+        return Err("node has no UTXO index — restart with --utxoindex".into());
+    }
+    if !info.is_synced {
+        return Err("node is still syncing; wait for IBD before submitting".into());
+    }
+    Ok(client.get_block_dag_info().await?.virtual_daa_score)
+}
+
+
+// ---- shared spend construction ------------------------------------------
+//
+// `spend`, `inject` and `dry-run` ALL go through this. If the dry run built
+// transactions its own way it would validate its own code rather than the
+// code that actually submits — the same trap the harness's flip tests exist
+// to avoid.
+
+struct SpendPlan {
+    agent: [u8; 32],
+    root: [u8; 32],
+    not_before: i64,
+    expires_at: i64,
+    cov: kaspa_consensus_core::Hash,
+    outpoint: TransactionOutpoint,
+    in_value: u64,
+    block_daa: u64,
+    is_coinbase: bool,
+    claimed_daa: i64,
+    amount: i64,
+    injecting: bool,
+    prev_spent: i64,
+    prev_reserved: i64,
+    prev_epoch_index: i64,
+    prev_epoch_spent: i64,
+}
+
+fn build_spend(plan: &SpendPlan, kp: &Keypair) -> Result<(Transaction, UtxoEntry), Box<dyn Error>> {
+    let members = demo_recipients();
+    let allowed = members[0];
+    let recipient = if plan.injecting { attacker() } else { allowed };
+    let epoch_index = (plan.claimed_daa - plan.not_before) / EPOCH_LENGTH;
+    // A new epoch resets the epoch allowance; the same epoch accumulates.
+    let epoch_spent_now =
+        if epoch_index == plan.prev_epoch_index { plan.prev_epoch_spent } else { 0 };
+
+    let contract = compile(grant_ctor(
+        plan.agent, plan.agent, plan.root, plan.not_before, plan.expires_at,
+        plan.prev_spent, plan.prev_reserved, plan.prev_epoch_index, plan.prev_epoch_spent,
+    ))?;
+    let grant_spk = pay_to_script_hash_script(&contract.bytecode);
+
+    // The successor lives at a DIFFERENT address, one encoding the new state.
+    let successor = compile(grant_ctor(
+        plan.agent, plan.agent, plan.root, plan.not_before, plan.expires_at,
+        plan.prev_spent + plan.amount, plan.prev_reserved,
+        epoch_index, epoch_spent_now + plan.amount,
+    ))?;
+    let successor_spk = pay_to_script_hash_script(&successor.bytecode);
+
+    // An unlisted payee has no proof; borrowing a valid one is the best an
+    // attacker can do, and is exactly what a rogue agent would try.
+    let (sibs, lefts) = merkle_proof(&members, &allowed);
+
+    let mut p2pk = vec![0x20u8];
+    p2pk.extend_from_slice(&recipient);
+    p2pk.push(0xac);
+
+    let entry = UtxoEntry::new(plan.in_value, grant_spk, plan.block_daa, plan.is_coinbase, Some(plan.cov));
+
+    let make = |sig: Vec<u8>| -> Result<Transaction, Box<dyn Error>> {
+        let args = vec![
+            grant_state(
+                plan.agent, plan.root, plan.not_before, plan.expires_at,
+                plan.prev_spent + plan.amount, plan.prev_reserved,
+                epoch_index, epoch_spent_now + plan.amount,
+            ),
+            Expr::int(plan.amount),
+            Expr::bytes(recipient.to_vec()),
+            byte32_array(sibs.clone()),
+            bool_array(lefts.clone()),
+            Expr::int(plan.claimed_daa),
+            Expr::bytes(sig),
+        ];
+        let sigscript = covenant_sigscript(&contract, "spend", args)?;
+        Ok(Transaction::new(
+            1,
+            vec![TransactionInput::new_with_compute_budget(plan.outpoint, sigscript, 0, SPEND_COMPUTE_BUDGET)],
+            vec![
+                TransactionOutput {
+                    value: plan.in_value - plan.amount as u64 - SPEND_FEE,
+                    script_public_key: successor_spk.clone(),
+                    covenant: Some(CovenantBinding { authorizing_input: 0, covenant_id: plan.cov }),
+                },
+                TransactionOutput {
+                    value: plan.amount as u64,
+                    script_public_key: ScriptPublicKey::new(0, p2pk.clone().into()),
+                    covenant: None,
+                },
+            ],
+            plan.claimed_daa as u64,
+            SUBNETWORK_ID_NATIVE,
+            0,
+            vec![],
+        ))
+    };
+
+    let sig = sign_covenant(make(vec![0u8; 65])?, vec![entry.clone()], 0, kp)?;
+    Ok((make(sig)?, entry))
+}
+
+/// Runs a built transaction through the node's own script engine locally.
+/// Same engine, same verdict, no network.
+fn validate_locally(tx: &Transaction, entry: UtxoEntry) -> Result<(), TxScriptError> {
+    let reused = SigHashReusedValuesUnsync::new();
+    let sig_cache = Cache::new(10_000);
+    let input = tx.inputs[0].clone();
+    let populated = PopulatedTransaction::new(tx, vec![entry]);
+    let cov_ctx = CovenantsContext::from_tx(&populated).map_err(TxScriptError::from)?;
+    let utxo = populated.utxo(0).expect("utxo");
+    let mut vm = TxScriptEngine::from_transaction_input(
+        &populated,
+        &input,
+        0,
+        utxo,
+        EngineCtx::new(&sig_cache).with_reused(&reused).with_covenants_ctx(&cov_ctx),
+        EngineFlags { covenants_enabled: true, sigop_script_units: 0.into() },
+    );
+    vm.execute()
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
+    let cmd = std::env::args().nth(1).unwrap_or_else(|| "status".into());
+    let url = std::env::var("WARDA_RPC").unwrap_or_else(|_| DEFAULT_URL.to_string());
+
+    match cmd.as_str() {
+        "status" => {
+            let client = connect(&url).await?;
+            let info = client.get_info().await?;
+            let dag = client.get_block_dag_info().await?;
+            println!("server version : {}", info.server_version);
+            println!("network        : {}", dag.network);
+            println!("synced         : {}", info.is_synced);
+            println!("utxo indexed   : {}", info.is_utxo_indexed);
+            println!("virtual daa    : {}", dag.virtual_daa_score);
+            if !info.is_synced {
+                println!("\nstill syncing.");
+            } else {
+                println!("\nnode is ready.");
+            }
+        }
+
+        "address" => {
+            let kp = keypair()?;
+            let addr = address_of(&kp);
+            println!("{addr}");
+            println!("\nfund this at https://faucet-tn10.kaspanet.io/");
+        }
+
+        "genesis" => {
+            let kp = keypair()?;
+            let client = connect(&url).await?;
+            let daa = require_ready(&client).await?;
+
+            let addr = address_of(&kp);
+            let utxos = client.get_utxos_by_addresses(vec![addr.clone()]).await?;
+            let funding = utxos
+                .iter()
+                .max_by_key(|u| u.utxo_entry.amount)
+                .ok_or("no UTXOs at the funding address — use the faucet first")?;
+            let funding_value = funding.utxo_entry.amount;
+            println!("funding utxo   : {} sompi", funding_value);
+
+            let grant_value = BUDGET as u64;
+            if funding_value < grant_value + GENESIS_FEE {
+                return Err(format!(
+                    "funding {funding_value} is less than grant {grant_value} + fee {GENESIS_FEE}"
+                )
+                .into());
+            }
+
+            let agent = kp.x_only_public_key().0.serialize();
+            let root = merkle_root(&demo_recipients());
+            // Window opens now and runs for ~1 day of DAA at 10 bps.
+            let not_before = daa as i64;
+            let expires_at = not_before + 864_000;
+
+            let contract = compile(grant_ctor(agent, agent, root, not_before, expires_at, 0, 0, 0, 0))?;
+            let grant_spk = pay_to_script_hash_script(&contract.bytecode);
+            println!("covenant bytes : {}", contract.bytecode.len());
+            println!("recipients root: {}", hex(&root));
+            println!("not_before     : {not_before}");
+            println!("expires_at     : {expires_at}");
+
+            let outpoint = TransactionOutpoint {
+                transaction_id: funding.outpoint.transaction_id,
+                index: funding.outpoint.index,
+            };
+
+            // Build the grant output UNBOUND first: covenant_id is derived from
+            // the funding outpoint plus this output, so it cannot contain its
+            // own binding. Then rebuild it carrying that id.
+            let unbound = TransactionOutput { value: grant_value, script_public_key: grant_spk.clone(), covenant: None };
+            let cov = covenant_id(outpoint, std::iter::once((0u32, &unbound)));
+            let grant_out = TransactionOutput {
+                value: grant_value,
+                script_public_key: grant_spk,
+                covenant: Some(CovenantBinding { authorizing_input: 0, covenant_id: cov }),
+            };
+            let change_out = TransactionOutput {
+                value: funding_value - grant_value - GENESIS_FEE,
+                script_public_key: pay_to_address_script(&addr),
+                covenant: None,
+            };
+
+            let entry = UtxoEntry::new(
+                funding_value,
+                pay_to_address_script(&addr),
+                funding.utxo_entry.block_daa_score,
+                funding.utxo_entry.is_coinbase,
+                None,
+            );
+
+            // VERSION 1 — covenant bindings only enter the sighash at v1.
+            let make = |sigscript: Vec<u8>| {
+                Transaction::new(
+                    1,
+                    vec![TransactionInput::new_with_compute_budget(outpoint, sigscript, 0, GENESIS_COMPUTE_BUDGET)],
+                    vec![grant_out.clone(), change_out.clone()],
+                    0,
+                    SUBNETWORK_ID_NATIVE,
+                    0,
+                    vec![],
+                )
+            };
+            let sigscript = sign_p2pk(make(vec![]), vec![entry.clone()], 0, &kp)?;
+            let tx = make(sigscript);
+
+            // The grant's ADDRESS is derived from its parameters, so losing
+            // them strands the UTXO. Persist before submitting, not after —
+            // a submit that succeeds while the write fails is unrecoverable.
+            let manifest = format!(
+                "{{\n  \"covenant_id\": \"{cov}\",\n  \"agent\": \"{}\",\n  \"recipients_root\": \"{}\",\n  \"not_before\": {not_before},\n  \"expires_at\": {expires_at},\n  \"budget\": {BUDGET},\n  \"max_per_spend\": {MAX_PER_SPEND},\n  \"epoch_limit\": {EPOCH_LIMIT},\n  \"epoch_length\": {EPOCH_LENGTH},\n  \"grant_value\": {grant_value},\n  \"spent_total\": 0,\n  \"reserved\": 0,\n  \"epoch_index\": 0,\n  \"epoch_spent\": 0\n}}\n",
+                hex(&agent), hex(&root)
+            );
+            std::fs::write("grant.json", &manifest)?;
+            println!("wrote grant.json");
+            println!("covenant id    : {cov}");
+            println!("grant address  : (P2SH of the covenant at zero state)");
+            let txid = client.submit_transaction((&tx).into(), false).await?;
+            println!("\nsubmitted. txid: {}", txid);
+        }
+
+
+        cmd @ ("spend" | "inject") => {
+            let injecting = cmd == "inject";
+            let kp = keypair()?;
+            let m = read_manifest()?;
+            let client = connect(&url).await?;
+            let daa = require_ready(&client).await?;
+
+            let contract = compile(grant_ctor(
+                m.agent, m.agent, m.root, m.not_before, m.expires_at,
+                m.spent, m.reserved, m.epoch_index, m.epoch_spent,
+            ))?;
+            let grant_addr = extract_script_pub_key_address(
+                &pay_to_script_hash_script(&contract.bytecode), Prefix::Testnet)?;
+            println!("grant state    : spent {} / reserved {} / epoch {}",
+                formatted(m.spent), formatted(m.reserved), m.epoch_index);
+            println!("grant address  : {grant_addr}");
+
+            let utxos = client.get_utxos_by_addresses(vec![grant_addr]).await?;
+            let grant = utxos.first().ok_or("no UTXO at the grant address — has genesis confirmed?")?;
+            println!("grant utxo     : {} sompi", grant.utxo_entry.amount);
+
+            // Set claimedDaa slightly IN THE PAST.
+            //
+            // The covenant enforces `tx.daa >= claimedDaa`, which compiles to a
+            // CLTV lock — so lock_time equal to the current DAA makes the
+            // transaction not yet final and the mempool refuses it. Backing off
+            // puts the lock behind the chain, and the transaction is spendable
+            // immediately.
+            //
+            // Safe by construction: PHASE0 established that understating
+            // claimedDaa only costs the agent epoch headroom, while
+            // OVERstating is impossible because CLTV would hold the
+            // transaction until the chain caught up. The direction that is
+            // convenient here is also the direction that is sound.
+            const DAA_BACKOFF: i64 = 100; // ~10s at 10 blocks per second
+            let claimed_daa = (daa as i64 - DAA_BACKOFF).max(m.not_before);
+            if claimed_daa < m.not_before {
+                return Err("current DAA precedes not_before".into());
+            }
+            println!("claimed daa    : {claimed_daa} (chain at {daa})");
+
+            let plan = SpendPlan {
+                agent: m.agent,
+                root: m.root,
+                not_before: m.not_before,
+                expires_at: m.expires_at,
+                cov: m.covenant_id.parse()?,
+                prev_spent: m.spent,
+                prev_reserved: m.reserved,
+                prev_epoch_index: m.epoch_index,
+                prev_epoch_spent: m.epoch_spent,
+                outpoint: TransactionOutpoint {
+                    transaction_id: grant.outpoint.transaction_id,
+                    index: grant.outpoint.index,
+                },
+                in_value: grant.utxo_entry.amount,
+                block_daa: grant.utxo_entry.block_daa_score,
+                is_coinbase: grant.utxo_entry.is_coinbase,
+                claimed_daa,
+                amount: KAS / 2,
+                injecting,
+            };
+            let (tx, entry) = build_spend(&plan, &kp)?;
+
+            // Local verdict FIRST. If the engine refuses it here, the fault is
+            // ours and the mempool would only tell us so less clearly.
+            let local = validate_locally(&tx, entry);
+            println!("local engine   : {local:?}");
+
+            if injecting {
+                println!("\n--- PROMPT INJECTION ---");
+                println!("paying {} — NOT in the allowlist", hex(&attacker()));
+                println!("the agent builds and signs this willingly; there is simply");
+                println!("no proof that places the payee in the tree.\n");
+                if local.is_ok() {
+                    println!("UNEXPECTED: the local engine ACCEPTED the injection.");
+                    println!("stopping before broadcast — investigate the allowlist.");
+                    return Ok(());
+                }
+                println!("REJECTED locally, as designed. Broadcasting anyway so the");
+                println!("network's own refusal is on the record.\n");
+            } else {
+                println!("\npaying {} KAS to an allowlisted API", plan.amount as f64 / KAS as f64);
+                if local.is_err() {
+                    return Err(format!("local engine refused a spend that should pass: {local:?}").into());
+                }
+            }
+
+            match client.submit_transaction((&tx).into(), false).await {
+                Ok(txid) => {
+                    if injecting {
+                        println!("UNEXPECTED: injection ACCEPTED by the network — txid {txid}");
+                    } else {
+                        println!("accepted. txid: {txid}");
+                        // The grant has MOVED. Record where, or the next
+                        // command looks at an address it has already left.
+                        let ei = (plan.claimed_daa - m.not_before) / EPOCH_LENGTH;
+                        let es = if ei == m.epoch_index { m.epoch_spent } else { 0 } + plan.amount;
+                        let raw = std::fs::read_to_string("grant.json")?;
+                        let updated = raw
+                            .replace(&format!("\"spent_total\": {}", m.spent),
+                                     &format!("\"spent_total\": {}", m.spent + plan.amount))
+                            .replace(&format!("\"epoch_index\": {}", m.epoch_index),
+                                     &format!("\"epoch_index\": {ei}"))
+                            .replace(&format!("\"epoch_spent\": {}", m.epoch_spent),
+                                     &format!("\"epoch_spent\": {es}"));
+                        std::fs::write("grant.json", updated)?;
+                        println!("grant.json updated — the grant now lives at a new address");
+                    }
+                }
+                Err(e) => {
+                    if injecting {
+                        println!("REJECTED by consensus, as designed:\n  {e}");
+                    } else {
+                        println!("rejected: {e}");
+                    }
+                }
+            }
+        }
+
+
+        "template" => {
+            // Emits the covenant template the JS SDK needs.
+            //
+            // A grant's ADDRESS is P2SH(covenant compiled with its state), and
+            // JavaScript cannot compile Silverscript. But the state occupies a
+            // contiguous, fixed-width slice of the bytecode, so JS can splice
+            // new values into a prefix/suffix template and hash the result.
+            //
+            // Field offsets are derived by DIFFING, not by reading the
+            // compiler's layout struct — if the encoding ever changes, this
+            // notices instead of silently producing wrong addresses.
+            let agent = [0x22u8; 32];
+            let root = [0x13u8; 32];
+            let (nb, ex) = (1_000_000i64, 1_007_000i64);
+            let base = compile(grant_ctor(agent, agent, root, nb, ex, 0, 0, 0, 0))?;
+            let layout = (base.state_layout.start, base.state_layout.len);
+            println!("bytecode  : {} bytes", base.bytecode.len());
+            println!("state slice: {}..{}", layout.0, layout.0 + layout.1);
+
+            // Probe values must differ from the baseline in EVERY byte, or the
+            // diff reports a narrower field than really exists and the SDK
+            // splices into the wrong slot. A `+1` probe only moves the low
+            // byte — which is exactly the bug this comment exists to prevent.
+            const PROBE_INT: i64 = 0x0102_0304_0506_0708;
+
+            // (name, ctor index, probe value) for every mutable state field.
+            let probes: Vec<(&str, usize, Expr)> = vec![
+                ("agentKey", 3, Expr::bytes(vec![0x77; 32])),
+                ("budgetTotal", 4, Expr::int(PROBE_INT)),
+                ("maxPerSpend", 5, Expr::int(PROBE_INT)),
+                ("epochLimit", 6, Expr::int(PROBE_INT)),
+                ("epochLength", 7, Expr::int(PROBE_INT)),
+                ("recipientsRoot", 8, Expr::bytes(vec![0x88; 32])),
+                ("notBefore", 9, Expr::int(PROBE_INT)),
+                ("expiresAt", 10, Expr::int(PROBE_INT)),
+                ("delegationDepth", 11, Expr::int(PROBE_INT)),
+                ("spentTotal", 13, Expr::int(PROBE_INT)),
+                ("reserved", 14, Expr::int(PROBE_INT)),
+                ("epochIndex", 15, Expr::int(PROBE_INT)),
+                ("epochSpent", 16, Expr::int(PROBE_INT)),
+            ];
+
+            let mut fields = Vec::new();
+            let mut ok = true;
+            for (name, idx, probe) in probes {
+                let mut c = grant_ctor(agent, agent, root, nb, ex, 0, 0, 0, 0);
+                c[idx] = probe;
+                let v = compile(c)?;
+                if v.bytecode.len() != base.bytecode.len() {
+                    println!("{name:<16} LENGTH CHANGED — not fixed-width");
+                    ok = false;
+                    continue;
+                }
+                let d: Vec<usize> = base.bytecode.iter().zip(v.bytecode.iter()).enumerate()
+                    .filter(|(_, (x, y))| x != y).map(|(i, _)| i).collect();
+                match (d.first(), d.last()) {
+                    (Some(&a), Some(&b)) => {
+                        let inside = a >= layout.0 && b < layout.0 + layout.1;
+                        println!("{name:<16} offset {a:>4} .. {:<4} {}", b + 1,
+                            if inside { "" } else { "OUTSIDE STATE SLICE" });
+                        if !inside { ok = false; }
+                        fields.push(format!(
+                            "    {{ \"name\": \"{name}\", \"offset\": {a}, \"end\": {} }}", b + 1));
+                    }
+                    _ => {
+                        println!("{name:<16} NO BYTES CHANGED — probe ineffective");
+                        ok = false;
+                    }
+                }
+            }
+
+            let manifest = format!(
+                "{{\n  \"bytecodeLen\": {},\n  \"stateStart\": {},\n  \"stateLen\": {},\n  \"baselineHex\": \"{}\",\n  \"fields\": [\n{}\n  ]\n}}\n",
+                base.bytecode.len(), layout.0, layout.1,
+                // The FULL baseline, not prefix+suffix. The state region has
+                // push opcodes interleaved between field slots; exporting only
+                // the ends would leave them zeroed and silently produce wrong
+                // addresses. Splice into a copy of this.
+                hex(&base.bytecode),
+                fields.join(",\n"));
+            // TRUST ANCHOR. The SDK will splice values into this template and
+            // derive addresses from the result. If splicing and compiling ever
+            // disagree, every address the SDK computes is wrong and the funds
+            // go somewhere unspendable. So prove they agree, here, every time
+            // the template is regenerated.
+            let spent_probe: i64 = 3 * KAS;
+            let epoch_probe: i64 = 1;
+            let compiled = compile(grant_ctor(
+                agent, agent, root, nb, ex, spent_probe, 0, epoch_probe, spent_probe,
+            ))?;
+
+            let mut spliced = base.bytecode.clone();
+            let put = |buf: &mut Vec<u8>, name: &str, v: i64| {
+                if let Some(f) = fields.iter().find(|f| f.contains(&format!("\"{name}\""))) {
+                    let off: usize = f.split("\"offset\": ").nth(1).unwrap()
+                        .split(',').next().unwrap().trim().parse().unwrap();
+                    buf[off..off + 8].copy_from_slice(&v.to_le_bytes());
+                }
+            };
+            put(&mut spliced, "spentTotal", spent_probe);
+            put(&mut spliced, "epochIndex", epoch_probe);
+            put(&mut spliced, "epochSpent", spent_probe);
+
+            if spliced == compiled.bytecode {
+                println!("\nsplice == compile: byte-identical. The template is safe to build on.");
+            } else {
+                let d: Vec<usize> = spliced.iter().zip(compiled.bytecode.iter()).enumerate()
+                    .filter(|(_, (x, y))| x != y).map(|(i, _)| i).collect();
+                println!("\nSPLICE DISAGREES WITH COMPILE at {} bytes: {:?}", d.len(),
+                    &d[..d.len().min(12)]);
+                println!("integers are NOT plain little-endian in this encoding.");
+                println!("do NOT build the SDK on this template until the encoding is pinned.");
+            }
+
+            // Known-good (state -> address) vectors. The JS SDK derives
+            // addresses by splicing; these are what prove it agrees with the
+            // compiler. Without them the SDK is trusted, not checked.
+            let mut vectors = Vec::new();
+            for (label, sp, rs, ei, es) in [
+                ("zero", 0i64, 0i64, 0i64, 0i64),
+                ("after_one_spend", KAS / 2, 0, 0, KAS / 2),
+                ("with_reserve", KAS, 3 * KAS, 0, KAS),
+                ("later_epoch", 2 * KAS, 0, 7, KAS / 4),
+            ] {
+                let c = compile(grant_ctor(agent, agent, root, nb, ex, sp, rs, ei, es))?;
+                let spk = pay_to_script_hash_script(&c.bytecode);
+                let addr = extract_script_pub_key_address(&spk, Prefix::Testnet)?;
+                // The script hash is what JS can verify without porting
+                // Kaspa's bech32. kaspa-wasm turns a hash into an address;
+                // reimplementing that in the SDK would buy nothing but bugs.
+                let script_hash = blake2b_simd::Params::new().hash_length(32)
+                    .to_state().update(&c.bytecode).finalize();
+                vectors.push(format!(
+                    "    {{ \"label\": \"{label}\", \"spentTotal\": {sp}, \"reserved\": {rs}, \"epochIndex\": {ei}, \"epochSpent\": {es}, \"scriptHash\": \"{}\", \"address\": \"{addr}\" }}",
+                    hex(script_hash.as_bytes())));
+                println!("{label:<16} {}  {addr}", hex(script_hash.as_bytes())[..16].to_string());
+            }
+
+            let manifest = manifest.trim_end().trim_end_matches('}').to_string()
+                + &format!(",\n  \"params\": {{ \"agentKey\": \"{}\", \"recipientsRoot\": \"{}\", \"notBefore\": {nb}, \"expiresAt\": {ex}, \"budgetTotal\": {BUDGET}, \"maxPerSpend\": {MAX_PER_SPEND}, \"epochLimit\": {EPOCH_LIMIT}, \"epochLength\": {EPOCH_LENGTH}, \"delegationDepth\": {DELEGATION_DEPTH} }},\n  \"addressVectors\": [\n{}\n  ]\n}}\n",
+                    hex(&agent), hex(&root), vectors.join(",\n"));
+
+            std::fs::write("covenant-template.json", &manifest)?;
+            println!("\nwrote covenant-template.json");
+            if ok {
+                println!("every field is a fixed-width slice inside the state range.");
+                println!("a JS SDK can derive grant addresses with no compiler.");
+            } else {
+                println!("SOME FIELDS DO NOT SPLICE CLEANLY — see above. Do not ship the SDK on this.");
+                std::process::exit(1);
+            }
+        }
+
+        "dry-run" => {
+            // No node, no manifest, no network. Validates the CONSTRUCTION
+            // path — the code that will actually submit — against the same
+            // script engine a node runs.
+            let kp = keypair()?;
+            let agent = kp.x_only_public_key().0.serialize();
+            let root = merkle_root(&demo_recipients());
+            let not_before = 1_000_000i64;
+            let plan = |injecting: bool| SpendPlan {
+                agent,
+                root,
+                not_before,
+                expires_at: not_before + 864_000,
+                cov: kaspa_consensus_core::Hash::from_bytes([7u8; 32]),
+                outpoint: TransactionOutpoint {
+                    transaction_id: kaspa_consensus_core::Hash::from_bytes([9u8; 32]),
+                    index: 0,
+                },
+                in_value: BUDGET as u64,
+                block_daa: not_before as u64,
+                is_coinbase: false,
+                claimed_daa: not_before + 500,
+                amount: KAS / 2,
+                injecting,
+                prev_spent: 0,
+                prev_reserved: 0,
+                prev_epoch_index: 0,
+                prev_epoch_spent: 0,
+            };
+
+            let (ok_tx, ok_entry) = build_spend(&plan(false), &kp)?;
+            let legit = validate_locally(&ok_tx, ok_entry);
+            let (bad_tx, bad_entry) = build_spend(&plan(true), &kp)?;
+            let inject = validate_locally(&bad_tx, bad_entry);
+
+            println!("legitimate spend -> {legit:?}");
+            println!("prompt injection -> {inject:?}");
+
+            let good = legit.is_ok() && inject.is_err();
+            println!(
+                "\n{}",
+                if good {
+                    "construction is sound: valid spend accepted, injection rejected."
+                } else if legit.is_err() {
+                    "PROBLEM: the deploy tool builds a spend the engine refuses."
+                } else {
+                    "PROBLEM: the injection was ACCEPTED. Do not broadcast."
+                }
+            );
+            if !good {
+                std::process::exit(1);
+            }
+        }
+
+        other => println!("unknown command {other:?}\nusage: warda-deploy <status|address|template|dry-run|genesis|spend|inject>"),
+    }
+    Ok(())
+}
+
+// ---- grant manifest ------------------------------------------------------
+
+struct Manifest {
+    covenant_id: String,
+    agent: [u8; 32],
+    root: [u8; 32],
+    not_before: i64,
+    expires_at: i64,
+    /// The grant's CURRENT state. Not bookkeeping — the address is derived
+    /// from it, so a stale state here means looking for the UTXO at an
+    /// address the grant has already left.
+    spent: i64,
+    reserved: i64,
+    epoch_index: i64,
+    epoch_spent: i64,
+}
+
+fn read_manifest() -> Result<Manifest, Box<dyn Error>> {
+    let raw = std::fs::read_to_string("grant.json")
+        .map_err(|_| "no grant.json — run `genesis` first, from this directory")?;
+    let field = |k: &str| -> Result<String, Box<dyn Error>> {
+        let pat = format!("\"{k}\":");
+        let i = raw.find(&pat).ok_or(format!("grant.json missing {k}"))?;
+        let rest = &raw[i + pat.len()..];
+        Ok(rest
+            .trim_start()
+            .trim_start_matches('"')
+            .chars()
+            .take_while(|c| *c != ',' && *c != '"' && *c != '\n' && *c != '}')
+            .collect::<String>()
+            .trim()
+            .to_string())
+    };
+    let b32 = |s: String| -> Result<[u8; 32], Box<dyn Error>> {
+        let v = (0..s.len() / 2)
+            .map(|i| u8::from_str_radix(&s[i * 2..i * 2 + 2], 16))
+            .collect::<Result<Vec<u8>, _>>()?;
+        let mut o = [0u8; 32];
+        if v.len() != 32 {
+            return Err("bad 32-byte hex in grant.json".into());
+        }
+        o.copy_from_slice(&v);
+        Ok(o)
+    };
+    Ok(Manifest {
+        covenant_id: field("covenant_id")?,
+        agent: b32(field("agent")?)?,
+        root: b32(field("recipients_root")?)?,
+        not_before: field("not_before")?.parse()?,
+        expires_at: field("expires_at")?.parse()?,
+        spent: field("spent_total").unwrap_or_else(|_| "0".into()).parse().unwrap_or(0),
+        reserved: field("reserved").unwrap_or_else(|_| "0".into()).parse().unwrap_or(0),
+        epoch_index: field("epoch_index").unwrap_or_else(|_| "0".into()).parse().unwrap_or(0),
+        epoch_spent: field("epoch_spent").unwrap_or_else(|_| "0".into()).parse().unwrap_or(0),
+    })
+}
+
+/// A real, spendable payee derived deterministically, so the demo moves money
+/// somewhere that actually exists rather than to a filler pubkey.
+fn demo_api_key() -> Keypair {
+    let seed = b2b(&[b"warda-demo-api-v1"]);
+    Keypair::from_seckey_slice(&Secp256k1::new(), &seed).expect("valid demo key")
+}
+
+fn merkle_proof(members: &[[u8; 32]], target: &[u8; 32]) -> (Vec<[u8; 32]>, Vec<bool>) {
+    let mut sorted = members.to_vec();
+    sorted.sort();
+    let mut levels: Vec<Vec<[u8; 32]>> = vec![sorted.iter().map(|r| b2b(&[&[LEAF], r])).collect()];
+    while levels.last().unwrap().len() > 1 {
+        let prev = levels.last().unwrap();
+        let mut next = Vec::new();
+        let mut i = 0;
+        while i < prev.len() {
+            if i + 1 < prev.len() {
+                next.push(b2b(&[&[NODE], &prev[i], &prev[i + 1]]));
+            } else {
+                next.push(prev[i]);
+            }
+            i += 2;
+        }
+        levels.push(next);
+    }
+    let mut idx = sorted.iter().position(|m| m == target).unwrap_or(0);
+    let (mut sibs, mut lefts) = (Vec::new(), Vec::new());
+    for level in &levels[..levels.len() - 1] {
+        let pair = if idx % 2 == 0 { idx + 1 } else { idx - 1 };
+        if pair < level.len() {
+            sibs.push(level[pair]);
+            lefts.push(pair < idx);
+        }
+        idx /= 2;
+    }
+    (sibs, lefts)
+}
+
+fn byte32_array(items: Vec<[u8; 32]>) -> Expr<'static> {
+    Expr::array(
+        TypeRef { base: TypeBase::Byte, array_dims: vec![ArrayDim::Fixed(32), ArrayDim::Dynamic] },
+        items.into_iter().map(|b| Expr::bytes(b.to_vec())).collect(),
+    )
+}
+
+fn bool_array(items: Vec<bool>) -> Expr<'static> {
+    Expr::array(
+        TypeRef { base: TypeBase::Bool, array_dims: vec![ArrayDim::Dynamic] },
+        items.into_iter().map(Expr::bool).collect(),
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn grant_state(
+    agent: [u8; 32],
+    root: [u8; 32],
+    not_before: i64,
+    expires_at: i64,
+    spent: i64,
+    reserved: i64,
+    epoch_index: i64,
+    epoch_spent: i64,
+) -> Expr<'static> {
+    struct_object(
+        "State",
+        vec![
+            ("agentKey", Expr::bytes(agent.to_vec())),
+            ("budgetTotal", Expr::int(BUDGET)),
+            ("maxPerSpend", Expr::int(MAX_PER_SPEND)),
+            ("epochLimit", Expr::int(EPOCH_LIMIT)),
+            ("epochLength", Expr::int(EPOCH_LENGTH)),
+            ("recipientsRoot", Expr::bytes(root.to_vec())),
+            ("notBefore", Expr::int(not_before)),
+            ("expiresAt", Expr::int(expires_at)),
+            ("delegationDepth", Expr::int(DELEGATION_DEPTH)),
+            ("spentTotal", Expr::int(spent)),
+            ("reserved", Expr::int(reserved)),
+            ("epochIndex", Expr::int(epoch_index)),
+            ("epochSpent", Expr::int(epoch_spent)),
+        ],
+    )
+}
+
+fn covenant_sigscript(
+    c: &CompiledContract<'_>,
+    function: &str,
+    args: Vec<Expr<'_>>,
+) -> Result<Vec<u8>, Box<dyn Error>> {
+    let mut s = c
+        .build_sig_script_for_covenant_decl(function, args, CovenantDeclCallOptions { is_leader: false })
+        .map_err(|e| format!("sigscript: {e:?}"))?;
+    let redeem = ScriptBuilder::with_flags(EngineFlags { covenants_enabled: true, ..Default::default() })
+        .add_data(&c.bytecode)?
+        .drain();
+    s.extend_from_slice(&redeem);
+    Ok(s)
+}
+
+/// Signs a covenant input. The covenant binding is part of the digest at v1 —
+/// see SIGNING.md. A signer that omits it produces a signature the engine
+/// refuses, and the failure looks exactly like a covenant bug.
+fn sign_covenant(tx: Transaction, entries: Vec<UtxoEntry>, idx: usize, kp: &Keypair) -> Result<Vec<u8>, Box<dyn Error>> {
+    let mtx = MutableTransaction::with_entries(tx, entries);
+    let reused = SigHashReusedValuesUnsync::new();
+    let sig_hash = calc_schnorr_signature_hash(&mtx.as_verifiable(), idx, SIG_HASH_ALL, &reused);
+    let msg = secp256k1::Message::from_digest_slice(sig_hash.as_bytes().as_slice())?;
+    let mut sig = kp.sign_schnorr(msg).as_ref().to_vec();
+    sig.push(SIG_HASH_ALL.to_u8());
+    Ok(sig)
+}
+
+fn formatted(sompi: i64) -> String {
+    format!("{:.3} KAS", sompi as f64 / KAS as f64)
+}
+
+fn hex(b: &[u8]) -> String {
+    b.iter().map(|x| format!("{x:02x}")).collect()
+}

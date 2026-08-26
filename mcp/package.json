@@ -1,0 +1,11 @@
+{
+  "name": "@warda/mcp",
+  "version": "0.1.0",
+  "description": "MCP server exposing Warda grant authority to agent frameworks. Advisory only — enforcement is on-chain.",
+  "type": "module",
+  "license": "MIT",
+  "bin": { "warda-mcp": "./src/server.ts" },
+  "engines": { "node": ">=22.6" },
+  "scripts": { "test": "node --experimental-strip-types --test test/*.test.ts" },
+  "dependencies": { "@modelcontextprotocol/sdk": "^1.30.0", "zod": "^3.23.0" }
+}

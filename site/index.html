@@ -1,0 +1,420 @@
+<title>Warda</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Dark-first: :root carries the complete dark palette. */
+:root{
+  --void:#0C0F12; --plate:#14191E; --raised:#1B2229; --sunken:#090C0F;
+  --ink:#E6E9EB; --ink-2:#A3AEB6; --ink-3:#6F7C85;
+  --rule:#242D35; --rule-2:#1A2128;
+  --brass:#D9A85C; --brass-2:#B8873F; --brass-wash:#241C10;
+  --verdigris:#6FAE9B; --verdigris-wash:#122019;
+  --oxide:#D0705F; --oxide-wash:#241310;
+  --f-display:"Archivo",-apple-system,"Segoe UI",sans-serif;
+  --f-body:"Source Serif 4",Georgia,serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:light){
+  :root:not([data-theme="dark"]){
+    --void:#EDEEEF; --plate:#F6F7F7; --raised:#FFFFFF; --sunken:#E2E5E7;
+    --ink:#12161A; --ink-2:#48525A; --ink-3:#78848C;
+    --rule:#CDD2D6; --rule-2:#DFE3E6;
+    --brass:#8A6524; --brass-2:#A87F35; --brass-wash:#F3EAD8;
+    --verdigris:#2F6153; --verdigris-wash:#E0EBE7;
+    --oxide:#93372D; --oxide-wash:#F4E0DC;
+  }
+}
+:root[data-theme="light"]{
+  --void:#EDEEEF; --plate:#F6F7F7; --raised:#FFFFFF; --sunken:#E2E5E7;
+  --ink:#12161A; --ink-2:#48525A; --ink-3:#78848C;
+  --rule:#CDD2D6; --rule-2:#DFE3E6;
+  --brass:#8A6524; --brass-2:#A87F35; --brass-wash:#F3EAD8;
+  --verdigris:#2F6153; --verdigris-wash:#E0EBE7;
+  --oxide:#93372D; --oxide-wash:#F4E0DC;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--void); color:var(--ink);
+  font-family:var(--f-body); font-size:17px; line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1080px; margin:0 auto; padding:0 28px}
+.narrow{max-width:66ch}
+section{padding:88px 0; border-top:1px solid var(--rule-2)}
+section:first-of-type{border-top:none}
+h2{
+  font-family:var(--f-display); font-weight:700; font-size:clamp(28px,4.4vw,44px);
+  line-height:1.08; letter-spacing:-.022em; margin:0 0 20px; text-wrap:balance;
+}
+h3{font-family:var(--f-display); font-weight:600; font-size:15px; letter-spacing:.05em;
+   text-transform:uppercase; color:var(--brass); margin:0 0 14px}
+p{margin:0 0 18px; max-width:66ch}
+.lede{font-size:20px; color:var(--ink-2)}
+.eyebrow{
+  font-family:var(--f-mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase;
+  color:var(--ink-3); margin:0 0 18px;
+}
+a{color:var(--brass)}
+
+/* ---- masthead ---- */
+header{padding:40px 0 0}
+.brandrow{display:flex; align-items:center; gap:14px}
+.wordmark{
+  font-family:var(--f-display); font-weight:700; font-size:22px;
+  letter-spacing:.15em; text-transform:uppercase; margin:0;
+}
+.hero{padding:64px 0 40px}
+.hero h1{
+  font-family:var(--f-display); font-weight:700;
+  font-size:clamp(40px,7.6vw,80px); line-height:.98; letter-spacing:-.035em;
+  margin:0 0 26px; text-wrap:balance; max-width:14ch;
+}
+.hero h1 em{font-style:normal; color:var(--brass); display:block}
+.hero .sub{font-size:20px; color:var(--ink-2); max-width:52ch; margin:0 0 30px}
+.cta{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+.btn{
+  font-family:var(--f-display); font-size:14px; font-weight:600; letter-spacing:.02em;
+  border:1px solid var(--brass); color:var(--brass); background:none;
+  padding:11px 20px; border-radius:2px; text-decoration:none; cursor:pointer;
+}
+.btn.solid{background:var(--brass); color:var(--void); }
+.fineprint{font-family:var(--f-mono); font-size:11.5px; color:var(--ink-3); margin-top:20px}
+
+/* ---- instrument ---- */
+.instrument{
+  border:1px solid var(--rule); background:var(--plate); border-radius:3px;
+  overflow:hidden; margin:8px 0 0;
+}
+.inst-head{
+  display:flex; gap:16px; align-items:baseline; flex-wrap:wrap;
+  padding:14px 18px; border-bottom:1px solid var(--rule-2); background:var(--raised);
+  font-family:var(--f-mono); font-size:11px; letter-spacing:.13em; text-transform:uppercase;
+  color:var(--ink-3);
+}
+.inst-head b{color:var(--brass); font-weight:500}
+.grantcard{
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:1px;
+  background:var(--rule-2); border-bottom:1px solid var(--rule-2);
+}
+.gc{background:var(--plate); padding:13px 18px}
+.gc .k{font-family:var(--f-mono); font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3)}
+.gc .v{font-family:var(--f-mono); font-size:15px; color:var(--ink); font-variant-numeric:tabular-nums; margin-top:3px}
+.picker{display:flex; flex-wrap:wrap; gap:0; border-bottom:1px solid var(--rule-2)}
+.pick{
+  font-family:var(--f-mono); font-size:11.5px; letter-spacing:.05em;
+  background:none; border:none; border-right:1px solid var(--rule-2);
+  color:var(--ink-3); padding:12px 16px; cursor:pointer; flex:1 1 auto;
+}
+.pick:hover{color:var(--ink); background:var(--raised)}
+.pick[aria-selected="true"]{color:var(--brass); background:var(--brass-wash); box-shadow:inset 0 -2px 0 var(--brass)}
+.readout{padding:20px 18px; font-family:var(--f-mono); font-size:13px; min-height:230px}
+.req{color:var(--ink-2); margin-bottom:14px}
+.req b{color:var(--ink); font-weight:600}
+.chk{display:flex; gap:10px; align-items:baseline; padding:3.5px 0; opacity:0; animation:in .18s ease forwards}
+@keyframes in{to{opacity:1}}
+.chk .mark{width:14px; flex:none}
+.chk.pass .mark{color:var(--verdigris)}
+.chk.fail .mark{color:var(--oxide)}
+.chk.fail .txt{color:var(--oxide)}
+.chk.skip{opacity:.32}
+.chk.skip .txt{text-decoration:line-through; color:var(--ink-3)}
+.verdict{
+  margin-top:16px; padding:13px 16px; border-radius:2px;
+  font-family:var(--f-display); font-weight:700; font-size:14px; letter-spacing:.09em; text-transform:uppercase;
+}
+.verdict.ok{background:var(--verdigris-wash); color:var(--verdigris); border:1px solid var(--verdigris)}
+.verdict.no{background:var(--oxide-wash); color:var(--oxide); border:1px solid var(--oxide)}
+.verdict small{display:block; font-family:var(--f-mono); font-size:11.5px; font-weight:400;
+  letter-spacing:.02em; text-transform:none; margin-top:5px; opacity:.85}
+@media (prefers-reduced-motion:reduce){.chk{animation:none; opacity:1}}
+
+/* ---- tables / grids ---- */
+.tw{overflow-x:auto; margin:26px 0}
+table{border-collapse:collapse; width:100%; font-size:15px; min-width:460px}
+th{font-family:var(--f-display); font-size:11px; font-weight:700; letter-spacing:.13em;
+   text-transform:uppercase; text-align:left; color:var(--ink-3);
+   padding:0 16px 10px 0; border-bottom:1px solid var(--ink-3)}
+td{padding:13px 16px 13px 0; border-bottom:1px solid var(--rule-2); vertical-align:top}
+td.mono{font-family:var(--f-mono); font-size:13.5px}
+.yes{color:var(--verdigris)} .no{color:var(--oxide)}
+.cards{display:grid; gap:14px; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); margin:28px 0}
+.card{border:1px solid var(--rule); background:var(--plate); padding:20px; border-radius:2px}
+.card h4{font-family:var(--f-mono); font-size:10.5px; letter-spacing:.12em; text-transform:uppercase;
+  color:var(--brass); margin:0 0 9px}
+.card p{font-size:15px; color:var(--ink-2); margin:0}
+pre{font-family:var(--f-mono); font-size:13px; line-height:1.6; background:var(--sunken);
+  border:1px solid var(--rule-2); border-left:2px solid var(--brass); padding:16px 18px;
+  overflow-x:auto; border-radius:2px; margin:22px 0; color:var(--ink)}
+.stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1px;
+  background:var(--rule-2); border:1px solid var(--rule-2); margin:28px 0}
+.stat{background:var(--plate); padding:20px}
+.stat .n{font-family:var(--f-display); font-weight:700; font-size:30px; color:var(--brass);
+  font-variant-numeric:tabular-nums; line-height:1}
+.stat .l{font-family:var(--f-mono); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--ink-3); margin-top:7px}
+footer{border-top:1px solid var(--rule); padding:36px 0 60px; font-family:var(--f-mono);
+  font-size:12px; color:var(--ink-3); display:flex; justify-content:space-between; gap:18px; flex-wrap:wrap}
+:focus-visible{outline:2px solid var(--brass); outline-offset:2px}
+</style>
+<div class="wrap">
+
+<header>
+  <div class="brandrow">
+    <svg width="34" height="34" viewBox="0 0 64 64" role="img" aria-label="Warda mark">
+      <rect x="6" y="6" width="52" height="52" rx="3" fill="none" stroke="currentColor" stroke-width="3"/>
+      <g fill="var(--brass)">
+        <circle cx="32" cy="24" r="8"/><rect x="28" y="24" width="8" height="26"/>
+        <rect x="20" y="32" width="8" height="6"/><rect x="36" y="42" width="8" height="6"/>
+      </g>
+    </svg>
+    <p class="wordmark">Warda</p>
+  </div>
+</header>
+
+<div class="hero">
+  <h1>Give agents money.<em>Not unlimited authority.</em></h1>
+  <p class="sub">Cryptographically enforced economic grants for autonomous agents. The limit is not a rule in a database — it is a covenant the settlement layer refuses to violate.</p>
+  <div class="cta">
+    <a class="btn solid" href="#build">Build with Warda</a>
+    <a class="btn" href="#proof">See what's proven</a>
+  </div>
+  <p class="fineprint">Open protocol · Non-custodial · Consensus-enforced · Built on Kaspa</p>
+</div>
+
+<section style="border-top:none;padding-top:12px">
+  <p class="eyebrow">Live — every rule below is the real covenant</p>
+  <div class="instrument">
+    <div class="inst-head"><span>Grant <b id="gid">#4482</b></span><span>Agent: research-bot</span><span>Covenant: Kaspa Toccata</span></div>
+    <div class="grantcard">
+      <div class="gc"><div class="k">Budget</div><div class="v">100 KAS</div></div>
+      <div class="gc"><div class="k">Max / spend</div><div class="v">2 KAS</div></div>
+      <div class="gc"><div class="k">Per epoch</div><div class="v">10 KAS</div></div>
+      <div class="gc"><div class="k">Recipients</div><div class="v">3</div></div>
+      <div class="gc"><div class="k">Expires</div><div class="v">7 days</div></div>
+    </div>
+    <div class="picker" role="tablist" aria-label="Choose what the agent attempts">
+      <button class="pick" role="tab" data-s="legit" aria-selected="true">legitimate spend</button>
+      <button class="pick" role="tab" data-s="overspend" aria-selected="false">overspend</button>
+      <button class="pick" role="tab" data-s="recipient" aria-selected="false">prompt injection</button>
+      <button class="pick" role="tab" data-s="rewrite" aria-selected="false">rewrite own limit</button>
+      <button class="pick" role="tab" data-s="delegate" aria-selected="false">delegation escalation</button>
+    </div>
+    <div class="readout" id="readout" aria-live="polite"></div>
+  </div>
+</section>
+
+<section>
+  <h2>Money still assumes someone is watching.</h2>
+  <p class="lede">An agent can act autonomously at three in the morning, across a thousand API calls, faster than any human reviews. The spending limit protecting you is a row in someone's database, checked by the same service that holds your keys.</p>
+  <p>So ask the uncomfortable question. What happens when the agent is compromised? When an API key leaks? When a prompt injection rewrites what the agent believes it was asked to do? When a backend is breached — or simply has a bug?</p>
+  <p>In every one of those cases the limit is enforced by software that has already failed.</p>
+</section>
+
+<section>
+  <h2>Turn authority into an asset.</h2>
+  <p class="lede">Instead of recording that an agent <em>is allowed</em> to spend 100 KAS, Warda commits the authority itself to the chain — as a covenant that computes, checks, and refuses.</p>
+  <div class="tw"><table>
+    <thead><tr><th>&nbsp;</th><th>Conventional</th><th>Warda</th></tr></thead>
+    <tbody>
+      <tr><td>The limit lives in</td><td>A database row</td><td class="mono">On-chain state</td></tr>
+      <tr><td>Enforced by</td><td>The wallet provider</td><td class="mono">Consensus</td></tr>
+      <tr><td>A counterparty can verify it</td><td class="no">Only by asking the provider</td><td class="yes">From the chain, independently</td></tr>
+      <tr><td>Provider is compromised</td><td class="no">The limit is advisory</td><td class="yes">The grant is unchanged</td></tr>
+      <tr><td>Agent is compromised</td><td class="no">Bounded by the policy engine</td><td class="yes">Bounded by what a valid transaction can be</td></tr>
+    </tbody>
+  </table></div>
+  <p>The grant's own <strong>address</strong> commits its state. Remaining budget is not something you look up — it is what the address means.</p>
+</section>
+
+<section id="proof">
+  <h2>Assume the agent is compromised.</h2>
+  <p class="lede">Warda does not make agents trustworthy. It limits what an untrusted agent can do. A lock's wards don't evaluate a policy — they're a shape, and the wrong key cannot turn.</p>
+  <div class="stats">
+    <div class="stat"><div class="n">82</div><div class="l">Tests</div></div>
+    <div class="stat"><div class="n">33</div><div class="l">Against the node engine</div></div>
+    <div class="stat"><div class="n">1,810</div><div class="l">Bytes of covenant</div></div>
+    <div class="stat"><div class="n">0</div><div class="l">Attacks that succeed</div></div>
+  </div>
+  <p>Each attack is proven by a <strong>flip test</strong>: a spend the engine accepts, with exactly one field changed. Because the baseline passes, the rejection can only be caused by that field. The engine collapses every failed check into one opaque error — so asserting "it was rejected" against a baseline that never passed would prove nothing at all.</p>
+  <div class="tw"><table>
+    <thead><tr><th>The agent attempts</th><th>Result</th></tr></thead>
+    <tbody>
+      <tr><td>Payment to an address not on the allowlist</td><td class="no">rejected</td></tr>
+      <tr><td>Spend beyond the per-transaction cap</td><td class="no">rejected</td></tr>
+      <tr><td>Payment diverted after presenting a valid proof</td><td class="no">rejected</td></tr>
+      <tr><td>Rewriting its own limits in the successor state</td><td class="no">rejected</td></tr>
+      <tr><td>Spending without recording the spend</td><td class="no">rejected</td></tr>
+      <tr><td>Granting a child more authority than it holds</td><td class="no">rejected</td></tr>
+      <tr><td>Delegating without reserving the funds</td><td class="no">rejected</td></tr>
+      <tr><td>A correctly formed spend</td><td class="yes">accepted</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2>Authority can be delegated. Never amplified.</h2>
+  <p class="lede">An agent can hand narrower authority to another agent, and the covenant reserves exactly what it hands over. Total authority in the tree cannot grow.</p>
+<pre>Principal        100 KAS   max 5
+   │
+   ├── Agent A     30 KAS   max 2      parent reserves 30
+   │      │
+   │      └── Agent B   10 KAS  max 1  parent reserves 10
+   │
+   └── Agent C     20 KAS   max 2      parent reserves 20
+
+Principal's own remaining authority: 50 KAS</pre>
+  <p>Reserving nothing, too little, or <em>too much</em> are all rejected. Over-reserving is safe for the principal and still refused — a covenant that tolerates it has an inequality where it needs an equality, and something sharper will eventually find that.</p>
+</section>
+
+<section>
+  <h2>Where it fits.</h2>
+  <div class="cards">
+    <div class="card"><h4>MCP / A2A</h4><p>How the agent reaches a tool.</p></div>
+    <div class="card"><h4>x402</h4><p>What the service costs.</p></div>
+    <div class="card"><h4>Warda</h4><p>Whether this agent is authorized to pay it.</p></div>
+    <div class="card"><h4>Kaspa</h4><p>Whether the payment actually happened.</p></div>
+  </div>
+  <p>Warda is not a wallet, a payment processor, or an agent framework. It sits below payment negotiation and above settlement, and it answers exactly one question.</p>
+  <p class="lede" style="margin-top:26px"><strong>AP2 proves authorization. Warda makes economic authority enforceable at the settlement layer.</strong></p>
+  <p>A signature attests that someone approved something. A covenant refuses to produce a valid transaction. Those differ in kind, not degree.</p>
+</section>
+
+<section id="build">
+  <h2>Three lines to give an agent a budget.</h2>
+<pre>const grant = await warda.createGrant({
+  budget:      "100 KAS",
+  maxPerSpend: "2 KAS",
+  recipients:  [searchApi, dataApi]
+});</pre>
+  <div class="cta">
+    <a class="btn solid" href="https://github.com/ArtyKOMarkets/warda">Read the source</a>
+    <a class="btn" href="https://github.com/ArtyKOMarkets/warda">Protocol spec</a>
+  </div>
+</section>
+
+<section>
+  <h2>Don't trust us. Verify it.</h2>
+  <div class="tw"><table>
+    <thead><tr><th>&nbsp;</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>Protocol specification</td><td class="yes">open</td></tr>
+      <tr><td>Covenant source</td><td class="yes">open</td></tr>
+      <tr><td>Grant state</td><td class="yes">on-chain, publicly readable</td></tr>
+      <tr><td>Verification</td><td class="yes">independently reproducible</td></tr>
+      <tr><td>Our hosted service</td><td class="no">not required for enforcement</td></tr>
+    </tbody>
+  </table></div>
+  <p>If everything we run disappeared tomorrow, every existing grant would continue to be enforced, because enforcement was never ours to perform.</p>
+</section>
+
+<section>
+  <h2>What isn't true yet.</h2>
+  <p class="lede">Two limits are worth stating plainly, because anyone who understands UTXO systems will find them in minutes.</p>
+  <div class="cards">
+    <div class="card"><h4>Expiry is a reclaim right</h4><p>A covenant cannot forbid a late spend — the timelock primitive expresses "not before", never "not after". After expiry the principal can sweep the balance, and the agent's authority ends when they do.</p></div>
+    <div class="card"><h4>Revocation doesn't race</h4><p>Revoking makes the balance unreachable from the next block on. Nothing in a UTXO system retracts a transaction that is already broadcast.</p></div>
+  </div>
+  <p>Nothing here has run on mainnet. The protocol is unaudited, the covenant language it targets is pre-1.0, and the hosted services described in the spec do not exist.</p>
+</section>
+
+<footer>
+  <span>Warda — experimental, unaudited</span>
+  <span>Built on Kaspa Toccata</span>
+</footer>
+
+</div>
+<script>
+// The scenarios mirror the covenant's real guard order. Checks run in the same
+// sequence the script does, and a failure stops evaluation there — which is
+// also why the on-chain error is opaque: the engine reports one failure, not
+// a list.
+const CHECKS = [
+  ["signature valid", "sig"],
+  ["amount within per-spend cap", "cap"],
+  ["amount within remaining budget", "budget"],
+  ["epoch limit respected", "epoch"],
+  ["recipient on the allowlist", "recipient"],
+  ["successor state correct", "successor"],
+  ["child authority ≤ parent", "attenuation"],
+];
+
+const SCENARIOS = {
+  legit: {
+    req: 'pay <b>0.05 KAS</b> to <b>search-api</b>',
+    fails: null,
+    steps: ["sig","cap","budget","epoch","recipient","successor"],
+    ok: "Paid",
+    note: "Remaining budget 99.95 KAS. The successor address now commits the new state.",
+  },
+  overspend: {
+    req: 'pay <b>20 KAS</b> to <b>search-api</b>',
+    fails: "cap",
+    steps: ["sig","cap","budget","epoch","recipient","successor"],
+    ok: null,
+    note: "20 KAS exceeds the 2 KAS per-transaction cap. No valid transaction exists to broadcast.",
+  },
+  recipient: {
+    req: 'prompt injection — pay <b>1 KAS</b> to <b>attacker address</b>',
+    fails: "recipient",
+    steps: ["sig","cap","budget","epoch","recipient","successor"],
+    ok: null,
+    note: "The agent builds and signs this willingly. There is simply no Merkle proof that places the attacker in the allowlist tree.",
+  },
+  rewrite: {
+    req: 'spend <b>0.5 KAS</b>, and raise own cap to <b>100 KAS</b>',
+    fails: "successor",
+    steps: ["sig","cap","budget","epoch","recipient","successor"],
+    ok: null,
+    note: "Authority is immutable across a spend. An agent that can raise its own cap has no cap.",
+  },
+  delegate: {
+    req: 'delegate a child with <b>max 5 KAS</b> — parent allows 2',
+    fails: "attenuation",
+    steps: ["sig","budget","attenuation","successor"],
+    ok: null,
+    note: "A child may only ever be narrower than its parent, on every axis.",
+  },
+};
+
+const readout = document.getElementById("readout");
+const label = (k) => (CHECKS.find((c) => c[1] === k) || ["", ""])[0];
+
+function render(key) {
+  const s = SCENARIOS[key];
+  readout.innerHTML = "";
+  const req = document.createElement("div");
+  req.className = "req";
+  req.innerHTML = "agent requests: " + s.req;
+  readout.appendChild(req);
+
+  let stopped = false;
+  s.steps.forEach((k, i) => {
+    const row = document.createElement("div");
+    const failed = s.fails === k;
+    row.className = "chk " + (stopped ? "skip" : failed ? "fail" : "pass");
+    row.style.animationDelay = (i * 90) + "ms";
+    row.innerHTML =
+      '<span class="mark">' + (stopped ? "·" : failed ? "✕" : "✓") + "</span>" +
+      '<span class="txt">' + label(k) + "</span>";
+    readout.appendChild(row);
+    if (failed) stopped = true;
+  });
+
+  const v = document.createElement("div");
+  v.className = "verdict " + (s.fails ? "no" : "ok");
+  v.style.animationDelay = (s.steps.length * 90 + 60) + "ms";
+  v.innerHTML = (s.fails ? "Rejected by consensus" : "Accepted") +
+    "<small>" + s.note + "</small>";
+  readout.appendChild(v);
+}
+
+document.querySelectorAll(".pick").forEach((b) => {
+  b.addEventListener("click", () => {
+    document.querySelectorAll(".pick").forEach((x) => x.setAttribute("aria-selected", "false"));
+    b.setAttribute("aria-selected", "true");
+    render(b.dataset.s);
+  });
+});
+render("legit");
+</script>

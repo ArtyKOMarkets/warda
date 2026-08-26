@@ -3,3 +3,7 @@ dist/
 *.log
 .DS_Store
 _gitjunk/
+*.key
+target/
+grant.json
+covenant-template.json

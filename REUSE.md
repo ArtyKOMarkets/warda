@@ -41,6 +41,7 @@ Reproduced from `KOM_RUST_DEPLOY_GUIDE.md`. Each cost real debugging time.
 | 4 | `covenant_id` must be **inherited** from genesis, not re-derived — `txscript covenants.rs` requires `output.covenant_id == input.covenant_id` | A grant keeps one covenant id across its whole life, including delegation |
 | 5 | v1 inputs must carry `compute_budget = 1000` to match the node | Set it and assert it |
 | 6 | Per-state output spks (above) | Architectural — see previous section |
+| **7** | **`compute_budget = 1000` is ~300× over-provisioned** — and budget is charged as transaction MASS, so it is not a free margin. Demands a ~10 KAS fee per covenant transaction | Measured: one signature costs 100,000 script units, the covenant ~24,000 on top. Use **12** for a plain input, **16** for a covenant spend |
 
 ## The debugging method — adopt this in Phase 1, not after
 
@@ -83,3 +84,11 @@ Note the CLI's `--ctor` JSON is awkward: `ExprKind` is serde-tagged
   Silverscript with the debugger — is the right posture for Warda too, except
   Warda has no proven hand-written covenants to keep. We are all new work, so the
   local repro harness matters more for us, not less.
+
+
+## Repaid
+
+Bug #7 is the first thing this project found that KOMarkets did not. On testnet
+the over-provisioned fee is invisible; on mainnet it is roughly 10 KAS of
+unnecessary fee on every covenant transaction KOM sends. Worth fixing in
+`kom_deploy.rs` before real value moves.

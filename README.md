@@ -1,164 +1,129 @@
-# @warda/core
+# Warda
 
-Reference implementation of the **Warda agent grant protocol** — the executable
-definition of what a Kaspa Toccata covenant must enforce.
+**Give agents money. Not unlimited authority.**
 
-This package settles the protocol semantics *before* anyone fights a pre-v1
-compiler. It runs with no chain, no network and no dependencies, and it emits
-the test vectors any covenant implementation is validated against.
+An open protocol for creating, delegating, verifying and enforcing cryptographic
+economic grants for autonomous software agents, on Kaspa.
+
+A principal commits funds to a *grant* and defines what the agent may do with
+them. The property that matters:
+
+> The agent cannot exceed the authority encoded in its grant — even if the agent
+> itself, its wallet software, or the Warda backend is compromised.
+
+Enforcement is not a policy in a database. It is a Toccata covenant: the
+settlement layer refuses to produce a valid transaction.
+
+---
+
+## Live on testnet-10
+
+An agent was prompt-injected and told to pay an address outside its allowlist.
+**The network refused the transaction.**
+
+| | |
+|---|---|
+| Legitimate spend — accepted | `36f3dff2e5218651d80e62f1c7e620313a58fbc6ecd18a81d68050a33544fb55` |
+| Prompt injection — refused | `e251a20effea166c90f9cf4f19e28073856e57b3dc9ef0209269347e7a1396f1` |
+
+Same grant, same address, same key — differing in one field, the payee. Full
+detail in [DEPLOYED.md](DEPLOYED.md).
+
+## Status: experimental, unaudited, nothing on mainnet
+
+The spend and delegation covenants exist and are **proven against
+`TxScriptEngine`** — the same script engine a Kaspa node uses to validate a
+transaction. 33 covenant tests, 45 protocol tests, sub-second, no node required.
+
+| | |
+|---|---|
+| Protocol semantics | `@warda/core`, 45 tests |
+| Spend covenant | proven, 1,810 bytes |
+| Delegation covenant | proven, conservation demonstrated |
+| Consensus limits | measured — [LIMITS.md](LIMITS.md) |
+| Signing path | verified — [SIGNING.md](SIGNING.md) |
+| On a public network | **testnet-10** — [DEPLOYED.md](DEPLOYED.md) |
+
+Nothing here has touched mainnet, and Silverscript itself is pre-v1 and may
+break without notice.
+
+## Quick start
 
 ```bash
-npm run check     # typecheck + 45 tests, including the full attack suite
-npm test          # tests only
-npm run vectors   # regenerate vectors/vectors.json
+npm run check                              # protocol semantics: typecheck + 45 tests
+cd covenant/harness && cargo test          # covenant vs. the node engine: 33 tests
+cd covenant/deploy && cargo run -- dry-run # deploy tool, no node needed
 ```
 
-Requires Node ≥ 22.6 (native TypeScript type stripping — there is no build step).
+## What is actually proven
 
----
+Each row below has a **flip test**: a spend the engine *accepts*, with exactly
+one field changed. Because the baseline passes, the rejection can only be caused
+by that field.
 
-## Phase 0 findings
-
-Checked against Kaspa's current documentation, August 2026.
-
-| Question | Answer |
+| Attack | Verdict |
 |---|---|
-| Is Toccata live? | **Yes — mainnet since 30 June 2026**, DAA score 474,165,565 |
-| Does it support transaction introspection? | **Yes** — inputs, outputs, covenant groups, auth groups, hashes, byte slices |
-| Can a script validate its own successor output? | **Yes.** The documented pattern is exactly Warda's: the transaction reveals the preimage, the script computes the next state, and refuses to pass unless the transaction creates the next committed UTXO |
-| Is Silverscript production-ready? | **No.** Pre-v1, "unstable and may introduce breaking changes without notice". The maintainers recommend testnet-10 only until a stable release |
-| Script size / compute budget limits? | **Undocumented.** "Keep state small enough for script limits and transaction mass" — with no numbers. This must be *measured*, not read |
+| Prompt injection to an unlisted payee | rejected |
+| Overspend past the per-transaction cap | rejected |
+| Payment diverted after a valid proof | rejected |
+| Agent rewrites its own authority | rejected |
+| Successor state not advanced | rejected |
+| Delegation escalation, on every axis | rejected |
+| Authority created by delegating | rejected |
+| **A correctly formed spend** | **accepted** |
 
-**Conclusion:** the covenant Warda needs is expressible today. The risk is
-tooling maturity, not consensus capability. Build against testnet-10.
-
----
-
-## Open design issues
-
-Found while implementing. Each needs a decision before the phase named.
-
-### 1. Recipient subset — RESOLVED
-
-`child.recipients ⊆ parent.recipients` is not decidable from a Merkle root, so
-the child **witnesses** the relation instead of asserting it. Two modes:
-
-| Mode | Cost | Use |
-|---|---|---|
-| `inherit` | one root equality | the child takes the parent's whole allowlist |
-| `subset` | k inclusion proofs + k−1 hashes | the child names its members and proves each is in the parent tree |
-
-In `subset` mode the members must arrive in strict ascending order. Verifying
-that a list is sorted costs k−1 comparisons; sorting it inside a script costs
-far more. Ordering also forces one encoding per set, so the child root is
-unique, and strictness rejects duplicates — without it a child could claim k
-members while really holding fewer. The child's committed root is then rebuilt
-from the witnessed leaves and compared, so it cannot prove a narrow set and
-commit to a wide one.
-
-**Rejected alternatives.** *Singleton-only children* is just `subset` with k=1
-and needlessly restrictive once the general path exists. *"Child root must be
-an internal node of the parent tree"* costs one proof instead of k, but only
-permits contiguous runs of the canonical ordering — which subsets are
-expressible would depend on how addresses happen to sort. Unusable.
-
-`MAX_SUBSET_MEMBERS` is **8, provisionally**. The real ceiling is whatever
-Toccata's script budget allows, which is undocumented. Set it from a
-measurement, not from taste.
-
-### 2. The hash — SETTLED
-
-Kaspa's `OpBlake2b` is `blake2b_simd::Params::new().hash_length(32)`: plain
-BLAKE2b-256, unkeyed, no personalization, no salt. Read straight out of the
-script engine, not inferred.
-
-Node's crypto cannot produce it — it exposes only `blake2b512`, and truncating
-that is **not** BLAKE2b-256 (different IV parameterisation). Hence the single
-runtime dependency on `@noble/hashes`.
-
-Verified: `RecipientSet` here and the Rust tree in `covenant/harness` produce
-**byte-identical roots**, and the covenant accepts a proof built from either.
-
-### 3. Fixed epochs permit 2× the limit across a boundary
-
-An agent can spend its full epoch limit at the end of one epoch and again at
-the start of the next. This is a property of fixed epochs, accepted for v0.1,
-and pinned by a test so it is never rediscovered as a bug report. It belongs in
-the public docs.
-
-### 4. `maxPerSpend > budgetTotal` is legal
-
-An early guard rejected this. It was wrong: a child with a 0.5 KAS budget that
-inherits a 2 KAS per-spend cap is well-formed — the cap simply never binds
-because the budget binds first. Rejecting it breaks small delegations. Worth an
-SDK warning; not a protocol rule.
-
----
-
-### 5. Domain separators must be NON-ZERO
-
-`0x00` as a Merkle domain separator is a **silent no-op** in Kaspa script,
-which encodes the value zero as the EMPTY byte string. `byte[](0x00)` compiles
-to nothing, so leaves were hashed unprefixed while nodes got their `0x01` —
-the source read as domain-separated, the bytecode was not.
-
-Found by per-opcode tracing against the real engine. Review would not have
-caught it; nor would any test that only checks TypeScript against itself.
-`LEAF` is now `0x01` and `NODE` is `0x02`, matching `warda_grant.sil`.
-
-## Two bugs the test suite caught
-
-Recorded because both are easy to reintroduce in the covenant.
-
-**Merkle proofs broke on odd-sized sets.** Odd nodes are promoted rather than
-duplicated (duplication enables the CVE-2012-2459 ambiguity where two distinct
-trees share a root). But promotion skips a level, and a verifier that derives
-left/right from index parity desynchronises. Each sibling now carries its own
-`left` flag. A size sweep from 1 to 33 keeps it caught.
-
-**A hostile successor crashed the validator.** A negative `spentTotal` threw
-inside the u64 encoder instead of returning a rejection. A covenant would
-simply fail; an SDK that throws on hostile input hands an attacker a
-denial-of-service. `statesEqual` now returns `false` for anything that cannot
-be canonically encoded.
-
----
+This distinction matters more than it looks. The engine collapses every failed
+`require` into one opaque `VerifyError` — it never says *which* rule rejected. So
+`assert!(is_err())` against a baseline that never passed proves nothing at all: a
+malformed script produces the same verdict as a working per-spend cap.
 
 ## Layout
 
 ```
-src/
-  types.ts        Grant, GrantState, failure codes
-  hash.ts         canonical u64/u32 encoding, pluggable hash  ← placeholder
-  amounts.ts      sompi arithmetic; bigint only, never floats
-  merkle.ts       recipient allowlist tree and inclusion proofs
-  grant.ts        canonical encoding, grant_id derivation, available()
-  epoch.ts        DAA-based fixed-epoch accounting
-  validate.ts     validateSpend, validateDelegation, revoke
-test/
-  attacks.test.ts       the spec's Phase 7 malicious agent — 15 attacks
-  recipients.test.ts    inherit and subset witness modes — 12 cases
-  conservation.test.ts  authority conservation over randomised trees
-  epoch.test.ts         epoch boundaries and the known 2× property
-  merkle.test.ts        proofs, tampering, size sweep
-vectors/
-  generate.ts     emits vectors.json
+src/            @warda/core — protocol semantics in TypeScript, no dependencies
+test/           45 tests: attacks, conservation, epochs, allowlists
+vectors/        test vectors any covenant implementation is checked against
+covenant/
+  warda_grant.sil    the covenant
+  harness/           executes it against the node's script engine
+  deploy/            puts it on testnet-10
 ```
 
-## Design rules
+## Findings
 
-- **All amounts are `bigint` sompi.** No floats anywhere near money.
-- **Failures are collected, not short-circuited.** A covenant may reject on the
-  first failure; the reference implementation reports all of them, because the
-  attack demo needs to show precisely which rules bit.
-- **Successor validation is the load-bearing check.** Without it every other
-  limit is decorative — an agent that can rewrite its remaining budget has no
-  budget. See `ATTACK 4` in the attack suite.
-- **`available = budgetTotal − spentTotal − reserved`.** `reserved` is what has
-  been delegated to children. This is what makes delegation conserve authority
-  instead of creating it.
+The interesting parts of this project are the things that turned out not to be
+true. Each of these cost real debugging and is written up:
 
-## Status
+- **[PHASE0.md](PHASE0.md)** — Toccata is mainnet-live; `tx.daa` is write-only, so
+  epochs need a different construction; **expiry cannot be enforced** — it is a
+  reclaim right, not a spend prohibition
+- **[DEPLOYED.md](DEPLOYED.md)** — the testnet transactions, and the four things
+  only a real network could teach us
+- **[LIMITS.md](LIMITS.md)** — script size, compute budget and stack depth. Includes
+  a corrected measurement: the first compute figure was taken with the signature
+  charge suppressed, and measured the flag rather than the system
+- **[SIGNING.md](SIGNING.md)** — covenant bindings enter the signature only at
+  transaction **version 1**; a v0 signer fails in a way that looks exactly like a
+  covenant bug
+- **[DELEGATION.md](DELEGATION.md)** — why authority had to move out of constructor
+  parameters and into state before delegation could be expressed at all
+- **[REUSE.md](REUSE.md)** — six bugs inherited from a prior Kaspa covenant project,
+  every one of which bit again
+- **[CORE.md](CORE.md)** — `@warda/core` internals and design rules
 
-Experimental. Unaudited. No covenant yet — this is the specification the
-covenant will be checked against.
+The single best example: `byte constant LEAF = 0x00` compiles to an **empty**
+byte array, because Kaspa script encodes zero as the empty string. The Merkle
+leaf domain separator silently vanished — the source read as domain-separated,
+the bytecode was not. No code review catches that, and no test comparing one
+implementation to itself catches it either, because both sides were consistently
+wrong. It took per-opcode tracing against the real engine.
+
+## Not built yet
+
+The presentation-layer challenge, covenant-side allowlist narrowing (a child
+currently inherits its parent's allowlist rather than narrowing it), multi-level
+delegation beyond one generation, and the hosted services.
+
+## License
+
+MIT.

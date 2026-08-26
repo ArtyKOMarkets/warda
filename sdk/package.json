@@ -1,0 +1,10 @@
+{
+  "name": "@warda/kaspa",
+  "version": "0.1.0",
+  "description": "Derive Warda grant addresses and build agent spends. No Silverscript compiler required.",
+  "type": "module",
+  "license": "MIT",
+  "engines": { "node": ">=22.6" },
+  "scripts": { "test": "node --experimental-strip-types --test test/*.test.ts" },
+  "dependencies": { "@noble/hashes": "^2.3.0" }
+}
