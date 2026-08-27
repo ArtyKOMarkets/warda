@@ -8,3 +8,4 @@ target/
 grant.json
 _to_delete/
 js-spend.json
+js-genesis.json

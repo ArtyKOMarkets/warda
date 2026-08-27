@@ -9,8 +9,8 @@ recipients. The agent spends from it directly — no co-signing, no relay, no
 custody — and the network rejects anything outside those limits. The principal
 signs once, to create the grant, and is never online again.
 
-This package builds and signs those spends from JavaScript. No Silverscript
-compiler, no Rust toolchain, no node process of its own.
+This package creates those grants and signs those spends, from JavaScript. No
+Silverscript compiler, no Rust toolchain, no node process of its own.
 
 ```
 npm install @warda/kaspa
@@ -30,6 +30,38 @@ where mistakes are loud.
 
 **It does not broadcast.** A spend is an ordinary transaction once it is built;
 submit it with whatever node client you already use.
+
+## Creating a grant
+
+Genesis is an ordinary P2PK spend that happens to pay into a covenant. One
+thing about it is not ordinary, and it fails quietly if you get it wrong:
+
+```ts
+import { buildGenesis, attachGenesisSignature, signDigest } from "@warda/kaspa";
+
+const genesis = buildGenesis({
+  template,
+  grant: { authority, state },   // state must be all-zero: a grant starts new
+  funding: yourWalletUtxo,
+  grantValue: 1_000_000_000n,
+  fee: 1_000_000n,
+  computeBudget: 12,
+});
+
+const tx = attachGenesisSignature(genesis, signDigest(genesis.sighash, principalKey));
+// genesis.covenantId, genesis.grantScriptHash — record both; see below.
+```
+
+The grant output carries a covenant **binding**, which contains a covenant
+**id** derived from the funding outpoint and the authorized outputs — each
+hashed *without* its binding, to avoid self-reference. So the output is built
+unbound, the id computed over it, and only then is the binding written in.
+Reverse that order and you get a well-formed transaction, paying a plausible
+address, whose grant nothing can ever spend. Nothing surfaces until the agent's
+first payment is refused for reasons that look like a covenant bug.
+
+**Record the grant's parameters before you broadcast.** Its address is derived
+from them, so losing them strands the UTXO.
 
 ## Building a spend
 
@@ -132,7 +164,8 @@ misreading of the spec would satisfy both.
 So a built transaction can be written out and handed to the engine directly:
 
 ```
-npm run build:golden > js-spend.json
+npm run build:golden  > js-spend.json      # a spend
+npm run build:genesis > js-genesis.json    # a grant being created
 cd ../covenant/deploy && cargo run -- verify ../../sdk/js-spend.json
 ```
 

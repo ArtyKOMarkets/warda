@@ -364,6 +364,115 @@ fn build_spend_full(plan: &SpendPlan, kp: &Keypair) -> Result<BuiltSpend, Box<dy
     })
 }
 
+// ---- shared genesis construction ----------------------------------------
+//
+// `genesis` and `golden` both go through this, for the same reason `spend`,
+// `inject` and `dry-run` share build_spend: a golden vector produced by its
+// own code path would validate that code path, not the one that submits.
+
+struct GenesisPlan {
+    agent: [u8; 32],
+    principal: [u8; 32],
+    root: [u8; 32],
+    not_before: i64,
+    expires_at: i64,
+    funding_outpoint: TransactionOutpoint,
+    funding_value: u64,
+    funding_block_daa: u64,
+    funding_is_coinbase: bool,
+    grant_value: u64,
+}
+
+struct BuiltGenesis {
+    tx: Transaction,
+    entry: UtxoEntry,
+    unsigned: Transaction,
+    sighash: [u8; 32],
+    signature_script: Vec<u8>,
+    covenant_id: kaspa_consensus_core::Hash,
+    contract: CompiledContract<'static>,
+    grant_spk: ScriptPublicKey,
+    change_spk: ScriptPublicKey,
+    change_value: u64,
+}
+
+fn build_genesis(plan: &GenesisPlan, kp: &Keypair) -> Result<BuiltGenesis, Box<dyn Error>> {
+    if plan.funding_value < plan.grant_value + GENESIS_FEE {
+        return Err(format!(
+            "funding {} is less than grant {} + fee {GENESIS_FEE}",
+            plan.funding_value, plan.grant_value
+        )
+        .into());
+    }
+
+    let contract = compile(grant_ctor(
+        plan.agent, plan.principal, plan.root, plan.not_before, plan.expires_at, 0, 0, 0, 0,
+    ))?;
+    let grant_spk = pay_to_script_hash_script(&contract.bytecode);
+    let funding_addr = address_of(kp);
+    let change_spk = pay_to_address_script(&funding_addr);
+    let change_value = plan.funding_value - plan.grant_value - GENESIS_FEE;
+
+    // Build the grant output UNBOUND first: covenant_id is derived from the
+    // funding outpoint plus this output, so it cannot contain its own binding.
+    // Then rebuild it carrying that id.
+    let unbound =
+        TransactionOutput { value: plan.grant_value, script_public_key: grant_spk.clone(), covenant: None };
+    let covenant_id = covenant_id(plan.funding_outpoint, std::iter::once((0u32, &unbound)));
+
+    let grant_out = TransactionOutput {
+        value: plan.grant_value,
+        script_public_key: grant_spk.clone(),
+        covenant: Some(CovenantBinding { authorizing_input: 0, covenant_id }),
+    };
+    let change_out =
+        TransactionOutput { value: change_value, script_public_key: change_spk.clone(), covenant: None };
+
+    let entry = UtxoEntry::new(
+        plan.funding_value,
+        change_spk.clone(),
+        plan.funding_block_daa,
+        plan.funding_is_coinbase,
+        None,
+    );
+
+    // VERSION 1 — covenant bindings only enter the sighash at v1.
+    let make = |sigscript: Vec<u8>| {
+        Transaction::new(
+            1,
+            vec![TransactionInput::new_with_compute_budget(
+                plan.funding_outpoint,
+                sigscript,
+                0,
+                GENESIS_COMPUTE_BUDGET,
+            )],
+            vec![grant_out.clone(), change_out.clone()],
+            0,
+            SUBNETWORK_ID_NATIVE,
+            0,
+            vec![],
+        )
+    };
+
+    let unsigned = make(vec![]);
+    let sighash = sighash_of(&unsigned, vec![entry.clone()], 0);
+    let signature_script = sign_p2pk(unsigned.clone(), vec![entry.clone()], 0, kp)?;
+    let tx = make(signature_script.clone());
+
+    Ok(BuiltGenesis {
+        tx,
+        entry,
+        unsigned,
+        sighash,
+        signature_script,
+        covenant_id,
+        contract,
+        grant_spk,
+        change_spk,
+        change_value,
+    })
+}
+
 /// The digest a signer must reproduce. At v1 this commits to the covenant
 /// binding as well as the usual fields — SIGNING.md — which is the single
 /// thing a second implementation is most likely to get wrong, and the reason
@@ -443,89 +552,51 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 .iter()
                 .max_by_key(|u| u.utxo_entry.amount)
                 .ok_or("no UTXOs at the funding address — use the faucet first")?;
-            let funding_value = funding.utxo_entry.amount;
-            println!("funding utxo   : {} sompi", funding_value);
-
-            let grant_value = BUDGET as u64;
-            if funding_value < grant_value + GENESIS_FEE {
-                return Err(format!(
-                    "funding {funding_value} is less than grant {grant_value} + fee {GENESIS_FEE}"
-                )
-                .into());
-            }
+            println!("funding utxo   : {} sompi", funding.utxo_entry.amount);
 
             let agent = kp.x_only_public_key().0.serialize();
             let root = merkle_root(&demo_recipients());
             // Window opens now and runs for ~1 day of DAA at 10 bps.
             let not_before = daa as i64;
-            let expires_at = not_before + 864_000;
 
-            let contract = compile(grant_ctor(agent, agent, root, not_before, expires_at, 0, 0, 0, 0))?;
-            let grant_spk = pay_to_script_hash_script(&contract.bytecode);
-            println!("covenant bytes : {}", contract.bytecode.len());
+            let plan = GenesisPlan {
+                agent,
+                principal: agent,
+                root,
+                not_before,
+                expires_at: not_before + 864_000,
+                funding_outpoint: TransactionOutpoint {
+                    transaction_id: funding.outpoint.transaction_id,
+                    index: funding.outpoint.index,
+                },
+                funding_value: funding.utxo_entry.amount,
+                funding_block_daa: funding.utxo_entry.block_daa_score,
+                funding_is_coinbase: funding.utxo_entry.is_coinbase,
+                grant_value: BUDGET as u64,
+            };
+
+            let b = build_genesis(&plan, &kp)?;
+            let grant_addr = extract_script_pub_key_address(&b.grant_spk, Prefix::Testnet)?;
+            println!("covenant bytes : {}", b.contract.bytecode.len());
             println!("recipients root: {}", hex(&root));
             println!("not_before     : {not_before}");
-            println!("expires_at     : {expires_at}");
-
-            let outpoint = TransactionOutpoint {
-                transaction_id: funding.outpoint.transaction_id,
-                index: funding.outpoint.index,
-            };
-
-            // Build the grant output UNBOUND first: covenant_id is derived from
-            // the funding outpoint plus this output, so it cannot contain its
-            // own binding. Then rebuild it carrying that id.
-            let unbound = TransactionOutput { value: grant_value, script_public_key: grant_spk.clone(), covenant: None };
-            let cov = covenant_id(outpoint, std::iter::once((0u32, &unbound)));
-            let grant_out = TransactionOutput {
-                value: grant_value,
-                script_public_key: grant_spk,
-                covenant: Some(CovenantBinding { authorizing_input: 0, covenant_id: cov }),
-            };
-            let change_out = TransactionOutput {
-                value: funding_value - grant_value - GENESIS_FEE,
-                script_public_key: pay_to_address_script(&addr),
-                covenant: None,
-            };
-
-            let entry = UtxoEntry::new(
-                funding_value,
-                pay_to_address_script(&addr),
-                funding.utxo_entry.block_daa_score,
-                funding.utxo_entry.is_coinbase,
-                None,
-            );
-
-            // VERSION 1 — covenant bindings only enter the sighash at v1.
-            let make = |sigscript: Vec<u8>| {
-                Transaction::new(
-                    1,
-                    vec![TransactionInput::new_with_compute_budget(outpoint, sigscript, 0, GENESIS_COMPUTE_BUDGET)],
-                    vec![grant_out.clone(), change_out.clone()],
-                    0,
-                    SUBNETWORK_ID_NATIVE,
-                    0,
-                    vec![],
-                )
-            };
-            let sigscript = sign_p2pk(make(vec![]), vec![entry.clone()], 0, &kp)?;
-            let tx = make(sigscript);
+            println!("expires_at     : {}", plan.expires_at);
+            println!("grant address  : {grant_addr}");
 
             // The grant's ADDRESS is derived from its parameters, so losing
             // them strands the UTXO. Persist before submitting, not after —
             // a submit that succeeds while the write fails is unrecoverable.
+            let cov = b.covenant_id;
             let manifest = format!(
-                "{{\n  \"covenant_id\": \"{cov}\",\n  \"agent\": \"{}\",\n  \"recipients_root\": \"{}\",\n  \"not_before\": {not_before},\n  \"expires_at\": {expires_at},\n  \"budget\": {BUDGET},\n  \"max_per_spend\": {MAX_PER_SPEND},\n  \"epoch_limit\": {EPOCH_LIMIT},\n  \"epoch_length\": {EPOCH_LENGTH},\n  \"grant_value\": {grant_value},\n  \"spent_total\": 0,\n  \"reserved\": 0,\n  \"epoch_index\": 0,\n  \"epoch_spent\": 0\n}}\n",
-                hex(&agent), hex(&root)
+                "{{\n  \"covenant_id\": \"{cov}\",\n  \"agent\": \"{}\",\n  \"recipients_root\": \"{}\",\n  \"not_before\": {not_before},\n  \"expires_at\": {},\n  \"budget\": {BUDGET},\n  \"max_per_spend\": {MAX_PER_SPEND},\n  \"epoch_limit\": {EPOCH_LIMIT},\n  \"epoch_length\": {EPOCH_LENGTH},\n  \"grant_value\": {},\n  \"spent_total\": 0,\n  \"reserved\": 0,\n  \"epoch_index\": 0,\n  \"epoch_spent\": 0\n}}\n",
+                hex(&agent), hex(&root), plan.expires_at, plan.grant_value
             );
             std::fs::write("grant.json", &manifest)?;
             println!("wrote grant.json");
             println!("covenant id    : {cov}");
-            println!("grant address  : (P2SH of the covenant at zero state)");
-            let txid = client.submit_transaction((&tx).into(), false).await?;
+            let txid = client.submit_transaction((&b.tx).into(), false).await?;
             println!("\nsubmitted. txid: {}", txid);
         }
-
 
         cmd @ ("spend" | "inject") => {
             let injecting = cmd == "inject";
@@ -1194,6 +1265,179 @@ r#"{{
             println!("  unsigned sigscript: {} bytes", b.unsigned.inputs[0].signature_script.len());
             println!("  sighash       : {}", hex(&b.sighash));
             println!("  txid          : {}", b.tx.id());
+
+            // ---- and the genesis that creates a grant in the first place ----
+            //
+            // Spending is only half the protocol. Until a second
+            // implementation can ISSUE a grant, a principal still needs the
+            // Rust tool, and "an agent can be given a budget" is not something
+            // an application can do on its own.
+            //
+            // The chicken-and-egg here is the part worth pinning: the grant
+            // output's covenant binding contains a covenant id derived from
+            // the funding outpoint and that same output — so the id is
+            // computed over the output WITHOUT its binding, then written into
+            // it. Get that order wrong and the id is self-referential and
+            // wrong, with nothing to indicate which of the two it was.
+            let gplan = GenesisPlan {
+                agent,
+                principal: agent,
+                root,
+                not_before,
+                expires_at: not_before + 864_000,
+                funding_outpoint: TransactionOutpoint {
+                    transaction_id: kaspa_consensus_core::Hash::from_bytes([0x5au8; 32]),
+                    index: 1,
+                },
+                funding_value: (BUDGET as u64) + GENESIS_FEE + 25 * (KAS as u64),
+                funding_block_daa: not_before as u64,
+                funding_is_coinbase: false,
+                grant_value: BUDGET as u64,
+            };
+            let g = build_genesis(&gplan, &kp)?;
+            let funding_addr = address_of(&kp);
+            let genesis_grant_addr = extract_script_pub_key_address(&g.grant_spk, Prefix::Testnet)?;
+
+            let genesis_json = format!(
+r#"{{
+  "note": "Reference genesis: the transaction that CREATES a grant. Produced by the same build_genesis() the deploy tool submits. Compare the unsigned transaction and the sighash; the signature is nondeterministic.",
+  "generatedBy": "warda-deploy golden",
+  "network": "kaspatest",
+
+  "key": {{
+    "_comment": "Fixed and public. NEVER FUND THIS.",
+    "secretHex": "{sk}",
+    "xonlyPublicHex": "{agent}"
+  }},
+
+  "params": {{
+    "principalKey": "{agent}",
+    "revocationKey": "{agent}",
+    "agentKey": "{agent}",
+    "maxFee": {max_fee},
+    "budgetTotal": {budget},
+    "maxPerSpend": {max_per_spend},
+    "epochLimit": {epoch_limit},
+    "epochLength": {epoch_length},
+    "recipientsRoot": "{root}",
+    "notBefore": {not_before},
+    "expiresAt": {expires_at},
+    "delegationDepth": {deleg_depth},
+    "initialState": {{ "spentTotal": 0, "reserved": 0, "epochIndex": 0, "epochSpent": 0 }}
+  }},
+
+  "funding": {{
+    "_comment": "An ordinary P2PK wallet UTXO. Genesis is a normal spend that happens to pay into a covenant.",
+    "outpointTransactionId": "{f_txid}",
+    "outpointIndex": {f_index},
+    "value": {f_value},
+    "scriptPublicKeyVersion": 0,
+    "scriptPublicKeyHex": "{f_spk}",
+    "address": "{f_addr}",
+    "blockDaaScore": {f_daa},
+    "isCoinbase": false,
+    "covenantId": null
+  }},
+
+  "grant": {{
+    "redeemScriptHex": "{redeem}",
+    "scriptPublicKeyHex": "{g_spk}",
+    "address": "{g_addr}",
+    "value": {g_value}
+  }},
+
+  "covenantId": {{
+    "_comment": "blake2b-256 keyed with \"CovenantID\" over the funding outpoint and the authorized outputs, each WITHOUT its covenant binding. Computed first, then written into the binding.",
+    "value": "{cov}"
+  }},
+
+  "spend": {{
+    "fee": {fee},
+    "computeBudget": {compute_budget},
+    "changeValue": {change}
+  }},
+
+  "transaction": {{
+    "version": 1,
+    "lockTime": 0,
+    "subnetworkId": "0000000000000000000000000000000000000000",
+    "gas": 0,
+    "payloadHex": "",
+    "input": {{
+      "sequence": {sequence},
+      "computeBudget": {input_budget}
+    }},
+    "outputs": [
+{outputs}
+    ],
+    "txid": "{txid}"
+  }},
+
+  "unsignedSignatureScriptHex": "",
+  "sighashHex": "{sighash}",
+  "signedSignatureScriptHex": "{signed_ss}"
+}}
+"#,
+                sk = hex(&kp.secret_key().secret_bytes()),
+                agent = hex(&agent),
+                max_fee = MAX_FEE,
+                budget = BUDGET,
+                max_per_spend = MAX_PER_SPEND,
+                epoch_limit = EPOCH_LIMIT,
+                epoch_length = EPOCH_LENGTH,
+                root = hex(&root),
+                not_before = not_before,
+                expires_at = gplan.expires_at,
+                deleg_depth = DELEGATION_DEPTH,
+                f_txid = gplan.funding_outpoint.transaction_id,
+                f_index = gplan.funding_outpoint.index,
+                f_value = gplan.funding_value,
+                f_spk = hex(g.change_spk.script()),
+                f_addr = funding_addr,
+                f_daa = gplan.funding_block_daa,
+                redeem = hex(&g.contract.bytecode),
+                g_spk = hex(g.grant_spk.script()),
+                g_addr = genesis_grant_addr,
+                g_value = gplan.grant_value,
+                cov = g.covenant_id,
+                fee = GENESIS_FEE,
+                compute_budget = GENESIS_COMPUTE_BUDGET,
+                change = g.change_value,
+                sequence = g.tx.inputs[0].sequence,
+                input_budget = g.tx.inputs[0].compute_commit.compute_budget().unwrap_or_default(),
+                outputs = g
+                    .tx
+                    .outputs
+                    .iter()
+                    .map(|o| {
+                        let covenant = match &o.covenant {
+                            Some(c) => format!(
+                                "{{ \"authorizingInput\": {}, \"covenantId\": \"{}\" }}",
+                                c.authorizing_input, c.covenant_id
+                            ),
+                            None => "null".to_string(),
+                        };
+                        format!(
+                            "    {{ \"value\": {}, \"scriptPublicKeyVersion\": {}, \"scriptPublicKeyHex\": \"{}\", \"covenant\": {} }}",
+                            o.value,
+                            o.script_public_key.version(),
+                            hex(o.script_public_key.script()),
+                            covenant
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join(",\n"),
+                txid = g.tx.id(),
+                sighash = hex(&g.sighash),
+                signed_ss = hex(&g.signature_script),
+            );
+
+            std::fs::write("golden-genesis.json", &genesis_json)?;
+            println!("\nwrote golden-genesis.json");
+            println!("  covenant id   : {}", g.covenant_id);
+            println!("  grant address : {genesis_grant_addr}");
+            println!("  sighash       : {}", hex(&g.sighash));
+            println!("  txid          : {}", g.tx.id());
         }
 
         cmd @ ("verify" | "submit") => {

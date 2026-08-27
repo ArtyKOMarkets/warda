@@ -61,6 +61,17 @@ export {
 } from "./spend.ts";
 
 export {
+  attachGenesisSignature,
+  buildGenesis,
+  covenantId,
+  type FundingUtxo,
+  type GenesisPlan,
+  type UnsignedGenesis,
+} from "./genesis.ts";
+
+export { toWire, type WireTransaction } from "./wire.ts";
+
+export {
   agentPublicKey,
   signDigest,
   signSpend,

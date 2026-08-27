@@ -9,20 +9,26 @@
  *              accepts a transaction JavaScript assembled — which is a
  *              stronger claim than "it matches a file we also wrote".
  *
+ *   --genesis  rebuild the reference GENESIS — the transaction that creates a
+ *              grant in the first place. Same idea, different half of the
+ *              protocol: until a second implementation can issue a grant, a
+ *              principal still needs the Rust tool.
+ *
  *   --live     build the NEXT spend against the real grant recorded in
  *              covenant/deploy/grant.json, signed with WARDA_SK. Hand the
  *              result to `warda-deploy submit` to put it on testnet-10.
  *
  * Usage:
- *   node --experimental-strip-types tools/build-spend.ts --golden > js-spend.json
- *   WARDA_SK=... node --experimental-strip-types tools/build-spend.ts --live > js-spend.json
+ *   node --experimental-strip-types tools/build-spend.ts --golden  > js-spend.json
+ *   node --experimental-strip-types tools/build-spend.ts --genesis > js-genesis.json
  */
 
 import { readFileSync } from "node:fs";
 
 import { fromHex, toHex } from "../src/bytes.ts";
+import { attachGenesisSignature, buildGenesis } from "../src/genesis.ts";
 import { blake2b256 } from "../src/hashers.ts";
-import { agentPublicKey, signSpend } from "../src/sign.ts";
+import { agentPublicKey, signDigest, signSpend } from "../src/sign.ts";
 import { buildUnsignedSpend, type MerkleProof, type SpendPlan } from "../src/spend.ts";
 import type { CovenantTemplate, GrantState } from "../src/template.ts";
 import { toWire } from "../src/wire.ts";
@@ -154,8 +160,60 @@ function goldenPlan(): { plan: SpendPlan; secret: Uint8Array } {
   };
 }
 
+function genesisMode(): void {
+  const golden = readJson("../golden-genesis.json");
+  const p = golden.params;
+  const secret = fromHex(golden.key.secretHex);
+
+  const built = buildGenesis({
+    template,
+    grant: {
+      authority: { principalKey: p.principalKey, revocationKey: p.revocationKey },
+      state: {
+        agentKey: p.agentKey,
+        budgetTotal: BigInt(p.budgetTotal),
+        maxPerSpend: BigInt(p.maxPerSpend),
+        epochLimit: BigInt(p.epochLimit),
+        epochLength: BigInt(p.epochLength),
+        recipientsRoot: p.recipientsRoot,
+        notBefore: BigInt(p.notBefore),
+        expiresAt: BigInt(p.expiresAt),
+        delegationDepth: BigInt(p.delegationDepth),
+        spentTotal: BigInt(p.initialState.spentTotal),
+        reserved: BigInt(p.initialState.reserved),
+        epochIndex: BigInt(p.initialState.epochIndex),
+        epochSpent: BigInt(p.initialState.epochSpent),
+      },
+    },
+    funding: {
+      outpointTransactionId: fromHex(golden.funding.outpointTransactionId),
+      outpointIndex: golden.funding.outpointIndex,
+      value: BigInt(golden.funding.value),
+      scriptPublicKey: {
+        version: golden.funding.scriptPublicKeyVersion,
+        script: fromHex(golden.funding.scriptPublicKeyHex),
+      },
+      blockDaaScore: BigInt(golden.funding.blockDaaScore),
+      isCoinbase: golden.funding.isCoinbase,
+    },
+    grantValue: BigInt(golden.grant.value),
+    fee: BigInt(golden.spend.fee),
+    computeBudget: golden.spend.computeBudget,
+  });
+
+  const signed = attachGenesisSignature(built, signDigest(built.sighash, secret));
+  process.stdout.write(JSON.stringify(toWire(signed, built.entry), null, 2) + "\n");
+  console.error(
+    `built genesis: covenant ${toHex(built.covenantId)}, txid ${toWire(signed, built.entry).txid}`,
+  );
+}
+
 function main(): void {
   const mode = process.argv[2] ?? "--golden";
+  if (mode === "--genesis") {
+    genesisMode();
+    return;
+  }
   if (mode !== "--golden") {
     // --live needs the grant's current UTXO, which needs a node. Until this
     // SDK speaks wRPC, `warda-deploy` is the thing that can look it up.
