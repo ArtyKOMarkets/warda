@@ -4,13 +4,30 @@
   "description": "Build and sign Warda agent spends on Kaspa. Derives grant addresses and assembles covenant transactions with no Silverscript compiler.",
   "type": "module",
   "license": "MIT",
-  "engines": { "node": ">=22.6" },
-  "exports": { ".": "./src/index.ts" },
-  "files": ["src", "covenant-template.json", "golden-spend.json", "README.md"],
-  "scripts": {
-    "test": "node --experimental-strip-types --test test/*.test.ts"
+  "engines": {
+    "node": ">=22.6"
   },
-  "keywords": ["kaspa", "covenant", "agent", "payments", "warda"],
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src",
+    "covenant-template.json",
+    "golden-spend.json",
+    "README.md",
+    "tools"
+  ],
+  "scripts": {
+    "test": "node --experimental-strip-types --test test/*.test.ts",
+    "build:golden": "node --experimental-strip-types tools/build-spend.ts --golden"
+  },
+  "keywords": [
+    "kaspa",
+    "covenant",
+    "agent",
+    "payments",
+    "warda"
+  ],
   "dependencies": {
     "@noble/hashes": "^2.3.0",
     "@noble/curves": "^2.3.0"

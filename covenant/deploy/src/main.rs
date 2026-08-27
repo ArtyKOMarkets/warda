@@ -4,6 +4,8 @@
 //!   status    node readiness
 //!   address   the funding address for WARDA_SK (fund this from the faucet)
 //!   genesis   create the grant covenant UTXO
+//!   verify    run a transaction built elsewhere (the JS SDK) through the
+//!             script engine; `submit` does the same and broadcasts it
 //!   golden    write golden-spend.json, the reference transaction the JS SDK
 //!             must reproduce (no node, no key, fully deterministic inputs)
 //!
@@ -1194,7 +1196,64 @@ r#"{{
             println!("  txid          : {}", b.tx.id());
         }
 
-        other => println!("unknown command {other:?}\nusage: warda-deploy <status|address|template|golden|dry-run|genesis|spend|inject>"),
+        cmd @ ("verify" | "submit") => {
+            // Runs a transaction built ELSEWHERE through the real script engine,
+            // and optionally puts it on the network.
+            //
+            // Why this exists, given the golden vector already exists: passing
+            // the golden test proves the JS SDK agrees with a file we also
+            // wrote. It does not prove the CONSENSUS ENGINE agrees with either
+            // of us — a shared misreading of the spec satisfies both. Feeding
+            // JavaScript's output to the same TxScriptEngine a node runs turns
+            // "matches our reference" into "the engine accepts it".
+            let path = std::env::args().nth(2).unwrap_or_else(|| "js-spend.json".into());
+            let raw = std::fs::read_to_string(&path)
+                .map_err(|e| format!("cannot read {path}: {e}"))?;
+            let v: serde_json::Value = serde_json::from_str(&raw)?;
+
+            let (tx, entry) = parse_wire(&v)?;
+
+            // The builder states what IT thinks the id is. Recomputing it here
+            // catches a serialization disagreement before anything is signed
+            // into a chain, where it would present as an unexplained rejection.
+            if let Some(claimed) = v.get("txid").and_then(|t| t.as_str()) {
+                let actual = tx.id().to_string();
+                if claimed != actual {
+                    println!("txid MISMATCH");
+                    println!("  builder says : {claimed}");
+                    println!("  recomputed   : {actual}");
+                    return Err("the builder and this tool disagree about serialization".into());
+                }
+            }
+
+            println!("built by   : {}", v.get("builtBy").and_then(|b| b.as_str()).unwrap_or("unknown"));
+            println!("txid       : {}", tx.id());
+            println!("sigscript  : {} bytes", tx.inputs[0].signature_script.len());
+            println!("outputs    : {}", tx.outputs.len());
+
+            let verdict = validate_locally(&tx, entry);
+            println!("\nscript engine -> {verdict:?}");
+            match verdict {
+                Ok(()) => println!("the consensus engine accepts a transaction this tool did not build."),
+                Err(e) => return Err(format!("the engine refused it: {e:?}").into()),
+            }
+
+            if cmd == "submit" {
+                let client = connect(&url).await?;
+                require_ready(&client).await?;
+                match client.submit_transaction((&tx).into(), false).await {
+                    Ok(txid) => {
+                        println!("\nSUBMITTED: {txid}");
+                        println!("a transaction assembled in JavaScript is now on testnet-10.");
+                    }
+                    Err(e) => return Err(format!("node refused it: {e}").into()),
+                }
+            } else {
+                println!("\n(not broadcast — run `submit` with a synced node to put it on chain)");
+            }
+        }
+
+        other => println!("unknown command {other:?}\nusage: warda-deploy <status|address|template|golden|verify|submit|dry-run|genesis|spend|inject>"),
     }
     Ok(())
 }
@@ -1373,4 +1432,118 @@ fn formatted(sompi: i64) -> String {
 
 fn hex(b: &[u8]) -> String {
     b.iter().map(|x| format!("{x:02x}")).collect()
+}
+
+// ---- reading a transaction built elsewhere -------------------------------
+//
+// Deliberately strict. Every one of these fields is load-bearing, and a
+// permissive parser that defaults a missing one turns a builder's omission
+// into this tool's wrong answer.
+
+fn wire_hex(v: &serde_json::Value, key: &str) -> Result<Vec<u8>, Box<dyn Error>> {
+    let s = v.get(key).and_then(|x| x.as_str()).ok_or(format!("missing string field {key}"))?;
+    if s.len() % 2 != 0 {
+        return Err(format!("{key}: hex has odd length").into());
+    }
+    (0..s.len() / 2)
+        .map(|i| u8::from_str_radix(&s[i * 2..i * 2 + 2], 16))
+        .collect::<Result<Vec<u8>, _>>()
+        .map_err(|e| format!("{key}: {e}").into())
+}
+
+fn wire_hash(v: &serde_json::Value, key: &str) -> Result<kaspa_consensus_core::Hash, Box<dyn Error>> {
+    let b = wire_hex(v, key)?;
+    let a: [u8; 32] = b.try_into().map_err(|_| format!("{key}: expected 32 bytes"))?;
+    Ok(kaspa_consensus_core::Hash::from_bytes(a))
+}
+
+/// Amounts arrive as STRINGS. A sompi value exceeds what a JSON number holds
+/// exactly, and a parser that accepts f64 here would silently round a balance.
+fn wire_u64(v: &serde_json::Value, key: &str) -> Result<u64, Box<dyn Error>> {
+    let s = v.get(key).and_then(|x| x.as_str()).ok_or(format!("missing string field {key} (amounts must be strings, not JSON numbers)"))?;
+    s.parse::<u64>().map_err(|e| format!("{key}: {e}").into())
+}
+
+fn wire_u32(v: &serde_json::Value, key: &str) -> Result<u32, Box<dyn Error>> {
+    let n = v.get(key).and_then(|x| x.as_u64()).ok_or(format!("missing integer field {key}"))?;
+    u32::try_from(n).map_err(|e| format!("{key}: {e}").into())
+}
+
+fn parse_wire(v: &serde_json::Value) -> Result<(Transaction, UtxoEntry), Box<dyn Error>> {
+    let version = v.get("version").and_then(|x| x.as_u64()).ok_or("missing version")? as u16;
+    if version < 1 {
+        return Err("only version-1 transactions carry covenants".into());
+    }
+
+    let inputs_json = v.get("inputs").and_then(|x| x.as_array()).ok_or("missing inputs")?;
+    let mut inputs = Vec::new();
+    for i in inputs_json {
+        let outpoint = TransactionOutpoint {
+            transaction_id: wire_hash(i, "previousOutpointTransactionId")?,
+            index: wire_u32(i, "previousOutpointIndex")?,
+        };
+        let budget = i.get("computeBudget").and_then(|x| x.as_u64()).ok_or("input missing computeBudget")? as u16;
+        inputs.push(TransactionInput::new_with_compute_budget(
+            outpoint,
+            wire_hex(i, "signatureScriptHex")?,
+            wire_u64(i, "sequence")?,
+            budget,
+        ));
+    }
+
+    let outputs_json = v.get("outputs").and_then(|x| x.as_array()).ok_or("missing outputs")?;
+    let mut outputs = Vec::new();
+    for o in outputs_json {
+        let spk_version = o.get("scriptPublicKeyVersion").and_then(|x| x.as_u64()).ok_or("output missing scriptPublicKeyVersion")? as u16;
+        // `null` and absent are NOT the same thing here: null says "this output
+        // carries no covenant binding", which is a claim; absent is an omission.
+        let covenant = match o.get("covenant") {
+            Some(serde_json::Value::Null) => None,
+            Some(c) => Some(CovenantBinding {
+                authorizing_input: c.get("authorizingInput").and_then(|x| x.as_u64()).ok_or("covenant missing authorizingInput")? as u16,
+                covenant_id: wire_hash(c, "covenantId")?,
+            }),
+            None => return Err("output must state its covenant binding, even as null".into()),
+        };
+        outputs.push(TransactionOutput {
+            value: wire_u64(o, "value")?,
+            script_public_key: ScriptPublicKey::new(spk_version, wire_hex(o, "scriptPublicKeyHex")?.into()),
+            covenant,
+        });
+    }
+
+    let subnetwork = wire_hex(v, "subnetworkId")?;
+    if subnetwork.iter().any(|b| *b != 0) {
+        return Err("only the native subnetwork is supported".into());
+    }
+
+    let tx = Transaction::new(
+        version,
+        inputs,
+        outputs,
+        wire_u64(v, "lockTime")?,
+        SUBNETWORK_ID_NATIVE,
+        wire_u64(v, "gas")?,
+        wire_hex(v, "payloadHex")?,
+    );
+
+    // A covenant spend cannot be validated without its UTXO: the digest commits
+    // to the entry's script and value, and the engine reads the covenant id
+    // from it.
+    let u = v.get("utxo").ok_or("missing utxo — a covenant spend cannot be checked without it")?;
+    let spk_version = u.get("scriptPublicKeyVersion").and_then(|x| x.as_u64()).ok_or("utxo missing scriptPublicKeyVersion")? as u16;
+    let covenant_id = match u.get("covenantId") {
+        Some(serde_json::Value::Null) => None,
+        Some(_) => Some(wire_hash(u, "covenantId")?),
+        None => return Err("utxo must state its covenant id, even as null".into()),
+    };
+    let entry = UtxoEntry::new(
+        wire_u64(u, "value")?,
+        ScriptPublicKey::new(spk_version, wire_hex(u, "scriptPublicKeyHex")?.into()),
+        wire_u64(u, "blockDaaScore")?,
+        u.get("isCoinbase").and_then(|x| x.as_bool()).ok_or("utxo missing isCoinbase")?,
+        covenant_id,
+    );
+
+    Ok((tx, entry))
 }
