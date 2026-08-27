@@ -69,6 +69,10 @@ export {
   type UnsignedGenesis,
 } from "./genesis.ts";
 
+export { RecipientSet } from "./recipients.ts";
+
+export { spendPlanFrom, type SpendPlanDocument } from "./plan.ts";
+
 export { toWire, type WireTransaction } from "./wire.ts";
 
 export {

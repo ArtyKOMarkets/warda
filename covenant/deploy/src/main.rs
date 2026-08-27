@@ -77,6 +77,10 @@ const MAX_PROOF_DEPTH: i64 = 4;
 const MAX_FEE: i64 = 5_000_000;
 const DELEGATION_DEPTH: i64 = 2;
 
+/// How far behind the tip to claim. The claimed DAA compiles to a CLTV lock,
+/// and a lock equal to the tip is not yet final. ~10s at 10 blocks per second.
+const DAA_BACKOFF: i64 = 100;
+
 // ---- recipient allowlist -------------------------------------------------
 
 const LEAF: u8 = 0x01;
@@ -632,7 +636,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
             // OVERstating is impossible because CLTV would hold the
             // transaction until the chain caught up. The direction that is
             // convenient here is also the direction that is sound.
-            const DAA_BACKOFF: i64 = 100; // ~10s at 10 blocks per second
             let claimed_daa = (daa as i64 - DAA_BACKOFF).max(m.not_before);
             if claimed_daa < m.not_before {
                 return Err("current DAA precedes not_before".into());
@@ -1497,7 +1500,145 @@ r#"{{
             }
         }
 
-        other => println!("unknown command {other:?}\nusage: warda-deploy <status|address|template|golden|verify|submit|dry-run|genesis|spend|inject>"),
+        "plan" => {
+            // The one thing the JS SDK genuinely cannot do: find the grant.
+            //
+            // A grant's address is derived from its state, so it MOVES after
+            // every spend. Locating the current UTXO means asking a node, and
+            // the SDK has no node client. Rather than give it one that cannot
+            // be tested until it is already wrong, this command does the
+            // network half and writes down everything the assembly half needs.
+            //
+            // The split is not a workaround, it is the safe factoring: network
+            // I/O here, byte layout there, and a transaction that crosses
+            // between them gets checked by `verify` before `submit` broadcasts.
+            let m = read_manifest()?;
+            let client = connect(&url).await?;
+            let daa = require_ready(&client).await?;
+
+            let contract = compile(grant_ctor(
+                m.agent, m.agent, m.root, m.not_before, m.expires_at,
+                m.spent, m.reserved, m.epoch_index, m.epoch_spent,
+            ))?;
+            let grant_addr = extract_script_pub_key_address(
+                &pay_to_script_hash_script(&contract.bytecode), Prefix::Testnet)?;
+            println!("grant state    : spent {} / reserved {} / epoch {}",
+                formatted(m.spent), formatted(m.reserved), m.epoch_index);
+            println!("grant address  : {grant_addr}");
+
+            let utxos = client.get_utxos_by_addresses(vec![grant_addr.clone()]).await?;
+            let grant = utxos
+                .first()
+                .ok_or("no UTXO at the grant address — has genesis confirmed, and is grant.json current?")?;
+            println!("grant utxo     : {} sompi", grant.utxo_entry.amount);
+
+            // Behind the tip, for the reason spelled out in the spend arm: the
+            // claimed DAA becomes a CLTV lock, and a lock equal to the tip is
+            // not yet final. Understating only costs epoch headroom;
+            // overstating is impossible. The convenient direction is the sound
+            // one.
+            let claimed_daa = (daa as i64 - DAA_BACKOFF).max(m.not_before);
+            if claimed_daa < m.not_before {
+                return Err("current DAA precedes not_before".into());
+            }
+            println!("claimed daa    : {claimed_daa} (chain at {daa})");
+
+            let members = demo_recipients();
+            let amount = KAS / 2;
+
+            let json = format!(
+r#"{{
+  "note": "Everything @warda/kaspa needs to build the next spend against the LIVE grant. Regenerate this before every spend: the grant's address moves each time, so a stale plan points at a UTXO that no longer exists.",
+  "generatedBy": "warda-deploy plan",
+  "network": "kaspatest",
+  "chainDaa": {daa},
+
+  "authority": {{
+    "principalKey": "{agent}",
+    "revocationKey": "{agent}"
+  }},
+
+  "state": {{
+    "agentKey": "{agent}",
+    "budgetTotal": {budget},
+    "maxPerSpend": {max_per_spend},
+    "epochLimit": {epoch_limit},
+    "epochLength": {epoch_length},
+    "recipientsRoot": "{root}",
+    "notBefore": {not_before},
+    "expiresAt": {expires_at},
+    "delegationDepth": {deleg_depth},
+    "spentTotal": {spent},
+    "reserved": {reserved},
+    "epochIndex": {epoch_index},
+    "epochSpent": {epoch_spent}
+  }},
+
+  "grantAddress": "{grant_addr}",
+
+  "utxo": {{
+    "outpointTransactionId": "{op_txid}",
+    "outpointIndex": {op_index},
+    "value": {in_value},
+    "blockDaaScore": {block_daa},
+    "isCoinbase": {is_coinbase},
+    "covenantId": "{cov}"
+  }},
+
+  "recipients": {{
+    "members": [{members}],
+    "target": "{target}"
+  }},
+
+  "spend": {{
+    "amount": {amount},
+    "claimedDaa": {claimed_daa},
+    "fee": {fee},
+    "computeBudget": {compute_budget}
+  }}
+}}
+"#,
+                daa = daa,
+                agent = hex(&m.agent),
+                budget = BUDGET,
+                max_per_spend = MAX_PER_SPEND,
+                epoch_limit = EPOCH_LIMIT,
+                epoch_length = EPOCH_LENGTH,
+                root = hex(&m.root),
+                not_before = m.not_before,
+                expires_at = m.expires_at,
+                deleg_depth = DELEGATION_DEPTH,
+                spent = m.spent,
+                reserved = m.reserved,
+                epoch_index = m.epoch_index,
+                epoch_spent = m.epoch_spent,
+                grant_addr = grant_addr,
+                op_txid = grant.outpoint.transaction_id,
+                op_index = grant.outpoint.index,
+                in_value = grant.utxo_entry.amount,
+                block_daa = grant.utxo_entry.block_daa_score,
+                is_coinbase = grant.utxo_entry.is_coinbase,
+                cov = m.covenant_id,
+                members = members
+                    .iter()
+                    .map(|r| format!("\"{}\"", hex(r)))
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                target = hex(&members[0]),
+                amount = amount,
+                claimed_daa = claimed_daa,
+                fee = SPEND_FEE,
+                compute_budget = SPEND_COMPUTE_BUDGET,
+            );
+
+            let out = std::env::args().nth(2).unwrap_or_else(|| "../../sdk/spend-plan.json".into());
+            std::fs::write(&out, &json)?;
+            println!("\nwrote {out}");
+            println!("next: cd ../../sdk && WARDA_SK=... npm run build:live > js-spend.json");
+            println!("then: cd ../covenant/deploy && cargo run -- submit ../../sdk/js-spend.json");
+        }
+
+        other => println!("unknown command {other:?}\nusage: warda-deploy <status|address|template|golden|plan|verify|submit|dry-run|genesis|spend|inject>"),
     }
     Ok(())
 }

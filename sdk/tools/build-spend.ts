@@ -14,22 +14,25 @@
  *              protocol: until a second implementation can issue a grant, a
  *              principal still needs the Rust tool.
  *
- *   --live     build the NEXT spend against the real grant recorded in
- *              covenant/deploy/grant.json, signed with WARDA_SK. Hand the
- *              result to `warda-deploy submit` to put it on testnet-10.
+ *   --live     build the NEXT spend against the LIVE grant, from the
+ *              spend-plan.json that `warda-deploy plan` wrote, signed with
+ *              WARDA_SK. Hand the result to `warda-deploy submit` and a
+ *              transaction assembled in JavaScript goes on testnet-10.
  *
  * Usage:
  *   node --experimental-strip-types tools/build-spend.ts --golden  > js-spend.json
  *   node --experimental-strip-types tools/build-spend.ts --genesis > js-genesis.json
+ *   WARDA_SK=... node --experimental-strip-types tools/build-spend.ts --live > js-spend.json
  */
 
 import { readFileSync } from "node:fs";
 
 import { fromHex, toHex } from "../src/bytes.ts";
 import { attachGenesisSignature, buildGenesis } from "../src/genesis.ts";
-import { blake2b256 } from "../src/hashers.ts";
+import { spendPlanFrom } from "../src/plan.ts";
+import { RecipientSet } from "../src/recipients.ts";
 import { agentPublicKey, signDigest, signSpend } from "../src/sign.ts";
-import { buildUnsignedSpend, type MerkleProof, type SpendPlan } from "../src/spend.ts";
+import { buildUnsignedSpend, type SpendPlan } from "../src/spend.ts";
 import type { CovenantTemplate, GrantState } from "../src/template.ts";
 import { toWire } from "../src/wire.ts";
 
@@ -38,61 +41,6 @@ const readJson = (p: string) => JSON.parse(readFileSync(here(p), "utf8"));
 
 const template: CovenantTemplate = readJson("../covenant-template.json");
 const golden = readJson("../golden-spend.json");
-
-// ---- the recipients tree, rebuilt ---------------------------------------
-//
-// Domain separators are 0x01 and 0x02, NOT 0x00 and 0x01. Kaspa script
-// encodes zero as the empty byte string, so a 0x00 separator compiles to
-// nothing and the leaf and node domains collapse into one. That cost a day
-// once; it is written down here so it costs nobody another.
-
-const LEAF = Uint8Array.of(0x01);
-const NODE = Uint8Array.of(0x02);
-
-function h(...parts: Uint8Array[]): Uint8Array {
-  const total = parts.reduce((n, p) => n + p.length, 0);
-  const buf = new Uint8Array(total);
-  let at = 0;
-  for (const p of parts) {
-    buf.set(p, at);
-    at += p.length;
-  }
-  return blake2b256(buf);
-}
-
-/**
- * Odd nodes are PROMOTED, not duplicated. Duplicating the last node lets two
- * different member sets produce the same root (CVE-2012-2459); promotion does
- * not. It does mean a level can be skipped, so the proof records which SIDE
- * each sibling sits on rather than inferring it from an index's parity.
- */
-function merkleProof(members: Uint8Array[], target: Uint8Array): MerkleProof {
-  const sorted = [...members].sort((a, b) => toHex(a).localeCompare(toHex(b)));
-  const levels: Uint8Array[][] = [sorted.map((m) => h(LEAF, m))];
-  while (levels[levels.length - 1]!.length > 1) {
-    const prev = levels[levels.length - 1]!;
-    const next: Uint8Array[] = [];
-    for (let i = 0; i < prev.length; i += 2) {
-      next.push(i + 1 < prev.length ? h(NODE, prev[i]!, prev[i + 1]!) : prev[i]!);
-    }
-    levels.push(next);
-  }
-
-  let idx = sorted.findIndex((m) => toHex(m) === toHex(target));
-  if (idx < 0) throw new Error("target is not in the member set");
-
-  const siblings: Uint8Array[] = [];
-  const left: boolean[] = [];
-  for (const level of levels.slice(0, -1)) {
-    const pair = idx % 2 === 0 ? idx + 1 : idx - 1;
-    if (pair < level.length) {
-      siblings.push(level[pair]!);
-      left.push(pair < idx);
-    }
-    idx = Math.floor(idx / 2);
-  }
-  return { siblings, left };
-}
 
 // ---- modes ---------------------------------------------------------------
 
@@ -114,27 +62,13 @@ function goldenPlan(): { plan: SpendPlan; secret: Uint8Array } {
     epochSpent: BigInt(p.prevState.epochSpent),
   };
 
-  const members = golden.recipients.members.map((m: string) => fromHex(m));
-  const target = fromHex(golden.recipients.target);
-  const proof = merkleProof(members, target);
-
-  // Rebuilt, not copied. If this SDK's tree disagreed with the Rust one, a
-  // copied proof would hide it and the failure would land on chain instead.
-  const recomputedRoot = (() => {
-    const sorted = [...members].sort((a: Uint8Array, b: Uint8Array) => toHex(a).localeCompare(toHex(b)));
-    let level = sorted.map((m: Uint8Array) => h(LEAF, m));
-    while (level.length > 1) {
-      const next: Uint8Array[] = [];
-      for (let i = 0; i < level.length; i += 2) {
-        next.push(i + 1 < level.length ? h(NODE, level[i]!, level[i + 1]!) : level[i]!);
-      }
-      level = next;
-    }
-    return toHex(level[0]!);
-  })();
-  if (recomputedRoot !== p.recipientsRoot) {
-    throw new Error(`recomputed root ${recomputedRoot} != ${p.recipientsRoot}`);
+  const set = new RecipientSet(golden.recipients.members);
+  // Derived, not copied. A copied proof would hide a disagreement between this
+  // SDK's tree and the Rust one, and the failure would land on chain instead.
+  if (set.rootHex !== p.recipientsRoot) {
+    throw new Error(`recomputed root ${set.rootHex} != ${p.recipientsRoot}`);
   }
+  const target = fromHex(golden.recipients.target);
 
   return {
     secret: fromHex(golden.key.secretHex),
@@ -152,7 +86,7 @@ function goldenPlan(): { plan: SpendPlan; secret: Uint8Array } {
       },
       amount: BigInt(golden.spend.amount),
       recipient: target,
-      proof,
+      proof: set.proof(golden.recipients.target),
       claimedDaa: BigInt(golden.spend.claimedDaa),
       fee: BigInt(golden.spend.fee),
       computeBudget: golden.spend.computeBudget,
@@ -208,16 +142,79 @@ function genesisMode(): void {
   );
 }
 
+
+function liveMode(): void {
+  // The plan comes from `warda-deploy plan`, which did the one thing this SDK
+  // cannot: found the grant. A grant's address moves after every spend, so a
+  // stale plan points at a UTXO that no longer exists — regenerate it each
+  // time rather than editing the numbers by hand.
+  let plan;
+  try {
+    plan = readJson("../spend-plan.json");
+  } catch {
+    console.error("no spend-plan.json — run `warda-deploy plan` first, from covenant/deploy");
+    process.exit(2);
+  }
+
+  const secretHex = process.env.WARDA_SK;
+  if (!secretHex) {
+    console.error("set WARDA_SK to the agent's 32 hex bytes (testnet key only)");
+    process.exit(2);
+  }
+  const secret = fromHex(secretHex);
+
+  const state: GrantState = {
+    agentKey: plan.state.agentKey,
+    budgetTotal: BigInt(plan.state.budgetTotal),
+    maxPerSpend: BigInt(plan.state.maxPerSpend),
+    epochLimit: BigInt(plan.state.epochLimit),
+    epochLength: BigInt(plan.state.epochLength),
+    recipientsRoot: plan.state.recipientsRoot,
+    notBefore: BigInt(plan.state.notBefore),
+    expiresAt: BigInt(plan.state.expiresAt),
+    delegationDepth: BigInt(plan.state.delegationDepth),
+    spentTotal: BigInt(plan.state.spentTotal),
+    reserved: BigInt(plan.state.reserved),
+    epochIndex: BigInt(plan.state.epochIndex),
+    epochSpent: BigInt(plan.state.epochSpent),
+  };
+
+  // The key must be the agent the grant names, checked here rather than
+  // discovered as a script failure the node cannot explain.
+  const derived = toHex(agentPublicKey(secret));
+  if (derived !== state.agentKey) {
+    console.error(`WARDA_SK derives ${derived}, but the grant names ${state.agentKey}`);
+    process.exit(2);
+  }
+
+  const spendPlan: SpendPlan = spendPlanFrom(plan, template);
+
+  // Derived, not copied. If this SDK's address derivation disagreed with the
+  // compiler's, a spend against the address the plan reported would still look
+  // right here and fail on chain.
+  const unsigned = buildUnsignedSpend(spendPlan);
+  const signed = signSpend(spendPlan, secret);
+  const wire = toWire(signed.tx, unsigned.entry);
+
+  process.stdout.write(JSON.stringify(wire, null, 2) + "\n");
+  console.error(`grant address (per plan): ${plan.grantAddress}`);
+  console.error(`paying ${plan.spend.amount} sompi to ${plan.recipients.target}`);
+  console.error(`successor state: spent ${unsigned.successorState.spentTotal}, epoch ${unsigned.successorState.epochIndex}`);
+  console.error(`txid ${wire.txid}`);
+}
+
 function main(): void {
   const mode = process.argv[2] ?? "--golden";
   if (mode === "--genesis") {
     genesisMode();
     return;
   }
+  if (mode === "--live") {
+    liveMode();
+    return;
+  }
   if (mode !== "--golden") {
-    // --live needs the grant's current UTXO, which needs a node. Until this
-    // SDK speaks wRPC, `warda-deploy` is the thing that can look it up.
-    console.error("only --golden is implemented here; use `warda-deploy spend` for a live grant");
+    console.error(`unknown mode ${mode}; expected --golden, --genesis or --live`);
     process.exit(2);
   }
 
