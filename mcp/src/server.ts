@@ -8,8 +8,13 @@
  * it — and the covenant will refuse it, which is the entire point. Warda's
  * security does not depend on the agent asking first.
  *
+ * It does now BUILD transactions as well as judge them, and that is still not
+ * enforcing. It returns unsigned bytes and a digest; it never sees a key and
+ * never signs. An MCP server that signed would be a custodian, and the whole
+ * point of Warda is that nobody has to be.
+ *
  * What this is actually for:
- *   - an agent can know its real headroom before planning a purchase
+ *   - an agent can get a ready-to-sign payment without a Kaspa integration
  *   - an agent can avoid building transactions that cannot be valid
  *   - a framework can discover the protocol without a custom integration
  *   - a rejection can be explained in words rather than an opaque script error
@@ -23,6 +28,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { validateSpend, validateDelegation } from "../../src/validate.ts";
 import { materialise, headroom, kas, formatKas, type GrantDescriptor } from "./grant.ts";
+import { buildSpend } from "./build.ts";
 import type { FailureCode } from "../../src/types.ts";
 
 const EXPLAIN: Record<FailureCode, string> = {
@@ -181,6 +187,108 @@ const json = (v: unknown) => ({ content: [{ type: "text" as const, text: JSON.st
         m.grant.budgetTotal - m.state.spentTotal - m.state.reserved - childBudget,
       ),
       enforcement: "Advisory. The covenant enforces attenuation and conservation on-chain.",
+    });
+  },
+);
+
+
+  server.registerTool(
+  "warda_build_spend",
+  {
+    title: "Build a payment for me to sign",
+    description:
+      "Assemble an unsigned Kaspa transaction that spends from this grant, and return the digest " +
+      "to sign. THIS SERVER NEVER SEES YOUR KEY and never signs: it hands back bytes, and you " +
+      "sign the digest wherever your key lives. " +
+      "It also returns the advisory verdict, but it builds the transaction either way — a local " +
+      "rule that is too strict must not be able to block a payment the chain would accept. If the " +
+      "verdict says refused, broadcasting will cost a fee and fail.",
+    inputSchema: {
+      grant: GrantShape,
+      amountKas: z.string().describe("Amount to pay, in KAS."),
+      recipient: z.string().describe("Payee public key, 32 bytes of hex. Must be on the allowlist."),
+      daaScore: z.string().describe("Current DAA score of the chain."),
+      utxo: z.object({
+        transactionId: z.string().describe("The grant UTXO's transaction id."),
+        index: z.number(),
+        valueSompi: z.string().describe("The grant's whole balance, in sompi, as a string."),
+        blockDaaScore: z.string(),
+        isCoinbase: z.boolean(),
+        covenantId: z.string(),
+      }).describe("The grant's CURRENT UTXO. Its address moves after every spend, so a stale one will not be found."),
+      feeSompi: z.string().optional().describe("Defaults to 1000000. A spend carries a ~3KB redeem script, so its mass is dominated by size."),
+      computeBudget: z.number().optional().describe("Defaults to 16. Charged as mass, so over-provisioning costs money and under-provisioning is rejected outright."),
+    },
+  },
+  async ({ grant, amountKas, recipient, daaScore, utxo, feeSompi, computeBudget }) => {
+    const m = materialise(grant as GrantDescriptor);
+    const amount = kas(amountKas);
+    const daa = BigInt(daaScore);
+
+    let built;
+    try {
+      built = buildSpend(m, m.set, {
+        amount,
+        recipient,
+        daaScore: daa,
+        utxo,
+        feeSompi: feeSompi === undefined ? 1_000_000n : BigInt(feeSompi),
+        computeBudget: computeBudget ?? 16,
+        daaBackoff: 100n,
+      });
+    } catch (e) {
+      return json({
+        built: false,
+        error: (e as Error).message,
+        ...headroom(m, daa),
+      });
+    }
+
+    // The verdict is computed against the CLAIMED daa, not the tip: that is
+    // the value the covenant will read, and an epoch boundary between the two
+    // would otherwise make this answer disagree with the chain's.
+    const claimed = BigInt(built.claimedDaa);
+    const epochNow = claimed >= m.grant.notBefore
+      ? (claimed - m.grant.notBefore) / m.grant.epochLength : 0n;
+    const spentThisEpoch = epochNow === m.state.epochIndex ? m.state.epochSpent : 0n;
+    const verdict = validateSpend(m.grant, m.state, {
+      grantId: m.grant.grantId,
+      amount,
+      recipient,
+      recipientProof: m.set.proof(recipient),
+      daaScore: claimed,
+      successor: {
+        grantId: m.grant.grantId,
+        spentTotal: m.state.spentTotal + amount,
+        reserved: m.state.reserved,
+        epochIndex: epochNow,
+        epochSpent: spentThisEpoch + amount,
+        status: m.state.status,
+      },
+    });
+
+    return json({
+      built: true,
+      howToSign:
+        "Sign sighashHex with the agent key using BIP340 schnorr, append 0x01 (SIGHASH_ALL) to get " +
+        "65 bytes, then splice it into the signature script in place of the 65 zero bytes. " +
+        "The signature script is fixed-width, so nothing else moves.",
+      sighashHex: built.sighashHex,
+      transaction: built.transaction,
+      claimedDaa: built.claimedDaa,
+      successorScriptHash: built.successorScriptHash,
+      successorNote:
+        "After this spend the grant lives at a DIFFERENT address — its state is part of what the " +
+        "address commits to. Watch this script hash, not the old one.",
+      changeSompi: built.changeSompi,
+      advisory: {
+        permitted: verdict.ok,
+        reasons: verdict.failures.map((f) => ({ code: f, explanation: EXPLAIN[f] })),
+      },
+      ...headroom(m, daa),
+      enforcement:
+        "Advisory. The covenant enforces these limits on-chain whether or not this check was run, " +
+        "and this server signs nothing.",
     });
   },
 );
