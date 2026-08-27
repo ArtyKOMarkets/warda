@@ -17,6 +17,7 @@ Network: **testnet-10** · Node: rusty-kaspa v2.0.1 · Covenant: 3,036 bytes
 | Genesis | `626736a3a202e838e4d0adca095c8660cb46638da3910bf89f589deb571343d4` |
 | Legitimate spend — **accepted** | `36f3dff2e5218651d80e62f1c7e620313a58fbc6ecd18a81d68050a33544fb55` |
 | Prompt injection — **refused** | `e251a20effea166c90f9cf4f19e28073856e57b3dc9ef0209269347e7a1396f1` |
+| Spend assembled in **JavaScript** — accepted | `7dbc957fbf87ca26bc9b83ec81849f4f713c255fa6d39f44a53301813ceb86ba` |
 
 > Rejected transaction e251a20e…: failed to verify the signature script:
 > **script ran, but verification failed**
@@ -27,6 +28,32 @@ allowlisted recipients.
 **Both spends came from the same grant, at the same address, signed by the same
 key.** They differ in one field — the payee. That is what makes the pair
 evidence rather than two anecdotes.
+
+## A second implementation, on the same chain
+
+`7dbc957f…` was not built by the Rust tool. Every byte of it — the covenant
+arguments, the Merkle proof, the successor address, the signature hash — was
+assembled by `@warda/kaspa`, in JavaScript, with no Silverscript compiler and
+no Rust toolchain.
+
+That matters because a protocol only one implementation can speak is a product
+nobody else can build on. The SDK derives grant addresses by splicing a
+template, and proving that splice equals what the compiler emits is what makes
+an npm package possible at all.
+
+It was checked in three widening circles before it was broadcast, each one
+answering a question the previous could not:
+
+| Check | Answers |
+|---|---|
+| `golden-spend.json` | do the bytes match a reference the network already accepted? |
+| `warda-deploy verify` | does the **consensus engine** accept them — not just our own reference? |
+| `submit` | does the network? |
+
+The middle one is the load-bearing step. Matching a recorded vector proves two
+implementations agree; it does not prove either is right, because a shared
+misreading of the spec satisfies both. Running JavaScript's output through the
+same `TxScriptEngine` a node runs is what turns agreement into correctness.
 
 ## The local engine predicted the network exactly
 

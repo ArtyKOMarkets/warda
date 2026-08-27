@@ -5,7 +5,8 @@
 //!   address   the funding address for WARDA_SK (fund this from the faucet)
 //!   genesis   create the grant covenant UTXO
 //!   verify    run a transaction built elsewhere (the JS SDK) through the
-//!             script engine; `submit` does the same and broadcasts it
+//!             script engine; `submit` does the same and broadcasts it;
+//!             `advance` moves grant.json on for one already submitted
 //!   golden    write golden-spend.json, the reference transaction the JS SDK
 //!             must reproduce (no node, no key, fully deterministic inputs)
 //!
@@ -1443,7 +1444,7 @@ r#"{{
             println!("  txid          : {}", g.tx.id());
         }
 
-        cmd @ ("verify" | "submit") => {
+        cmd @ ("verify" | "submit" | "advance") => {
             // Runs a transaction built ELSEWHERE through the real script engine,
             // and optionally puts it on the network.
             //
@@ -1495,8 +1496,25 @@ r#"{{
                     }
                     Err(e) => return Err(format!("node refused it: {e}").into()),
                 }
-            } else {
+            } else if cmd == "verify" {
                 println!("\n(not broadcast — run `submit` with a synced node to put it on chain)");
+            }
+
+            // Whether we broadcast or are catching up after the fact, the
+            // manifest has to follow the grant. `verify` deliberately does not
+            // advance it: nothing was sent, so nothing moved.
+            if cmd != "verify" {
+                match read_manifest() {
+                    Ok(m) => match advance_manifest(&m, &tx)? {
+                        Some(manifest) => {
+                            std::fs::write("grant.json", &manifest)?;
+                            println!("\nadvanced grant.json — the grant has MOVED to a new address.");
+                            println!("re-run `plan` before the next spend; the old address is now empty.");
+                        }
+                        None => println!("\n(not a spend of the grant in grant.json — manifest unchanged)"),
+                    },
+                    Err(e) => println!("\n(no manifest to advance: {e})"),
+                }
             }
         }
 
@@ -1638,7 +1656,7 @@ r#"{{
             println!("then: cd ../covenant/deploy && cargo run -- submit ../../sdk/js-spend.json");
         }
 
-        other => println!("unknown command {other:?}\nusage: warda-deploy <status|address|template|golden|plan|verify|submit|dry-run|genesis|spend|inject>"),
+        other => println!("unknown command {other:?}\nusage: warda-deploy <status|address|template|golden|plan|verify|submit|advance|dry-run|genesis|spend|inject>"),
     }
     Ok(())
 }
@@ -1658,6 +1676,67 @@ struct Manifest {
     reserved: i64,
     epoch_index: i64,
     epoch_spent: i64,
+}
+
+/// Advances the manifest to the state a submitted spend produced.
+///
+/// This is not bookkeeping. A grant's ADDRESS is derived from its state, so a
+/// manifest left behind points at an address the grant has already left, and
+/// the next `plan` reports "no UTXO at the grant address" for a grant that is
+/// perfectly healthy. That reads as a lost grant and is merely a stale file.
+///
+/// The new state is not guessed from what we intended to do. It is derived
+/// from the transaction's OWN numbers and then checked against the successor
+/// address that transaction actually pays to. If those disagree, nothing is
+/// written: a confidently wrong manifest is worse than a missing one.
+fn advance_manifest(m: &Manifest, tx: &Transaction) -> Result<Option<String>, Box<dyn Error>> {
+    // Is this even a spend of our grant? Two outputs, the first carrying a
+    // covenant binding for this covenant id.
+    if tx.outputs.len() != 2 {
+        return Ok(None);
+    }
+    let cov: kaspa_consensus_core::Hash = m.covenant_id.parse()?;
+    match &tx.outputs[0].covenant {
+        Some(c) if c.covenant_id == cov => {}
+        _ => return Ok(None),
+    }
+
+    let amount = tx.outputs[1].value as i64;
+    let claimed_daa = tx.lock_time as i64;
+    let epoch_index = (claimed_daa - m.not_before) / EPOCH_LENGTH;
+    // A new epoch resets the allowance; the same epoch accumulates.
+    let carried = if epoch_index == m.epoch_index { m.epoch_spent } else { 0 };
+    let (spent, reserved, epoch_spent) = (m.spent + amount, m.reserved, carried + amount);
+
+    // The check that makes this safe: derive the successor address from the
+    // state we just computed, and require the transaction to be paying it.
+    let successor = compile(grant_ctor(
+        m.agent, m.agent, m.root, m.not_before, m.expires_at,
+        spent, reserved, epoch_index, epoch_spent,
+    ))?;
+    let expected = pay_to_script_hash_script(&successor.bytecode);
+    if expected != tx.outputs[0].script_public_key {
+        // Printed rather than folded into the error string: `main` renders
+        // errors with Debug, which turns a multi-line diagnostic into escaped
+        // \n soup at exactly the moment someone needs to read it.
+        println!("\nREFUSING to advance grant.json.");
+        println!("  the state derived from this transaction:");
+        println!("    spent {spent}, reserved {reserved}, epoch {epoch_index}, epochSpent {epoch_spent}");
+        println!("  implies a successor at:");
+        println!("    {}", hex(expected.script()));
+        println!("  but the transaction pays:");
+        println!("    {}", hex(tx.outputs[0].script_public_key.script()));
+        println!("\nEither grant.json describes a different state than this spend was built");
+        println!("from, or this is not the transaction it appears to be. The manifest is");
+        println!("unchanged — a confidently wrong one is worse than a missing one.");
+        return Err("manifest and transaction disagree about the successor state".into());
+    }
+
+    Ok(Some(format!(
+        "{{\n  \"covenant_id\": \"{}\",\n  \"agent\": \"{}\",\n  \"recipients_root\": \"{}\",\n  \"not_before\": {},\n  \"expires_at\": {},\n  \"budget\": {BUDGET},\n  \"max_per_spend\": {MAX_PER_SPEND},\n  \"epoch_limit\": {EPOCH_LIMIT},\n  \"epoch_length\": {EPOCH_LENGTH},\n  \"grant_value\": {},\n  \"spent_total\": {spent},\n  \"reserved\": {reserved},\n  \"epoch_index\": {epoch_index},\n  \"epoch_spent\": {epoch_spent}\n}}\n",
+        m.covenant_id, hex(&m.agent), hex(&m.root), m.not_before, m.expires_at,
+        tx.outputs[0].value,
+    )))
 }
 
 fn read_manifest() -> Result<Manifest, Box<dyn Error>> {
