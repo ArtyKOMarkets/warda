@@ -24,6 +24,14 @@ export interface GrantExpectation {
   covenantId?: string;
   /** The value the manifest says the grant holds. */
   value?: bigint;
+  /**
+   * The fee the next spend will pay. Only `maxNextSpend` depends on it.
+   * Defaults to the template's baked `maxFee` — the covenant's own ceiling,
+   * and the only bound available without asking the caller. That default is
+   * deliberately pessimistic: it understates the headroom rather than
+   * promising a spend the coin cannot cover.
+   */
+  fee?: bigint;
 }
 
 export interface Finding {
@@ -41,6 +49,14 @@ export interface GrantReport {
   remaining: bigint;
   /** What is left in the CURRENT epoch, given where the chain is now. */
   epochRemaining: bigint;
+  /**
+   * The most a single next spend may pay out: the tightest of the four limits
+   * that actually bind, including the coin itself. This is the number an agent
+   * needs. `remaining` is an accounting figure the coin may not cover.
+   */
+  maxNextSpend: bigint;
+  /** Which of the four limits is the binding one, for saying so out loud. */
+  boundBy: "maxPerSpend" | "epoch" | "budget" | "coin";
   /** True once the principal's reclaim right has opened. */
   reclaimable: boolean;
   findings: Finding[];
@@ -76,6 +92,30 @@ export function describeGrant(
   const spentThisEpoch = currentEpoch === s.epochIndex ? s.epochSpent : 0n;
   const epochRemaining = s.epochLimit - spentThisEpoch;
 
+  // The fee comes out of the GRANT'S COIN but is not charged against
+  // spentTotal, so the coin and the budget diverge by exactly the fees paid so
+  // far. An agent that trusts `remaining` will eventually build a spend the
+  // covenant's value-conservation check refuses, and that failure reads as a
+  // covenant bug rather than as arithmetic.
+  const fee = expect.fee ?? BigInt(template.baked.maxFee);
+  const coinAvailable = utxo && utxo.entry.value > fee ? utxo.entry.value - fee : 0n;
+
+  const limits: [GrantReport["boundBy"], bigint][] = [
+    ["maxPerSpend", s.maxPerSpend],
+    ["epoch", epochRemaining],
+    ["budget", remaining],
+  ];
+  if (utxo) limits.push(["coin", coinAvailable]);
+  let boundBy = limits[0]![0];
+  let maxNextSpend = limits[0]![1];
+  for (const [name, value] of limits) {
+    if (value < maxNextSpend) {
+      maxNextSpend = value;
+      boundBy = name;
+    }
+  }
+  if (maxNextSpend < 0n) maxNextSpend = 0n;
+
   if (!utxo) {
     findings.push({
       level: "error",
@@ -93,6 +133,8 @@ export function describeGrant(
       covenantId: null,
       remaining,
       epochRemaining,
+      maxNextSpend,
+      boundBy,
       reclaimable: dag.virtualDaaScore >= s.expiresAt,
       findings,
       agrees: false,
@@ -138,13 +180,20 @@ export function describeGrant(
   }
 
   // A grant can hold more coin than the agent may spend — the surplus is the
-  // principal's, recoverable on reclaim. Less is the alarming direction.
+  // principal's, recoverable on reclaim. Less is the interesting direction,
+  // and it is the NORMAL state of any grant that has been spent from: every
+  // spend pays a fee out of the coin, and the covenant charges only the
+  // recipient amount against spentTotal. So the coin runs out before the
+  // budget does, by exactly the fees paid so far, and the last spend an agent
+  // believes it can afford is the one that gets refused.
   if (entry.value < remaining) {
     findings.push({
       level: "warn",
       text:
-        `the budget has ${remaining} sompi left but the grant holds only ` +
-        `${entry.value}: the remaining budget is not fully funded.`,
+        `budget says ${remaining} sompi left, the grant holds ${entry.value}: ` +
+        `${remaining - entry.value} short. Fees come out of the coin but are ` +
+        `not charged against spentTotal, so the two diverge by the fees paid ` +
+        `so far. The coin is what binds — see maxNextSpend.`,
     });
   }
 
@@ -177,6 +226,8 @@ export function describeGrant(
     covenantId: entry.covenantId ? toHex(entry.covenantId) : null,
     remaining,
     epochRemaining,
+    maxNextSpend,
+    boundBy,
     reclaimable: dag.virtualDaaScore >= s.expiresAt,
     findings,
     agrees: !findings.some((f) => f.level === "error"),

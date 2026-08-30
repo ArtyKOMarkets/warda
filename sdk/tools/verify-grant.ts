@@ -92,6 +92,9 @@ try {
   console.log(`budget left    : ${r.remaining} sompi of ${grant.state.budgetTotal}`);
   console.log(`this epoch     : ${r.epochRemaining} sompi of ${grant.state.epochLimit}`);
   console.log(`per spend      : up to ${grant.state.maxPerSpend} sompi`);
+  // The number an agent should actually act on. `budget left` is accounting;
+  // this is the tightest limit that binds, and it includes the coin.
+  console.log(`max next spend : ${r.maxNextSpend} sompi (bound by ${r.boundBy})`);
   console.log(`reclaimable    : ${r.reclaimable ? "yes — past expiry" : "no"}`);
   console.log("");
   for (const f of r.findings) {

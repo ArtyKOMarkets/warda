@@ -151,6 +151,38 @@ test("expiry is reported as a reclaim right, never as a spend prohibition", { sk
   assert.match(note.text, /does not close the spend path/);
 });
 
+test("the coin, not the budget, is what limits the next spend", { skip }, () => {
+  // The live grant is the demonstration. Budget accounting says 900,000,000
+  // remains; the coin holds 898,000,000. The 2,000,000 gap is exactly the two
+  // 1,000,000-sompi fees the two spends paid — fees leave the coin but are
+  // never charged against spentTotal, so the two figures diverge for the life
+  // of the grant. An agent acting on `remaining` builds a spend that cannot be
+  // funded, and the covenant refuses it as a value-conservation failure.
+  const capture = JSON.parse(readFileSync(capturePath, "utf8"));
+  const dag = parseDagInfo(capture.captured.getBlockDagInfo.reply.params);
+  const utxo = parseUtxos(capture.captured.getUtxosByAddresses.reply.params)[0]!;
+
+  const r = describeGrant(grantFrom(LIVE_MANIFEST), template, "kaspatest", utxo, dag, {});
+  assert.equal(r.remaining, 900_000_000n);
+  assert.equal(r.value, 898_000_000n);
+  assert.equal(r.remaining - r.value!, 2_000_000n, "the gap should be exactly the fees paid");
+
+  // With no fee stated the bound is the template's baked maxFee (5,000,000),
+  // which is pessimistic on purpose. maxPerSpend is 200,000,000 and still
+  // wins here, so the binding limit is the per-spend cap, not the coin.
+  assert.equal(r.maxNextSpend, 200_000_000n);
+  assert.equal(r.boundBy, "maxPerSpend");
+
+  // Shrink the grant to where the coin binds, and the report must say so
+  // rather than repeating the budget.
+  const thin = { ...utxo, entry: { ...utxo.entry, value: 40_000_000n } };
+  const t = describeGrant(grantFrom(LIVE_MANIFEST), template, "kaspatest", thin, dag, {
+    fee: 1_000_000n,
+  });
+  assert.equal(t.boundBy, "coin");
+  assert.equal(t.maxNextSpend, 39_000_000n);
+});
+
 test("an epoch the chain has moved past reports a FULL allowance, not a spent one", { skip }, () => {
   // epochSpent is stored against a specific epochIndex. Once the chain moves
   // to the next epoch that number no longer applies, and carrying it forward
