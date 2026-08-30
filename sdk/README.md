@@ -28,8 +28,9 @@ authorised. Reimplementing *assembly* fails the other way: a divergence
 produces a transaction the network rejects. Everything here is byte layout,
 where mistakes are loud.
 
-**It does not broadcast.** A spend is an ordinary transaction once it is built;
-submit it with whatever node client you already use.
+**It does not broadcast blindly.** It now speaks to a node — four calls, no
+more — but a spend is still an ordinary transaction once built, and any client
+will send it.
 
 ## Creating a grant
 
@@ -158,6 +159,80 @@ than two — with integers fixed at 8 bytes instead of minimal. Laying the two
 states out one after the other produces a sigscript of exactly the same length
 with every value in the wrong place. `golden-delegation.json` is what catches
 that.
+
+## Reading a grant off the chain
+
+The question a counterparty actually has is not "did the SDK build a valid
+transaction". It is: **is there really a grant at that address, does it hold
+what the manifest says, and how much of it is left?** Answering that needs the
+UTXO set, which until now meant a Rust toolchain.
+
+```
+node --experimental-strip-types tools/verify-grant.ts ../covenant/deploy/grant.json
+```
+
+```
+address        : kaspatest:pr864kryzmq4f2zfktgxnee0p3ugusks533twxsl47ecg2fkxqkzjuzdmp0ct
+on chain       : 898000000 sompi
+covenant id    : f7947f65000b60e59819b02b93b5fd1761772f4edcf07010268ab7eefad375f8
+budget left    : 900000000 sompi of 1000000000
+this epoch     : 500000000 sompi of 500000000
+reclaimable    : yes — past expiry
+
+  ok   898000000 sompi at kaspatest:pr864kry…
+  ok   covenant id f7947f65…
+ warn  past expiresAt (554730058); the principal may now reclaim. The agent can
+       still spend until they do — expiry opens a reclaim right, it does not
+       close the spend path.
+
+the chain agrees with this manifest.
+```
+
+Nothing here trusts the tool that wrote the manifest: the address is *derived*
+from the manifest's own numbers, and a manifest that misstates the state
+derives a different address and finds nothing there.
+
+In code:
+
+```ts
+import { NodeClient, verifyGrant } from "@warda/kaspa";
+
+const client = await NodeClient.connect({ url: "ws://127.0.0.1:18210" });
+const report = await verifyGrant(client, { grant, template, prefix: "kaspatest" });
+if (!report.agrees) throw new Error(report.findings.filter(f => f.level === "error")[0]!.text);
+```
+
+`scriptHashToAddress` is the piece that makes this possible without a
+compiler — Kaspa's address encoding is bech32 in shape and not in detail (an
+8-character BCH checksum, the prefix folded in as `c & 0x1f`, and the version
+byte inside the payload: 8 for the P2SH a grant lives at).
+
+### Four things the node's wire format will do to you
+
+The transport is `ws://127.0.0.1:18210` for testnet, and the port only exists
+if kaspad was started with `--rpclisten-json=<host:port>` — with the `=`; a
+space-separated value is rejected by the argument parser. It is a different
+port from the Borsh one (17210), which is the one most guides show.
+
+- **A reply carries its result in `params`, not `result`.** wRPC reuses the
+  field for both directions. Reading replies as JSON-RPC 2.0 finds every one
+  of them empty, successfully, forever.
+- **A request with no `id` is a notification.** The server runs it and answers
+  nothing, so the call happens and the client waits out its own timeout.
+- **A script public key is one hex string, version big-endian.** Four hex
+  characters of version, then the script. Everything else in Kaspa is
+  little-endian, which makes this the one place a careful reader gets it
+  backwards — and `0100…` is a well-formed string the node reads as version
+  256.
+- **`mass` is mandatory and `sigOpCount` must be zero.** The deserializer
+  errors with "Either storageMass or mass must be provided" before it looks at
+  the transaction, and a version-1 input carrying a nonzero sigop count is
+  rejected outright — the compute budget replaces it, exclusively.
+
+These are recorded, not remembered. `tools/capture_rpc.py` (stdlib only, for
+the machine that runs the node and has no package manager) records a real
+node's replies into `rpc-capture.json`, and the test suite replays that fixture
+through the same parsing functions the live client uses.
 
 ## Three things that will bite you
 

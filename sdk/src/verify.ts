@@ -1,0 +1,209 @@
+/**
+ * Reading a grant off the chain and saying whether it is what it claims to be.
+ *
+ * This is the question a counterparty actually has. Not "did the SDK build a
+ * valid transaction" — "is there really a grant at this address, does it hold
+ * what the manifest says, and how much of it is left". Answering it needs the
+ * UTXO set, which is why it lives here and not in `spend.ts`.
+ *
+ * The check is one-directional by design. It can prove the chain AGREES with a
+ * manifest: the derived address holds a coin, of the stated size, carrying the
+ * stated covenant id. It cannot prove a manifest describes the only grant an
+ * agent holds, or that the state has not moved on since — a spend relocates a
+ * grant, so a manifest is a claim about a moment.
+ */
+
+import { equal, fromHex, toHex } from "./bytes.ts";
+import { scriptHashToAddress, type NetworkPrefix } from "./address.ts";
+import type { NodeClient, AddressUtxo, DagInfo } from "./node.ts";
+import { scriptHashFor, type CovenantTemplate, type Grant } from "./template.ts";
+import { payToScriptHashScript } from "./tx.ts";
+
+export interface GrantExpectation {
+  /** The covenant id recorded when the grant was created. */
+  covenantId?: string;
+  /** The value the manifest says the grant holds. */
+  value?: bigint;
+}
+
+export interface Finding {
+  level: "ok" | "warn" | "error";
+  text: string;
+}
+
+export interface GrantReport {
+  address: string;
+  scriptHash: string;
+  found: boolean;
+  value: bigint | null;
+  covenantId: string | null;
+  /** budgetTotal - spentTotal - reserved: what the agent may still spend. */
+  remaining: bigint;
+  /** What is left in the CURRENT epoch, given where the chain is now. */
+  epochRemaining: bigint;
+  /** True once the principal's reclaim right has opened. */
+  reclaimable: boolean;
+  findings: Finding[];
+  /** No `error` findings: the chain agrees with everything that was claimed. */
+  agrees: boolean;
+}
+
+/**
+ * The whole check, with the chain's answers passed in. Separated from I/O so
+ * a report can be produced from a recorded capture, or from a UTXO obtained
+ * some other way, using exactly the code a live connection runs.
+ */
+export function describeGrant(
+  grant: Grant,
+  template: CovenantTemplate,
+  prefix: NetworkPrefix,
+  utxo: AddressUtxo | null,
+  dag: DagInfo,
+  expect: GrantExpectation = {},
+): GrantReport {
+  const hash = scriptHashFor(template, grant); // hex
+  const address = scriptHashToAddress(hash, prefix);
+  const s = grant.state;
+  const findings: Finding[] = [];
+
+  const remaining = s.budgetTotal - s.spentTotal - s.reserved;
+
+  // The epoch resets on its own as the chain advances: an agent that spent its
+  // whole allowance last epoch has the full allowance again this one, without
+  // anybody doing anything. Reporting the stored `epochSpent` as if it still
+  // applied would understate the headroom, sometimes to zero.
+  const currentEpoch = (dag.virtualDaaScore - s.notBefore) / s.epochLength;
+  const spentThisEpoch = currentEpoch === s.epochIndex ? s.epochSpent : 0n;
+  const epochRemaining = s.epochLimit - spentThisEpoch;
+
+  if (!utxo) {
+    findings.push({
+      level: "error",
+      text:
+        `nothing at ${address}. A grant's address is derived from its state, ` +
+        `and spending changes that state — so this usually means the grant has ` +
+        `moved to a successor address and the manifest is stale, not that the ` +
+        `grant is gone.`,
+    });
+    return {
+      address,
+      scriptHash: hash,
+      found: false,
+      value: null,
+      covenantId: null,
+      remaining,
+      epochRemaining,
+      reclaimable: dag.virtualDaaScore >= s.expiresAt,
+      findings,
+      agrees: false,
+    };
+  }
+
+  const entry = utxo.entry;
+  findings.push({ level: "ok", text: `${entry.value} sompi at ${address}` });
+
+  // Belt and braces: the node found this by address, so a mismatch would mean
+  // the address encoding and the script hash disagree — worth catching once
+  // rather than trusting the round trip.
+  const expectedSpk = payToScriptHashScript(fromHex(hash));
+  if (!equal(expectedSpk.script, entry.scriptPublicKey.script)) {
+    findings.push({
+      level: "error",
+      text: `the UTXO's script is not P2SH of this state's bytecode`,
+    });
+  }
+
+  if (!entry.covenantId) {
+    findings.push({
+      level: "error",
+      text:
+        `the node reports no covenant id for this UTXO. Either it predates ` +
+        `covenants, or the field was dropped in transit — and a spend built ` +
+        `from this entry would carry no binding.`,
+    });
+  } else if (expect.covenantId && toHex(entry.covenantId) !== expect.covenantId) {
+    findings.push({
+      level: "error",
+      text: `covenant id is ${toHex(entry.covenantId)}, the manifest says ${expect.covenantId}`,
+    });
+  } else {
+    findings.push({ level: "ok", text: `covenant id ${toHex(entry.covenantId)}` });
+  }
+
+  if (expect.value !== undefined && entry.value !== expect.value) {
+    findings.push({
+      level: "error",
+      text: `holds ${entry.value} sompi, the manifest says ${expect.value}`,
+    });
+  }
+
+  // A grant can hold more coin than the agent may spend — the surplus is the
+  // principal's, recoverable on reclaim. Less is the alarming direction.
+  if (entry.value < remaining) {
+    findings.push({
+      level: "warn",
+      text:
+        `the budget has ${remaining} sompi left but the grant holds only ` +
+        `${entry.value}: the remaining budget is not fully funded.`,
+    });
+  }
+
+  if (dag.virtualDaaScore < s.notBefore) {
+    findings.push({
+      level: "warn",
+      text: `the spending window has not opened yet (notBefore ${s.notBefore})`,
+    });
+  }
+
+  // Expiry is a RECLAIM RIGHT, not a spend prohibition. The covenant's spend
+  // path has no expiry check at all; what `expiresAt` gates is the principal's
+  // ability to take the coin back. Reporting it as "expired, cannot spend"
+  // would be a plausible-sounding lie about what the chain enforces.
+  if (dag.virtualDaaScore >= s.expiresAt) {
+    findings.push({
+      level: "warn",
+      text:
+        `past expiresAt (${s.expiresAt}); the principal may now reclaim. The ` +
+        `agent can still spend until they do — expiry opens a reclaim right, ` +
+        `it does not close the spend path.`,
+    });
+  }
+
+  return {
+    address,
+    scriptHash: hash,
+    found: true,
+    value: entry.value,
+    covenantId: entry.covenantId ? toHex(entry.covenantId) : null,
+    remaining,
+    epochRemaining,
+    reclaimable: dag.virtualDaaScore >= s.expiresAt,
+    findings,
+    agrees: !findings.some((f) => f.level === "error"),
+  };
+}
+
+/** The same check, against a live node. */
+export async function verifyGrant(
+  client: NodeClient,
+  args: {
+    grant: Grant;
+    template: CovenantTemplate;
+    prefix: NetworkPrefix;
+    expect?: GrantExpectation;
+  },
+): Promise<GrantReport> {
+  const address = scriptHashToAddress(scriptHashFor(args.template, args.grant), args.prefix);
+  const [dag, utxos] = await Promise.all([
+    client.getBlockDagInfo(),
+    client.getUtxosByAddresses([address]),
+  ]);
+  return describeGrant(
+    args.grant,
+    args.template,
+    args.prefix,
+    utxos[0] ?? null,
+    dag,
+    args.expect ?? {},
+  );
+}

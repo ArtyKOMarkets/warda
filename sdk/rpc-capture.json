@@ -1,0 +1,91 @@
+{
+  "url": "ws://127.0.0.1:18210",
+  "address": "kaspatest:pr864kryzmq4f2zfktgxnee0p3ugusks533twxsl47ecg2fkxqkzjuzdmp0ct",
+  "captured": {
+    "getInfo": {
+      "why": "readiness \u2014 is it synced, is the utxo index on",
+      "request": {},
+      "reply": {
+        "id": 1,
+        "method": "getInfo",
+        "params": {
+          "hasMessageId": true,
+          "hasNotifyCommand": true,
+          "isSynced": true,
+          "isUtxoIndexed": true,
+          "mempoolSize": 4,
+          "p2pId": "a0e18213-33a7-469c-b8d9-8aa1b7c5eef2",
+          "serverVersion": "2.0.1"
+        }
+      }
+    },
+    "getBlockDagInfo": {
+      "why": "the current DAA score",
+      "request": {},
+      "reply": {
+        "id": 2,
+        "method": "getBlockDagInfo",
+        "params": {
+          "blockCount": 1253550,
+          "difficulty": 953458.8883419964,
+          "headerCount": 1253550,
+          "network": "testnet-10",
+          "pastMedianTime": 1788096761232,
+          "pruningPointHash": "af32ce7d5a1f829ecde35f5365133b542ccff0c184fae77da31b4c49bb6cd76a",
+          "sink": "186f5a8786ec2258b68374b7501de23775a82074f73cfd6b2b9edc695a1a115e",
+          "tipHashes": [
+            "c9d59c0ff0be8ae9e7b77b03e961c6c7c2d0fed09dced9faf895593ad1768465",
+            "186f5a8786ec2258b68374b7501de23775a82074f73cfd6b2b9edc695a1a115e",
+            "391684acefdb2dc27b8ff15b649b8b2761414e7772cfe2e83e80dd2901faf922"
+          ],
+          "virtualDaaScore": 557382044,
+          "virtualParentHashes": [
+            "c9d59c0ff0be8ae9e7b77b03e961c6c7c2d0fed09dced9faf895593ad1768465",
+            "391684acefdb2dc27b8ff15b649b8b2761414e7772cfe2e83e80dd2901faf922",
+            "186f5a8786ec2258b68374b7501de23775a82074f73cfd6b2b9edc695a1a115e"
+          ]
+        }
+      }
+    },
+    "getUtxosByAddresses": {
+      "why": "a real grant UTXO, including its covenant id",
+      "request": {
+        "addresses": [
+          "kaspatest:pr864kryzmq4f2zfktgxnee0p3ugusks533twxsl47ecg2fkxqkzjuzdmp0ct"
+        ]
+      },
+      "reply": {
+        "id": 3,
+        "method": "getUtxosByAddresses",
+        "params": {
+          "entries": [
+            {
+              "address": "kaspatest:pr864kryzmq4f2zfktgxnee0p3ugusks533twxsl47ecg2fkxqkzjuzdmp0ct",
+              "outpoint": {
+                "index": 0,
+                "transactionId": "7dbc957fbf87ca26bc9b83ec81849f4f713c255fa6d39f44a53301813ceb86ba"
+              },
+              "utxoEntry": {
+                "amount": 898000000,
+                "blockDaaScore": 554573904,
+                "covenantId": "f7947f65000b60e59819b02b93b5fd1761772f4edcf07010268ab7eefad375f8",
+                "isCoinbase": false,
+                "scriptPublicKey": "0000aa20cfaad86416c154a849b2d069e72f0c788e42d0a462b71a1fafb3842936302c2987"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "_covenantAwareness": {
+      "verdict": "present \u2014 this node is covenant-aware",
+      "sampledEntry": {
+        "amount": 898000000,
+        "blockDaaScore": 554573904,
+        "covenantId": "f7947f65000b60e59819b02b93b5fd1761772f4edcf07010268ab7eefad375f8",
+        "isCoinbase": false,
+        "scriptPublicKey": "0000aa20cfaad86416c154a849b2d069e72f0c788e42d0a462b71a1fafb3842936302c2987"
+      }
+    }
+  }
+}

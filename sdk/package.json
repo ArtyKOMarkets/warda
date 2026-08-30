@@ -14,6 +14,8 @@
     "src",
     "covenant-template.json",
     "golden-spend.json",
+    "golden-genesis.json",
+    "golden-delegation.json",
     "README.md",
     "tools"
   ],
@@ -22,7 +24,9 @@
     "build:golden": "node --experimental-strip-types tools/build-spend.ts --golden",
     "build:genesis": "node --experimental-strip-types tools/build-spend.ts --genesis",
     "build:live": "node --experimental-strip-types tools/build-spend.ts --live",
-    "build:delegate": "node --experimental-strip-types tools/build-spend.ts --delegate"
+    "build:delegate": "node --experimental-strip-types tools/build-spend.ts --delegate",
+    "verify:grant": "node --experimental-strip-types tools/verify-grant.ts",
+    "capture:rpc": "node --experimental-strip-types tools/capture-rpc.ts"
   },
   "keywords": [
     "kaspa",

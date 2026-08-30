@@ -97,3 +97,43 @@ export {
 } from "./sign.ts";
 
 export { blake2b256, HashWriter } from "./hashers.ts";
+
+export {
+  RpcConnection,
+  RpcError,
+  stringify,
+  toBigInt,
+  type RpcOptions,
+  type RpcReply,
+} from "./rpc.ts";
+
+export {
+  NodeClient,
+  parseDagInfo,
+  parseInfo,
+  parseUtxos,
+  scriptPublicKeyFromWire,
+  scriptPublicKeyToWire,
+  transactionToWire,
+  type AddressUtxo,
+  type DagInfo,
+  type NodeInfo,
+} from "./node.ts";
+
+export {
+  AddressVersion,
+  decodeAddress,
+  encodeAddress,
+  pubkeyToAddress,
+  scriptHashToAddress,
+  type DecodedAddress,
+  type NetworkPrefix,
+} from "./address.ts";
+
+export {
+  describeGrant,
+  verifyGrant,
+  type Finding,
+  type GrantExpectation,
+  type GrantReport,
+} from "./verify.ts";
