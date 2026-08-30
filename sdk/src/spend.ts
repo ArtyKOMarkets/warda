@@ -1,6 +1,7 @@
 import { concat, toHex } from "./bytes.ts";
 import { blake3Unkeyed } from "./hashers.ts";
 import { ScriptBuilder } from "./script.ts";
+import { pushState } from "./state.ts";
 import {
   payToPubkeyScript,
   payToScriptHashScript,
@@ -46,50 +47,9 @@ export function dispatchTag(name: string, argTypes: string[]): Uint8Array {
   return blake3Unkeyed(new TextEncoder().encode(signature)).slice(0, 4);
 }
 
-/** The 13 State fields, in the order the covenant declares them. */
-const STATE_FIELDS = [
-  "agentKey",
-  "budgetTotal",
-  "maxPerSpend",
-  "epochLimit",
-  "epochLength",
-  "recipientsRoot",
-  "notBefore",
-  "expiresAt",
-  "delegationDepth",
-  "spentTotal",
-  "reserved",
-  "epochIndex",
-  "epochSpent",
-] as const;
-
-const STATE_BYTE_FIELDS = new Set<string>(["agentKey", "recipientsRoot"]);
-
-function fromHexStrict(s: string, expect: number, label: string): Uint8Array {
-  const c = s.startsWith("0x") ? s.slice(2) : s;
-  const out = new Uint8Array(c.length / 2);
-  for (let i = 0; i < out.length; i++) out[i] = Number.parseInt(c.slice(i * 2, i * 2 + 2), 16);
-  if (out.length !== expect) throw new Error(`${label}: expected ${expect} bytes, got ${out.length}`);
-  return out;
-}
-
-/**
- * Pushes a struct as its fields, in declaration order, with no length prefix
- * and no marker of any kind — a struct argument is simply its fields flattened
- * onto the stack. Field ORDER is therefore load-bearing and invisible: swap
- * two same-typed fields and the script still runs, on the wrong values.
- */
-function pushState(b: ScriptBuilder, state: GrantState): void {
-  for (const name of STATE_FIELDS) {
-    const value = (state as unknown as Record<string, unknown>)[name];
-    if (value === undefined) throw new Error(`state is missing field ${name}`);
-    if (STATE_BYTE_FIELDS.has(name)) {
-      b.addData(fromHexStrict(value as string, 32, name));
-    } else {
-      b.addI64(value as bigint);
-    }
-  }
-}
+// A State reaches the covenant one of two ways, and delegate uses the other
+// one. Both encodings live in state.ts so they can be read side by side —
+// keeping them apart is how they drift.
 
 export interface MerkleProof {
   siblings: Uint8Array[];

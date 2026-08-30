@@ -478,6 +478,185 @@ fn build_genesis(plan: &GenesisPlan, kp: &Keypair) -> Result<BuiltGenesis, Box<d
     })
 }
 
+// ---- shared delegation construction -------------------------------------
+//
+// A 1:2 fanout: the parent continues at auth output 0, the child grant is
+// created at auth output 1. Authority is subdivided, never created — the
+// parent RESERVES exactly what the child receives, and real coins move with
+// it. A child holding authority but no coins could pay nobody; a child holding
+// coins but no reserve against its parent would double the tree's total.
+//
+// The child inherits the parent's COVENANT ID. Both outputs carry the same
+// binding, which is what makes the lineage a single covenant rather than two
+// unrelated ones that happen to look alike.
+
+/// How a child narrows its parent. Every field here may only ever shrink.
+struct ChildTerms {
+    agent: [u8; 32],
+    budget: i64,
+    max_per_spend: i64,
+    epoch_limit: i64,
+    delegation_depth: i64,
+}
+
+struct DelegationPlan {
+    agent: [u8; 32],
+    principal: [u8; 32],
+    root: [u8; 32],
+    not_before: i64,
+    expires_at: i64,
+    cov: kaspa_consensus_core::Hash,
+    outpoint: TransactionOutpoint,
+    in_value: u64,
+    block_daa: u64,
+    is_coinbase: bool,
+    prev_spent: i64,
+    prev_reserved: i64,
+    prev_epoch_index: i64,
+    prev_epoch_spent: i64,
+    child: ChildTerms,
+}
+
+struct BuiltDelegation {
+    tx: Transaction,
+    entry: UtxoEntry,
+    unsigned: Transaction,
+    sighash: [u8; 32],
+    signature: Vec<u8>,
+    contract: CompiledContract<'static>,
+    parent_next: CompiledContract<'static>,
+    child: CompiledContract<'static>,
+    parent_spk: ScriptPublicKey,
+    parent_next_spk: ScriptPublicKey,
+    child_spk: ScriptPublicKey,
+    parent_change: u64,
+}
+
+/// The child's constructor: the parent's, with the narrowed terms written over
+/// it. Every field NOT overwritten is inherited, which is the safe default —
+/// a field forgotten here is one the child shares with its parent rather than
+/// one it invents for itself.
+fn child_ctor(plan: &DelegationPlan) -> Vec<Expr<'static>> {
+    let mut c = grant_ctor(
+        plan.child.agent, plan.principal, plan.root, plan.not_before, plan.expires_at, 0, 0, 0, 0,
+    );
+    c[4] = Expr::int(plan.child.budget);
+    c[5] = Expr::int(plan.child.max_per_spend);
+    c[6] = Expr::int(plan.child.epoch_limit);
+    c[11] = Expr::int(plan.child.delegation_depth);
+    c
+}
+
+fn child_state(plan: &DelegationPlan) -> Expr<'static> {
+    struct_object(
+        "State",
+        vec![
+            ("agentKey", Expr::bytes(plan.child.agent.to_vec())),
+            ("budgetTotal", Expr::int(plan.child.budget)),
+            ("maxPerSpend", Expr::int(plan.child.max_per_spend)),
+            ("epochLimit", Expr::int(plan.child.epoch_limit)),
+            ("epochLength", Expr::int(EPOCH_LENGTH)),
+            ("recipientsRoot", Expr::bytes(plan.root.to_vec())),
+            ("notBefore", Expr::int(plan.not_before)),
+            ("expiresAt", Expr::int(plan.expires_at)),
+            ("delegationDepth", Expr::int(plan.child.delegation_depth)),
+            // A child starts spent-out-of-nothing. Without this it could be
+            // born mid-epoch with an allowance already used.
+            ("spentTotal", Expr::int(0)),
+            ("reserved", Expr::int(0)),
+            ("epochIndex", Expr::int(0)),
+            ("epochSpent", Expr::int(0)),
+        ],
+    )
+}
+
+fn build_delegation(plan: &DelegationPlan, kp: &Keypair) -> Result<BuiltDelegation, Box<dyn Error>> {
+    let contract = compile(grant_ctor(
+        plan.agent, plan.principal, plan.root, plan.not_before, plan.expires_at,
+        plan.prev_spent, plan.prev_reserved, plan.prev_epoch_index, plan.prev_epoch_spent,
+    ))?;
+    let parent_spk = pay_to_script_hash_script(&contract.bytecode);
+
+    // The parent only RESERVES. Nothing else about it may move, and the
+    // covenant checks every other field for equality.
+    let reserved_after = plan.prev_reserved + plan.child.budget;
+    let parent_next = compile(grant_ctor(
+        plan.agent, plan.principal, plan.root, plan.not_before, plan.expires_at,
+        plan.prev_spent, reserved_after, plan.prev_epoch_index, plan.prev_epoch_spent,
+    ))?;
+    let parent_next_spk = pay_to_script_hash_script(&parent_next.bytecode);
+
+    let child = compile(child_ctor(plan))?;
+    let child_spk = pay_to_script_hash_script(&child.bytecode);
+
+    let parent_change = plan
+        .in_value
+        .saturating_sub(plan.child.budget.max(0) as u64)
+        .saturating_sub(SPEND_FEE);
+
+    let entry =
+        UtxoEntry::new(plan.in_value, parent_spk.clone(), plan.block_daa, plan.is_coinbase, Some(plan.cov));
+
+    let parent_next_state = grant_state(
+        plan.agent, plan.root, plan.not_before, plan.expires_at,
+        plan.prev_spent, reserved_after, plan.prev_epoch_index, plan.prev_epoch_spent,
+    );
+
+    // `State[]` needs an explicit TypeRef: a custom struct element type cannot
+    // be inferred from struct literals.
+    let new_states = Expr::array(
+        TypeRef { base: TypeBase::Custom("State".to_string()), array_dims: vec![ArrayDim::Dynamic] },
+        vec![parent_next_state, child_state(plan)],
+    );
+
+    let make = |sig: Vec<u8>| -> Result<Transaction, Box<dyn Error>> {
+        let args = vec![new_states.clone(), Expr::bytes(sig)];
+        let sigscript = covenant_sigscript(&contract, "delegate", args)?;
+        Ok(Transaction::new(
+            1,
+            vec![TransactionInput::new_with_compute_budget(plan.outpoint, sigscript, 0, SPEND_COMPUTE_BUDGET)],
+            vec![
+                TransactionOutput {
+                    value: parent_change,
+                    script_public_key: parent_next_spk.clone(),
+                    covenant: Some(CovenantBinding { authorizing_input: 0, covenant_id: plan.cov }),
+                },
+                TransactionOutput {
+                    value: plan.child.budget.max(0) as u64,
+                    script_public_key: child_spk.clone(),
+                    // The SAME covenant id. The child is a branch of this
+                    // covenant's lineage, not a new covenant that resembles it.
+                    covenant: Some(CovenantBinding { authorizing_input: 0, covenant_id: plan.cov }),
+                },
+            ],
+            0,
+            SUBNETWORK_ID_NATIVE,
+            0,
+            vec![],
+        ))
+    };
+
+    let unsigned = make(vec![0u8; 65])?;
+    let sighash = sighash_of(&unsigned, vec![entry.clone()], 0);
+    let signature = sign_covenant(unsigned.clone(), vec![entry.clone()], 0, kp)?;
+    let tx = make(signature.clone())?;
+
+    Ok(BuiltDelegation {
+        tx,
+        entry,
+        unsigned,
+        sighash,
+        signature,
+        contract,
+        parent_next,
+        child,
+        parent_spk,
+        parent_next_spk,
+        child_spk,
+        parent_change,
+    })
+}
+
 /// The digest a signer must reproduce. At v1 this commits to the covenant
 /// binding as well as the usual fields — SIGNING.md — which is the single
 /// thing a second implementation is most likely to get wrong, and the reason
@@ -1442,6 +1621,253 @@ r#"{{
             println!("  grant address : {genesis_grant_addr}");
             println!("  sighash       : {}", hex(&g.sighash));
             println!("  txid          : {}", g.tx.id());
+
+            // ---- and delegation, the half that makes this more than a cap ----
+            //
+            // Every value in a delegation's sigscript is encoded differently
+            // from a spend's, and not because anything about State changed.
+            // `delegate` takes `State[]`, and the compiler TRANSPOSES a struct
+            // array: it emits one push per FIELD holding that field's value
+            // across every element, so `State[2]` is thirteen pushes rather
+            // than two. Inside those arrays every element must be one width,
+            // so integers are fixed at 8 bytes little-endian — the opposite of
+            // the minimal script numbers a scalar State uses.
+            //
+            // A second implementation that laid the two states out one after
+            // the other would produce the same total byte count with every
+            // value in the wrong place. That is precisely the kind of mistake
+            // a vector catches and a code review does not.
+            let dplan = DelegationPlan {
+                agent,
+                principal: agent,
+                root,
+                not_before,
+                expires_at: not_before + 864_000,
+                cov,
+                outpoint,
+                in_value: BUDGET as u64,
+                block_daa: not_before as u64,
+                is_coinbase: false,
+                prev_spent: 0,
+                prev_reserved: 0,
+                prev_epoch_index: 0,
+                prev_epoch_spent: 0,
+                child: ChildTerms {
+                    agent: [0x99u8; 32],
+                    budget: 4 * KAS,
+                    max_per_spend: KAS,
+                    epoch_limit: 2 * KAS,
+                    delegation_depth: DELEGATION_DEPTH - 1,
+                },
+            };
+            let d = build_delegation(&dplan, &kp)?;
+
+            let dverdict = validate_locally(&d.tx, d.entry.clone());
+            println!("\nreference delegation -> {dverdict:?}");
+            if dverdict.is_err() {
+                return Err("refusing to write a delegation vector the engine rejects".into());
+            }
+
+            let dentry = d
+                .contract
+                .entry_by_name("__covenant_entrypoint_auth_delegate")
+                .ok_or("compiled contract has no auth_delegate entrypoint")?;
+            let dabi_inputs = dentry
+                .inputs
+                .iter()
+                .map(|i| format!("      {{ \"name\": \"{}\", \"typeName\": \"{}\" }}", i.name, i.type_name))
+                .collect::<Vec<_>>()
+                .join(",\n");
+
+            let parent_addr = extract_script_pub_key_address(&d.parent_spk, Prefix::Testnet)?;
+            let parent_next_addr = extract_script_pub_key_address(&d.parent_next_spk, Prefix::Testnet)?;
+            let child_addr = extract_script_pub_key_address(&d.child_spk, Prefix::Testnet)?;
+
+            let delegation_json = format!(
+r#"{{
+  "note": "Reference delegation: a 1:2 fanout that subdivides a grant. Parent continues at output 0, child is created at output 1. Produced by the same build_delegation() the deploy tool uses.",
+  "generatedBy": "warda-deploy golden",
+  "network": "kaspatest",
+
+  "key": {{
+    "_comment": "Fixed and public. NEVER FUND THIS.",
+    "secretHex": "{sk}",
+    "xonlyPublicHex": "{agent}"
+  }},
+
+  "abi": {{
+    "entrypoint": "{dabi_name}",
+    "dispatchTag": "{ddispatch}",
+    "inputs": [
+{dabi_inputs}
+    ]
+  }},
+
+  "params": {{
+    "principalKey": "{agent}",
+    "revocationKey": "{agent}",
+    "agentKey": "{agent}",
+    "budgetTotal": {budget},
+    "maxPerSpend": {max_per_spend},
+    "epochLimit": {epoch_limit},
+    "epochLength": {epoch_length},
+    "recipientsRoot": "{root}",
+    "notBefore": {not_before},
+    "expiresAt": {expires_at},
+    "delegationDepth": {deleg_depth},
+    "prevState": {{ "spentTotal": 0, "reserved": 0, "epochIndex": 0, "epochSpent": 0 }}
+  }},
+
+  "child": {{
+    "_comment": "Every term may only ever shrink. Fields not listed are inherited from the parent, which is the safe default: a forgotten field is one the child SHARES rather than one it invents.",
+    "agentKey": "{child_agent}",
+    "budgetTotal": {child_budget},
+    "maxPerSpend": {child_max_per_spend},
+    "epochLimit": {child_epoch_limit},
+    "delegationDepth": {child_depth}
+  }},
+
+  "conservation": {{
+    "_comment": "The parent RESERVES exactly what the child receives, and coins move with it. Reserve without coins and the child can pay nobody; coins without reserve and the same KAS is spendable twice, from two addresses, both legitimately.",
+    "parentReservedBefore": 0,
+    "parentReservedAfter": {reserved_after},
+    "childBudget": {child_budget},
+    "childOutputValue": {child_budget}
+  }},
+
+  "parent": {{
+    "redeemScriptHex": "{parent_redeem}",
+    "scriptPublicKeyHex": "{parent_spk}",
+    "address": "{parent_addr}"
+  }},
+
+  "parentSuccessor": {{
+    "redeemScriptHex": "{parent_next_redeem}",
+    "scriptPublicKeyHex": "{parent_next_spk}",
+    "address": "{parent_next_addr}"
+  }},
+
+  "childGrant": {{
+    "_comment": "Shares the parent's AUTHORITY — same principal, same revocation key. Delegation subdivides an agent's budget; it does not hand over the right to revoke or reclaim.",
+    "redeemScriptHex": "{child_redeem}",
+    "scriptPublicKeyHex": "{child_spk}",
+    "address": "{child_addr}"
+  }},
+
+  "utxo": {{
+    "outpointTransactionId": "{op_txid}",
+    "outpointIndex": {op_index},
+    "value": {in_value},
+    "scriptPublicKeyVersion": 0,
+    "scriptPublicKeyHex": "{parent_spk}",
+    "blockDaaScore": {block_daa},
+    "isCoinbase": false,
+    "covenantId": "{cov}"
+  }},
+
+  "spend": {{
+    "fee": {fee},
+    "computeBudget": {compute_budget},
+    "parentChange": {parent_change}
+  }},
+
+  "transaction": {{
+    "version": 1,
+    "_lockTime": "Zero. A delegation makes no claim about the chain's height; only a spend needs to, because only a spend consumes an epoch allowance.",
+    "lockTime": 0,
+    "subnetworkId": "0000000000000000000000000000000000000000",
+    "gas": 0,
+    "payloadHex": "",
+    "input": {{
+      "sequence": {dsequence},
+      "computeBudget": {dinput_budget}
+    }},
+    "outputs": [
+{doutputs}
+    ],
+    "txid": "{dtxid}"
+  }},
+
+  "unsignedSignatureScriptHex": "{dunsigned_ss}",
+  "sighashHex": "{dsighash}",
+  "signatureHex": "{dsignature}",
+  "signedSignatureScriptHex": "{dsigned_ss}"
+}}
+"#,
+                sk = hex(&kp.secret_key().secret_bytes()),
+                agent = hex(&agent),
+                dabi_name = dentry.name,
+                ddispatch = hex(&dentry.dispatch_tag()),
+                dabi_inputs = dabi_inputs,
+                budget = BUDGET,
+                max_per_spend = MAX_PER_SPEND,
+                epoch_limit = EPOCH_LIMIT,
+                epoch_length = EPOCH_LENGTH,
+                root = hex(&root),
+                not_before = not_before,
+                expires_at = dplan.expires_at,
+                deleg_depth = DELEGATION_DEPTH,
+                child_agent = hex(&dplan.child.agent),
+                child_budget = dplan.child.budget,
+                child_max_per_spend = dplan.child.max_per_spend,
+                child_epoch_limit = dplan.child.epoch_limit,
+                child_depth = dplan.child.delegation_depth,
+                reserved_after = dplan.prev_reserved + dplan.child.budget,
+                parent_redeem = hex(&d.contract.bytecode),
+                parent_spk = hex(d.parent_spk.script()),
+                parent_addr = parent_addr,
+                parent_next_redeem = hex(&d.parent_next.bytecode),
+                parent_next_spk = hex(d.parent_next_spk.script()),
+                parent_next_addr = parent_next_addr,
+                child_redeem = hex(&d.child.bytecode),
+                child_spk = hex(d.child_spk.script()),
+                child_addr = child_addr,
+                op_txid = dplan.outpoint.transaction_id,
+                op_index = dplan.outpoint.index,
+                in_value = dplan.in_value,
+                block_daa = dplan.block_daa,
+                cov = dplan.cov,
+                fee = SPEND_FEE,
+                compute_budget = SPEND_COMPUTE_BUDGET,
+                parent_change = d.parent_change,
+                dsequence = d.tx.inputs[0].sequence,
+                dinput_budget = d.tx.inputs[0].compute_commit.compute_budget().unwrap_or_default(),
+                doutputs = d
+                    .tx
+                    .outputs
+                    .iter()
+                    .map(|o| {
+                        let covenant = match &o.covenant {
+                            Some(c) => format!(
+                                "{{ \"authorizingInput\": {}, \"covenantId\": \"{}\" }}",
+                                c.authorizing_input, c.covenant_id
+                            ),
+                            None => "null".to_string(),
+                        };
+                        format!(
+                            "    {{ \"value\": {}, \"scriptPublicKeyVersion\": {}, \"scriptPublicKeyHex\": \"{}\", \"covenant\": {} }}",
+                            o.value,
+                            o.script_public_key.version(),
+                            hex(o.script_public_key.script()),
+                            covenant
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join(",\n"),
+                dtxid = d.tx.id(),
+                dunsigned_ss = hex(&d.unsigned.inputs[0].signature_script),
+                dsighash = hex(&d.sighash),
+                dsignature = hex(&d.signature),
+                dsigned_ss = hex(&d.tx.inputs[0].signature_script),
+            );
+
+            std::fs::write("golden-delegation.json", &delegation_json)?;
+            println!("\nwrote golden-delegation.json");
+            println!("  parent    : {parent_addr}");
+            println!("  successor : {parent_next_addr}  (reserved {} KAS)", dplan.child.budget / KAS);
+            println!("  child     : {child_addr}  (budget {} KAS)", dplan.child.budget / KAS);
+            println!("  sigscript : {} bytes", d.unsigned.inputs[0].signature_script.len());
+            println!("  txid      : {}", d.tx.id());
         }
 
         cmd @ ("verify" | "submit" | "advance") => {

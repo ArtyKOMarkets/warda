@@ -113,6 +113,52 @@ const { tx } = signSpend(plan, agentSecretKey);
 wrong digest surfaces as a readable error rather than as a node saying only
 that the script failed.
 
+## Delegating to a sub-agent
+
+The thing that makes a grant more than a spending cap. An agent can hand a
+narrower grant to a sub-agent without asking the principal, without custody,
+and without being able to hand over more than it holds.
+
+```ts
+import { buildUnsignedDelegation, attachDelegationSignature, signDigest } from "@warda/kaspa";
+
+const d = buildUnsignedDelegation({
+  template, authority, state,        // the parent, as it stands
+  utxo: parentUtxo,
+  child: {
+    agentKey: subAgentPubkey,        // the one field that is genuinely new
+    budgetTotal: 400_000_000n,
+    maxPerSpend: 100_000_000n,       // may only ever shrink
+    epochLimit: 200_000_000n,
+    delegationDepth: 1n,             // strictly less than the parent's
+  },
+  fee: 1_000_000n,
+  computeBudget: 16,
+});
+
+const tx = attachDelegationSignature(d, signDigest(d.sighash, agentSecretKey));
+// d.childScriptPublicKey — where the child lives. Watch it to see it spend.
+```
+
+**Conservation is the point.** The parent *reserves* exactly what the child
+receives, and real coins move with it. Reserve without coins and the child can
+pay nobody; coins without reserve and the same KAS is spendable twice, from two
+addresses, both legitimately.
+
+Everything the child does not narrow it **inherits** — allowlist, epoch length,
+validity window, and the parent's principal and revocation keys. Delegation
+subdivides an agent's budget; it does not hand over the right to revoke or
+reclaim. A field forgotten in the narrowing is one the child *shares*, which is
+the safe direction to be wrong in.
+
+Note the encoding is not the spend's. `delegate` takes `State[]`, and the
+compiler **transposes** a struct array: one push per *field* holding that
+field's value across every element, so `State[2]` is thirteen pushes rather
+than two — with integers fixed at 8 bytes instead of minimal. Laying the two
+states out one after the other produces a sigscript of exactly the same length
+with every value in the wrong place. `golden-delegation.json` is what catches
+that.
+
 ## Three things that will bite you
 
 **The grant's address moves every time it is spent.** A grant lives at
@@ -165,7 +211,8 @@ So a built transaction can be written out and handed to the engine directly:
 
 ```
 npm run build:golden  > js-spend.json      # a spend
-npm run build:genesis > js-genesis.json    # a grant being created
+npm run build:genesis  > js-genesis.json    # a grant being created
+npm run build:delegate > js-delegation.json # a grant subdividing itself
 cd ../covenant/deploy && cargo run -- verify ../../sdk/js-spend.json
 ```
 

@@ -69,6 +69,19 @@ export {
   type UnsignedGenesis,
 } from "./genesis.ts";
 
+export {
+  attachDelegationSignature,
+  buildUnsignedDelegation,
+  childStateFrom,
+  delegateSignatureScript,
+  parentSuccessorState,
+  type ChildTerms,
+  type DelegationPlan,
+  type UnsignedDelegation,
+} from "./delegate.ts";
+
+export { pushState, pushStateArray, STATE_FIELDS } from "./state.ts";
+
 export { RecipientSet } from "./recipients.ts";
 
 export { spendPlanFrom, type SpendPlanDocument } from "./plan.ts";

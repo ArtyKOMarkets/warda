@@ -21,7 +21,8 @@
     "test": "node --experimental-strip-types --test test/*.test.ts",
     "build:golden": "node --experimental-strip-types tools/build-spend.ts --golden",
     "build:genesis": "node --experimental-strip-types tools/build-spend.ts --genesis",
-    "build:live": "node --experimental-strip-types tools/build-spend.ts --live"
+    "build:live": "node --experimental-strip-types tools/build-spend.ts --live",
+    "build:delegate": "node --experimental-strip-types tools/build-spend.ts --delegate"
   },
   "keywords": [
     "kaspa",

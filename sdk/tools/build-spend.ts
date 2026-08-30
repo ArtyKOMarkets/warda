@@ -14,6 +14,10 @@
  *              protocol: until a second implementation can issue a grant, a
  *              principal still needs the Rust tool.
  *
+ *   --delegate rebuild the reference DELEGATION — a grant subdividing itself.
+ *              The encoding is genuinely different: `State[]` is TRANSPOSED
+ *              by the compiler, so the same values land in different places.
+ *
  *   --live     build the NEXT spend against the LIVE grant, from the
  *              spend-plan.json that `warda-deploy plan` wrote, signed with
  *              WARDA_SK. Hand the result to `warda-deploy submit` and a
@@ -28,6 +32,7 @@
 import { readFileSync } from "node:fs";
 
 import { fromHex, toHex } from "../src/bytes.ts";
+import { attachDelegationSignature, buildUnsignedDelegation } from "../src/delegate.ts";
 import { attachGenesisSignature, buildGenesis } from "../src/genesis.ts";
 import { spendPlanFrom } from "../src/plan.ts";
 import { RecipientSet } from "../src/recipients.ts";
@@ -143,6 +148,58 @@ function genesisMode(): void {
 }
 
 
+
+function delegateMode(): void {
+  const golden = readJson("../golden-delegation.json");
+  const p = golden.params;
+  const secret = fromHex(golden.key.secretHex);
+
+  const plan = {
+    template,
+    authority: { principalKey: p.principalKey, revocationKey: p.revocationKey },
+    state: {
+      agentKey: p.agentKey,
+      budgetTotal: BigInt(p.budgetTotal),
+      maxPerSpend: BigInt(p.maxPerSpend),
+      epochLimit: BigInt(p.epochLimit),
+      epochLength: BigInt(p.epochLength),
+      recipientsRoot: p.recipientsRoot,
+      notBefore: BigInt(p.notBefore),
+      expiresAt: BigInt(p.expiresAt),
+      delegationDepth: BigInt(p.delegationDepth),
+      spentTotal: BigInt(p.prevState.spentTotal),
+      reserved: BigInt(p.prevState.reserved),
+      epochIndex: BigInt(p.prevState.epochIndex),
+      epochSpent: BigInt(p.prevState.epochSpent),
+    },
+    utxo: {
+      outpointTransactionId: fromHex(golden.utxo.outpointTransactionId),
+      outpointIndex: golden.utxo.outpointIndex,
+      value: BigInt(golden.utxo.value),
+      blockDaaScore: BigInt(golden.utxo.blockDaaScore),
+      isCoinbase: golden.utxo.isCoinbase,
+      covenantId: fromHex(golden.utxo.covenantId),
+    },
+    child: {
+      agentKey: golden.child.agentKey,
+      budgetTotal: BigInt(golden.child.budgetTotal),
+      maxPerSpend: BigInt(golden.child.maxPerSpend),
+      epochLimit: BigInt(golden.child.epochLimit),
+      delegationDepth: BigInt(golden.child.delegationDepth),
+    },
+    fee: BigInt(golden.spend.fee),
+    computeBudget: golden.spend.computeBudget,
+  };
+
+  const built = buildUnsignedDelegation(plan);
+  const signed = attachDelegationSignature(plan, built, signDigest(built.sighash, secret));
+  const wire = toWire(signed, built.entry, "@warda/kaspa (delegation)");
+
+  process.stdout.write(JSON.stringify(wire, null, 2) + "\n");
+  console.error(`parent reserves ${built.parentSuccessorState.reserved}, child receives ${plan.child.budgetTotal}`);
+  console.error(`txid ${wire.txid}`);
+}
+
 function liveMode(): void {
   // The plan comes from `warda-deploy plan`, which did the one thing this SDK
   // cannot: found the grant. A grant's address moves after every spend, so a
@@ -209,12 +266,16 @@ function main(): void {
     genesisMode();
     return;
   }
+  if (mode === "--delegate") {
+    delegateMode();
+    return;
+  }
   if (mode === "--live") {
     liveMode();
     return;
   }
   if (mode !== "--golden") {
-    console.error(`unknown mode ${mode}; expected --golden, --genesis or --live`);
+    console.error(`unknown mode ${mode}; expected --golden, --genesis, --delegate or --live`);
     process.exit(2);
   }
 
