@@ -38,7 +38,8 @@ import { readFileSync } from "node:fs";
 
 import { scriptHashToAddress, type NetworkPrefix } from "../src/address.ts";
 import { fromHex, toHex } from "../src/bytes.ts";
-import { blake2b256, HashWriter } from "../src/hashers.ts";
+import { blake2b256 } from "../src/hashers.ts";
+import { resolveSigner } from "../src/keys.ts";
 import { NodeClient } from "../src/node.ts";
 import { RecipientSet } from "../src/recipients.ts";
 import { agentPublicKey, signSpend } from "../src/sign.ts";
@@ -125,28 +126,26 @@ const state: GrantState = {
 
 // ---- which key signs -----------------------------------------------------
 
-function deriveChildSecret(parentSecret: Uint8Array, index: number): Uint8Array {
-  const idx = new Uint8Array(4);
-  new DataView(idx.buffer).setUint32(0, index, true);
-  return HashWriter.blake2b("WardaSubAgent").update(parentSecret).update(idx).digest();
-}
-
+/**
+ * A grant is spent by ITS agent, and with the roles separated that is nobody
+ * else: not the principal, not the parent, not the funder. The manifest
+ * records where a derived key came from; a key that was never derived cannot
+ * be found here at all, which is the correct answer for a real deployment
+ * where the agent holds its own secret and runs its own tooling.
+ */
 const provided = fromHex(secretHex.trim());
-let secret = provided;
-let whose = "WARDA_SK";
-if (toHex(agentPublicKey(provided)) !== state.agentKey) {
-  const index = m.agent_key_derived?.index ?? 0;
-  const derived = deriveChildSecret(provided, index);
-  if (toHex(agentPublicKey(derived)) !== state.agentKey) {
-    console.error(
-      `neither WARDA_SK nor its derived child at index ${index} is this grant's agent ` +
-        `(${state.agentKey}). A grant is spent by ITS agent; a child's is not its parent's.`,
-    );
-    process.exit(1);
-  }
-  secret = derived;
-  whose = `derived sub-agent (index ${index})`;
+const found = resolveSigner(provided, state.agentKey, m.agent_key_derived ?? null);
+if (!found) {
+  console.error(
+    `the key in WARDA_SK does not control this grant's agent (${state.agentKey}), ` +
+      `and the manifest gives no derivation that reaches it.\n` +
+      `If the roles are properly separated this is expected: the agent holds its ` +
+      `own secret and signs its own spends. Run this with that key.`,
+  );
+  process.exit(1);
 }
+const secret = found.secret;
+const whose = found.how;
 
 // ---- the allowlist -------------------------------------------------------
 

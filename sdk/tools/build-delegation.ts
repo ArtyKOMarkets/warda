@@ -46,7 +46,7 @@ import { dirname, join } from "node:path";
 import { scriptHashToAddress, type NetworkPrefix } from "../src/address.ts";
 import { fromHex, toHex } from "../src/bytes.ts";
 import { attachDelegationSignature, buildUnsignedDelegation, type DelegationPlan } from "../src/delegate.ts";
-import { HashWriter } from "../src/hashers.ts";
+import { derivePublic, KEY_DOMAIN, resolveSigner } from "../src/keys.ts";
 import { NodeClient } from "../src/node.ts";
 import { agentPublicKey, signDigest, verifyDigest } from "../src/sign.ts";
 import { scriptHashFor, templateFingerprint, type CovenantTemplate, type GrantState } from "../src/template.ts";
@@ -111,8 +111,11 @@ function loadTemplate(m: { covenant?: string } = {}): CovenantTemplate {
 
 const template: CovenantTemplate = loadTemplate(m);
 
-const principalKey = flag("principal", m.agent)!;
-const authority = { principalKey, revocationKey: flag("revocation", principalKey)! };
+// The child INHERITS the parent's authority; it does not get the parent's
+// agent key as its principal. Reading these from the manifest is what keeps a
+// separated deployment separated through a delegation.
+const principalKey = flag("principal", m.principal ?? m.agent)!;
+const authority = { principalKey, revocationKey: flag("revocation", m.revocation ?? principalKey)! };
 const prefix = (flag("prefix", "kaspatest") as NetworkPrefix)!;
 const parentDepth = BigInt(flag("parent-depth", "2")!);
 
@@ -132,29 +135,29 @@ const state: GrantState = {
   epochSpent: BigInt(m.epoch_spent),
 };
 
-// The parent's own key must be the one signing, or the covenant's checkSig
-// fails and the error says only that a script did not verify.
-const parentPub = toHex(agentPublicKey(secret));
-if (parentPub !== state.agentKey) {
-  console.error(`WARDA_SK is ${parentPub}, but this grant's agent is ${state.agentKey}.`);
+// Only the parent's AGENT may delegate — not its principal, and not the
+// funder. With the roles separated those are different keys.
+const parentFound = resolveSigner(secret, state.agentKey, m.agent_key_derived ?? null);
+if (!parentFound) {
+  console.error(
+    `WARDA_SK does not control this grant's agent (${state.agentKey}), and the ` +
+      `manifest gives no derivation that reaches it. Only the agent may delegate.`,
+  );
   process.exit(1);
 }
+const parentSecret = parentFound.secret;
 
 /**
  * A reproducible sub-agent secret. Keyed blake2b rather than a plain hash so
  * the derivation is domain-separated: the same parent key used elsewhere
  * cannot collide into the same child.
  */
-function deriveChildSecret(parentSecret: Uint8Array, index: number): Uint8Array {
-  const idx = new Uint8Array(4);
-  new DataView(idx.buffer).setUint32(0, index, true);
-  return HashWriter.blake2b("WardaSubAgent").update(parentSecret).update(idx).digest();
-}
-
 const index = Number(flag("index", "0")!);
-const derivedSecret = deriveChildSecret(secret, index);
-const childKey = flag("child-key", toHex(agentPublicKey(derivedSecret)))!;
-const derived = childKey === toHex(agentPublicKey(derivedSecret));
+// Derived from the PARENT AGENT's secret, not the funder's, so a delegation
+// tree hangs off the agent that made it.
+const derivedChild = derivePublic(parentSecret, KEY_DOMAIN.subAgent, index);
+const childKey = flag("child-key", derivedChild)!;
+const derived = childKey === derivedChild;
 
 const address = scriptHashToAddress(scriptHashFor(template, { authority, state }), prefix);
 
@@ -216,7 +219,7 @@ try {
   client.close();
 }
 
-const signature = signDigest(built.sighash, secret);
+const signature = signDigest(built.sighash, parentSecret);
 // Argument order: signature, then digest. The reverse of signDigest's.
 if (!verifyDigest(signature, built.sighash, fromHex(state.agentKey))) {
   throw new Error("signature failed to verify against the digest it was made over");
@@ -315,7 +318,7 @@ writeFileSync(
       // them — so a manifest without them points somewhere the grant is not.
       principal: authority.principalKey,
       revocation: authority.revocationKey,
-      agent_key_derived: derived ? { from: "WARDA_SK", index } : null,
+      agent_key_derived: derived ? { domain: KEY_DOMAIN.subAgent, index } : null,
       parent_agent: state.agentKey,
       parent_txid: toWire(tx, built.entry).txid,
       recipients_root: c.recipientsRoot,

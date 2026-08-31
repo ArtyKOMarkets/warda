@@ -146,3 +146,12 @@ export {
   type ExitPlan,
   type UnsignedExit,
 } from "./exit.ts";
+
+export {
+  deriveSecret,
+  derivePublic,
+  resolveSigner,
+  KEY_DOMAIN,
+  type Derivation,
+  type KeyDomain,
+} from "./keys.ts";

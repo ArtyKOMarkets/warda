@@ -29,6 +29,9 @@
  *   --epoch-length <daa>    epoch size                    (default 1000)
  *   --window <daa>          term from now  (default 25920000, ~30d at 10bps)
  *   --depth <n>             how deep delegation may go    (default 2)
+ *   --agent <hex>           the spending key    (default: derived from WARDA_SK)
+ *   --principal <hex>       receives on exit    (default: the funder)
+ *   --revocation <hex>      may stop the grant  (default: the principal)
  *   --fee <sompi>           default 1000000
  *   --out <path>            manifest path  (default ./grant.json)
  *   --submit                broadcast it
@@ -41,6 +44,7 @@ import { pubkeyToAddress, scriptHashToAddress, type NetworkPrefix } from "../src
 import { fromHex, toHex } from "../src/bytes.ts";
 import { attachGenesisSignature, buildGenesis } from "../src/genesis.ts";
 import { blake2b256 } from "../src/hashers.ts";
+import { derivePublic, KEY_DOMAIN } from "../src/keys.ts";
 import { NodeClient } from "../src/node.ts";
 import { RecipientSet } from "../src/recipients.ts";
 import { agentPublicKey, signDigest, verifyDigest } from "../src/sign.ts";
@@ -84,11 +88,40 @@ const recipients = new RecipientSet([
   new Uint8Array(32).fill(0xa4),
 ]);
 
-// This demo uses one key for all three roles. They are three DIFFERENT powers
-// and a deployment should separate them: the agent spends, the revocation key
-// stops, the principal receives. Collapsing them is what makes a testnet demo
-// runnable from one file, and it is the first thing to unpick in production.
-const authority = { principalKey: key, revocationKey: key };
+/**
+ * Three roles, three keys.
+ *
+ * WARDA_SK is the FUNDER's key: it signs genesis, because genesis spends the
+ * funder's coin. The three grant roles are separate from it and from each
+ * other:
+ *
+ *   --principal   receives the balance on revoke or reclaim.
+ *                 Defaults to the funder, who is paying for this.
+ *   --revocation  may stop the grant and receives nothing. Defaults to the
+ *                 principal; hand it to a monitor in production.
+ *   --agent       spends within the limits. Defaults to a DERIVED key rather
+ *                 than the funder's, so the demo is separated by default —
+ *                 an agent that shares the principal's key can reclaim its own
+ *                 grant, which is not a grant at all.
+ *
+ * In production every one of these is a public key handed over by whoever
+ * generated it. Derivation is a demo affordance and the manifest says so.
+ */
+const principalKey = flag("principal", key)!;
+const revocationKey = flag("revocation", principalKey)!;
+const agentSupplied = flag("agent");
+const agentDerivation = agentSupplied ? null : { domain: KEY_DOMAIN.agent, index: 0 };
+const agentKey = agentSupplied ?? derivePublic(secret, KEY_DOMAIN.agent, 0);
+const authority = { principalKey, revocationKey };
+
+if (agentKey === principalKey) {
+  // Not refused — a caller may have a reason — but it is worth saying out
+  // loud, because it silently removes every limit the grant expresses.
+  console.error(
+    "warning: the agent key IS the principal key. The agent can revoke its own\n" +
+      "grant and take the balance, so no limit here binds it.\n",
+  );
+}
 
 const client = await NodeClient.connect({ url: flag("rpc") });
 let built, state: GrantState, notBefore: bigint;
@@ -121,7 +154,7 @@ try {
 
   notBefore = dag.virtualDaaScore;
   state = {
-    agentKey: key,
+    agentKey,
     budgetTotal: budget,
     maxPerSpend: BigInt(flag("max-per-spend", "100000000")!),
     epochLimit: BigInt(flag("epoch-limit", "250000000")!),
@@ -173,7 +206,10 @@ try {
         // it belongs to becomes unreadable the moment one ships.
         covenant: templateFingerprint(template),
         covenant_id: toHex(built.covenantId),
-        agent: key,
+        agent: agentKey,
+        // Recorded so a derived key can be found again, and so a key that was
+        // NOT derived is never silently regenerated from the wrong secret.
+        agent_key_derived: agentDerivation,
         principal: authority.principalKey,
         revocation: authority.revocationKey,
         recipients_root: state.recipientsRoot,
@@ -197,6 +233,9 @@ try {
 
   console.error(`grant address : ${grantAddress}`);
   console.error(`  funded by   : ${walletAddress}`);
+  console.error(`  agent       : ${agentKey}${agentSupplied ? " (supplied)" : " (derived, index 0)"}`);
+  console.error(`  principal   : ${principalKey}${principalKey === key ? " (the funder)" : ""}`);
+  console.error(`  revocation  : ${revocationKey}${revocationKey === principalKey ? " (= principal)" : " (separate)"}`);
   console.error(`  budget      : ${budget} sompi, cap ${state.maxPerSpend}, epoch ${state.epochLimit}`);
   console.error(
     `  window      : ${state.notBefore} to ${state.expiresAt} ` +
