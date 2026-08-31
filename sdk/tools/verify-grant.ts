@@ -58,7 +58,11 @@ const grant: Grant = {
     recipientsRoot: m.recipients_root,
     notBefore: BigInt(m.not_before),
     expiresAt: BigInt(m.expires_at),
-    delegationDepth: BigInt(flag("depth", "2")!),
+    // A child grant records its own depth; the genesis manifest predates the
+    // field and gets the default. Guessing wrong here is not subtle — depth
+    // is part of the state, so it derives a different address and the grant
+    // appears to be missing.
+    delegationDepth: BigInt(flag("depth", (m.delegation_depth ?? 2).toString())!),
     spentTotal: BigInt(m.spent_total),
     reserved: BigInt(m.reserved),
     epochIndex: BigInt(m.epoch_index),
