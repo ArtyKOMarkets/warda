@@ -92,8 +92,29 @@ try {
     grant,
     template,
     prefix,
-    expect: { covenantId: m.covenant_id, value: BigInt(m.grant_value) },
+    expect: m.closed
+      ? {}
+      : { covenantId: m.covenant_id, value: BigInt(m.grant_value) },
   });
+
+  // A CLOSED grant is supposed to be empty. Reporting that as "nothing here,
+  // the grant has probably moved" is the message for a LOST grant, and it
+  // would say it forever about one that was deliberately swept.
+  if (m.closed) {
+    console.log(`address        : ${r.address}`);
+    console.log(`status         : CLOSED by ${m.closed.kind}`);
+    console.log(`swept          : ${m.closed.value} sompi to P2PK ${m.closed.swept_to}`);
+    console.log(`closing txid   : ${m.closed.txid}`);
+    console.log(`on chain       : ${r.found ? `${r.value} sompi — UNEXPECTED` : "nothing, as expected"}`);
+    console.log("");
+    console.log(
+      r.found
+        ? "this grant was recorded as closed but still holds coin. Something is wrong."
+        : "the chain agrees: this grant is closed.",
+    );
+    process.exitCode = r.found ? 1 : 0;
+    process.exit();
+  }
 
   console.log(`address        : ${r.address}`);
   console.log(`script hash    : ${r.scriptHash}`);

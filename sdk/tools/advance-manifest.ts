@@ -66,13 +66,15 @@ const state: GrantState = {
   epochSpent: BigInt(m.epoch_spent),
 };
 
-if (wire.outputs.length !== 2) {
-  console.error(`this transaction has ${wire.outputs.length} outputs; a spend and a delegation both have 2.`);
-  process.exit(1);
-}
-
 /** P2SH is OP_BLAKE2B <32-byte hash> OP_EQUAL. */
 const p2sh = (scriptHashHex: string) => "aa20" + scriptHashHex + "87";
+/** P2PK is OP_DATA_32 <x-only key> OP_CHECKSIG. */
+const p2pk = (xonly: string) => "20" + xonly + "ac";
+
+if (wire.outputs.length !== 1 && wire.outputs.length !== 2) {
+  console.error(`this transaction has ${wire.outputs.length} outputs; nothing this covenant builds does.`);
+  process.exit(1);
+}
 
 // Is this a transaction of THIS grant, or of a relative?
 //
@@ -93,6 +95,49 @@ if (wire.utxo.scriptPublicKeyHex !== currentScript) {
       `so the id alone cannot tell them apart.`,
   );
   process.exit(1);
+}
+
+// An EXIT — reclaim or revoke — has one output, paying the principal's P2PK,
+// and no successor at all. There is no state to advance to: the grant is over.
+// Recording that is not tidiness. Without it the manifest still describes a
+// live grant, and the next verify reports "nothing at this address, the grant
+// has probably moved" — which is the message for a LOST grant, about one that
+// was deliberately closed.
+if (wire.outputs.length === 1) {
+  const expectedPayout = p2pk(authority.principalKey);
+  if (wire.outputs[0].scriptPublicKeyHex !== expectedPayout) {
+    console.error(
+      `a one-output transaction of this grant should pay the principal's P2PK.\n` +
+        `  it pays  : ${wire.outputs[0].scriptPublicKeyHex}\n` +
+        `  expected : ${expectedPayout}\nNothing changed.`,
+    );
+    process.exit(1);
+  }
+  // Revoke carries no lock time; reclaim's is at least expiresAt. That is the
+  // only difference visible in the transaction itself.
+  const kind = BigInt(wire.lockTime) >= state.expiresAt ? "reclaim" : "revoke";
+  writeFileSync(
+    manifestPath,
+    JSON.stringify(
+      {
+        ...m,
+        grant_value: 0,
+        closed: {
+          kind,
+          txid: wire.txid,
+          swept_to: authority.principalKey,
+          value: Number(wire.outputs[0].value),
+          from_address: scriptHashToAddress(scriptHashFor(template, { authority, state }), prefix),
+        },
+      },
+      null,
+      2,
+    ) + "\n",
+  );
+  console.log(`closed ${manifestPath} (${kind})`);
+  console.log(`  swept  : ${wire.outputs[0].value} sompi to P2PK ${authority.principalKey}`);
+  console.log(`  txid   : ${wire.txid}`);
+  process.exit(0);
 }
 
 // A SPEND and a DELEGATION are both "two outputs, output 0 continuing the
