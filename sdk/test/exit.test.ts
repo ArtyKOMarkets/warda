@@ -2,13 +2,15 @@ import { strict as assert } from "node:assert";
 import { existsSync, readFileSync } from "node:fs";
 import { test } from "node:test";
 
+import { EMPTY_RESERVE } from "../src/keys.ts";
+
 import { fromHex, toHex } from "../src/bytes.ts";
 import { attachExitSignature, buildUnsignedExit, exitSignatureScript, type ExitPlan } from "../src/exit.ts";
 import { parseUtxos } from "../src/node.ts";
 import { scriptHashToAddress } from "../src/address.ts";
 import { verifyDigest } from "../src/sign.ts";
 import { dispatchTag } from "../src/spend.ts";
-import { scriptHashFor, type CovenantTemplate, type GrantState } from "../src/template.ts";
+import { scriptHashFor, type CovenantTemplate, type GrantState, templateIdFor } from "../src/template.ts";
 
 /**
  * The exit paths have no golden vector — nothing has ever built one, in either
@@ -45,6 +47,8 @@ const LIVE_MANIFEST = {
   epoch_spent: 50000000n,
 };
 
+const authority = { principalKey: LIVE_MANIFEST.agent, revocationKey: LIVE_MANIFEST.agent };
+
 const state: GrantState = {
   agentKey: LIVE_MANIFEST.agent,
   budgetTotal: LIVE_MANIFEST.budget,
@@ -55,12 +59,13 @@ const state: GrantState = {
   notBefore: LIVE_MANIFEST.not_before,
   expiresAt: LIVE_MANIFEST.expires_at,
   delegationDepth: 2n,
+  templateId: templateIdFor(template, authority),
   spentTotal: LIVE_MANIFEST.spent_total,
   reserved: LIVE_MANIFEST.reserved,
   epochIndex: LIVE_MANIFEST.epoch_index,
   epochSpent: LIVE_MANIFEST.epoch_spent,
+  reserveRoot: EMPTY_RESERVE,
 };
-const authority = { principalKey: LIVE_MANIFEST.agent, revocationKey: LIVE_MANIFEST.agent };
 
 /**
  * The capture records a grant on ONE covenant. Change the covenant and the

@@ -32,11 +32,12 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
 import { blake2b } from "@noble/hashes/blake2.js";
 
+import { EMPTY_RESERVE } from "../src/keys.ts";
 import { concat, fromHex, toHex } from "../src/bytes.ts";
 import { ScriptBuilder } from "../src/script.ts";
 import { pushState } from "../src/state.ts";
 import { dispatchTag } from "../src/spend.ts";
-import { bytecodeFor } from "../src/template.ts";
+import { bytecodeFor, templateIdFor } from "../src/template.ts";
 import { payToPubkeyScript, payToScriptHashScript, sighash, SUBNETWORK_ID_NATIVE } from "../src/tx.ts";
 import { attachExitSignature, buildUnsignedExit, type ExitPlan } from "../src/exit.ts";
 import { RecipientSet } from "../src/recipients.ts";
@@ -68,10 +69,12 @@ const base: GrantState = {
   notBefore: 1_000_000n,
   expiresAt: 1_864_000n,
   delegationDepth: 2n,
+  templateId: templateIdFor(template, authority),
   spentTotal: 0n,
   reserved: 0n,
   epochIndex: 0n,
   epochSpent: 0n,
+  reserveRoot: EMPTY_RESERVE,
 };
 
 /** Epoch 5's allowance is entirely spent. */
@@ -129,6 +132,7 @@ function unguardedSpend(state: GrantState, claimedDaa: bigint, amount: bigint) {
     spentTotal: state.spentTotal + amount,
     epochIndex,
     epochSpent: carried + amount,
+    reserveRoot: EMPTY_RESERVE,
   };
 
   const scriptHash = (code: Uint8Array) => blake2b.create({ dkLen: 32 }).update(code).digest();

@@ -30,6 +30,9 @@
  */
 
 import { readFileSync } from "node:fs";
+import { templateIdFor } from "../src/template.ts";
+
+import { EMPTY_RESERVE } from "../src/keys.ts";
 
 import { fromHex, toHex } from "../src/bytes.ts";
 import { attachDelegationSignature, buildUnsignedDelegation } from "../src/delegate.ts";
@@ -61,10 +64,12 @@ function goldenPlan(): { plan: SpendPlan; secret: Uint8Array } {
     notBefore: BigInt(p.notBefore),
     expiresAt: BigInt(p.expiresAt),
     delegationDepth: BigInt(p.delegationDepth),
+    templateId: p.templateId,
     spentTotal: BigInt(p.prevState.spentTotal),
     reserved: BigInt(p.prevState.reserved),
     epochIndex: BigInt(p.prevState.epochIndex),
     epochSpent: BigInt(p.prevState.epochSpent),
+    reserveRoot: p.reserveRoot,
   };
 
   const set = new RecipientSet(golden.recipients.members);
@@ -118,10 +123,12 @@ function genesisMode(): void {
         notBefore: BigInt(p.notBefore),
         expiresAt: BigInt(p.expiresAt),
         delegationDepth: BigInt(p.delegationDepth),
+        templateId: p.templateId,
         spentTotal: BigInt(p.initialState.spentTotal),
         reserved: BigInt(p.initialState.reserved),
         epochIndex: BigInt(p.initialState.epochIndex),
         epochSpent: BigInt(p.initialState.epochSpent),
+        reserveRoot: p.reserveRoot,
       },
     },
     funding: {
@@ -167,10 +174,12 @@ function delegateMode(): void {
       notBefore: BigInt(p.notBefore),
       expiresAt: BigInt(p.expiresAt),
       delegationDepth: BigInt(p.delegationDepth),
+    templateId: p.templateId,
       spentTotal: BigInt(p.prevState.spentTotal),
       reserved: BigInt(p.prevState.reserved),
       epochIndex: BigInt(p.prevState.epochIndex),
       epochSpent: BigInt(p.prevState.epochSpent),
+    reserveRoot: p.reserveRoot,
     },
     utxo: {
       outpointTransactionId: fromHex(golden.utxo.outpointTransactionId),
@@ -230,10 +239,12 @@ function liveMode(): void {
     notBefore: BigInt(plan.state.notBefore),
     expiresAt: BigInt(plan.state.expiresAt),
     delegationDepth: BigInt(plan.state.delegationDepth),
+    templateId: plan.state.templateId,
     spentTotal: BigInt(plan.state.spentTotal),
     reserved: BigInt(plan.state.reserved),
     epochIndex: BigInt(plan.state.epochIndex),
     epochSpent: BigInt(plan.state.epochSpent),
+    reserveRoot: plan.state.reserveRoot,
   };
 
   // The key must be the agent the grant names, checked here rather than

@@ -9,6 +9,12 @@
  *   node --experimental-strip-types tools/advance-manifest.ts \
  *     ../covenant/deploy/grant-child-8fefa35b.json js-child-spend.json
  *
+ * Advancing a PARENT past a delegation additionally needs the child it created:
+ *
+ *   node --experimental-strip-types tools/advance-manifest.ts \
+ *     ../covenant/deploy/grant.json js-delegation.json \
+ *     --child ../covenant/deploy/grant-child-8fefa35b.json
+ *
  * `warda-deploy submit` does this for `grant.json` and only for `grant.json`,
  * which was fine while there was one grant. Delegation makes trees, and a
  * child's manifest is a separate file that nothing was advancing.
@@ -24,10 +30,11 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 
+import { EMPTY_RESERVE } from "../src/keys.ts";
 import { scriptHashToAddress, type NetworkPrefix } from "../src/address.ts";
-import { parentSuccessorState } from "../src/delegate.ts";
+import { childStateFrom, parentSuccessorState, type ChildTerms } from "../src/delegate.ts";
 import { successorState } from "../src/spend.ts";
-import { scriptHashFor, templateFingerprint, type CovenantTemplate, type GrantState } from "../src/template.ts";
+import { scriptHashFor, templateFingerprint, type CovenantTemplate, type GrantState, templateIdFor } from "../src/template.ts";
 
 function flag(name: string, fallback?: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -81,10 +88,12 @@ const state: GrantState = {
   notBefore: BigInt(m.not_before),
   expiresAt: BigInt(m.expires_at),
   delegationDepth: BigInt(flag("depth", (m.delegation_depth ?? 2).toString())!),
+  templateId: templateIdFor(template, authority),
   spentTotal: BigInt(m.spent_total),
   reserved: BigInt(m.reserved),
   epochIndex: BigInt(m.epoch_index),
   epochSpent: BigInt(m.epoch_spent),
+  reserveRoot: EMPTY_RESERVE,
 };
 
 /** P2SH is OP_BLAKE2B <32-byte hash> OP_EQUAL. */
@@ -169,11 +178,67 @@ if (wire.outputs.length === 1) {
 // CHILD GRANT, which carries a covenant binding of its own.
 const delegating = wire.outputs[1].covenant !== null && wire.outputs[1].covenant !== undefined;
 
+/**
+ * A delegation moves the parent's reserve ROOT as well as its reserve, and the
+ * root is a hash of the child's whole birth state — not of its budget. So the
+ * parent cannot be advanced past a delegation from the transaction alone: the
+ * child's terms are not recoverable from the child's ADDRESS, which is a hash.
+ *
+ * That is not a gap to paper over. It is the reserve accumulator doing its job:
+ * the parent's state now NAMES its children, so releasing a reserve later has
+ * to name which child is being released. The price is that this tool needs the
+ * child's manifest, and `build-delegation` writes one.
+ *
+ * The reconstruction is not trusted. Output 1 pays the child's BIRTH address,
+ * so a child state rebuilt from the wrong manifest — or from a manifest that
+ * has since advanced — derives a different address and is refused here.
+ */
+function childBirthState(): GrantState {
+  const childPath = flag("child");
+  if (!childPath) {
+    console.error(
+      `this transaction is a DELEGATION, and advancing the parent past one needs\n` +
+        `the child's terms: the parent's reserve root commits to the child's whole\n` +
+        `birth state, and that is not recoverable from the child's address.\n` +
+        `Pass --child <the child manifest build-delegation wrote>.`,
+    );
+    process.exit(1);
+  }
+  const cm = JSON.parse(readFileSync(childPath, "utf8"));
+  const terms: ChildTerms = {
+    agentKey: cm.agent,
+    budgetTotal: BigInt(cm.budget),
+    maxPerSpend: BigInt(cm.max_per_spend),
+    epochLimit: BigInt(cm.epoch_limit),
+    delegationDepth: BigInt(cm.delegation_depth),
+    notBefore: BigInt(cm.not_before),
+    expiresAt: BigInt(cm.expires_at),
+  };
+  // Birth state, deliberately: the root committed to the child as it was
+  // created, so a child that has since spent must NOT be read at its current
+  // numbers. childStateFrom is the same function the delegation was built
+  // with, which is why the two agree.
+  const child = childStateFrom(state, terms);
+
+  const expected = p2sh(scriptHashFor(template, { authority, state: child }));
+  if (wire.outputs[1].scriptPublicKeyHex !== expected) {
+    console.error(
+      `--child does not describe the child this transaction created.\n` +
+        `  it pays a grant at   : ${wire.outputs[1].scriptPublicKeyHex}\n` +
+        `  ${childPath} derives : ${expected}\n` +
+        `Nothing changed. Either this is a different child, or that manifest has\n` +
+        `already been advanced and no longer describes the child at birth.`,
+    );
+    process.exit(1);
+  }
+  return child;
+}
+
 const next = delegating
   ? // Nothing is spent — the coin has not left the grant, it has been
     // subdivided — and no epoch allowance is consumed, which is why a
     // delegation carries no lock time to read one from.
-    parentSuccessorState(state, BigInt(wire.outputs[1].value))
+    parentSuccessorState(state, childBirthState())
   : successorState(state, BigInt(wire.outputs[1].value), BigInt(wire.lockTime));
 
 const expectedScript = p2sh(scriptHashFor(template, { authority, state: next }));

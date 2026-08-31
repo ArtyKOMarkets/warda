@@ -32,12 +32,14 @@
 
 import { readFileSync } from "node:fs";
 
+import { EMPTY_RESERVE } from "../src/keys.ts";
+
 import { scriptHashToAddress, type NetworkPrefix } from "../src/address.ts";
 import { fromHex, toHex } from "../src/bytes.ts";
 import { attachExitSignature, buildUnsignedExit, type ExitPlan } from "../src/exit.ts";
 import { NodeClient } from "../src/node.ts";
 import { agentPublicKey, signDigest, verifyDigest } from "../src/sign.ts";
-import { scriptHashFor, templateFingerprint, type CovenantTemplate, type GrantState } from "../src/template.ts";
+import { scriptHashFor, templateFingerprint, type CovenantTemplate, type GrantState, templateIdFor } from "../src/template.ts";
 import { toWire } from "../src/wire.ts";
 
 /** How far behind the tip to set the lock time. A lock time at or above the
@@ -105,6 +107,8 @@ const revocationKey = flag("revocation", m.revocation ?? principalKey)!;
 const prefix = (flag("prefix", "kaspatest") as NetworkPrefix)!;
 const fee = BigInt(flag("fee", DEFAULT_FEE.toString())!);
 
+const authority = { principalKey, revocationKey };
+
 const state: GrantState = {
   agentKey: m.agent,
   budgetTotal: BigInt(m.budget),
@@ -115,12 +119,13 @@ const state: GrantState = {
   notBefore: BigInt(m.not_before),
   expiresAt: BigInt(m.expires_at),
   delegationDepth: BigInt(flag("depth", (m.delegation_depth ?? 2).toString())!),
+  templateId: templateIdFor(template, authority),
   spentTotal: BigInt(m.spent_total),
   reserved: BigInt(m.reserved),
   epochIndex: BigInt(m.epoch_index),
   epochSpent: BigInt(m.epoch_spent),
+  reserveRoot: EMPTY_RESERVE,
 };
-const authority = { principalKey, revocationKey };
 const address = scriptHashToAddress(scriptHashFor(template, { authority, state }), prefix);
 
 const client = await NodeClient.connect({ url: flag("rpc") });

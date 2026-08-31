@@ -1,7 +1,8 @@
 import { fromHex } from "./bytes.ts";
+import { EMPTY_RESERVE } from "./keys.ts";
 import { RecipientSet } from "./recipients.ts";
 import type { SpendPlan } from "./spend.ts";
-import type { CovenantTemplate } from "./template.ts";
+import { templateIdFor, type CovenantTemplate } from "./template.ts";
 
 /**
  * A spend plan, as something with a node connection hands it over.
@@ -31,10 +32,24 @@ export interface SpendPlanDocument {
     notBefore: string | number;
     expiresAt: string | number;
     delegationDepth: string | number;
+    /**
+     * Derivable from the template and the authority, so a document may omit
+     * it. Stating it is still worth something: a stated id that disagrees with
+     * the derived one means the plan was written against a different covenant,
+     * and that is caught below rather than turned into a wrong address.
+     */
+    templateId?: string;
     spentTotal: string | number;
     reserved: string | number;
     epochIndex: string | number;
     epochSpent: string | number;
+    /**
+     * The accumulated stack of live children. NOT derivable — it is history —
+     * so a grant that has delegated must state it. Omitting it means "this
+     * grant has never delegated", which is the common case and the only one a
+     * document can safely default to.
+     */
+    reserveRoot?: string;
   };
   utxo: {
     outpointTransactionId: string;
@@ -67,12 +82,27 @@ export function spendPlanFrom(doc: SpendPlanDocument, template: CovenantTemplate
     );
   }
 
+  const authority = {
+    principalKey: doc.authority.principalKey,
+    revocationKey: doc.authority.revocationKey,
+  };
+
+  // Same discipline as the recipients root above: derived, and the document's
+  // claim checked against it rather than believed. A templateId belonging to a
+  // different covenant produces a perfectly plausible address with nothing at
+  // it, which reads as a missing grant rather than a mismatched plan.
+  const templateId = templateIdFor(template, authority);
+  if (doc.state.templateId && doc.state.templateId.toLowerCase() !== templateId) {
+    throw new Error(
+      `this plan states templateId ${doc.state.templateId}, and this template ` +
+        `with this authority derives ${templateId}. The plan was written against ` +
+        `a different covenant.`,
+    );
+  }
+
   return {
     template,
-    authority: {
-      principalKey: doc.authority.principalKey,
-      revocationKey: doc.authority.revocationKey,
-    },
+    authority,
     state: {
       agentKey: doc.state.agentKey,
       budgetTotal: big(doc.state.budgetTotal),
@@ -83,10 +113,12 @@ export function spendPlanFrom(doc: SpendPlanDocument, template: CovenantTemplate
       notBefore: big(doc.state.notBefore),
       expiresAt: big(doc.state.expiresAt),
       delegationDepth: big(doc.state.delegationDepth),
+      templateId,
       spentTotal: big(doc.state.spentTotal),
       reserved: big(doc.state.reserved),
       epochIndex: big(doc.state.epochIndex),
       epochSpent: big(doc.state.epochSpent),
+      reserveRoot: doc.state.reserveRoot ?? EMPTY_RESERVE,
     },
     utxo: {
       outpointTransactionId: fromHex(doc.utxo.outpointTransactionId),

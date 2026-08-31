@@ -44,11 +44,11 @@ import { pubkeyToAddress, scriptHashToAddress, type NetworkPrefix } from "../src
 import { fromHex, toHex } from "../src/bytes.ts";
 import { attachGenesisSignature, buildGenesis } from "../src/genesis.ts";
 import { blake2b256 } from "../src/hashers.ts";
-import { derivePublic, KEY_DOMAIN } from "../src/keys.ts";
+import { derivePublic, EMPTY_RESERVE, KEY_DOMAIN } from "../src/keys.ts";
 import { NodeClient } from "../src/node.ts";
 import { RecipientSet } from "../src/recipients.ts";
 import { agentPublicKey, signDigest, verifyDigest } from "../src/sign.ts";
-import { templateFingerprint, type CovenantTemplate, type GrantState } from "../src/template.ts";
+import { templateFingerprint, type CovenantTemplate, type GrantState, templateIdFor } from "../src/template.ts";
 import { toWire } from "../src/wire.ts";
 
 /** Genesis is a plain P2PK spend that happens to pay into a covenant: one
@@ -163,12 +163,14 @@ try {
     notBefore,
     expiresAt: notBefore + BigInt(flag("window", "25920000")!),
     delegationDepth: BigInt(flag("depth", "2")!),
+    templateId: templateIdFor(template, authority),
     // A grant starts new. The covenant requires all four to be zero at
     // genesis, and a nonzero one here is a grant born already spent.
     spentTotal: 0n,
     reserved: 0n,
     epochIndex: 0n,
     epochSpent: 0n,
+    reserveRoot: EMPTY_RESERVE,
   };
 
   built = buildGenesis({

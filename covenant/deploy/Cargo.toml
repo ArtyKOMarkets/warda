@@ -17,6 +17,7 @@ kaspa-addresses = { git = "https://github.com/kaspanet/rusty-kaspa", rev = "a41a
 kaspa-wrpc-client = { git = "https://github.com/kaspanet/rusty-kaspa", rev = "a41a333b08848f41bf737b72592e463a6011b8ac" }
 kaspa-rpc-core = { git = "https://github.com/kaspanet/rusty-kaspa", rev = "a41a333b08848f41bf737b72592e463a6011b8ac" }
 blake2b_simd = "1"
+blake3 = "1"
 secp256k1 = { version = "0.29", features = ["global-context", "rand-std"] }
 tokio = { version = "1", features = ["full"] }
 # Reading transactions the JS SDK built. The hand-rolled field scanner used for

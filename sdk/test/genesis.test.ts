@@ -36,10 +36,12 @@ function grantFromGolden(): Grant {
       notBefore: BigInt(p.notBefore),
       expiresAt: BigInt(p.expiresAt),
       delegationDepth: BigInt(p.delegationDepth),
+      templateId: p.templateId,
       spentTotal: BigInt(p.initialState.spentTotal),
       reserved: BigInt(p.initialState.reserved),
       epochIndex: BigInt(p.initialState.epochIndex),
       epochSpent: BigInt(p.initialState.epochSpent),
+      reserveRoot: p.reserveRoot,
     },
   };
 }

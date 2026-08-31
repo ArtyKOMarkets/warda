@@ -13,6 +13,7 @@
  */
 import { strict as assert } from "node:assert";
 import { readFileSync } from "node:fs";
+
 import { test } from "node:test";
 
 import { fromHex, toHex } from "../src/bytes.ts";
@@ -43,10 +44,12 @@ function planDocument(): SpendPlanDocument {
       notBefore: p.notBefore,
       expiresAt: p.expiresAt,
       delegationDepth: p.delegationDepth,
+      templateId: p.templateId,
       spentTotal: p.prevState.spentTotal,
       reserved: p.prevState.reserved,
       epochIndex: p.prevState.epochIndex,
       epochSpent: p.prevState.epochSpent,
+      reserveRoot: p.reserveRoot,
     },
     utxo: {
       outpointTransactionId: golden.utxo.outpointTransactionId,

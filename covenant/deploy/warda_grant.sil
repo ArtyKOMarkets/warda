@@ -24,11 +24,25 @@ contract WardaGrant(
     int     genesisNotBefore,
     int     genesisExpiresAt,
     int     genesisDelegationDepth,
+    // The hash of THIS covenant's own template: blake3 over
+    // len(prefix)||prefix||len(suffix)||suffix. It cannot be a constructor
+    // constant baked into the prefix or suffix -- the hash would cover itself,
+    // which is a preimage fixed point. As STATE it sits between them, where
+    // the hash does not reach, and a wrong value simply yields a different
+    // address that nobody funded.
+    byte[32] genesisTemplateId,
+    // Where the state region begins and ends inside the compiled bytecode.
+    // readInputStateWithTemplate needs them to slice a foreign redeem script.
+    // Baked, and derived from the compiled size, so the deploy tool iterates
+    // to a fixed point and asserts it settled.
+    int     templatePrefixLen,
+    int     templateSuffixLen,
     int     maxProofDepth,
     int     initSpentTotal,
     int     initReserved,
     int     initEpochIndex,
-    int     initEpochSpent
+    int     initEpochSpent,
+    byte[32] initReserveRoot
 ) {
     // ---- STATE ----
     // Authority lives here, not in constructor params. A child grant differs
@@ -47,11 +61,26 @@ contract WardaGrant(
     int notBefore            = genesisNotBefore;
     int expiresAt            = genesisExpiresAt;
     int delegationDepth      = genesisDelegationDepth;
+    // Authority: fixed for the life of the grant, like every field above.
+    byte[32] templateId    = genesisTemplateId;
 
     int spentTotal = initSpentTotal;
     int reserved   = initReserved;
     int epochIndex = initEpochIndex;
     int epochSpent = initEpochSpent;
+
+    // The LIFO stack of outstanding children, as a hash chain.
+    //
+    //   delegate:  reserveRoot' = blake2bWithKey(reserveRoot || childId, "WardaReserve")
+    //   reabsorb:  supply the previous root and the child; check the hash; pop.
+    //
+    // A chain rather than a Merkle set, which costs one hash instead of a
+    // second fold and needs no proof — at the price of settling children MOST
+    // RECENT FIRST. The parent must commit to WHICH children are outstanding:
+    // reading a child's state proves it is a real grant of this template, not
+    // that it is a grant THIS parent delegated, and releasing reserve for
+    // somebody else's child would let a parent over-delegate.
+    byte[32] reserveRoot = initReserveRoot;
 
     // Domain separators MUST be non-zero. Kaspa script encodes the value zero
     // as the EMPTY byte string, so `byte[](0x00)` compiles to nothing and the
@@ -110,6 +139,9 @@ contract WardaGrant(
         require(newState.notBefore      == prevState.notBefore);
         require(newState.expiresAt      == prevState.expiresAt);
         require(newState.delegationDepth == delegationDepth);
+        require(newState.templateId   == prevState.templateId);
+        // A spend neither creates nor settles a child.
+        require(newState.reserveRoot    == prevState.reserveRoot);
 
         require(amount > 0);
         require(amount <= maxPerSpend);
@@ -208,6 +240,7 @@ contract WardaGrant(
     }
 
 
+
     // ------------------------------------------------------------------
     // DELEGATION — 1:2 fanout. Parent continuation at auth output 0, child
     // grant at auth output 1.
@@ -251,6 +284,13 @@ contract WardaGrant(
         require(child.reserved   == 0);
         require(child.epochIndex == 0);
         require(child.epochSpent == 0);
+        // Same covenant, so the same template hash. Without this a child could
+        // be born claiming a different template and would never match at
+        // settlement — its reserve would be stuck forever.
+        require(child.templateId == templateId);
+        // A newborn child has delegated to nobody.
+        byte[32] emptyStack = blake2b(byte[]("WardaEmptyReserve"));
+        require(child.reserveRoot == emptyStack);
 
         // ---- the parent only reserves; nothing else about it may move ----
         require(parentNext.agentKey        == agentKey);
@@ -266,6 +306,31 @@ contract WardaGrant(
         require(parentNext.epochIndex      == epochIndex);
         require(parentNext.epochSpent      == epochSpent);
         require(parentNext.reserved        == reserved + child.budgetTotal);
+        require(parentNext.templateId    == templateId);
+        // Push. The parent now owes this specific child, and can only release
+        // the reserve by producing it.
+        // A child's IDENTITY: the fields that can never change once it exists.
+        // Deliberately excludes spentTotal / reserved / epochIndex / epochSpent,
+        // which move as the child spends — an identity that changed with use
+        // could not be matched at settlement, which is the whole point of it.
+        //
+        // OpNum2Bin gives a FIXED eight bytes. Script's native integer form is
+        // minimal-width, so 1 and 256 occupy different numbers of bytes and two
+        // different children could collide by shifting a field boundary.
+        byte[32] cid = blake2bWithKey(
+            byte[](child.agentKey)
+                + OpNum2Bin(child.budgetTotal, 8)
+                + OpNum2Bin(child.maxPerSpend, 8)
+                + OpNum2Bin(child.epochLimit, 8)
+                + OpNum2Bin(child.epochLength, 8)
+                + byte[](child.recipientsRoot)
+                + OpNum2Bin(child.notBefore, 8)
+                + OpNum2Bin(child.expiresAt, 8)
+                + OpNum2Bin(child.delegationDepth, 8),
+            byte[]("WardaChildId")
+        );
+        byte[32] pushed = blake2bWithKey(byte[](reserveRoot) + byte[](cid), byte[]("WardaReserve"));
+        require(parentNext.reserveRoot == pushed);
 
         // ---- value follows authority ----
         require(OpAuthOutputCount(this.activeInputIndex) == 2);
@@ -278,6 +343,118 @@ contract WardaGrant(
         require(tx.outputs[0].value >= inValue - child.budgetTotal - maxFee);
 
         require(checkSig(agentSig, pubkey(agentKey)));
+    }
+
+
+    // ------------------------------------------------------------------
+    // REABSORB — a settled child returns its remainder, and the parent's
+    // reserve is released.
+    //
+    // Without this, `reserved` only ever grows: a parent could delegate its
+    // budget exactly once across its whole life, and reclaiming a child gave
+    // the coin back to the principal while leaving the parent's capacity
+    // permanently consumed. Lanes could be built and never recycled.
+    //
+    // Two things have to be true at once, and each needs a different
+    // mechanism:
+    //
+    //   the child is REAL       readInputStateWithTemplate proves input
+    //                           `childIdx` carries a genuine grant of this
+    //                           template and decodes its actual state. That is
+    //                           what lets the parent charge the child's REAL
+    //                           spentTotal rather than a number the agent
+    //                           supplies.
+    //
+    //   the child is OURS       the hash chain. Reading a child's state does
+    //                           not prove this parent delegated it, and
+    //                           releasing reserve for a sibling's child would
+    //                           let a parent over-delegate — creating
+    //                           authority out of nothing.
+    // ------------------------------------------------------------------
+    #[covenant.fanout(to = 1)]
+    function reabsorb(State prevState, State[] newStates, int childIdx, byte[32] prevRoot, sig agentSig) {
+        State newState = newStates[0];
+        require(childIdx >= 0);
+        require(childIdx < tx.inputs.length);
+        require(childIdx != this.activeInputIndex);
+
+        State child = readInputStateWithTemplate(childIdx, templatePrefixLen, templateSuffixLen, templateId);
+
+        // Pop, and prove the pop. The identity is rebuilt from the child's
+        // CURRENT state using only its immutable fields, so a child that has
+        // been spending still matches what the parent committed to.
+        //
+        // Duplicated from delegate rather than shared: a user function returns
+        // a tuple here, which neither assigns to byte[32] nor compares against
+        // one. Both copies must move together, and the probe corpus is what
+        // notices if they do not.
+        byte[32] cid = blake2bWithKey(
+            byte[](child.agentKey)
+                + OpNum2Bin(child.budgetTotal, 8)
+                + OpNum2Bin(child.maxPerSpend, 8)
+                + OpNum2Bin(child.epochLimit, 8)
+                + OpNum2Bin(child.epochLength, 8)
+                + byte[](child.recipientsRoot)
+                + OpNum2Bin(child.notBefore, 8)
+                + OpNum2Bin(child.expiresAt, 8)
+                + OpNum2Bin(child.delegationDepth, 8),
+            byte[]("WardaChildId")
+        );
+        byte[32] pushed = blake2bWithKey(byte[](prevRoot) + byte[](cid), byte[]("WardaReserve"));
+        require(reserveRoot == pushed);
+        require(newState.reserveRoot == prevRoot);
+
+        // The child's real spending becomes the parent's. Releasing the
+        // reserve without charging what the child spent would let the same
+        // authority be issued twice.
+        require(child.spentTotal >= 0);
+        require(child.budgetTotal > 0);
+        require(reserved >= child.budgetTotal);
+        require(newState.reserved   == reserved - child.budgetTotal);
+        require(newState.spentTotal == spentTotal + child.spentTotal);
+        require(newState.spentTotal + newState.reserved <= budgetTotal);
+
+        // Everything else about the parent stands still.
+        require(newState.agentKey        == agentKey);
+        require(newState.budgetTotal     == budgetTotal);
+        require(newState.maxPerSpend     == maxPerSpend);
+        require(newState.epochLimit      == epochLimit);
+        require(newState.epochLength     == epochLength);
+        require(newState.recipientsRoot  == recipientsRoot);
+        require(newState.notBefore       == notBefore);
+        require(newState.expiresAt       == expiresAt);
+        require(newState.delegationDepth == delegationDepth);
+        require(newState.templateId    == templateId);
+        require(newState.epochIndex      == epochIndex);
+        require(newState.epochSpent      == epochSpent);
+
+        // One continuation, and the coin from BOTH inputs lands in it.
+        require(OpAuthOutputCount(this.activeInputIndex) == 1);
+        require(OpAuthOutputIdx(this.activeInputIndex, 0) == 0);
+        int combined = tx.inputs[this.activeInputIndex].value + tx.inputs[childIdx].value;
+        require(tx.outputs[0].value >= combined - maxFee);
+
+        require(checkSig(agentSig, pubkey(agentKey)));
+    }
+
+    // ------------------------------------------------------------------
+    // SETTLE — the child's half of a reabsorb.
+    //
+    // Signed by the REVOCATION key, not the child's agent. A cooperative-only
+    // settlement would let an unresponsive child lock its parent's budget
+    // forever, which is the failure this whole path exists to remove. The
+    // revocation key can already end a child outright via `revoke`, so this
+    // grants it nothing new — it only changes where the coin goes: back to the
+    // parent rather than out to the principal.
+    //
+    // The value check is what stops this being a way to move a child's coin
+    // anywhere at all. Paired with the parent's own conservation check above,
+    // the two inputs are fully accounted for.
+    // ------------------------------------------------------------------
+    entry settle(sig s) {
+        require(checkSig(s, revocationKey));
+        int combined = tx.inputs[0].value + tx.inputs[1].value;
+        require(tx.outputs[0].value >= combined - maxFee);
     }
 
     // Revocation: the principal pulls the funds back. This does not race-proof

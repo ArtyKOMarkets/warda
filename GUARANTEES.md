@@ -160,10 +160,15 @@ of the four limits that actually bind — including the coin.
 
 ## Vulnerabilities found, and how
 
-All three share a shape: **the covenant checked what something was, and not how
-much of it there was.** All three were found by asking what an adversary
-supplies at each input and handing the answer to the real script engine. None
-was visible in review.
+The first three share a shape: **the covenant checked what something was, and
+not how much of it there was.** All three were found by asking what an
+adversary supplies at each input and handing the answer to the real script
+engine. None was visible in review.
+
+The fourth has a different shape and a different finder, and both are worth
+recording: it was a **derivation that ignored one of its inputs**, and it was
+caught by the splice trust anchor rather than by the engine — the one check
+that compiles the covenant with a revocation key distinct from the principal.
 
 ### 1. The epoch cap limited nothing — `a048b13e95125ad1`
 
@@ -191,6 +196,49 @@ usefully, to the residual described above. Fixed in v2 by
 
 The ratchet is what makes it stick. An upper bound alone is meaningless: the
 agent walks under it by claiming the past.
+
+### 4. The template id ignored the revocation key — v4, pre-release
+
+`templateId` is a grant's claim about its own redeem-script shape:
+`readInputStateWithTemplate` recomputes blake3 over `len(prefix) || prefix ||
+len(suffix) || suffix` and requires the result to equal it. That is what lets a
+parent read a child's state at settlement without trusting the child.
+
+Both `principalKey` and `revocationKey` are constructor constants compiled into
+the **suffix**, so both are inside the preimage. The Rust derivation took only
+the principal:
+
+    fn template_id_for(principal: [u8; 32]) -> [u8; 32]
+
+Every probe it compiled set `revocationKey := principalKey`, so the id it
+returned was the id of a *different covenant* than the one being built whenever
+the two keys differ. Consequence: a parent's stored `templateId` would not match
+the true hash of its own children, and every `reabsorb` would be refused —
+reserves locked, permanently, with no error that points at the cause.
+
+Two things hid it:
+
+- **Every key in the deploy tool is a bare `[u8; 32]`.** Nothing distinguishes
+  an agent key from a principal key, so four manifest paths were also passing
+  `plan.agent` to the parameter named `principal`, and the compiler had no
+  opinion.
+- **The SDK's address tests read `templateId` from the vectors as data** rather
+  than deriving it. Eight vectors carried an id that was not the covenant's
+  true template hash, and all eight passed.
+
+The fix is a type, not a patch: `Authority { principal, revocation }`, which
+makes "the id of one key" unrepresentable and turned the four agent/principal
+confusions into compile errors. Two SDK tests now derive the id and require it
+to match the compiled one — the only tests that would have failed.
+
+A second defect surfaced underneath it. The template's field-geometry prober
+infers each field's extent from *which bytes changed* between a baseline and a
+probe compilation, which is sound only when the two values differ in **every**
+byte. Fixed probe constants gave that for hand-picked baselines and lost it for
+derived ones: `templateId` is a hash, so whether any of its 32 bytes happened to
+equal the probe's `0x99` was chance — about one in eight — and a collision split
+the run and made an intact field look mis-measured. Probes are now the
+baseline's bit-complement, so the property holds by construction.
 
 ### 3. The exits could burn the balance — `4af9600b1d35e87b`
 
@@ -244,6 +292,12 @@ tools refuse a mismatch. Old templates are kept:
 | v1 | `a048b13e95125ad1` | epoch hole, no expiry, exits could burn |
 | v2 | `4af9600b1d35e87b` | ratchet and expiry |
 | v3 | `4612a19b16911c6e` | exits conserve value |
+| v4 | `532a8858a8d3c346` | reserve accumulator; template id fixed |
+
+v3's template is archived as `sdk/covenant-template-v3.json`. It was archived
+*before* v4 overwrote `covenant-template.json`, which is the only order that
+works: the live v3 grant is addressable only through the template it was issued
+under, and that file is the sole copy of it.
 
 **A covenant id does not identify a grant.** A delegated child inherits its
 parent's, so a whole tree shares one. What identifies a grant is its address,

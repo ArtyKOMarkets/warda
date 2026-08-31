@@ -2,11 +2,13 @@ import { strict as assert } from "node:assert";
 import { existsSync, readFileSync } from "node:fs";
 import { test } from "node:test";
 
+import { EMPTY_RESERVE } from "../src/keys.ts";
+
 import { fromHex, toHex } from "../src/bytes.ts";
 import { decodeAddress, pubkeyToAddress, scriptHashToAddress } from "../src/address.ts";
 import { parseDagInfo, parseUtxos, scriptPublicKeyFromWire } from "../src/node.ts";
 import { describeGrant } from "../src/verify.ts";
-import { scriptHashFor, type CovenantTemplate, type Grant } from "../src/template.ts";
+import { scriptHashFor, type CovenantTemplate, type Grant, templateIdFor } from "../src/template.ts";
 
 /**
  * The address encoder has no golden vector either — but it does have something
@@ -68,8 +70,9 @@ test("the wire script decodes to the same bytes the address encodes", { skip }, 
 // ---- the report ----------------------------------------------------------
 
 function grantFrom(m: any): Grant {
+  const authority = { principalKey: m.agent, revocationKey: m.agent };
   return {
-    authority: { principalKey: m.agent, revocationKey: m.agent },
+    authority,
     state: {
       agentKey: m.agent,
       budgetTotal: BigInt(m.budget),
@@ -80,10 +83,12 @@ function grantFrom(m: any): Grant {
       notBefore: BigInt(m.not_before),
       expiresAt: BigInt(m.expires_at),
       delegationDepth: 2n,
+      templateId: templateIdFor(template, authority),
       spentTotal: BigInt(m.spent_total),
       reserved: BigInt(m.reserved),
       epochIndex: BigInt(m.epoch_index),
       epochSpent: BigInt(m.epoch_spent),
+      reserveRoot: EMPTY_RESERVE,
     },
   };
 }

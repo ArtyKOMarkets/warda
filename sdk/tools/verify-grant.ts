@@ -27,8 +27,10 @@
 
 import { readFileSync } from "node:fs";
 
+import { EMPTY_RESERVE } from "../src/keys.ts";
+
 import { NodeClient } from "../src/node.ts";
-import { templateFingerprint, type CovenantTemplate, type Grant } from "../src/template.ts";
+import { templateFingerprint, type CovenantTemplate, type Grant, templateIdFor } from "../src/template.ts";
 import { verifyGrant } from "../src/verify.ts";
 import type { NetworkPrefix } from "../src/address.ts";
 
@@ -85,8 +87,10 @@ const principalKey = flag("principal", m.principal ?? m.agent)!;
 const revocationKey = flag("revocation", m.revocation ?? principalKey)!;
 const prefix = (flag("prefix", "kaspatest") as NetworkPrefix)!;
 
+const authority = { principalKey, revocationKey };
+
 const grant: Grant = {
-  authority: { principalKey, revocationKey },
+  authority,
   state: {
     agentKey: m.agent,
     budgetTotal: BigInt(m.budget),
@@ -101,10 +105,12 @@ const grant: Grant = {
     // is part of the state, so it derives a different address and the grant
     // appears to be missing.
     delegationDepth: BigInt(flag("depth", (m.delegation_depth ?? 2).toString())!),
+    templateId: templateIdFor(template, authority),
     spentTotal: BigInt(m.spent_total),
     reserved: BigInt(m.reserved),
     epochIndex: BigInt(m.epoch_index),
     epochSpent: BigInt(m.epoch_spent),
+    reserveRoot: EMPTY_RESERVE,
   },
 };
 

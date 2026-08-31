@@ -1,6 +1,7 @@
 import { blake2b } from "@noble/hashes/blake2.js";
-import { fromHex } from "./bytes.ts";
+import { concat, fromHex, toHex } from "./bytes.ts";
 import { ScriptBuilder } from "./script.ts";
+import { EMPTY_RESERVE } from "./keys.ts";
 import { pushStateArray } from "./state.ts";
 import { dispatchTag } from "./spend.ts";
 import {
@@ -99,15 +100,78 @@ function scriptHash(bytecode: Uint8Array): Uint8Array {
   return blake2b.create({ dkLen: 32 }).update(bytecode).digest();
 }
 
+
 /**
- * The parent after delegating: reserve grows, nothing else moves.
+ * A child's IDENTITY: only the fields that can never change once it exists.
+ *
+ * spentTotal, reserved, epochIndex and epochSpent are excluded because they
+ * move as the child spends, and an identity that changed with use could not be
+ * matched at settlement — which is the whole reason it exists.
+ *
+ * Integers are widened to a FIXED eight bytes. Script's native integer form is
+ * minimal-width, so 1 and 256 occupy different numbers of bytes and two
+ * different children could collide by shifting a field boundary.
+ */
+export function childId(child: GrantState): Uint8Array {
+  const n = (v: bigint) => {
+    const out = new Uint8Array(8);
+    let x = v < 0n ? -v : v;
+    for (let i = 0; i < 8; i++) {
+      out[i] = Number(x & 0xffn);
+      x >>= 8n;
+    }
+    if (v < 0n) out[7] |= 0x80;
+    return out;
+  };
+  const preimage = concat(
+    fromHex(child.agentKey),
+    n(child.budgetTotal),
+    n(child.maxPerSpend),
+    n(child.epochLimit),
+    n(child.epochLength),
+    fromHex(child.recipientsRoot),
+    n(child.notBefore),
+    n(child.expiresAt),
+    n(child.delegationDepth),
+  );
+  return blake2b.create({ dkLen: 32, key: new TextEncoder().encode("WardaChildId") }).update(preimage).digest();
+}
+
+/**
+ * Push a child onto the parent's LIFO stack of outstanding delegations.
+ *
+ * A hash chain rather than a Merkle set: one hash instead of a second fold and
+ * no proof, at the price of settling children MOST RECENT FIRST. The parent
+ * must commit to WHICH children are outstanding — reading a child's state
+ * proves it is a real grant of this covenant, not that it is a grant THIS
+ * parent delegated, and releasing reserve for somebody else's child would let
+ * a parent over-delegate.
+ */
+export function pushChild(reserveRoot: string, child: GrantState): string {
+  const preimage = concat(fromHex(reserveRoot), childId(child));
+  return toHex(
+    blake2b.create({ dkLen: 32, key: new TextEncoder().encode("WardaReserve") }).update(preimage).digest(),
+  );
+}
+
+/**
+ * The parent after delegating: reserve grows, and the child is pushed.
  *
  * Not a permission check — the covenant decides whether this transition is
  * allowed, and it verifies every other field for equality. This only has to
  * compute the same numbers so the successor lands where the covenant expects.
  */
-export function parentSuccessorState(state: GrantState, childBudget: bigint): GrantState {
-  return { ...state, reserved: state.reserved + childBudget };
+export function parentSuccessorState(state: GrantState, child: GrantState): GrantState {
+  // reserveRoot is part of the ADDRESS, so pushing a child MOVES the parent.
+  // Computing the successor address from the old stack while the state says
+  // pushed produces an output the covenant refuses — and the failure reads as
+  // a logic error rather than an address one, which cost four rounds of
+  // bisection to find on the Rust side.
+  return {
+    ...state,
+    reserved: state.reserved + child.budgetTotal,
+    reserveRoot: pushChild(state.reserveRoot, child),
+  };
 }
 
 /**
@@ -125,6 +189,9 @@ export function childStateFrom(state: GrantState, child: ChildTerms): GrantState
     recipientsRoot: state.recipientsRoot,
     // Inherited unless narrowed. `??` and not `||`: a notBefore of 0n is a
     // legitimate value, and `||` would silently replace it with the parent's.
+    // Same covenant, so the same template id — that is what will let the
+    // parent read this child's state at settlement.
+    templateId: state.templateId,
     notBefore: child.notBefore ?? state.notBefore,
     expiresAt: child.expiresAt ?? state.expiresAt,
     delegationDepth: child.delegationDepth,
@@ -134,6 +201,8 @@ export function childStateFrom(state: GrantState, child: ChildTerms): GrantState
     reserved: 0n,
     epochIndex: 0n,
     epochSpent: 0n,
+    // A newborn child has delegated to nobody.
+    reserveRoot: EMPTY_RESERVE,
   };
 }
 
@@ -141,8 +210,8 @@ export function delegateSignatureScript(plan: DelegationPlan, signature: Uint8Ar
   if (signature.length !== 65) {
     throw new Error(`a signature is 64 bytes plus a sighash type byte, got ${signature.length}`);
   }
-  const parentNext = parentSuccessorState(plan.state, plan.child.budgetTotal);
   const child = childStateFrom(plan.state, plan.child);
+  const parentNext = parentSuccessorState(plan.state, child);
 
   const b = new ScriptBuilder();
   // Order matters twice over: parent first, child second — that is what binds
@@ -207,8 +276,8 @@ export function buildUnsignedDelegation(plan: DelegationPlan): UnsignedDelegatio
     );
   }
 
-  const parentNext = parentSuccessorState(plan.state, child.budgetTotal);
   const childState = childStateFrom(plan.state, child);
+  const parentNext = parentSuccessorState(plan.state, childState);
 
   const grantSpk = payToScriptHashScript(
     scriptHash(bytecodeFor(plan.template, { authority: plan.authority, state: plan.state })),

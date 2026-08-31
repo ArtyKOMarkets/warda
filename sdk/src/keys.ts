@@ -1,3 +1,5 @@
+import { blake2b } from "@noble/hashes/blake2.js";
+
 import { HashWriter } from "./hashers.ts";
 import { agentPublicKey } from "./sign.ts";
 import { toHex } from "./bytes.ts";
@@ -97,3 +99,17 @@ export function resolveSigner(
   }
   return null;
 }
+
+/**
+ * The empty delegation stack.
+ *
+ * NOT thirty-two zero bytes. Kaspa script encodes the value zero as the EMPTY
+ * byte string, so a zero literal inside the covenant compiles to nothing and
+ * the comparison silently tests against an empty push rather than a 32-byte
+ * array. The covenant already documented that trap for its Merkle domain
+ * separators, and the v4 delegation vector was rejected by the engine until it
+ * was fixed here too. Derived on both sides rather than written out.
+ */
+export const EMPTY_RESERVE = toHex(
+  blake2b.create({ dkLen: 32 }).update(new TextEncoder().encode("WardaEmptyReserve")).digest(),
+);

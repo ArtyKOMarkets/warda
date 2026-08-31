@@ -15,6 +15,7 @@
  */
 import { strict as assert } from "node:assert";
 import { readFileSync } from "node:fs";
+
 import { test } from "node:test";
 
 import { fromHex, toHex } from "../src/bytes.ts";
@@ -24,6 +25,7 @@ import {
   childStateFrom,
   delegateSignatureScript,
   parentSuccessorState,
+  pushChild,
   type DelegationPlan,
 } from "../src/delegate.ts";
 import { ScriptBuilder } from "../src/script.ts";
@@ -50,10 +52,12 @@ function parentState(): GrantState {
     notBefore: BigInt(p.notBefore),
     expiresAt: BigInt(p.expiresAt),
     delegationDepth: BigInt(p.delegationDepth),
+    templateId: p.templateId,
     spentTotal: BigInt(p.prevState.spentTotal),
     reserved: BigInt(p.prevState.reserved),
     epochIndex: BigInt(p.prevState.epochIndex),
     epochSpent: BigInt(p.prevState.epochSpent),
+    reserveRoot: p.reserveRoot,
   };
 }
 
@@ -118,8 +122,8 @@ test("a State[] is TRANSPOSED, not concatenated", () => {
   // produces the same byte COUNT with every value in the wrong slot. So the
   // test asserts the two layouts differ, and that ours is the reference's.
   const plan = planFromGolden();
-  const parentNext = parentSuccessorState(plan.state, plan.child.budgetTotal);
   const child = childStateFrom(plan.state, plan.child);
+  const parentNext = parentSuccessorState(plan.state, child);
 
   const transposed = new ScriptBuilder();
   pushStateArray(transposed, [parentNext, child]);
@@ -171,17 +175,27 @@ test("the parent reserves exactly what the child receives", () => {
   assert.equal(BigInt(golden.conservation.parentReservedAfter), built.parentSuccessorState.reserved);
 });
 
-test("the parent moves ONLY its reserve", () => {
+test("the parent moves ONLY its reserve and its reserve stack", () => {
   // The covenant checks every other field for equality. A successor that
   // quietly raised its own cap while delegating would be refused, and this
   // catches it here rather than on chain.
   const plan = planFromGolden();
   const before = plan.state;
-  const after = parentSuccessorState(before, plan.child.budgetTotal);
+  const child = childStateFrom(before, plan.child);
+  const after = parentSuccessorState(before, child);
+
+  const moves = new Set(["reserved", "reserveRoot"]);
   for (const [key, value] of Object.entries(before)) {
-    if (key === "reserved") continue;
-    assert.equal((after as Record<string, unknown>)[key], value, `${key} must not move`);
+    if (moves.has(key)) continue;
+    assert.equal((after as unknown as Record<string, unknown>)[key], value, `${key} must not move`);
   }
+
+  // Both of the two that may move MUST move. Reserve accounting alone was the
+  // v3 behaviour, and it is what let a parent release a reserve without
+  // naming which child it was releasing.
+  assert.equal(after.reserved, before.reserved + child.budgetTotal);
+  assert.notEqual(after.reserveRoot, before.reserveRoot, "the child must be pushed onto the stack");
+  assert.equal(after.reserveRoot, pushChild(before.reserveRoot, child));
 });
 
 test("the child starts spent-out-of-nothing and inherits what it does not narrow", () => {

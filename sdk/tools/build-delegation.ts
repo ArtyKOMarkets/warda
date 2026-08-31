@@ -46,10 +46,10 @@ import { dirname, join } from "node:path";
 import { scriptHashToAddress, type NetworkPrefix } from "../src/address.ts";
 import { fromHex, toHex } from "../src/bytes.ts";
 import { attachDelegationSignature, buildUnsignedDelegation, type DelegationPlan } from "../src/delegate.ts";
-import { derivePublic, KEY_DOMAIN, resolveSigner } from "../src/keys.ts";
+import { derivePublic, EMPTY_RESERVE, KEY_DOMAIN, resolveSigner } from "../src/keys.ts";
 import { NodeClient } from "../src/node.ts";
 import { agentPublicKey, signDigest, verifyDigest } from "../src/sign.ts";
-import { scriptHashFor, templateFingerprint, type CovenantTemplate, type GrantState } from "../src/template.ts";
+import { scriptHashFor, templateFingerprint, type CovenantTemplate, type GrantState, templateIdFor } from "../src/template.ts";
 import { toWire } from "../src/wire.ts";
 
 const DEFAULT_FEE = 1_000_000n;
@@ -129,10 +129,12 @@ const state: GrantState = {
   notBefore: BigInt(m.not_before),
   expiresAt: BigInt(m.expires_at),
   delegationDepth: parentDepth,
+  templateId: templateIdFor(template, authority),
   spentTotal: BigInt(m.spent_total),
   reserved: BigInt(m.reserved),
   epochIndex: BigInt(m.epoch_index),
   epochSpent: BigInt(m.epoch_spent),
+  reserveRoot: EMPTY_RESERVE,
 };
 
 // Only the parent's AGENT may delegate — not its principal, and not the
@@ -283,10 +285,12 @@ if (existsSync(childManifestPath)) {
           notBefore: BigInt(prior.not_before),
           expiresAt: BigInt(prior.expires_at),
           delegationDepth: BigInt(prior.delegation_depth ?? 1),
+          templateId: templateIdFor(template, authority),
           spentTotal: BigInt(prior.spent_total),
           reserved: BigInt(prior.reserved),
           epochIndex: BigInt(prior.epoch_index),
           epochSpent: BigInt(prior.epoch_spent),
+          reserveRoot: EMPTY_RESERVE,
         },
       }),
       prefix,

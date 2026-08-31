@@ -1,4 +1,6 @@
 import { blake2b } from "@noble/hashes/blake2.js";
+import { blake3 } from "@noble/hashes/blake3.js";
+import { isBytes32Field, STATE_FIELDS } from "./state.ts";
 import { fromHex, toHex } from "./bytes.ts";
 
 /**
@@ -77,10 +79,17 @@ export interface GrantState {
   notBefore: bigint;
   expiresAt: bigint;
   delegationDepth: bigint;
+  /** Which covenant this grant belongs to, as readInputStateWithTemplate
+   *  needs it. Fixed for the grant's life. */
+  templateId: string;
   spentTotal: bigint;
   reserved: bigint;
   epochIndex: bigint;
   epochSpent: bigint;
+  /** The LIFO stack of outstanding delegated children, as a hash chain.
+   *  EMPTY_RESERVE when none — NOT zero, because script encodes zero as the
+   *  empty byte string and the covenant's comparison would test nothing. */
+  reserveRoot: string;
 }
 
 export interface Grant {
@@ -153,4 +162,55 @@ export function scriptHashFor(tpl: CovenantTemplate, grant: Grant): string {
  */
 export function templateFingerprint(tpl: CovenantTemplate): string {
   return toHex(blake2b.create({ dkLen: 32 }).update(new TextEncoder().encode(tpl.baselineHex)).digest()).slice(0, 16);
+}
+
+/**
+ * The covenant's own template hash, as `readInputStateWithTemplate` expects it.
+ *
+ * blake3 over `len(prefix) || prefix || len(suffix) || suffix`, each length an
+ * eight-byte little-endian Script integer. The lengths are in the preimage on
+ * purpose: they bind WHERE the state is inserted, so a covenant cannot be
+ * passed off as one with a differently-placed state region.
+ *
+ * Derived rather than stored. It is a property of the COVENANT, so every grant
+ * under one template has the same value, and a manifest that recorded it could
+ * only ever disagree with the template it was read alongside.
+ */
+export function templateIdFor(tpl: CovenantTemplate, authority: GrantAuthority): string {
+  // The AUTHORITY matters. principalKey and revocationKey are constructor
+  // constants compiled into the SUFFIX, not state, so the template hash covers
+  // them: two grants with different principals have different template ids.
+  //
+  // That is a feature once you see it. A parent can only ever reabsorb
+  // children that share its authority, which is a binding you would otherwise
+  // have to add by hand — and it is why this takes an authority rather than
+  // being a property of the covenant alone.
+  const code = bytecodeFor(tpl, {
+    authority,
+    // Any state: the state region sits BETWEEN prefix and suffix, so nothing
+    // here reaches the hash.
+    // Any state: the region sits BETWEEN prefix and suffix, so nothing here
+    // reaches the hash. Built synthetically rather than borrowed from an
+    // address vector, which would tie this to whatever fields those happened
+    // to record.
+    state: placeholderState(),
+  });
+  const prefix = code.slice(0, tpl.stateStart);
+  const suffix = code.slice(tpl.stateStart + tpl.stateLen);
+  const len = (n: number) => {
+    const out = new Uint8Array(8);
+    new DataView(out.buffer).setBigUint64(0, BigInt(n), true);
+    return out;
+  };
+  const pre = new Uint8Array([...len(prefix.length), ...prefix, ...len(suffix.length), ...suffix]);
+  return toHex(blake3(pre));
+}
+
+/** A well-formed state of the right SHAPE; its values never reach the hash. */
+function placeholderState(): GrantState {
+  const out: Record<string, unknown> = {};
+  for (const name of STATE_FIELDS) {
+    out[name] = isBytes32Field(name) ? "00".repeat(32) : 0n;
+  }
+  return out as unknown as GrantState;
 }

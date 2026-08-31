@@ -36,6 +36,8 @@
 
 import { readFileSync } from "node:fs";
 
+import { EMPTY_RESERVE } from "../src/keys.ts";
+
 import { scriptHashToAddress, type NetworkPrefix } from "../src/address.ts";
 import { fromHex, toHex } from "../src/bytes.ts";
 import { blake2b256 } from "../src/hashers.ts";
@@ -44,7 +46,7 @@ import { NodeClient } from "../src/node.ts";
 import { RecipientSet } from "../src/recipients.ts";
 import { agentPublicKey, signSpend } from "../src/sign.ts";
 import type { SpendPlan } from "../src/spend.ts";
-import { scriptHashFor, templateFingerprint, type CovenantTemplate, type GrantState } from "../src/template.ts";
+import { scriptHashFor, templateFingerprint, type CovenantTemplate, type GrantState, templateIdFor } from "../src/template.ts";
 import { toWire } from "../src/wire.ts";
 
 /** A lock time at or above the current DAA score is not yet final. */
@@ -118,10 +120,12 @@ const state: GrantState = {
   notBefore: BigInt(m.not_before),
   expiresAt: BigInt(m.expires_at),
   delegationDepth: BigInt(flag("depth", (m.delegation_depth ?? 2).toString())!),
+  templateId: templateIdFor(template, authority),
   spentTotal: BigInt(m.spent_total),
   reserved: BigInt(m.reserved),
   epochIndex: BigInt(m.epoch_index),
   epochSpent: BigInt(m.epoch_spent),
+  reserveRoot: EMPTY_RESERVE,
 };
 
 // ---- which key signs -----------------------------------------------------

@@ -36,15 +36,20 @@ export const STATE_FIELDS = [
   "notBefore",
   "expiresAt",
   "delegationDepth",
+  // v4. Both are byte[32] and both are AUTHORITY-like in that a spend leaves
+  // them alone — but reserveRoot moves on delegate and reabsorb, so it is not
+  // authority, and it is part of the address like everything else here.
+  "templateId",
   "spentTotal",
   "reserved",
   "epochIndex",
   "epochSpent",
+  "reserveRoot",
 ] as const;
 
 export type StateFieldName = (typeof STATE_FIELDS)[number];
 
-const BYTES32_FIELDS = new Set<string>(["agentKey", "recipientsRoot"]);
+const BYTES32_FIELDS = new Set<string>(["agentKey", "recipientsRoot", "templateId", "reserveRoot"]);
 
 export function isBytes32Field(name: string): boolean {
   return BYTES32_FIELDS.has(name);

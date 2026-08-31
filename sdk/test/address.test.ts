@@ -15,7 +15,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { bytecodeFor, scriptHashFor, type CovenantTemplate, type Grant } from "../src/template.ts";
+
+import { bytecodeFor, scriptHashFor, templateIdFor, type CovenantTemplate, type Grant } from "../src/template.ts";
 
 const tpl: CovenantTemplate = JSON.parse(
   readFileSync(new URL("../covenant-template.json", import.meta.url), "utf8"),
@@ -37,10 +38,12 @@ function grantFrom(v: CovenantTemplate["addressVectors"][number]): Grant {
       notBefore: BigInt(v.state.notBefore),
       expiresAt: BigInt(v.state.expiresAt),
       delegationDepth: BigInt(v.state.delegationDepth),
+      templateId: v.state.templateId,
       spentTotal: BigInt(v.state.spentTotal),
       reserved: BigInt(v.state.reserved),
       epochIndex: BigInt(v.state.epochIndex),
       epochSpent: BigInt(v.state.epochSpent),
+      reserveRoot: v.state.reserveRoot,
     },
   };
 }
@@ -48,7 +51,7 @@ function grantFrom(v: CovenantTemplate["addressVectors"][number]): Grant {
 test("the template maps every value a grant can vary", () => {
   const state = tpl.fields.filter((f) => f.group === "state");
   const authority = tpl.fields.filter((f) => f.group === "authority");
-  assert.equal(state.length, 13, "all thirteen state fields must be mapped");
+  assert.equal(state.length, 15, "all fifteen state fields must be mapped");
   assert.deepEqual(
     authority.map((f) => f.name).sort(),
     ["principalKey", "revocationKey"],
@@ -123,4 +126,38 @@ test("the baked parameters are recorded, so a mismatched template is detectable"
   assert.equal(typeof tpl.baked.maxProofDepth, "number");
   assert.equal(typeof tpl.baked.maxFee, "number");
   assert.ok(tpl.baked.maxProofDepth > 0);
+});
+
+test("every vector's templateId is the one this SDK derives from its authority", () => {
+  // The vectors carry templateId as DATA, and the splice tests above read it
+  // rather than deriving it. That is the right call for a splice test — it
+  // checks the SDK against the compiler — but it means a templateId that is
+  // not the covenant's true template hash would sit in every vector and pass
+  // everything, which is exactly what happened: the Rust side derived the id
+  // from the principal alone, while both keys are compiled into the suffix the
+  // hash covers. Eight vectors, all wrong, all green.
+  //
+  // So derive it here and require agreement. This is the only test that would
+  // have failed, and the only one that will fail if the two derivations drift
+  // apart again.
+  for (const v of tpl.addressVectors) {
+    assert.equal(
+      templateIdFor(tpl, v.authority),
+      v.state.templateId,
+      `vector ${(v as { label?: string }).label ?? "?"}: derived id disagrees with the compiled one`,
+    );
+  }
+});
+
+test("the template id depends on the revocation key, not just the principal", () => {
+  // The property the bug violated, pinned directly. Both keys are constructor
+  // constants in the SUFFIX, so both are inside the preimage; an id keyed on
+  // the principal alone would make two genuinely different covenants claim the
+  // same identity, and `readInputStateWithTemplate` would accept a child whose
+  // revocation key is not its parent's.
+  const P = "41".repeat(32);
+  assert.notEqual(
+    templateIdFor(tpl, { principalKey: P, revocationKey: "42".repeat(32) }),
+    templateIdFor(tpl, { principalKey: P, revocationKey: P }),
+  );
 });

@@ -35,10 +35,12 @@ function planFromGolden(): SpendPlan {
     notBefore: BigInt(p.notBefore),
     expiresAt: BigInt(p.expiresAt),
     delegationDepth: BigInt(p.delegationDepth),
+    templateId: p.templateId,
     spentTotal: BigInt(p.prevState.spentTotal),
     reserved: BigInt(p.prevState.reserved),
     epochIndex: BigInt(p.prevState.epochIndex),
     epochSpent: BigInt(p.prevState.epochSpent),
+    reserveRoot: p.reserveRoot,
   };
   return {
     template,

@@ -64,7 +64,7 @@ const SPEND_FEE: u64 = 1_000_000;
 /// Note this is why the harness's measurement read low: it runs with
 /// `sigop_script_units: 0`, which zeroes the signature charge.
 const GENESIS_COMPUTE_BUDGET: u16 = 12;
-const SPEND_COMPUTE_BUDGET: u16 = 16;
+const SPEND_COMPUTE_BUDGET: u16 = 40;
 
 /// Grant parameters for the demo. Deliberately small: this is a public
 /// testnet artefact, and the numbers should be legible in a screenshot.
@@ -136,9 +136,36 @@ fn attacker() -> [u8; 32] {
 // ---- covenant ------------------------------------------------------------
 
 #[allow(clippy::too_many_arguments)]
+/// The two keys that govern a grant, carried together.
+///
+/// They used to travel as two bare `[u8; 32]`s, which is how four call sites
+/// came to pass the AGENT key to a parameter named `principal`, and how
+/// `template_id_for` came to ignore the revocation key entirely while its own
+/// doc-comment said the hash covered it. Nothing in the type system objected,
+/// because every key in this file is the same 32 bytes.
+///
+/// Both keys are compiled into the SUFFIX, which the template hash covers. So
+/// the template id is a property of the PAIR, and a function that takes only
+/// one of them cannot be correct.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+struct Authority {
+    principal: [u8; 32],
+    revocation: [u8; 32],
+}
+
+impl Authority {
+    /// The common case: one key holds both roles.
+    fn sole(key: [u8; 32]) -> Self {
+        Self { principal: key, revocation: key }
+    }
+    fn new(principal: [u8; 32], revocation: [u8; 32]) -> Self {
+        Self { principal, revocation }
+    }
+}
+
 fn grant_ctor(
     agent_xonly: [u8; 32],
-    principal_xonly: [u8; 32],
+    authority: Authority,
     root: [u8; 32],
     not_before: i64,
     expires_at: i64,
@@ -147,9 +174,115 @@ fn grant_ctor(
     epoch_index: i64,
     epoch_spent: i64,
 ) -> Vec<Expr<'static>> {
+    grant_ctor_full(agent_xonly, authority, root, not_before, expires_at, spent, reserved, epoch_index, epoch_spent, template_id_for(authority), empty_reserve(), template_geometry())
+}
+
+/// Where the state region sits inside the compiled bytecode, as
+/// `readInputStateWithTemplate` needs it: (prefix length, suffix length).
+///
+/// These are CONSTRUCTOR ARGUMENTS derived from the compiled size, so they are
+/// a fixed point: change them and the bytecode changes, which changes them.
+/// `solve_template_geometry` iterates until it settles and refuses to guess if
+/// it does not. Cached here so every caller sees the same answer.
+
+/// This covenant's own template hash, as `readInputStateWithTemplate` expects.
+///
+/// blake3 over `len(prefix) || prefix || len(suffix) || suffix`, each length an
+/// eight-byte Script integer. The lengths are in the preimage on purpose: they
+/// bind WHERE the state is inserted, so a covenant cannot be passed off as one
+/// with a differently-placed state region.
+///
+/// This is a state field rather than a baked constant. Baking it would put the
+/// value inside the prefix or suffix that the hash covers — a preimage fixed
+/// point. As state it sits between them, untouched by the hash.
+fn template_id_for(authority: Authority) -> [u8; 32] {
+    // Keyed on the AUTHORITY, not global.
+    //
+    // principalKey and revocationKey are compiled into the SUFFIX — they are
+    // constructor constants, not state — so the template hash covers them and
+    // two grants with different principals have different template ids. That
+    // is not a flaw: it means a parent can only ever reabsorb children that
+    // share its authority, which is a binding you would otherwise have to add
+    // by hand.
+    if let Some(v) = TEMPLATE_IDS.lock().unwrap().get(&authority) {
+        return *v;
+    }
+    let id = {
+        let (p, sfx) = template_geometry();
+        let probe = compile(grant_ctor_full(
+            [0x22; 32], authority, [0x13; 32], 1_000_000, 1_007_000, 11, 13, 17, 19,
+            [0u8; 32], [0u8; 32], (p, sfx),
+        ))
+        .expect("template id probe must compile");
+        let code = &probe.bytecode;
+        let prefix = &code[..p as usize];
+        let suffix = &code[code.len() - sfx as usize..];
+        let mut pre = Vec::new();
+        pre.extend_from_slice(&(p as i64).to_le_bytes());
+        pre.extend_from_slice(prefix);
+        pre.extend_from_slice(&(sfx as i64).to_le_bytes());
+        pre.extend_from_slice(suffix);
+        *blake3::hash(&pre).as_bytes()
+    };
+    TEMPLATE_IDS.lock().unwrap().insert(authority, id);
+    id
+}
+
+static TEMPLATE_IDS: std::sync::LazyLock<std::sync::Mutex<std::collections::HashMap<Authority, [u8; 32]>>> =
+    std::sync::LazyLock::new(|| std::sync::Mutex::new(std::collections::HashMap::new()));
+
+fn template_geometry() -> (i64, i64) {
+    *TEMPLATE_GEOMETRY.get_or_init(|| solve_template_geometry().expect("template geometry must settle"))
+}
+
+static TEMPLATE_GEOMETRY: std::sync::OnceLock<(i64, i64)> = std::sync::OnceLock::new();
+
+/// Compile, measure, recompile, until the lengths stop moving.
+///
+/// It converges immediately in practice — the suffix length only changes
+/// encoding width at a power-of-256 boundary — but "in practice" is not a
+/// proof, and a covenant compiled against the wrong geometry would slice a
+/// foreign redeem script at the wrong offset and read garbage as state. So it
+/// iterates and asserts, rather than assuming one pass is enough.
+fn solve_template_geometry() -> Result<(i64, i64), Box<dyn Error>> {
+    let (mut prefix, mut suffix) = (1i64, 2900i64);
+    for round in 0..8 {
+        let probe = compile(grant_ctor_full(
+            [0x22; 32], Authority::sole([0x21; 32]), [0x13; 32], 1_000_000, 1_007_000, 11, 13, 17, 19,
+            [0x51; 32], [0x52; 32], (prefix, suffix),
+        ))?;
+        let (p, sfx) = measure_state_region(&probe.bytecode, Authority::sole([0x21; 32]), (prefix, suffix))?;
+        if (p, sfx) == (prefix, suffix) {
+            eprintln!("template geometry settled: prefix {prefix}, suffix {suffix}, bytecode {}", probe.bytecode.len());
+            return Ok((prefix, suffix));
+        }
+        if round == 7 {
+            return Err(format!("template geometry did not settle: {prefix}/{suffix} then {p}/{sfx}").into());
+        }
+        prefix = p;
+        suffix = sfx;
+    }
+    unreachable!()
+}
+
+#[allow(clippy::too_many_arguments)]
+fn grant_ctor_full(
+    agent_xonly: [u8; 32],
+    authority: Authority,
+    root: [u8; 32],
+    not_before: i64,
+    expires_at: i64,
+    spent: i64,
+    reserved: i64,
+    epoch_index: i64,
+    epoch_spent: i64,
+    template_hash: [u8; 32],
+    reserve_root: [u8; 32],
+    geometry: (i64, i64),
+) -> Vec<Expr<'static>> {
     vec![
-        Expr::bytes(principal_xonly.to_vec()), //  0 principalKey
-        Expr::bytes(principal_xonly.to_vec()), //  1 revocationKey
+        Expr::bytes(authority.principal.to_vec()),  //  0 principalKey
+        Expr::bytes(authority.revocation.to_vec()), //  1 revocationKey
         Expr::int(MAX_FEE),                    //  2 maxFee
         Expr::bytes(agent_xonly.to_vec()),     //  3 genesisAgentKey
         Expr::int(BUDGET),                     //  4 genesisBudgetTotal
@@ -160,12 +293,60 @@ fn grant_ctor(
         Expr::int(not_before),                 //  9 genesisNotBefore
         Expr::int(expires_at),                 // 10 genesisExpiresAt
         Expr::int(DELEGATION_DEPTH),           // 11 genesisDelegationDepth
-        Expr::int(MAX_PROOF_DEPTH),            // 12 maxProofDepth
+        Expr::bytes(template_hash.to_vec()),   // 12 genesisTemplateId
+        Expr::int(geometry.0),                 // 13 templatePrefixLen
+        Expr::int(geometry.1),                 // 14 templateSuffixLen
+        Expr::int(MAX_PROOF_DEPTH),            // 15 maxProofDepth
         Expr::int(spent),                      // 13 initSpentTotal
         Expr::int(reserved),                   // 14 initReserved
         Expr::int(epoch_index),                // 15 initEpochIndex
-        Expr::int(epoch_spent),                // 16 initEpochSpent
+        Expr::int(epoch_spent),                // 19 initEpochSpent
+        Expr::bytes(reserve_root.to_vec()),    // 20 initReserveRoot
     ]
+}
+
+
+/// The state region's boundaries, found by diffing two compilations that
+/// differ in every state field.
+///
+/// Not read from a constant: the region moves whenever the covenant changes,
+/// and a stale constant here would make `readInputStateWithTemplate` slice a
+/// foreign redeem script at the wrong offset — decoding whatever happened to
+/// be there as a grant's budget.
+fn measure_state_region(reference: &[u8], authority: Authority, geometry: (i64, i64)) -> Result<(i64, i64), Box<dyn Error>> {
+    // Vary ONLY byte[32] fields, and keep every integer identical.
+    //
+    // Script encodes integers at minimal width, so two probes with different
+    // numbers compile to different LENGTHS and cannot be diffed positionally.
+    // The fixed-width fields are safe, and they happen to bracket the region
+    // exactly: agentKey is the first state field and reserveRoot the last.
+    let other = compile(grant_ctor_full(
+        [0x44; 32], authority, [0x46; 32], 1_000_000, 1_007_000, 11, 13, 17, 19,
+        [0x47; 32], [0x48; 32], geometry,
+    ))?;
+    let a = reference;
+    let b = &other.bytecode;
+    if a.len() != b.len() {
+        return Err(format!("state probes differ in length: {} vs {}", a.len(), b.len()).into());
+    }
+    let first = (0..a.len()).find(|&i| a[i] != b[i]).ok_or("state probes are identical")?;
+    let last = (0..a.len()).rev().find(|&i| a[i] != b[i]).unwrap();
+
+    // The first DIFFERING byte is one past the start of the state region: the
+    // first state field is agentKey, a byte[32], and its OP_DATA_32 push
+    // opcode is identical in both probes. Off by one here is not cosmetic —
+    // readInputStateWithTemplate slices a foreign redeem script at exactly
+    // this offset, so a prefix one byte long would decode every field shifted
+    // and read garbage as a budget.
+    if a[first - 1] != 0x20 {
+        return Err(format!(
+            "expected OP_DATA_32 before the state region at {}, found {:#04x}",
+            first - 1,
+            a[first - 1]
+        )
+        .into());
+    }
+    Ok(((first - 1) as i64, (a.len() - last - 1) as i64))
 }
 
 fn compile(ctor: Vec<Expr<'static>>) -> Result<CompiledContract<'static>, Box<dyn Error>> {
@@ -228,6 +409,8 @@ async fn require_ready(client: &KaspaRpcClient) -> Result<u64, Box<dyn Error>> {
 // to avoid.
 
 struct SpendPlan {
+    /// The LIFO stack of outstanding children, unchanged by a spend.
+    prev_reserve_root: [u8; 32],
     agent: [u8; 32],
     root: [u8; 32],
     not_before: i64,
@@ -287,14 +470,14 @@ fn build_spend_full(plan: &SpendPlan, kp: &Keypair) -> Result<BuiltSpend, Box<dy
         if epoch_index == plan.prev_epoch_index { plan.prev_epoch_spent } else { 0 };
 
     let contract = compile(grant_ctor(
-        plan.agent, plan.agent, plan.root, plan.not_before, plan.expires_at,
+        plan.agent, Authority::sole(plan.agent), plan.root, plan.not_before, plan.expires_at,
         plan.prev_spent, plan.prev_reserved, plan.prev_epoch_index, plan.prev_epoch_spent,
     ))?;
     let grant_spk = pay_to_script_hash_script(&contract.bytecode);
 
     // The successor lives at a DIFFERENT address, one encoding the new state.
     let successor = compile(grant_ctor(
-        plan.agent, plan.agent, plan.root, plan.not_before, plan.expires_at,
+        plan.agent, Authority::sole(plan.agent), plan.root, plan.not_before, plan.expires_at,
         plan.prev_spent + plan.amount, plan.prev_reserved,
         epoch_index, epoch_spent_now + plan.amount,
     ))?;
@@ -316,6 +499,7 @@ fn build_spend_full(plan: &SpendPlan, kp: &Keypair) -> Result<BuiltSpend, Box<dy
                 plan.agent, plan.root, plan.not_before, plan.expires_at,
                 plan.prev_spent + plan.amount, plan.prev_reserved,
                 epoch_index, epoch_spent_now + plan.amount,
+                plan.prev_reserve_root,
             ),
             Expr::int(plan.amount),
             Expr::bytes(recipient.to_vec()),
@@ -411,7 +595,7 @@ fn build_genesis(plan: &GenesisPlan, kp: &Keypair) -> Result<BuiltGenesis, Box<d
     }
 
     let contract = compile(grant_ctor(
-        plan.agent, plan.principal, plan.root, plan.not_before, plan.expires_at, 0, 0, 0, 0,
+        plan.agent, Authority::sole(plan.principal), plan.root, plan.not_before, plan.expires_at, 0, 0, 0, 0,
     ))?;
     let grant_spk = pay_to_script_hash_script(&contract.bytecode);
     let funding_addr = address_of(kp);
@@ -500,6 +684,8 @@ struct ChildTerms {
 }
 
 struct DelegationPlan {
+    /// The stack this delegation pushes onto.
+    prev_reserve_root: [u8; 32],
     agent: [u8; 32],
     principal: [u8; 32],
     root: [u8; 32],
@@ -538,7 +724,7 @@ struct BuiltDelegation {
 /// one it invents for itself.
 fn child_ctor(plan: &DelegationPlan) -> Vec<Expr<'static>> {
     let mut c = grant_ctor(
-        plan.child.agent, plan.principal, plan.root, plan.not_before, plan.expires_at, 0, 0, 0, 0,
+        plan.child.agent, Authority::sole(plan.principal), plan.root, plan.not_before, plan.expires_at, 0, 0, 0, 0,
     );
     c[4] = Expr::int(plan.child.budget);
     c[5] = Expr::int(plan.child.max_per_spend);
@@ -560,19 +746,24 @@ fn child_state(plan: &DelegationPlan) -> Expr<'static> {
             ("notBefore", Expr::int(plan.not_before)),
             ("expiresAt", Expr::int(plan.expires_at)),
             ("delegationDepth", Expr::int(plan.child.delegation_depth)),
+            // The child is the SAME covenant, so it carries the same template
+            // id — that is what lets a parent read its state later.
+            ("templateId", Expr::bytes(template_id_for(Authority::sole(plan.principal)).to_vec())),
             // A child starts spent-out-of-nothing. Without this it could be
             // born mid-epoch with an allowance already used.
             ("spentTotal", Expr::int(0)),
             ("reserved", Expr::int(0)),
             ("epochIndex", Expr::int(0)),
             ("epochSpent", Expr::int(0)),
+            // And it has delegated to nobody.
+            ("reserveRoot", Expr::bytes(empty_reserve().to_vec())),
         ],
     )
 }
 
 fn build_delegation(plan: &DelegationPlan, kp: &Keypair) -> Result<BuiltDelegation, Box<dyn Error>> {
     let contract = compile(grant_ctor(
-        plan.agent, plan.principal, plan.root, plan.not_before, plan.expires_at,
+        plan.agent, Authority::sole(plan.principal), plan.root, plan.not_before, plan.expires_at,
         plan.prev_spent, plan.prev_reserved, plan.prev_epoch_index, plan.prev_epoch_spent,
     ))?;
     let parent_spk = pay_to_script_hash_script(&contract.bytecode);
@@ -580,9 +771,14 @@ fn build_delegation(plan: &DelegationPlan, kp: &Keypair) -> Result<BuiltDelegati
     // The parent only RESERVES. Nothing else about it may move, and the
     // covenant checks every other field for equality.
     let reserved_after = plan.prev_reserved + plan.child.budget;
-    let parent_next = compile(grant_ctor(
-        plan.agent, plan.principal, plan.root, plan.not_before, plan.expires_at,
+    let cid_for_addr = child_id(
+        plan.child.agent, plan.child.budget, plan.child.max_per_spend, plan.child.epoch_limit,
+        EPOCH_LENGTH, plan.root, plan.not_before, plan.expires_at, plan.child.delegation_depth,
+    );
+    let parent_next = compile(grant_ctor_full(
+        plan.agent, Authority::sole(plan.principal), plan.root, plan.not_before, plan.expires_at,
         plan.prev_spent, reserved_after, plan.prev_epoch_index, plan.prev_epoch_spent,
+        template_id_for(Authority::sole(plan.principal)), push_child(plan.prev_reserve_root, cid_for_addr), template_geometry(),
     ))?;
     let parent_next_spk = pay_to_script_hash_script(&parent_next.bytecode);
 
@@ -597,9 +793,14 @@ fn build_delegation(plan: &DelegationPlan, kp: &Keypair) -> Result<BuiltDelegati
     let entry =
         UtxoEntry::new(plan.in_value, parent_spk.clone(), plan.block_daa, plan.is_coinbase, Some(plan.cov));
 
+    // The parent now owes this specific child and can only release the reserve
+    // by producing it. Reading a child's state proves it is a real grant of
+    // this template, not that it is a grant THIS parent delegated — releasing
+    // reserve for a sibling's child would let a parent over-delegate.
     let parent_next_state = grant_state(
         plan.agent, plan.root, plan.not_before, plan.expires_at,
         plan.prev_spent, reserved_after, plan.prev_epoch_index, plan.prev_epoch_spent,
+        push_child(plan.prev_reserve_root, cid_for_addr),
     );
 
     // `State[]` needs an explicit TypeRef: a custom struct element type cannot
@@ -790,7 +991,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let daa = require_ready(&client).await?;
 
             let contract = compile(grant_ctor(
-                m.agent, m.agent, m.root, m.not_before, m.expires_at,
+                m.agent, Authority::sole(m.agent), m.root, m.not_before, m.expires_at,
                 m.spent, m.reserved, m.epoch_index, m.epoch_spent,
             ))?;
             let grant_addr = extract_script_pub_key_address(
@@ -823,6 +1024,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             println!("claimed daa    : {claimed_daa} (chain at {daa})");
 
             let plan = SpendPlan {
+                prev_reserve_root: empty_reserve(),
                 agent: m.agent,
                 root: m.root,
                 not_before: m.not_before,
@@ -938,8 +1140,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
             // Baseline constructor: distinct values in every key slot, so a
             // probe of one cannot be confused with another.
             let base_ctor = |sp: i64, rs: i64, ei: i64, es: i64| {
-                let mut c = grant_ctor(agent, principal, root, nb, ex, sp, rs, ei, es);
-                c[1] = Expr::bytes(revocation.to_vec()); // revocationKey, independent of principal
+                // Authority::new, not two keys and a patch-up: the revocation
+                // key is now part of the value the template id is derived
+                // from, which is the whole point.
+                let c = grant_ctor(agent, Authority::new(principal, revocation), root, nb, ex, sp, rs, ei, es);
                 c
             };
 
@@ -954,25 +1158,48 @@ async fn main() -> Result<(), Box<dyn Error>> {
             // byte — which is exactly the bug this comment exists to prevent.
             const PROBE_INT: i64 = 0x0102_0304_0506_0708;
 
+            /// A probe value guaranteed to differ from the baseline in EVERY
+            /// byte.
+            ///
+            /// This prober infers a field's extent from which bytes changed
+            /// between two compilations, which is only sound when the two
+            /// values differ everywhere. A fixed probe constant does not give
+            /// that: it gives it for hand-picked baselines and silently loses
+            /// it for derived ones. templateId is a hash, so whether any of
+            /// its 32 bytes happened to equal the old 0x99 probe was luck —
+            /// about a one-in-eight chance of at least one collision — and a
+            /// collision splits the run and makes the field look mis-measured.
+            /// The complement has no such chance.
+            fn flip(v: [u8; 32]) -> Vec<u8> {
+                v.iter().map(|b| !b).collect()
+            }
+
             // (name, group, kind, ctor index, probe). `authority` fields are
             // compiled-in constants outside the state slice; `state` fields
             // are the mutable ones the address moves with.
             let probes: Vec<(&str, &str, &str, usize, Expr)> = vec![
-                ("principalKey", "authority", "bytes32", 0, Expr::bytes(vec![0x91; 32])),
-                ("revocationKey", "authority", "bytes32", 1, Expr::bytes(vec![0x92; 32])),
-                ("agentKey", "state", "bytes32", 3, Expr::bytes(vec![0x77; 32])),
+                ("principalKey", "authority", "bytes32", 0, Expr::bytes(flip(principal))),
+                ("revocationKey", "authority", "bytes32", 1, Expr::bytes(flip(revocation))),
+                ("agentKey", "state", "bytes32", 3, Expr::bytes(flip(agent))),
                 ("budgetTotal", "state", "int64", 4, Expr::int(PROBE_INT)),
                 ("maxPerSpend", "state", "int64", 5, Expr::int(PROBE_INT)),
                 ("epochLimit", "state", "int64", 6, Expr::int(PROBE_INT)),
                 ("epochLength", "state", "int64", 7, Expr::int(PROBE_INT)),
-                ("recipientsRoot", "state", "bytes32", 8, Expr::bytes(vec![0x88; 32])),
+                ("recipientsRoot", "state", "bytes32", 8, Expr::bytes(flip(root))),
                 ("notBefore", "state", "int64", 9, Expr::int(PROBE_INT)),
                 ("expiresAt", "state", "int64", 10, Expr::int(PROBE_INT)),
                 ("delegationDepth", "state", "int64", 11, Expr::int(PROBE_INT)),
-                ("spentTotal", "state", "int64", 13, Expr::int(PROBE_INT)),
-                ("reserved", "state", "int64", 14, Expr::int(PROBE_INT)),
-                ("epochIndex", "state", "int64", 15, Expr::int(PROBE_INT)),
-                ("epochSpent", "state", "int64", 16, Expr::int(PROBE_INT)),
+                // v4 inserted genesisTemplateId, templatePrefixLen and
+                // templateSuffixLen at 12..14, so every slot below moved by
+                // three. Writing PROBE_INT into a stale slot put a huge number
+                // where a template LENGTH belongs, and the compiler refused it
+                // as a for-loop bound — a long way from where the mistake was.
+                ("templateId", "state", "bytes32", 12, Expr::bytes(flip(template_id_for(Authority::new(principal, revocation))))),
+                ("spentTotal", "state", "int64", 16, Expr::int(PROBE_INT)),
+                ("reserved", "state", "int64", 17, Expr::int(PROBE_INT)),
+                ("epochIndex", "state", "int64", 18, Expr::int(PROBE_INT)),
+                ("epochSpent", "state", "int64", 19, Expr::int(PROBE_INT)),
+                ("reserveRoot", "state", "bytes32", 20, Expr::bytes(flip(empty_reserve()))),
             ];
 
             let mut fields = Vec::new();
@@ -1008,6 +1235,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 let widths: Vec<usize> = runs.iter().map(|(a, b)| b - a).collect();
                 if widths.iter().any(|w| *w != expected_width) {
                     println!("{name:<16} RUNS OF UNEXPECTED WIDTH {widths:?}, expected {expected_width}");
+                    // Runs that sum to the right width but are SPLIT mean the
+                    // field is intact and the probe is at fault: a byte of the
+                    // probe equalled the baseline, so that position did not
+                    // change and the run broke in two. That is a property of
+                    // the two values, not of the covenant, and it reads as a
+                    // mis-measured field unless it is named. `flip` exists to
+                    // make it impossible for bytes32; an int64 can still hit it.
+                    if widths.iter().sum::<usize>() == expected_width {
+                        println!("{:<16} ^ the runs SUM to {expected_width}: the field is fine, but the probe",  "");
+                        println!("{:<16}   collides with the baseline in {} byte(s). Choose a probe that",  "",
+                            widths.len() - 1);
+                        println!("{:<16}   differs from the baseline in every byte.", "");
+                    }
                     ok = false;
                     continue;
                 }
@@ -1040,7 +1280,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             // Demonstrated rather than asserted, so the claim keeps being true.
             {
                 let mut c = base_ctor(0, 0, 0, 0);
-                c[12] = Expr::int(MAX_PROOF_DEPTH + 1);
+                c[15] = Expr::int(MAX_PROOF_DEPTH + 1); // maxProofDepth; slot moved in v4
                 let deeper = compile(c)?;
                 println!("maxProofDepth    baked in: depth {} is {} bytes, depth {} is {} bytes",
                     MAX_PROOF_DEPTH, base.bytecode.len(), MAX_PROOF_DEPTH + 1, deeper.bytecode.len());
@@ -1079,8 +1319,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let (alt_nb, alt_ex) = (2_500_000i64, 9_900_000i64);
             let (sp, rs, ei, es) = (3 * KAS, KAS, 7i64, KAS / 4);
 
-            let mut alt_ctor = grant_ctor(alt_agent, alt_principal, alt_root, alt_nb, alt_ex, sp, rs, ei, es);
-            alt_ctor[1] = Expr::bytes(alt_revocation.to_vec());
+            let alt_authority = Authority::new(alt_principal, alt_revocation);
+            let alt_ctor = grant_ctor(alt_agent, alt_authority, alt_root, alt_nb, alt_ex, sp, rs, ei, es);
             let compiled = compile(alt_ctor)?;
 
             let mut spliced = base.bytecode.clone();
@@ -1096,6 +1336,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
             ] {
                 put(&mut spliced, name, &v.to_le_bytes());
             }
+            // v4's two additions. Leaving them out of this list is not a
+            // cosmetic omission: the anchor is the ONE place that compiles with
+            // a revocation key distinct from the principal, so an unspliced
+            // templateId is exactly where a principal-only derivation shows up
+            // as a 32-byte disagreement. It did.
+            put(&mut spliced, "templateId", &template_id_for(alt_authority));
+            put(&mut spliced, "reserveRoot", &empty_reserve());
 
             if spliced == compiled.bytecode {
                 println!("\nsplice == compile across authority AND state: byte-identical.");
@@ -1122,8 +1369,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 ("other_agent", principal, revocation, alt_agent, root, 0, 0, 0, 0),
                 ("all_different", alt_principal, alt_revocation, alt_agent, alt_root, sp, rs, ei, es),
             ] {
-                let mut c = grant_ctor(ak, pk, rt, nb, ex, sp, rs, ei, es);
-                c[1] = Expr::bytes(rk.to_vec());
+                let c = grant_ctor(ak, Authority::new(pk, rk), rt, nb, ex, sp, rs, ei, es);
                 let c = compile(c)?;
                 let spk = pay_to_script_hash_script(&c.bytecode);
                 let addr = extract_script_pub_key_address(&spk, Prefix::Testnet)?;
@@ -1133,8 +1379,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 let script_hash = blake2b_simd::Params::new().hash_length(32)
                     .to_state().update(&c.bytecode).finalize();
                 vectors.push(format!(
-                    "    {{ \"label\": \"{label}\", \"authority\": {{ \"principalKey\": \"{}\", \"revocationKey\": \"{}\" }}, \"state\": {{ \"agentKey\": \"{}\", \"budgetTotal\": {BUDGET}, \"maxPerSpend\": {MAX_PER_SPEND}, \"epochLimit\": {EPOCH_LIMIT}, \"epochLength\": {EPOCH_LENGTH}, \"recipientsRoot\": \"{}\", \"notBefore\": {nb}, \"expiresAt\": {ex}, \"delegationDepth\": {DELEGATION_DEPTH}, \"spentTotal\": {sp}, \"reserved\": {rs}, \"epochIndex\": {ei}, \"epochSpent\": {es} }}, \"scriptHash\": \"{}\", \"address\": \"{addr}\" }}",
-                    hex(&pk), hex(&rk), hex(&ak), hex(&rt), hex(script_hash.as_bytes())));
+                    "    {{ \"label\": \"{label}\", \"authority\": {{ \"principalKey\": \"{}\", \"revocationKey\": \"{}\" }}, \"state\": {{ \"agentKey\": \"{}\", \"budgetTotal\": {BUDGET}, \"maxPerSpend\": {MAX_PER_SPEND}, \"epochLimit\": {EPOCH_LIMIT}, \"epochLength\": {EPOCH_LENGTH}, \"recipientsRoot\": \"{}\", \"notBefore\": {nb}, \"expiresAt\": {ex}, \"delegationDepth\": {DELEGATION_DEPTH}, \"templateId\": \"{}\", \"spentTotal\": {sp}, \"reserved\": {rs}, \"epochIndex\": {ei}, \"epochSpent\": {es}, \"reserveRoot\": \"{}\" }}, \"scriptHash\": \"{}\", \"address\": \"{addr}\" }}",
+                    hex(&pk), hex(&rk), hex(&ak), hex(&rt), hex(&template_id_for(Authority::new(pk, rk))), hex(&empty_reserve()), hex(script_hash.as_bytes())));
                 println!("{label:<17} {}  {addr}", &hex(script_hash.as_bytes())[..16]);
             }
 
@@ -1219,6 +1465,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 index: 0,
             };
             let plan = SpendPlan {
+                prev_reserve_root: empty_reserve(),
                 agent,
                 root,
                 not_before,
@@ -1321,6 +1568,8 @@ r#"{{
     "notBefore": {not_before},
     "expiresAt": {expires_at},
     "delegationDepth": {deleg_depth},
+    "templateId": "{tpl_id}",
+    "reserveRoot": "{empty_reserve}",
     "maxProofDepth": {max_proof_depth},
     "prevState": {{ "spentTotal": 0, "reserved": 0, "epochIndex": 0, "epochSpent": 0 }},
     "nextState": {{ "spentTotal": {next_spent}, "reserved": 0, "epochIndex": {next_epoch}, "epochSpent": {next_epoch_spent} }}
@@ -1406,6 +1655,8 @@ r#"{{
                 not_before = not_before,
                 expires_at = plan.expires_at,
                 deleg_depth = DELEGATION_DEPTH,
+                tpl_id = hex(&template_id_for(Authority::sole(plan.agent))),
+                empty_reserve = hex(&empty_reserve()),
                 max_proof_depth = MAX_PROOF_DEPTH,
                 next_spent = amount,
                 next_epoch = b.epoch_index,
@@ -1506,6 +1757,8 @@ r#"{{
     "notBefore": {not_before},
     "expiresAt": {expires_at},
     "delegationDepth": {deleg_depth},
+    "templateId": "{tpl_id}",
+    "reserveRoot": "{empty_reserve}",
     "initialState": {{ "spentTotal": 0, "reserved": 0, "epochIndex": 0, "epochSpent": 0 }}
   }},
 
@@ -1572,6 +1825,8 @@ r#"{{
                 not_before = not_before,
                 expires_at = gplan.expires_at,
                 deleg_depth = DELEGATION_DEPTH,
+                tpl_id = hex(&template_id_for(Authority::sole(plan.agent))),
+                empty_reserve = hex(&empty_reserve()),
                 f_txid = gplan.funding_outpoint.transaction_id,
                 f_index = gplan.funding_outpoint.index,
                 f_value = gplan.funding_value,
@@ -1638,6 +1893,7 @@ r#"{{
             // value in the wrong place. That is precisely the kind of mistake
             // a vector catches and a code review does not.
             let dplan = DelegationPlan {
+                prev_reserve_root: empty_reserve(),
                 agent,
                 principal: agent,
                 root,
@@ -1715,6 +1971,8 @@ r#"{{
     "notBefore": {not_before},
     "expiresAt": {expires_at},
     "delegationDepth": {deleg_depth},
+    "templateId": "{tpl_id}",
+    "reserveRoot": "{empty_reserve}",
     "prevState": {{ "spentTotal": 0, "reserved": 0, "epochIndex": 0, "epochSpent": 0 }}
   }},
 
@@ -1807,6 +2065,8 @@ r#"{{
                 not_before = not_before,
                 expires_at = dplan.expires_at,
                 deleg_depth = DELEGATION_DEPTH,
+                tpl_id = hex(&template_id_for(Authority::sole(plan.agent))),
+                empty_reserve = hex(&empty_reserve()),
                 child_agent = hex(&dplan.child.agent),
                 child_budget = dplan.child.budget,
                 child_max_per_spend = dplan.child.max_per_spend,
@@ -2011,7 +2271,7 @@ r#"{{
             let daa = require_ready(&client).await?;
 
             let contract = compile(grant_ctor(
-                m.agent, m.agent, m.root, m.not_before, m.expires_at,
+                m.agent, Authority::sole(m.agent), m.root, m.not_before, m.expires_at,
                 m.spent, m.reserved, m.epoch_index, m.epoch_spent,
             ))?;
             let grant_addr = extract_script_pub_key_address(
@@ -2062,6 +2322,8 @@ r#"{{
     "notBefore": {not_before},
     "expiresAt": {expires_at},
     "delegationDepth": {deleg_depth},
+    "templateId": "{tpl_id}",
+    "reserveRoot": "{empty_reserve}",
     "spentTotal": {spent},
     "reserved": {reserved},
     "epochIndex": {epoch_index},
@@ -2102,6 +2364,8 @@ r#"{{
                 not_before = m.not_before,
                 expires_at = m.expires_at,
                 deleg_depth = DELEGATION_DEPTH,
+                tpl_id = hex(&template_id_for(Authority::sole(m.agent))),
+                empty_reserve = hex(&empty_reserve()),
                 spent = m.spent,
                 reserved = m.reserved,
                 epoch_index = m.epoch_index,
@@ -2187,7 +2451,7 @@ fn advance_manifest(m: &Manifest, tx: &Transaction) -> Result<Option<String>, Bo
     // The check that makes this safe: derive the successor address from the
     // state we just computed, and require the transaction to be paying it.
     let successor = compile(grant_ctor(
-        m.agent, m.agent, m.root, m.not_before, m.expires_at,
+        m.agent, Authority::sole(m.agent), m.root, m.not_before, m.expires_at,
         spent, reserved, epoch_index, epoch_spent,
     ))?;
     let expected = pay_to_script_hash_script(&successor.bytecode);
@@ -2308,6 +2572,76 @@ fn bool_array(items: Vec<bool>) -> Expr<'static> {
 }
 
 #[allow(clippy::too_many_arguments)]
+
+/// Script's `OpNum2Bin(x, 8)`: little-endian, sign-magnitude, padded to eight
+/// bytes. Fixed width is the point — Script's native integer form is minimal,
+/// so 1 and 256 would occupy different numbers of bytes and two different
+/// children could collide by shifting a field boundary.
+
+/// The empty delegation stack.
+///
+/// NOT thirty-two zero bytes. Kaspa script encodes the value zero as the EMPTY
+/// byte string, so a zero literal in the covenant compiles to nothing and the
+/// comparison silently tests against an empty push rather than a 32-byte
+/// array. This covenant already documents that trap for its domain separators
+/// — and the delegation vector was rejected by the engine until it was fixed
+/// here too. Derived rather than written out, so both sides compute it.
+fn empty_reserve() -> [u8; 32] {
+    let mut out = [0u8; 32];
+    out.copy_from_slice(
+        blake2b_simd::Params::new().hash_length(32).to_state().update(b"WardaEmptyReserve").finalize().as_bytes(),
+    );
+    out
+}
+
+fn num2bin8(v: i64) -> [u8; 8] {
+    let mut out = (v.unsigned_abs()).to_le_bytes();
+    if v < 0 {
+        out[7] |= 0x80;
+    }
+    out
+}
+
+/// A child's IDENTITY: only the fields that can never change once it exists.
+///
+/// spentTotal, reserved, epochIndex and epochSpent are excluded because they
+/// move as the child spends, and an identity that changed with use could not
+/// be matched at settlement — which is the whole reason it exists.
+#[allow(clippy::too_many_arguments)]
+fn child_id(
+    agent: [u8; 32], budget: i64, max_per_spend: i64, epoch_limit: i64, epoch_length: i64,
+    root: [u8; 32], not_before: i64, expires_at: i64, delegation_depth: i64,
+) -> [u8; 32] {
+    let mut pre = Vec::new();
+    pre.extend_from_slice(&agent);
+    pre.extend_from_slice(&num2bin8(budget));
+    pre.extend_from_slice(&num2bin8(max_per_spend));
+    pre.extend_from_slice(&num2bin8(epoch_limit));
+    pre.extend_from_slice(&num2bin8(epoch_length));
+    pre.extend_from_slice(&root);
+    pre.extend_from_slice(&num2bin8(not_before));
+    pre.extend_from_slice(&num2bin8(expires_at));
+    pre.extend_from_slice(&num2bin8(delegation_depth));
+    keyed_b2b(&pre, b"WardaChildId")
+}
+
+/// Push a child onto the parent's LIFO stack of outstanding delegations.
+fn push_child(root: [u8; 32], child: [u8; 32]) -> [u8; 32] {
+    let mut pre = Vec::with_capacity(64);
+    pre.extend_from_slice(&root);
+    pre.extend_from_slice(&child);
+    keyed_b2b(&pre, b"WardaReserve")
+}
+
+fn keyed_b2b(data: &[u8], key: &[u8]) -> [u8; 32] {
+    let mut out = [0u8; 32];
+    out.copy_from_slice(
+        blake2b_simd::Params::new().hash_length(32).key(key).to_state().update(data).finalize().as_bytes(),
+    );
+    out
+}
+
+#[allow(clippy::too_many_arguments)]
 fn grant_state(
     agent: [u8; 32],
     root: [u8; 32],
@@ -2317,6 +2651,7 @@ fn grant_state(
     reserved: i64,
     epoch_index: i64,
     epoch_spent: i64,
+    reserve_root: [u8; 32],
 ) -> Expr<'static> {
     struct_object(
         "State",
@@ -2330,10 +2665,12 @@ fn grant_state(
             ("notBefore", Expr::int(not_before)),
             ("expiresAt", Expr::int(expires_at)),
             ("delegationDepth", Expr::int(DELEGATION_DEPTH)),
+            ("templateId", Expr::bytes(template_id_for(Authority::sole(agent)).to_vec())),
             ("spentTotal", Expr::int(spent)),
             ("reserved", Expr::int(reserved)),
             ("epochIndex", Expr::int(epoch_index)),
             ("epochSpent", Expr::int(epoch_spent)),
+            ("reserveRoot", Expr::bytes(reserve_root.to_vec())),
         ],
     )
 }
