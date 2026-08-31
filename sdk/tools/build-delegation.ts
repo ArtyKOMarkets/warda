@@ -49,7 +49,7 @@ import { attachDelegationSignature, buildUnsignedDelegation, type DelegationPlan
 import { HashWriter } from "../src/hashers.ts";
 import { NodeClient } from "../src/node.ts";
 import { agentPublicKey, signDigest, verifyDigest } from "../src/sign.ts";
-import { scriptHashFor, type CovenantTemplate, type GrantState } from "../src/template.ts";
+import { scriptHashFor, templateFingerprint, type CovenantTemplate, type GrantState } from "../src/template.ts";
 import { toWire } from "../src/wire.ts";
 
 const DEFAULT_FEE = 1_000_000n;
@@ -76,9 +76,40 @@ if (!secretHex) {
 const secret = fromHex(secretHex.trim());
 
 const m = JSON.parse(readFileSync(manifestPath, "utf8"));
-const template: CovenantTemplate = JSON.parse(
-  readFileSync(new URL("../covenant-template.json", import.meta.url), "utf8"),
-);
+/**
+ * Which covenant a grant was issued under.
+ *
+ * A covenant upgrade changes the bytecode, so the SAME state derives a
+ * DIFFERENT address. Grants issued under the old one are still on chain, still
+ * spendable, and completely invisible to a tool holding only the new template.
+ * An upgrade that stranded every outstanding grant would not be an upgrade.
+ *
+ * So: --template points at the template a grant was issued under, and a
+ * manifest may name its own. New grants record it; older manifests predate the
+ * field and fall back to the current template, which is what they were issued
+ * under anyway.
+ */
+function loadTemplate(m: { covenant?: string } = {}): CovenantTemplate {
+  const named = flag("template");
+  const url = named
+    ? new URL(named, `file://${process.cwd()}/`)
+    : new URL("../covenant-template.json", import.meta.url);
+  const tpl: CovenantTemplate = JSON.parse(readFileSync(url, "utf8"));
+  const have = templateFingerprint(tpl);
+  if (m.covenant && m.covenant !== have) {
+    console.error(
+      `this manifest was issued under covenant ${m.covenant}, and the template ` +
+        `loaded is ${have}.\n` +
+        `Deriving an address from the wrong covenant does not fail loudly: it ` +
+        `produces a plausible address, finds nothing there, and reports the grant ` +
+        `missing. Pass --template <path to that covenant's template>.`,
+    );
+    process.exit(1);
+  }
+  return tpl;
+}
+
+const template: CovenantTemplate = loadTemplate(m);
 
 const principalKey = flag("principal", m.agent)!;
 const authority = { principalKey, revocationKey: flag("revocation", principalKey)! };
@@ -275,6 +306,7 @@ writeFileSync(
     {
       _comment:
         "A child grant, created by delegation. Shares its parent's principal and revocation keys: delegation subdivides an agent's budget, it does not hand over the right to revoke or reclaim.",
+      covenant: m.covenant ?? templateFingerprint(template),
       covenant_id: m.covenant_id,
       agent: c.agentKey,
       // Explicit, because the child INHERITS these and they are not its own

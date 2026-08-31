@@ -141,3 +141,16 @@ export function bytecodeFor(tpl: CovenantTemplate, grant: Grant): Uint8Array {
 export function scriptHashFor(tpl: CovenantTemplate, grant: Grant): string {
   return toHex(blake2b.create({ dkLen: 32 }).update(bytecodeFor(tpl, grant)).digest());
 }
+
+/**
+ * Which covenant a template IS.
+ *
+ * A covenant upgrade changes the bytecode, so the same grant state derives a
+ * different address. A tool holding the wrong template does not fail loudly —
+ * it derives a plausible address, finds nothing there, and reports the grant
+ * missing. Recording this in a manifest and checking it on load turns that
+ * into a sentence.
+ */
+export function templateFingerprint(tpl: CovenantTemplate): string {
+  return toHex(blake2b.create({ dkLen: 32 }).update(new TextEncoder().encode(tpl.baselineHex)).digest()).slice(0, 16);
+}

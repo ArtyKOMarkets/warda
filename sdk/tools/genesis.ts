@@ -44,7 +44,7 @@ import { blake2b256 } from "../src/hashers.ts";
 import { NodeClient } from "../src/node.ts";
 import { RecipientSet } from "../src/recipients.ts";
 import { agentPublicKey, signDigest, verifyDigest } from "../src/sign.ts";
-import type { CovenantTemplate, GrantState } from "../src/template.ts";
+import { templateFingerprint, type CovenantTemplate, type GrantState } from "../src/template.ts";
 import { toWire } from "../src/wire.ts";
 
 /** Genesis is a plain P2PK spend that happens to pay into a covenant: one
@@ -168,6 +168,10 @@ try {
     outPath,
     JSON.stringify(
       {
+        // Which COVENANT, not which grant. An upgrade changes the bytecode and
+        // therefore every address; a manifest that does not say which covenant
+        // it belongs to becomes unreadable the moment one ships.
+        covenant: templateFingerprint(template),
         covenant_id: toHex(built.covenantId),
         agent: key,
         principal: authority.principalKey,

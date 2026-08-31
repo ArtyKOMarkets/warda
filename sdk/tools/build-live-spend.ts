@@ -43,7 +43,7 @@ import { NodeClient } from "../src/node.ts";
 import { RecipientSet } from "../src/recipients.ts";
 import { agentPublicKey, signSpend } from "../src/sign.ts";
 import type { SpendPlan } from "../src/spend.ts";
-import { scriptHashFor, type CovenantTemplate, type GrantState } from "../src/template.ts";
+import { scriptHashFor, templateFingerprint, type CovenantTemplate, type GrantState } from "../src/template.ts";
 import { toWire } from "../src/wire.ts";
 
 /** A lock time at or above the current DAA score is not yet final. */
@@ -68,9 +68,40 @@ if (!secretHex) {
 }
 
 const m = JSON.parse(readFileSync(manifestPath, "utf8"));
-const template: CovenantTemplate = JSON.parse(
-  readFileSync(new URL("../covenant-template.json", import.meta.url), "utf8"),
-);
+/**
+ * Which covenant a grant was issued under.
+ *
+ * A covenant upgrade changes the bytecode, so the SAME state derives a
+ * DIFFERENT address. Grants issued under the old one are still on chain, still
+ * spendable, and completely invisible to a tool holding only the new template.
+ * An upgrade that stranded every outstanding grant would not be an upgrade.
+ *
+ * So: --template points at the template a grant was issued under, and a
+ * manifest may name its own. New grants record it; older manifests predate the
+ * field and fall back to the current template, which is what they were issued
+ * under anyway.
+ */
+function loadTemplate(m: { covenant?: string } = {}): CovenantTemplate {
+  const named = flag("template");
+  const url = named
+    ? new URL(named, `file://${process.cwd()}/`)
+    : new URL("../covenant-template.json", import.meta.url);
+  const tpl: CovenantTemplate = JSON.parse(readFileSync(url, "utf8"));
+  const have = templateFingerprint(tpl);
+  if (m.covenant && m.covenant !== have) {
+    console.error(
+      `this manifest was issued under covenant ${m.covenant}, and the template ` +
+        `loaded is ${have}.\n` +
+        `Deriving an address from the wrong covenant does not fail loudly: it ` +
+        `produces a plausible address, finds nothing there, and reports the grant ` +
+        `missing. Pass --template <path to that covenant's template>.`,
+    );
+    process.exit(1);
+  }
+  return tpl;
+}
+
+const template: CovenantTemplate = loadTemplate(m);
 
 const principalKey = flag("principal", m.principal ?? m.agent)!;
 const authority = { principalKey, revocationKey: flag("revocation", m.revocation ?? principalKey)! };
