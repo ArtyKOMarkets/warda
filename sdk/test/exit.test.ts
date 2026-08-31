@@ -6,6 +6,7 @@ import { fromHex, toHex } from "../src/bytes.ts";
 import { attachExitSignature, buildUnsignedExit, exitSignatureScript, type ExitPlan } from "../src/exit.ts";
 import { parseUtxos } from "../src/node.ts";
 import { scriptHashToAddress } from "../src/address.ts";
+import { verifyDigest } from "../src/sign.ts";
 import { dispatchTag } from "../src/spend.ts";
 import { scriptHashFor, type CovenantTemplate, type GrantState } from "../src/template.ts";
 
@@ -206,4 +207,16 @@ test("an exit spends the address the grant actually lives at", { skip: skipReaso
     "the exit's input script does not match the UTXO it claims to spend",
   );
   assert.equal(built.tx.outputs[0]!.value, utxo.entry.value - 1_000_000n);
+});
+
+test("a swapped verifyDigest call explains itself instead of returning false", () => {
+  // This is here because the exit tool got it wrong. verifyDigest takes
+  // (signature, digest, key) while signDigest takes (digest, key), and the
+  // swapped form used to return a bare `false` — which reads as "wrong key"
+  // and sends you looking at key derivation instead of at the call.
+  const digest = new Uint8Array(32);
+  const signature = new Uint8Array(65);
+  signature[64] = 0x01;
+  assert.throws(() => verifyDigest(digest, signature, new Uint8Array(32)), /swapped/);
+  assert.equal(verifyDigest(signature, digest, new Uint8Array(32)), false, "the right order still just fails");
 });

@@ -27,8 +27,22 @@ export function signDigest(digest: Uint8Array, agentSecretKey: Uint8Array): Uint
   return concat(schnorr.sign(digest, agentSecretKey), Uint8Array.of(SIGHASH_TYPE_BYTE));
 }
 
-/** Checks a 65-byte signature against a digest and an x-only public key. */
+/**
+ * Checks a 65-byte signature against a digest and an x-only public key.
+ *
+ * The argument order is the REVERSE of `signDigest`'s — signature first, then
+ * the digest — which is a genuine trap, and one this package's own tooling
+ * fell into. A swapped call is detectable (a digest is 32 bytes, a signature
+ * 65), so it throws with the diagnosis instead of returning a bare `false`
+ * that reads as "the key is wrong" and sends you looking in the wrong place.
+ */
 export function verifyDigest(signature: Uint8Array, digest: Uint8Array, xonlyPublicKey: Uint8Array): boolean {
+  if (signature.length === 32 && digest.length === 65) {
+    throw new Error(
+      "verifyDigest(signature, digest, key): the arguments are swapped. " +
+        "Note this is the opposite order from signDigest(digest, key).",
+    );
+  }
   if (signature.length !== 65) return false;
   if (signature[64] !== SIGHASH_TYPE_BYTE) return false;
   return schnorr.verify(signature.subarray(0, 64), digest, xonlyPublicKey);

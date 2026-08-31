@@ -158,7 +158,9 @@ if (secretHex) {
     process.exit(1);
   }
   const signature = signDigest(unsigned.sighash, secret);
-  if (!verifyDigest(unsigned.sighash, signature, fromHex(expected))) {
+  // Note the order: signature first, then the digest. It is the reverse of
+  // signDigest's, which is a trap I walked into writing this.
+  if (!verifyDigest(signature, unsigned.sighash, fromHex(expected))) {
     throw new Error("signature failed to verify against the digest it was made over");
   }
   tx = attachExitSignature(plan, unsigned, signature);
