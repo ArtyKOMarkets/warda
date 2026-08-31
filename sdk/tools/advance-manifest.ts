@@ -27,7 +27,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { scriptHashToAddress, type NetworkPrefix } from "../src/address.ts";
 import { parentSuccessorState } from "../src/delegate.ts";
 import { successorState } from "../src/spend.ts";
-import { scriptHashFor, type CovenantTemplate, type GrantState } from "../src/template.ts";
+import { scriptHashFor, templateFingerprint, type CovenantTemplate, type GrantState } from "../src/template.ts";
 
 function flag(name: string, fallback?: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -42,9 +42,30 @@ if (!manifestPath || !txPath) {
 
 const m = JSON.parse(readFileSync(manifestPath, "utf8"));
 const wire = JSON.parse(readFileSync(txPath, "utf8"));
-const template: CovenantTemplate = JSON.parse(
-  readFileSync(new URL("../covenant-template.json", import.meta.url), "utf8"),
-);
+/**
+ * Which covenant this grant was issued under. Missed here when the other four
+ * tools got it, and the omission was invisible until a v1 grant needed
+ * advancing: the input-identity guard refused, correctly, with a message about
+ * sibling grants that had nothing to do with the real cause.
+ */
+function loadTemplate(m: { covenant?: string }): CovenantTemplate {
+  const named = flag("template");
+  const url = named
+    ? new URL(named, `file://${process.cwd()}/`)
+    : new URL("../covenant-template.json", import.meta.url);
+  const tpl: CovenantTemplate = JSON.parse(readFileSync(url, "utf8"));
+  const have = templateFingerprint(tpl);
+  if (m.covenant && m.covenant !== have) {
+    console.error(
+      `this manifest was issued under covenant ${m.covenant}, and the template ` +
+        `loaded is ${have}. Pass --template <that covenant's template>.`,
+    );
+    process.exit(1);
+  }
+  return tpl;
+}
+
+const template: CovenantTemplate = loadTemplate(m);
 
 const principalKey = flag("principal", m.principal ?? m.agent)!;
 const authority = { principalKey, revocationKey: flag("revocation", m.revocation ?? principalKey)! };
@@ -91,8 +112,10 @@ if (wire.utxo.scriptPublicKeyHex !== currentScript) {
     `this transaction does not spend the grant ${manifestPath} describes.\n` +
       `  it consumes a UTXO at : ${wire.utxo.scriptPublicKeyHex}\n` +
       `  this manifest is at   : ${currentScript}\n` +
-      `Nothing changed. A sibling grant in the same tree shares this covenant id, ` +
-      `so the id alone cannot tell them apart.`,
+      `Nothing changed. Two causes reach this line: a sibling grant in the same ` +
+      `tree (they share a covenant id, so the id cannot tell them apart), or the ` +
+      `WRONG TEMPLATE — a grant issued under a different covenant derives a ` +
+      `different address from the same state. Try --template.`,
   );
   process.exit(1);
 }
