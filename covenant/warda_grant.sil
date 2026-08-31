@@ -409,6 +409,21 @@ contract WardaGrant(
         // authority be issued twice.
         require(child.spentTotal >= 0);
         require(child.budgetTotal > 0);
+
+        // The child must have no outstanding children of its own.
+        //
+        // Without this the engine accepted a settlement of a child that still
+        // had coin committed to grandchildren: the parent released the child's
+        // FULL budget from `reserved` while charging only child.spentTotal, and
+        // the grandchildren's coin — real, on chain, funded out of that budget —
+        // was left outside every grant's accounting. Nothing could ever
+        // reabsorb it, because the only grant that could was the child, and the
+        // child had just been consumed.
+        //
+        // The rule is the LIFO discipline applied downward: settle a subtree
+        // from the leaves up.
+        require(child.reserved == 0);
+
         require(reserved >= child.budgetTotal);
         require(newState.reserved   == reserved - child.budgetTotal);
         require(newState.spentTotal == spentTotal + child.spentTotal);
@@ -453,6 +468,35 @@ contract WardaGrant(
     // ------------------------------------------------------------------
     entry settle(sig s) {
         require(checkSig(s, revocationKey));
+
+        // WHERE the coin goes, not just how much.
+        //
+        // This clause was missing, and the engine accepted the consequence:
+        // the revocation key alone, plus any dust it already owned as a second
+        // input, spent a child under `settle` and sent the whole balance to an
+        // address of its choosing. Nothing tied the co-input to a parent, and
+        // nothing constrained output 0's scriptPubKey — so the revocation key
+        // was a TAKE capability over every delegated child.
+        //
+        // That defeats the reason the key exists. principalKey and
+        // revocationKey are separate precisely so a monitor can STOP a grant
+        // without being trusted with its balance; `revoke` was fixed to pay the
+        // principal and only the principal, and this path was written later and
+        // never got the same treatment.
+        //
+        // The fix binds settle to a real settlement. The co-input must be a
+        // grant of THIS template — and because the template id is keyed on the
+        // authority, that also means the same principal and revocation keys —
+        // and output 0 must be that grant's single authorised continuation. A
+        // parent running `reabsorb` produces exactly that shape; a bag of the
+        // revoker's own coin produces none of it.
+        require(tx.inputs.length == 2);
+        int parentIdx = 1 - this.activeInputIndex;
+        State parent = readInputStateWithTemplate(parentIdx, templatePrefixLen, templateSuffixLen, templateId);
+        require(parent.budgetTotal > 0);
+        require(OpAuthOutputCount(parentIdx) == 1);
+        require(OpAuthOutputIdx(parentIdx, 0) == 0);
+
         int combined = tx.inputs[0].value + tx.inputs[1].value;
         require(tx.outputs[0].value >= combined - maxFee);
     }

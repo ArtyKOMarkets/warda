@@ -879,22 +879,43 @@ fn golden_key() -> Keypair {
 
 /// Runs a built transaction through the node's own script engine locally.
 /// Same engine, same verdict, no network.
-fn validate_locally(tx: &Transaction, entry: UtxoEntry) -> Result<(), TxScriptError> {
+/// Runs the real script engine over EVERY input, not just the first.
+///
+/// It used to take one UtxoEntry and validate input 0, which was right while
+/// every transaction this covenant built had exactly one input. Settlement
+/// does not: a reabsorb spends the parent AND the child in one transaction,
+/// under two different entrypoints and two different keys. Judging only input
+/// 0 would have run the parent's `reabsorb` and never run the child's
+/// `settle` at all — so the half of the transaction authorised by the
+/// revocation key would have gone completely untested, which is precisely the
+/// half worth testing.
+///
+/// The first failing input is returned, so a caller still gets one verdict.
+fn validate_locally(tx: &Transaction, entries: Vec<UtxoEntry>) -> Result<(), TxScriptError> {
+    if entries.len() != tx.inputs.len() {
+        // Not a script error, but returning Ok here would report a malformed
+        // probe as a passing one.
+        return Err(TxScriptError::MalformedPush(entries.len(), tx.inputs.len()));
+    }
     let reused = SigHashReusedValuesUnsync::new();
     let sig_cache = Cache::new(10_000);
-    let input = tx.inputs[0].clone();
-    let populated = PopulatedTransaction::new(tx, vec![entry]);
+    let populated = PopulatedTransaction::new(tx, entries);
     let cov_ctx = CovenantsContext::from_tx(&populated).map_err(TxScriptError::from)?;
-    let utxo = populated.utxo(0).expect("utxo");
-    let mut vm = TxScriptEngine::from_transaction_input(
-        &populated,
-        &input,
-        0,
-        utxo,
-        EngineCtx::new(&sig_cache).with_reused(&reused).with_covenants_ctx(&cov_ctx),
-        EngineFlags { covenants_enabled: true, sigop_script_units: 0.into() },
-    );
-    vm.execute()
+
+    for idx in 0..tx.inputs.len() {
+        let input = tx.inputs[idx].clone();
+        let utxo = populated.utxo(idx).expect("utxo");
+        let mut vm = TxScriptEngine::from_transaction_input(
+            &populated,
+            &input,
+            idx,
+            utxo,
+            EngineCtx::new(&sig_cache).with_reused(&reused).with_covenants_ctx(&cov_ctx),
+            EngineFlags { covenants_enabled: true, sigop_script_units: 0.into() },
+        );
+        vm.execute()?;
+    }
+    Ok(())
 }
 
 #[tokio::main]
@@ -1049,7 +1070,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
             // Local verdict FIRST. If the engine refuses it here, the fault is
             // ours and the mempool would only tell us so less clearly.
-            let local = validate_locally(&tx, entry);
+            let local = validate_locally(&tx, vec![entry]);
             println!("local engine   : {local:?}");
 
             if injecting {
@@ -1488,7 +1509,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
             // A vector that the engine would refuse is worse than no vector:
             // it would teach a second implementation to be wrong confidently.
-            let verdict = validate_locally(&b.tx, b.entry.clone());
+            let verdict = validate_locally(&b.tx, vec![b.entry.clone()]);
             println!("reference spend -> {verdict:?}");
             if verdict.is_err() {
                 return Err("refusing to write a golden vector the engine rejects".into());
@@ -1918,7 +1939,7 @@ r#"{{
             };
             let d = build_delegation(&dplan, &kp)?;
 
-            let dverdict = validate_locally(&d.tx, d.entry.clone());
+            let dverdict = validate_locally(&d.tx, vec![d.entry.clone()]);
             println!("\nreference delegation -> {dverdict:?}");
             if dverdict.is_err() {
                 return Err("refusing to write a delegation vector the engine rejects".into());
@@ -2154,8 +2175,8 @@ r#"{{
                     continue;
                 };
                 let v: serde_json::Value = serde_json::from_str(&body)?;
-                let (tx, entry) = parse_wire(&v)?;
-                let verdict = validate_locally(&tx, entry);
+                let (tx, entries) = parse_wire(&v)?;
+                let verdict = validate_locally(&tx, entries);
                 let accepted = verdict.is_ok();
                 let ok = (expect == "accept") == accepted;
                 if !ok {
@@ -2195,7 +2216,7 @@ r#"{{
                 .map_err(|e| format!("cannot read {path}: {e}"))?;
             let v: serde_json::Value = serde_json::from_str(&raw)?;
 
-            let (tx, entry) = parse_wire(&v)?;
+            let (tx, entries) = parse_wire(&v)?;
 
             // The builder states what IT thinks the id is. Recomputing it here
             // catches a serialization disagreement before anything is signed
@@ -2215,7 +2236,7 @@ r#"{{
             println!("sigscript  : {} bytes", tx.inputs[0].signature_script.len());
             println!("outputs    : {}", tx.outputs.len());
 
-            let verdict = validate_locally(&tx, entry);
+            let verdict = validate_locally(&tx, entries);
             println!("\nscript engine -> {verdict:?}");
             match verdict {
                 Ok(()) => println!("the consensus engine accepts a transaction this tool did not build."),
@@ -2746,7 +2767,7 @@ fn wire_u32(v: &serde_json::Value, key: &str) -> Result<u32, Box<dyn Error>> {
     u32::try_from(n).map_err(|e| format!("{key}: {e}").into())
 }
 
-fn parse_wire(v: &serde_json::Value) -> Result<(Transaction, UtxoEntry), Box<dyn Error>> {
+fn parse_wire(v: &serde_json::Value) -> Result<(Transaction, Vec<UtxoEntry>), Box<dyn Error>> {
     let version = v.get("version").and_then(|x| x.as_u64()).ok_or("missing version")? as u16;
     if version < 1 {
         return Err("only version-1 transactions carry covenants".into());
@@ -2807,20 +2828,46 @@ fn parse_wire(v: &serde_json::Value) -> Result<(Transaction, UtxoEntry), Box<dyn
     // A covenant spend cannot be validated without its UTXO: the digest commits
     // to the entry's script and value, and the engine reads the covenant id
     // from it.
-    let u = v.get("utxo").ok_or("missing utxo — a covenant spend cannot be checked without it")?;
-    let spk_version = u.get("scriptPublicKeyVersion").and_then(|x| x.as_u64()).ok_or("utxo missing scriptPublicKeyVersion")? as u16;
-    let covenant_id = match u.get("covenantId") {
-        Some(serde_json::Value::Null) => None,
-        Some(_) => Some(wire_hash(u, "covenantId")?),
-        None => return Err("utxo must state its covenant id, even as null".into()),
+    //
+    // `utxos` (plural) is the general form, one per input and index-aligned
+    // with them. `utxo` (singular) is the one-input shorthand every wire file
+    // written before settlement uses, and it stays supported — a format change
+    // that stranded the existing probe corpus would cost more than it bought.
+    let entries_json: Vec<&serde_json::Value> = match (v.get("utxos"), v.get("utxo")) {
+        (Some(list), _) => list
+            .as_array()
+            .ok_or("utxos must be an array, one entry per input")?
+            .iter()
+            .collect(),
+        (None, Some(one)) => vec![one],
+        (None, None) => return Err("missing utxo/utxos — a covenant spend cannot be checked without it".into()),
     };
-    let entry = UtxoEntry::new(
-        wire_u64(u, "value")?,
-        ScriptPublicKey::new(spk_version, wire_hex(u, "scriptPublicKeyHex")?.into()),
-        wire_u64(u, "blockDaaScore")?,
-        u.get("isCoinbase").and_then(|x| x.as_bool()).ok_or("utxo missing isCoinbase")?,
-        covenant_id,
-    );
+    if entries_json.len() != tx.inputs.len() {
+        return Err(format!(
+            "this transaction has {} inputs and {} utxo entries. Every input needs its own: \
+             the signature digest commits to each entry's script and value.",
+            tx.inputs.len(),
+            entries_json.len()
+        )
+        .into());
+    }
 
-    Ok((tx, entry))
+    let mut entries = Vec::new();
+    for u in entries_json {
+        let spk_version = u.get("scriptPublicKeyVersion").and_then(|x| x.as_u64()).ok_or("utxo missing scriptPublicKeyVersion")? as u16;
+        let covenant_id = match u.get("covenantId") {
+            Some(serde_json::Value::Null) => None,
+            Some(_) => Some(wire_hash(u, "covenantId")?),
+            None => return Err("utxo must state its covenant id, even as null".into()),
+        };
+        entries.push(UtxoEntry::new(
+            wire_u64(u, "value")?,
+            ScriptPublicKey::new(spk_version, wire_hex(u, "scriptPublicKeyHex")?.into()),
+            wire_u64(u, "blockDaaScore")?,
+            u.get("isCoinbase").and_then(|x| x.as_bool()).ok_or("utxo missing isCoinbase")?,
+            covenant_id,
+        ));
+    }
+
+    Ok((tx, entries))
 }

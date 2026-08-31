@@ -147,6 +147,23 @@ export {
   type UnsignedExit,
 } from "./exit.ts";
 
+/**
+ * Settlement: the other half of delegation. Until this existed a delegation
+ * was one-way — a parent that subdivided itself shrank permanently, because
+ * the reserve could only be released by the child expiring into the
+ * PRINCIPAL's hands rather than back into the parent's.
+ */
+export {
+  attachReabsorbSignatures,
+  buildUnsignedReabsorb,
+  reabsorbSignatureScript,
+  reabsorbSuccessorState,
+  settleSignatureScript,
+  type GrantUtxo,
+  type ReabsorbPlan,
+  type UnsignedReabsorb,
+} from "./reabsorb.ts";
+
 export {
   deriveSecret,
   derivePublic,

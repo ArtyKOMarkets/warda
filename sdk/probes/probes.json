@@ -30,6 +30,30 @@
     "sdkRefused": false
   },
   {
+    "name": "reabsorb-honest",
+    "expect": "accept",
+    "why": "an ordinary settlement: the parent takes back the child at the top of its reserve stack, releasing the child's budget and inheriting what the child actually spent. The control for the three below.",
+    "sdkRefused": false
+  },
+  {
+    "name": "settle-steal",
+    "expect": "refuse",
+    "why": "THE SUSPECTED HOLE. `settle` requires the revocation key and checks that output 0 receives inputs[0].value + inputs[1].value - maxFee, but it never constrains output 0's scriptPubKey and nothing ties the second input to a parent. So the revocation key alone, plus any dust it already owns, sweeps a child's whole balance to an address of its choosing. If accepted, the revocation key is a TAKE capability over children, not a STOP one.",
+    "sdkRefused": false
+  },
+  {
+    "name": "reabsorb-live-grandchild",
+    "expect": "refuse",
+    "why": "the child still has 1 KAS reserved for a grandchild of its own. Settling it releases the parent's reserve IN FULL while that coin sits in a grandchild that nothing can ever reabsorb, because the only grant that could — its parent — has just been consumed.",
+    "sdkRefused": false
+  },
+  {
+    "name": "reabsorb-out-of-order",
+    "expect": "refuse",
+    "why": "reserveRoot is a hash chain, so only the most recently delegated child can be popped. This settles the FIRST of two children while the second is still outstanding, by claiming a prevRoot that does not rebuild the parent's root.",
+    "sdkRefused": false
+  },
+  {
     "name": "revoke-honest",
     "expect": "accept",
     "why": "an ordinary revoke, paying the principal and a normal fee",

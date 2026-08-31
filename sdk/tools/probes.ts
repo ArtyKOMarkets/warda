@@ -44,7 +44,16 @@ import { RecipientSet } from "../src/recipients.ts";
 import { agentPublicKey, signDigest, signSpend } from "../src/sign.ts";
 import type { SpendPlan } from "../src/spend.ts";
 import type { CovenantTemplate, GrantState } from "../src/template.ts";
-import { toWire } from "../src/wire.ts";
+import { toWire, toWireMulti } from "../src/wire.ts";
+import {
+  attachReabsorbSignatures,
+  buildUnsignedReabsorb,
+  reabsorbSignatureScript,
+  reabsorbSuccessorState,
+  settleSignatureScript,
+  type ReabsorbPlan,
+} from "../src/reabsorb.ts";
+import { childStateFrom, parentSuccessorState, pushChild } from "../src/delegate.ts";
 
 const here = (p: string) => new URL(p, import.meta.url);
 const template: CovenantTemplate = JSON.parse(readFileSync(here("../covenant-template.json"), "utf8"));
@@ -200,6 +209,256 @@ interface Probe {
   build: () => { wire: unknown } | null;
 }
 
+
+// ---- settlement -----------------------------------------------------------
+//
+// A parent that has delegated 4 KAS to a child, and the child that received
+// it. Both are needed for every probe below, and they must agree: the
+// parent's reserveRoot is the child hashed onto an empty stack, which is what
+// makes this child the one at the top and therefore the one that can be
+// settled.
+
+const CHILD_BUDGET = 400_000_000n;
+
+const childTerms = {
+  agentKey: toHex(agentPublicKey(fromHex("5c".repeat(32)))),
+  budgetTotal: CHILD_BUDGET,
+  maxPerSpend: 50_000_000n,
+  epochLimit: 100_000_000n,
+  delegationDepth: 1n,
+};
+
+/** The child at birth, and after it has spent 1 KAS of its own budget. */
+const childBorn = childStateFrom(base, childTerms);
+const childSpent: GrantState = { ...childBorn, spentTotal: 100_000_000n };
+
+/** The parent AFTER delegating: reserve raised, child pushed onto the stack. */
+const parentDelegated = parentSuccessorState(base, childBorn);
+
+const parentUtxo = {
+  outpointTransactionId: fromHex("a1".repeat(32)),
+  outpointIndex: 0,
+  value: VALUE - CHILD_BUDGET - 1_000_000n,
+  blockDaaScore: 1_000_100n,
+  isCoinbase: false,
+  covenantId: fromHex(golden.utxo.covenantId),
+};
+
+/** The child's coin, less what it has spent and the fee that spend paid. */
+const childUtxo = {
+  outpointTransactionId: fromHex("b2".repeat(32)),
+  outpointIndex: 0,
+  value: CHILD_BUDGET - 100_000_000n - 1_000_000n,
+  blockDaaScore: 1_000_200n,
+  isCoinbase: false,
+  covenantId: fromHex(golden.utxo.covenantId),
+};
+
+function reabsorbPlan(over: Partial<ReabsorbPlan> = {}): ReabsorbPlan {
+  return {
+    template,
+    authority,
+    parentState: parentDelegated,
+    childState: childSpent,
+    prevRoot: EMPTY_RESERVE,
+    parentUtxo,
+    childUtxo,
+    fee: 1_000_000n,
+    computeBudget: 32,
+    ...over,
+  };
+}
+
+function reabsorbWire(plan: ReabsorbPlan) {
+  try {
+    const u = buildUnsignedReabsorb(plan);
+    const tx = attachReabsorbSignatures(
+      plan,
+      u,
+      signDigest(u.parentSighash, secret),
+      signDigest(u.childSighash, secret),
+    );
+    return { wire: toWireMulti(tx, u.entries, "probe") };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * `settle` on its own, with no parent anywhere in the transaction.
+ *
+ * The child is spent under `settle`, which needs only the revocation key. The
+ * second input is an ordinary P2PK the revoker already controls, present only
+ * because `settle` reads `tx.inputs[1].value`. Output 0 pays a plain P2PK the
+ * REVOKER chose.
+ *
+ * If the engine accepts this, the revocation key is not a stop capability over
+ * children — it is a TAKE capability, and the separation between revocationKey
+ * and principalKey buys nothing for a delegated grant. That is the same shape
+ * as the revoke-burn hole below it: a value check with no destination check.
+ * `revoke` was fixed to constrain the destination; `settle` was written after
+ * and constrains only the amount.
+ */
+/**
+ * A settlement assembled WITHOUT the SDK's guards.
+ *
+ * `buildUnsignedReabsorb` refuses an out-of-order pop and a child with live
+ * grandchildren, which is right for callers and useless for probes: the engine
+ * — the thing actually under test — never sees the bytes. An attacker does not
+ * use our SDK.
+ *
+ * Everything below the guards is shared with the real builder, so a change to
+ * the signature-script layout still moves both.
+ */
+function unguardedReabsorb(plan: ReabsorbPlan) {
+  const next = reabsorbSuccessorState(plan.parentState, plan.childState, plan.prevRoot);
+  const scriptHashOf = (code: Uint8Array) => blake2b.create({ dkLen: 32 }).update(code).digest();
+  const spk = (st: GrantState) =>
+    payToScriptHashScript(scriptHashOf(bytecodeFor(template, { authority, state: st })));
+
+  const entries = [
+    {
+      value: plan.parentUtxo.value,
+      scriptPublicKey: spk(plan.parentState),
+      blockDaaScore: plan.parentUtxo.blockDaaScore,
+      isCoinbase: plan.parentUtxo.isCoinbase,
+      covenantId: plan.parentUtxo.covenantId,
+    },
+    {
+      value: plan.childUtxo.value,
+      scriptPublicKey: spk(plan.childState),
+      blockDaaScore: plan.childUtxo.blockDaaScore,
+      isCoinbase: plan.childUtxo.isCoinbase,
+      covenantId: plan.childUtxo.covenantId,
+    },
+  ];
+
+  const tx = {
+    version: 1,
+    inputs: [
+      {
+        previousOutpoint: {
+          transactionId: plan.parentUtxo.outpointTransactionId,
+          index: plan.parentUtxo.outpointIndex,
+        },
+        signatureScript: reabsorbSignatureScript(plan, new Uint8Array(65)),
+        sequence: 0n,
+        computeBudget: plan.computeBudget,
+      },
+      {
+        previousOutpoint: {
+          transactionId: plan.childUtxo.outpointTransactionId,
+          index: plan.childUtxo.outpointIndex,
+        },
+        signatureScript: settleSignatureScript(plan, new Uint8Array(65)),
+        sequence: 0n,
+        computeBudget: plan.computeBudget,
+      },
+    ],
+    outputs: [
+      {
+        value: plan.parentUtxo.value + plan.childUtxo.value - plan.fee,
+        scriptPublicKey: spk(next),
+        covenant: { authorizingInput: 0, covenantId: plan.parentUtxo.covenantId },
+      },
+    ],
+    lockTime: 0n,
+    subnetworkId: SUBNETWORK_ID_NATIVE,
+    gas: 0n,
+    payload: new Uint8Array(0),
+  };
+
+  const signed = {
+    ...tx,
+    inputs: [
+      {
+        ...tx.inputs[0]!,
+        signatureScript: reabsorbSignatureScript(plan, signDigest(sighash(tx, 0, entries[0]!), secret)),
+      },
+      {
+        ...tx.inputs[1]!,
+        signatureScript: settleSignatureScript(plan, signDigest(sighash(tx, 1, entries[1]!), secret)),
+      },
+    ],
+  };
+  return { wire: toWireMulti(signed, entries, "probe (unguarded)") };
+}
+
+function settleSteal() {
+  const thiefKey = agentPublicKey(fromHex("7e".repeat(32)));
+  const scriptHashOf = (code: Uint8Array) => blake2b.create({ dkLen: 32 }).update(code).digest();
+  const childSpk = payToScriptHashScript(
+    scriptHashOf(bytecodeFor(template, { authority, state: childSpent })),
+  );
+
+  // Any coin the revoker already owns. It is not a grant and carries no
+  // covenant: settle reads only its VALUE.
+  const decoy = {
+    value: 1_000n,
+    scriptPublicKey: payToPubkeyScript(thiefKey),
+    blockDaaScore: 1_000_300n,
+    isCoinbase: false,
+    covenantId: undefined,
+  };
+  const childEntry = {
+    value: childUtxo.value,
+    scriptPublicKey: childSpk,
+    blockDaaScore: childUtxo.blockDaaScore,
+    isCoinbase: childUtxo.isCoinbase,
+    covenantId: childUtxo.covenantId,
+  };
+
+  const plan = reabsorbPlan();
+  const sigScript = (sig: Uint8Array) => settleSignatureScript(plan, sig);
+
+  const tx = {
+    version: 1,
+    inputs: [
+      {
+        previousOutpoint: { transactionId: childUtxo.outpointTransactionId, index: childUtxo.outpointIndex },
+        signatureScript: sigScript(new Uint8Array(65)),
+        sequence: 0n,
+        computeBudget: 16,
+      },
+      {
+        previousOutpoint: { transactionId: fromHex("c3".repeat(32)), index: 0 },
+        // Filled in below with a REAL P2PK signature. Left empty, this input
+        // fails with InvalidStackOperation before `settle`'s semantics ever
+        // decide anything — and the probe then reports a refusal that has
+        // nothing to do with the attack it is supposed to be testing. The
+        // engine validates every input now, so a decoy has to be spendable.
+        signatureScript: new Uint8Array(0),
+        sequence: 0n,
+        computeBudget: 16,
+      },
+    ],
+    // Everything, to an address of the revoker's choosing. No covenant
+    // binding: the child is not continuing, it is being emptied.
+    outputs: [
+      {
+        value: childUtxo.value + decoy.value - 1_000n,
+        scriptPublicKey: payToPubkeyScript(thiefKey),
+      },
+    ],
+    lockTime: 0n,
+    subnetworkId: SUBNETWORK_ID_NATIVE,
+    gas: 0n,
+    payload: new Uint8Array(0),
+  };
+
+  const thiefSecret = fromHex("7e".repeat(32));
+  const p2pkUnlock = (sig: Uint8Array) => new ScriptBuilder().addData(sig).drain();
+
+  const signed = {
+    ...tx,
+    inputs: [
+      { ...tx.inputs[0]!, signatureScript: sigScript(signDigest(sighash(tx, 0, childEntry), secret)) },
+      { ...tx.inputs[1]!, signatureScript: p2pkUnlock(signDigest(sighash(tx, 1, decoy), thiefSecret)) },
+    ],
+  };
+  return { wire: toWireMulti(signed, [childEntry, decoy], "probe (unguarded)") };
+}
+
 const probes: Probe[] = [
   {
     name: "epoch-exhausted",
@@ -233,6 +492,64 @@ const probes: Probe[] = [
     expect: "refuse",
     why: "a claimedDaa at or beyond expiresAt. The spend path had no expiry check at all.",
     build: () => unguardedSpend(base, 1_900_000n, 200_000_000n),
+  },
+  {
+    name: "reabsorb-honest",
+    expect: "accept",
+    why:
+      "an ordinary settlement: the parent takes back the child at the top of " +
+      "its reserve stack, releasing the child's budget and inheriting what the " +
+      "child actually spent. The control for the three below.",
+    build: () => reabsorbWire(reabsorbPlan()),
+  },
+  {
+    name: "settle-steal",
+    expect: "refuse",
+    why:
+      "THE SUSPECTED HOLE. `settle` requires the revocation key and checks that " +
+      "output 0 receives inputs[0].value + inputs[1].value - maxFee, but it never " +
+      "constrains output 0's scriptPubKey and nothing ties the second input to a " +
+      "parent. So the revocation key alone, plus any dust it already owns, sweeps " +
+      "a child's whole balance to an address of its choosing. If accepted, the " +
+      "revocation key is a TAKE capability over children, not a STOP one.",
+    build: () => settleSteal(),
+  },
+  {
+    name: "reabsorb-live-grandchild",
+    expect: "refuse",
+    why:
+      "the child still has 1 KAS reserved for a grandchild of its own. Settling " +
+      "it releases the parent's reserve IN FULL while that coin sits in a " +
+      "grandchild that nothing can ever reabsorb, because the only grant that " +
+      "could — its parent — has just been consumed.",
+    build: () =>
+      unguardedReabsorb(
+        reabsorbPlan({
+          childState: { ...childSpent, reserved: 100_000_000n },
+          // The parent committed to the child by its IMMUTABLE fields only, so
+          // a child that has since delegated still matches the stack. That is
+          // deliberate (a child must be able to spend), and it is exactly why
+          // `reserved` needs its own check.
+        }),
+      ),
+  },
+  {
+    name: "reabsorb-out-of-order",
+    expect: "refuse",
+    why:
+      "reserveRoot is a hash chain, so only the most recently delegated child " +
+      "can be popped. This settles the FIRST of two children while the second " +
+      "is still outstanding, by claiming a prevRoot that does not rebuild the " +
+      "parent's root.",
+    build: () => {
+      const second = childStateFrom(base, { ...childTerms, agentKey: toHex(agentPublicKey(fromHex("6d".repeat(32)))) });
+      const twoDeep = {
+        ...parentDelegated,
+        reserved: parentDelegated.reserved + second.budgetTotal,
+        reserveRoot: pushChild(parentDelegated.reserveRoot, second),
+      };
+      return unguardedReabsorb(reabsorbPlan({ parentState: twoDeep }));
+    },
   },
   {
     name: "revoke-honest",

@@ -170,6 +170,11 @@ recording: it was a **derivation that ignored one of its inputs**, and it was
 caught by the splice trust anchor rather than by the engine — the one check
 that compiles the covenant with a revocation key distinct from the principal.
 
+The fifth is the first one again, verbatim, in a path written after it was
+fixed: **a value check with no destination check.** `revoke` was repaired in
+v3; `settle` was written for v4 and never got the same treatment. A fix is not
+a lesson until it is applied to the code written next.
+
 ### 1. The epoch cap limited nothing — `a048b13e95125ad1`
 
 `currentEpoch` was compared for **equality** with the recorded index, and
@@ -240,6 +245,59 @@ equal the probe's `0x99` was chance — about one in eight — and a collision s
 the run and made an intact field look mis-measured. Probes are now the
 baseline's bit-complement, so the property holds by construction.
 
+### 5. `settle` let the revocation key take a child — v4, pre-release
+
+Settlement spends the parent and the child in one transaction: the parent runs
+`reabsorb` under its agent key, the child runs `settle` under the REVOCATION
+key. The child's half is signed by the revocation key on purpose — if
+settlement needed the child's cooperation, an unresponsive child could lock its
+parent's budget forever, which is the failure settlement exists to remove.
+
+`settle` checked that output 0 received `inputs[0].value + inputs[1].value -
+maxFee`. It did not check output 0's **scriptPubKey**, and nothing required the
+other input to be a parent — or a grant at all. So:
+
+    input 0   the child grant, spent under `settle`
+    input 1   any dust the revocation key already owns
+    output 0  a plain P2PK the revoker chose, holding the child's balance
+
+The engine accepted it. That makes the revocation key a **take** capability
+over every delegated child, when the entire reason it is a separate key from
+`principalKey` is so a monitor can stop a grant *without* being trusted with
+its balance. `revoke` pays the principal and only the principal; `settle` paid
+anyone.
+
+The fix binds settle to a real settlement rather than constraining the
+destination directly: the co-input must be a grant of **this template** — and
+since the template id is keyed on the authority, that means the same principal
+and revocation keys — and output 0 must be that grant's single authorised
+continuation. A parent running `reabsorb` produces exactly that shape; a bag of
+the revoker's own coin produces none of it.
+
+**A note on how nearly this was missed.** The first run of `settle-steal` came
+back refused, and the refusal was a lie: the decoy input carried no signature,
+so the engine rejected *that* input with a stack error before `settle`'s
+semantics decided anything. The probe was reporting a refusal that had nothing
+to do with the attack. Signing the decoy properly flipped the verdict to
+accepted. A probe that fails for the wrong reason is worse than no probe,
+because it is recorded as evidence of safety — so the refusal REASON is now
+read, not just the verdict.
+
+### 6. A child could be settled while its own children were live — v4, pre-release
+
+`reabsorb` released the child's full `budgetTotal` from the parent's `reserved`
+while charging only `child.spentTotal`. If the child had delegated onward, the
+coin funding those grandchildren had already left the tree — and settling the
+child released the parent's reserve in full anyway.
+
+The grandchildren's coin then sat outside every grant's accounting. Nothing
+could reabsorb it: the only grant that could was the child, and the child had
+just been consumed. The parent's budget, meanwhile, reported headroom it did
+not have.
+
+Fixed with `require(child.reserved == 0)` — the LIFO discipline applied
+downward. A subtree settles from the leaves up.
+
 ### 3. The exits could burn the balance — `4af9600b1d35e87b`
 
 `revoke` and `reclaim` constrained the output's `scriptPubKey` and never its
@@ -292,7 +350,7 @@ tools refuse a mismatch. Old templates are kept:
 | v1 | `a048b13e95125ad1` | epoch hole, no expiry, exits could burn |
 | v2 | `4af9600b1d35e87b` | ratchet and expiry |
 | v3 | `4612a19b16911c6e` | exits conserve value |
-| v4 | `532a8858a8d3c346` | reserve accumulator; template id fixed |
+| v4 | `b173425e4931f407` | reserve accumulator, settlement; template id fixed |
 
 v3's template is archived as `sdk/covenant-template-v3.json`. It was archived
 *before* v4 overwrote `covenant-template.json`, which is the only order that
