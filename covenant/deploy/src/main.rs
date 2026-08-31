@@ -1928,21 +1928,15 @@ r#"{{
                 println!("\n(not broadcast — run `submit` with a synced node to put it on chain)");
             }
 
-            // Whether we broadcast or are catching up after the fact, the
-            // manifest has to follow the grant. `verify` deliberately does not
-            // advance it: nothing was sent, so nothing moved.
+            // This tool NO LONGER advances the manifest. See the note on
+            // advance_manifest for why; the short version is that its grant
+            // parameters are compile-time constants and the SDK's are not, so
+            // this tool can only recognise grants it created itself. It said
+            // "not a transaction of the grant" about a delegation that plainly
+            // was, which is the most misleading thing it could have said.
             if cmd != "verify" {
-                match read_manifest() {
-                    Ok(m) => match advance_manifest(&m, &tx, &entry)? {
-                        Some(manifest) => {
-                            std::fs::write("grant.json", &manifest)?;
-                            println!("\nadvanced grant.json — the grant has MOVED to a new address.");
-                            println!("re-run `plan` before the next spend; the old address is now empty.");
-                        }
-                        None => println!("\n(not a transaction of the grant in grant.json — manifest unchanged)"),
-                    },
-                    Err(e) => println!("\n(no manifest to advance: {e})"),
-                }
+                println!("\nthe manifest is NOT advanced by this tool. Run:");
+                println!("  node --experimental-strip-types tools/advance-manifest.ts <manifest> <this file>");
             }
         }
 
@@ -2106,6 +2100,21 @@ struct Manifest {
     epoch_spent: i64,
 }
 
+/// RETIRED. Kept as the reference the SDK's advance-manifest.ts was written
+/// against, and no longer called.
+///
+/// Why it had to go: this tool holds a grant's budget, per-spend cap, epoch
+/// limit and delegation depth as COMPILE-TIME CONSTANTS, and `read_manifest`
+/// does not read them from the file at all. Once the SDK could issue grants
+/// with arbitrary parameters, `grant_ctor` here could no longer reproduce the
+/// address of a grant it had not created — so this function answered "not a
+/// transaction of the grant" about a delegation that unmistakably was.
+///
+/// Two implementations of manifest arithmetic, one of them silently unable to
+/// see most grants, is precisely the divergence this project has taken care to
+/// avoid everywhere else. The SDK's version reads every parameter from the
+/// manifest and cannot go stale this way.
+///
 /// Advances the manifest to the state a submitted spend produced.
 ///
 /// This is not bookkeeping. A grant's ADDRESS is derived from its state, so a
@@ -2117,6 +2126,7 @@ struct Manifest {
 /// from the transaction's OWN numbers and then checked against the successor
 /// address that transaction actually pays to. If those disagree, nothing is
 /// written: a confidently wrong manifest is worse than a missing one.
+#[allow(dead_code)]
 fn advance_manifest(m: &Manifest, tx: &Transaction, entry: &UtxoEntry) -> Result<Option<String>, Box<dyn Error>> {
     if tx.outputs.len() != 2 {
         return Ok(None);
