@@ -28,7 +28,8 @@
     "verify:grant": "node --experimental-strip-types tools/verify-grant.ts",
     "capture:rpc": "node --experimental-strip-types tools/capture-rpc.ts",
     "build:reclaim": "node --experimental-strip-types tools/build-exit.ts --reclaim",
-    "build:revoke": "node --experimental-strip-types tools/build-exit.ts --revoke"
+    "build:revoke": "node --experimental-strip-types tools/build-exit.ts --revoke",
+    "build:delegation": "node --experimental-strip-types tools/build-delegation.ts"
   },
   "keywords": [
     "kaspa",
