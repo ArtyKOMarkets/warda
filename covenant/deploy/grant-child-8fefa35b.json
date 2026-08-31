@@ -18,9 +18,16 @@
   "epoch_limit": 50000000,
   "epoch_length": 1000,
   "delegation_depth": 1,
-  "grant_value": 84000000,
+  "grant_value": 0,
   "spent_total": 15000000,
   "reserved": 0,
   "epoch_index": 1,
-  "epoch_spent": 15000000
+  "epoch_spent": 15000000,
+  "closed": {
+    "kind": "revoke",
+    "txid": "3ed34da31ec186ab7cac417de27a3f157824cc6fd458d6db879224e868a4ce26",
+    "swept_to": "0393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34f",
+    "value": 83000000,
+    "from_address": "kaspatest:pzsun7ma7qv0g95ev8r5n9qf6kwtw52xuhvncwnp6yex7qm3tu482sqhfgx5t"
+  }
 }
