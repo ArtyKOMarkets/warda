@@ -25,7 +25,6 @@
 import { readFileSync, writeFileSync } from "node:fs";
 
 import { scriptHashToAddress, type NetworkPrefix } from "../src/address.ts";
-import { fromHex, toHex } from "../src/bytes.ts";
 import { parentSuccessorState } from "../src/delegate.ts";
 import { successorState } from "../src/spend.ts";
 import { scriptHashFor, type CovenantTemplate, type GrantState } from "../src/template.ts";
@@ -72,6 +71,30 @@ if (wire.outputs.length !== 2) {
   process.exit(1);
 }
 
+/** P2SH is OP_BLAKE2B <32-byte hash> OP_EQUAL. */
+const p2sh = (scriptHashHex: string) => "aa20" + scriptHashHex + "87";
+
+// Is this a transaction of THIS grant, or of a relative?
+//
+// The covenant id is NOT unique per grant: a delegated child inherits its
+// parent's, so every grant in a tree answers to the same id. The only honest
+// gate is the INPUT — a transaction moves the grant this manifest describes
+// only if the UTXO it consumes sits at the address this manifest's CURRENT
+// state derives. Without it, pointing at the wrong manifest produces a
+// successor-address disagreement, which reads as "these numbers are wrong"
+// when the truth is "this is not your transaction".
+const currentScript = p2sh(scriptHashFor(template, { authority, state }));
+if (wire.utxo.scriptPublicKeyHex !== currentScript) {
+  console.error(
+    `this transaction does not spend the grant ${manifestPath} describes.\n` +
+      `  it consumes a UTXO at : ${wire.utxo.scriptPublicKeyHex}\n` +
+      `  this manifest is at   : ${currentScript}\n` +
+      `Nothing changed. A sibling grant in the same tree shares this covenant id, ` +
+      `so the id alone cannot tell them apart.`,
+  );
+  process.exit(1);
+}
+
 // A SPEND and a DELEGATION are both "two outputs, output 0 continuing the
 // covenant", and they move the state in opposite directions. The discriminator
 // is output 1: a spend pays a recipient's plain P2PK, a delegation pays a
@@ -85,7 +108,7 @@ const next = delegating
     parentSuccessorState(state, BigInt(wire.outputs[1].value))
   : successorState(state, BigInt(wire.outputs[1].value), BigInt(wire.lockTime));
 
-const expectedScript = toHex(fromHex("aa20" + scriptHashFor(template, { authority, state: next }) + "87"));
+const expectedScript = p2sh(scriptHashFor(template, { authority, state: next }));
 const paid = wire.outputs[0].scriptPublicKeyHex;
 
 if (expectedScript !== paid) {

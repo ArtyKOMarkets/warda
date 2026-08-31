@@ -1905,7 +1905,9 @@ r#"{{
             println!("sigscript  : {} bytes", tx.inputs[0].signature_script.len());
             println!("outputs    : {}", tx.outputs.len());
 
-            let verdict = validate_locally(&tx, entry);
+            // Cloned: the entry is needed again below, to decide whether this
+            // transaction is even this manifest's business.
+            let verdict = validate_locally(&tx, entry.clone());
             println!("\nscript engine -> {verdict:?}");
             match verdict {
                 Ok(()) => println!("the consensus engine accepts a transaction this tool did not build."),
@@ -1931,13 +1933,13 @@ r#"{{
             // advance it: nothing was sent, so nothing moved.
             if cmd != "verify" {
                 match read_manifest() {
-                    Ok(m) => match advance_manifest(&m, &tx)? {
+                    Ok(m) => match advance_manifest(&m, &tx, &entry)? {
                         Some(manifest) => {
                             std::fs::write("grant.json", &manifest)?;
                             println!("\nadvanced grant.json — the grant has MOVED to a new address.");
                             println!("re-run `plan` before the next spend; the old address is now empty.");
                         }
-                        None => println!("\n(not a spend of the grant in grant.json — manifest unchanged)"),
+                        None => println!("\n(not a transaction of the grant in grant.json — manifest unchanged)"),
                     },
                     Err(e) => println!("\n(no manifest to advance: {e})"),
                 }
@@ -2115,9 +2117,7 @@ struct Manifest {
 /// from the transaction's OWN numbers and then checked against the successor
 /// address that transaction actually pays to. If those disagree, nothing is
 /// written: a confidently wrong manifest is worse than a missing one.
-fn advance_manifest(m: &Manifest, tx: &Transaction) -> Result<Option<String>, Box<dyn Error>> {
-    // Is this even a spend of our grant? Two outputs, the first carrying a
-    // covenant binding for this covenant id.
+fn advance_manifest(m: &Manifest, tx: &Transaction, entry: &UtxoEntry) -> Result<Option<String>, Box<dyn Error>> {
     if tx.outputs.len() != 2 {
         return Ok(None);
     }
@@ -2125,6 +2125,26 @@ fn advance_manifest(m: &Manifest, tx: &Transaction) -> Result<Option<String>, Bo
     match &tx.outputs[0].covenant {
         Some(c) if c.covenant_id == cov => {}
         _ => return Ok(None),
+    }
+
+    // Is this a spend of THIS grant, or of a relative?
+    //
+    // The covenant id is NOT unique per grant. A delegated child inherits its
+    // parent's id, so "output 0 is bound to this covenant" is true of every
+    // grant in the tree, and a child's spend looked like a spend of the
+    // parent. The successor-address check caught it and refused, which is the
+    // right outcome reached by the wrong route: it reported a disagreement
+    // about a transaction that was never this grant's business.
+    //
+    // The honest gate is the INPUT. A transaction spends the grant this
+    // manifest describes only if the UTXO it consumes sits at the address the
+    // manifest's current state derives.
+    let current = compile(grant_ctor(
+        m.agent, m.agent, m.root, m.not_before, m.expires_at,
+        m.spent, m.reserved, m.epoch_index, m.epoch_spent,
+    ))?;
+    if pay_to_script_hash_script(&current.bytecode) != entry.script_public_key {
+        return Ok(None);
     }
 
     // A SPEND and a DELEGATION are both "two outputs, output 0 bound to this
