@@ -31,7 +31,8 @@
     "build:revoke": "node --experimental-strip-types tools/build-exit.ts --revoke",
     "build:delegation": "node --experimental-strip-types tools/build-delegation.ts",
     "build:live-spend": "node --experimental-strip-types tools/build-live-spend.ts",
-    "advance": "node --experimental-strip-types tools/advance-manifest.ts"
+    "advance": "node --experimental-strip-types tools/advance-manifest.ts",
+    "genesis": "node --experimental-strip-types tools/genesis.ts"
   },
   "keywords": [
     "kaspa",
