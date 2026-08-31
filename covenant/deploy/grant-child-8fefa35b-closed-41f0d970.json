@@ -1,6 +1,6 @@
 {
   "_comment": "A child grant, created by delegation. Shares its parent's principal and revocation keys: delegation subdivides an agent's budget, it does not hand over the right to revoke or reclaim.",
-  "covenant_id": "7e96124166feeabf800ff1049d7b3fb3cdbf7567db2f1aa5ff7453b475545a6b",
+  "covenant_id": "f7947f65000b60e59819b02b93b5fd1761772f4edcf07010268ab7eefad375f8",
   "agent": "8fefa35b2e902b571fd3a428fb770b6b080a1de1a1615ff07d4306214df0e86b",
   "principal": "0393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34f",
   "revocation": "0393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34f",
@@ -9,18 +9,25 @@
     "index": 0
   },
   "parent_agent": "0393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34f",
-  "parent_txid": "687d718e36307b011049ae35281056c8e65dea35c347a85497996dda55e69366",
+  "parent_txid": "9a361a0f7942263da23d768948014d0fb98a82ac094f6da13890a98f1519d8cb",
   "recipients_root": "db0a707b658f29fd8903a7f3815f63f962ec3a4e66528d3e11ba150a5fd4f0b5",
-  "not_before": 558024444,
-  "expires_at": 558060706,
-  "budget": 100000000,
-  "max_per_spend": 20000000,
-  "epoch_limit": 50000000,
+  "not_before": 553866058,
+  "expires_at": 554730058,
+  "budget": 200000000,
+  "max_per_spend": 50000000,
+  "epoch_limit": 100000000,
   "epoch_length": 1000,
   "delegation_depth": 1,
-  "grant_value": 100000000,
-  "spent_total": 0,
+  "grant_value": 0,
+  "spent_total": 30000000,
   "reserved": 0,
-  "epoch_index": 0,
-  "epoch_spent": 0
+  "epoch_index": 4147,
+  "epoch_spent": 30000000,
+  "closed": {
+    "kind": "reclaim",
+    "txid": "41f0d9704873da2978bdcc1483ae432830521f1330f275c3e8d854ab3fc628a6",
+    "swept_to": "0393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34f",
+    "value": 168000000,
+    "from_address": "kaspatest:pqa0gryedq59knh7mwu79w999jsqxk0vhdt3mz0lkq3z9ayzj67kj4ea0ykm4"
+  }
 }

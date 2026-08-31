@@ -40,7 +40,7 @@
  *   --principal <hex> --revocation <hex> --parent-depth <n> --prefix <p> --rpc <url>
  */
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 import { scriptHashToAddress, type NetworkPrefix } from "../src/address.ts";
@@ -215,6 +215,59 @@ const childManifestPath = join(
   dirname(manifestPath),
   `grant-child-${childKey.slice(0, 8)}.json`,
 );
+
+// The derived child key is deterministic in (parent secret, index), so index
+// 0 produces the SAME filename for every tree this key ever builds. Writing
+// blind means a new delegation silently overwrites the record of an older
+// child — including one that was reclaimed, whose manifest was the only note
+// of where its coin went.
+//
+// A rebuild of the SAME child is fine and common: verify, adjust, rebuild.
+// The test is therefore not "does the file exist" but "does it describe a
+// different grant", and the child's address is what answers that.
+const childAddressForCheck = scriptHashToAddress(
+  scriptHashFor(template, { authority, state: built.childState }),
+  prefix,
+);
+if (existsSync(childManifestPath)) {
+  const prior = JSON.parse(readFileSync(childManifestPath, "utf8"));
+  const priorAddress =
+    prior.closed?.from_address ??
+    scriptHashToAddress(
+      scriptHashFor(template, {
+        authority: {
+          principalKey: prior.principal ?? prior.agent,
+          revocationKey: prior.revocation ?? prior.principal ?? prior.agent,
+        },
+        state: {
+          agentKey: prior.agent,
+          budgetTotal: BigInt(prior.budget),
+          maxPerSpend: BigInt(prior.max_per_spend),
+          epochLimit: BigInt(prior.epoch_limit),
+          epochLength: BigInt(prior.epoch_length),
+          recipientsRoot: prior.recipients_root,
+          notBefore: BigInt(prior.not_before),
+          expiresAt: BigInt(prior.expires_at),
+          delegationDepth: BigInt(prior.delegation_depth ?? 1),
+          spentTotal: BigInt(prior.spent_total),
+          reserved: BigInt(prior.reserved),
+          epochIndex: BigInt(prior.epoch_index),
+          epochSpent: BigInt(prior.epoch_spent),
+        },
+      }),
+      prefix,
+    );
+  if (priorAddress !== childAddressForCheck) {
+    console.error(
+      `${childManifestPath} already describes a DIFFERENT child grant.\n` +
+        `  on disk : ${priorAddress}${prior.closed ? ` (closed by ${prior.closed.kind})` : ""}\n` +
+        `  new one : ${childAddressForCheck}\n` +
+        `Overwriting would erase the only record of where that grant's coin went.\n` +
+        `Move it aside, or use --index to derive a different sub-agent key.`,
+    );
+    process.exit(1);
+  }
+}
 const c = built.childState;
 writeFileSync(
   childManifestPath,
