@@ -1,0 +1,44 @@
+[
+  {
+    "name": "epoch-exhausted",
+    "expect": "refuse",
+    "why": "the recorded epoch's allowance is spent; the control for the rewind below",
+    "sdkRefused": false
+  },
+  {
+    "name": "epoch-rewind",
+    "expect": "refuse",
+    "why": "THE EXPLOIT. claimedDaa is agent-supplied and bounded below only, so an earlier epoch used to reset spentThisEpoch to zero and hand back the whole allowance, repeatably. The per-epoch cap limited nothing.",
+    "sdkRefused": false
+  },
+  {
+    "name": "epoch-forward",
+    "expect": "accept",
+    "why": "a LATER epoch legitimately carries a fresh allowance; the ratchet must not block it",
+    "sdkRefused": false
+  },
+  {
+    "name": "epoch-same-headroom",
+    "expect": "accept",
+    "why": "the recorded epoch with room left is an ordinary spend",
+    "sdkRefused": false
+  },
+  {
+    "name": "past-expiry",
+    "expect": "refuse",
+    "why": "a claimedDaa at or beyond expiresAt. The spend path had no expiry check at all.",
+    "sdkRefused": false
+  },
+  {
+    "name": "revoke-honest",
+    "expect": "accept",
+    "why": "an ordinary revoke, paying the principal and a normal fee",
+    "sdkRefused": false
+  },
+  {
+    "name": "revoke-burn",
+    "expect": "refuse",
+    "why": "1 sompi to the principal, the rest burned as fee. The exit paths checked the output's scriptPubKey and never its value, which made the revocation key a DESTROY capability rather than a STOP one.",
+    "sdkRefused": false
+  }
+]

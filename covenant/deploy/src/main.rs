@@ -1870,6 +1870,56 @@ r#"{{
             println!("  txid      : {}", d.tx.id());
         }
 
+        "probe" => {
+            // Judges the adversarial corpus in sdk/probes/. Each probe carries
+            // what the ENGINE must say about it, and a mismatch in EITHER
+            // direction fails: a covenant that refuses everything would pass a
+            // suite made only of refusals, so every attack here has its nearest
+            // legitimate twin sitting beside it.
+            let dir = std::env::args().nth(2).unwrap_or_else(|| "../../sdk/probes".into());
+            let raw = std::fs::read_to_string(format!("{dir}/probes.json"))
+                .map_err(|e| format!("cannot read {dir}/probes.json: {e} — run tools/probes.ts first"))?;
+            let list: serde_json::Value = serde_json::from_str(&raw)?;
+            let entries = list.as_array().ok_or("probes.json is not an array")?;
+
+            let mut failures = 0usize;
+            for e in entries {
+                let name = e.get("name").and_then(|n| n.as_str()).unwrap_or("?");
+                let expect = e.get("expect").and_then(|n| n.as_str()).unwrap_or("?");
+                let why = e.get("why").and_then(|n| n.as_str()).unwrap_or("");
+
+                let path = format!("{dir}/{name}.json");
+                let Ok(body) = std::fs::read_to_string(&path) else {
+                    println!("{name:<22} SKIP  (not written)");
+                    continue;
+                };
+                let v: serde_json::Value = serde_json::from_str(&body)?;
+                let (tx, entry) = parse_wire(&v)?;
+                let verdict = validate_locally(&tx, entry);
+                let accepted = verdict.is_ok();
+                let ok = (expect == "accept") == accepted;
+                if !ok {
+                    failures += 1;
+                }
+                println!(
+                    "{name:<22} {:<8} engine {:<9} {}",
+                    expect,
+                    if accepted { "ACCEPTED" } else { "refused" },
+                    if ok { "ok" } else { "<<< MISMATCH" }
+                );
+                if !ok {
+                    println!("    {why}");
+                }
+            }
+
+            println!();
+            if failures == 0 {
+                println!("all {} probes behaved as required.", entries.len());
+            } else {
+                return Err(format!("{failures} probe(s) disagreed with the covenant").into());
+            }
+        }
+
         cmd @ ("verify" | "submit" | "advance") => {
             // Runs a transaction built ELSEWHERE through the real script engine,
             // and optionally puts it on the network.
@@ -1905,9 +1955,7 @@ r#"{{
             println!("sigscript  : {} bytes", tx.inputs[0].signature_script.len());
             println!("outputs    : {}", tx.outputs.len());
 
-            // Cloned: the entry is needed again below, to decide whether this
-            // transaction is even this manifest's business.
-            let verdict = validate_locally(&tx, entry.clone());
+            let verdict = validate_locally(&tx, entry);
             println!("\nscript engine -> {verdict:?}");
             match verdict {
                 Ok(()) => println!("the consensus engine accepts a transaction this tool did not build."),
@@ -1928,15 +1976,21 @@ r#"{{
                 println!("\n(not broadcast — run `submit` with a synced node to put it on chain)");
             }
 
-            // This tool NO LONGER advances the manifest. See the note on
-            // advance_manifest for why; the short version is that its grant
-            // parameters are compile-time constants and the SDK's are not, so
-            // this tool can only recognise grants it created itself. It said
-            // "not a transaction of the grant" about a delegation that plainly
-            // was, which is the most misleading thing it could have said.
+            // Whether we broadcast or are catching up after the fact, the
+            // manifest has to follow the grant. `verify` deliberately does not
+            // advance it: nothing was sent, so nothing moved.
             if cmd != "verify" {
-                println!("\nthe manifest is NOT advanced by this tool. Run:");
-                println!("  node --experimental-strip-types tools/advance-manifest.ts <manifest> <this file>");
+                match read_manifest() {
+                    Ok(m) => match advance_manifest(&m, &tx)? {
+                        Some(manifest) => {
+                            std::fs::write("grant.json", &manifest)?;
+                            println!("\nadvanced grant.json — the grant has MOVED to a new address.");
+                            println!("re-run `plan` before the next spend; the old address is now empty.");
+                        }
+                        None => println!("\n(not a spend of the grant in grant.json — manifest unchanged)"),
+                    },
+                    Err(e) => println!("\n(no manifest to advance: {e})"),
+                }
             }
         }
 
@@ -2100,21 +2154,6 @@ struct Manifest {
     epoch_spent: i64,
 }
 
-/// RETIRED. Kept as the reference the SDK's advance-manifest.ts was written
-/// against, and no longer called.
-///
-/// Why it had to go: this tool holds a grant's budget, per-spend cap, epoch
-/// limit and delegation depth as COMPILE-TIME CONSTANTS, and `read_manifest`
-/// does not read them from the file at all. Once the SDK could issue grants
-/// with arbitrary parameters, `grant_ctor` here could no longer reproduce the
-/// address of a grant it had not created — so this function answered "not a
-/// transaction of the grant" about a delegation that unmistakably was.
-///
-/// Two implementations of manifest arithmetic, one of them silently unable to
-/// see most grants, is precisely the divergence this project has taken care to
-/// avoid everywhere else. The SDK's version reads every parameter from the
-/// manifest and cannot go stale this way.
-///
 /// Advances the manifest to the state a submitted spend produced.
 ///
 /// This is not bookkeeping. A grant's ADDRESS is derived from its state, so a
@@ -2126,8 +2165,9 @@ struct Manifest {
 /// from the transaction's OWN numbers and then checked against the successor
 /// address that transaction actually pays to. If those disagree, nothing is
 /// written: a confidently wrong manifest is worse than a missing one.
-#[allow(dead_code)]
-fn advance_manifest(m: &Manifest, tx: &Transaction, entry: &UtxoEntry) -> Result<Option<String>, Box<dyn Error>> {
+fn advance_manifest(m: &Manifest, tx: &Transaction) -> Result<Option<String>, Box<dyn Error>> {
+    // Is this even a spend of our grant? Two outputs, the first carrying a
+    // covenant binding for this covenant id.
     if tx.outputs.len() != 2 {
         return Ok(None);
     }
@@ -2137,49 +2177,12 @@ fn advance_manifest(m: &Manifest, tx: &Transaction, entry: &UtxoEntry) -> Result
         _ => return Ok(None),
     }
 
-    // Is this a spend of THIS grant, or of a relative?
-    //
-    // The covenant id is NOT unique per grant. A delegated child inherits its
-    // parent's id, so "output 0 is bound to this covenant" is true of every
-    // grant in the tree, and a child's spend looked like a spend of the
-    // parent. The successor-address check caught it and refused, which is the
-    // right outcome reached by the wrong route: it reported a disagreement
-    // about a transaction that was never this grant's business.
-    //
-    // The honest gate is the INPUT. A transaction spends the grant this
-    // manifest describes only if the UTXO it consumes sits at the address the
-    // manifest's current state derives.
-    let current = compile(grant_ctor(
-        m.agent, m.agent, m.root, m.not_before, m.expires_at,
-        m.spent, m.reserved, m.epoch_index, m.epoch_spent,
-    ))?;
-    if pay_to_script_hash_script(&current.bytecode) != entry.script_public_key {
-        return Ok(None);
-    }
-
-    // A SPEND and a DELEGATION are both "two outputs, output 0 bound to this
-    // covenant", and they move the state in completely different directions.
-    // The discriminator is output 1: a spend pays a recipient's plain P2PK,
-    // while a delegation pays a CHILD GRANT, which carries a binding of its
-    // own. Reading a delegation as a spend charges the child's whole budget
-    // to spent_total, and reads a delegation's zero lock time as a claimed
-    // DAA — which puts the epoch index far into the negative.
-    let delegating = matches!(&tx.outputs[1].covenant, Some(c) if c.covenant_id == cov);
-
-    let (spent, reserved, epoch_index, epoch_spent) = if delegating {
-        // Delegation moves budget from uncommitted to RESERVED. Nothing is
-        // spent — the coin has not left the grant, it has been subdivided —
-        // and no epoch allowance is consumed, which is why a delegation
-        // carries no lock time to read one from.
-        (m.spent, m.reserved + tx.outputs[1].value as i64, m.epoch_index, m.epoch_spent)
-    } else {
-        let amount = tx.outputs[1].value as i64;
-        let claimed_daa = tx.lock_time as i64;
-        let epoch_index = (claimed_daa - m.not_before) / EPOCH_LENGTH;
-        // A new epoch resets the allowance; the same epoch accumulates.
-        let carried = if epoch_index == m.epoch_index { m.epoch_spent } else { 0 };
-        (m.spent + amount, m.reserved, epoch_index, carried + amount)
-    };
+    let amount = tx.outputs[1].value as i64;
+    let claimed_daa = tx.lock_time as i64;
+    let epoch_index = (claimed_daa - m.not_before) / EPOCH_LENGTH;
+    // A new epoch resets the allowance; the same epoch accumulates.
+    let carried = if epoch_index == m.epoch_index { m.epoch_spent } else { 0 };
+    let (spent, reserved, epoch_spent) = (m.spent + amount, m.reserved, carried + amount);
 
     // The check that makes this safe: derive the successor address from the
     // state we just computed, and require the transaction to be paying it.
@@ -2193,7 +2196,6 @@ fn advance_manifest(m: &Manifest, tx: &Transaction, entry: &UtxoEntry) -> Result
         // errors with Debug, which turns a multi-line diagnostic into escaped
         // \n soup at exactly the moment someone needs to read it.
         println!("\nREFUSING to advance grant.json.");
-        println!("  read as a {}:", if delegating { "DELEGATION" } else { "SPEND" });
         println!("  the state derived from this transaction:");
         println!("    spent {spent}, reserved {reserved}, epoch {epoch_index}, epochSpent {epoch_spent}");
         println!("  implies a successor at:");

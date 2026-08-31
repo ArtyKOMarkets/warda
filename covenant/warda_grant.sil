@@ -287,6 +287,16 @@ contract WardaGrant(
         require(checkSig(s, revocationKey));
         byte[34] toPrincipal = new ScriptPubKeyP2PK(principalKey);
         require(tx.outputs[0].scriptPubKey == byte[](toPrincipal));
+
+        // Value conservation, which this path did not have. Without it revoke
+        // constrains only WHERE the coin goes, never how much: a revoke paying
+        // 1 sompi to the principal and burning the rest to fees was accepted by
+        // the engine. So the revocation key was a DESTROY capability, not a
+        // STOP capability — and the whole reason the field is separate from
+        // principalKey is to let a monitor stop a grant without being trusted
+        // with its balance. A monitor that cannot take the money but can burn
+        // it is not meaningfully less dangerous.
+        require(tx.outputs[0].value >= tx.inputs[this.activeInputIndex].value - maxFee);
     }
 
     // Expiry is a RECLAIM RIGHT, not a spend prohibition. A UTXO covenant
@@ -298,5 +308,12 @@ contract WardaGrant(
         require(checkSig(s, principalKey));
         byte[34] toPrincipal = new ScriptPubKeyP2PK(principalKey);
         require(tx.outputs[0].scriptPubKey == byte[](toPrincipal));
+
+        // Same clause as revoke. Less urgent here — reclaim needs the
+        // principal's own key, and a principal burning their own money is
+        // their business — but an exit path that silently tolerates the loss
+        // of the entire balance is a bad thing to have lying around, and the
+        // asymmetry between the two paths would itself be a trap.
+        require(tx.outputs[0].value >= tx.inputs[this.activeInputIndex].value - maxFee);
     }
 }
