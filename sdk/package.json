@@ -26,7 +26,9 @@
     "build:live": "node --experimental-strip-types tools/build-spend.ts --live",
     "build:delegate": "node --experimental-strip-types tools/build-spend.ts --delegate",
     "verify:grant": "node --experimental-strip-types tools/verify-grant.ts",
-    "capture:rpc": "node --experimental-strip-types tools/capture-rpc.ts"
+    "capture:rpc": "node --experimental-strip-types tools/capture-rpc.ts",
+    "build:reclaim": "node --experimental-strip-types tools/build-exit.ts --reclaim",
+    "build:revoke": "node --experimental-strip-types tools/build-exit.ts --revoke"
   },
   "keywords": [
     "kaspa",

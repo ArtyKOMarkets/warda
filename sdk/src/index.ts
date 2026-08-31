@@ -137,3 +137,12 @@ export {
   type GrantExpectation,
   type GrantReport,
 } from "./verify.ts";
+
+export {
+  attachExitSignature,
+  buildUnsignedExit,
+  exitSignatureScript,
+  type ExitKind,
+  type ExitPlan,
+  type UnsignedExit,
+} from "./exit.ts";
