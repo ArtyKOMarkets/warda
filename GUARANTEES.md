@@ -103,13 +103,30 @@ capacity to delegate again.
 size the parent for total lifetime delegation, or issue fresh top-level grants
 — which is cheap, and is what the principal should do when they are available.
 
-*Why it is hard to fix:* a release path needs the parent to verify a specific
-child's `budgetTotal` and `spentTotal`, which means either compiling the
-child's script inside script (not possible) or holding a commitment to it. The
-real design is a `reserveRoot` accumulator in `State`: `delegate` adds the
-child's state hash, a new `reabsorb` entrypoint requires an inclusion proof and
-subtracts. That is the same Merkle machinery the allowlist already uses. It is
-not built.
+*Why it is not built — corrected.* This section previously said a release path
+was blocked because the parent cannot verify a child's `budgetTotal` and
+`spentTotal` without compiling the child's script inside script. That was
+wrong, and it is worth recording as an error rather than quietly editing:
+Silverscript provides `readInputStateWithTemplate(inputIndex, prefixLen,
+suffixLen, expectedTemplateHash)`, which slices the claimed redeem script out
+of a foreign input's signature script, checks `templateHash(prefix, suffix)`
+against a trusted value, proves that P2SH of that script equals the foreign
+input's actual `scriptPublicKey`, and only then decodes the state.
+
+That is exactly the primitive a reabsorb path needs, and no Merkle accumulator
+is required. A settle transaction consumes the parent and the child together;
+the parent reads the child's real `budgetTotal` and `spentTotal` from input 1
+and requires `reserved -= child.budgetTotal` and `spentTotal += child.spentTotal`,
+which preserves the invariant exactly.
+
+One wrinkle decides the shape: `expectedTemplateHash` must be trusted data, and
+it cannot be a constructor constant, because the hash covers the prefix and
+suffix that would contain it — a hash preimage fixed point. It has to be a
+STATE field, where it sits between prefix and suffix and is therefore not
+covered, and where a wrong value simply produces a different address.
+
+Still not built. But it is a covenant change of known shape, not a limitation
+of the model.
 
 ### One child per delegation
 
