@@ -2,6 +2,8 @@
   "_comment": "A child grant, created by delegation. Shares its parent's principal and revocation keys: delegation subdivides an agent's budget, it does not hand over the right to revoke or reclaim.",
   "covenant_id": "f7947f65000b60e59819b02b93b5fd1761772f4edcf07010268ab7eefad375f8",
   "agent": "8fefa35b2e902b571fd3a428fb770b6b080a1de1a1615ff07d4306214df0e86b",
+  "principal": "0393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34f",
+  "revocation": "0393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34f",
   "agent_key_derived": {
     "from": "WARDA_SK",
     "index": 0

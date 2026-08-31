@@ -23,9 +23,9 @@
  *   --reclaim | --revoke   which exit. Reclaim needs the chain past
  *                          expiresAt; revoke works at any time.
  *   --fee <sompi>          default 1000000
- *   --principal <hex>      default: the manifest's agent key
- *   --revocation <hex>     default: the principal
- *   --depth <n>            default 2
+ *   --principal <hex>      default: the manifest's `principal`, else its agent
+ *   --revocation <hex>     default: the manifest's `revocation`, else principal
+ *   --depth <n>            default: the manifest's delegation_depth, else 2
  *   --prefix <name>        default kaspatest
  *   --rpc <url>            default $WARDA_RPC_JSON, else ws://127.0.0.1:18210
  */
@@ -67,8 +67,10 @@ const template: CovenantTemplate = JSON.parse(
   readFileSync(new URL("../covenant-template.json", import.meta.url), "utf8"),
 );
 
-const principalKey = flag("principal", m.agent)!;
-const revocationKey = flag("revocation", principalKey)!;
+// A child grant records its authority explicitly; the genesis manifest
+// predates the fields, where principal == revocation == agent held.
+const principalKey = flag("principal", m.principal ?? m.agent)!;
+const revocationKey = flag("revocation", m.revocation ?? principalKey)!;
 const prefix = (flag("prefix", "kaspatest") as NetworkPrefix)!;
 const fee = BigInt(flag("fee", DEFAULT_FEE.toString())!);
 
@@ -81,7 +83,7 @@ const state: GrantState = {
   recipientsRoot: m.recipients_root,
   notBefore: BigInt(m.not_before),
   expiresAt: BigInt(m.expires_at),
-  delegationDepth: BigInt(flag("depth", "2")!),
+  delegationDepth: BigInt(flag("depth", (m.delegation_depth ?? 2).toString())!),
   spentTotal: BigInt(m.spent_total),
   reserved: BigInt(m.reserved),
   epochIndex: BigInt(m.epoch_index),

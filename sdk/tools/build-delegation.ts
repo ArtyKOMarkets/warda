@@ -203,6 +203,12 @@ writeFileSync(
         "A child grant, created by delegation. Shares its parent's principal and revocation keys: delegation subdivides an agent's budget, it does not hand over the right to revoke or reclaim.",
       covenant_id: m.covenant_id,
       agent: c.agentKey,
+      // Explicit, because the child INHERITS these and they are not its own
+      // agent key. Every manifest before this one could default principal to
+      // `agent` and be right; a child cannot, and the address derives from
+      // them — so a manifest without them points somewhere the grant is not.
+      principal: authority.principalKey,
+      revocation: authority.revocationKey,
       agent_key_derived: derived ? { from: "WARDA_SK", index } : null,
       parent_agent: state.agentKey,
       parent_txid: toWire(tx, built.entry).txid,

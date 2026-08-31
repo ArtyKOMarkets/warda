@@ -8,16 +8,21 @@
  * node what lives there, and reports where the two disagree.
  *
  * Options:
- *   --principal <hex>   x-only key that may reclaim   (default: the agent key)
- *   --revocation <hex>  x-only key that may revoke    (default: the principal)
- *   --depth <n>         delegation depth              (default: 2)
+ *   --principal <hex>   x-only key that may reclaim
+ *   --revocation <hex>  x-only key that may revoke
+ *   --depth <n>         delegation depth
  *   --prefix <name>     kaspatest | kaspa | kaspasim | kaspadev
  *   --rpc <url>         defaults to $WARDA_RPC_JSON, else ws://127.0.0.1:18210
  *
- * The three defaults exist because `warda-deploy genesis` does not record
- * those fields — it sets principal = revocation = agent and depth = 2 for the
- * demo grant. They are part of the ADDRESS, so a wrong guess produces a
- * different address and an empty result rather than a wrong answer.
+ * A manifest written by `build-delegation` records principal, revocation and
+ * delegation_depth outright, and those are used. A genesis manifest predates
+ * all three, so they fall back to what `warda-deploy genesis` actually sets:
+ * principal = revocation = agent, depth 2.
+ *
+ * All three are part of the ADDRESS. A wrong guess derives a different address
+ * and reports an empty one, rather than reporting a wrong answer about a real
+ * grant — which is the right direction to fail in, but it does mean "NOTHING"
+ * can mean "wrong authority" as easily as "already spent".
  */
 
 import { readFileSync } from "node:fs";
@@ -43,8 +48,10 @@ const template: CovenantTemplate = JSON.parse(
   readFileSync(new URL("../covenant-template.json", import.meta.url), "utf8"),
 );
 
-const principalKey = flag("principal", m.agent)!;
-const revocationKey = flag("revocation", principalKey)!;
+// A child grant records its authority explicitly; the genesis manifest
+// predates the fields, where principal == revocation == agent held.
+const principalKey = flag("principal", m.principal ?? m.agent)!;
+const revocationKey = flag("revocation", m.revocation ?? principalKey)!;
 const prefix = (flag("prefix", "kaspatest") as NetworkPrefix)!;
 
 const grant: Grant = {
