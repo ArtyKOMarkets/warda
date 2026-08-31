@@ -2127,12 +2127,29 @@ fn advance_manifest(m: &Manifest, tx: &Transaction) -> Result<Option<String>, Bo
         _ => return Ok(None),
     }
 
-    let amount = tx.outputs[1].value as i64;
-    let claimed_daa = tx.lock_time as i64;
-    let epoch_index = (claimed_daa - m.not_before) / EPOCH_LENGTH;
-    // A new epoch resets the allowance; the same epoch accumulates.
-    let carried = if epoch_index == m.epoch_index { m.epoch_spent } else { 0 };
-    let (spent, reserved, epoch_spent) = (m.spent + amount, m.reserved, carried + amount);
+    // A SPEND and a DELEGATION are both "two outputs, output 0 bound to this
+    // covenant", and they move the state in completely different directions.
+    // The discriminator is output 1: a spend pays a recipient's plain P2PK,
+    // while a delegation pays a CHILD GRANT, which carries a binding of its
+    // own. Reading a delegation as a spend charges the child's whole budget
+    // to spent_total, and reads a delegation's zero lock time as a claimed
+    // DAA — which puts the epoch index far into the negative.
+    let delegating = matches!(&tx.outputs[1].covenant, Some(c) if c.covenant_id == cov);
+
+    let (spent, reserved, epoch_index, epoch_spent) = if delegating {
+        // Delegation moves budget from uncommitted to RESERVED. Nothing is
+        // spent — the coin has not left the grant, it has been subdivided —
+        // and no epoch allowance is consumed, which is why a delegation
+        // carries no lock time to read one from.
+        (m.spent, m.reserved + tx.outputs[1].value as i64, m.epoch_index, m.epoch_spent)
+    } else {
+        let amount = tx.outputs[1].value as i64;
+        let claimed_daa = tx.lock_time as i64;
+        let epoch_index = (claimed_daa - m.not_before) / EPOCH_LENGTH;
+        // A new epoch resets the allowance; the same epoch accumulates.
+        let carried = if epoch_index == m.epoch_index { m.epoch_spent } else { 0 };
+        (m.spent + amount, m.reserved, epoch_index, carried + amount)
+    };
 
     // The check that makes this safe: derive the successor address from the
     // state we just computed, and require the transaction to be paying it.
@@ -2146,6 +2163,7 @@ fn advance_manifest(m: &Manifest, tx: &Transaction) -> Result<Option<String>, Bo
         // errors with Debug, which turns a multi-line diagnostic into escaped
         // \n soup at exactly the moment someone needs to read it.
         println!("\nREFUSING to advance grant.json.");
+        println!("  read as a {}:", if delegating { "DELEGATION" } else { "SPEND" });
         println!("  the state derived from this transaction:");
         println!("    spent {spent}, reserved {reserved}, epoch {epoch_index}, epochSpent {epoch_spent}");
         println!("  implies a successor at:");

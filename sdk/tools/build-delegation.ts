@@ -36,7 +36,8 @@
  *   --principal <hex> --revocation <hex> --parent-depth <n> --prefix <p> --rpc <url>
  */
 
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 
 import { scriptHashToAddress, type NetworkPrefix } from "../src/address.ts";
 import { fromHex, toHex } from "../src/bytes.ts";
@@ -179,6 +180,51 @@ const parentNextAddress = scriptHashToAddress(
   prefix,
 );
 
+/**
+ * The child is a GRANT, and a grant's address derives from its state — so
+ * losing the state strands the coin. Genesis writes a manifest before it
+ * broadcasts for exactly this reason, and a delegation creates a grant just
+ * as surely. Written BEFORE the transaction leaves this process: a broadcast
+ * that succeeds while the write fails is the unrecoverable ordering.
+ *
+ * It carries `parent_txid`, which is what lets someone reconstruct the tree
+ * later rather than finding two unrelated grants sharing a covenant id.
+ */
+const childManifestPath = join(
+  dirname(manifestPath),
+  `grant-child-${childKey.slice(0, 8)}.json`,
+);
+const c = built.childState;
+writeFileSync(
+  childManifestPath,
+  JSON.stringify(
+    {
+      _comment:
+        "A child grant, created by delegation. Shares its parent's principal and revocation keys: delegation subdivides an agent's budget, it does not hand over the right to revoke or reclaim.",
+      covenant_id: m.covenant_id,
+      agent: c.agentKey,
+      agent_key_derived: derived ? { from: "WARDA_SK", index } : null,
+      parent_agent: state.agentKey,
+      parent_txid: toWire(tx, built.entry).txid,
+      recipients_root: c.recipientsRoot,
+      not_before: Number(c.notBefore),
+      expires_at: Number(c.expiresAt),
+      budget: Number(c.budgetTotal),
+      max_per_spend: Number(c.maxPerSpend),
+      epoch_limit: Number(c.epochLimit),
+      epoch_length: Number(c.epochLength),
+      delegation_depth: Number(c.delegationDepth),
+      grant_value: Number(plan.child.budgetTotal),
+      spent_total: 0,
+      reserved: 0,
+      epoch_index: 0,
+      epoch_spent: 0,
+    },
+    null,
+    2,
+  ) + "\n",
+);
+
 console.error(`parent      : ${address}`);
 console.error(`  moves to  : ${parentNextAddress}`);
 console.error(`  keeps     : ${built.parentChange} sompi, reserved now ${built.parentSuccessorState.reserved}`);
@@ -192,5 +238,6 @@ console.error(`  agent key : ${childKey}${derived ? ` (derived, index ${index})`
 console.error(
   `conserved   : ${plan.utxo.value} = ${built.parentChange} + ${plan.child.budgetTotal} + ${plan.fee}`,
 );
+console.error(`wrote       : ${childManifestPath}`);
 
 process.stdout.write(JSON.stringify(toWire(tx, built.entry, "@warda/kaspa (live delegation)"), null, 2) + "\n");
