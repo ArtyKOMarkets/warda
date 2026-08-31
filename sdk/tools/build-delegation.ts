@@ -32,6 +32,10 @@
  *   --max-per-spend <n>   may only ever shrink          (default 50000000)
  *   --epoch-limit <n>     may only ever shrink          (default 100000000)
  *   --depth <n>           strictly less than the parent (default: parent - 1)
+ *   --window <daa>        the child's term, in DAA from now. Omit to inherit
+ *                         the parent's. A short window is the only attenuation
+ *                         that ends BY ITSELF, with nobody online to revoke.
+ *   --not-before <daa> --expires-at <daa>   the same, stated absolutely
  *   --fee <sompi>         default 1000000
  *   --principal <hex> --revocation <hex> --parent-depth <n> --prefix <p> --rpc <url>
  */
@@ -126,6 +130,18 @@ const address = scriptHashToAddress(scriptHashFor(template, { authority, state }
 const client = await NodeClient.connect({ url: flag("rpc") });
 let plan: DelegationPlan, built;
 try {
+  // --window is relative to the chain's CURRENT position, which is the way
+  // anyone actually thinks about a lease: "this sub-agent has an hour". The
+  // absolute forms exist for reproducibility.
+  const dagForWindow = flag("window") ? await client.getBlockDagInfo() : null;
+  const childWindow: { notBefore?: bigint; expiresAt?: bigint } = {};
+  if (dagForWindow) {
+    childWindow.notBefore = state.notBefore;
+    childWindow.expiresAt = dagForWindow.virtualDaaScore + BigInt(flag("window")!);
+  }
+  if (flag("not-before")) childWindow.notBefore = BigInt(flag("not-before")!);
+  if (flag("expires-at")) childWindow.expiresAt = BigInt(flag("expires-at")!);
+
   const utxos = await client.getUtxosByAddresses([address]);
   const found = utxos[0];
   if (!found) {
@@ -155,6 +171,7 @@ try {
       maxPerSpend: BigInt(flag("max-per-spend", "50000000")!),
       epochLimit: BigInt(flag("epoch-limit", "100000000")!),
       delegationDepth: BigInt(flag("depth", (parentDepth - 1n).toString())!),
+      ...childWindow,
     },
     fee: BigInt(flag("fee", DEFAULT_FEE.toString())!),
     computeBudget: DELEGATE_COMPUTE_BUDGET,
@@ -237,6 +254,10 @@ console.error(`  keeps     : ${built.parentChange} sompi, reserved now ${built.p
 console.error(`child       : ${childAddress}`);
 console.error(`  receives  : ${plan.child.budgetTotal} sompi, cap ${plan.child.maxPerSpend}, depth ${plan.child.delegationDepth}`);
 console.error(`  agent key : ${childKey}${derived ? ` (derived, index ${index})` : " (supplied)"}`);
+console.error(
+  `  window    : ${built.childState.notBefore} to ${built.childState.expiresAt}` +
+    `${built.childState.expiresAt === state.expiresAt ? " (inherited)" : " (narrowed)"}`,
+);
 // Conservation is the property that matters: the parent RESERVES exactly what
 // the child receives, and real coins move with the reserve. Reserve without
 // coins and the child can pay nobody; coins without reserve and the same KAS

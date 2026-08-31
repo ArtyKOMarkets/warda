@@ -39,6 +39,17 @@ const DELEGATE_ENTRYPOINT = "__covenant_entrypoint_auth_delegate";
 const DELEGATE_ARG_TYPES = ["State[]", "sig"];
 
 /** How a child narrows its parent. Every term here may only ever shrink. */
+/**
+ * What a child may differ in.
+ *
+ * The covenant permits attenuation along six axes and equality on the rest.
+ * All six are here. Two of them — the validity window — were missing for a
+ * while, which meant a sub-agent could only ever be given the parent's full
+ * term. That is the wrong default for a short-lived task: a lane opened for
+ * one job should close on its own rather than waiting for someone to revoke
+ * it, and a window is the only attenuation that expires without anybody
+ * being online.
+ */
 export interface ChildTerms {
   /** The sub-agent's x-only key. The one field that is genuinely new. */
   agentKey: string;
@@ -47,6 +58,10 @@ export interface ChildTerms {
   epochLimit: bigint;
   /** Must be strictly less than the parent's, or the tree could not terminate. */
   delegationDepth: bigint;
+  /** Opens no EARLIER than the parent's. Omit to inherit. */
+  notBefore?: bigint;
+  /** Ends no LATER than the parent's. Omit to inherit. */
+  expiresAt?: bigint;
 }
 
 export interface DelegationPlan {
@@ -108,8 +123,10 @@ export function childStateFrom(state: GrantState, child: ChildTerms): GrantState
     epochLimit: child.epochLimit,
     epochLength: state.epochLength,
     recipientsRoot: state.recipientsRoot,
-    notBefore: state.notBefore,
-    expiresAt: state.expiresAt,
+    // Inherited unless narrowed. `??` and not `||`: a notBefore of 0n is a
+    // legitimate value, and `||` would silently replace it with the parent's.
+    notBefore: child.notBefore ?? state.notBefore,
+    expiresAt: child.expiresAt ?? state.expiresAt,
     delegationDepth: child.delegationDepth,
     // A child starts spent-out-of-nothing. Without this it could be born
     // mid-epoch with its allowance already used, or worse, negative.
@@ -159,6 +176,28 @@ export function buildUnsignedDelegation(plan: DelegationPlan): UnsignedDelegatio
   if (child.epochLimit > plan.state.epochLimit) throw new Error("a child cannot raise the epoch limit");
   if (child.delegationDepth >= plan.state.delegationDepth) {
     throw new Error("a child's delegation depth must be strictly less than its parent's");
+  }
+  // The window may only shrink, and it shrinks from BOTH ends — the covenant
+  // asks for `notBefore >= parent's` and `expiresAt <= parent's`. A child
+  // cannot start earlier or outlive its parent, which is what stops a
+  // delegation from being a way to extend a grant past its own term.
+  if (child.notBefore !== undefined && child.notBefore < plan.state.notBefore) {
+    throw new Error(
+      `a child cannot open before its parent (${child.notBefore} < ${plan.state.notBefore})`,
+    );
+  }
+  if (child.expiresAt !== undefined && child.expiresAt > plan.state.expiresAt) {
+    throw new Error(
+      `a child cannot outlive its parent (${child.expiresAt} > ${plan.state.expiresAt})`,
+    );
+  }
+  const childOpens = child.notBefore ?? plan.state.notBefore;
+  const childEnds = child.expiresAt ?? plan.state.expiresAt;
+  if (childOpens >= childEnds) {
+    // The covenant permits this — both bounds are satisfied — and it produces
+    // a grant that can never be spent from and can only be reclaimed. Cheaper
+    // to refuse here than to fund one.
+    throw new Error(`a child whose window opens at ${childOpens} and ends at ${childEnds} can never spend`);
   }
 
   const parentChange = plan.utxo.value - child.budgetTotal - plan.fee;

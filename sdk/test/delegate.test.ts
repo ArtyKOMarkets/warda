@@ -323,3 +323,72 @@ test("a UTXO too small to fund the child is refused before signing", () => {
   const thin = { ...plan, utxo: { ...plan.utxo, value: plan.child.budgetTotal } };
   assert.throws(() => buildUnsignedDelegation(thin), /not enough for a child/);
 });
+
+// ---- attenuating the validity window -------------------------------------
+//
+// The covenant permits six attenuation axes; the SDK exposed four. The window
+// was the pair that was missing, and it is the one that matters most for a
+// short-lived lane: it is the only attenuation that ends BY ITSELF, with
+// nobody online to revoke anything.
+
+test("a child's window may be narrowed from both ends", () => {
+  const plan = planFromGolden();
+  const open = plan.state.notBefore + 100n;
+  const end = plan.state.expiresAt - 100n;
+  const built = buildUnsignedDelegation({
+    ...plan,
+    child: { ...plan.child, notBefore: open, expiresAt: end },
+  });
+  assert.equal(built.childState.notBefore, open);
+  assert.equal(built.childState.expiresAt, end);
+  // And the parent is untouched: a delegation reserves, it does not reshape.
+  assert.equal(built.parentSuccessorState.notBefore, plan.state.notBefore);
+  assert.equal(built.parentSuccessorState.expiresAt, plan.state.expiresAt);
+});
+
+test("omitting the window inherits it; passing a falsy one is still the caller's word", () => {
+  const plan = planFromGolden();
+  const inherited = buildUnsignedDelegation(plan);
+  assert.equal(inherited.childState.notBefore, plan.state.notBefore);
+  assert.equal(inherited.childState.expiresAt, plan.state.expiresAt);
+
+  // `??` rather than `||`, and the difference is observable precisely here:
+  // an explicit 0n is out of range and must be REPORTED. Under `||` it would
+  // be replaced by the parent's value and the call would quietly succeed,
+  // swallowing the caller's mistake and building a child they did not ask for.
+  assert.throws(
+    () => buildUnsignedDelegation({ ...plan, child: { ...plan.child, notBefore: 0n } }),
+    /cannot open before its parent/,
+    "an explicit 0n must be range-checked, not treated as absent",
+  );
+});
+
+test("a child cannot outlive its parent, or open before it", () => {
+  // This is what stops delegation being a way to extend a grant past its own
+  // term — a child that outlived its parent would still be spendable after
+  // the principal had reclaimed everything reachable.
+  const plan = planFromGolden();
+  assert.throws(
+    () => buildUnsignedDelegation({ ...plan, child: { ...plan.child, expiresAt: plan.state.expiresAt + 1n } }),
+    /cannot outlive/,
+  );
+  assert.throws(
+    () => buildUnsignedDelegation({ ...plan, child: { ...plan.child, notBefore: plan.state.notBefore - 1n } }),
+    /cannot open before/,
+  );
+});
+
+test("a window that opens after it ends is refused, though the covenant allows it", () => {
+  // Both covenant bounds hold, so the chain would accept it — and produce a
+  // grant that can never be spent from and can only be reclaimed. Cheaper to
+  // refuse than to fund.
+  const plan = planFromGolden();
+  assert.throws(
+    () =>
+      buildUnsignedDelegation({
+        ...plan,
+        child: { ...plan.child, notBefore: plan.state.expiresAt - 1n, expiresAt: plan.state.notBefore + 1n },
+      }),
+    /can never spend/,
+  );
+});
