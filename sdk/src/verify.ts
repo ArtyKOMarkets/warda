@@ -204,17 +204,31 @@ export function describeGrant(
     });
   }
 
-  // Expiry is a RECLAIM RIGHT, not a spend prohibition. The covenant's spend
-  // path has no expiry check at all; what `expiresAt` gates is the principal's
-  // ability to take the coin back. Reporting it as "expired, cannot spend"
-  // would be a plausible-sounding lie about what the chain enforces.
+  // What expiry does, stated exactly, because the loose version has been
+  // wrong twice in this file's history.
+  //
+  // The spend path requires claimedDaa < expiresAt AND a non-decreasing epoch
+  // index. Together those cap total spending at one epochLimit per epoch of
+  // the window, consumed in order and once each. They do NOT stop an agent
+  // dead at expiry: claimedDaa is agent-supplied and bounded above only by the
+  // real chain time, so allowance from epochs the grant never used stays
+  // consumable after the chain has passed expiresAt. No covenant can prevent
+  // that — proving the chain is BEFORE a time is not expressible with CLTV.
+  //
+  // A grant that has been spending steadily carries about one epoch of
+  // residual. A grant idle since epoch E carries the unused allowance of every
+  // epoch from E to the end of the window. budgetTotal caps it regardless.
   if (dag.virtualDaaScore >= s.expiresAt) {
+    const finalEpoch = (s.expiresAt - s.notBefore) / s.epochLength;
+    const unusedEpochs = finalEpoch > s.epochIndex ? finalEpoch - s.epochIndex : 0n;
+    const residual = unusedEpochs * s.epochLimit + (s.epochLimit - spentThisEpoch);
+    const bounded = residual < remaining ? residual : remaining;
     findings.push({
       level: "warn",
       text:
-        `past expiresAt (${s.expiresAt}); the principal may now reclaim. The ` +
-        `agent can still spend until they do — expiry opens a reclaim right, ` +
-        `it does not close the spend path.`,
+        `past expiresAt (${s.expiresAt}); the principal may reclaim. The agent is ` +
+        `not stopped dead: deferred epoch allowance stays spendable, up to about ` +
+        `${bounded} sompi here. Reclaim to end it.`,
     });
   }
 

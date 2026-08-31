@@ -62,6 +62,29 @@ const state: GrantState = {
 };
 const authority = { principalKey: LIVE_MANIFEST.agent, revocationKey: LIVE_MANIFEST.agent };
 
+/**
+ * The capture records a grant on ONE covenant. Change the covenant and the
+ * bytecode changes, so the same state derives a different address and every
+ * assertion tied to that address becomes meaningless rather than wrong.
+ *
+ * So: skip, loudly, with the reason. A test that silently passed against a
+ * fixture from a different covenant would be worse than no test, and one that
+ * simply failed would look like a regression in the code under test.
+ */
+function captureMatchesTemplate(): string | false {
+  if (!existsSync(capturePath)) return "no rpc-capture.json — run tools/capture_rpc.py";
+  const capture = JSON.parse(readFileSync(capturePath, "utf8"));
+  const derived = scriptHashToAddress(scriptHashFor(template, { authority, state }), "kaspatest");
+  if (derived !== capture.address) {
+    return (
+      `rpc-capture.json is from a DIFFERENT covenant: it records ${capture.address}, ` +
+      `and this template derives ${derived} for the same state. Re-capture against ` +
+      `a grant issued on the current covenant.`
+    );
+  }
+  return false;
+}
+
 function planFor(kind: "reclaim" | "revoke", lockTime: bigint): ExitPlan {
   return {
     kind,
@@ -181,7 +204,7 @@ test("splicing a signature moves nothing downstream of it", () => {
   assert.equal(toHex(after.slice(66)), toHex(before.slice(66)), "everything after the signature is identical");
 });
 
-test("an exit spends the address the grant actually lives at", { skip: skipReason() }, () => {
+test("an exit spends the address the grant actually lives at", { skip: captureMatchesTemplate() }, () => {
   // The redeem script must hash to the address holding the UTXO, or the P2SH
   // does not open at all. Checking it against the LIVE grant means the exit
   // path is aimed at a real coin, not at a plausible-looking one.

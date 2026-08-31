@@ -131,6 +131,38 @@ contract WardaGrant(
         require(epochLength > 0);
         int currentEpoch = (claimedDaa - notBefore) / epochLength;
 
+        // THE RATCHET. Without it the per-epoch cap limits nothing.
+        //
+        // claimedDaa is agent-supplied and bounded BELOW only: `>= notBefore`
+        // here, and `tx.daa >= claimedDaa` via CLTV, which any past value
+        // satisfies trivially. So an agent whose epoch allowance is exhausted
+        // simply claims an EARLIER epoch. The equality test below then finds a
+        // mismatch, spentThisEpoch resets to zero, and the whole allowance is
+        // available again — as often as the agent likes, bounded only by
+        // budgetTotal.
+        //
+        // Verified against the consensus engine, not reasoned about: with
+        // epochIndex 5 and epochSpent == epochLimit, a spend claiming epoch 5
+        // is refused (VerifyError) and one claiming epoch 4 is ACCEPTED.
+        //
+        // Monotonicity is the fix, and it is also what makes expiry
+        // enforceable below: an agent that cannot rewind cannot escape an
+        // upper bound by pretending to be in the past.
+        require(currentEpoch >= prevState.epochIndex);
+
+        // Expiry now BINDS on the spend path. It could not before: CLTV proves
+        // only a lower bound on time, so an upper bound on claimedDaa is
+        // meaningless on its own — the agent claims an older DAA and walks
+        // under it. The ratchet above is what makes this stick.
+        //
+        // The residual, stated precisely rather than glossed: an agent may
+        // position itself at the last pre-expiry epoch with a fresh allowance
+        // and spend up to ONE epochLimit after expiresAt has passed. That is
+        // the floor for this mechanism, because no covenant can prove the
+        // chain is BEFORE a given time. Size epochLimit accordingly — it is
+        // the exact bound on post-expiry exposure.
+        require(claimedDaa < expiresAt);
+
         int spentThisEpoch = 0;
         if (currentEpoch == prevState.epochIndex) {
             spentThisEpoch = prevState.epochSpent;

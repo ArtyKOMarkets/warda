@@ -98,6 +98,17 @@ export interface UnsignedSpend {
  */
 export function successorState(state: GrantState, amount: bigint, claimedDaa: bigint): GrantState {
   const epochIndex = (claimedDaa - state.notBefore) / state.epochLength;
+  // The epoch RATCHETS. A claimedDaa in an earlier epoch used to reset the
+  // allowance to zero and hand the agent its whole per-epoch limit again, as
+  // often as it liked — the consensus engine accepted it. The covenant now
+  // requires currentEpoch >= prevState.epochIndex, and the SDK refuses to
+  // build what the chain will refuse to run.
+  if (epochIndex < state.epochIndex) {
+    throw new Error(
+      `claimedDaa ${claimedDaa} lands in epoch ${epochIndex}, behind the grant's ` +
+        `recorded epoch ${state.epochIndex}. The epoch index only moves forward.`,
+    );
+  }
   const carried = epochIndex === state.epochIndex ? state.epochSpent : 0n;
   return {
     ...state,
@@ -150,6 +161,20 @@ export function spendSignatureScript(plan: SpendPlan, signature: Uint8Array): Ui
  */
 export function buildUnsignedSpend(plan: SpendPlan): UnsignedSpend {
   if (plan.amount <= 0n) throw new Error("amount must be positive");
+  if (plan.claimedDaa < plan.state.notBefore) {
+    throw new Error(
+      `claimedDaa ${plan.claimedDaa} is before the grant opens (${plan.state.notBefore})`,
+    );
+  }
+  // Expiry binds on the spend path now. It did not before — CLTV proves only a
+  // lower bound on time, so an upper bound was walked under by claiming an
+  // older DAA, and the ratchet in successorState is what closed that route.
+  if (plan.claimedDaa >= plan.state.expiresAt) {
+    throw new Error(
+      `claimedDaa ${plan.claimedDaa} is at or past expiresAt (${plan.state.expiresAt}). ` +
+        `The grant's spend window has closed; the principal may reclaim.`,
+    );
+  }
   const change = plan.utxo.value - plan.amount - plan.fee;
   if (change < 0n) throw new Error("amount plus fee exceeds the grant UTXO");
 
