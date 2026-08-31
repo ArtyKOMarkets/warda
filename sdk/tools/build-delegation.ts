@@ -146,9 +146,13 @@ try {
   const found = utxos[0];
   if (!found) {
     console.error(
-      `no UTXO at ${address}.\n` +
-        `The grant's address derives from its state, so a stale grant.json points ` +
-        `at an address the grant has already moved away from.`,
+`no UTXO at ${address}.\n` +
+        `Three things produce this, in the order worth checking:\n` +
+        `  - the genesis was built but never submitted, so the grant does not exist yet\n` +
+        `  - the manifest is stale: a grant's address derives from its state, so\n` +
+        `    spending or delegating MOVES it, and the old address goes empty\n` +
+        `  - the authority is wrong: principal, revocation and depth are all part\n` +
+        `    of the address, so a wrong guess derives a different one`,
     );
     process.exit(1);
   }
