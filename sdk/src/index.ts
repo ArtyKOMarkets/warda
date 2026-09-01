@@ -24,6 +24,12 @@ export { fromHex, toHex, concat, equal } from "./bytes.ts";
 export {
   bytecodeFor,
   scriptHashFor,
+  // A grant's claim about its own redeem-script shape, derived from the
+  // template and the AUTHORITY together. Consumers building state need it, and
+  // deriving it beats accepting it: a stated id belonging to another covenant
+  // produces a plausible address with nothing at it.
+  templateIdFor,
+  templateFingerprint,
   type CovenantTemplate,
   type FieldSlot,
   type Grant,
@@ -169,6 +175,10 @@ export {
   deriveSecret,
   derivePublic,
   resolveSigner,
+  // The reserve stack of a grant that has never delegated. Not the zero hash:
+  // Kaspa script encodes zero as the EMPTY byte string, so a zero literal
+  // compiles to nothing and the field silently disappears.
+  EMPTY_RESERVE,
   KEY_DOMAIN,
   type Derivation,
   type KeyDomain,

@@ -1,17 +1,19 @@
 {
   "name": "@warda/core",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Reference implementation of the Warda agent grant protocol. Defines the exact semantics a Toccata covenant must enforce.",
   "type": "module",
   "license": "MIT",
   "engines": {
-    "node": ">=22.6"
+    "node": ">=20"
   },
   "scripts": {
     "test": "node --experimental-strip-types --test test/*.test.ts",
     "vectors": "node --experimental-strip-types vectors/generate.ts",
     "typecheck": "tsc --noEmit",
-    "check": "npm run typecheck && npm test"
+    "check": "npm run typecheck && npm test",
+    "build": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "kaspa",
@@ -27,5 +29,33 @@
   },
   "devDependencies": {
     "@types/node": "^26.3.0"
+  },
+  "private": false,
+  "workspaces": [
+    ".",
+    "sdk",
+    "mcp"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ArtyKOMarkets/warda.git"
+  },
+  "homepage": "https://wardaprotocol.com",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "bugs": {
+    "url": "https://github.com/ArtyKOMarkets/warda/issues"
   }
 }

@@ -8,11 +8,11 @@
  * when the chain will refuse — or, worse, that it may not when the chain would
  * allow it.
  */
-import { RecipientSet } from "../../src/merkle.ts";
-import { createGrant, initialState, available } from "../../src/grant.ts";
-import { kas, formatKas } from "../../src/amounts.ts";
-import type { Grant, GrantState } from "../../src/types.ts";
-import { EMPTY_RESERVE } from "../../sdk/src/keys.ts";
+import { RecipientSet } from "@warda/core";
+import { createGrant, initialState, available } from "@warda/core";
+import { kas, formatKas } from "@warda/core";
+import type { Grant, GrantState } from "@warda/core";
+import { EMPTY_RESERVE } from "@warda/kaspa";
 
 export interface GrantDescriptor {
   agentKey: string;

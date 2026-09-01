@@ -26,10 +26,10 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { validateSpend, validateDelegation } from "../../src/validate.ts";
+import { validateSpend, validateDelegation } from "@warda/core";
 import { materialise, headroom, kas, formatKas, type GrantDescriptor } from "./grant.ts";
 import { buildSpend } from "./build.ts";
-import type { FailureCode } from "../../src/types.ts";
+import type { FailureCode } from "@warda/core";
 
 const EXPLAIN: Record<FailureCode, string> = {
   NOT_ACTIVE: "The grant is not active.",

@@ -15,12 +15,12 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { buildUnsignedSpend, type MerkleProof, type SpendPlan } from "../../sdk/src/spend.ts";
-import { toWire, type WireTransaction } from "../../sdk/src/wire.ts";
-import { fromHex, toHex } from "../../sdk/src/bytes.ts";
-import { scriptHashFor, templateIdFor, type CovenantTemplate } from "../../sdk/src/template.ts";
+import { buildUnsignedSpend, type MerkleProof, type SpendPlan } from "@warda/kaspa";
+import { toWire, type WireTransaction } from "@warda/kaspa";
+import { fromHex, toHex } from "@warda/kaspa";
+import { scriptHashFor, templateIdFor, type CovenantTemplate } from "@warda/kaspa";
 import type { Materialised } from "./grant.ts";
-import type { MerkleProof as CoreProof } from "../../src/types.ts";
+import type { MerkleProof as CoreProof } from "@warda/core";
 
 /**
  * The template is loaded from disk, never accepted from the caller.

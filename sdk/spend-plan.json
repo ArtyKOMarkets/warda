@@ -1,0 +1,50 @@
+{
+  "note": "Everything @warda/kaspa needs to build the next spend against the LIVE grant. Regenerate this before every spend: the grant's address moves each time, so a stale plan points at a UTXO that no longer exists.",
+  "generatedBy": "warda-deploy plan",
+  "network": "kaspatest",
+  "chainDaa": 557355929,
+
+  "authority": {
+    "principalKey": "0393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34f",
+    "revocationKey": "0393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34f"
+  },
+
+  "state": {
+    "agentKey": "0393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34f",
+    "budgetTotal": 1000000000,
+    "maxPerSpend": 200000000,
+    "epochLimit": 500000000,
+    "epochLength": 1000,
+    "recipientsRoot": "db0a707b658f29fd8903a7f3815f63f962ec3a4e66528d3e11ba150a5fd4f0b5",
+    "notBefore": 553866058,
+    "expiresAt": 554730058,
+    "delegationDepth": 2,
+    "spentTotal": 100000000,
+    "reserved": 0,
+    "epochIndex": 699,
+    "epochSpent": 50000000
+  },
+
+  "grantAddress": "kaspatest:pr864kryzmq4f2zfktgxnee0p3ugusks533twxsl47ecg2fkxqkzjuzdmp0ct",
+
+  "utxo": {
+    "outpointTransactionId": "7dbc957fbf87ca26bc9b83ec81849f4f713c255fa6d39f44a53301813ceb86ba",
+    "outpointIndex": 0,
+    "value": 898000000,
+    "blockDaaScore": 554573904,
+    "isCoinbase": false,
+    "covenantId": "f7947f65000b60e59819b02b93b5fd1761772f4edcf07010268ab7eefad375f8"
+  },
+
+  "recipients": {
+    "members": ["e718cb63dddd296494daad76ff932f75953f0f50aa303f4f99d04ac60516d740", "a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2", "a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3", "a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4"],
+    "target": "e718cb63dddd296494daad76ff932f75953f0f50aa303f4f99d04ac60516d740"
+  },
+
+  "spend": {
+    "amount": 50000000,
+    "claimedDaa": 557355829,
+    "fee": 1000000,
+    "computeBudget": 16
+  }
+}

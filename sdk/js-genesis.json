@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "lockTime": "0",
+  "subnetworkId": "0000000000000000000000000000000000000000",
+  "gas": "0",
+  "payloadHex": "",
+  "inputs": [
+    {
+      "previousOutpointTransactionId": "1f61166af400724eb83a837fefff65900d769a7e65661bacaf15cae29aae3f11",
+      "previousOutpointIndex": 1,
+      "signatureScriptHex": "417c1338d80b6aeaeb4ae6ce2c003c7c3d03927f893061a3a62f58e4120407b096dbe0bb6fbd44fe2f8be08fac231e2d9acddb73afc4538907c74be0b804f3579a01",
+      "sequence": "0",
+      "computeBudget": 12
+    }
+  ],
+  "outputs": [
+    {
+      "value": "500000000",
+      "scriptPublicKeyVersion": 0,
+      "scriptPublicKeyHex": "aa20645ce7b77c0983e3e426e89eafe5fde348722679a8410501bfbfdf42d5c2f3e087",
+      "covenant": {
+        "authorizingInput": 0,
+        "covenantId": "8d45accd3b622eceb187ca23c71ccac31bbab8df424d63696c89d15b5f797397"
+      }
+    },
+    {
+      "value": "996495000000",
+      "scriptPublicKeyVersion": 0,
+      "scriptPublicKeyHex": "200393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34fac",
+      "covenant": null
+    }
+  ],
+  "utxo": {
+    "value": "996996000000",
+    "scriptPublicKeyVersion": 0,
+    "scriptPublicKeyHex": "200393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34fac",
+    "blockDaaScore": "558038334",
+    "isCoinbase": false,
+    "covenantId": null
+  },
+  "txid": "d88ed17e2076855f6bc92bcb2093531de156664061ba47bba32b9829f8624eb2",
+  "builtBy": "@warda/kaspa (genesis)"
+}

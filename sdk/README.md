@@ -16,6 +16,14 @@ Silverscript compiler, no Rust toolchain, no node process of its own.
 npm install @warda/kaspa
 ```
 
+Ships compiled JavaScript with TypeScript declarations. Node 20+, no build
+step, no flags. The compiled covenant is exported as data too, for anything
+that needs to derive an address itself:
+
+```ts
+import template from "@warda/kaspa/covenant-template.json" with { type: "json" };
+```
+
 ## What it does not do
 
 **It does not decide whether a spend is allowed.** The covenant does that, on
@@ -167,9 +175,18 @@ transaction". It is: **is there really a grant at that address, does it hold
 what the manifest says, and how much of it is left?** Answering that needs the
 UTXO set, which until now meant a Rust toolchain.
 
+The library does this — see the code below. There is also a command-line tool
+in the repository, which is where it lives rather than in this package:
+
 ```
+git clone https://github.com/ArtyKOMarkets/warda && cd warda/sdk
 node --experimental-strip-types tools/verify-grant.ts ../covenant/deploy/grant.json
 ```
+
+The `tools/` scripts are TypeScript run through Node's type stripping, so they
+need Node 22.6 or newer. The **library** has no such requirement: it ships
+compiled, with type declarations, and works on Node 20+ with no flags. Shipping
+the tools as installed binaries is a follow-up.
 
 ```
 address        : kaspatest:pr864kryzmq4f2zfktgxnee0p3ugusks533twxsl47ecg2fkxqkzjuzdmp0ct

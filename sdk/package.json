@@ -1,23 +1,32 @@
 {
   "name": "@warda/kaspa",
-  "version": "0.2.0",
-  "description": "Build and sign Warda agent spends on Kaspa. Derives grant addresses and assembles covenant transactions with no Silverscript compiler.",
+  "version": "0.3.0",
+  "description": "Build, sign and verify Warda agent grants on Kaspa L1 covenants. Derives grant addresses and assembles covenant transactions with no Silverscript compiler and no Rust toolchain.",
   "type": "module",
   "license": "MIT",
   "engines": {
-    "node": ">=22.6"
+    "node": ">=20"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./covenant-template.json": "./covenant-template.json",
+    "./package.json": "./package.json"
   },
   "files": [
-    "src",
+    "dist",
     "covenant-template.json",
+    "covenant-template-v1.json",
+    "covenant-template-v2.json",
+    "covenant-template-v3.json",
     "golden-spend.json",
     "golden-genesis.json",
     "golden-delegation.json",
     "README.md",
-    "tools"
+    "LICENSE"
   ],
   "scripts": {
     "test": "node --experimental-strip-types --test test/*.test.ts",
@@ -33,14 +42,20 @@
     "build:live-spend": "node --experimental-strip-types tools/build-live-spend.ts",
     "advance": "node --experimental-strip-types tools/advance-manifest.ts",
     "genesis": "node --experimental-strip-types tools/genesis.ts",
-    "probes": "node --experimental-strip-types tools/probes.ts"
+    "probes": "node --experimental-strip-types tools/probes.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
   },
   "keywords": [
     "kaspa",
     "covenant",
     "agent",
     "payments",
-    "warda"
+    "warda",
+    "x402",
+    "agent-payments",
+    "spending-limits"
   ],
   "dependencies": {
     "@noble/curves": "^2.3.0",
@@ -48,5 +63,17 @@
   },
   "devDependencies": {
     "@types/node": "^26.4.0"
-  }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ArtyKOMarkets/warda.git",
+    "directory": "sdk"
+  },
+  "homepage": "https://wardaprotocol.com",
+  "bugs": {
+    "url": "https://github.com/ArtyKOMarkets/warda/issues"
+  },
+  "sideEffects": false
 }

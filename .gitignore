@@ -1,13 +1,3 @@
-node_modules/
+
+# build output — published to npm, never committed
 dist/
-*.log
-.DS_Store
-_gitjunk/
-*.key
-target/
-grant.json
-_to_delete/
-js-spend.json
-js-genesis.json
-spend-plan.json
-js-delegation.json

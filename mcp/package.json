@@ -1,22 +1,50 @@
 {
   "name": "@warda/mcp",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "MCP server exposing Warda grant authority to agent frameworks. Builds unsigned spends and explains verdicts; never holds a key, never enforces \u2014 the covenant does that on-chain.",
   "type": "module",
   "license": "MIT",
   "bin": {
-    "warda-mcp": "./src/server.ts"
+    "warda-mcp": "./dist/server.js"
   },
   "engines": {
-    "node": ">=22.6"
+    "node": ">=20"
   },
   "scripts": {
-    "test": "node --experimental-strip-types --test test/*.test.ts"
+    "test": "node --experimental-strip-types --test test/*.test.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "npm test && npm run build"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
     "zod": "^3.23.0",
     "@noble/hashes": "^2.3.0",
-    "@noble/curves": "^2.3.0"
-  }
+    "@noble/curves": "^2.3.0",
+    "@warda/kaspa": "^0.3.0",
+    "@warda/core": "^0.3.0"
+  },
+  "main": "./dist/server.js",
+  "types": "./dist/server.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ArtyKOMarkets/warda.git",
+    "directory": "mcp"
+  },
+  "homepage": "https://wardaprotocol.com",
+  "bugs": {
+    "url": "https://github.com/ArtyKOMarkets/warda/issues"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "kaspa",
+    "agent",
+    "warda",
+    "spending-limits"
+  ]
 }
