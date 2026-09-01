@@ -14,6 +14,7 @@
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 
 import { buildUnsignedSpend, type MerkleProof, type SpendPlan } from "@warda_protocol/kaspa";
 import { toWire, type WireTransaction } from "@warda_protocol/kaspa";
@@ -33,23 +34,47 @@ import type { MerkleProof as CoreProof } from "@warda_protocol/core";
  */
 let cached: CovenantTemplate | undefined;
 
+/**
+ * Where the template comes from, in order.
+ *
+ * The middle entry is the one that matters and the one that was missing.
+ * Resolving `../../sdk/covenant-template.json` relative to this module works
+ * perfectly in the repo, where the SDK lives in a directory called `sdk` — and
+ * never anywhere else, because the PACKAGE is called `kaspa`. Installed from
+ * npm it pointed at `node_modules/@warda_protocol/sdk/`, which does not exist,
+ * so every tool that builds a transaction failed on a path nobody had reason
+ * to look at. The SDK exports the file; ask the resolver for it.
+ */
+function templateCandidates(): string[] {
+  const out: string[] = [];
+  if (process.env.WARDA_TEMPLATE) out.push(process.env.WARDA_TEMPLATE);
+  try {
+    out.push(createRequire(import.meta.url).resolve("@warda_protocol/kaspa/covenant-template.json"));
+  } catch {
+    // Not installed as a dependency — the repo layout below still applies.
+  }
+  out.push(fileURLToPath(new URL("../../sdk/covenant-template.json", import.meta.url)));
+  return out;
+}
+
 export function loadTemplate(): CovenantTemplate {
   if (cached) return cached;
-  const path =
-    process.env.WARDA_TEMPLATE ??
-    fileURLToPath(new URL("../../sdk/covenant-template.json", import.meta.url));
-  let raw: string;
-  try {
-    raw = readFileSync(path, "utf8");
-  } catch (e) {
-    throw new Error(
-      `cannot read the covenant template at ${path}. ` +
-        `Regenerate it with \`warda-deploy template\`, or set WARDA_TEMPLATE. ` +
-        `(${(e as Error).message})`,
-    );
+  const tried = templateCandidates();
+  for (const path of tried) {
+    let raw: string;
+    try {
+      raw = readFileSync(path, "utf8");
+    } catch {
+      continue;
+    }
+    cached = JSON.parse(raw) as CovenantTemplate;
+    return cached;
   }
-  cached = JSON.parse(raw) as CovenantTemplate;
-  return cached;
+  throw new Error(
+    `cannot read the covenant template. Tried:\n  ${tried.join("\n  ")}\n` +
+      `Set WARDA_TEMPLATE to the template a grant was issued under, or reinstall ` +
+      `@warda_protocol/kaspa, which ships it.`,
+  );
 }
 
 /** The core's proof shape carries a per-sibling side flag; the SDK wants two arrays. */

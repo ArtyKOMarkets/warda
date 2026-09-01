@@ -1,0 +1,20 @@
+{
+  "$schema": "https://modelcontextprotocol.io/schemas/server-card/v1.0",
+  "version": "1.0",
+  "protocolVersion": "2025-06-18",
+  "serverInfo": {
+    "name": "warda",
+    "version": "0.4.1",
+    "description": "Economic authority for autonomous agents on Kaspa L1. Report a grant's remaining authority, build unsigned spends, delegations, settlements and revocations, and recover a grant whose record has gone stale. Never holds a key; never enforces — the covenant does that on chain.",
+    "homepage": "https://wardaprotocol.com"
+  },
+  "transport": {
+    "type": "streamable-http",
+    "url": "https://mcp.wardaprotocol.com/mcp"
+  },
+  "capabilities": {
+    "tools": true,
+    "resources": false,
+    "prompts": false
+  }
+}

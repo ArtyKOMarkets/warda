@@ -1,0 +1,38 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-29/server.schema.json",
+  "name": "io.github.ArtyKOMarkets/warda",
+  "description": "Economic authority for autonomous agents on Kaspa L1. Never holds a key.",
+  "status": "active",
+  "repository": {
+    "url": "https://github.com/ArtyKOMarkets/warda",
+    "source": "github",
+    "subfolder": "mcp"
+  },
+  "version": "0.4.1",
+  "websiteUrl": "https://wardaprotocol.com",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@warda_protocol/mcp",
+      "version": "0.4.1",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "WARDA_TEMPLATE",
+          "description": "Path to the covenant template a grant was issued under. Only needed for a grant on a covenant version other than the one shipped: a template mismatch does not fail loudly, it derives a plausible address with nothing at it.",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.wardaprotocol.com/mcp"
+    }
+  ]
+}

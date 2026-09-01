@@ -30,6 +30,15 @@ flavours = {
     "web": {"{{LOCKUP}}": "assets/lockup-hero.png", "{{MARK}}": "assets/mark-200.png"},
 }
 
+# Files copied through untouched. They carry no placeholders, but they are
+# part of what gets deployed, and a discovery document that only exists in
+# src/ is a discovery document nobody fetches.
+COPIES = [
+    "llms.txt",
+    ".well-known/mcp-manifest.json",
+    ".well-known/mcp/server-card.json",
+]
+
 for outdir, subs in flavours.items():
     d = here / outdir
     d.mkdir(exist_ok=True)
@@ -38,7 +47,12 @@ for outdir, subs in flavours.items():
         for k, v in subs.items():
             html = html.replace(k, v)
         (d / name).write_text(html)
-        print(f"{outdir}/{name}: {len(html)/1024:>6.0f} KB")
+    for name in COPIES:
+        src = here / "src" / name
+        dst = d / name
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        dst.write_bytes(src.read_bytes())
+        print(f"{outdir}/{name}: {dst.stat().st_size/1024:>6.1f} KB")
 
 # the web flavour needs the images beside it
 web_assets = here / "web" / "assets"

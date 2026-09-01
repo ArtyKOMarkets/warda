@@ -1,4 +1,5 @@
 <title>Warda Protocol</title>
+<meta name="description" content="A spending limit the network enforces. Give an autonomous agent its own key and a real budget on Kaspa — it spends unattended, and consensus rejects anything outside its limits.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap">
 <style>
   :root {
@@ -30,13 +31,15 @@
     margin: 0; background: var(--void); color: var(--chrome);
     font-family: var(--body); font-size: 17px; line-height: 1.66;
     -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
   }
 
-  .wrap { max-width: 74rem; margin: 0 auto; padding: 0 var(--gutter); }
+  .wrap { max-width: 74rem; margin: 0 auto; padding: 0 var(--gutter); position: relative; }
+  .narrow { max-width: 58rem; }
 
-  h1, h2, h3 { font-family: var(--display); font-weight: 700; margin: 0; line-height: 1.14; letter-spacing: -0.005em; text-wrap: balance; }
-  h2 { font-size: clamp(1.5rem, 3vw, 2.15rem); }
-  h3 { font-size: 1.08rem; font-weight: 600; }
+  h1, h2, h3 { font-family: var(--display); font-weight: 700; margin: 0; line-height: 1.08; letter-spacing: -0.015em; text-wrap: balance; }
+  h2 { font-size: clamp(2rem, 5.4vw, 3.9rem); }
+  h3 { font-size: 1.08rem; font-weight: 600; letter-spacing: 0; }
   p { margin: 0 0 1.05em; }
   a { color: var(--chrome); text-decoration-color: var(--teal-deep); text-underline-offset: 3px; }
   a:hover { color: var(--teal-bright); }
@@ -44,78 +47,171 @@
 
   code { font-family: var(--mono); font-size: 0.88em; background: var(--panel); color: var(--teal); padding: 0.12em 0.4em; }
 
-  .works {
-    margin: 1.6rem auto 0; max-width: 50ch; font-size: 0.95rem;
-    color: var(--chrome-dim);
+  .eyebrow {
+    font-family: var(--mono); font-size: 0.68rem; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.19em; color: var(--teal);
+    margin: 0 0 1.1rem; display: flex; align-items: center; gap: 0.7rem;
   }
-  .works code { font-size: 0.84em; }
+  .eyebrow::before { content: ""; width: 1.6rem; height: 1px; background: var(--teal-deep); flex: none; }
 
-  .eyebrow { font-family: var(--mono); font-size: 0.68rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.17em; color: var(--teal); margin: 0 0 0.9rem; }
+  section { padding: clamp(3.6rem, 8vw, 6.4rem) 0; position: relative; }
+  .rule { border-top: 1px solid var(--edge); }
 
-  section { padding: clamp(3.2rem, 7vw, 5.4rem) 0; border-top: 1px solid var(--edge); }
+  /* ---- the drifting shield, behind everything -------------------------- */
+  /* One shape, echoing the mark, moved by scroll. It is the only thing on   */
+  /* the page that is purely decorative, so it is also the only thing that   */
+  /* disappears entirely under prefers-reduced-motion.                       */
+  .field { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+  .field svg { position: absolute; left: 50%; top: 50%; width: min(140vh, 130vw); height: auto;
+               transform: translate(-50%, -50%) translateY(var(--drift, 0px)) rotate(var(--spin, 0deg));
+               opacity: 0.4; }
+  .field .glow { position: absolute; left: 50%; top: var(--glow-y, 30%); transform: translate(-50%,-50%);
+                 width: 90vw; height: 70vh;
+                 background: radial-gradient(ellipse 45% 42% at 50% 50%, rgba(20,215,193,0.13), transparent 70%); }
+  body > *:not(.field) { position: relative; z-index: 1; }
 
-  /* ---- hero: the mark carries it, over a faint field glow --------------- */
-  .hero {
-    border-top: 0; text-align: center;
-    padding: clamp(2.8rem, 7vw, 5rem) 0 clamp(3rem, 7vw, 5rem);
-    position: relative; overflow: hidden;
+  /* ---- the proof bar --------------------------------------------------- */
+  .bar {
+    border-bottom: 1px solid var(--edge); background: var(--ground);
+    font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase;
   }
-  .hero::before {
-    content: ""; position: absolute; inset: -30% -10% auto -10%; height: 130%;
-    background: radial-gradient(ellipse 52% 46% at 50% 34%, rgba(20,215,193,0.11), transparent 68%);
-    pointer-events: none;
+  .bar .wrap { display: flex; align-items: center; gap: 0.7rem 1.4rem; flex-wrap: wrap; padding-top: 0.72rem; padding-bottom: 0.72rem; }
+  .bar .dot { width: 6px; height: 6px; background: var(--teal); flex: none; border-radius: 50%; }
+  .bar .t { color: var(--chrome); }
+  .bar .m { color: var(--chrome-faint); letter-spacing: 0.04em; text-transform: none; }
+  .bar a { margin-left: auto; color: var(--teal); text-decoration: none; white-space: nowrap; }
+  .bar a:hover { color: var(--teal-bright); }
+  @media (prefers-reduced-motion: no-preference) {
+    .bar .dot { animation: pulse 2.6s ease-in-out infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; box-shadow: 0 0 0 0 rgba(20,215,193,0.5); } 50% { opacity: 0.55; box-shadow: 0 0 0 5px rgba(20,215,193,0); } }
   }
-  .hero > .wrap { position: relative; }
-  .hero img { width: min(430px, 82vw); height: auto; display: block; margin: 0 auto clamp(1.6rem, 3.6vw, 2.4rem); }
+
+  /* ---- hero ------------------------------------------------------------ */
+  .hero { text-align: center; padding-top: clamp(2.2rem, 5vw, 3.6rem); padding-bottom: clamp(2.6rem, 6vw, 4.4rem); }
+  .hero img { width: min(340px, 68vw); height: auto; display: block; margin: 0 auto clamp(1.3rem, 3vw, 2rem); }
   .thesis {
     font-family: var(--display); font-weight: 700;
-    font-size: clamp(1.65rem, 4.4vw, 3rem); line-height: 1.16;
-    letter-spacing: -0.01em; max-width: 19ch; margin: 0 auto 1.3rem;
+    font-size: clamp(2.2rem, 6.2vw, 4.4rem); line-height: 1.03;
+    letter-spacing: -0.028em; max-width: 15ch; margin: 0 auto 1.2rem;
   }
   .thesis .lit { color: var(--teal); }
-  .hero .sub { font-size: clamp(1rem, 1.7vw, 1.16rem); color: var(--chrome-dim); max-width: 52ch; margin: 0 auto 2.2rem; }
+  .hero .sub { font-size: clamp(1.02rem, 1.8vw, 1.15rem); color: var(--chrome-dim); max-width: 50ch; margin: 0 auto 1.9rem; }
 
   .cta-row { display: flex; gap: 0.8rem; justify-content: center; flex-wrap: wrap; }
   .cta {
     font-family: var(--mono); font-size: 0.8rem; font-weight: 500;
     letter-spacing: 0.06em; text-transform: uppercase;
-    padding: 0.82rem 1.5rem; text-decoration: none; border: 1px solid;
+    padding: 0.9rem 1.6rem; text-decoration: none; border: 1px solid;
     display: inline-flex; align-items: center; gap: 0.6rem;
   }
   .cta.primary { background: var(--teal); border-color: var(--teal); color: var(--void); font-weight: 700; }
   .cta.primary:hover { background: var(--teal-bright); border-color: var(--teal-bright); color: var(--void); }
   .cta.ghost { border-color: var(--edge-bright); color: var(--chrome-dim); }
   .cta.ghost:hover { border-color: var(--teal); color: var(--teal-bright); }
-  .cta .arw { font-family: var(--body); }
+  .cta .arw { font-family: var(--body); transition: transform 160ms ease; }
+  .cta:hover .arw { transform: translateX(3px); }
 
   .statline {
-    margin-top: 2.6rem; font-family: var(--mono); font-size: 0.7rem;
+    margin-top: 2.2rem; font-family: var(--mono); font-size: 0.7rem;
     color: var(--chrome-faint); letter-spacing: 0.04em;
     display: flex; gap: 0.55rem 1.5rem; justify-content: center; flex-wrap: wrap;
   }
   .statline b { color: var(--teal-deep); font-weight: 500; }
 
-  /* ---- the problem, stated once ---------------------------------------- */
-  .claim { max-width: 42ch; }
-  .claim-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.1fr); gap: clamp(2rem, 5vw, 4.5rem); align-items: start; }
-  @media (max-width: 880px) { .claim-grid { grid-template-columns: 1fr; } }
+  .scroll-cue { margin-top: 2.4rem; font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--chrome-faint); }
+  .scroll-cue span { display: block; margin: 0.6rem auto 0; width: 1px; height: 2.4rem; background: linear-gradient(var(--teal-deep), transparent); }
+  @media (prefers-reduced-motion: no-preference) {
+    .scroll-cue span { animation: cue 2.4s ease-in-out infinite; transform-origin: top; }
+    @keyframes cue { 0%,100% { transform: scaleY(0.4); opacity: 0.4; } 50% { transform: scaleY(1); opacity: 1; } }
+  }
+
+  /* ---- the problem ----------------------------------------------------- */
+  .claim-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.05fr); gap: clamp(2rem, 5vw, 4.5rem); align-items: start; }
+  @media (max-width: 900px) { .claim-grid { grid-template-columns: 1fr; } }
   .big { font-size: 1.16rem; color: var(--chrome-dim); }
   .big strong { color: var(--chrome); font-weight: 500; }
 
-  .quote {
-    border-left: 2px solid var(--refuse); background: var(--ground);
-    padding: 1.15rem 1.3rem; font-size: 0.98rem; color: var(--chrome-dim);
-  }
+  .quote { border-left: 2px solid var(--refuse); background: var(--ground); padding: 1.15rem 1.3rem; font-size: 0.98rem; color: var(--chrome-dim); }
   .quote q { color: var(--chrome); font-style: italic; }
   .quote cite { display: block; margin-top: 0.7rem; font-family: var(--mono); font-size: 0.68rem; font-style: normal; color: var(--chrome-faint); text-transform: uppercase; letter-spacing: 0.11em; }
   .answer { border-left-color: var(--teal); margin-top: 1rem; }
   .answer q { color: var(--chrome); font-style: normal; }
 
-  /* ---- the receipt: real numbers, laid out like a ledger ---------------- */
-  .receipt {
-    border: 1px solid var(--edge-bright); background: var(--ground);
-    max-width: 62rem; margin: 2.2rem auto 0; text-align: left;
+  /* ---- the gate: the covenant adjudicating, with the real numbers ------- */
+  .gate { border: 1px solid var(--edge-bright); background: var(--ground); margin-top: 2.6rem; }
+  .gate-tabs { display: flex; border-bottom: 1px solid var(--edge-bright); }
+  .gate-tabs button {
+    flex: 1; background: none; border: 0; border-right: 1px solid var(--edge-bright);
+    padding: 1rem 1.1rem; text-align: left; cursor: pointer; color: var(--chrome-dim);
+    font-family: var(--mono); font-size: 0.72rem; line-height: 1.5;
   }
+  .gate-tabs button:last-child { border-right: 0; }
+  .gate-tabs button .who { display: block; text-transform: uppercase; letter-spacing: 0.13em; font-size: 0.65rem; color: var(--chrome-faint); margin-bottom: 0.3rem; }
+  .gate-tabs button .addr { color: var(--chrome-dim); overflow-wrap: anywhere; }
+  .gate-tabs button { position: relative; }
+  .gate-tabs button::before {
+    content: ""; position: absolute; inset: 0 0 auto 0; height: 2px; background: var(--teal);
+    transform: scaleX(0); transform-origin: left;
+  }
+  @media (prefers-reduced-motion: no-preference) { .gate-tabs button::before { transition: transform 240ms cubic-bezier(.2,.7,.3,1); } }
+  .gate-tabs button[aria-selected="true"]::before { transform: none; }
+  .gate-tabs button[aria-selected="true"] { background: var(--panel); color: var(--chrome); }
+  .gate-tabs button[aria-selected="true"] .who { color: var(--teal); }
+  .gate-tabs button[aria-selected="true"] .addr { color: var(--chrome); }
+  .gate-tabs button:hover { background: var(--panel); }
+
+  .gate-body { padding: 1.4rem clamp(1.1rem, 3vw, 1.8rem) 1.6rem; }
+  .gate-ask { font-family: var(--mono); font-size: 0.76rem; color: var(--chrome-faint); text-transform: uppercase; letter-spacing: 0.13em; margin: 0 0 1.1rem; }
+  .gate-ask b { color: var(--chrome); font-weight: 500; }
+
+  .check {
+    display: grid; grid-template-columns: 1.6rem minmax(0,1fr) auto; gap: 0.8rem;
+    align-items: baseline; padding: 0.6rem 0; border-bottom: 1px solid var(--edge);
+    font-family: var(--mono); font-size: 0.79rem;
+    opacity: 0; transform: translateY(4px);
+  }
+  .check.on { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: no-preference) { .check { transition: opacity 260ms ease, transform 260ms ease; } }
+  @media (prefers-reduced-motion: reduce) { .check { opacity: 1; transform: none; } }
+  .check .mk { font-size: 0.95rem; }
+  .check.pass .mk { color: var(--teal); }
+  .check.fail .mk { color: var(--refuse); }
+  .check .lbl { color: var(--chrome); }
+  .check .val { color: var(--chrome-faint); font-variant-numeric: tabular-nums; text-align: right; }
+  .check.fail .lbl { color: var(--refuse); }
+  @media (max-width: 620px) {
+    .check { grid-template-columns: 1.4rem minmax(0,1fr); }
+    .check .val { grid-column: 2; text-align: left; }
+  }
+
+  .verdict {
+    margin-top: 1.3rem; padding: 1rem 1.2rem; border: 1px solid;
+    font-family: var(--mono); font-size: 0.82rem; line-height: 1.7;
+    opacity: 0;
+  }
+  .verdict.on { opacity: 1; }
+  @media (prefers-reduced-motion: no-preference) { .verdict { transition: opacity 300ms ease; } }
+  @media (prefers-reduced-motion: reduce) { .verdict { opacity: 1; } }
+  .verdict .head { display: block; text-transform: uppercase; letter-spacing: 0.15em; font-size: 0.72rem; margin-bottom: 0.4rem; }
+  .verdict.ok { border-color: var(--teal-deep); background: var(--teal-ghost); }
+  .verdict.ok .head { color: var(--teal); }
+  .verdict.no { border-color: var(--refuse); background: rgba(255,107,90,0.07); }
+  .verdict.no .head { color: var(--refuse); }
+  .verdict .body { color: var(--chrome-dim); }
+  .verdict .body b { color: var(--chrome); font-weight: 500; }
+  .verdict .hash { color: var(--teal); overflow-wrap: anywhere; }
+
+  .budget { margin-top: 1.4rem; }
+  .budget-top { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--chrome-faint); margin-bottom: 0.5rem; }
+  .budget-top b { color: var(--chrome); font-weight: 500; letter-spacing: 0.02em; text-transform: none; font-variant-numeric: tabular-nums; }
+  .track { height: 6px; background: var(--panel); border: 1px solid var(--edge); position: relative; overflow: hidden; }
+  .track i { position: absolute; inset: 0 auto 0 0; width: var(--used, 0%); background: var(--teal); display: block; }
+  @media (prefers-reduced-motion: no-preference) { .track i { transition: width 900ms cubic-bezier(.2,.7,.3,1); } }
+  .replay { margin-top: 1.2rem; background: none; border: 1px solid var(--edge-bright); color: var(--chrome-dim); font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.55rem 1rem; cursor: pointer; }
+  .replay:hover { border-color: var(--teal); color: var(--teal-bright); }
+
+  /* ---- the receipt ----------------------------------------------------- */
+  .receipt { border: 1px solid var(--edge-bright); background: var(--ground); margin-top: 2.4rem; text-align: left; }
   .receipt-head {
     display: flex; gap: 0.6rem 1.2rem; flex-wrap: wrap; align-items: baseline;
     padding: 0.85rem 1.3rem; border-bottom: 1px solid var(--edge-bright);
@@ -142,55 +238,116 @@
   }
   .receipt-foot code { font-size: 0.95em; background: var(--void); }
 
-  /* ---- capability tiles ------------------------------------------------ */
-  .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(15.5rem,1fr)); gap: 1px; background: var(--edge); border: 1px solid var(--edge); margin-top: 2.2rem; }
-  .cols > article { background: var(--void); padding: 1.4rem 1.35rem 1.5rem; }
-  .cols > article .n { font-family: var(--mono); font-size: 0.64rem; letter-spacing: 0.13em; text-transform: uppercase; color: var(--teal); margin-bottom: 0.45rem; }
-  .cols > article h3 { margin-bottom: 0.4rem; }
+  /* ---- the four limits ------------------------------------------------- */
+  .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(15.5rem,1fr)); gap: 1px; background: var(--edge); border: 1px solid var(--edge); margin-top: 2.6rem; }
+  .cols > article { background: var(--void); padding: 1.6rem 1.4rem 1.7rem; position: relative; }
+  .cols > article .n { font-family: var(--mono); font-size: 0.64rem; letter-spacing: 0.13em; text-transform: uppercase; color: var(--teal); margin-bottom: 0.9rem; }
+  .cols > article h3 { margin-bottom: 0.5rem; }
   .cols > article p { font-size: 0.91rem; color: var(--chrome-dim); margin-bottom: 0; }
+  .cols svg { display: block; margin-bottom: 1.25rem; overflow: visible; }
+  /* --len is measured from the path itself at load: a guessed length either
+     leaves the stroke cut short or starts it already half drawn. */
+  .cols svg [data-draw] { stroke-dasharray: var(--len, 120); stroke-dashoffset: var(--len, 120); }
+  .cols.seen svg [data-draw] { stroke-dashoffset: 0; }
+  @media (prefers-reduced-motion: no-preference) {
+    .cols svg [data-draw] { transition: stroke-dashoffset 900ms cubic-bezier(.3,.7,.3,1) var(--wait, 0ms); }
+  }
+  @media (prefers-reduced-motion: reduce) { .cols svg [data-draw] { stroke-dashoffset: 0; } }
 
-  /* ---- closing ---- */
+  /* ---- counters -------------------------------------------------------- */
+  .counts { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem,1fr)); gap: clamp(2rem, 5vw, 3.5rem); margin-top: 3rem; }
+  .counts > div { display: flex; flex-direction: column; }
+  /* A label that wraps must not drop its number below the others. */
+  .counts .lab { font-family: var(--mono); font-size: 0.65rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--chrome-faint); margin: 0 0 0.5rem; min-height: 2.2em; }
+  .counts .num { font-family: var(--display); font-weight: 700; font-size: clamp(3rem, 7vw, 4.6rem); line-height: 1; color: var(--teal); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+  .counts p { font-size: 0.9rem; color: var(--chrome-dim); margin: 0.8rem 0 0; max-width: 30ch; }
+
+  /* ---- works with ------------------------------------------------------ */
+  .with { display: flex; gap: 1px; background: var(--edge); border: 1px solid var(--edge); margin-top: 2.4rem; flex-wrap: wrap; }
+  .with > div { background: var(--void); padding: 1.2rem 1.4rem; flex: 1 1 14rem; }
+  .with .h { font-family: var(--display); font-weight: 700; font-size: 1.02rem; margin-bottom: 0.3rem; }
+  .with .d { font-size: 0.87rem; color: var(--chrome-dim); }
+  .with code { font-size: 0.8em; }
+
+  /* ---- closing --------------------------------------------------------- */
   .close { text-align: center; }
-  .close h2 { max-width: 20ch; margin: 0 auto 1rem; }
-  .close p { color: var(--chrome-dim); max-width: 48ch; margin: 0 auto 2rem; }
+  .close h2 { max-width: 18ch; margin: 0 auto 1.2rem; }
+  .close p { color: var(--chrome-dim); max-width: 50ch; margin: 0 auto 2.2rem; }
 
-  footer { border-top: 1px solid var(--edge); padding: 2.2rem 0 3rem; }
+  footer { border-top: 1px solid var(--edge); padding: 2.6rem 0 3.4rem; }
   footer p { font-family: var(--mono); font-size: 0.7rem; color: var(--chrome-faint); line-height: 1.75; max-width: 64ch; }
   footer strong { color: var(--chrome-dim); }
+  footer .ln { margin-top: 1.2rem; display: flex; gap: 1.4rem; flex-wrap: wrap; }
+  footer .ln a { font-family: var(--mono); font-size: 0.7rem; color: var(--chrome-dim); text-decoration: none; letter-spacing: 0.06em; text-transform: uppercase; }
+  footer .ln a:hover { color: var(--teal-bright); }
+
+  /* ---- reveal on scroll ------------------------------------------------ */
+  /* Content is visible by default and only hidden once JS confirms it can   */
+  /* un-hide it. A page whose text depends on script is a page that is blank */
+  /* when the script fails.                                                  */
+  .js [data-rise] { opacity: 0; transform: translateY(18px); }
+  .js [data-rise].seen { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: no-preference) {
+    .js [data-rise] { transition: opacity 620ms cubic-bezier(.2,.7,.3,1) var(--d, 0ms), transform 620ms cubic-bezier(.2,.7,.3,1) var(--d, 0ms); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .js [data-rise] { opacity: 1; transform: none; }
+  }
 
   @media (prefers-reduced-motion: no-preference) {
     .cta, a { transition: background-color 130ms ease, border-color 130ms ease, color 130ms ease; }
   }
 </style>
 
+<div class="field" aria-hidden="true">
+  <div class="glow"></div>
+  <svg viewBox="0 0 200 200" fill="none">
+    <path d="M100 8 L182 46 L182 122 Q182 168 100 192 Q18 168 18 122 L18 46 Z"
+          stroke="#14D7C1" stroke-opacity="0.09" stroke-width="0.7"/>
+    <path d="M100 26 L166 57 L166 119 Q166 155 100 175 Q34 155 34 119 L34 57 Z"
+          stroke="#14D7C1" stroke-opacity="0.05" stroke-width="0.7"/>
+    <path d="M100 44 L104 92 L148 100 L104 108 L100 156 L96 108 L52 100 L96 92 Z"
+          stroke="#14D7C1" stroke-opacity="0.07" stroke-width="0.7"/>
+  </svg>
+</div>
+
+<div class="bar">
+  <div class="wrap">
+    <span class="dot"></span>
+    <span class="t">An autonomous agent bought something on Kaspa</span>
+    <span class="m">testnet-10 · 1 Sep 2026 · and could not have bought anything else</span>
+    <a href="#receipt">See the receipt &rarr;</a>
+  </div>
+</div>
+
 <section class="hero">
   <div class="wrap">
-    <img src="{{LOCKUP}}" alt="Warda Protocol — economic infrastructure for autonomous agents">
-    <p class="thesis">A spending limit the <span class="lit">network</span> enforces.</p>
-    <p class="sub">Give an autonomous agent its own key and a real budget on Kaspa. It spends unattended — no co-signing, no relay, no custody — and consensus rejects anything outside its limits.</p>
-    <div class="cta-row">
+    <img src="{{LOCKUP}}" alt="Warda Protocol — economic infrastructure for autonomous agents" data-rise>
+    <p class="thesis" data-rise style="--d:80ms">A spending limit the <span class="lit">network</span> enforces.</p>
+    <p class="sub" data-rise style="--d:170ms">Give an autonomous agent its own key and a real budget on Kaspa. It spends unattended — no co-signing, no relay, no custody — and consensus rejects anything outside its limits.</p>
+    <div class="cta-row" data-rise style="--d:250ms">
       <a class="cta primary" href="https://claude.ai/code/artifact/3821689d-e8c7-46d3-875a-0a47d459e8c7">If you're building, start here <span class="arw">&rarr;</span></a>
       <a class="cta ghost" href="https://github.com/ArtyKOMarkets/warda">Read the source</a>
     </div>
-    <p class="works">Works today with the Model Context Protocol, and with x402 metered APIs — <code>@warda_protocol/x402</code> is a drop-in <code>fetch</code> that calls a paid endpoint like a free one.</p>
-    <div class="statline">
+    <div class="statline" data-rise style="--d:340ms">
       <span>Kaspa L1 covenants</span>
       <span><b>14</b> adversarial probes, all behaving</span>
       <span><b>6</b> vulnerabilities found and fixed</span>
       <span>testnet-10</span>
       <span><b>4</b> packages on npm</span>
     </div>
+    <p class="scroll-cue" data-rise style="--d:430ms">Scroll<span></span></p>
   </div>
 </section>
 
-<section>
+<section class="rule">
   <div class="wrap claim-grid">
-    <div>
+    <div data-rise>
       <p class="eyebrow">The problem</p>
-      <h2 class="claim">Every agent that spends money today is trusted not to.</h2>
-      <p class="big" style="margin-top:1.3rem">The standard pattern is a hot wallet holding "only what the agent should spend", and a counter in the code that pays. Both halves fail the same way: <strong>the limit lives in the process</strong>.</p>
+      <h2>Every agent that spends money today is trusted not to.</h2>
+      <p class="big" style="margin-top:1.6rem">The standard pattern is a hot wallet holding "only what the agent should spend", and a counter in the code that pays. Both halves fail the same way: <strong>the limit lives in the process</strong>.</p>
     </div>
-    <div>
+    <div data-rise style="--d:140ms">
       <blockquote class="quote">
         <q>Once the server has spent that much it refuses further calls until restarted.</q>
         <cite>A production agent-payments library, describing its own spending cap</cite>
@@ -203,13 +360,60 @@
   </div>
 </section>
 
-<section class="close">
-  <div class="wrap">
-    <p class="eyebrow">Not a diagram</p>
-    <h2 style="max-width:26ch">An agent bought something, and could not have bought anything else.</h2>
-    <p style="max-width:56ch">A real HTTP 402 endpoint, priced at 0.2 KAS. A real covenant spend on Kaspa testnet-10. The vendor checked the UTXO set before it served anything.</p>
+<section class="rule">
+  <div class="wrap narrow">
+    <div data-rise>
+      <p class="eyebrow">Watch it decide</p>
+      <h2>Ask the covenant for money.</h2>
+      <p class="big" style="margin-top:1.4rem;max-width:52ch">Every number below is from the grant that made the payment on testnet-10. Pick a payee and watch the script run — the same checks a Kaspa node runs before it will relay anything.</p>
+    </div>
 
-    <div class="receipt">
+    <div class="gate" data-rise style="--d:120ms">
+      <div class="gate-tabs" role="tablist" aria-label="Choose a payee">
+        <button role="tab" id="tab-ok" aria-selected="true" aria-controls="gate-out" data-case="ok">
+          <span class="who">The vendor</span>
+          <span class="addr">kaspatest:qrn33jmr…8ym5</span>
+        </button>
+        <button role="tab" id="tab-no" aria-selected="false" aria-controls="gate-out" data-case="no">
+          <span class="who">Anyone else</span>
+          <span class="addr">kaspatest:qrxvenxv…jr0d</span>
+        </button>
+      </div>
+
+      <div class="gate-body" id="gate-out" role="tabpanel" aria-live="polite">
+        <p class="gate-ask">Pay <b>0.2 KAS</b> to <b id="gate-to">the vendor</b></p>
+        <div id="gate-checks"></div>
+        <div class="verdict" id="gate-verdict"><span class="head"></span><span class="body"></span></div>
+
+        <div class="budget">
+          <div class="budget-top">
+            <span>Budget</span>
+            <span><b id="budget-num">0.0</b> of 3.0 KAS spent</span>
+          </div>
+          <div class="track"><i id="budget-bar"></i></div>
+        </div>
+
+        <button class="replay" id="gate-replay" type="button">Run it again</button>
+      </div>
+    </div>
+
+    <p style="margin-top:1.6rem;font-family:var(--mono);font-size:0.74rem;color:var(--chrome-faint);line-height:1.8;max-width:62ch">
+      The allowlist is not a filter in front of a wallet. Payees are committed as a Merkle root before the
+      grant is funded, and every spend carries an inclusion proof. For a payee outside it, there is no proof
+      to carry — so there is no valid transaction to build, refuse, or intercept.
+    </p>
+  </div>
+</section>
+
+<section class="rule" id="receipt">
+  <div class="wrap narrow">
+    <div data-rise>
+      <p class="eyebrow">Not a diagram</p>
+      <h2>It already happened.</h2>
+      <p class="big" style="margin-top:1.4rem;max-width:54ch">A real HTTP 402 endpoint, priced at 0.2 KAS. A real covenant spend on Kaspa testnet-10. The vendor checked the UTXO set before it served anything.</p>
+    </div>
+
+    <div class="receipt" data-rise style="--d:120ms">
       <div class="receipt-head">
         <span class="lit">testnet-10</span>
         <span>covenant b3e5eeefacf2021f</span>
@@ -231,24 +435,63 @@
   </div>
 </section>
 
-<section>
+<section class="rule">
   <div class="wrap">
-    <p class="eyebrow">What a grant gives you</p>
-    <h2 style="max-width:24ch">Authority you can hand over and still bound.</h2>
-    <div class="cols">
+    <div data-rise>
+      <p class="eyebrow">What a grant gives you</p>
+      <h2>Authority you can hand over and still bound.</h2>
+    </div>
+    <div class="cols" data-rise data-draw-group style="--d:100ms">
       <article>
+        <!-- A budget meter running into a hard ceiling. The bars are what you
+             have; the wall is where it stops regardless of what asks. -->
+        <svg width="58" height="38" viewBox="0 0 58 38" fill="none" stroke-width="2" stroke-linecap="square">
+          <path data-draw style="--wait:0ms" d="M2 11 L30 11" stroke="#14D7C1"/>
+          <path data-draw style="--wait:130ms" d="M2 21 L21 21" stroke="#14D7C1" opacity="0.6"/>
+          <path data-draw style="--wait:260ms" d="M2 31 L37 31" stroke="#14D7C1" opacity="0.32"/>
+          <path data-draw style="--wait:430ms" d="M45 3 L45 35" stroke="#DDE0E2"/>
+          <path data-draw style="--wait:580ms" d="M39 21 L44 21 M40 17 L44 21 L40 25" stroke="#FF6B5A"/>
+        </svg>
         <p class="n">Budget &amp; rate</p><h3>Hard ceilings</h3>
         <p>A lifetime total, a per-payment cap, and an amount per N blocks. The first bounds exposure; the last bounds how fast a compromise can drain.</p>
       </article>
       <article>
+        <!-- The allowlist as it actually is: a Merkle tree fixed before the
+             grant is funded. The lit leaf has a path to the root. The one
+             outside has none, and there is nothing to carry in its place. -->
+        <svg width="58" height="38" viewBox="0 0 58 38" fill="none" stroke-width="2" stroke-linecap="square">
+          <path data-draw style="--wait:0ms" d="M20 10 L9 21" stroke="#14D7C1"/>
+          <path data-draw style="--wait:110ms" d="M22 10 L33 21" stroke="#DDE0E2" opacity="0.4"/>
+          <rect data-draw style="--wait:230ms" x="16" y="2" width="10" height="8" stroke="#14D7C1"/>
+          <rect data-draw style="--wait:330ms" x="4" y="21" width="10" height="8" stroke="#14D7C1"/>
+          <rect data-draw style="--wait:400ms" x="28" y="21" width="10" height="8" stroke="#DDE0E2" opacity="0.4"/>
+          <path data-draw style="--wait:540ms" d="M46 20 L56 30 M56 20 L46 30" stroke="#FF6B5A"/>
+        </svg>
         <p class="n">Counterparty</p><h3>An allowlist, not a hope</h3>
         <p>Payees are committed as a Merkle root. Every spend carries an inclusion proof. Paying anyone else isn't rejected — no valid transaction exists.</p>
       </article>
       <article>
+        <!-- Authority nested inside authority. The child sits INSIDE the
+             parent rather than beside it: it spends the parent's budget, it
+             does not get one of its own. -->
+        <svg width="58" height="38" viewBox="0 0 58 38" fill="none" stroke-width="2" stroke-linecap="square">
+          <rect data-draw style="--wait:0ms" x="2" y="3" width="42" height="32" stroke="#14D7C1"/>
+          <rect data-draw style="--wait:280ms" x="12" y="11" width="24" height="18" stroke="#14D7C1" opacity="0.62"/>
+          <rect data-draw style="--wait:500ms" x="20" y="17" width="10" height="7" stroke="#DDE0E2" opacity="0.42"/>
+          <path data-draw style="--wait:640ms" d="M48 19 L56 19 M52 15 L56 19 L52 23" stroke="#DDE0E2" opacity="0.5"/>
+        </svg>
         <p class="n">Sub-agents</p><h3>Delegation without custody</h3>
         <p>An agent can hand a worker its own narrower grant — smaller caps, fewer payees, a shorter window — without asking you, and without ever exceeding its own budget.</p>
       </article>
       <article>
+        <!-- The covenant, and the one door out of it. The barred routes are
+             the ones revocation structurally cannot take. -->
+        <svg width="58" height="38" viewBox="0 0 58 38" fill="none" stroke-width="2" stroke-linecap="square">
+          <path data-draw style="--wait:0ms" d="M16 3 L30 9 L30 22 Q30 31 16 35 Q2 31 2 22 L2 9 Z" stroke="#14D7C1"/>
+          <path data-draw style="--wait:340ms" d="M36 19 L54 19 M49 14 L54 19 L49 24" stroke="#DDE0E2"/>
+          <path data-draw style="--wait:540ms" d="M38 6 L50 6 M42 3 L46 9" stroke="#FF6B5A" opacity="0.6"/>
+          <path data-draw style="--wait:640ms" d="M38 32 L50 32 M42 29 L46 35" stroke="#FF6B5A" opacity="0.6"/>
+        </svg>
         <p class="n">Exit</p><h3>A stop button that can't steal</h3>
         <p>Revocation is a separate key that halts a grant and returns the balance to you — and is structurally incapable of sending it anywhere else, or burning it.</p>
       </article>
@@ -256,13 +499,62 @@
   </div>
 </section>
 
-<section class="close">
+<section class="rule">
   <div class="wrap">
-    <p class="eyebrow">Built to be checked</p>
-    <h2>The limits are published as loudly as the guarantees.</h2>
-    <p>Six vulnerabilities have been found in this covenant so far. None was found by reading the code — each came from handing an attack to the real script engine and reading its verdict. All six are documented, fixed, and pinned by a test that fails if they return.</p>
+    <div data-rise>
+      <p class="eyebrow">Works today</p>
+      <h2>Two integrations, no glue.</h2>
+    </div>
+    <div class="with" data-rise style="--d:100ms">
+      <div>
+        <p class="h">Model Context Protocol</p>
+        <p class="d">Nine tools an agent framework can discover: what may I spend, where does my grant live, build me a payment, delegate, settle, revoke, and find a grant I have lost. It never sees a key.</p>
+      </div>
+      <div>
+        <p class="h">x402</p>
+        <p class="d"><code>@warda_protocol/x402</code> is a drop-in <code>fetch</code>. It calls a paid endpoint like a free one, pays the 402 out of the grant, and never pays twice for one resource.</p>
+      </div>
+      <div>
+        <p class="h">Kaspa L1</p>
+        <p class="d">Covenants went live on mainnet with the Toccata fork on 30 June 2026. No sidechain, no bridge, no rollup — the limit is enforced by the same consensus that moves the coin.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="rule">
+  <div class="wrap">
+    <div data-rise>
+      <p class="eyebrow">Built to be checked</p>
+      <h2>The limits are published as loudly as the guarantees.</h2>
+    </div>
+    <div class="counts" data-rise style="--d:100ms" data-counts>
+      <div>
+        <p class="lab">Vulnerabilities found</p>
+        <p class="num" data-to="6">0</p>
+        <p>Not one was found by reading the code. Each came from handing an attack to the real script engine and reading its verdict.</p>
+      </div>
+      <div>
+        <p class="lab">Adversarial probes</p>
+        <p class="num" data-to="14">0</p>
+        <p>Every fixed vulnerability is pinned by a probe that fails if it comes back.</p>
+      </div>
+      <div>
+        <p class="lab">Tests, four packages</p>
+        <p class="num" data-to="265">0</p>
+        <p>Including a fixture built from the live testnet payment — anchored on the chain, not on the encoder that wrote it.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="rule close">
+  <div class="wrap" data-rise>
+    <h2>Read it before you trust it.</h2>
+    <p>The covenant is 6,912 bytes of Silverscript, and the argument for it is entirely in what it refuses. The developer guide has the install, the lifecycle and the limits.</p>
     <div class="cta-row">
       <a class="cta primary" href="https://claude.ai/code/artifact/3821689d-e8c7-46d3-875a-0a47d459e8c7">Developer guide <span class="arw">&rarr;</span></a>
+      <a class="cta ghost" href="https://github.com/ArtyKOMarkets/warda">GitHub</a>
     </div>
   </div>
 </section>
@@ -270,5 +562,196 @@
 <footer>
   <div class="wrap">
     <p>Warda runs on Kaspa L1 covenants, activated on mainnet with the Toccata hard fork on 30 June 2026. The protocol itself has been exercised end to end on <strong>testnet-10 only</strong> and has not been deployed to mainnet or audited. Unaudited. Testnet first. Do not put money on this yet.</p>
+    <div class="ln">
+      <a href="https://github.com/ArtyKOMarkets/warda">Source</a>
+      <a href="https://www.npmjs.com/org/warda_protocol">npm</a>
+      <a href="/llms.txt">llms.txt</a>
+    </div>
   </div>
 </footer>
+
+<script>
+(function () {
+  "use strict";
+  var root = document.documentElement;
+  // Only now does hiding content become safe: if this script never runs, the
+  // page is still a page.
+  root.classList.add("js");
+
+  var still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ---- reveal ---------------------------------------------------------- */
+  var rise = [].slice.call(document.querySelectorAll("[data-rise]"));
+  if (!("IntersectionObserver" in window)) {
+    rise.forEach(function (el) { el.classList.add("seen"); });
+  } else {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        e.target.classList.add("seen");
+        io.unobserve(e.target);
+        if (e.target.hasAttribute("data-counts")) count(e.target);
+      });
+    }, { rootMargin: "0px 0px -12% 0px", threshold: 0.05 });
+    rise.forEach(function (el) { io.observe(el); });
+  }
+
+  /* ---- counters -------------------------------------------------------- */
+  function count(scope) {
+    [].slice.call(scope.querySelectorAll("[data-to]")).forEach(function (el) {
+      var to = parseInt(el.getAttribute("data-to"), 10);
+      if (still) { el.textContent = to; return; }
+      var t0 = performance.now(), dur = 1100;
+      (function step(now) {
+        var p = Math.min(1, (now - t0) / dur);
+        // Ease out, so it settles rather than stopping.
+        el.textContent = Math.round(to * (1 - Math.pow(1 - p, 3)));
+        if (p < 1) requestAnimationFrame(step);
+      })(t0);
+    });
+  }
+
+  /* ---- the drifting shield --------------------------------------------- */
+  var field = document.querySelector(".field svg"), glow = document.querySelector(".field .glow");
+  if (field && !still) {
+    var ticking = false;
+    var onScroll = function () {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(function () {
+        var max = Math.max(1, document.body.scrollHeight - innerHeight);
+        var p = Math.min(1, scrollY / max);
+        field.style.setProperty("--drift", (-p * 26).toFixed(2) + "vh");
+        field.style.setProperty("--spin", (p * 24).toFixed(2) + "deg");
+        glow.style.setProperty("--glow-y", (30 + p * 45).toFixed(1) + "%");
+        ticking = false;
+      });
+    };
+    addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+  } else if (field) {
+    field.parentNode.removeChild(field);
+  }
+
+  /* ---- the gate --------------------------------------------------------- */
+  /* The numbers are the grant's real ones. maxPerSpend 0.5 KAS, budget 3.0,  */
+  /* epoch allowance 1.0 — so the only check that separates the two payees is */
+  /* the allowlist, which is the point being made.                            */
+  var CASES = {
+    ok: {
+      to: "the vendor",
+      checks: [
+        ["within the per-payment cap", "0.2 ≤ 0.5 KAS", true],
+        ["within the remaining budget", "0.2 of 3.0 KAS", true],
+        ["within this epoch's allowance", "0.2 of 1.0 KAS", true],
+        ["payee proven in the allowlist", "inclusion proof carried", true]
+      ],
+      verdict: "ok",
+      head: "Accepted by the network",
+      body: 'The grant moves to <span class="hash">kaspatest:pp985pts…wk4dg</span> — the address <b>is</b> the state, so spending changes where the grant lives.',
+      used: 0.2
+    },
+    no: {
+      to: "someone the grant never committed to",
+      checks: [
+        ["within the per-payment cap", "0.2 ≤ 0.5 KAS", true],
+        ["within the remaining budget", "0.2 of 3.0 KAS", true],
+        ["within this epoch's allowance", "0.2 of 1.0 KAS", true],
+        ["payee proven in the allowlist", "no proof exists", false]
+      ],
+      verdict: "no",
+      head: "No valid transaction exists",
+      body: 'Not refused by a server, and not rejected by a node. There is <b>nothing to sign</b>: the allowlist is a Merkle root fixed before the grant was funded, and this payee is not in the tree.',
+      used: 0
+    }
+  };
+
+  var tabs = [].slice.call(document.querySelectorAll(".gate-tabs button")),
+      out = document.getElementById("gate-checks"),
+      toEl = document.getElementById("gate-to"),
+      verdict = document.getElementById("gate-verdict"),
+      bar = document.getElementById("budget-bar"),
+      num = document.getElementById("budget-num"),
+      replay = document.getElementById("gate-replay"),
+      timers = [],
+      active = "ok";
+
+  function clearTimers() { timers.forEach(clearTimeout); timers = []; }
+
+  function run(key) {
+    clearTimers();
+    var c = CASES[key];
+    active = key;
+    tabs.forEach(function (t) { t.setAttribute("aria-selected", String(t.getAttribute("data-case") === key)); });
+    toEl.textContent = c.to;
+    verdict.className = "verdict";
+    verdict.querySelector(".head").textContent = "";
+    verdict.querySelector(".body").innerHTML = "";
+    out.innerHTML = "";
+
+    var rows = c.checks.map(function (ch) {
+      var d = document.createElement("div");
+      d.className = "check " + (ch[2] ? "pass" : "fail");
+      d.innerHTML = '<span class="mk">' + (ch[2] ? "✓" : "✗") + '</span>' +
+                    '<span class="lbl"></span><span class="val"></span>';
+      // textContent, not innerHTML: these strings are ours, and keeping the
+      // habit means a later edit cannot turn a label into markup.
+      d.querySelector(".lbl").textContent = ch[0];
+      d.querySelector(".val").textContent = ch[1];
+      out.appendChild(d);
+      return d;
+    });
+
+    var step = still ? 0 : 260;
+    rows.forEach(function (r, i) {
+      timers.push(setTimeout(function () { r.classList.add("on"); }, step * i));
+    });
+    timers.push(setTimeout(function () {
+      verdict.className = "verdict on " + c.verdict;
+      verdict.querySelector(".head").textContent = c.head;
+      verdict.querySelector(".body").innerHTML = c.body;
+      bar.style.setProperty("--used", (c.used / 3 * 100).toFixed(1) + "%");
+      num.textContent = c.used.toFixed(1);
+    }, step * rows.length + (still ? 0 : 180)));
+  }
+
+  tabs.forEach(function (t) {
+    t.addEventListener("click", function () { run(t.getAttribute("data-case")); });
+  });
+  replay.addEventListener("click", function () { run(active); });
+
+  // Runs when it is looked at, not on load — otherwise the one animation
+  // worth watching plays to an empty screen.
+  var gate = document.querySelector(".gate");
+  if (gate && "IntersectionObserver" in window) {
+    var gio = new IntersectionObserver(function (es) {
+      es.forEach(function (e) { if (e.isIntersecting) { run("ok"); gio.disconnect(); } });
+    }, { threshold: 0.3 });
+    gio.observe(gate);
+  } else {
+    run("ok");
+  }
+
+  /* ---- the limit glyphs ------------------------------------------------ */
+  // Measure each path rather than guessing its length in the markup. A guess
+  // that is short leaves the stroke visibly cut off at the end of the draw,
+  // and one that is long starts it already half drawn.
+  [].slice.call(document.querySelectorAll("[data-draw]")).forEach(function (el) {
+    // getTotalLength lives on SVGGeometryElement, so it covers <rect> as well
+    // as <path>. Where it is missing the CSS fallback applies and the stroke
+    // simply appears instead of drawing, which is the right way to fail.
+    if (typeof el.getTotalLength !== "function") return;
+    try { el.style.setProperty("--len", Math.ceil(el.getTotalLength()) + ""); } catch (e) {}
+  });
+
+  var cols = document.querySelector("[data-draw-group]");
+  if (cols && "IntersectionObserver" in window) {
+    var cio = new IntersectionObserver(function (es) {
+      es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add("seen"); cio.disconnect(); } });
+    }, { threshold: 0.2 });
+    cio.observe(cols);
+  } else if (cols) {
+    cols.classList.add("seen");
+  }
+})();
+</script>

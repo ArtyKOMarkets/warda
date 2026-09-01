@@ -1,0 +1,10 @@
+{
+  "mcp_version": "2025-11-25",
+  "endpoints": [
+    {
+      "url": "https://mcp.wardaprotocol.com/mcp",
+      "transport": "streamable-http",
+      "capabilities": ["tools"]
+    }
+  ]
+}

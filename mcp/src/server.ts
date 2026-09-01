@@ -108,7 +108,7 @@ const SIGN_HELP =
   "fixed-width, so nothing else moves.";
 
 export function buildServer(): McpServer {
-  const server = new McpServer({ name: "warda", version: "0.4.0" });
+  const server = new McpServer({ name: "warda", version: "0.4.1" });
 const json = (v: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(v, null, 2) }] });
 
   server.registerTool(

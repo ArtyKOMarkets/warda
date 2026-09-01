@@ -13,7 +13,8 @@
  * builds to be byte-identical to the one testnet-10 accepted.
  */
 import { strict as assert } from "node:assert";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { test } from "node:test";
 
 import { buildSpend, loadTemplate } from "../src/build.ts";
@@ -144,4 +145,30 @@ test("the template is loaded from disk, not taken from the caller", () => {
   const tpl = loadTemplate();
   assert.equal(typeof tpl.baselineHex, "string");
   assert.ok(tpl.fields.some((f) => f.name === "principalKey"));
+});
+
+/**
+ * The template must be findable the way a USER installs this, not the way the
+ * repo happens to be laid out.
+ *
+ * Version 0.3.0 shipped resolving `../../sdk/covenant-template.json` relative
+ * to this module. In the repo the SDK lives in a directory called `sdk`, so
+ * every test passed. Installed from npm the package is called `kaspa`, the
+ * path pointed at `@warda_protocol/sdk/` — which does not exist — and every
+ * tool that builds a transaction failed. The tests could not see it because
+ * they ran in the only layout where it worked.
+ */
+test("the template resolves through the package, not through the repo layout", () => {
+  const require_ = createRequire(import.meta.url);
+  // This is the path an installed copy depends on. If the SDK ever stops
+  // exporting it, that is a breaking change and it should fail here rather
+  // than in somebody's agent.
+  const viaPackage = require_.resolve("@warda_protocol/kaspa/covenant-template.json");
+  assert.ok(existsSync(viaPackage), `the SDK must export covenant-template.json (looked at ${viaPackage})`);
+
+  const fromPackage = JSON.parse(readFileSync(viaPackage, "utf8"));
+  // And it must be the same covenant the server would otherwise load, or the
+  // fallback would silently derive addresses under a different one.
+  assert.equal(fromPackage.bytecodeLen, loadTemplate().bytecodeLen);
+  assert.equal(fromPackage.baselineHex, loadTemplate().baselineHex);
 });

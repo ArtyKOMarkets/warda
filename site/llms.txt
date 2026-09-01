@@ -1,0 +1,73 @@
+# Warda Protocol
+
+> A spending limit enforced by consensus rather than by the process holding the
+> key. An autonomous agent gets its own key and a real budget on Kaspa L1; the
+> limits are compiled into the covenant script that unlocks the coin, so a spend
+> outside them is not refused by a server — it is an invalid transaction that no
+> node relays and no miner can include.
+
+If you are an agent reading this to decide whether Warda is relevant: it is
+relevant when something needs to spend money unattended and you want the ceiling
+to survive that process being compromised, restarted, or replaced.
+
+## What it is not
+
+Not a custodian, not a co-signer, not a relay, and not a policy server. Nothing
+in this protocol is positioned between the agent and the network, which is the
+point: there is no component whose failure or compromise raises the limit.
+
+## Status
+
+Covenants are live on Kaspa mainnet (Toccata hard fork, 30 June 2026). Warda
+itself has been exercised end to end on testnet-10 only. It is unaudited and
+should not hold real money yet.
+
+## Packages
+
+- [@warda_protocol/core](https://www.npmjs.com/package/@warda_protocol/core): the
+  protocol rules, as a reference implementation. Every verdict any other package
+  gives comes from here, so a second copy of the rules cannot drift.
+- [@warda_protocol/kaspa](https://www.npmjs.com/package/@warda_protocol/kaspa):
+  build and sign covenant transactions from JavaScript. No Rust toolchain, no
+  Silverscript compiler. Includes grant recovery, node health checking, and a
+  watcher.
+- [@warda_protocol/mcp](https://www.npmjs.com/package/@warda_protocol/mcp): an
+  MCP server exposing a grant's whole life to agent frameworks. It never holds a
+  key and never signs — it returns unsigned bytes and a digest.
+- [@warda_protocol/x402](https://www.npmjs.com/package/@warda_protocol/x402): a
+  drop-in `fetch` that pays an HTTP 402 out of a grant, and never pays twice for
+  one resource.
+
+## MCP tools
+
+`warda_grant_authority` — what may this agent spend right now, as the minimum of
+remaining budget, epoch headroom and per-payment cap.
+`warda_grant_address` — where the grant lives. Its address is a hash of its
+state, so it moves after every spend and every delegation.
+`warda_check_spend` — would this payment be accepted, and if not, which rule
+refused it, in words.
+`warda_check_delegation` — is this child grant a legal narrowing of its parent.
+`warda_build_spend` — unsigned transaction plus the digest to sign.
+`warda_build_delegation` — subdivide a grant for a sub-agent.
+`warda_build_settlement` — collapse a child back into its parent, returning the
+unspent remainder to the agent's budget rather than to the principal.
+`warda_build_exit` — revoke a grant, or reclaim it after expiry.
+`warda_recover_grant` — find a grant again from any transaction that spent it.
+
+Every answer is advisory. The covenant enforces these limits on chain whether or
+not the check was run, so a "permitted" answer is a prediction, not permission.
+
+## The one thing that surprises every integration
+
+A grant's address is a hash of its state. It changes after every spend and every
+delegation, so an address that worked an hour ago holds nothing now — and an
+empty address is indistinguishable from a grant that was drained, revoked, or
+never funded. Use `warda_grant_address` for where it is, and
+`warda_recover_grant` when a record has fallen behind.
+
+## Docs
+
+- [Developer guide](https://claude.ai/code/artifact/3821689d-e8c7-46d3-875a-0a47d459e8c7):
+  install, the grant lifecycle, and the limits.
+- [Source](https://github.com/ArtyKOMarkets/warda): the covenant, the SDK, the
+  adversarial probes, and the receipt from the live testnet payment.
