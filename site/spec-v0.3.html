@@ -1,0 +1,653 @@
+<title>Warda Protocol v0.3</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap">
+<style>
+  :root {
+    --ground: #F5F7F8;
+    --surface: #FFFFFF;
+    --sunk: #ECEFF1;
+    --ink: #14181C;
+    --ink-soft: #414B54;
+    --muted: #6B7580;
+    --rule: #DCE2E6;
+    --accent: #0B8578;
+    --accent-soft: #E2F1EF;
+    --refused: #A8382C;
+    --refused-soft: #F7E7E4;
+    --shadow: 0 1px 2px rgba(20, 24, 28, .06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0D1114;
+      --surface: #141A1E;
+      --sunk: #1B2227;
+      --ink: #E3E8EA;
+      --ink-soft: #B3BDC4;
+      --muted: #838E97;
+      --rule: #232B31;
+      --accent: #3FC7B4;
+      --accent-soft: #12312E;
+      --refused: #E8776A;
+      --refused-soft: #351C19;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0D1114;
+    --surface: #141A1E;
+    --sunk: #1B2227;
+    --ink: #E3E8EA;
+    --ink-soft: #B3BDC4;
+    --muted: #838E97;
+    --rule: #232B31;
+    --accent: #3FC7B4;
+    --accent-soft: #12312E;
+    --refused: #E8776A;
+    --refused-soft: #351C19;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 0 28px 96px;
+  }
+
+  /* ---- masthead ---- */
+  .masthead {
+    border-bottom: 1px solid var(--rule);
+    padding: 64px 0 32px;
+    margin-bottom: 48px;
+  }
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11.5px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+    margin-bottom: 22px;
+  }
+  h1 {
+    font-family: "IBM Plex Serif", Georgia, serif;
+    font-size: clamp(38px, 6vw, 60px);
+    line-height: 1.02;
+    letter-spacing: -.022em;
+    font-weight: 600;
+    margin: 0 0 20px;
+    text-wrap: balance;
+  }
+  .standfirst {
+    font-family: "IBM Plex Serif", Georgia, serif;
+    font-size: clamp(18px, 2.3vw, 21px);
+    line-height: 1.5;
+    color: var(--ink-soft);
+    max-width: 34em;
+    margin: 0;
+  }
+
+  /* ---- sections ---- */
+  section { margin: 0 0 56px; scroll-margin-top: 24px; }
+
+  .sec-head {
+    display: grid;
+    grid-template-columns: 3.2rem 1fr;
+    gap: 0 16px;
+    align-items: baseline;
+    border-top: 1px solid var(--rule);
+    padding-top: 14px;
+    margin-bottom: 20px;
+  }
+  .sec-num {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12px;
+    color: var(--accent);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  h2 {
+    font-size: 23px;
+    line-height: 1.25;
+    letter-spacing: -.012em;
+    font-weight: 600;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .sec-body { padding-left: 0; }
+  @media (min-width: 720px) {
+    .sec-body { padding-left: calc(3.2rem + 16px); }
+  }
+
+  h3 {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -.005em;
+    margin: 32px 0 10px;
+  }
+
+  p { margin: 0 0 16px; max-width: 65ch; }
+  .lead { color: var(--ink-soft); }
+  strong { font-weight: 600; }
+  em { font-style: italic; }
+
+  ul { margin: 0 0 16px; padding-left: 20px; max-width: 65ch; }
+  li { margin-bottom: 7px; }
+  li::marker { color: var(--muted); }
+
+  code {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .875em;
+    background: var(--sunk);
+    padding: .12em .38em;
+    border-radius: 3px;
+    word-break: break-word;
+  }
+
+  a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+
+  /* ---- status chips: the one device that carries real information ---- */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 10.5px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 3px;
+    border: 1px solid;
+    white-space: nowrap;
+    vertical-align: 2px;
+  }
+  .chip-live { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+  .chip-built { color: var(--ink-soft); border-color: var(--rule); background: var(--sunk); }
+  .chip-none { color: var(--muted); border-color: var(--rule); background: transparent; }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 22px;
+    padding: 14px 18px;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    margin-bottom: 28px;
+    font-size: 13.5px;
+    color: var(--ink-soft);
+  }
+  .legend div { display: flex; align-items: center; gap: 9px; }
+
+  /* ---- evidence ---- */
+  .evidence {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    padding: 18px 20px;
+    margin: 0 0 24px;
+    box-shadow: var(--shadow);
+  }
+  .evidence-title {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+  }
+  .evidence.refused { border-left-color: var(--refused); }
+
+  .kv { display: grid; gap: 10px 20px; }
+  @media (min-width: 640px) { .kv { grid-template-columns: 15rem 1fr; } }
+  .kv dt {
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .kv dd {
+    margin: 0;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    word-break: break-all;
+    color: var(--ink);
+  }
+  .kv dd.plain { font-family: inherit; font-size: 14px; word-break: normal; }
+
+  pre {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12.5px;
+    line-height: 1.6;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    margin: 0 0 22px;
+    color: var(--ink-soft);
+  }
+  pre .ok { color: var(--accent); }
+  pre .no { color: var(--refused); }
+  pre .cm { color: var(--muted); }
+
+  blockquote {
+    font-family: "IBM Plex Serif", Georgia, serif;
+    font-size: 19px;
+    line-height: 1.5;
+    font-style: italic;
+    color: var(--ink);
+    margin: 26px 0;
+    padding-left: 20px;
+    border-left: 2px solid var(--accent);
+    max-width: 40em;
+  }
+
+  .callout {
+    background: var(--refused-soft);
+    border: 1px solid var(--refused);
+    border-radius: 4px;
+    padding: 16px 20px;
+    margin: 0 0 24px;
+  }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout .label {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--refused);
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+
+  table { border-collapse: collapse; width: 100%; font-size: 14px; margin: 0 0 22px; }
+  .table-wrap { overflow-x: auto; margin-bottom: 22px; }
+  .table-wrap table { margin-bottom: 0; }
+  th {
+    text-align: left;
+    font-size: 11px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+    padding: 0 16px 8px 0;
+    border-bottom: 1px solid var(--rule);
+    white-space: nowrap;
+  }
+  td {
+    padding: 11px 16px 11px 0;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+    color: var(--ink-soft);
+  }
+  td:first-child { color: var(--ink); }
+  td.mono { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12px; word-break: break-all; }
+
+  footer {
+    border-top: 1px solid var(--rule);
+    margin-top: 64px;
+    padding-top: 24px;
+    font-size: 13px;
+    color: var(--muted);
+    max-width: 65ch;
+  }
+</style>
+
+<div class="page">
+
+  <header class="masthead">
+    <div class="eyebrow">
+      <span>Warda Protocol</span>
+      <span>v0.3 · Draft</span>
+      <span>August 2026</span>
+      <span>Kaspa testnet-10</span>
+    </div>
+    <h1>Give agents money.<br>Not unlimited authority.</h1>
+    <p class="standfirst">Warda is an economic authority layer for autonomous agents. A principal issues a bounded grant; the agent spends against it directly; the network refuses anything outside its limits. No co-signer, no custodian, no policy server in the path.</p>
+  </header>
+
+  <section id="status">
+    <div class="sec-head">
+      <div class="sec-num">01</div>
+      <h2>What actually runs</h2>
+    </div>
+    <div class="sec-body">
+      <p class="lead">The previous draft described a plan. This one separates what is on a public network from what is written but unbroadcast, and from what does not exist. Every claim below is either a transaction id or a limitation.</p>
+
+      <div class="legend">
+        <div><span class="chip chip-live">On chain</span> accepted by testnet-10</div>
+        <div><span class="chip chip-built">Built</span> engine-verified, not broadcast</div>
+        <div><span class="chip chip-none">Not built</span> described only</div>
+      </div>
+
+      <div class="evidence">
+        <div class="evidence-title">Deployment · rusty-kaspa v2.0.1 · covenant 3,036 bytes</div>
+        <dl class="kv">
+          <dt>Covenant id</dt>
+          <dd>f7947f65000b60e59819b02b93b5fd1761772f4edcf07010268ab7eefad375f8</dd>
+          <dt>Genesis <span class="chip chip-live">On chain</span></dt>
+          <dd>626736a3a202e838e4d0adca095c8660cb46638da3910bf89f589deb571343d4</dd>
+          <dt>Agent spend, accepted <span class="chip chip-live">On chain</span></dt>
+          <dd>36f3dff2e5218651d80e62f1c7e620313a58fbc6ecd18a81d68050a33544fb55</dd>
+          <dt>Spend assembled in JavaScript <span class="chip chip-live">On chain</span></dt>
+          <dd>7dbc957fbf87ca26bc9b83ec81849f4f713c255fa6d39f44a53301813ceb86ba</dd>
+        </dl>
+      </div>
+
+      <div class="evidence refused">
+        <div class="evidence-title">The refusal — same grant, same address, same key</div>
+        <dl class="kv">
+          <dt>Prompt injection, refused</dt>
+          <dd>e251a20effea166c90f9cf4f19e28073856e57b3dc9ef0209269347e7a1396f1</dd>
+          <dt>Node response</dt>
+          <dd class="plain">failed to verify the signature script: script ran, but verification failed</dd>
+        </dl>
+      </div>
+
+      <p>The accepted spend and the refused one differ in a single field: the payee. That is what makes the pair evidence rather than two anecdotes. The agent built and signed the second one willingly — there is simply no proof that places the attacker in the recipients tree.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Capability</th><th>Status</th><th>Where it stands</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Issue a grant</td><td><span class="chip chip-live">On chain</span></td><td>Also buildable in JavaScript; engine-verified</td></tr>
+            <tr><td>Spend within limits</td><td><span class="chip chip-live">On chain</span></td><td>Rust and JavaScript paths both accepted</td></tr>
+            <tr><td>Refuse an unlisted payee</td><td><span class="chip chip-live">On chain</span></td><td>Consensus rejection, with txid</td></tr>
+            <tr><td>Delegate to a sub-agent</td><td><span class="chip chip-built">Built</span></td><td>Consensus engine accepts it; never broadcast</td></tr>
+            <tr><td>Revoke</td><td><span class="chip chip-built">Built</span></td><td>Covenant entrypoint; no on-chain exercise</td></tr>
+            <tr><td>Reclaim after expiry</td><td><span class="chip chip-built">Built</span></td><td>Covenant entrypoint; no on-chain exercise</td></tr>
+            <tr><td>Find a grant's current UTXO</td><td><span class="chip chip-none">Not built</span></td><td>SDK has no node client; needs one</td></tr>
+            <tr><td>Escrow</td><td><span class="chip chip-none">Not built</span></td><td>A separate covenant, not an SDK method</td></tr>
+            <tr><td>Registry, discovery, reputation</td><td><span class="chip chip-none">Not built</span></td><td>Design sketch only</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>Test coverage as it stands: 66 SDK tests, 17 MCP server tests, and a covenant harness that runs every case through <code>TxScriptEngine</code> — the same script engine a node runs — rather than through a reimplementation of it.</p>
+    </div>
+  </section>
+
+  <section id="grant">
+    <div class="sec-head">
+      <div class="sec-num">02</div>
+      <h2>The primitive is a grant</h2>
+    </div>
+    <div class="sec-body">
+      <p>A <strong>grant</strong> is a UTXO locked by a covenant. It names an agent key, a total budget, a per-spend cap, a per-epoch cap, a validity window, an allowlist of recipients, and a delegation depth.</p>
+
+      <p>The word matters. An earlier draft called this a <em>mandate</em>, which is the core noun of AP2 — a protocol this one is meant to sit underneath, not compete with. Reusing it would make every integration conversation begin with a disambiguation. Warda issues <strong>grants</strong>; AP2 issues mandates; a grant can be the enforcement backend for one.</p>
+
+      <pre>Grant {
+    principalKey       <span class="cm">// who may reclaim after expiry</span>
+    revocationKey      <span class="cm">// who may revoke</span>
+    agentKey           <span class="cm">// who may spend</span>
+    budgetTotal
+    maxPerSpend
+    epochLimit
+    epochLength
+    recipientsRoot     <span class="cm">// merkle root of the allowlist</span>
+    notBefore
+    expiresAt
+    delegationDepth
+    <span class="cm">// mutable state — the address is derived from these too</span>
+    spentTotal
+    reserved
+    epochIndex
+    epochSpent
+}</pre>
+
+      <p>There is no separate identifier field. A grant's <em>address</em> is the hash of the covenant compiled with its state, so the state <em>is</em> the identity. One consequence is load-bearing and surprises everyone once:</p>
+
+      <blockquote>Spending moves the grant. The continuation output goes to a different address, because the address commits to <code>spentTotal</code> and <code>epochSpent</code>.</blockquote>
+
+      <p>Sending the remainder back to the input's own address produces an output that no longer matches its own state, and is unspendable forever. Any client that tracks a grant must follow it.</p>
+    </div>
+  </section>
+
+  <section id="enforced">
+    <div class="sec-head">
+      <div class="sec-num">03</div>
+      <h2>Exactly what consensus enforces</h2>
+    </div>
+    <div class="sec-body">
+      <p class="lead">This list is the covenant's, not a summary of intent. Each line corresponds to a <code>require</code> in the deployed script.</p>
+
+      <pre><span class="cm">// every spend</span>
+amount &gt; 0
+amount &lt;= maxPerSpend
+amount &lt;= budgetTotal - (spentTotal + reserved)
+amount &lt;= epochLimit - spentThisEpoch
+merkleRoot(recipient, proof) == recipientsRoot
+claimedDaa &gt;= notBefore
+tx.daa &gt;= claimedDaa
+successor state follows exactly
+checkSig(agentSig, agentKey)</pre>
+
+      <div class="callout">
+        <span class="label">Correction to v0.2</span>
+        <p>v0.2 listed <code>current_DAA &lt; expires_at</code> as a spend constraint. <strong>It is not, and it cannot be.</strong> A UTXO covenant only executes when the UTXO is spent, and CLTV expresses "not before", never "must be before". The deployed spend path contains no expiry check.</p>
+        <p>Expiry is a <strong>reclaim right</strong>: after <code>expiresAt</code> the principal can sweep the balance, and until they do, the agent's spend path still works. v0.2's lifecycle diagram inherits the same error — nothing on chain performs an <code>EXPIRE</code> transition.</p>
+      </div>
+
+      <p>This distinction is not pedantry. A service reading v0.2 would conclude that an expired grant is inert, and it is not. What expiry gives the principal is a unilateral exit, not a guarantee that the agent has stopped.</p>
+
+      <h3>Why the agent supplies the DAA score</h3>
+      <p>Kaspa's DAA score cannot be read as a value inside a script; it can only be constrained. So the agent asserts a <code>claimedDaa</code> and the covenant pins it with <code>tx.daa &gt;= claimedDaa</code>, which compiles to a lock. Understating it only costs the agent epoch headroom; overstating it is impossible, because the lock would hold the transaction until the chain caught up. The direction that is convenient is also the direction that is sound.</p>
+    </div>
+  </section>
+
+  <section id="conservation">
+    <div class="sec-head">
+      <div class="sec-num">04</div>
+      <h2>Delegation cannot amplify authority</h2>
+    </div>
+    <div class="sec-body">
+      <p>An agent can hand a narrower grant to a sub-agent without asking the principal and without custody. Delegation is a 1:2 fanout: the parent continues at output 0, the child is created at output 1.</p>
+
+      <pre><span class="cm">// every child</span>
+child.budgetTotal      &lt;= parent.budgetTotal - (spentTotal + reserved)
+child.maxPerSpend      &lt;= parent.maxPerSpend
+child.epochLimit       &lt;= parent.epochLimit
+child.epochLength      == parent.epochLength
+child.notBefore        &gt;= parent.notBefore
+child.expiresAt        &lt;= parent.expiresAt
+child.delegationDepth  &lt;  parent.delegationDepth
+child.recipientsRoot   == parent.recipientsRoot
+child.spentTotal == reserved == epochIndex == epochSpent == 0
+
+<span class="cm">// and the parent moves ONLY its reserve</span>
+parentNext.reserved == parent.reserved + child.budgetTotal
+<span class="cm">// every other field checked equal</span>
+
+<span class="cm">// value follows authority, exactly</span>
+tx.outputs[1].value == child.budgetTotal</pre>
+
+      <p><strong>Conservation is the property that makes the hierarchy real.</strong> The parent reserves precisely what the child receives, and coins move with it. A child holding authority but no coins could pay nobody. A child holding coins but no reserve against its parent would double the tree's total — the same KAS spendable twice, from two addresses, both legitimately.</p>
+
+      <pre>100 KAS
+  │
+  ├─ 30 KAS ─► Agent B        A =  50   (100 − 30 − 20)
+  │                           B =  30
+  └─ 20 KAS ─► Agent C        C =  20
+                              ───────
+                              total 100</pre>
+
+      <p>Recipient narrowing is the one axis that is <em>not</em> yet attenuable. Set inclusion is not decidable from a Merkle root alone, so a child inherits its parent's allowlist verbatim. Narrowing needs per-member inclusion proofs; the reference implementation has a subset witness for it, the covenant does not yet.</p>
+    </div>
+  </section>
+
+  <section id="settlement">
+    <div class="sec-head">
+      <div class="sec-num">05</div>
+      <h2>Settlement modes, and what each one risks</h2>
+    </div>
+    <div class="sec-body">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Mode</th><th>Service provided</th><th>What you are trading</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Optimistic</td>
+              <td>On valid authority presentation</td>
+              <td>A presentation proves authority <em>existed at the DAA observed</em>. It does not prove the spend will land. An agent can present the same headroom to three services and pay one.</td>
+            </tr>
+            <tr>
+              <td>Confirmed</td>
+              <td>After the transaction is accepted</td>
+              <td>Latency. This is the honest default for anything above trivial value.</td>
+            </tr>
+            <tr>
+              <td>Escrowed</td>
+              <td>After conditional release</td>
+              <td>Nothing yet — <span class="chip chip-none">Not built</span>. Escrow is a separate covenant with multi-party release, timeout and dispute paths, not a method on the grant.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>Optimistic settlement is right for sub-cent metered calls, where the cost of being double-served is below the cost of waiting. It is worth stating the failure mode explicitly rather than letting an integrator discover it: <strong>authority is not a reservation.</strong></p>
+    </div>
+  </section>
+
+  <section id="verification">
+    <div class="sec-head">
+      <div class="sec-num">06</div>
+      <h2>Verification, and its current limit</h2>
+    </div>
+    <div class="sec-body">
+      <p>A counterparty should be able to answer a sharper question than "does this agent have money":</p>
+
+      <blockquote>Is this agent authorized to spend this amount, on this action, right now?</blockquote>
+
+      <p>That check is reproducible from public data — the grant's parameters, its current state, and a signed presentation binding the request. No hosted service is required, and no hosted service may be the source of truth. A Warda API can make verification convenient; it must never be able to expand an already-issued grant.</p>
+
+      <div class="callout">
+        <span class="label">Honest limitation</span>
+        <p>Confirming a grant <em>exists and is unspent</em> means reading the UTXO set, and the SDK has no node client yet. Today, independent verification means running a node. Until that gap closes, "independently verifiable" is a property of the protocol rather than a convenience of the tooling.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="position">
+    <div class="sec-head">
+      <div class="sec-num">07</div>
+      <h2>Where this sits</h2>
+    </div>
+    <div class="sec-body">
+      <p>Warda replaces none of the protocols agents already speak. It answers a question the others leave open.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Layer</th><th>Answers</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>x402</td><td>What does this service cost?</td></tr>
+            <tr><td>MCP / A2A</td><td>How do agents call and talk to each other?</td></tr>
+            <tr><td>AP2</td><td>What did the user authorize, and how is intent carried?</td></tr>
+            <tr><td>A wallet</td><td>Where is the money?</td></tr>
+            <tr><td><strong>Warda</strong></td><td><strong>What is this agent allowed to spend, on what, until when?</strong></td></tr>
+            <tr><td>Kaspa</td><td>Is the transaction valid?</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>The MCP server is the integration that exists today. It exposes four tools — remaining headroom, a spend check, a delegation check, and one that <em>builds an unsigned transaction and returns the digest to sign</em>. It never holds a key. An agent framework can therefore reach a ready-to-sign payment without any Kaspa integration of its own.</p>
+
+      <p>Every response it returns carries an <code>enforcement</code> field stating that the answer is advisory. That is not modesty. The server's verdict is not what stops a bad spend; the covenant is. A server whose rules drifted from the chain's would be worse than no server, because it could tell an agent yes where the chain says no.</p>
+    </div>
+  </section>
+
+  <section id="trust">
+    <div class="sec-head">
+      <div class="sec-num">08</div>
+      <h2>Trust model</h2>
+    </div>
+    <div class="sec-body">
+      <p>The design assumes the agent is compromised. That is the premise, not an edge case.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Component</th><th>Trusted for authority?</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>The agent</td><td>No — assume prompt injection and key compromise</td></tr>
+            <tr><td>The wallet</td><td>No — it may sign anything the agent asks</td></tr>
+            <tr><td>Any hosted Warda service</td><td>No — optional convenience only</td></tr>
+            <tr><td>The SDK</td><td>No — it lays out bytes; it decides nothing</td></tr>
+            <tr><td>Kaspa consensus</td><td>Yes — this is the enforcement point</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>The same principle shapes the SDK's scope. It assembles transactions and refuses to reimplement the rules, because the two failure modes are not symmetric: a divergence in <em>assembly</em> produces a transaction the network rejects, while a divergence in <em>rules</em> produces one it wrongly accepts. Only the second drains a budget.</p>
+    </div>
+  </section>
+
+  <section id="open">
+    <div class="sec-head">
+      <div class="sec-num">09</div>
+      <h2>Open questions</h2>
+    </div>
+    <div class="sec-body">
+      <ul>
+        <li><strong>Recipient narrowing on chain.</strong> A subset witness exists in the reference implementation; the covenant enforces root equality only.</li>
+        <li><strong>Descendant revocation.</strong> Revoking a parent should invalidate its children. Structural parent-state linkage is the current answer; an accumulator is the alternative.</li>
+        <li><strong>Epoch boundaries.</strong> Fixed epochs keep state bounded and make the boundary visible: an allowance resets at a step, not on a rolling window. A sliding window is deferred, deliberately.</li>
+        <li><strong>Escrow topology.</strong> Multi-party release and timeout paths in a UTXO covenant are a different design problem from a single-agent grant.</li>
+        <li><strong>Multi-asset.</strong> Deferred, because valuing one asset against another needs an oracle and a grant should express <em>10 KAS</em>, not <em>$10 worth</em>.</li>
+        <li><strong>A node client for the SDK.</strong> The gap named in §06, and a prerequisite for a verification product.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="validation">
+    <div class="sec-head">
+      <div class="sec-num">10</div>
+      <h2>The question that decides whether this is worth building</h2>
+    </div>
+    <div class="sec-body">
+      <p class="lead">The covenant works. That is not the same as the protocol being needed, and the technology being interesting is not evidence either way.</p>
+
+      <p>Three statements have to come from someone other than the author:</p>
+
+      <ul>
+        <li>A developer: <em>"I need to give an autonomous agent access to money, and I do not want to give it unrestricted authority."</em></li>
+        <li>A service provider: <em>"Before I provide this, I want to know the agent is actually authorized to pay for it."</em></li>
+        <li>Either of them, having integrated it into something real.</li>
+      </ul>
+
+      <p>Of the commercial directions sketched so far, verification is the only one testable without an enterprise sale — a service provider either wants that call or does not. It is therefore the cheapest experiment, and the one that would answer the second statement directly.</p>
+
+      <p>This section sat at number 54 in the previous draft. It belongs here.</p>
+    </div>
+  </section>
+
+  <footer>
+    <p>Warda v0.3 — draft for comment. Experimental, unaudited, testnet only. Do not use with production funds. The transaction ids above are on Kaspa testnet-10 and can be checked independently; every capability not marked <span class="chip chip-live">On chain</span> is a claim about code, not about a network.</p>
+  </footer>
+
+</div>

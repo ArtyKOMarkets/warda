@@ -1,0 +1,205 @@
+<title>Warda Protocol</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+  :root {
+    --void:        #06090C;
+    --ground:      #0A1014;
+    --panel:       #101A20;
+    --edge:        #1E2E37;
+    --edge-bright: #2C4350;
+
+    --chrome:      #DDE0E2;
+    --chrome-dim:  #8D989E;
+    --chrome-faint:#5D6B73;
+
+    --teal:        #14D7C1;
+    --teal-bright: #38F9E9;
+    --teal-deep:   #06BBA1;
+    --teal-ghost:  rgba(20, 215, 193, 0.10);
+    --refuse:      #FF6B5A;
+
+    --display: "Chakra Petch", "Arial Narrow", sans-serif;
+    --body: "Barlow", "Helvetica Neue", Arial, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    --gutter: clamp(1.15rem, 4vw, 3.4rem);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0; background: var(--void); color: var(--chrome);
+    font-family: var(--body); font-size: 17px; line-height: 1.66;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 74rem; margin: 0 auto; padding: 0 var(--gutter); }
+
+  h1, h2, h3 { font-family: var(--display); font-weight: 700; margin: 0; line-height: 1.14; letter-spacing: -0.005em; text-wrap: balance; }
+  h2 { font-size: clamp(1.5rem, 3vw, 2.15rem); }
+  h3 { font-size: 1.08rem; font-weight: 600; }
+  p { margin: 0 0 1.05em; }
+  a { color: var(--chrome); text-decoration-color: var(--teal-deep); text-underline-offset: 3px; }
+  a:hover { color: var(--teal-bright); }
+  :focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
+
+  .eyebrow { font-family: var(--mono); font-size: 0.68rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.17em; color: var(--teal); margin: 0 0 0.9rem; }
+
+  section { padding: clamp(3.2rem, 7vw, 5.4rem) 0; border-top: 1px solid var(--edge); }
+
+  /* ---- hero: the mark carries it, over a faint field glow --------------- */
+  .hero {
+    border-top: 0; text-align: center;
+    padding: clamp(2.8rem, 7vw, 5rem) 0 clamp(3rem, 7vw, 5rem);
+    position: relative; overflow: hidden;
+  }
+  .hero::before {
+    content: ""; position: absolute; inset: -30% -10% auto -10%; height: 130%;
+    background: radial-gradient(ellipse 52% 46% at 50% 34%, rgba(20,215,193,0.11), transparent 68%);
+    pointer-events: none;
+  }
+  .hero > .wrap { position: relative; }
+  .hero img { width: min(430px, 82vw); height: auto; display: block; margin: 0 auto clamp(1.6rem, 3.6vw, 2.4rem); }
+  .thesis {
+    font-family: var(--display); font-weight: 700;
+    font-size: clamp(1.65rem, 4.4vw, 3rem); line-height: 1.16;
+    letter-spacing: -0.01em; max-width: 19ch; margin: 0 auto 1.3rem;
+  }
+  .thesis .lit { color: var(--teal); }
+  .hero .sub { font-size: clamp(1rem, 1.7vw, 1.16rem); color: var(--chrome-dim); max-width: 52ch; margin: 0 auto 2.2rem; }
+
+  .cta-row { display: flex; gap: 0.8rem; justify-content: center; flex-wrap: wrap; }
+  .cta {
+    font-family: var(--mono); font-size: 0.8rem; font-weight: 500;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 0.82rem 1.5rem; text-decoration: none; border: 1px solid;
+    display: inline-flex; align-items: center; gap: 0.6rem;
+  }
+  .cta.primary { background: var(--teal); border-color: var(--teal); color: var(--void); font-weight: 700; }
+  .cta.primary:hover { background: var(--teal-bright); border-color: var(--teal-bright); color: var(--void); }
+  .cta.ghost { border-color: var(--edge-bright); color: var(--chrome-dim); }
+  .cta.ghost:hover { border-color: var(--teal); color: var(--teal-bright); }
+  .cta .arw { font-family: var(--body); }
+
+  .statline {
+    margin-top: 2.6rem; font-family: var(--mono); font-size: 0.7rem;
+    color: var(--chrome-faint); letter-spacing: 0.04em;
+    display: flex; gap: 0.55rem 1.5rem; justify-content: center; flex-wrap: wrap;
+  }
+  .statline b { color: var(--teal-deep); font-weight: 500; }
+
+  /* ---- the problem, stated once ---------------------------------------- */
+  .claim { max-width: 42ch; }
+  .claim-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.1fr); gap: clamp(2rem, 5vw, 4.5rem); align-items: start; }
+  @media (max-width: 880px) { .claim-grid { grid-template-columns: 1fr; } }
+  .big { font-size: 1.16rem; color: var(--chrome-dim); }
+  .big strong { color: var(--chrome); font-weight: 500; }
+
+  .quote {
+    border-left: 2px solid var(--refuse); background: var(--ground);
+    padding: 1.15rem 1.3rem; font-size: 0.98rem; color: var(--chrome-dim);
+  }
+  .quote q { color: var(--chrome); font-style: italic; }
+  .quote cite { display: block; margin-top: 0.7rem; font-family: var(--mono); font-size: 0.68rem; font-style: normal; color: var(--chrome-faint); text-transform: uppercase; letter-spacing: 0.11em; }
+  .answer { border-left-color: var(--teal); margin-top: 1rem; }
+  .answer q { color: var(--chrome); font-style: normal; }
+
+  /* ---- capability tiles ------------------------------------------------ */
+  .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(15.5rem,1fr)); gap: 1px; background: var(--edge); border: 1px solid var(--edge); margin-top: 2.2rem; }
+  .cols > article { background: var(--void); padding: 1.4rem 1.35rem 1.5rem; }
+  .cols > article .n { font-family: var(--mono); font-size: 0.64rem; letter-spacing: 0.13em; text-transform: uppercase; color: var(--teal); margin-bottom: 0.45rem; }
+  .cols > article h3 { margin-bottom: 0.4rem; }
+  .cols > article p { font-size: 0.91rem; color: var(--chrome-dim); margin-bottom: 0; }
+
+  /* ---- closing ---- */
+  .close { text-align: center; }
+  .close h2 { max-width: 20ch; margin: 0 auto 1rem; }
+  .close p { color: var(--chrome-dim); max-width: 48ch; margin: 0 auto 2rem; }
+
+  footer { border-top: 1px solid var(--edge); padding: 2.2rem 0 3rem; }
+  footer p { font-family: var(--mono); font-size: 0.7rem; color: var(--chrome-faint); line-height: 1.75; max-width: 64ch; }
+  footer strong { color: var(--chrome-dim); }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .cta, a { transition: background-color 130ms ease, border-color 130ms ease, color 130ms ease; }
+  }
+</style>
+
+<section class="hero">
+  <div class="wrap">
+    <img src="{{LOCKUP}}" alt="Warda Protocol — economic infrastructure for autonomous agents">
+    <p class="thesis">A spending limit the <span class="lit">network</span> enforces.</p>
+    <p class="sub">Give an autonomous agent its own key and a real budget on Kaspa. It spends unattended — no co-signing, no relay, no custody — and consensus rejects anything outside its limits.</p>
+    <div class="cta-row">
+      <a class="cta primary" href="https://claude.ai/code/artifact/3821689d-e8c7-46d3-875a-0a47d459e8c7">If you're building, start here <span class="arw">&rarr;</span></a>
+      <a class="cta ghost" href="https://github.com/ArtyKOMarkets/warda">Read the source</a>
+    </div>
+    <div class="statline">
+      <span>Kaspa L1 covenants</span>
+      <span><b>14</b> adversarial probes, all behaving</span>
+      <span><b>6</b> vulnerabilities found and fixed</span>
+      <span>testnet-10</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap claim-grid">
+    <div>
+      <p class="eyebrow">The problem</p>
+      <h2 class="claim">Every agent that spends money today is trusted not to.</h2>
+      <p class="big" style="margin-top:1.3rem">The standard pattern is a hot wallet holding "only what the agent should spend", and a counter in the code that pays. Both halves fail the same way: <strong>the limit lives in the process</strong>.</p>
+    </div>
+    <div>
+      <blockquote class="quote">
+        <q>Once the server has spent that much it refuses further calls until restarted.</q>
+        <cite>A production agent-payments library, describing its own spending cap</cite>
+      </blockquote>
+      <blockquote class="quote answer">
+        <q>A Warda grant's limits are part of the script that unlocks the coin. A spend exceeding them is not refused by a server — it is an invalid transaction. No node relays it. No miner can include it.</q>
+        <cite>Restarting changes nothing · neither does stealing the key</cite>
+      </blockquote>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">What a grant gives you</p>
+    <h2 style="max-width:24ch">Authority you can hand over and still bound.</h2>
+    <div class="cols">
+      <article>
+        <p class="n">Budget &amp; rate</p><h3>Hard ceilings</h3>
+        <p>A lifetime total, a per-payment cap, and an amount per N blocks. The first bounds exposure; the last bounds how fast a compromise can drain.</p>
+      </article>
+      <article>
+        <p class="n">Counterparty</p><h3>An allowlist, not a hope</h3>
+        <p>Payees are committed as a Merkle root. Every spend carries an inclusion proof. Paying anyone else isn't rejected — no valid transaction exists.</p>
+      </article>
+      <article>
+        <p class="n">Sub-agents</p><h3>Delegation without custody</h3>
+        <p>An agent can hand a worker its own narrower grant — smaller caps, fewer payees, a shorter window — without asking you, and without ever exceeding its own budget.</p>
+      </article>
+      <article>
+        <p class="n">Exit</p><h3>A stop button that can't steal</h3>
+        <p>Revocation is a separate key that halts a grant and returns the balance to you — and is structurally incapable of sending it anywhere else, or burning it.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="close">
+  <div class="wrap">
+    <p class="eyebrow">Built to be checked</p>
+    <h2>The limits are published as loudly as the guarantees.</h2>
+    <p>Six vulnerabilities have been found in this covenant so far. None was found by reading the code — each came from handing an attack to the real script engine and reading its verdict. All six are documented, fixed, and pinned by a test that fails if they return.</p>
+    <div class="cta-row">
+      <a class="cta primary" href="https://claude.ai/code/artifact/3821689d-e8c7-46d3-875a-0a47d459e8c7">Developer guide <span class="arw">&rarr;</span></a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>Warda runs on Kaspa L1 covenants, activated on mainnet with the Toccata hard fork on 30 June 2026. The protocol itself has been exercised end to end on <strong>testnet-10 only</strong> and has not been deployed to mainnet or audited. Unaudited. Testnet first. Do not put money on this yet.</p>
+  </div>
+</footer>
