@@ -1,4 +1,4 @@
-# @warda/mcp
+# @warda_protocol/mcp
 
 An MCP server that lets an agent framework reason about its own economic
 authority — and now get a ready-to-sign payment without a Kaspa integration.
@@ -47,7 +47,7 @@ is there.
 
 ## The rules live in one place
 
-Every verdict comes from `@warda/core` — the same code the covenant was
+Every verdict comes from `@warda_protocol/core` — the same code the covenant was
 verified against, sharing the same 45 tests. This server carries **no copy of
 the protocol rules.**
 
@@ -90,7 +90,7 @@ rather than a payee that is not on the list.
 
 ## Where the bytes come from
 
-`warda_build_spend` assembles through `@warda/kaspa`, which is checked against
+`warda_build_spend` assembles through `@warda_protocol/kaspa`, which is checked against
 `golden-spend.json` — a reference transaction produced by the same Rust path
 that put a spend on testnet-10. `mcp/test/build.test.ts` closes the last gap:
 it describes that same grant the way an agent framework would, in decimal KAS

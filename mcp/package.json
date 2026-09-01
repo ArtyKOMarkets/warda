@@ -1,5 +1,5 @@
 {
-  "name": "@warda/mcp",
+  "name": "@warda_protocol/mcp",
   "version": "0.3.0",
   "description": "MCP server exposing Warda grant authority to agent frameworks. Builds unsigned spends and explains verdicts; never holds a key, never enforces \u2014 the covenant does that on-chain.",
   "type": "module",
@@ -20,8 +20,8 @@
     "zod": "^3.23.0",
     "@noble/hashes": "^2.3.0",
     "@noble/curves": "^2.3.0",
-    "@warda/kaspa": "^0.3.0",
-    "@warda/core": "^0.3.0"
+    "@warda_protocol/kaspa": "^0.3.0",
+    "@warda_protocol/core": "^0.3.0"
   },
   "main": "./dist/server.js",
   "types": "./dist/server.d.ts",

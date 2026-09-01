@@ -77,7 +77,7 @@ const vectors = cases.map(({ name, note, req }) => {
 const out = {
   $comment: "Warda protocol test vectors. Hash is a PLACEHOLDER — see src/hash.ts. Regenerate after swapping it.",
   version: 1,
-  generatedFrom: "@warda/core reference implementation",
+  generatedFrom: "@warda_protocol/core reference implementation",
   grant: {
     grantId: grant.grantId,
     encodingHex: toHex(encodeGrant(grant)),

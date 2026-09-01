@@ -1,4 +1,4 @@
-# @warda/kaspa
+# @warda_protocol/kaspa
 
 Give an agent a spending budget on Kaspa, enforced by the chain rather than by
 your code.
@@ -13,7 +13,7 @@ This package creates those grants and signs those spends, from JavaScript. No
 Silverscript compiler, no Rust toolchain, no node process of its own.
 
 ```
-npm install @warda/kaspa
+npm install @warda_protocol/kaspa
 ```
 
 Ships compiled JavaScript with TypeScript declarations. Node 20+, no build
@@ -21,7 +21,7 @@ step, no flags. The compiled covenant is exported as data too, for anything
 that needs to derive an address itself:
 
 ```ts
-import template from "@warda/kaspa/covenant-template.json" with { type: "json" };
+import template from "@warda_protocol/kaspa/covenant-template.json" with { type: "json" };
 ```
 
 ## What it does not do
@@ -46,7 +46,7 @@ Genesis is an ordinary P2PK spend that happens to pay into a covenant. One
 thing about it is not ordinary, and it fails quietly if you get it wrong:
 
 ```ts
-import { buildGenesis, attachGenesisSignature, signDigest } from "@warda/kaspa";
+import { buildGenesis, attachGenesisSignature, signDigest } from "@warda_protocol/kaspa";
 
 const genesis = buildGenesis({
   template,
@@ -76,7 +76,7 @@ from them, so losing them strands the UTXO.
 
 ```ts
 import { readFileSync } from "node:fs";
-import { signSpend, type SpendPlan } from "@warda/kaspa";
+import { signSpend, type SpendPlan } from "@warda_protocol/kaspa";
 
 const template = JSON.parse(readFileSync("covenant-template.json", "utf8"));
 
@@ -129,7 +129,7 @@ narrower grant to a sub-agent without asking the principal, without custody,
 and without being able to hand over more than it holds.
 
 ```ts
-import { buildUnsignedDelegation, attachDelegationSignature, signDigest } from "@warda/kaspa";
+import { buildUnsignedDelegation, attachDelegationSignature, signDigest } from "@warda_protocol/kaspa";
 
 const d = buildUnsignedDelegation({
   template, authority, state,        // the parent, as it stands
@@ -212,7 +212,7 @@ derives a different address and finds nothing there.
 In code:
 
 ```ts
-import { NodeClient, verifyGrant } from "@warda/kaspa";
+import { NodeClient, verifyGrant } from "@warda_protocol/kaspa";
 
 const client = await NodeClient.connect({ url: "ws://127.0.0.1:18210" });
 const report = await verifyGrant(client, { grant, template, prefix: "kaspatest" });
@@ -276,7 +276,7 @@ value a grant can vary occupies a fixed-width slice of the bytecode, so
 splicing values into the template produces output byte-identical to compiling.
 
 ```ts
-import { scriptHashFor } from "@warda/kaspa";
+import { scriptHashFor } from "@warda_protocol/kaspa";
 const hash = scriptHashFor(template, { authority, state });
 ```
 
@@ -309,7 +309,7 @@ cd ../covenant/deploy && cargo run -- verify ../../sdk/js-spend.json
 ```
 
 ```
-built by   : @warda/kaspa
+built by   : @warda_protocol/kaspa
 script engine -> Ok(())
 the consensus engine accepts a transaction this tool did not build.
 ```

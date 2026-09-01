@@ -19,7 +19,7 @@ spend sends the continuation to a *different address* — the one encoding the n
 `(spentTotal, reserved, epochIndex, epochSpent)`. Three consequences:
 
 1. **The SDK must derive the successor address off-chain before it can build a
-   spend.** This is not optional plumbing; it is the transaction. `@warda/core`
+   spend.** This is not optional plumbing; it is the transaction. `@warda_protocol/core`
    already computes the expected successor state — it now also needs to turn that
    state into an address.
 2. **The continuation's scriptPubKey is not the input's.** Any covenant that
@@ -55,7 +55,7 @@ KOM cracked #6 with a **local repro test** rather than submit-and-pray:
   failing `OpEqual`
 
 That harness is the single highest-value thing to build first. Our attack suite
-in `@warda/core` proves the *semantics*; this proves the *bytecode*. Between the
+in `@warda_protocol/core` proves the *semantics*; this proves the *bytecode*. Between the
 two there is no gap left for "submit to testnet and see."
 
 ## Directly reusable code

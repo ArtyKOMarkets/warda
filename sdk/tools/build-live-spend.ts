@@ -243,5 +243,5 @@ console.error(
 console.error(`  claimedDaa: ${plan.claimedDaa}`);
 
 process.stdout.write(
-  JSON.stringify(toWire(tx, unsigned.entry, "@warda/kaspa (live spend)"), null, 2) + "\n",
+  JSON.stringify(toWire(tx, unsigned.entry, "@warda_protocol/kaspa (live spend)"), null, 2) + "\n",
 );

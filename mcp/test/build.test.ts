@@ -76,7 +76,7 @@ function build() {
 }
 
 test("the tree built from named recipients has the root the covenant expects", () => {
-  // Two independent Merkle implementations meet here: @warda/core builds the
+  // Two independent Merkle implementations meet here: @warda_protocol/core builds the
   // set, and the compiled covenant carries the root. A mismatch means every
   // proof this server produces is for a different tree.
   const m = materialise(descriptor());

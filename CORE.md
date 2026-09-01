@@ -1,4 +1,4 @@
-# @warda/core
+# @warda_protocol/core
 
 Reference implementation of the **Warda agent grant protocol** — the executable
 definition of what a Kaspa Toccata covenant must enforce.

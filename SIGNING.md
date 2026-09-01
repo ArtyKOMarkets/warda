@@ -1,7 +1,7 @@
 # Covenant signing — the SDK story holds
 
 **KOM bug #3 is already fixed upstream.** No patch to rusty-kaspa is needed, and
-the `npm install @warda/kaspa` promise in spec §21/§36 survives.
+the `npm install @warda_protocol/kaspa` promise in spec §21/§36 survives.
 
 ## What the postmortem said
 

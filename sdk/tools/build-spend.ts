@@ -202,7 +202,7 @@ function delegateMode(): void {
 
   const built = buildUnsignedDelegation(plan);
   const signed = attachDelegationSignature(plan, built, signDigest(built.sighash, secret));
-  const wire = toWire(signed, built.entry, "@warda/kaspa (delegation)");
+  const wire = toWire(signed, built.entry, "@warda_protocol/kaspa (delegation)");
 
   process.stdout.write(JSON.stringify(wire, null, 2) + "\n");
   console.error(`parent reserves ${built.parentSuccessorState.reserved}, child receives ${plan.child.budgetTotal}`);

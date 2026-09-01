@@ -363,4 +363,4 @@ console.error(
 );
 console.error(`wrote       : ${childManifestPath}`);
 
-process.stdout.write(JSON.stringify(toWire(tx, built.entry, "@warda/kaspa (live delegation)"), null, 2) + "\n");
+process.stdout.write(JSON.stringify(toWire(tx, built.entry, "@warda_protocol/kaspa (live delegation)"), null, 2) + "\n");

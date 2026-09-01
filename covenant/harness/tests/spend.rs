@@ -4,7 +4,7 @@
 //! engine a Kaspa node uses to validate a transaction. No node, no RPC, no
 //! testnet round-trip: a verdict in milliseconds.
 //!
-//! @warda/core proves the SEMANTICS. This proves the BYTECODE. Between them
+//! @warda_protocol/core proves the SEMANTICS. This proves the BYTECODE. Between them
 //! there is no room left for "submit to testnet and see what happens".
 
 use kaspa_consensus_core::Hash;
@@ -376,7 +376,7 @@ fn leaf_hash(recipient: &[u8; 32]) -> [u8; 32] {
     b2b(&[&[LEAF], recipient])
 }
 
-/// Mirrors RecipientSet in @warda/core: domain-separated leaves and nodes,
+/// Mirrors RecipientSet in @warda_protocol/core: domain-separated leaves and nodes,
 /// odd nodes promoted rather than duplicated, canonical sort.
 struct Tree {
     levels: Vec<Vec<[u8; 32]>>,

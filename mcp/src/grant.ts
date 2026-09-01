@@ -2,17 +2,17 @@
  * Translation between the shape an agent framework finds natural and the
  * shape the protocol enforces.
  *
- * Everything here delegates to @warda/core. The MCP layer must never carry
+ * Everything here delegates to @warda_protocol/core. The MCP layer must never carry
  * its own copy of the rules: a server whose verdicts drift from the covenant's
  * is worse than no server at all, because it would tell an agent it may spend
  * when the chain will refuse — or, worse, that it may not when the chain would
  * allow it.
  */
-import { RecipientSet } from "@warda/core";
-import { createGrant, initialState, available } from "@warda/core";
-import { kas, formatKas } from "@warda/core";
-import type { Grant, GrantState } from "@warda/core";
-import { EMPTY_RESERVE } from "@warda/kaspa";
+import { RecipientSet } from "@warda_protocol/core";
+import { createGrant, initialState, available } from "@warda_protocol/core";
+import { kas, formatKas } from "@warda_protocol/core";
+import type { Grant, GrantState } from "@warda_protocol/core";
+import { EMPTY_RESERVE } from "@warda_protocol/kaspa";
 
 export interface GrantDescriptor {
   agentKey: string;
@@ -48,7 +48,7 @@ export interface Materialised {
   grant: Grant;
   state: GrantState;
   set: RecipientSet;
-  /** Carried separately: @warda/core's GrantState predates the covenant's
+  /** Carried separately: @warda_protocol/core's GrantState predates the covenant's
    *  reserve accumulator and has no field for it. */
   reserveRoot: string;
 }

@@ -194,7 +194,7 @@ try {
     throw new Error("signature failed to verify against the digest it was made over");
   }
   const tx = attachGenesisSignature(built, signature);
-  const wire = toWire(tx, built.entry, "@warda/kaspa (genesis)");
+  const wire = toWire(tx, built.entry, "@warda_protocol/kaspa (genesis)");
   const grantAddress = scriptHashToAddress(toHex(built.grantScriptHash), prefix);
 
   // WRITTEN BEFORE BROADCAST. A grant's address is derived from these numbers;

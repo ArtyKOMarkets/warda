@@ -33,7 +33,7 @@ evidence rather than two anecdotes.
 
 `7dbc957f…` was not built by the Rust tool. Every byte of it — the covenant
 arguments, the Merkle proof, the successor address, the signature hash — was
-assembled by `@warda/kaspa`, in JavaScript, with no Silverscript compiler and
+assembled by `@warda_protocol/kaspa`, in JavaScript, with no Silverscript compiler and
 no Rust toolchain.
 
 That matters because a protocol only one implementation can speak is a product

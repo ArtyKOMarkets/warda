@@ -2334,7 +2334,7 @@ r#"{{
 
             let json = format!(
 r#"{{
-  "note": "Everything @warda/kaspa needs to build the next spend against the LIVE grant. Regenerate this before every spend: the grant's address moves each time, so a stale plan points at a UTXO that no longer exists.",
+  "note": "Everything @warda_protocol/kaspa needs to build the next spend against the LIVE grant. Regenerate this before every spend: the grant's address moves each time, so a stale plan points at a UTXO that no longer exists.",
   "generatedBy": "warda-deploy plan",
   "network": "kaspatest",
   "chainDaa": {daa},

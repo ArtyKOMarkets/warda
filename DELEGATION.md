@@ -109,7 +109,7 @@ a budget larger than the parent still holds. All rejected.
 The covenant enforces `child.recipientsRoot == recipientsRoot`. Set inclusion
 is not decidable from a Merkle root, so equality is the only relation
 enforceable on roots alone. Narrowing a child's allowlist needs the per-member
-subset witness `@warda/core` already implements — that is not in the covenant
+subset witness `@warda_protocol/core` already implements — that is not in the covenant
 yet, and it is the obvious next increment.
 
 ## SIZE RISK — RESOLVED, see LIMITS.md

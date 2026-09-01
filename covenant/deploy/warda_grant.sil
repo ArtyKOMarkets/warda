@@ -91,7 +91,7 @@ contract WardaGrant(
 
     // Domain-separated Merkle fold. Sibling side travels per-level because
     // odd nodes are promoted without a sibling, so index parity alone cannot
-    // reconstruct the order. (This exact bug was caught in @warda/core.)
+    // reconstruct the order. (This exact bug was caught in @warda_protocol/core.)
     function merkleRoot(
         byte[32]   leafValue,
         byte[32][] siblings,
@@ -308,7 +308,7 @@ contract WardaGrant(
 
         // Inherit mode. Set inclusion is not decidable from a Merkle root, so
         // the only allowlist relation enforceable on roots alone is equality.
-        // Narrowing needs per-member inclusion proofs — see @warda/core's
+        // Narrowing needs per-member inclusion proofs — see @warda_protocol/core's
         // subset witness; not in this covenant yet.
         // WHO the child may pay — the one authority delegation could not
         // narrow until now.

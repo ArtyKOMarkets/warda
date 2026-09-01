@@ -14,7 +14,7 @@ sub-second.
 
 ## Why this exists
 
-`@warda/core` proves the **semantics** — what the rules mean. This proves the
+`@warda_protocol/core` proves the **semantics** — what the rules mean. This proves the
 **bytecode** — that the compiled covenant actually enforces them inside the
 engine that matters. Between the two there is no room left for "submit to
 testnet and see what happens".

@@ -19,17 +19,17 @@
  *   - a framework can discover the protocol without a custom integration
  *   - a rejection can be explained in words rather than an opaque script error
  *
- * Every verdict comes from @warda/core, the same code the covenant was
+ * Every verdict comes from @warda_protocol/core, the same code the covenant was
  * verified against. A server carrying its own copy of the rules would be worse
  * than none: it could tell an agent it may spend when the chain will refuse.
  */
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { validateSpend, validateDelegation } from "@warda/core";
+import { validateSpend, validateDelegation } from "@warda_protocol/core";
 import { materialise, headroom, kas, formatKas, type GrantDescriptor } from "./grant.ts";
 import { buildSpend } from "./build.ts";
-import type { FailureCode } from "@warda/core";
+import type { FailureCode } from "@warda_protocol/core";
 
 const EXPLAIN: Record<FailureCode, string> = {
   NOT_ACTIVE: "The grant is not active.",

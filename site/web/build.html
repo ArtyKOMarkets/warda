@@ -231,14 +231,14 @@
     <p class="lede">Compiled JavaScript with TypeScript declarations. Node 20+, no build step, no Rust toolchain and no Silverscript compiler — address derivation splices values into a compiled covenant template that ships inside the package.</p>
 
 <pre><span class="c"># the SDK — build, sign and verify grants</span>
-npm install @warda/kaspa
+npm install @warda_protocol/kaspa
 
 <span class="c"># the MCP server — hand an agent framework a Warda tool</span>
-npx @warda/mcp</pre>
+npx @warda_protocol/mcp</pre>
 
     <h3 style="margin:2.1rem 0 0.75rem">Create a grant</h3>
-<pre><span class="k">import</span> { buildGenesis, attachGenesisSignature, signDigest, RecipientSet } <span class="k">from</span> <span class="s">"@warda/kaspa"</span>;
-<span class="k">import</span> template <span class="k">from</span> <span class="s">"@warda/kaspa/covenant-template.json"</span> <span class="k">with</span> { type: <span class="s">"json"</span> };
+<pre><span class="k">import</span> { buildGenesis, attachGenesisSignature, signDigest, RecipientSet } <span class="k">from</span> <span class="s">"@warda_protocol/kaspa"</span>;
+<span class="k">import</span> template <span class="k">from</span> <span class="s">"@warda_protocol/kaspa/covenant-template.json"</span> <span class="k">with</span> { type: <span class="s">"json"</span> };
 
 <span class="c">// Who this agent may pay, committed as a Merkle root.</span>
 <span class="k">const</span> payees = <span class="k">new</span> RecipientSet([vendorA, vendorB]);
@@ -262,7 +262,7 @@ npx @warda/mcp</pre>
 <span class="k">const</span> tx = attachGenesisSignature(unsigned, signDigest(unsigned.sighash, principalSecret));</pre>
 
     <h3 style="margin:2.1rem 0 0.75rem">The agent spends, unattended</h3>
-<pre><span class="k">import</span> { signSpend } <span class="k">from</span> <span class="s">"@warda/kaspa"</span>;
+<pre><span class="k">import</span> { signSpend } <span class="k">from</span> <span class="s">"@warda_protocol/kaspa"</span>;
 
 <span class="k">const</span> { tx } = signSpend({
   template, authority, state,
@@ -405,7 +405,7 @@ npx @warda/mcp</pre>
     <div class="cols">
       <article>
         <p class="who">Available now</p><h3>Model Context Protocol</h3>
-        <p><code>@warda/mcp</code> exposes four tools over stdio: read a grant's authority, check whether a spend is permitted and why, check a delegation, and build an unsigned spend. It never holds a key and never enforces — it explains, and the covenant decides.</p>
+        <p><code>@warda_protocol/mcp</code> exposes four tools over stdio: read a grant's authority, check whether a spend is permitted and why, check a delegation, and build an unsigned spend. It never holds a key and never enforces — it explains, and the covenant decides.</p>
       </article>
       <article>
         <p class="who">Next</p><h3>x402 / HTTP 402</h3>

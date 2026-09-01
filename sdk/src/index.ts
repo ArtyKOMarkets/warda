@@ -1,5 +1,5 @@
 /**
- * @warda/kaspa — build and sign agent spends against a Warda grant, from
+ * @warda_protocol/kaspa — build and sign agent spends against a Warda grant, from
  * JavaScript, with no Silverscript compiler and no Rust toolchain.
  *
  * What this package does NOT do, deliberately:

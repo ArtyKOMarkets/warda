@@ -1,5 +1,5 @@
 {
-  "name": "@warda/core",
+  "name": "@warda_protocol/core",
   "version": "0.3.0",
   "description": "Reference implementation of the Warda agent grant protocol. Defines the exact semantics a Toccata covenant must enforce.",
   "type": "module",

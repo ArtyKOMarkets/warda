@@ -37,7 +37,7 @@ transaction. 33 covenant tests, 45 protocol tests, sub-second, no node required.
 
 | | |
 |---|---|
-| Protocol semantics | `@warda/core`, 45 tests |
+| Protocol semantics | `@warda_protocol/core`, 45 tests |
 | Spend covenant | proven, 1,810 bytes |
 | Delegation covenant | proven, conservation demonstrated |
 | Consensus limits | measured — [LIMITS.md](LIMITS.md) |
@@ -80,7 +80,7 @@ malformed script produces the same verdict as a working per-spend cap.
 ## Layout
 
 ```
-src/            @warda/core — protocol semantics in TypeScript, no dependencies
+src/            @warda_protocol/core — protocol semantics in TypeScript, no dependencies
 test/           45 tests: attacks, conservation, epochs, allowlists
 vectors/        test vectors any covenant implementation is checked against
 covenant/
@@ -109,7 +109,7 @@ true. Each of these cost real debugging and is written up:
   parameters and into state before delegation could be expressed at all
 - **[REUSE.md](REUSE.md)** — six bugs inherited from a prior Kaspa covenant project,
   every one of which bit again
-- **[CORE.md](CORE.md)** — `@warda/core` internals and design rules
+- **[CORE.md](CORE.md)** — `@warda_protocol/core` internals and design rules
 
 The single best example: `byte constant LEAF = 0x00` compiles to an **empty**
 byte array, because Kaspa script encodes zero as the empty string. The Merkle

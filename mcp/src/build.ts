@@ -15,12 +15,12 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { buildUnsignedSpend, type MerkleProof, type SpendPlan } from "@warda/kaspa";
-import { toWire, type WireTransaction } from "@warda/kaspa";
-import { fromHex, toHex } from "@warda/kaspa";
-import { scriptHashFor, templateIdFor, type CovenantTemplate } from "@warda/kaspa";
+import { buildUnsignedSpend, type MerkleProof, type SpendPlan } from "@warda_protocol/kaspa";
+import { toWire, type WireTransaction } from "@warda_protocol/kaspa";
+import { fromHex, toHex } from "@warda_protocol/kaspa";
+import { scriptHashFor, templateIdFor, type CovenantTemplate } from "@warda_protocol/kaspa";
 import type { Materialised } from "./grant.ts";
-import type { MerkleProof as CoreProof } from "@warda/core";
+import type { MerkleProof as CoreProof } from "@warda_protocol/core";
 
 /**
  * The template is loaded from disk, never accepted from the caller.
@@ -160,7 +160,7 @@ export function buildSpend(m: Materialised, set: Materialised["set"], o: BuildOp
 
   const built = buildUnsignedSpend(plan);
   return {
-    transaction: toWire(built.tx, built.entry, "@warda/mcp (unsigned)"),
+    transaction: toWire(built.tx, built.entry, "@warda_protocol/mcp (unsigned)"),
     sighashHex: toHex(built.sighash),
     claimedDaa: claimedDaa.toString(),
     successorScriptHash,

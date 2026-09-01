@@ -79,7 +79,7 @@ function wireUtxo(entry: UtxoEntry): WireUtxo {
 export function toWireMulti(
   tx: Transaction,
   entries: UtxoEntry[],
-  builtBy = "@warda/kaspa",
+  builtBy = "@warda_protocol/kaspa",
 ): WireTransaction {
   if (entries.length !== tx.inputs.length) {
     throw new Error(
@@ -99,7 +99,7 @@ export function toWireMulti(
 }
 
 /** Integers go out as strings: a sompi value exceeds what JSON numbers hold exactly. */
-export function toWire(tx: Transaction, entry: UtxoEntry, builtBy = "@warda/kaspa"): WireTransaction {
+export function toWire(tx: Transaction, entry: UtxoEntry, builtBy = "@warda_protocol/kaspa"): WireTransaction {
   return {
     version: tx.version,
     lockTime: tx.lockTime.toString(),
