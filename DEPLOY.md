@@ -33,6 +33,17 @@ the bare path.
 both `/` and `/mcp` to it, so either URL works — the discovery documents
 advertise `/mcp`.
 
+`vercel.json` also sets `buildCommand` to a no-op, and that line is load-bearing.
+Vercel's zero-config runs `npm run build` whenever a `build` script exists, and
+this package's build script is `tsc` — which is a devDependency of the workspace
+ROOT, not of this package. Deploying without the override fails with exit 127,
+`tsc: command not found`. There is nothing to build: Vercel compiles `api/*.ts`
+itself, and `dist/` exists for npm consumers, which `prepublishOnly` covers.
+
+Set the project's **Root Directory** to `mcp` in Vercel's settings. The CLI
+connects the GitHub repo on first deploy, and a root of `/` makes it look for
+`api/` at the top of the repo and find nothing.
+
 Point the subdomain at that project in Vercel, then check it:
 
     curl -s https://mcp.wardaprotocol.com/mcp | jq .

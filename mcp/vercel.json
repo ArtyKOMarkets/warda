@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "echo 'no build step; Vercel compiles api/*.ts itself'",
   "functions": {
     "api/mcp.ts": {
       "maxDuration": 30
