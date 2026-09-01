@@ -48,31 +48,39 @@ not pushed.
     # or, to deploy the working tree:
     cd mcp/deploy && vercel --prod
 
-**Deploy `mcp/deploy`, not `mcp`.** The first attempt deployed the package
-directory and Vercel chose `src/server.ts` as the entrypoint — the STDIO
-server, which exports no HTTP handler, so every request died as
-`FUNCTION_INVOCATION_FAILED`. It was not wrong to guess: a directory holding
-both a library and a function is ambiguous. `mcp/deploy` holds nothing but the
-function — no `src/`, no `main`, nothing else that could be mistaken for an
-entrypoint.
+**Deploy `mcp/deploy`, not `mcp`, and set the Root Directory to match.**
 
-It depends on the PUBLISHED `@warda_protocol/mcp` rather than on the working
-tree, so the hosted endpoint serves a released version by construction. That
-costs something real — it cannot run unreleased code, so publish first — and
-buys something worth more: it exercises the package the way an installing user
-does, which is the exact path that hid the covenant-template bug.
+This Vercel version picks ONE root entrypoint per project and routes every
+path to it — `/`, `/mcp` and `/favicon.ico` all arrive at the same function.
+It announces its choice in the build log, and that line is the first thing to
+read when a deploy misbehaves:
+
+    ✓ Build complete — Using <file> as the root entrypoint.
+
+Two deploys were lost to skimming past it. Pointed at `mcp/` it chose
+`src/server.ts`, the STDIO server, which exports no HTTP handler. Pointed at
+the repo root it chose `src/index.ts`, the core library, and every request
+returned `Invalid export found in module` — a library has named exports and no
+default.
+
+So `mcp/deploy` contains exactly one candidate and that candidate is the
+handler: `index.ts`, no `src/`, no `main`, no build script, no `api/`.
+Whatever Vercel picks there, it can only pick this. Because a root entrypoint
+serves every path, no rewrites are needed.
 
 The handler takes Node's `(IncomingMessage, ServerResponse)`, not a Web
 `Request`. Vercel's Node runtime calls it that way, and a web-standard handler
-is invoked with arguments it does not understand — the failure is
-`FUNCTION_INVOCATION_FAILED` with nothing in the logs about signatures. The
-Edge runtime IS web-standard and would accept one, but it has no filesystem,
-and reading the covenant template needs one.
+is invoked with arguments it does not understand. The Edge runtime IS
+web-standard and would accept one, but it has no filesystem, and reading the
+covenant template needs one.
+
+It depends on the PUBLISHED `@warda_protocol/mcp` rather than on the working
+tree, so the endpoint serves a released version by construction. That costs
+something real — it cannot run unreleased code, so publish first — and buys
+something worth more: it exercises the package the way an installing user
+does, which is the exact path that hid the covenant-template bug.
 
 In Vercel's project settings, set **Root Directory** to `mcp/deploy`.
-
-`vercel.json` rewrites both `/` and `/mcp` to the function, so either URL
-works; the discovery documents advertise `/mcp`.
 
 Check it:
 
