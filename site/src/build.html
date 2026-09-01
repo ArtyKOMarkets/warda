@@ -149,6 +149,18 @@
   code { font-family: var(--mono); }
   p code, li code, td code { font-size: 0.86em; background: var(--panel); color: var(--teal); padding: 0.1em 0.36em; }
 
+  /* ---- transcript ---- */
+  .transcript {
+    background: var(--ground); border: 1px solid var(--edge-bright);
+    border-left: 2px solid var(--teal); padding: 1.05rem 1.2rem;
+    font-family: var(--mono); font-size: 0.755rem; line-height: 1.72;
+    overflow-x: auto; color: var(--chrome-dim); margin: 0 0 1.1rem;
+  }
+  .transcript .hd { color: var(--chrome-faint); }
+  .transcript .ok { color: var(--teal); }
+  .transcript .no { color: var(--refuse); }
+  .transcript b { color: var(--chrome); font-weight: 500; }
+
   /* ---- lifecycle: a genuine sequence, so it is numbered ---- */
   .steps { counter-reset: step; }
   .step { display: grid; grid-template-columns: 3rem minmax(0,1fr); gap: 1.2rem; padding: 1.25rem 0; border-bottom: 1px solid var(--edge); align-items: start; }
@@ -388,6 +400,53 @@ npm install @warda_protocol/x402</pre>
         <p class="who">Principal signs</p><h3>Reclaim</h3>
         <p>After expiry, sweep the remainder home. This is a right that <em>opens</em> at expiry, not a prohibition that closes: a UTXO covenant can say "not before X", never "must be spent before X".</p>
       </div></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Proof of work, in the literal sense</p>
+    <h2 style="max-width:30ch">One agent, one paid API call, on testnet-10.</h2>
+    <p class="lede">A real x402 endpoint priced at 0.2 KAS, paid by a covenant spend, with the vendor verifying against the UTXO set before serving. Reproduce it with <code>x402/demo/testnet-demo.ts</code>.</p>
+
+<div class="transcript"><span class="hd">── 1. a payee the grant never committed to ──────────────────</span>
+  <span class="no">refused, nothing spent:</span>
+  kaspatest:qrxvenxven… is not on this grant's allowlist, so no
+  inclusion proof places it in the recipients tree. There is no valid
+  transaction that pays them — <b>not one the network would reject,
+  none at all.</b>
+
+<span class="hd">── 2. paying the vendor, on chain ──────────────────────────</span>
+  broadcast <b>267e1bac1270fde34d9719d676b378745fb57007062cd1b6de52f2d2a4af433e</b>
+  settling, retrying in 1106ms <span class="hd">(same proof)</span>
+
+  <span class="ok">200 in 1.1s</span>
+
+<span class="hd">── 3. what moved ───────────────────────────────────────────</span>
+  grant was at  : kaspatest:pqckh2ay4rxxtpuv3g9snaclza47tz0f0uxmfwsaflr0uupmg4yx6eddrwck5
+  grant is now  : kaspatest:pp985pts8r297cpl8u28e6hpztxj4mss9fpnvcjzla4p79rrl7glw5apwk4dg
+  spent total   : 0 → 20000000
+  headroom left : 50000000 sompi</div>
+
+    <p style="max-width:var(--measure)">The settling retry is the part worth watching. The vendor answered 402 a second time because the coin was not yet in the UTXO set, and the client re-presented <em>the same proof</em> rather than buying a second call — the one failure mode in this design capable of draining a budget through nobody's fault.</p>
+
+    <h3 style="margin:2rem 0 0.75rem">Checking it yourself</h3>
+    <p style="max-width:var(--measure)">The receipt was written by the process that made the payment, which is precisely the party not to take it from. So every claim in it is re-derived from the UTXO set:</p>
+
+<pre>node --experimental-strip-types x402/demo/verify-receipt.ts
+
+<span class="c">  ok   the vendor was paid 20000000 sompi by 267e1bac1270fde3…
+  ok   the address the grant spent FROM is now empty
+  ok   the successor address holds exactly one coin
+  ok   the coin balances: 300000000 in, 20000000 paid, 2000000 fee, 278000000 left
+  ok   spentTotal advanced by exactly the amount paid (20000000)
+  ok   the payment was within the per-spend cap (50000000)
+
+the chain agrees with this receipt.</span></pre>
+
+    <div class="note">
+      <p><strong>One thing the first live run taught, and the code now knows.</strong> Kaspa prices by mass, and a covenant spend carries the whole 5.7&nbsp;KB redeem script in its signature script — so it is ~6&nbsp;KB on the wire and costs roughly 1,511,400 sompi, not the 1,000,000 that covers a plain transfer. v3 fitted under the old default; v4 does not, because settlement and the subset witness made the script bigger. A node will accept the <em>signature</em> and still refuse to relay. The adapter now defaults higher and translates that rejection into the exact figure the node asked for.</p>
     </div>
   </div>
 </section>

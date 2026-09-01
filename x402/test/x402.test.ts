@@ -357,3 +357,131 @@ test("a signer returning the wrong length is caught with the reason", async () =
   const req = parsePaymentRequired(requirement());
   await assert.rejects(payer.pay(req), /returned 64 bytes.*sighash-type byte/s);
 });
+
+test("a signature from the wrong key is caught here, not on chain", async () => {
+  // The covenant checks checkSig(agentSig, pubkey(agentKey)). A signature from
+  // any other key fails it, and the chain reports only "script ran, but
+  // verification failed" — true, useless, and a round trip away.
+  //
+  // The first live run of the demo hit exactly this: WARDA_SK holds the
+  // FUNDER's key, and the agent key is derived from it rather than equal to it.
+  const notTheAgent = fromHex("99".repeat(32));
+  const payer = new WardaPayer({
+    grant,
+    node: {
+      getBlockDagInfo: async () => ({ virtualDaaScore: 1_005_000n }),
+      grantUtxo: async () => ({
+        outpoint: { transactionId: fromHex("7d".repeat(32)), index: 0 },
+        entry: {
+          value: 500_00000000n,
+          blockDaaScore: 1_000_000n,
+          isCoinbase: false,
+          covenantId: fromHex("ee".repeat(32)),
+        },
+      }),
+      submitTransaction: async () => {
+        throw new Error("must never reach the network with a bad signature");
+      },
+    } as never,
+    sign: notTheAgent,
+  });
+
+  const req = parsePaymentRequired(requirement());
+  await assert.rejects(payer.pay(req), (e: Error) => {
+    assert.match(e.message, /does not verify against the grant's agent key/);
+    // The message has to name the actual cause, or it sends someone hunting
+    // through the covenant for a bug that is in their key handling.
+    assert.match(e.message, /signing with the FUNDER's key/);
+    assert.match(e.message, /resolveSigner/);
+    return true;
+  });
+});
+
+test("the agent's own key signs cleanly", async () => {
+  // The twin: the same path, with the right key, must reach submission.
+  let submitted = false;
+  const payer = new WardaPayer({
+    grant,
+    node: {
+      getBlockDagInfo: async () => ({ virtualDaaScore: 1_005_000n }),
+      grantUtxo: async () => ({
+        outpoint: { transactionId: fromHex("7d".repeat(32)), index: 0 },
+        entry: {
+          value: 500_00000000n,
+          blockDaaScore: 1_000_000n,
+          isCoinbase: false,
+          covenantId: fromHex("ee".repeat(32)),
+        },
+      }),
+      submitTransaction: async () => {
+        submitted = true;
+        return "ab".repeat(32);
+      },
+    } as never,
+    sign: AGENT,
+  });
+
+  const result = await payer.pay(parsePaymentRequired(requirement()));
+  assert.ok(submitted, "reached the network");
+  assert.equal(result.amountSompi, 20_000_000n);
+  // The grant moved: spending changes state, and state is the address.
+  assert.equal(result.state.spentTotal, 20_000_000n);
+  assert.notEqual(result.address, result.payer);
+});
+
+test("an underpaid fee is translated into the figure the node asked for", async () => {
+  // Kaspa prices by mass, and a covenant spend is ~6 KB because the redeem
+  // script travels in the signature script. The node states the exact amount
+  // it wants; passing that through as a raw RPC error hides a number the
+  // caller can act on directly.
+  const payer = new WardaPayer({
+    grant,
+    node: {
+      getBlockDagInfo: async () => ({ virtualDaaScore: 1_005_000n }),
+      grantUtxo: async () => ({
+        outpoint: { transactionId: fromHex("7d".repeat(32)), index: 0 },
+        entry: {
+          value: 500_00000000n, blockDaaScore: 1_000_000n,
+          isCoinbase: false, covenantId: fromHex("ee".repeat(32)),
+        },
+      }),
+      submitTransaction: async () => {
+        throw new Error(
+          "Rejected transaction abc: transaction abc is not standard: transaction has 1000000 " +
+            "fees which is under the required amount of 1511400 for normalized transient mass 15114",
+        );
+      },
+    } as never,
+    sign: AGENT,
+    fee: 1_000_000n,
+  });
+
+  await assert.rejects(payer.pay(parsePaymentRequired(requirement())), (e: Error) => {
+    assert.match(e.message, /requires 1511400/);
+    assert.match(e.message, /fee: 1511400n or higher/);
+    // The distinction that saves an hour: the covenant was satisfied.
+    assert.match(e.message, /the signature was fine, the fee was not/);
+    return true;
+  });
+});
+
+test("an unrecognised submission failure is passed through unchanged", () => {
+  // Only the fee case is translated. Rewriting errors we do not understand
+  // would bury the real one.
+  const payer = new WardaPayer({
+    grant,
+    node: {
+      getBlockDagInfo: async () => ({ virtualDaaScore: 1_005_000n }),
+      grantUtxo: async () => ({
+        outpoint: { transactionId: fromHex("7d".repeat(32)), index: 0 },
+        entry: {
+          value: 500_00000000n, blockDaaScore: 1_000_000n,
+          isCoinbase: false, covenantId: fromHex("ee".repeat(32)),
+        },
+      }),
+      submitTransaction: async () => { throw new Error("orphan transaction"); },
+    } as never,
+    sign: AGENT,
+  });
+  return assert.rejects(payer.pay(parsePaymentRequired(requirement())), /orphan transaction/);
+});

@@ -1,0 +1,35 @@
+{
+  "_comment": "A real HTTP 402 round trip paid by a Warda covenant spend on Kaspa testnet-10. The vendor verified the payment against the UTXO set before serving; the client re-presented one proof across every settling retry and never paid twice.",
+  "network": "testnet-10",
+  "covenant": "b3e5eeefacf2021f",
+  "generatedAt": "2026-09-01T09:58:18.003Z",
+  "vendor": {
+    "address": "kaspatest:qrn33jmrmhwjjey5m2khdlun9a6e20c02z4rq060n8gy43s9zmt5q8hpd8ym5",
+    "priceSompi": "20000000"
+  },
+  "payment": {
+    "txid": "267e1bac1270fde34d9719d676b378745fb57007062cd1b6de52f2d2a4af433e",
+    "amountSompi": "20000000",
+    "from": "kaspatest:pqckh2ay4rxxtpuv3g9snaclza47tz0f0uxmfwsaflr0uupmg4yx6eddrwck5",
+    "settleRetries": 1,
+    "elapsedMs": 1130
+  },
+  "grant": {
+    "addressBefore": "kaspatest:pqckh2ay4rxxtpuv3g9snaclza47tz0f0uxmfwsaflr0uupmg4yx6eddrwck5",
+    "addressAfter": "kaspatest:pp985pts8r297cpl8u28e6hpztxj4mss9fpnvcjzla4p79rrl7glw5apwk4dg",
+    "spentTotalBefore": "0",
+    "spentTotalAfter": "20000000",
+    "budgetTotal": "300000000",
+    "maxPerSpend": "50000000",
+    "headroomAfter": "50000000"
+  },
+  "refusal": {
+    "payTo": "kaspatest:qrxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvc3rysjr0d",
+    "message": "kaspatest:qrxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvc3rysjr0d is not on this grant's allowlist, so no inclusion proof places it in the recipients tree. There is no valid transaction that pays them — not one the network would reject, none at all. A grant's payees are fixed at genesis: to pay this vendor you need a grant that committed to them."
+  },
+  "vendorResponse": {
+    "result": "GHOSTDAG orders blocks by how much work references them, so honest blocks converge on one order without discarding competing ones.",
+    "settledBy": "267e1bac1270fde34d9719d676b378745fb57007062cd1b6de52f2d2a4af433e",
+    "confirmations": "seen in the UTXO set"
+  }
+}

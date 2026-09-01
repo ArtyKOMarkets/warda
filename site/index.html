@@ -111,6 +111,37 @@
   .answer { border-left-color: var(--teal); margin-top: 1rem; }
   .answer q { color: var(--chrome); font-style: normal; }
 
+  /* ---- the receipt: real numbers, laid out like a ledger ---------------- */
+  .receipt {
+    border: 1px solid var(--edge-bright); background: var(--ground);
+    max-width: 62rem; margin: 2.2rem auto 0; text-align: left;
+  }
+  .receipt-head {
+    display: flex; gap: 0.6rem 1.2rem; flex-wrap: wrap; align-items: baseline;
+    padding: 0.85rem 1.3rem; border-bottom: 1px solid var(--edge-bright);
+    font-family: var(--mono); font-size: 0.68rem; text-transform: uppercase;
+    letter-spacing: 0.13em; color: var(--chrome-faint);
+  }
+  .receipt-head .lit { color: var(--teal); }
+  .receipt-head .when { margin-left: auto; text-transform: none; letter-spacing: 0.02em; }
+  .receipt-body { padding: 0.4rem 1.3rem 1.1rem; }
+  .rline {
+    display: grid; grid-template-columns: 12rem minmax(0, 1fr); gap: 1rem;
+    padding: 0.45rem 0; border-bottom: 1px solid var(--edge);
+    font-family: var(--mono); font-size: 0.78rem; align-items: baseline;
+  }
+  .rline:last-child { border-bottom: 0; }
+  .rline .k { color: var(--chrome-faint); }
+  .rline .v { color: var(--chrome); overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+  .rline .v.hash { font-size: 0.73rem; color: var(--teal); }
+  .rline .v .note { color: var(--chrome-faint); }
+  @media (max-width: 620px) { .rline { grid-template-columns: 1fr; gap: 0.1rem; } }
+  .receipt-foot {
+    border-top: 1px solid var(--edge-bright); padding: 0.9rem 1.3rem;
+    font-family: var(--mono); font-size: 0.7rem; color: var(--chrome-faint); line-height: 1.7;
+  }
+  .receipt-foot code { font-size: 0.95em; background: var(--void); }
+
   /* ---- capability tiles ------------------------------------------------ */
   .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(15.5rem,1fr)); gap: 1px; background: var(--edge); border: 1px solid var(--edge); margin-top: 2.2rem; }
   .cols > article { background: var(--void); padding: 1.4rem 1.35rem 1.5rem; }
@@ -168,6 +199,34 @@
         <q>A Warda grant's limits are part of the script that unlocks the coin. A spend exceeding them is not refused by a server — it is an invalid transaction. No node relays it. No miner can include it.</q>
         <cite>Restarting changes nothing · neither does stealing the key</cite>
       </blockquote>
+    </div>
+  </div>
+</section>
+
+<section class="close">
+  <div class="wrap">
+    <p class="eyebrow">Not a diagram</p>
+    <h2 style="max-width:26ch">An agent bought something, and could not have bought anything else.</h2>
+    <p style="max-width:56ch">A real HTTP 402 endpoint, priced at 0.2 KAS. A real covenant spend on Kaspa testnet-10. The vendor checked the UTXO set before it served anything.</p>
+
+    <div class="receipt">
+      <div class="receipt-head">
+        <span class="lit">testnet-10</span>
+        <span>covenant b3e5eeefacf2021f</span>
+        <span class="when">1 Sep 2026, 09:58 UTC</span>
+      </div>
+      <div class="receipt-body">
+        <div class="rline"><span class="k">refused first</span><span class="v">a payee the grant never committed to &mdash; <span class="note">nothing signed, nothing spent</span></span></div>
+        <div class="rline"><span class="k">then paid</span><span class="v hash">267e1bac1270fde34d9719d676b378745fb57007062cd1b6de52f2d2a4af433e</span></div>
+        <div class="rline"><span class="k">amount</span><span class="v">20,000,000 sompi <span class="note">(0.2 KAS) to the vendor's allowlisted address</span></span></div>
+        <div class="rline"><span class="k">grant was at</span><span class="v hash">kaspatest:pqckh2ay4rxxtpuv3g9snaclza47tz0f0uxmfwsaflr0uupmg4yx6eddrwck5</span></div>
+        <div class="rline"><span class="k">grant is now at</span><span class="v hash">kaspatest:pp985pts8r297cpl8u28e6hpztxj4mss9fpnvcjzla4p79rrl7glw5apwk4dg</span></div>
+        <div class="rline"><span class="k">spent total</span><span class="v">0 &rarr; 20,000,000 <span class="note">of a 300,000,000 budget</span></span></div>
+        <div class="rline"><span class="k">round trip</span><span class="v">1.1s <span class="note">including one settling retry, which re-presented the same proof rather than paying twice</span></span></div>
+      </div>
+      <div class="receipt-foot">
+        The grant's address changed because the address <em>is</em> the state. Every line above is re-derived from the UTXO set by <code>x402/demo/verify-receipt.ts</code> &mdash; the receipt was written by the process that made the payment, which is exactly the party you would not take it from.
+      </div>
     </div>
   </div>
 </section>

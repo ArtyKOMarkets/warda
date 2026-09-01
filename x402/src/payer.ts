@@ -2,7 +2,9 @@ import {
   attachSignature,
   buildUnsignedSpend,
   decodeAddress,
+  fromHex,
   signDigest,
+  verifyDigest,
   scriptHashFor,
   scriptHashToAddress,
   successorState,
@@ -90,7 +92,23 @@ export interface PayerOptions {
   daaBackoff?: bigint;
 }
 
-const DEFAULT_FEE = 1_000_000n;
+/**
+ * A covenant spend is not an ordinary transfer, and it is not priced like one.
+ *
+ * Kaspa charges by MASS, which is proportional to serialized size, and a Warda
+ * spend carries the whole 5.7 KB redeem script in its signature script — so a
+ * transaction that moves 0.2 KAS is about 6 KB on the wire and prices near
+ * 1,511,400 sompi. The 1,000,000 that suffices for a plain payment is rejected
+ * as non-standard, by a node that has already accepted the SIGNATURE: the
+ * covenant is satisfied and the transaction still will not relay.
+ *
+ * v3 fitted under 1,000,000; v4 does not, because settlement and the subset
+ * witness made the script bigger. Any future entrypoint moves this again, which
+ * is why the underpayment rejection below is translated rather than passed
+ * through — the node names the exact figure it wants, and that is worth
+ * surfacing instead of a raw RPC error.
+ */
+const DEFAULT_FEE = 2_000_000n;
 const DEFAULT_COMPUTE_BUDGET = 16;
 const DEFAULT_DAA_BACKOFF = 100n;
 
@@ -318,7 +336,26 @@ export class WardaPayer {
     };
 
     const tx = await this.signPlan(plan);
-    const txid = await this.node.submitTransaction(tx);
+
+    let txid: string;
+    try {
+      txid = await this.node.submitTransaction(tx);
+    } catch (e) {
+      // Kaspa prices by mass and states the figure it wants. Passing that
+      // through as a raw RPC error hides an entirely actionable number.
+      const msg = (e as Error).message ?? "";
+      const need = /required amount of (\d+)/.exec(msg);
+      if (need) {
+        throw new X402Error(
+          `this spend paid a fee of ${this.fee} sompi and the network requires ${need[1]} for a ` +
+            `transaction this size. A covenant spend carries the whole redeem script in its ` +
+            `signature script, so it is roughly 6 KB on the wire and costs far more than a plain ` +
+            `transfer — the signature was fine, the fee was not. Construct the payer with ` +
+            `fee: ${need[1]}n or higher. Nothing was spent.`,
+        );
+      }
+      throw e;
+    }
 
     // Advance only after the network has taken it. Moving first would leave
     // the payer pointing at a successor that does not exist if submission
@@ -345,6 +382,34 @@ export class WardaPayer {
         `the signer returned ${signature.length} bytes; a Kaspa signature is 64 plus a ` +
           `sighash-type byte. A signer that omits the trailing byte produces a transaction ` +
           `the engine rejects without saying why.`,
+      );
+    }
+
+    // Is this actually the grant's agent?
+    //
+    // The covenant checks `checkSig(agentSig, pubkey(agentKey))`, and a
+    // signature from any other key fails it. On chain that arrives as
+    // "script ran, but verification failed" — which is true, useless, and
+    // costs a round trip to a node to discover.
+    //
+    // The SDK's own signSpend refuses a key that is not the agent's, but this
+    // path deliberately does not use it: accepting a signer function is what
+    // lets the key live in an HSM, and a signer cannot be checked before it
+    // signs. So the check moves to after, where it costs one verification and
+    // catches the same mistake.
+    //
+    // This is not hypothetical. The first live run of the x402 demo signed
+    // with the FUNDER's key, because that is what WARDA_SK holds and the agent
+    // key is derived from it — see `resolveSigner` in @warda_protocol/kaspa.
+    if (!verifyDigest(signature, unsigned.sighash, fromHex(plan.state.agentKey))) {
+      throw new X402Error(
+        `this signature does not verify against the grant's agent key ` +
+          `(${plan.state.agentKey.slice(0, 16)}…), so the covenant will refuse it as a bad ` +
+          `signature and say only that verification failed.\n` +
+          `The commonest cause is signing with the FUNDER's key: the funder pays for genesis, ` +
+          `and the agent key is usually DERIVED from it rather than equal to it. If the grant's ` +
+          `manifest records an \`agent_key_derived\` block, resolveSigner() from ` +
+          `@warda_protocol/kaspa will find the right secret from the one you hold.`,
       );
     }
     return attachSignature(plan, unsigned, signature);
