@@ -114,6 +114,7 @@ export {
 export { blake2b256, HashWriter } from "./hashers.ts";
 
 export {
+  candidateUrls,
   RpcConnection,
   RpcError,
   stringify,
@@ -124,6 +125,10 @@ export {
 
 export {
   NodeClient,
+  // Ask a node whether it can be believed before believing it. Every check
+  // it makes fails by returning a plausible answer rather than an error.
+  inspect,
+  formatHealth,
   parseDagInfo,
   parseInfo,
   parseUtxos,
@@ -132,8 +137,25 @@ export {
   transactionToWire,
   type AddressUtxo,
   type DagInfo,
+  type NodeCheck,
+  type NodeHealth,
   type NodeInfo,
+  type OpenOptions,
 } from "./node.ts";
+
+/**
+ * Running a kaspad is a reasonable ask of an operator and an unreasonable one
+ * of somebody trying this for ten minutes. A resolver answers one question —
+ * which node should I talk to — and the wRPC conversation that follows is
+ * byte for byte the same as with a local one.
+ */
+export {
+  resolveNode,
+  resolverFrom,
+  resolverUrl,
+  type NodeDescriptor,
+  type ResolveOptions,
+} from "./resolver.ts";
 
 export {
   AddressVersion,

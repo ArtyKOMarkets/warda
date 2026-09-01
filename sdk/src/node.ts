@@ -26,6 +26,7 @@
 
 import { fromHex, toHex } from "./bytes.ts";
 import { RpcConnection, toBigInt, type RpcOptions } from "./rpc.ts";
+import { resolveNode, resolverFrom, type ResolveOptions } from "./resolver.ts";
 import type { ScriptPublicKey, Transaction, TransactionOutpoint, UtxoEntry } from "./tx.ts";
 
 // ---- script public keys --------------------------------------------------
@@ -193,6 +194,122 @@ export function parseUtxos(r: { entries?: unknown[] }): AddressUtxo[] {
   });
 }
 
+// ---- is this node worth believing? ---------------------------------------
+
+export interface NodeCheck {
+  ok: boolean;
+  detail: string;
+}
+
+export interface NodeHealth {
+  url: string;
+  serverVersion: string;
+  network: string;
+  virtualDaaScore: bigint;
+  checks: Record<"synced" | "utxoIndexed" | "network" | "covenants", NodeCheck>;
+  /** True when nothing that could silently produce a wrong answer is wrong. */
+  usable: boolean;
+}
+
+export interface OpenOptions extends RpcOptions, ResolveOptions {
+  /**
+   * A grant address to probe covenant-awareness with. Strongly recommended:
+   * it is the only one of these checks that cannot be made without one, and
+   * the only failure that produces a transaction rather than an error.
+   */
+  grantAddress?: string;
+  /** Return the report instead of throwing. Default false. */
+  tolerate?: boolean;
+}
+
+/**
+ * A node lying by omission is worse than a node that is down.
+ *
+ * Every check here exists because failing it produces a plausible WRONG ANSWER
+ * rather than an error, and the wrong answer always reads as a bug in the
+ * grant:
+ *
+ *   not utxo-indexed  `getUtxosByAddresses` returns an empty list, which is
+ *                     indistinguishable from a grant that has been spent. The
+ *                     tools would report the grant gone and be believed.
+ *   wrong network     addresses derive perfectly and nothing is ever found.
+ *                     Pointing a testnet manifest at a mainnet node looks
+ *                     exactly like a lost grant.
+ *   not synced        the DAA score is stale, so a spend claims an epoch the
+ *                     chain has moved past and is refused for reasons that
+ *                     point at the covenant's epoch logic.
+ *   pre-covenant      `covenantId` is dropped from the UTXO entry, and the
+ *                     spend built from it carries no binding at all.
+ *
+ * On your own node these are assumptions worth making. On somebody else's they
+ * are questions worth asking, and asking costs two round trips.
+ */
+export async function inspect(client: NodeClient, options: OpenOptions = {}): Promise<NodeHealth> {
+  const info = await client.getInfo();
+  const dag = await client.getBlockDagInfo();
+  const wanted = options.networkId ?? process.env.WARDA_NETWORK ?? null;
+
+  const checks: NodeHealth["checks"] = {
+    synced: {
+      ok: info.isSynced,
+      detail: info.isSynced
+        ? "synced"
+        : "NOT SYNCED — its DAA score is behind, so any epoch a spend claims from it may already be stale",
+    },
+    utxoIndexed: {
+      ok: info.isUtxoIndexed,
+      detail: info.isUtxoIndexed
+        ? "utxo index present"
+        : "NO UTXO INDEX — it answers address queries with an empty list rather than an error, which reads as 'your grant is gone'",
+    },
+    network: {
+      // A null expectation is not a pass and not a failure: nobody said.
+      ok: wanted === null || dag.network === wanted || dag.network.endsWith(wanted),
+      detail:
+        wanted === null
+          ? `on ${dag.network} (nothing was asked, so nothing was checked)`
+          : dag.network === wanted || dag.network.endsWith(wanted)
+            ? `on ${dag.network}`
+            : `on ${dag.network}, but ${wanted} was asked for — every address you derive will be well-formed and absent`,
+    },
+    covenants: { ok: false, detail: "" },
+  };
+
+  if (options.grantAddress) {
+    try {
+      await client.assertCovenantAware(options.grantAddress);
+      checks.covenants = { ok: true, detail: "reports covenant ids" };
+    } catch (e) {
+      checks.covenants = { ok: false, detail: (e as Error).message.split("\n")[0]! };
+    }
+  } else {
+    checks.covenants = {
+      ok: true,
+      detail:
+        "UNCHECKED — pass grantAddress. A node that drops covenant ids produces an " +
+        "unbound spend: well-formed, signed, and refused by everything that knows better",
+    };
+  }
+
+  const usable = Object.values(checks).every((c) => c.ok);
+  return {
+    url: client.connection.url,
+    serverVersion: info.serverVersion,
+    network: dag.network,
+    virtualDaaScore: dag.virtualDaaScore,
+    checks,
+    usable,
+  };
+}
+
+export function formatHealth(h: NodeHealth): string {
+  const lines = [`node ${h.url}`, `  version      : ${h.serverVersion}`, `  daa score    : ${h.virtualDaaScore}`];
+  for (const [name, c] of Object.entries(h.checks)) {
+    lines.push(`  ${(c.ok ? "ok  " : "FAIL")} ${name.padEnd(12)}: ${c.detail}`);
+  }
+  return lines.join("\n");
+}
+
 // ---- the client ----------------------------------------------------------
 
 export class NodeClient {
@@ -203,6 +320,48 @@ export class NodeClient {
 
   static async connect(options: RpcOptions = {}): Promise<NodeClient> {
     return new NodeClient(await RpcConnection.connect(options));
+  }
+
+  /**
+   * Connect to a node — your own, a list of them, or one a resolver picks —
+   * and refuse to hand back one that would answer wrongly.
+   *
+   * Order of preference: an explicit url, then a list, then the resolver, then
+   * localhost. The resolver is consulted only when nothing more specific was
+   * given, so configuring one never overrides a node you named.
+   *
+   * `open` throws on a node that fails a check. That is the point: the whole
+   * class of bug this prevents is a tool believing an answer it should have
+   * refused, and returning a client with a warning attached would just move
+   * the mistake one line down. Pass `tolerate` if you want the report instead.
+   */
+  static async open(options: OpenOptions = {}): Promise<{ client: NodeClient; health: NodeHealth }> {
+    const named = options.url || options.urls?.length || process.env.WARDA_RPC_JSON;
+    let client: NodeClient;
+    if (!named && resolverFrom(options)) {
+      const node = await resolveNode(options);
+      client = await NodeClient.connect({ ...options, url: node.url });
+    } else {
+      client = await NodeClient.connect(options);
+    }
+
+    let health: NodeHealth;
+    try {
+      health = await inspect(client, options);
+    } catch (e) {
+      client.close();
+      throw e;
+    }
+    if (!health.usable && !options.tolerate) {
+      client.close();
+      throw new Error(
+        `this node cannot be trusted with a grant:\n\n${formatHealth(health)}\n\n` +
+          `Every check above fails in the same direction — it returns a plausible ` +
+          `answer rather than an error — which is why it is checked here rather ` +
+          `than discovered later from a spend the network refused.`,
+      );
+    }
+    return { client, health };
   }
 
   /** The underlying connection, for calls this class does not wrap. */

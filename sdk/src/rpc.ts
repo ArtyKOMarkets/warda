@@ -39,11 +39,66 @@ export class RpcError extends Error {
 export interface RpcOptions {
   /** Defaults to `WARDA_RPC_JSON`, else the testnet JSON port. */
   url?: string;
+  /**
+   * Candidates, tried in order until one opens. A single unreachable node is
+   * the commonest reason a working setup stops working, and it is not worth a
+   * failed run when the caller knows about three of them.
+   */
+  urls?: string[];
   /** Per-call ceiling. A synced node answers these in milliseconds. */
   timeoutMs?: number;
+  /** How long to wait for each socket to open. */
+  connectTimeoutMs?: number;
 }
 
 const DEFAULT_URL = "ws://127.0.0.1:18210";
+
+/**
+ * Where to look, in order of how much the caller has said.
+ *
+ * An explicit `url` wins over a list, a list wins over the environment, and
+ * localhost is what is left when nobody has said anything. `WARDA_RPC_JSON`
+ * accepts several URLs separated by commas, so an operator with three nodes
+ * can express that without touching code.
+ */
+export function candidateUrls(options: RpcOptions = {}): string[] {
+  if (options.url) return [options.url];
+  if (options.urls?.length) return options.urls;
+  const env = process.env.WARDA_RPC_JSON;
+  if (env) return env.split(",").map((u) => u.trim()).filter(Boolean);
+  return [DEFAULT_URL];
+}
+
+const LOCAL_HINT =
+  `The JSON wRPC port is separate from the Borsh one (testnet: 18210 vs 17210)\n` +
+  `and only listens if kaspad was started with --rpclisten-json=<host:port>.\n` +
+  `Note the '=': the flag rejects a space-separated value.\n\n` +
+  `If you do not run a node: set WARDA_RESOLVER to a Kaspa Resolver and use\n` +
+  `NodeClient.open(), which finds a public one and then checks it is worth\n` +
+  `believing before you build anything against it.`;
+
+function openSocket(url: string, timeoutMs: number): Promise<WebSocket> {
+  return new Promise((resolve, reject) => {
+    let socket: WebSocket;
+    try {
+      socket = new WebSocket(url);
+    } catch (e) {
+      // A malformed URL throws synchronously, and its message names neither
+      // the URL nor the fact that this was a connection attempt.
+      reject(new Error(`${url} is not a usable WebSocket url: ${(e as Error).message}`));
+      return;
+    }
+    const timer = setTimeout(() => reject(new Error(`timed out connecting to ${url}`)), timeoutMs);
+    socket.addEventListener("open", () => {
+      clearTimeout(timer);
+      resolve(socket);
+    });
+    socket.addEventListener("error", () => {
+      clearTimeout(timer);
+      reject(new Error(`cannot reach ${url}`));
+    });
+  });
+}
 
 /**
  * JSON cannot carry a u64 faithfully: above 2^53 a literal loses digits during
@@ -102,31 +157,32 @@ export class RpcConnection {
     this.url = url;
   }
 
+  /**
+   * Opens the first candidate that answers.
+   *
+   * Every failure is kept and reported together. One node being down and every
+   * node being down look identical from a single error message, and they call
+   * for completely different responses.
+   */
   static async connect(options: RpcOptions = {}): Promise<RpcConnection> {
-    const url = options.url ?? process.env.WARDA_RPC_JSON ?? DEFAULT_URL;
+    const urls = candidateUrls(options);
     const timeoutMs = options.timeoutMs ?? 15_000;
-    const socket = new WebSocket(url);
+    const connectTimeoutMs = options.connectTimeoutMs ?? 8_000;
 
-    await new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error(`timed out connecting to ${url}`)), 8_000);
-      socket.addEventListener("open", () => {
-        clearTimeout(timer);
-        resolve();
-      });
-      socket.addEventListener("error", () => {
-        clearTimeout(timer);
-        reject(
-          new Error(
-            `cannot reach ${url}.\n` +
-              `The JSON wRPC port is separate from the Borsh one (testnet: 18210 vs 17210)\n` +
-              `and only listens if kaspad was started with --rpclisten-json=<host:port>.\n` +
-              `Note the '=': the flag rejects a space-separated value.`,
-          ),
-        );
-      });
-    });
-
-    return new RpcConnection(socket, timeoutMs, url);
+    const failures: string[] = [];
+    for (const url of urls) {
+      try {
+        return new RpcConnection(await openSocket(url, connectTimeoutMs), timeoutMs, url);
+      } catch (e) {
+        failures.push(`  ${(e as Error).message}`);
+      }
+    }
+    throw new Error(
+      (urls.length === 1
+        ? `${failures[0]!.trim()}.\n`
+        : `none of the ${urls.length} nodes answered:\n${failures.join("\n")}\n`) +
+        LOCAL_HINT,
+    );
   }
 
   /** Sends one request and resolves with its `params`. Throws on `error`. */
