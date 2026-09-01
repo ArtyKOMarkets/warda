@@ -4,7 +4,6 @@
   "trailingSlash": false,
   "rewrites": [
     {
-      "//": "Two discovery proposals disagree about this path. SEP-1649 puts a server card at /.well-known/mcp/server-card.json, which needs `mcp` to be a DIRECTORY; SEP-1960 puts a manifest at /.well-known/mcp, which needs it to be a FILE. A filesystem cannot be both, so the manifest is stored beside it and served here. Neither is ratified — this is a bet on being found, not a spec claim.",
       "source": "/.well-known/mcp",
       "destination": "/.well-known/mcp-manifest.json"
     }
@@ -15,7 +14,6 @@
       "headers": [{ "key": "Content-Type", "value": "text/plain; charset=utf-8" }]
     },
     {
-      "//": "The discovery documents exist to be read by other people's agents, so they must be fetchable cross-origin. Nothing here is secret: it is the same information the page states in prose.",
       "source": "/.well-known/(.*)",
       "headers": [
         { "key": "Content-Type", "value": "application/json; charset=utf-8" },

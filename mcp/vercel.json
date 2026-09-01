@@ -2,7 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
     "api/mcp.ts": {
-      "//": "The covenant template is read from the installed @warda_protocol/kaspa package, so nothing extra needs bundling — but the resolver has to be able to see it, which is what this file being a real npm dependency guarantees.",
       "maxDuration": 30
     }
   },
