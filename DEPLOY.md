@@ -24,52 +24,60 @@ The rewrite exists because the two proposals disagree: one needs
 both, so the manifest lives beside it as `mcp-manifest.json` and is served at
 the bare path.
 
+## Before anything: .vercelignore
+
+The Vercel CLI uploads from DISK, not from git. `covenant/deploy/target` is a
+Rust build directory of about 2.3 GB — gitignored, so pushes stay small, and
+completely invisible to that protection. Uploading it fails as a repeating
+`Upload aborted`, an error that names neither the size nor the file.
+
+`.vercelignore` at the repo root and in each deploy directory excludes it,
+along with `node_modules`, `dist`, and anything matching `.env*` or `*.key`.
+
+The more reliable route is to not upload at all. Both projects are connected to
+the GitHub repo, so setting the Root Directory and pushing makes Vercel clone
+from GitHub — where `target/` does not exist, because it is gitignored — and
+build there. `vercel --prod` is for when you want to deploy something you have
+not pushed.
+
 ## The MCP endpoint → mcp.wardaprotocol.com
 
-    cd mcp
-    vercel --prod
+    # preferred: set Root Directory to mcp/deploy in the dashboard, then
+    git push
 
-`api/mcp.ts` is a stateless Streamable HTTP endpoint. `vercel.json` rewrites
-both `/` and `/mcp` to it, so either URL works — the discovery documents
-advertise `/mcp`.
+    # or, to deploy the working tree:
+    cd mcp/deploy && vercel --prod
 
-`vercel.json` also sets `buildCommand` to a no-op, and that line is load-bearing.
-Vercel's zero-config runs `npm run build` whenever a `build` script exists, and
-this package's build script is `tsc` — which is a devDependency of the workspace
-ROOT, not of this package. Deploying without the override fails with exit 127,
-`tsc: command not found`. There is nothing to build: Vercel compiles `api/*.ts`
-itself, and `dist/` exists for npm consumers, which `prepublishOnly` covers.
+**Deploy `mcp/deploy`, not `mcp`.** The first attempt deployed the package
+directory and Vercel chose `src/server.ts` as the entrypoint — the STDIO
+server, which exports no HTTP handler, so every request died as
+`FUNCTION_INVOCATION_FAILED`. It was not wrong to guess: a directory holding
+both a library and a function is ambiguous. `mcp/deploy` holds nothing but the
+function — no `src/`, no `main`, nothing else that could be mistaken for an
+entrypoint.
 
-Set the project's **Root Directory** to `mcp` in Vercel's settings. The CLI
-connects the GitHub repo on first deploy, and a root of `/` makes it look for
-`api/` at the top of the repo and find nothing.
+It depends on the PUBLISHED `@warda_protocol/mcp` rather than on the working
+tree, so the hosted endpoint serves a released version by construction. That
+costs something real — it cannot run unreleased code, so publish first — and
+buys something worth more: it exercises the package the way an installing user
+does, which is the exact path that hid the covenant-template bug.
 
-Point the subdomain at that project in Vercel, then check it:
+In Vercel's project settings, set **Root Directory** to `mcp/deploy`.
 
-    curl -s https://mcp.wardaprotocol.com/mcp | jq .
-    npx @modelcontextprotocol/inspector --cli \
-      https://mcp.wardaprotocol.com/mcp --method tools/list
+`vercel.json` rewrites both `/` and `/mcp` to the function, so either URL
+works; the discovery documents advertise `/mcp`.
+
+Check it:
+
+    curl -si https://<the alias vercel prints>/mcp | head -5
+    npx @modelcontextprotocol/inspector --cli https://<alias>/mcp --method tools/list
+
+Nine tools. Then add the domain and re-check on `mcp.wardaprotocol.com`, since
+that is the hostname the server card advertises.
 
 An agent framework then needs one line rather than an install:
 
     { "mcpServers": { "warda": { "url": "https://mcp.wardaprotocol.com/mcp" } } }
-
-## The registry
-
-`.github/workflows/publish-mcp.yml` publishes `mcp/server.json` to
-registry.modelcontextprotocol.io on a tag, authenticated by GitHub OIDC — the
-`io.github.ArtyKOMarkets/*` namespace is exactly the claim that OIDC proves, so
-there is no secret to configure.
-
-    git tag mcp-v0.4.1 && git push --tags
-
-The workflow refuses to publish an entry for a version that is not on npm yet,
-because a registry entry pointing at a missing package gives every client a 404
-at install time.
-
-Downstream directories take the official registry as source of truth: PulseMCP
-ingests it weekly, Glama and mcp.so consume it, and awesome-mcp-servers wants a
-Glama listing first. Smithery is the one that needs the hosted endpoint above.
 
 ## Publishing to npm
 

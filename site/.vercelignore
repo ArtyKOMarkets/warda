@@ -1,0 +1,30 @@
+# The Vercel CLI uploads from DISK, not from git — so a directory being
+# gitignored does not protect it. covenant/deploy/target is a Rust build
+# directory and is 2.3 GB; uploading it aborts the deploy on repeat, with an
+# error that names neither the size nor the file.
+#
+# Nothing here is needed to build a function: the source that matters is
+# mcp/deploy/api, and its dependencies come from npm at build time.
+
+.git
+node_modules
+**/node_modules
+
+# Rust build output — the big one
+target
+**/target
+
+# TypeScript build output; npm consumers get it from the published tarball
+dist
+**/dist
+
+# Working files this repo accumulates
+_gitjunk
+_to_delete
+*.tgz
+*.log
+
+# Never upload key material or pulled environment, whatever else changes here
+*.key
+.env*
+**/.env*
