@@ -1,0 +1,62 @@
+# Publish the MCP server to the official registry, so an agent framework can
+# find Warda without anyone having heard of it first.
+#
+# The registry is metadata only: it points at the npm package rather than
+# hosting anything. Downstream directories (PulseMCP and others) ingest from it,
+# so this one publish is what puts the server in front of the places people
+# actually browse.
+#
+# Auth is GitHub OIDC, which is why there is no secret here. The registry
+# verifies that this workflow runs in the ArtyKOMarkets org, which is what the
+# io.github.ArtyKOMarkets/* namespace means.
+name: publish-mcp
+
+on:
+  push:
+    tags: ["mcp-v*"]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      # The whole authentication story. Without it the publish is unsigned and
+      # the registry has no reason to believe the namespace claim.
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # The registry entry names a version and an npm package. Publishing an
+      # entry for a version that is not on npm gives every client a 404 at
+      # install time, so the two are checked against each other first.
+      - name: The version in server.json must match the package
+        run: |
+          pkg=$(node -p "require('./mcp/package.json').version")
+          srv=$(node -p "require('./mcp/server.json').version")
+          npmv=$(node -p "require('./mcp/server.json').packages[0].version")
+          echo "package.json $pkg / server.json $srv / package entry $npmv"
+          test "$pkg" = "$srv" || { echo "server.json version disagrees with package.json"; exit 1; }
+          test "$pkg" = "$npmv" || { echo "the npm package entry names a different version"; exit 1; }
+
+      - name: And it must already be on npm
+        run: |
+          v=$(node -p "require('./mcp/package.json').version")
+          # Publish the registry entry only once the thing it points at exists.
+          npm view "@warda_protocol/mcp@$v" version
+
+      - name: Install mcp-publisher
+        run: |
+          curl -sSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/').tar.gz" \
+            | tar xz mcp-publisher
+          sudo mv mcp-publisher /usr/local/bin/
+
+      - name: Publish
+        working-directory: mcp
+        run: |
+          mcp-publisher login github-oidc
+          mcp-publisher publish
