@@ -67,7 +67,7 @@ never funded. Use `warda_grant_address` for where it is, and
 
 ## Docs
 
-- [Developer guide](https://claude.ai/code/artifact/3821689d-e8c7-46d3-875a-0a47d459e8c7):
+- [Developer guide](https://wardaprotocol.com/build):
   install, the grant lifecycle, and the limits.
 - [Source](https://github.com/ArtyKOMarkets/warda): the covenant, the SDK, the
   adversarial probes, and the receipt from the live testnet payment.
