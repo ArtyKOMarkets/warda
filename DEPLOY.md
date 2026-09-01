@@ -62,6 +62,13 @@ costs something real — it cannot run unreleased code, so publish first — and
 buys something worth more: it exercises the package the way an installing user
 does, which is the exact path that hid the covenant-template bug.
 
+The handler takes Node's `(IncomingMessage, ServerResponse)`, not a Web
+`Request`. Vercel's Node runtime calls it that way, and a web-standard handler
+is invoked with arguments it does not understand — the failure is
+`FUNCTION_INVOCATION_FAILED` with nothing in the logs about signatures. The
+Edge runtime IS web-standard and would accept one, but it has no filesystem,
+and reading the covenant template needs one.
+
 In Vercel's project settings, set **Root Directory** to `mcp/deploy`.
 
 `vercel.json` rewrites both `/` and `/mcp` to the function, so either URL
