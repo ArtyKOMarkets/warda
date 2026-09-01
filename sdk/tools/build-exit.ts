@@ -124,7 +124,13 @@ const state: GrantState = {
   reserved: BigInt(m.reserved),
   epochIndex: BigInt(m.epoch_index),
   epochSpent: BigInt(m.epoch_spent),
-  reserveRoot: EMPTY_RESERVE,
+  // A parent that has delegated is NOT at EMPTY_RESERVE, and the root is part
+  // of the address. Reading it as empty derives an address the grant left the
+  // moment it delegated, and every tool then reports a healthy grant as
+  // missing -- which is what made delegation one-way in practice rather than
+  // in the covenant. `advance-manifest` writes this field now; a manifest
+  // predating it has never delegated, so the default is right for it.
+  reserveRoot: m.reserve_root ?? EMPTY_RESERVE,
 };
 const address = scriptHashToAddress(scriptHashFor(template, { authority, state }), prefix);
 

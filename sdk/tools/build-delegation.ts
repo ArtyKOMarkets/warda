@@ -38,16 +38,34 @@
  *   --not-before <daa> --expires-at <daa>   the same, stated absolutely
  *   --fee <sompi>         default 1000000
  *   --principal <hex> --revocation <hex> --parent-depth <n> --prefix <p> --rpc <url>
+ *
+ * ## Narrowing the allowlist
+ *
+ *   --recipients <file|csv>        the PARENT's full member set
+ *   --child-recipients <file|csv>  the subset the child may pay
+ *
+ * A child inherits its parent's whole allowlist unless you narrow it, and
+ * narrowing needs the parent's actual members: the child commits to a NODE of
+ * the parent's tree, and the delegation carries the path from that node up to
+ * the parent's root. A root on its own cannot produce a path. The subset must
+ * be a contiguous, power-of-two-aligned run of the canonically sorted members
+ * -- `RecipientSet.subtree` explains the alignment when it is not met.
+ *
+ * This is the attenuation with teeth. A shorter window ends by itself and a
+ * smaller budget bounds the damage, but neither stops a sub-agent paying
+ * somebody the parent would never have paid. Narrowing the allowlist does, and
+ * the covenant checks the witness rather than trusting the claim.
  */
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-import { scriptHashToAddress, type NetworkPrefix } from "../src/address.ts";
+import { decodeAddress, scriptHashToAddress, type NetworkPrefix } from "../src/address.ts";
 import { fromHex, toHex } from "../src/bytes.ts";
 import { attachDelegationSignature, buildUnsignedDelegation, type DelegationPlan } from "../src/delegate.ts";
 import { derivePublic, EMPTY_RESERVE, KEY_DOMAIN, resolveSigner } from "../src/keys.ts";
 import { NodeClient } from "../src/node.ts";
+import { RecipientSet } from "../src/recipients.ts";
 import { agentPublicKey, signDigest, verifyDigest } from "../src/sign.ts";
 import { scriptHashFor, templateFingerprint, type CovenantTemplate, type GrantState, templateIdFor } from "../src/template.ts";
 import { toWire } from "../src/wire.ts";
@@ -134,7 +152,13 @@ const state: GrantState = {
   reserved: BigInt(m.reserved),
   epochIndex: BigInt(m.epoch_index),
   epochSpent: BigInt(m.epoch_spent),
-  reserveRoot: EMPTY_RESERVE,
+  // A parent that has delegated is NOT at EMPTY_RESERVE, and the root is part
+  // of the address. Reading it as empty derives an address the grant left the
+  // moment it delegated, and every tool then reports a healthy grant as
+  // missing -- which is what made delegation one-way in practice rather than
+  // in the covenant. `advance-manifest` writes this field now; a manifest
+  // predating it has never delegated, so the default is right for it.
+  reserveRoot: m.reserve_root ?? EMPTY_RESERVE,
 };
 
 // Only the parent's AGENT may delegate — not its principal, and not the
@@ -160,6 +184,44 @@ const index = Number(flag("index", "0")!);
 const derivedChild = derivePublic(parentSecret, KEY_DOMAIN.subAgent, index);
 const childKey = flag("child-key", derivedChild)!;
 const derived = childKey === derivedChild;
+
+/**
+ * Members, from a file (one key per line) or a comma-separated list. Both
+ * hex x-only keys and kaspa addresses are accepted: an address is what a
+ * person has to hand, and decoding it here beats making them convert.
+ */
+function members(spec: string): string[] {
+  const raw = existsSync(spec) ? readFileSync(spec, "utf8") : spec;
+  return raw
+    .split(/[\s,]+/)
+    .map((t) => t.trim())
+    .filter(Boolean)
+    .map((t) => (t.includes(":") ? toHex(decodeAddress(t).payload) : t.toLowerCase()));
+}
+
+const parentMembersFlag = flag("recipients");
+const childMembersFlag = flag("child-recipients");
+if (childMembersFlag && !parentMembersFlag) {
+  console.error(
+    `--child-recipients narrows the child's allowlist, and that needs the PARENT's\n` +
+      `full member set too: the witness is a path through the parent's tree, and a\n` +
+      `root on its own cannot produce one. Pass --recipients as well.`,
+  );
+  process.exit(1);
+}
+let parentSet: RecipientSet | undefined;
+if (parentMembersFlag) {
+  parentSet = new RecipientSet(members(parentMembersFlag));
+  if (parentSet.rootHex !== state.recipientsRoot.toLowerCase()) {
+    console.error(
+      `the recipient set given hashes to ${parentSet.rootHex},\n` +
+        `and this grant commits to ${state.recipientsRoot}.\n` +
+        `A witness through the wrong tree proves nothing. Check the member list ` +
+        `is the grant's, complete, and in any order — it is sorted canonically here.`,
+    );
+    process.exit(1);
+  }
+}
 
 const address = scriptHashToAddress(scriptHashFor(template, { authority, state }), prefix);
 
@@ -211,8 +273,10 @@ try {
       maxPerSpend: BigInt(flag("max-per-spend", "50000000")!),
       epochLimit: BigInt(flag("epoch-limit", "100000000")!),
       delegationDepth: BigInt(flag("depth", (parentDepth - 1n).toString())!),
+      ...(childMembersFlag ? { recipients: members(childMembersFlag) } : {}),
       ...childWindow,
     },
+    recipients: parentSet,
     fee: BigInt(flag("fee", DEFAULT_FEE.toString())!),
     computeBudget: DELEGATE_COMPUTE_BUDGET,
   };
@@ -325,6 +389,16 @@ writeFileSync(
       agent_key_derived: derived ? { domain: KEY_DOMAIN.subAgent, index } : null,
       parent_agent: state.agentKey,
       parent_txid: toWire(tx, built.entry).txid,
+      /**
+       * What the parent's reserve stack was BEFORE this child was pushed onto
+       * it. `reabsorb` pops the stack, and popping a hash chain means handing
+       * back the preimage -- it cannot be derived from the parent's state, from
+       * the child's, or from any transaction. Recorded here, on the child,
+       * because the child is what settlement is about and the pairing is what
+       * matters: this root belongs to THIS child's release and no other's.
+       */
+      parent_reserve_root_before: state.reserveRoot,
+      reserve_root: EMPTY_RESERVE,
       recipients_root: c.recipientsRoot,
       not_before: Number(c.notBefore),
       expires_at: Number(c.expiresAt),
@@ -350,6 +424,13 @@ console.error(`  keeps     : ${built.parentChange} sompi, reserved now ${built.p
 console.error(`child       : ${childAddress}`);
 console.error(`  receives  : ${plan.child.budgetTotal} sompi, cap ${plan.child.maxPerSpend}, depth ${plan.child.delegationDepth}`);
 console.error(`  agent key : ${childKey}${derived ? ` (derived, index ${index})` : " (supplied)"}`);
+console.error(
+  `  payees    : ${
+    built.childState.recipientsRoot === state.recipientsRoot
+      ? "inherited — the child may pay anyone the parent may"
+      : `narrowed to ${members(childMembersFlag!).length} of ${parentSet!.members.length}, proven by witness`
+  }`,
+);
 console.error(
   `  window    : ${built.childState.notBefore} to ${built.childState.expiresAt}` +
     `${built.childState.expiresAt === state.expiresAt ? " (inherited)" : " (narrowed)"}`,

@@ -110,7 +110,10 @@ const grant: Grant = {
     reserved: BigInt(m.reserved),
     epochIndex: BigInt(m.epoch_index),
     epochSpent: BigInt(m.epoch_spent),
-    reserveRoot: EMPTY_RESERVE,
+    // A parent that has delegated is NOT at EMPTY_RESERVE, and the root is
+    // part of the address: reading it as empty derives an address the grant
+    // left the moment it delegated, and reports a healthy grant as missing.
+    reserveRoot: m.reserve_root ?? EMPTY_RESERVE,
   },
 };
 
