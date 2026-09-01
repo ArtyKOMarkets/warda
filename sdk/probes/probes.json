@@ -30,6 +30,24 @@
     "sdkRefused": false
   },
   {
+    "name": "delegate-narrowed",
+    "expect": "accept",
+    "why": "a delegation that narrows the child's allowlist to a subtree of the parent's, with the witness proving that subtree sits in the parent's tree. The control for the two below.",
+    "sdkRefused": false
+  },
+  {
+    "name": "narrowed-pays-inside",
+    "expect": "accept",
+    "why": "the narrowed child pays a member of its OWN set; narrowing must not break the legitimate case",
+    "sdkRefused": false
+  },
+  {
+    "name": "narrowed-pays-outside",
+    "expect": "refuse",
+    "why": "THE POINT OF THE WITNESS. The narrowed child pays a member of its PARENT'S allowlist that is not in its own. Before v4 a child inherited the parent's root exactly, so this was an ordinary spend and delegation could not scope counterparty at all. If the engine accepts it, narrowing is decoration.",
+    "sdkRefused": false
+  },
+  {
     "name": "reabsorb-honest",
     "expect": "accept",
     "why": "an ordinary settlement: the parent takes back the child at the top of its reserve stack, releasing the child's budget and inheriting what the child actually spent. The control for the three below.",

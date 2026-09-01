@@ -18,7 +18,7 @@ import { fileURLToPath } from "node:url";
 import { buildUnsignedSpend, type MerkleProof, type SpendPlan } from "../../sdk/src/spend.ts";
 import { toWire, type WireTransaction } from "../../sdk/src/wire.ts";
 import { fromHex, toHex } from "../../sdk/src/bytes.ts";
-import { scriptHashFor, type CovenantTemplate } from "../../sdk/src/template.ts";
+import { scriptHashFor, templateIdFor, type CovenantTemplate } from "../../sdk/src/template.ts";
 import type { Materialised } from "./grant.ts";
 import type { MerkleProof as CoreProof } from "../../src/types.ts";
 
@@ -111,9 +111,11 @@ export function buildSpend(m: Materialised, set: Materialised["set"], o: BuildOp
     );
   }
 
+  const authority = { principalKey: grant.principalKey, revocationKey: grant.revocationKey };
+
   const plan: SpendPlan = {
     template,
-    authority: { principalKey: grant.principalKey, revocationKey: grant.revocationKey },
+    authority,
     state: {
       agentKey: grant.agentKey,
       budgetTotal: grant.budgetTotal,
@@ -124,10 +126,14 @@ export function buildSpend(m: Materialised, set: Materialised["set"], o: BuildOp
       notBefore: grant.notBefore,
       expiresAt: grant.expiresAt,
       delegationDepth: BigInt(grant.delegationDepth),
+      // Derived, never supplied: the id is a property of the template and the
+      // authority together, so a descriptor cannot get it wrong by stating it.
+      templateId: templateIdFor(template, authority),
       spentTotal: state.spentTotal,
       reserved: state.reserved,
       epochIndex: state.epochIndex,
       epochSpent: state.epochSpent,
+      reserveRoot: m.reserveRoot,
     },
     utxo: {
       outpointTransactionId: fromHex(o.utxo.transactionId),

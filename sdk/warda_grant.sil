@@ -1,0 +1,302 @@
+pragma silverscript ^0.1.0;
+
+// Warda — agent grant covenant, v0.1 DRAFT
+//
+// NOT YET COMPILE-VERIFIED. See PHASE0.md for the constraints that shaped
+// this and for the assumptions still to be checked against the compiler.
+//
+// Immutable authority lives in constructor params, so it is baked into the
+// scriptPubKey and cannot move. Mutable accounting lives in contract fields,
+// which the compiler synthesises into the implicit `State` struct and binds
+// to the successor output via the covenant declaration.
+
+contract WardaGrant(
+    pubkey  principalKey,
+    pubkey  revocationKey,
+    int     maxFee,
+    // --- genesis values for the authority fields, which are STATE ---
+    byte[32] genesisAgentKey,
+    int     genesisBudgetTotal,
+    int     genesisMaxPerSpend,
+    int     genesisEpochLimit,
+    int     genesisEpochLength,
+    byte[32] genesisRecipientsRoot,
+    int     genesisNotBefore,
+    int     genesisExpiresAt,
+    int     genesisDelegationDepth,
+    int     maxProofDepth,
+    int     initSpentTotal,
+    int     initReserved,
+    int     initEpochIndex,
+    int     initEpochSpent
+) {
+    // ---- STATE ----
+    // Authority lives here, not in constructor params. A child grant differs
+    // from its parent in budget, cap and expiry; if those were ctor params the
+    // child would be a DIFFERENT TEMPLATE, and DECL.md is explicit that
+    // cross-template routing is not available to declaration lowering. Same
+    // template, different state, is the only shape delegation can take.
+    //
+    // Consequence: `spend` must now assert every authority field is unchanged.
+    byte[32] agentKey        = genesisAgentKey;
+    int budgetTotal          = genesisBudgetTotal;
+    int maxPerSpend          = genesisMaxPerSpend;
+    int epochLimit           = genesisEpochLimit;
+    int epochLength          = genesisEpochLength;
+    byte[32] recipientsRoot  = genesisRecipientsRoot;
+    int notBefore            = genesisNotBefore;
+    int expiresAt            = genesisExpiresAt;
+    int delegationDepth      = genesisDelegationDepth;
+
+    int spentTotal = initSpentTotal;
+    int reserved   = initReserved;
+    int epochIndex = initEpochIndex;
+    int epochSpent = initEpochSpent;
+
+    // Domain separators MUST be non-zero. Kaspa script encodes the value zero
+    // as the EMPTY byte string, so `byte[](0x00)` compiles to nothing and the
+    // separator silently disappears — the source reads as domain-separated
+    // while the bytecode is not. Caught by opcode tracing, not by review.
+    byte constant LEAF = 0x01;
+    byte constant NODE = 0x02;
+
+    // Domain-separated Merkle fold. Sibling side travels per-level because
+    // odd nodes are promoted without a sibling, so index parity alone cannot
+    // reconstruct the order. (This exact bug was caught in @warda/core.)
+    function merkleRoot(
+        byte[32]   leafValue,
+        byte[32][] siblings,
+        bool[]     siblingIsLeft
+    ) : byte[32] {
+        byte[32] node = blake2b(byte[](LEAF) + byte[](leafValue));
+        for (i, 0, siblings.length, maxProofDepth) {
+            if (siblingIsLeft[i]) {
+                node = blake2b(byte[](NODE) + byte[](siblings[i]) + byte[](node));
+            } else {
+                node = blake2b(byte[](NODE) + byte[](node) + byte[](siblings[i]));
+            }
+        }
+        return node;
+    }
+
+    #[covenant.singleton]
+    function spend(
+        State      prevState,
+        State      newState,
+        int        amount,
+        byte[32]   recipient,
+        byte[32][] proofSiblings,
+        bool[]     proofSiblingIsLeft,
+        int        claimedDaa,
+        sig        agentSig
+    ) {
+        // ------------------------------------------------------------------
+        // GUARD ORDER IS NORMATIVE, NOT STYLISTIC.
+        //
+        // Silverscript integer overflow is UNDEFINED BEHAVIOUR, and the spec
+        // is explicit that UB "is not guaranteed to make execution fail" — a
+        // contract may simply succeed. So every attacker-supplied integer is
+        // bounded BEFORE it reaches any arithmetic. A range check performed
+        // after the addition is not a check at all.
+        // ------------------------------------------------------------------
+        // Authority is immutable across a spend. Without these, an agent
+        // rewrites its own cap in the successor and every limit is decorative.
+        require(newState.agentKey       == prevState.agentKey);
+        require(newState.budgetTotal    == prevState.budgetTotal);
+        require(newState.maxPerSpend    == prevState.maxPerSpend);
+        require(newState.epochLimit     == prevState.epochLimit);
+        require(newState.epochLength    == prevState.epochLength);
+        require(newState.recipientsRoot == recipientsRoot);
+        require(newState.notBefore      == prevState.notBefore);
+        require(newState.expiresAt      == prevState.expiresAt);
+        require(newState.delegationDepth == delegationDepth);
+
+        require(amount > 0);
+        require(amount <= maxPerSpend);
+
+        // Lower bound only. `tx.daa` is write-only — it emits a CLTV lock and
+        // cannot be read as a value — so the agent supplies claimedDaa and the
+        // lock proves the chain has actually reached it. Overstating is
+        // impossible; understating only costs the agent epoch headroom.
+        require(claimedDaa >= notBefore);
+        require(tx.daa >= claimedDaa);
+
+        // Budget. The invariant spentTotal + reserved <= budgetTotal is
+        // re-asserted rather than assumed, so a malformed prior state cannot
+        // drive the subtraction negative.
+        int committed = prevState.spentTotal + prevState.reserved;
+        require(committed <= budgetTotal);
+        require(amount <= budgetTotal - committed);
+
+        require(epochLength > 0);
+        int currentEpoch = (claimedDaa - notBefore) / epochLength;
+
+        // THE RATCHET. Without it the per-epoch cap limits nothing.
+        //
+        // claimedDaa is agent-supplied and bounded BELOW only: `>= notBefore`
+        // here, and `tx.daa >= claimedDaa` via CLTV, which any past value
+        // satisfies trivially. So an agent whose epoch allowance is exhausted
+        // simply claims an EARLIER epoch. The equality test below then finds a
+        // mismatch, spentThisEpoch resets to zero, and the whole allowance is
+        // available again — as often as the agent likes, bounded only by
+        // budgetTotal.
+        //
+        // Verified against the consensus engine, not reasoned about: with
+        // epochIndex 5 and epochSpent == epochLimit, a spend claiming epoch 5
+        // is refused (VerifyError) and one claiming epoch 4 is ACCEPTED.
+        //
+        // Monotonicity is the fix, and it is also what makes expiry
+        // enforceable below: an agent that cannot rewind cannot escape an
+        // upper bound by pretending to be in the past.
+        require(currentEpoch >= prevState.epochIndex);
+
+        // Expiry now BINDS on the spend path. It could not before: CLTV proves
+        // only a lower bound on time, so an upper bound on claimedDaa is
+        // meaningless on its own — the agent claims an older DAA and walks
+        // under it. The ratchet above is what makes this stick.
+        //
+        // The residual, stated precisely rather than glossed: an agent may
+        // position itself at the last pre-expiry epoch with a fresh allowance
+        // and spend up to ONE epochLimit after expiresAt has passed. That is
+        // the floor for this mechanism, because no covenant can prove the
+        // chain is BEFORE a given time. Size epochLimit accordingly — it is
+        // the exact bound on post-expiry exposure.
+        require(claimedDaa < expiresAt);
+
+        int spentThisEpoch = 0;
+        if (currentEpoch == prevState.epochIndex) {
+            spentThisEpoch = prevState.epochSpent;
+        }
+        require(spentThisEpoch <= epochLimit);
+        require(amount <= epochLimit - spentThisEpoch);
+
+        require(merkleRoot(recipient, proofSiblings, proofSiblingIsLeft) == recipientsRoot);
+
+        // Successor state. Without these four lines every limit above is
+        // decorative — an agent that can rewrite its own remaining budget
+        // has no budget.
+        require(newState.spentTotal == prevState.spentTotal + amount);
+        require(newState.reserved   == prevState.reserved);
+        require(newState.epochIndex == currentEpoch);
+        require(newState.epochSpent == spentThisEpoch + amount);
+
+        // Output topology. The continuation's real index comes from
+        // OpAuthOutputIdx — it is NOT guaranteed to be output 0, and assuming
+        // so was a bug in the first draft of this file. We pin the topology
+        // instead of scanning: continuation at 0, payment at 1. Cheaper than a
+        // search, and the SDK builds every spend this way.
+        //
+        // The count check is belt-and-braces: the generated singleton wrapper
+        // already rejects two authorised outputs from one input (see
+        // covenant_declaration_security_tests.rs). Keeping it explicit costs
+        // little and documents the assumption at the point it is relied on.
+        require(OpAuthOutputCount(this.activeInputIndex) == 1);
+        require(OpAuthOutputIdx(this.activeInputIndex, 0) == 0);
+
+        byte[34] payTo = new ScriptPubKeyP2PK(pubkey(recipient));
+        require(tx.outputs[1].scriptPubKey == byte[](payTo));
+        require(tx.outputs[1].value == amount);
+
+        // Value conservation: the continuation keeps everything except the
+        // payment and a bounded fee. Without the maxFee bound an agent burns
+        // the grant to fees instead of spending it.
+        int inValue = tx.inputs[this.activeInputIndex].value;
+        require(inValue >= amount);
+        require(tx.outputs[0].value >= inValue - amount - maxFee);
+
+        require(checkSig(agentSig, pubkey(agentKey)));
+    }
+
+
+    // ------------------------------------------------------------------
+    // DELEGATION — 1:2 fanout. Parent continuation at auth output 0, child
+    // grant at auth output 1.
+    //
+    // Conservation is the whole point: authority is neither created nor
+    // destroyed here, only subdivided. The parent RESERVES exactly what the
+    // child receives, and real KAS moves with it — a child that held authority
+    // but no coins could not pay anyone, and a child that held coins but no
+    // reserve against the parent would double the tree's total authority.
+    // ------------------------------------------------------------------
+    #[covenant.fanout(to = 2)]
+    function delegate(State prevState, State[] newStates, sig agentSig) {
+        State parentNext = newStates[0];
+        State child      = newStates[1];
+
+        // Bound the attacker-controlled figure BEFORE any arithmetic. Overflow
+        // is undefined behaviour in Silverscript and UB may SUCCEED, so a
+        // range check after the addition is not a check at all.
+        require(child.budgetTotal > 0);
+        int committed = spentTotal + reserved;
+        require(committed <= budgetTotal);
+        require(child.budgetTotal <= budgetTotal - committed);
+
+        // ---- attenuation: a child may only ever be narrower ----
+        require(child.maxPerSpend     <= maxPerSpend);
+        require(child.epochLimit      <= epochLimit);
+        require(child.epochLength     == epochLength);
+        require(child.notBefore       >= notBefore);
+        require(child.expiresAt       <= expiresAt);
+        require(child.delegationDepth <  delegationDepth);
+
+        // Inherit mode. Set inclusion is not decidable from a Merkle root, so
+        // the only allowlist relation enforceable on roots alone is equality.
+        // Narrowing needs per-member inclusion proofs — see @warda/core's
+        // subset witness; not in this covenant yet.
+        require(child.recipientsRoot == recipientsRoot);
+
+        // A child starts spent-out-of-nothing. Without this it could be born
+        // mid-epoch with a used allowance, or worse, with a negative one.
+        require(child.spentTotal == 0);
+        require(child.reserved   == 0);
+        require(child.epochIndex == 0);
+        require(child.epochSpent == 0);
+
+        // ---- the parent only reserves; nothing else about it may move ----
+        require(parentNext.agentKey        == agentKey);
+        require(parentNext.budgetTotal     == budgetTotal);
+        require(parentNext.maxPerSpend     == maxPerSpend);
+        require(parentNext.epochLimit      == epochLimit);
+        require(parentNext.epochLength     == epochLength);
+        require(parentNext.recipientsRoot  == recipientsRoot);
+        require(parentNext.notBefore       == notBefore);
+        require(parentNext.expiresAt       == expiresAt);
+        require(parentNext.delegationDepth == delegationDepth);
+        require(parentNext.spentTotal      == spentTotal);
+        require(parentNext.epochIndex      == epochIndex);
+        require(parentNext.epochSpent      == epochSpent);
+        require(parentNext.reserved        == reserved + child.budgetTotal);
+
+        // ---- value follows authority ----
+        require(OpAuthOutputCount(this.activeInputIndex) == 2);
+        require(OpAuthOutputIdx(this.activeInputIndex, 0) == 0);
+        require(OpAuthOutputIdx(this.activeInputIndex, 1) == 1);
+
+        int inValue = tx.inputs[this.activeInputIndex].value;
+        require(inValue >= child.budgetTotal);
+        require(tx.outputs[1].value == child.budgetTotal);
+        require(tx.outputs[0].value >= inValue - child.budgetTotal - maxFee);
+
+        require(checkSig(agentSig, pubkey(agentKey)));
+    }
+
+    // Revocation: the principal pulls the funds back. This does not race-proof
+    // an in-flight agent spend — it makes the remaining balance unreachable
+    // from the next block on. See PHASE0.md.
+    entry revoke(sig s) {
+        require(checkSig(s, revocationKey));
+        byte[34] toPrincipal = new ScriptPubKeyP2PK(principalKey);
+        require(tx.outputs[0].scriptPubKey == byte[](toPrincipal));
+    }
+
+    // Expiry is a RECLAIM RIGHT, not a spend prohibition. A UTXO covenant
+    // cannot express "must be spent before X" — CLTV only expresses "not
+    // before". After expiresAt the principal can sweep; until they do, the
+    // agent's spend path still works.
+    entry reclaim(sig s) {
+        require(tx.daa >= expiresAt);
+        require(checkSig(s, principalKey));
+        byte[34] toPrincipal = new ScriptPubKeyP2PK(principalKey);
+        require(tx.outputs[0].scriptPubKey == byte[](toPrincipal));
+    }
+}

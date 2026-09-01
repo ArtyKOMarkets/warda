@@ -108,6 +108,34 @@ contract WardaGrant(
         return node;
     }
 
+    /**
+     * The same fold as `merkleRoot`, started from a node that is ALREADY
+     * hashed rather than from a raw leaf.
+     *
+     * `merkleRoot` opens with blake2b(LEAF || value), which is right for a
+     * recipient and wrong for a subtree: a subtree's root is an interior node,
+     * and re-hashing it under the LEAF separator would place it nowhere in the
+     * parent's tree. The separators are what keep the two apart — a node hash
+     * can never be mistaken for a leaf hash, which is exactly what stops a
+     * child from claiming an interior node and then spending to it as if it
+     * were a payee.
+     */
+    function foldFromNode(
+        byte[32]   start,
+        byte[32][] siblings,
+        bool[]     siblingIsLeft
+    ) : byte[32] {
+        byte[32] node = start;
+        for (i, 0, siblings.length, maxProofDepth) {
+            if (siblingIsLeft[i]) {
+                node = blake2b(byte[](NODE) + byte[](siblings[i]) + byte[](node));
+            } else {
+                node = blake2b(byte[](NODE) + byte[](node) + byte[](siblings[i]));
+            }
+        }
+        return node;
+    }
+
     #[covenant.singleton]
     function spend(
         State      prevState,
@@ -252,7 +280,13 @@ contract WardaGrant(
     // reserve against the parent would double the tree's total authority.
     // ------------------------------------------------------------------
     #[covenant.fanout(to = 2)]
-    function delegate(State prevState, State[] newStates, sig agentSig) {
+    function delegate(
+        State      prevState,
+        State[]    newStates,
+        byte[32][] subsetSiblings,
+        bool[]     subsetSiblingIsLeft,
+        sig        agentSig
+    ) {
         State parentNext = newStates[0];
         State child      = newStates[1];
 
@@ -276,7 +310,29 @@ contract WardaGrant(
         // the only allowlist relation enforceable on roots alone is equality.
         // Narrowing needs per-member inclusion proofs — see @warda/core's
         // subset witness; not in this covenant yet.
-        require(child.recipientsRoot == recipientsRoot);
+        // WHO the child may pay — the one authority delegation could not
+        // narrow until now.
+        //
+        // This used to be `child.recipientsRoot == recipientsRoot`: exact
+        // inheritance, and not even voluntary narrowing was possible. Every
+        // child could pay everyone its parent could, so delegation scoped
+        // money, rate, depth and time, and left counterparty untouched. A
+        // sub-agent hired to pay one vendor held the authority to pay all of
+        // them.
+        //
+        // Now the child names any node of the parent's tree and proves the path
+        // from it to the parent's root. Its members are exactly the leaves
+        // beneath that node.
+        //
+        // The old behaviour is the empty-witness case and needs no branch: a
+        // fold over zero siblings returns `start` unchanged, so a child that
+        // supplies no witness must state the parent's own root. One check
+        // covers both, which is one fewer place for the two to disagree.
+        //
+        // A single-recipient child is the depth-zero case: it states the LEAF
+        // hash blake2b(LEAF || payee), and its own spends fold from that same
+        // leaf with an empty proof. Narrowing to one vendor costs nothing extra.
+        require(foldFromNode(child.recipientsRoot, subsetSiblings, subsetSiblingIsLeft) == recipientsRoot);
 
         // A child starts spent-out-of-nothing. Without this it could be born
         // mid-epoch with a used allowance, or worse, with a negative one.

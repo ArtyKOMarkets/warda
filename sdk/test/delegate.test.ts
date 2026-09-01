@@ -25,9 +25,11 @@ import {
   childStateFrom,
   delegateSignatureScript,
   parentSuccessorState,
+  subsetWitness,
   pushChild,
   type DelegationPlan,
 } from "../src/delegate.ts";
+import { RecipientSet } from "../src/recipients.ts";
 import { ScriptBuilder } from "../src/script.ts";
 import { dispatchTag } from "../src/spend.ts";
 import { pushState, pushStateArray } from "../src/state.ts";
@@ -36,6 +38,11 @@ import { transactionId } from "../src/tx.ts";
 import type { CovenantTemplate, GrantState } from "../src/template.ts";
 
 const golden = JSON.parse(readFileSync(new URL("../golden-delegation.json", import.meta.url), "utf8"));
+// The member LIST lives in the spend vector; the delegation vector records only
+// the root. Both commit to the same set — asserted below, so a divergence
+// shows up here rather than as an unprovable witness.
+const spendGolden = JSON.parse(readFileSync(new URL("../golden-spend.json", import.meta.url), "utf8"));
+const recipientSet = new RecipientSet(spendGolden.recipients.members.map((m: string) => fromHex(m)));
 const template: CovenantTemplate = JSON.parse(
   readFileSync(new URL("../covenant-template.json", import.meta.url), "utf8"),
 );
@@ -92,11 +99,14 @@ test("the ABI this SDK hardcodes is the ABI the compiler emitted", () => {
   assert.equal(golden.abi.entrypoint, "__covenant_entrypoint_auth_delegate");
   assert.deepEqual(
     golden.abi.inputs.map((i: { typeName: string }) => i.typeName),
-    ["State[]", "sig"],
+    // v4 added the subset witness, which is how a delegation narrows WHO the
+    // child may pay. Two array arguments, between the states and the
+    // signature; both empty when the child inherits the whole allowlist.
+    ["State[]", "byte[32][]", "bool[]", "sig"],
     "argument types changed; the dispatch tag and the sigscript layout move with them",
   );
   assert.equal(
-    toHex(dispatchTag(golden.abi.entrypoint, ["State[]", "sig"])),
+    toHex(dispatchTag(golden.abi.entrypoint, ["State[]", "byte[32][]", "bool[]", "sig"])),
     golden.abi.dispatchTag,
   );
 });
@@ -405,4 +415,68 @@ test("a window that opens after it ends is refused, though the covenant allows i
       }),
     /can never spend/,
   );
+});
+
+// ---- narrowing who a child may pay ---------------------------------------
+
+test("a child given no recipients inherits the parent's whole allowlist", () => {
+  // The empty-witness case, and the behaviour every child had before v4.
+  const plan = planFromGolden();
+  const child = childStateFrom(plan.state, plan.child);
+  assert.equal(child.recipientsRoot, plan.state.recipientsRoot);
+  assert.deepEqual(subsetWitness(plan.state, plan.child).proof, { siblings: [], left: [] });
+});
+
+test("a narrowed child commits to a subtree, and carries the path to prove it", () => {
+  const plan = planFromGolden();
+  const set = recipientSet;
+  const pair = [set.members[2]!, set.members[3]!];
+
+  const w = subsetWitness(plan.state, { ...plan.child, recipients: pair }, set);
+  assert.notEqual(w.root, plan.state.recipientsRoot, "narrowing must change the root");
+  assert.ok(w.proof.siblings.length > 0, "a narrowed child needs a witness");
+
+  // The node the child commits to is the root of a set containing exactly
+  // those members — which is why the child can still prove payments to them.
+  assert.equal(w.root, new RecipientSet(pair).rootHex);
+});
+
+test("a child cannot be narrowed to somebody its parent cannot pay", () => {
+  // Narrowing only ever shrinks. Extending is not a thing the witness can
+  // express — there is no path from a foreign leaf to the parent's root — and
+  // saying so here beats a script failure.
+  const plan = planFromGolden();
+  const set = recipientSet;
+  assert.throws(
+    () => subsetWitness(plan.state, { ...plan.child, recipients: ["cc".repeat(32)] }, set),
+    /not in this recipient set|never extend/,
+  );
+});
+
+test("a non-contiguous selection is refused with the reason", () => {
+  // A witness covers a SUBTREE, so the members must form an aligned run. This
+  // is a real constraint on how a parent orders its allowlist, and it is worth
+  // failing loudly rather than silently widening to a covering node.
+  const plan = planFromGolden();
+  const set = recipientSet;
+  assert.throws(
+    () => subsetWitness(plan.state, { ...plan.child, recipients: [set.members[0]!, set.members[2]!] }, set),
+    /contiguous/,
+  );
+});
+
+test("narrowing without the parent's set is refused, not guessed", () => {
+  const plan = planFromGolden();
+  const set = recipientSet;
+  assert.throws(
+    () => subsetWitness(plan.state, { ...plan.child, recipients: [set.members[2]!] }, undefined),
+    /needs the parent's RecipientSet/,
+  );
+});
+
+test("both goldens commit to the same recipient set", () => {
+  // The narrowing tests take the member list from the spend vector and the
+  // root from the delegation vector. If those ever diverge the witnesses
+  // become unprovable, and the failure would look like a bug in the tree.
+  assert.equal(recipientSet.rootHex, golden.params.recipientsRoot);
 });

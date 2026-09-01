@@ -12,6 +12,7 @@ import { RecipientSet } from "../../src/merkle.ts";
 import { createGrant, initialState, available } from "../../src/grant.ts";
 import { kas, formatKas } from "../../src/amounts.ts";
 import type { Grant, GrantState } from "../../src/types.ts";
+import { EMPTY_RESERVE } from "../../sdk/src/keys.ts";
 
 export interface GrantDescriptor {
   agentKey: string;
@@ -31,6 +32,15 @@ export interface GrantDescriptor {
     reservedKas: string;
     epochIndex: string;
     epochSpentKas: string;
+    /**
+     * The LIFO stack of children this grant has outstanding, as a hash chain.
+     *
+     * Not derivable — it is history — so a grant that has delegated must state
+     * it. Omitting it means "this grant has never delegated", which is the
+     * common case and the only one a descriptor can safely assume. It is part
+     * of the ADDRESS, so a wrong value here derives a grant that is not there.
+     */
+    reserveRoot?: string;
   };
 }
 
@@ -38,6 +48,9 @@ export interface Materialised {
   grant: Grant;
   state: GrantState;
   set: RecipientSet;
+  /** Carried separately: @warda/core's GrantState predates the covenant's
+   *  reserve accumulator and has no field for it. */
+  reserveRoot: string;
 }
 
 export function materialise(d: GrantDescriptor): Materialised {
@@ -71,7 +84,7 @@ export function materialise(d: GrantDescriptor): Materialised {
         status: "ACTIVE",
       }
     : initialState(grant);
-  return { grant, state, set };
+  return { grant, state, set, reserveRoot: s?.reserveRoot ?? EMPTY_RESERVE };
 }
 
 export function headroom(m: Materialised, daaScore: bigint) {

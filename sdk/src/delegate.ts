@@ -2,6 +2,8 @@ import { blake2b } from "@noble/hashes/blake2.js";
 import { concat, fromHex, toHex } from "./bytes.ts";
 import { ScriptBuilder } from "./script.ts";
 import { EMPTY_RESERVE } from "./keys.ts";
+import { RecipientSet } from "./recipients.ts";
+import type { MerkleProof } from "./spend.ts";
 import { pushStateArray } from "./state.ts";
 import { dispatchTag } from "./spend.ts";
 import {
@@ -37,7 +39,7 @@ import { bytecodeFor, type CovenantTemplate, type GrantAuthority, type GrantStat
  */
 
 const DELEGATE_ENTRYPOINT = "__covenant_entrypoint_auth_delegate";
-const DELEGATE_ARG_TYPES = ["State[]", "sig"];
+const DELEGATE_ARG_TYPES = ["State[]", "byte[32][]", "bool[]", "sig"];
 
 /** How a child narrows its parent. Every term here may only ever shrink. */
 /**
@@ -63,6 +65,21 @@ export interface ChildTerms {
   notBefore?: bigint;
   /** Ends no LATER than the parent's. Omit to inherit. */
   expiresAt?: bigint;
+  /**
+   * Who this child may pay. Omit to inherit the parent's whole allowlist.
+   *
+   * Delegation could not narrow this until v4 — the covenant required exact
+   * equality, so every child could pay everyone its parent could, and a
+   * sub-agent hired to pay one vendor held the authority to pay all of them.
+   *
+   * Give a subset and the child is bound to it: it states the covering
+   * subtree's node as its own recipientsRoot, and the delegation carries the
+   * path from that node to the parent's root. The subset must be a contiguous,
+   * power-of-two-aligned run of the parent's canonically sorted members — see
+   * `RecipientSet.subtree`, which computes both and explains the alignment
+   * rules when they are not met.
+   */
+  recipients?: (Uint8Array | string)[];
 }
 
 export interface DelegationPlan {
@@ -79,6 +96,12 @@ export interface DelegationPlan {
     covenantId: Uint8Array;
   };
   child: ChildTerms;
+  /**
+   * The parent's recipient set, needed only when `child.recipients` narrows
+   * it: the witness is a path through this tree, and a root alone cannot
+   * produce one. Omit when the child inherits everything.
+   */
+  recipients?: RecipientSet;
   fee: bigint;
   computeBudget: number;
 }
@@ -179,14 +202,51 @@ export function parentSuccessorState(state: GrantState, child: GrantState): Gran
  * default: a field forgotten here is one the child shares with its parent
  * rather than one it invents for itself.
  */
-export function childStateFrom(state: GrantState, child: ChildTerms): GrantState {
+/**
+ * The child's allowlist root, and the witness that places it inside the
+ * parent's.
+ *
+ * Inheriting everything is the empty-witness case, and the covenant needs no
+ * special branch for it: folding a node through zero siblings returns the node
+ * itself, which it then requires to equal the parent's root.
+ */
+export function subsetWitness(
+  state: GrantState,
+  child: ChildTerms,
+  recipients?: RecipientSet,
+): { root: string; proof: MerkleProof } {
+  if (!child.recipients) {
+    return { root: state.recipientsRoot, proof: { siblings: [], left: [] } };
+  }
+  if (!recipients) {
+    throw new Error(
+      "narrowing a child's recipients needs the parent's RecipientSet: the witness " +
+        "is a path through that tree, and a root on its own cannot produce one. " +
+        "Pass `recipients` on the delegation plan.",
+    );
+  }
+  if (recipients.rootHex !== state.recipientsRoot.toLowerCase()) {
+    throw new Error(
+      `the recipient set given hashes to ${recipients.rootHex}, and this grant commits ` +
+        `to ${state.recipientsRoot}. A witness through the wrong tree proves nothing.`,
+    );
+  }
+  const { node, proof } = recipients.subtree(child.recipients);
+  return { root: toHex(node), proof };
+}
+
+export function childStateFrom(
+  state: GrantState,
+  child: ChildTerms,
+  recipients?: RecipientSet,
+): GrantState {
   return {
     agentKey: child.agentKey,
     budgetTotal: child.budgetTotal,
     maxPerSpend: child.maxPerSpend,
     epochLimit: child.epochLimit,
     epochLength: state.epochLength,
-    recipientsRoot: state.recipientsRoot,
+    recipientsRoot: subsetWitness(state, child, recipients).root,
     // Inherited unless narrowed. `??` and not `||`: a notBefore of 0n is a
     // legitimate value, and `||` would silently replace it with the parent's.
     // Same covenant, so the same template id — that is what will let the
@@ -210,13 +270,17 @@ export function delegateSignatureScript(plan: DelegationPlan, signature: Uint8Ar
   if (signature.length !== 65) {
     throw new Error(`a signature is 64 bytes plus a sighash type byte, got ${signature.length}`);
   }
-  const child = childStateFrom(plan.state, plan.child);
+  const child = childStateFrom(plan.state, plan.child, plan.recipients);
   const parentNext = parentSuccessorState(plan.state, child);
+
+  const witness = subsetWitness(plan.state, plan.child, plan.recipients).proof;
 
   const b = new ScriptBuilder();
   // Order matters twice over: parent first, child second — that is what binds
   // each state to its output index.
   pushStateArray(b, [parentNext, child]);
+  b.addData(concat(...witness.siblings));
+  b.addData(Uint8Array.from(witness.left, (x) => (x ? 1 : 0)));
   b.addData(signature);
   b.addData(dispatchTag(DELEGATE_ENTRYPOINT, DELEGATE_ARG_TYPES));
   b.addData(bytecodeFor(plan.template, { authority: plan.authority, state: plan.state }));
@@ -276,7 +340,7 @@ export function buildUnsignedDelegation(plan: DelegationPlan): UnsignedDelegatio
     );
   }
 
-  const childState = childStateFrom(plan.state, child);
+  const childState = childStateFrom(plan.state, child, plan.recipients);
   const parentNext = parentSuccessorState(plan.state, childState);
 
   const grantSpk = payToScriptHashScript(

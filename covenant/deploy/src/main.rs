@@ -811,7 +811,18 @@ fn build_delegation(plan: &DelegationPlan, kp: &Keypair) -> Result<BuiltDelegati
     );
 
     let make = |sig: Vec<u8>| -> Result<Transaction, Box<dyn Error>> {
-        let args = vec![new_states.clone(), Expr::bytes(sig)];
+        // The subset witness. Empty here: the reference delegation hands the
+        // child the parent's whole allowlist, which is the empty-witness case
+        // — a fold over zero siblings returns the child's stated root
+        // unchanged, and the covenant then requires it to equal the parent's.
+        // A NARROWING delegation supplies the path from the child's subtree
+        // node up to the parent's root instead.
+        let args = vec![
+            new_states.clone(),
+            byte32_array(vec![]),
+            bool_array(vec![]),
+            Expr::bytes(sig),
+        ];
         let sigscript = covenant_sigscript(&contract, "delegate", args)?;
         Ok(Transaction::new(
             1,

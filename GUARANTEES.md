@@ -135,12 +135,46 @@ topology at parent-plus-one-child. Building *N* lanes costs *N* sequential
 delegations — a setup cost paid once, after which the lanes are genuinely
 parallel, since each is its own UTXO.
 
-### The allowlist is fixed at genesis, and children inherit it whole
+### The allowlist is fixed at genesis, and a child may only narrow it to a subtree
 
-Set inclusion is not decidable from a Merkle root, so the only relation
-enforceable on roots alone is equality. A grant cannot add a payee, and a child
-cannot be given a *narrower* set than its parent. Narrowing needs per-member
-inclusion proofs — a subset witness — which is not in this covenant.
+A grant can never add a payee: the root is part of the address, so changing the
+set is a different grant.
+
+A child *can* now be given a narrower set than its parent — v4 added the subset
+witness. The child states any node of the parent's Merkle tree as its own
+`recipientsRoot` and carries the path from that node to the parent's root; its
+members are exactly the leaves beneath it. Inheriting everything is the same
+check with an empty witness, so there is one rule rather than two.
+
+The constraint is that a subset must be a **subtree**: a contiguous,
+power-of-two-aligned run of the parent's canonically sorted members. An
+arbitrary selection would need one inclusion proof per member, which is a
+different and much more expensive construction. In practice this means the
+order of a parent's allowlist is a design decision — payees that will be
+delegated together should sit together. `RecipientSet.subtree` refuses a
+selection it cannot cover and says which rule was missed.
+
+Narrowing to a *single* payee is the degenerate case and costs nothing extra:
+the child states that member's leaf hash, and its own spends fold from the same
+leaf with an empty proof.
+
+### The epoch limit bounds one grant's rate, not a subtree's
+
+`epochLimit` caps what a single grant spends per epoch, and a child's is capped
+by its parent's — but the **sum** is not. A parent limited to 5 KAS per epoch
+can delegate to ten children at 5 KAS per epoch each, and the tree spends 50 KAS
+in that epoch.
+
+This is not a leak: `budgetTotal` still bounds the total, exactly, because the
+reserve accounting is conservative and every delegation moves real coin. What
+degrades is the *rate* limit — under delegation it collapses toward the budget
+limit.
+
+Anyone reading "500 KAS per epoch" will assume it binds the whole tree. It binds
+one grant. If a subtree-wide rate limit is wanted, the way to get it today is to
+keep `delegationDepth` at 1 for grants where the rate matters, or to size each
+child's `epochLimit` as a share of the parent's rather than a copy of it —
+neither of which the covenant enforces.
 
 ### A grant is one UTXO, so payments are serial
 
@@ -350,7 +384,7 @@ tools refuse a mismatch. Old templates are kept:
 | v1 | `a048b13e95125ad1` | epoch hole, no expiry, exits could burn |
 | v2 | `4af9600b1d35e87b` | ratchet and expiry |
 | v3 | `4612a19b16911c6e` | exits conserve value |
-| v4 | `b173425e4931f407` | reserve accumulator, settlement; template id fixed |
+| v4 | `b3e5eeefacf2021f` | reserve accumulator, settlement, subset witness; template id fixed |
 
 v3's template is archived as `sdk/covenant-template-v3.json`. It was archived
 *before* v4 overwrote `covenant-template.json`, which is the only order that

@@ -74,6 +74,7 @@ export {
   buildUnsignedDelegation,
   childStateFrom,
   delegateSignatureScript,
+  subsetWitness,
   parentSuccessorState,
   type ChildTerms,
   type DelegationPlan,

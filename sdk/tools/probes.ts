@@ -53,7 +53,15 @@ import {
   settleSignatureScript,
   type ReabsorbPlan,
 } from "../src/reabsorb.ts";
-import { childStateFrom, parentSuccessorState, pushChild } from "../src/delegate.ts";
+import {
+  attachDelegationSignature,
+  buildUnsignedDelegation,
+  childStateFrom,
+  parentSuccessorState,
+  pushChild,
+  type DelegationPlan,
+} from "../src/delegate.ts";
+import { buildUnsignedSpend, spendSignatureScript } from "../src/spend.ts";
 
 const here = (p: string) => new URL(p, import.meta.url);
 const template: CovenantTemplate = JSON.parse(readFileSync(here("../covenant-template.json"), "utf8"));
@@ -459,6 +467,90 @@ function settleSteal() {
   return { wire: toWireMulti(signed, [childEntry, decoy], "probe (unguarded)") };
 }
 
+
+// ---- narrowing: who a child may pay ---------------------------------------
+//
+// The parent's allowlist has four members. `narrowed` is the pair {a4, target}
+// — a subtree, so one node covers it and one sibling proves that node sits in
+// the parent's tree. The child gets that node as its own recipientsRoot.
+//
+// The pair that matters is `narrowed-pays-inside` against
+// `narrowed-pays-outside`: the same child, the same covenant, one paying a
+// member of its own narrowed set and one paying a member of its PARENT's set
+// that is not in its own. If both are accepted, narrowing is decoration.
+
+const narrowedMembers = [recipients.members[2]!, recipients.members[3]!];
+const narrowedSet = new RecipientSet(narrowedMembers);
+const outsider = recipients.members[0]!;
+
+const narrowTerms = {
+  // Same key as the parent's agent, so these probes can sign the child's
+  // spends. A real sub-agent has its own.
+  agentKey: key,
+  budgetTotal: CHILD_BUDGET,
+  maxPerSpend: 50_000_000n,
+  epochLimit: 100_000_000n,
+  delegationDepth: 1n,
+  recipients: narrowedMembers,
+};
+
+const narrowedChild = childStateFrom(base, narrowTerms, recipients);
+
+function delegationPlan(over: Partial<DelegationPlan> = {}): DelegationPlan {
+  return {
+    template,
+    authority,
+    state: base,
+    utxo,
+    child: narrowTerms,
+    recipients,
+    fee: 1_000_000n,
+    computeBudget: 24,
+    ...over,
+  };
+}
+
+function delegationWire(plan: DelegationPlan) {
+  try {
+    const u = buildUnsignedDelegation(plan);
+    const tx = attachDelegationSignature(plan, u, signDigest(u.sighash, secret));
+    return { wire: toWire(tx, u.entry, "probe") };
+  } catch {
+    return null;
+  }
+}
+
+/** A spend by the narrowed child, to whoever is named. */
+function narrowedChildSpend(recipient: Uint8Array, set: RecipientSet) {
+  const childUtxoForSpend = {
+    outpointTransactionId: fromHex("d4".repeat(32)),
+    outpointIndex: 0,
+    value: CHILD_BUDGET,
+    blockDaaScore: 1_000_100n,
+    isCoinbase: false,
+    covenantId: fromHex(golden.utxo.covenantId),
+  };
+  try {
+    const plan: SpendPlan = {
+      template,
+      authority,
+      state: narrowedChild,
+      utxo: childUtxoForSpend,
+      amount: 50_000_000n,
+      recipient,
+      proof: set.proof(recipient),
+      claimedDaa: 1_005_500n,
+      fee: 1_000_000n,
+      computeBudget: 16,
+    };
+    const u = buildUnsignedSpend(plan);
+    const tx = { ...u.tx, inputs: [{ ...u.tx.inputs[0]!, signatureScript: spendSignatureScript(plan, signDigest(u.sighash, secret)) }] };
+    return { wire: toWire(tx, u.entry, "probe") };
+  } catch {
+    return null;
+  }
+}
+
 const probes: Probe[] = [
   {
     name: "epoch-exhausted",
@@ -492,6 +584,32 @@ const probes: Probe[] = [
     expect: "refuse",
     why: "a claimedDaa at or beyond expiresAt. The spend path had no expiry check at all.",
     build: () => unguardedSpend(base, 1_900_000n, 200_000_000n),
+  },
+  {
+    name: "delegate-narrowed",
+    expect: "accept",
+    why:
+      "a delegation that narrows the child's allowlist to a subtree of the " +
+      "parent's, with the witness proving that subtree sits in the parent's " +
+      "tree. The control for the two below.",
+    build: () => delegationWire(delegationPlan()),
+  },
+  {
+    name: "narrowed-pays-inside",
+    expect: "accept",
+    why: "the narrowed child pays a member of its OWN set; narrowing must not break the legitimate case",
+    build: () => narrowedChildSpend(recipients.members[3]!, narrowedSet),
+  },
+  {
+    name: "narrowed-pays-outside",
+    expect: "refuse",
+    why:
+      "THE POINT OF THE WITNESS. The narrowed child pays a member of its " +
+      "PARENT'S allowlist that is not in its own. Before v4 a child inherited " +
+      "the parent's root exactly, so this was an ordinary spend and delegation " +
+      "could not scope counterparty at all. If the engine accepts it, narrowing " +
+      "is decoration.",
+    build: () => narrowedChildSpend(outsider, recipients),
   },
   {
     name: "reabsorb-honest",
