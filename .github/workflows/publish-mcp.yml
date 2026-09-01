@@ -43,11 +43,34 @@ jobs:
           test "$pkg" = "$srv" || { echo "server.json version disagrees with package.json"; exit 1; }
           test "$pkg" = "$npmv" || { echo "the npm package entry names a different version"; exit 1; }
 
+      # The registry's proof of ownership: it fetches the published package and
+      # requires it to name the namespace back, so nobody can claim a package
+      # they did not write. It lives in the PUBLISHED tarball, so getting it
+      # wrong costs a republish rather than a re-tag — worth catching here.
+      - name: The package must name the namespace back
+        run: |
+          want=$(node -p "require('./mcp/server.json').name")
+          have=$(node -p "require('./mcp/package.json').mcpName ?? ''")
+          echo "server.json name : $want"
+          echo "package.json mcpName: $have"
+          test "$want" = "$have" || {
+            echo "package.json needs \"mcpName\": \"$want\" — and it must be in the PUBLISHED version, so republish after adding it."
+            exit 1
+          }
+
       - name: And it must already be on npm
         run: |
           v=$(node -p "require('./mcp/package.json').version")
           # Publish the registry entry only once the thing it points at exists.
           npm view "@warda_protocol/mcp@$v" version
+          # And the ownership field has to be in the TARBALL. Checking the
+          # working tree proves nothing: the registry reads npm.
+          published=$(npm view "@warda_protocol/mcp@$v" mcpName)
+          echo "mcpName as published: ${published:-<absent>}"
+          test -n "$published" || {
+            echo "the published $v does not carry mcpName; the registry will refuse it"
+            exit 1
+          }
 
       - name: Install mcp-publisher
         run: |
@@ -55,8 +78,22 @@ jobs:
             | tar xz mcp-publisher
           sudo mv mcp-publisher /usr/local/bin/
 
-      - name: Publish
+      # Login and publish are separate steps on purpose. Combined, a failure
+      # tells you only that "Publish" failed — and the two fail for completely
+      # unrelated reasons: login for OIDC permissions or a namespace that does
+      # not match the repository owner, publish for a schema the registry has
+      # moved on from.
+      - name: Authenticate to the registry
         working-directory: mcp
         run: |
+          echo "namespace claimed: $(node -p "require('./server.json').name")"
+          echo "repository owner : ${{ github.repository_owner }}"
           mcp-publisher login github-oidc
-          mcp-publisher publish
+
+      - name: What is being published
+        working-directory: mcp
+        run: cat server.json
+
+      - name: Publish
+        working-directory: mcp
+        run: mcp-publisher publish
