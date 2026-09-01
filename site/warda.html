@@ -1,0 +1,666 @@
+<title>Warda Protocol</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --ink:      #141C25;
+    --paper:    #F7F6F2;
+    --surface:  #FFFFFF;
+    --brass:    #A8701A;
+    --brass-dim:#8A5C14;
+    --slate:    #667585;
+    --rule:     #DFDCD4;
+    --rule-firm:#C6C2B8;
+    --pass:     #2C6E49;
+    --fail:     #A03A28;
+    --pass-bg:  #E7F0E9;
+    --fail-bg:  #F6E7E3;
+
+    --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    --body: "Newsreader", Georgia, "Times New Roman", serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+    --measure: 63ch;
+    --gutter: clamp(1.25rem, 4vw, 3.5rem);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink:      #E6E8EA;
+      --paper:    #10161D;
+      --surface:  #161E27;
+      --brass:    #D2913C;
+      --brass-dim:#E0A756;
+      --slate:    #8B98A6;
+      --rule:     #29323C;
+      --rule-firm:#3A4553;
+      --pass:     #6FBF8E;
+      --fail:     #E08069;
+      --pass-bg:  #16261D;
+      --fail-bg:  #2A1B17;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink:      #E6E8EA;
+    --paper:    #10161D;
+    --surface:  #161E27;
+    --brass:    #D2913C;
+    --brass-dim:#E0A756;
+    --slate:    #8B98A6;
+    --rule:     #29323C;
+    --rule-firm:#3A4553;
+    --pass:     #6FBF8E;
+    --fail:     #E08069;
+    --pass-bg:  #16261D;
+    --fail-bg:  #2A1B17;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 17px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 78rem; margin: 0 auto; padding: 0 var(--gutter); }
+  .narrow { max-width: var(--measure); }
+
+  h1, h2, h3, h4 { font-family: var(--display); font-weight: 700; text-wrap: balance; margin: 0; line-height: 1.14; letter-spacing: -0.018em; }
+  h1 { font-size: clamp(2.4rem, 5.6vw, 4.1rem); }
+  h2 { font-size: clamp(1.6rem, 3vw, 2.2rem); }
+  h3 { font-size: 1.16rem; letter-spacing: -0.008em; }
+  p { margin: 0 0 1.05em; }
+  a { color: var(--brass); text-decoration-thickness: 1px; text-underline-offset: 2.5px; }
+  a:hover { color: var(--brass-dim); }
+  :focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; border-radius: 1px; }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: 0.7rem; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.14em; color: var(--slate);
+    margin: 0 0 0.9rem;
+  }
+
+  /* ---- ledger ruling: the page's structural motif -------------------- */
+  .rule    { border: 0; border-top: 1px solid var(--rule); margin: 0; }
+  .rule-firm { border: 0; border-top: 1.5px solid var(--rule-firm); margin: 0; }
+
+  section { padding: clamp(3.2rem, 7vw, 5.6rem) 0; }
+  section > .wrap > .eyebrow:first-child { margin-top: 0; }
+
+  /* ---- masthead ------------------------------------------------------ */
+  .masthead { padding: 1.15rem 0; }
+  .masthead .wrap { display: flex; align-items: baseline; gap: 1.1rem; flex-wrap: wrap; }
+  .wordmark { font-family: var(--display); font-weight: 700; font-size: 1.05rem; letter-spacing: 0.02em; }
+  .wordmark span { color: var(--brass); }
+  .masthead .status {
+    font-family: var(--mono); font-size: 0.7rem; color: var(--slate);
+    margin-left: auto; letter-spacing: 0.02em;
+  }
+
+  /* ---- hero ---------------------------------------------------------- */
+  .hero { padding-top: clamp(2.6rem, 6vw, 4.4rem); padding-bottom: clamp(2.4rem, 5vw, 3.4rem); }
+  .hero-grid { display: grid; grid-template-columns: minmax(0, 1.06fr) minmax(0, 1fr); gap: clamp(2rem, 5vw, 4.5rem); align-items: start; }
+  @media (max-width: 900px) { .hero-grid { grid-template-columns: 1fr; } }
+  .lede { font-size: 1.2rem; color: var(--ink); max-width: 40ch; }
+  .lede strong { font-weight: 500; box-shadow: inset 0 -0.42em 0 color-mix(in srgb, var(--brass) 17%, transparent); }
+
+  /* ---- the interactive ledger ---------------------------------------- */
+  .ledger {
+    background: var(--surface);
+    border: 1.5px solid var(--rule-firm);
+    padding: 1.5rem 1.4rem 1.3rem;
+  }
+  .ledger h3 { font-size: 0.78rem; font-family: var(--mono); font-weight: 600; text-transform: uppercase; letter-spacing: 0.11em; color: var(--slate); margin-bottom: 1rem; }
+  .row {
+    display: grid; grid-template-columns: 1fr auto; gap: 1rem;
+    padding: 0.5rem 0; border-bottom: 1px solid var(--rule);
+    font-family: var(--mono); font-size: 0.83rem;
+  }
+  .row:last-of-type { border-bottom: 0; }
+  .row .k { color: var(--slate); }
+  .row .v { font-variant-numeric: tabular-nums; font-weight: 500; }
+  .row.binding { background: color-mix(in srgb, var(--brass) 9%, transparent); margin: 0 -0.55rem; padding-left: 0.55rem; padding-right: 0.55rem; }
+  .row.binding .k { color: var(--brass-dim); }
+
+  .try { margin-top: 1.15rem; padding-top: 1.15rem; border-top: 1.5px solid var(--rule-firm); }
+  .try label { display: block; font-family: var(--mono); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.11em; color: var(--slate); margin-bottom: 0.5rem; }
+  .try-controls { display: flex; gap: 0.55rem; flex-wrap: wrap; }
+  .try input, .try select {
+    font-family: var(--mono); font-size: 0.85rem; padding: 0.5rem 0.6rem;
+    background: var(--paper); color: var(--ink);
+    border: 1px solid var(--rule-firm); border-radius: 0;
+    min-width: 0;
+  }
+  .try input { flex: 1 1 8rem; font-variant-numeric: tabular-nums; }
+  .try select { flex: 1 1 10rem; }
+  .verdict { margin-top: 0.95rem; padding: 0.72rem 0.85rem; font-family: var(--mono); font-size: 0.81rem; line-height: 1.5; border-left: 3px solid; }
+  .verdict.ok   { background: var(--pass-bg); border-color: var(--pass); color: var(--pass); }
+  .verdict.no   { background: var(--fail-bg); border-color: var(--fail); color: var(--fail); }
+  .verdict b { font-weight: 600; }
+  .verdict .why { color: var(--ink); display: block; margin-top: 0.3rem; opacity: 0.82; }
+  .caption { font-family: var(--mono); font-size: 0.68rem; color: var(--slate); margin-top: 0.85rem; line-height: 1.5; }
+
+  /* ---- contrast panel ------------------------------------------------ */
+  .versus { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1.5px solid var(--rule-firm); }
+  @media (max-width: 760px) { .versus { grid-template-columns: 1fr; } }
+  .versus > div { padding: 1.5rem 1.4rem; }
+  .versus > div:first-child { border-right: 1.5px solid var(--rule-firm); }
+  @media (max-width: 760px) { .versus > div:first-child { border-right: 0; border-bottom: 1.5px solid var(--rule-firm); } }
+  .versus h3 { font-family: var(--mono); font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.11em; margin-bottom: 0.85rem; }
+  .versus .a h3 { color: var(--fail); }
+  .versus .b h3 { color: var(--pass); }
+  .versus p { font-size: 0.95rem; margin-bottom: 0.7rem; }
+  .versus p:last-child { margin-bottom: 0; }
+  .versus code { font-family: var(--mono); font-size: 0.82em; background: color-mix(in srgb, var(--slate) 13%, transparent); padding: 0.1em 0.35em; }
+
+  /* ---- constraint table ---------------------------------------------- */
+  .scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+  th, td { text-align: left; padding: 0.62rem 0.9rem 0.62rem 0; border-bottom: 1px solid var(--rule); vertical-align: baseline; }
+  th { font-family: var(--mono); font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--slate); border-bottom: 1.5px solid var(--rule-firm); white-space: nowrap; }
+  td.field { font-family: var(--mono); font-size: 0.82rem; font-weight: 500; white-space: nowrap; padding-right: 1.6rem; }
+  td.what { max-width: 34rem; }
+  tr:last-child td { border-bottom: 0; }
+
+  .tag { font-family: var(--mono); font-size: 0.68rem; font-weight: 600; letter-spacing: 0.04em; padding: 0.14em 0.5em; white-space: nowrap; }
+  .tag.ok { background: var(--pass-bg); color: var(--pass); }
+  .tag.no { background: var(--fail-bg); color: var(--fail); }
+
+  /* ---- code ---------------------------------------------------------- */
+  pre {
+    font-family: var(--mono); font-size: 0.795rem; line-height: 1.68;
+    background: var(--surface); border: 1px solid var(--rule-firm);
+    padding: 1.05rem 1.2rem; margin: 0 0 1.1rem; overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  pre .c { color: var(--slate); }
+  pre .k { color: var(--brass-dim); }
+  pre .s { color: var(--pass); }
+  code { font-family: var(--mono); }
+  p code, li code, td code { font-size: 0.85em; background: color-mix(in srgb, var(--slate) 13%, transparent); padding: 0.1em 0.35em; }
+
+  /* ---- lifecycle (a real sequence, so it is numbered) ---------------- */
+  .steps { counter-reset: step; display: grid; gap: 0; }
+  .step { display: grid; grid-template-columns: 3.2rem minmax(0, 1fr); gap: 1.3rem; padding: 1.35rem 0; border-bottom: 1px solid var(--rule); align-items: start; }
+  .step:last-child { border-bottom: 0; }
+  .step::before {
+    counter-increment: step; content: counter(step, decimal-leading-zero);
+    font-family: var(--mono); font-size: 0.78rem; font-weight: 600; color: var(--brass);
+    padding-top: 0.22rem; letter-spacing: 0.02em;
+  }
+  .step h3 { margin-bottom: 0.3rem; }
+  .step .who { font-family: var(--mono); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--slate); margin-bottom: 0.45rem; }
+  .step p { font-size: 0.95rem; margin-bottom: 0; max-width: 58ch; }
+
+  /* ---- generic grid -------------------------------------------------- */
+  .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(15.5rem, 1fr)); gap: 0; border-top: 1px solid var(--rule); }
+  .cols > article { padding: 1.35rem 1.5rem 1.4rem 0; border-bottom: 1px solid var(--rule); }
+  .cols > article h3 { margin-bottom: 0.4rem; }
+  .cols > article p { font-size: 0.93rem; margin-bottom: 0; max-width: 42ch; color: var(--ink); }
+  .cols > article .who { font-family: var(--mono); font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--brass); margin-bottom: 0.42rem; }
+
+  .lede-2 { font-size: 1.05rem; color: var(--slate); max-width: 58ch; margin-bottom: 2rem; }
+
+  ul.plain { list-style: none; padding: 0; margin: 0 0 1.1rem; }
+  ul.plain li { padding-left: 1.15rem; position: relative; margin-bottom: 0.5rem; font-size: 0.95rem; }
+  ul.plain li::before { content: "—"; position: absolute; left: 0; color: var(--brass); font-family: var(--mono); font-size: 0.8rem; }
+
+  footer { padding: 2.6rem 0 3.4rem; }
+  footer p { font-family: var(--mono); font-size: 0.72rem; color: var(--slate); max-width: 62ch; line-height: 1.7; }
+
+  .note { border-left: 3px solid var(--brass); padding: 0.15rem 0 0.15rem 1.1rem; margin: 0 0 1.2rem; }
+  .note p { font-size: 0.95rem; margin-bottom: 0; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .verdict { transition: background-color 140ms ease, border-color 140ms ease; }
+    .row.binding { transition: background-color 140ms ease; }
+  }
+</style>
+
+<header class="masthead">
+  <hr class="rule-firm">
+  <div class="wrap">
+    <div class="wordmark">WARDA<span>.</span></div>
+    <div class="status">v0.3.0 · kaspa testnet-10 · covenant b3e5eeefacf2021f</div>
+  </div>
+</header>
+<hr class="rule">
+
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <p class="eyebrow">Economic authority for autonomous agents</p>
+      <h1>A spending limit the network enforces.</h1>
+      <p class="lede">Give an agent its own key and a budget on Kaspa L1. It spends directly — no co-signing, no relay, no custody — and <strong>consensus rejects anything outside its limits</strong>. You sign once, then go offline.</p>
+      <p class="lede" style="font-size:1rem;color:var(--slate);max-width:44ch">If the agent key is stolen outright, the thief inherits exactly the same limits. That is the whole idea.</p>
+    </div>
+
+    <div class="ledger" id="ledger">
+      <h3>Grant · live authority check</h3>
+      <div class="row"><span class="k">budget total</span><span class="v">1,000.00000 KAS</span></div>
+      <div class="row"><span class="k">spent to date</span><span class="v" id="v-spent">100.00000</span></div>
+      <div class="row"><span class="k">reserved for children</span><span class="v">0.00000</span></div>
+      <div class="row"><span class="k">per-spend cap</span><span class="v">200.00000</span></div>
+      <div class="row"><span class="k">this epoch · 500 limit</span><span class="v" id="v-epoch">50.00000 used</span></div>
+      <div class="row"><span class="k">coin in the UTXO</span><span class="v">898.00000</span></div>
+
+      <div class="try">
+        <label for="amt">Propose a spend</label>
+        <div class="try-controls">
+          <input id="amt" type="number" min="0" step="1" value="150" aria-label="Amount in KAS" inputmode="decimal">
+          <select id="payee" aria-label="Recipient">
+            <option value="in">→ vendor on the allowlist</option>
+            <option value="out">→ an address not on it</option>
+          </select>
+        </div>
+        <div class="verdict ok" id="verdict" role="status" aria-live="polite"></div>
+        <p class="caption">The same six checks the covenant runs, in the same order. On chain these are consensus rules, not advice — a transaction that fails one is not rejected by a server, it is invalid.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="rule-firm">
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">The distinction the whole protocol rests on</p>
+    <h2 style="max-width:20ch;margin-bottom:1.6rem">Where does the limit actually live?</h2>
+    <div class="versus">
+      <div class="a">
+        <h3>In your process</h3>
+        <p>The usual pattern: fund a hot wallet with "only what the agent should spend," and keep a running total in the code that pays.</p>
+        <p>A real agent-payments library in production today caps spending with an environment variable, and its own documentation says the server <em>"refuses further calls until restarted."</em></p>
+        <p>So the cap resets when the process does. It is bypassed by a crash, a redeploy, a second instance, or anyone who reads the key out of <code>env</code>. The wallet balance is the only true limit.</p>
+      </div>
+      <div class="b">
+        <h3>In consensus</h3>
+        <p>A Warda grant is a UTXO locked by a covenant. The budget, the per-spend cap, the epoch allowance, the expiry and the payee allowlist are <em>part of the script that unlocks the coin</em>.</p>
+        <p>A spend that exceeds any of them is not refused by a server. It is an invalid transaction — no node will relay it and no miner can include it.</p>
+        <p>Restarting changes nothing. Nor does compromising the agent. The limits are not enforced by the code holding the key.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">What a grant is</p>
+    <h2 style="max-width:24ch">Six constraints, and three keys that mean different things.</h2>
+    <p class="lede-2">A grant is state encoded into an address. Change any field and you have a different address — which is why a grant cannot be edited, only spent forward.</p>
+
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th>Field</th><th>What it binds</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="field">budgetTotal</td><td class="what">The most this grant can ever spend, across its whole life and every child it delegates to.</td></tr>
+          <tr><td class="field">maxPerSpend</td><td class="what">A ceiling on any single payment. Caps the blast radius of one bad decision.</td></tr>
+          <tr><td class="field">epochLimit</td><td class="what">A rate: how much may be spent per <code>epochLength</code> blocks. Bounds how fast a compromise drains.</td></tr>
+          <tr><td class="field">notBefore / expiresAt</td><td class="what">A validity window. After expiry the principal may sweep the remainder back.</td></tr>
+          <tr><td class="field">recipientsRoot</td><td class="what">A Merkle root over the allowed payees. Every spend carries an inclusion proof; there is no way to pay anyone else.</td></tr>
+          <tr><td class="field">delegationDepth</td><td class="what">How many further levels of sub-agent this grant may create. Zero means it is a leaf.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="margin-top:2.4rem" class="scroll">
+      <table>
+        <thead>
+          <tr><th>Key</th><th>Power</th><th>Held by</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="field">agentKey</td><td class="what">Spend, within the limits. Delegate to sub-agents.</td><td class="what">The agent, online, on the machine doing the work.</td></tr>
+          <tr><td class="field">revocationKey</td><td class="what">Stop the grant. Sweeps the balance to the principal — it can never redirect it elsewhere.</td><td class="what">A monitor or kill-switch that you do <em>not</em> have to trust with the money.</td></tr>
+          <tr><td class="field">principalKey</td><td class="what">Receive. Reclaim the remainder once the grant expires.</td><td class="what">The owner. Signs once at creation, then offline.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note" style="margin-top:2rem">
+      <p>The split between <code>revocationKey</code> and <code>principalKey</code> is load-bearing, and it took a real bug to make it true. An earlier version let the revocation path burn the balance to fees, and a later one let it sweep a delegated child anywhere it liked — both making a "stop" capability into a "destroy" or "take" one. Both are fixed, and both now have an attack test that fails if they come back.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Install</p>
+    <h2 style="max-width:22ch">Two packages. Nothing to compile.</h2>
+    <p class="lede-2">Compiled JavaScript with TypeScript declarations. Node 20 or newer, no build step, no Rust toolchain, no Silverscript compiler — address derivation splices values into a compiled covenant template that ships with the package.</p>
+
+<pre><span class="c"># the SDK: build, sign and verify grants</span>
+npm install @warda/kaspa
+
+<span class="c"># the MCP server: hand an agent framework a Warda tool</span>
+npx @warda/mcp</pre>
+
+    <h3 style="margin:2.2rem 0 0.8rem">Creating a grant</h3>
+<pre><span class="k">import</span> { buildGenesis, attachGenesisSignature, signDigest, RecipientSet } <span class="k">from</span> <span class="s">"@warda/kaspa"</span>;
+<span class="k">import</span> template <span class="k">from</span> <span class="s">"@warda/kaspa/covenant-template.json"</span> <span class="k">with</span> { type: <span class="s">"json"</span> };
+
+<span class="c">// Who this agent is allowed to pay. Committed as a Merkle root.</span>
+<span class="k">const</span> payees = <span class="k">new</span> RecipientSet([vendorA, vendorB]);
+
+<span class="k">const</span> grant = {
+  authority: { principalKey, revocationKey },
+  state: {
+    agentKey,
+    budgetTotal:  1_000_00000000n,  <span class="c">// 1000 KAS, ever</span>
+    maxPerSpend:    200_00000000n,  <span class="c">// 200 KAS, per payment</span>
+    epochLimit:     500_00000000n,  <span class="c">// 500 KAS ...</span>
+    epochLength:            1000n,  <span class="c">// ... per 1000 blocks</span>
+    recipientsRoot: payees.rootHex,
+    notBefore, expiresAt,
+    delegationDepth: 2n,
+    <span class="c">/* accounting starts at zero */</span>
+  },
+};
+
+<span class="k">const</span> unsigned = buildGenesis({ template, grant, funding, changeScriptPublicKey, fee });
+<span class="k">const</span> tx = attachGenesisSignature(unsigned, signDigest(unsigned.sighash, principalSecret));</pre>
+
+    <h3 style="margin:2.2rem 0 0.8rem">The agent spends, on its own</h3>
+<pre><span class="k">import</span> { signSpend } <span class="k">from</span> <span class="s">"@warda/kaspa"</span>;
+
+<span class="k">const</span> { tx } = signSpend({
+  template, authority, state,
+  utxo,                            <span class="c">// the grant's current coin</span>
+  amount:   50_00000000n,
+  recipient: vendorA,
+  proof:     payees.proof(vendorA), <span class="c">// proves the payee is allowed</span>
+  claimedDaa, fee, computeBudget: 16,
+}, agentSecret);                    <span class="c">// the principal is not involved</span></pre>
+
+    <p style="max-width:var(--measure);margin-top:1.4rem">The SDK deliberately does <em>not</em> decide whether a spend is allowed — the covenant does, on chain, and it is the only thing that can. If the SDK reimplemented the rules, a divergence would fail by wrongly <em>permitting</em>. Reimplementing assembly fails the other way: a mistake produces a transaction the network rejects, which is loud.</p>
+  </div>
+</section>
+
+<hr class="rule">
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Lifecycle</p>
+    <h2 style="max-width:26ch">A grant moves through six operations.</h2>
+    <p class="lede-2">Each one is an entrypoint in the covenant, with its own signer and its own rules. The address changes at every step, because the address <em>is</em> the state.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div>
+          <p class="who">Principal signs · once</p>
+          <h3>Genesis</h3>
+          <p>An ordinary payment that happens to pay into a covenant address. From here the principal can go offline permanently.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div>
+          <p class="who">Agent signs</p>
+          <h3>Spend</h3>
+          <p>Pay an allowlisted recipient, within every cap. The remainder continues to a new address encoding the updated accounting — budget spent, epoch consumed.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div>
+          <p class="who">Agent signs</p>
+          <h3>Delegate</h3>
+          <p>Hand a sub-agent its own narrower grant, without asking the principal and without custody. The parent reserves exactly what the child receives, so authority is subdivided and never created. A child may narrow the payee list, the caps, the rate and the window — never widen any of them.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div>
+          <p class="who">Agent + revocation key</p>
+          <h3>Settle</h3>
+          <p>Take a finished child back in. Its remaining coin returns to the parent, and what it spent is charged against the parent's budget. Without this, delegation would be one-way — a grant that subdivides itself would shrink permanently.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div>
+          <p class="who">Revocation key</p>
+          <h3>Revoke</h3>
+          <p>Stop the grant at any time. The balance goes to the principal and nowhere else — the covenant checks the destination and the amount, so a monitor holding this key can halt an agent without being able to take or burn its money.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div>
+          <p class="who">Principal signs</p>
+          <h3>Reclaim</h3>
+          <p>After expiry, sweep the remainder home. This is a right that <em>opens</em> at expiry, not a prohibition that closes: a UTXO covenant cannot say "must be spent before X", only "not before X".</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Evidence</p>
+    <h2 style="max-width:28ch">Fourteen attacks, run against the real script engine.</h2>
+    <p class="lede-2">Golden vectors prove two implementations agree about a transaction meant to <em>work</em>. They cannot catch a covenant that permits too much. These do the other half: every attack sits beside its nearest legitimate twin, because a covenant that refuses everything would pass a suite made only of refusals.</p>
+
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th>Probe</th><th>Engine</th><th>What it establishes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="field">epoch-rewind</td><td><span class="tag no">refused</span></td><td class="what">The agent picks the block height it claims. Claiming an <em>earlier</em> epoch once reset the allowance to zero — repeatably. The per-epoch cap limited nothing at all.</td></tr>
+          <tr><td class="field">epoch-forward</td><td><span class="tag ok">accepted</span></td><td class="what">A genuinely later epoch still gets its fresh allowance. The fix must not block the honest case.</td></tr>
+          <tr><td class="field">past-expiry</td><td><span class="tag no">refused</span></td><td class="what">Spending after the window closed. The spend path had no expiry check whatsoever.</td></tr>
+          <tr><td class="field">revoke-burn</td><td><span class="tag no">refused</span></td><td class="what">Revoke paying 1 sompi to the principal and burning the rest to fees. The exit paths checked <em>where</em> coin went and never <em>how much</em>.</td></tr>
+          <tr><td class="field">settle-steal</td><td><span class="tag no">refused</span></td><td class="what">The revocation key sweeping a delegated child to an address of its choosing. The same bug as above, in a path written after that one was fixed.</td></tr>
+          <tr><td class="field">reabsorb-live-grandchild</td><td><span class="tag no">refused</span></td><td class="what">Settling a child that still funds grandchildren, releasing the parent's reserve while that coin sits outside anyone's accounting.</td></tr>
+          <tr><td class="field">narrowed-pays-outside</td><td><span class="tag no">refused</span></td><td class="what">A sub-agent paying someone on its <em>parent's</em> allowlist but not its own. Without this, narrowing would be decoration.</td></tr>
+          <tr><td class="field">narrowed-pays-inside</td><td><span class="tag ok">accepted</span></td><td class="what">The same sub-agent paying its own vendor. The twin that proves the check discriminates.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="caption" style="margin-top:1rem">Eight of fourteen shown. Six vulnerabilities have been found in this covenant so far; none was found by reading the code, and every one is now pinned by a probe that fails if it returns.</p>
+  </div>
+</section>
+
+<hr class="rule">
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">What it is for</p>
+    <h2 style="max-width:26ch">Anywhere software spends money without a human in the loop.</h2>
+
+    <div class="cols">
+      <article>
+        <p class="who">Pay-per-call APIs</p>
+        <h3>Agents buying inference</h3>
+        <p>An agent paying per request for compute, data or tools. Today that means a hot wallet and a counter in the client. A grant makes the ceiling a consensus rule and the vendor list a Merkle root.</p>
+      </article>
+      <article>
+        <p class="who">Fan-out</p>
+        <h3>Sub-agents with real budgets</h3>
+        <p>An orchestrator splitting work across workers, each getting its own grant — narrower payees, smaller caps, a shorter window — with the parent's total never exceeded however the tree is shaped.</p>
+      </article>
+      <article>
+        <p class="who">Operations</p>
+        <h3>Bounded automation</h3>
+        <p>Recurring settlement, treasury sweeps, market-making bounded by rate rather than trust. The kill switch is a key that cannot touch the balance.</p>
+      </article>
+      <article>
+        <p class="who">Custody</p>
+        <h3>Delegation without a co-signer</h3>
+        <p>No multisig round-trip, no relay to bribe or DDoS, no service holding funds. The principal signs once; the agent is unattended from then on.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Integrations</p>
+    <h2 style="max-width:24ch">A grant is a funding source with rules attached.</h2>
+    <p class="lede-2">Which makes it a drop-in wherever an agent currently needs a private key.</p>
+
+    <div class="cols">
+      <article>
+        <p class="who">Available now</p>
+        <h3>Model Context Protocol</h3>
+        <p><code>@warda/mcp</code> exposes four tools over stdio: read a grant's authority, check whether a spend is permitted and why, check a delegation, and build an unsigned spend. It never holds a key and never enforces — it explains, and the covenant decides.</p>
+      </article>
+      <article>
+        <p class="who">Next</p>
+        <h3>x402 / HTTP 402</h3>
+        <p>x402 answers <em>how</em> an agent pays for one call. Warda answers <em>what it is allowed to spend, in total, and to whom</em>. They compose cleanly: the marketplace's validated vendor list is the allowlist, and the payment step becomes a covenant spend instead of a hot-key transfer.</p>
+      </article>
+      <article>
+        <p class="who">Built in</p>
+        <h3>Kaspa nodes</h3>
+        <p>The SDK speaks wRPC directly — four calls, no proxy. It refuses to route covenant transactions through third-party REST services, which silently drop the covenant binding and produce a signature that cannot verify.</p>
+      </article>
+      <article>
+        <p class="who">Any language</p>
+        <h3>The vectors ship with it</h3>
+        <p>Golden genesis, spend and delegation vectors travel in the package, so a second implementation in any language can check itself against the same bytes rather than against a prose spec.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Limits</p>
+    <h2 style="max-width:30ch">What the chain does not enforce.</h2>
+    <p class="lede-2">Published as prominently as the guarantees, because a limit you discover in production is a bug and a limit you read first is a design constraint.</p>
+
+    <div class="narrow">
+      <ul class="plain">
+        <li><strong>The epoch cap bounds one grant's rate, not a subtree's.</strong> A parent limited to 500 KAS per epoch can delegate to ten children at 500 each. The total is still bounded exactly by <code>budgetTotal</code> — the reserve accounting is conservative — but the rate limit degrades toward the budget limit under delegation.</li>
+        <li><strong>Expiry opens a reclaim right; it does not close the spend path.</strong> A UTXO covenant can express "not before", never "must be spent before". After expiry an agent keeps spending until someone actually reclaims. A grant past its term is unattended, not dormant.</li>
+        <li><strong>A grant is one UTXO, so its payments are serial.</strong> The second spend's input is the first spend's output. Delegation is the concurrency primitive: N children are N independent UTXOs and therefore N parallel lanes.</li>
+        <li><strong>Narrowing a payee list follows the Merkle tree.</strong> A child's allowlist must be a subtree of its parent's — a contiguous, power-of-two-aligned run. So the <em>order</em> of an allowlist is a design decision: payees delegated together should sit together.</li>
+        <li><strong>Settlement is last-in-first-out.</strong> The reserve is a hash chain, so the most recently delegated child must be settled first. That is the price of one hash and no proof, instead of a second Merkle fold.</li>
+        <li><strong>Nothing here cancels an in-flight spend.</strong> Revocation makes the balance unreachable from the next block on; a transaction already in the mempool may still land. No UTXO covenant can say "and cancel anything outstanding".</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<hr class="rule-firm">
+
+<footer>
+  <div class="wrap">
+    <p>
+      Warda runs on Kaspa L1 covenants, activated on mainnet with the Toccata hard fork on 30 June 2026 at DAA score 474,165,565. The protocol itself has been exercised end to end on <strong>testnet-10 only</strong> — genesis, spend, delegation, child spend and both reclaims, with a balanced ledger — and has not been deployed to mainnet or audited.
+    </p>
+    <p style="margin-top:0.9rem">
+      Current state: covenant <code>b3e5eeefacf2021f</code> · 14 adversarial probes, all behaving · 177 tests passing across three packages · six vulnerabilities found and fixed, each documented with the engine transcript that found it. Packages are publish-ready and not yet on npm.
+    </p>
+    <p style="margin-top:0.9rem">
+      Unaudited. Testnet first. Do not put money on this yet.
+    </p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  // The grant in the ledger above, in sompi (1 KAS = 100,000,000).
+  var KAS = 100000000;
+  var grant = {
+    budgetTotal: 1000 * KAS,
+    spentTotal:   100 * KAS,
+    reserved:       0,
+    maxPerSpend:  200 * KAS,
+    epochLimit:   500 * KAS,
+    epochSpent:    50 * KAS,
+    coin:         898 * KAS,
+    fee:            1 * KAS
+  };
+
+  var amt = document.getElementById("amt");
+  var payee = document.getElementById("payee");
+  var out = document.getElementById("verdict");
+  var rows = document.querySelectorAll("#ledger .row");
+
+  function fmt(sompi) {
+    return (sompi / KAS).toLocaleString("en-US", {
+      minimumFractionDigits: 5, maximumFractionDigits: 5
+    });
+  }
+
+  // The covenant's checks, in the covenant's order. Each returns the rule that
+  // binds, or null. Order matters: it is what determines which limit a user is
+  // told about when several would fail.
+  function judge(sompi, onList) {
+    if (!isFinite(sompi) || sompi <= 0) {
+      return { row: -1, rule: "amount > 0", why: "A spend moves a positive amount." };
+    }
+    if (!onList) {
+      return {
+        row: -1, rule: "recipientsRoot",
+        why: "This payee is not in the grant's Merkle tree, so no inclusion proof exists. There is no valid transaction that pays them — not a rejected one, none."
+      };
+    }
+    if (sompi > grant.maxPerSpend) {
+      return {
+        row: 3, rule: "maxPerSpend",
+        why: "Over the per-spend ceiling of " + fmt(grant.maxPerSpend) + " KAS. Caps the damage a single decision can do."
+      };
+    }
+    var committed = grant.spentTotal + grant.reserved;
+    if (sompi > grant.budgetTotal - committed) {
+      return {
+        row: 1, rule: "budgetTotal",
+        why: "Only " + fmt(grant.budgetTotal - committed) + " KAS of the lifetime budget is uncommitted."
+      };
+    }
+    if (grant.epochSpent + sompi > grant.epochLimit) {
+      return {
+        row: 4, rule: "epochLimit",
+        why: fmt(grant.epochLimit - grant.epochSpent) + " KAS left in this epoch. The allowance refreshes as the chain advances — and cannot be refreshed by claiming an earlier one."
+      };
+    }
+    if (sompi + grant.fee > grant.coin) {
+      return {
+        row: 5, rule: "value conservation",
+        why: "The UTXO holds " + fmt(grant.coin) + " KAS, which will not cover this plus the fee. Budget accounting and coin diverge, because fees leave the coin without being charged to the budget."
+      };
+    }
+    return null;
+  }
+
+  function render() {
+    var kas = parseFloat(amt.value);
+    var sompi = Math.round((isFinite(kas) ? kas : 0) * KAS);
+    var onList = payee.value === "in";
+    var bad = judge(sompi, onList);
+
+    for (var i = 0; i < rows.length; i++) rows[i].classList.remove("binding");
+
+    if (bad) {
+      if (bad.row >= 0 && rows[bad.row]) rows[bad.row].classList.add("binding");
+      out.className = "verdict no";
+      out.innerHTML = "<b>Invalid — " + bad.rule + "</b><span class=\"why\">" + bad.why + "</span>";
+    } else {
+      out.className = "verdict ok";
+      out.innerHTML = "<b>Valid</b><span class=\"why\">Within every limit. The agent signs this alone and broadcasts it; the remainder continues to a new address encoding " +
+        fmt(grant.spentTotal + sompi) + " KAS spent.</span>";
+    }
+  }
+
+  amt.addEventListener("input", render);
+  payee.addEventListener("change", render);
+  render();
+})();
+</script>
