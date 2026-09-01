@@ -212,6 +212,23 @@ export {
   type UnsignedReabsorb,
 } from "./reabsorb.ts";
 
+/**
+ * Watching a grant, which cannot be done by watching an address: the address
+ * is a hash of the state, so the first spend moves it and every one after
+ * leaves an empty address that looks exactly like a drain. A watcher has to
+ * FOLLOW, and the mempool plus a deterministic successor is what lets it.
+ */
+export {
+  GrantWatcher,
+  type Alert,
+  type ArmedRevocation,
+  type PollResult,
+  type Transition,
+  type TransitionKind,
+  type WatchOptions,
+  type WatchRules,
+} from "./watch.ts";
+
 export {
   deriveSecret,
   derivePublic,
