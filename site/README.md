@@ -12,9 +12,17 @@ pages are published as self-contained artifacts where external image hosts are
 blocked. A half-megabyte blob pasted inline would make the sources unreadable
 and undiffable, so they carry `{{LOCKUP}}` and `{{MARK}}` placeholders instead:
 
-    python3 build.py index.html build.html
+    python3 build.py
 
-writes the finished pages beside the sources. Edit `src/`, never the output.
+writes both flavours. Edit `src/`, never the output.
+
+* `index.html`, `build.html` — self-contained, logo inlined. For publishing as
+  artifacts, where external image hosts are blocked by CSP.
+* `web/` — the same pages referencing `assets/` as files, which is what a real
+  host should serve: 10 KB instead of 471 KB, and the logo cached once across
+  both pages instead of re-downloaded inside each.
+
+Deploy `web/` to wardaprotocol.com.
 
 ## The assets
 

@@ -1,16 +1,48 @@
-"""Injects the logo data URIs into the page sources.
+"""Builds the pages from src/, in two flavours.
 
-The pages are written with {{LOCKUP}} / {{MARK}} placeholders rather than
-half-megabyte base64 blobs inline, so they stay readable and diffable in the
-repo. This substitutes them at build time.
+The logo has to travel differently depending on where a page is served:
+
+  artifact   published as a self-contained page where external image hosts are
+             blocked by CSP, so the logo is inlined as a base64 data URI
+  web        served from wardaprotocol.com, where a separate file is cacheable,
+             parallel-downloadable, and keeps the HTML ~30x smaller
+
+Sources carry {{LOCKUP}} / {{MARK}} placeholders so they stay readable and
+diffable; this fills them in. Edit src/, never the output.
+
+    python3 build.py            # both flavours
 """
-import sys, pathlib
+import base64, pathlib, sys
+
 here = pathlib.Path(__file__).parent
-lockup = (here / "assets" / "lockup.uri").read_text().strip()
-mark = (here / "assets" / "mark.uri").read_text().strip()
-for name in sys.argv[1:]:
-    src = here / "src" / name
-    out = here / name
-    html = src.read_text().replace("{{LOCKUP}}", lockup).replace("{{MARK}}", mark)
-    out.write_text(html)
-    print(f"{name}: {len(html)/1024:.0f} KB")
+PAGES = ["index.html", "build.html"]
+
+def data_uri(p):
+    return "data:image/png;base64," + base64.b64encode(p.read_bytes()).decode()
+
+lockup_png = here / "assets" / "lockup-hero.png"
+mark_png = here / "assets" / "mark-200.png"
+
+flavours = {
+    # self-contained, for artifact publishing
+    ".": {"{{LOCKUP}}": data_uri(lockup_png), "{{MARK}}": data_uri(mark_png)},
+    # file-referencing, for a real host
+    "web": {"{{LOCKUP}}": "assets/lockup-hero.png", "{{MARK}}": "assets/mark-200.png"},
+}
+
+for outdir, subs in flavours.items():
+    d = here / outdir
+    d.mkdir(exist_ok=True)
+    for name in PAGES:
+        html = (here / "src" / name).read_text()
+        for k, v in subs.items():
+            html = html.replace(k, v)
+        (d / name).write_text(html)
+        print(f"{outdir}/{name}: {len(html)/1024:>6.0f} KB")
+
+# the web flavour needs the images beside it
+web_assets = here / "web" / "assets"
+web_assets.mkdir(parents=True, exist_ok=True)
+for src in (lockup_png, mark_png):
+    (web_assets / src.name).write_bytes(src.read_bytes())
+print(f"web/assets: {', '.join(p.name for p in (lockup_png, mark_png))}")
