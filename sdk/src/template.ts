@@ -146,6 +146,103 @@ export function bytecodeFor(tpl: CovenantTemplate, grant: Grant): Uint8Array {
   return out;
 }
 
+/**
+ * Read a grant back OUT of its compiled bytecode.
+ *
+ * The exact inverse of `bytecodeFor`, and the reason it matters is recovery.
+ * A grant's address is a hash of this bytecode, so an address reveals nothing;
+ * but the bytecode itself travels in the clear inside the signature script of
+ * every transaction that spends the grant, because that is what P2SH requires.
+ * So any spending transaction carries, in plain sight, the full state of the
+ * grant it spent.
+ *
+ * Without this, a grant is reachable only through a manifest file on somebody's
+ * disk: lose it, or let it fall behind, and the coin is still perfectly valid on
+ * chain and simply unreachable, because nothing can reconstruct the address. A
+ * protocol whose whole argument is that limits live in consensus rather than in
+ * your process should not have its recoverability live in your filesystem.
+ *
+ * Fields are read at the offsets the template records, so this cannot drift
+ * from the splice: both sides read the same table.
+ */
+export function decodeGrant(tpl: CovenantTemplate, bytecode: Uint8Array): Grant {
+  if (bytecode.length !== tpl.bytecodeLen) {
+    throw new Error(
+      `this is ${bytecode.length} bytes and the template describes a ${tpl.bytecodeLen}-byte ` +
+        `covenant. A redeem script of the wrong length is a DIFFERENT covenant, not a corrupt ` +
+        `one — try the template the grant was issued under.`,
+    );
+  }
+
+  const authority: Record<string, unknown> = {};
+  const state: Record<string, unknown> = {};
+
+  for (const f of tpl.fields) {
+    const slices = f.offsets.map((o) => bytecode.slice(o, o + f.width));
+    // A value spliced at several offsets must agree at all of them. If it does
+    // not, this bytecode was not produced by this template, and decoding it
+    // would invent a state that never existed.
+    for (let i = 1; i < slices.length; i++) {
+      if (toHex(slices[i]!) !== toHex(slices[0]!)) {
+        throw new Error(
+          `${f.name} differs between its occurrences at ${f.offsets[0]} and ${f.offsets[i]}. ` +
+            `The splice writes one value to every occurrence, so this is not a grant of this ` +
+            `covenant.`,
+        );
+      }
+    }
+    const raw = slices[0]!;
+    const target = f.group === "authority" ? authority : state;
+    target[f.name] = f.kind === "bytes32" ? toHex(raw) : i64leDecode(raw);
+  }
+
+  return { authority, state } as unknown as Grant;
+}
+
+/** Two's-complement little-endian, the inverse of the encoder above. */
+function i64leDecode(b: Uint8Array): bigint {
+  let x = 0n;
+  for (let i = b.length - 1; i >= 0; i--) x = (x << 8n) | BigInt(b[i]!);
+  // The covenant's integers are signed. Reading a negative as unsigned would
+  // turn a small negative into an astronomically large budget.
+  return x >= 1n << 63n ? x - (1n << 64n) : x;
+}
+
+/**
+ * Pull the covenant's redeem script out of a P2SH signature script.
+ *
+ * Kaspa's P2SH requires the redeem script to be pushed, in the clear, by every
+ * transaction that spends the address — the network cannot check the hash
+ * otherwise. So a spending transaction publishes the grant it spent whether the
+ * spender meant to or not, and that is what makes recovery possible at all.
+ *
+ * Found by LENGTH rather than by parsing the script: the template knows exactly
+ * how many bytes a redeem script of this covenant is, and nothing else in a
+ * signature script is remotely that size. Parsing the arguments would mean
+ * re-implementing script decoding to find something we can identify by a
+ * number we already hold.
+ */
+export function redeemScriptFrom(sigScript: Uint8Array, tpl: CovenantTemplate): Uint8Array {
+  const want = tpl.bytecodeLen;
+  // A push this large can only be OP_PUSHDATA2: 0x4d, then a two-byte
+  // little-endian length.
+  for (let i = 0; i + 3 + want <= sigScript.length; i++) {
+    if (sigScript[i] !== 0x4d) continue;
+    const len = sigScript[i + 1]! | (sigScript[i + 2]! << 8);
+    if (len === want) return sigScript.slice(i + 3, i + 3 + want);
+  }
+  throw new Error(
+    `no ${want}-byte redeem script in this signature script (${sigScript.length} bytes). ` +
+      `Either it does not spend a grant of this covenant, or it belongs to a different ` +
+      `version of it — try the template the grant was issued under.`,
+  );
+}
+
+/** The grant a signature script spent, read straight off the wire. */
+export function grantFromSignatureScript(sigScript: Uint8Array, tpl: CovenantTemplate): Grant {
+  return decodeGrant(tpl, redeemScriptFrom(sigScript, tpl));
+}
+
 /** blake2b-256 of the redeem script — what Kaspa's P2SH commits to. */
 export function scriptHashFor(tpl: CovenantTemplate, grant: Grant): string {
   return toHex(blake2b.create({ dkLen: 32 }).update(bytecodeFor(tpl, grant)).digest());

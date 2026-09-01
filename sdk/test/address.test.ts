@@ -16,7 +16,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-import { bytecodeFor, scriptHashFor, templateIdFor, type CovenantTemplate, type Grant } from "../src/template.ts";
+import { bytecodeFor, decodeGrant, scriptHashFor, templateIdFor, type CovenantTemplate, type Grant } from "../src/template.ts";
 
 const tpl: CovenantTemplate = JSON.parse(
   readFileSync(new URL("../covenant-template.json", import.meta.url), "utf8"),
@@ -160,4 +160,49 @@ test("the template id depends on the revocation key, not just the principal", ()
     templateIdFor(tpl, { principalKey: P, revocationKey: "42".repeat(32) }),
     templateIdFor(tpl, { principalKey: P, revocationKey: P }),
   );
+});
+
+// ---- reading a grant back out of its bytecode ----------------------------
+
+test("every vector survives a round trip through decodeGrant", () => {
+  // The splice is what makes an address; the decode is what makes a grant
+  // RECOVERABLE. If the two ever disagree, a recovered grant would derive an
+  // address that holds nothing, and the coin would look lost while being
+  // perfectly fine — the worst shape of failure this protocol can have.
+  for (const v of tpl.addressVectors) {
+    const grant = grantFrom(v);
+    const back = decodeGrant(tpl, bytecodeFor(tpl, grant));
+    assert.deepEqual(back.authority, grant.authority, `${v.label}: authority`);
+    assert.deepEqual(back.state, grant.state, `${v.label}: state`);
+    // And the decoded grant must derive the address it came from.
+    assert.equal(scriptHashFor(tpl, back), scriptHashFor(tpl, grant), `${v.label}: address`);
+  }
+});
+
+test("a negative integer decodes as negative, not as an enormous budget", () => {
+  // Two's complement read as unsigned turns -1 into 18446744073709551615. A
+  // grant whose budget decoded that way would look unlimited.
+  const grant = grantFrom(tpl.addressVectors[0]!);
+  const bent = { ...grant, state: { ...grant.state, spentTotal: -1n } };
+  const back = decodeGrant(tpl, bytecodeFor(tpl, bent));
+  assert.equal(back.state.spentTotal, -1n);
+});
+
+test("bytecode of the wrong length is refused as a different covenant", () => {
+  assert.throws(
+    () => decodeGrant(tpl, new Uint8Array(100)),
+    /DIFFERENT covenant, not a corrupt one/,
+  );
+});
+
+test("a value that disagrees between its own occurrences is refused", () => {
+  // principalKey is spliced at three offsets. Corrupting one is what a
+  // hand-edited or foreign script looks like, and decoding it would invent a
+  // grant that never existed.
+  const grant = grantFrom(tpl.addressVectors[0]!);
+  const code = bytecodeFor(tpl, grant);
+  const pk = tpl.fields.find((f) => f.name === "principalKey")!;
+  assert.ok(pk.offsets.length > 1, "principalKey should be spliced more than once");
+  code[pk.offsets[1]!] ^= 0xff;
+  assert.throws(() => decodeGrant(tpl, code), /differs between its occurrences/);
 });

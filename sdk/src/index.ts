@@ -23,6 +23,14 @@ export { fromHex, toHex, concat, equal } from "./bytes.ts";
 
 export {
   bytecodeFor,
+  // The inverse of the splice: read a grant back out of the redeem script that
+  // every spending transaction carries in the clear. This is what makes a grant
+  // recoverable without the manifest describing it.
+  decodeGrant,
+  // The step before decoding: find the redeem script inside the signature
+  // script that carried it. P2SH publishes it; this picks it out.
+  redeemScriptFrom,
+  grantFromSignatureScript,
   scriptHashFor,
   // A grant's claim about its own redeem-script shape, derived from the
   // template and the AUTHORITY together. Consumers building state need it, and
