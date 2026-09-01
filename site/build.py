@@ -37,6 +37,16 @@ COPIES = [
     "llms.txt",
     ".well-known/mcp-manifest.json",
     ".well-known/mcp/server-card.json",
+    # Deployed from web/, so the config has to BE in web/. Left one level up it
+    # is simply not found, and the rewrite that serves /.well-known/mcp and the
+    # content-type headers vanish without an error.
+    "vercel.json",
+    ".vercelignore",
+    # A missing robots.txt is not neutral: a robots-respecting fetcher treats
+    # a failed fetch as "disallowed" and reads nothing. For a site whose whole
+    # argument is that agents can find this protocol, that is a bad way to lose.
+    "robots.txt",
+    "sitemap.xml",
 ]
 
 for outdir, subs in flavours.items():

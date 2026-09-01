@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+
+# This site is meant to be read by agents as well as people. The structured
+# summary is llms.txt; the MCP discovery documents are under /.well-known/.
+#
+# A missing or unparseable robots.txt is not neutral — a robots-respecting
+# fetcher treats it as "disallowed" and stops before reading anything. Claude's
+# own web fetch did exactly that against this domain and against the MCP
+# endpoint, which is a poor way for a protocol about agent discovery to fail.
+
+Sitemap: https://wardaprotocol.com/sitemap.xml
