@@ -1,6 +1,6 @@
 {
   "name": "@warda_protocol/core",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Reference implementation of the Warda agent grant protocol. Defines the exact semantics a Toccata covenant must enforce.",
   "type": "module",
   "license": "MIT",
@@ -24,11 +24,12 @@
     "x402"
   ],
   "dependencies": {
-    "@noble/hashes": "^2.3.0",
-    "typescript": "^5.9.3"
+    "@noble/hashes": "^2.3.0"
   },
   "devDependencies": {
-    "@types/node": "^26.3.0"
+    "@types/node": "^26.3.0",
+    "playwright": "^1.62.1",
+    "typescript": "^5.9.3"
   },
   "private": false,
   "workspaces": [

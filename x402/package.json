@@ -1,6 +1,6 @@
 {
   "name": "@warda_protocol/x402",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Pay HTTP 402 (x402) invoices from a Warda grant on Kaspa, so an agent's spending limits are enforced by consensus rather than by the process holding the key.",
   "type": "module",
   "license": "MIT",
@@ -29,7 +29,7 @@
     "prepublishOnly": "npm run typecheck && npm test && npm run build"
   },
   "dependencies": {
-    "@warda_protocol/kaspa": "^0.3.0"
+    "@warda_protocol/kaspa": "^0.4.0"
   },
   "devDependencies": {
     "@types/node": "^26.4.0"
