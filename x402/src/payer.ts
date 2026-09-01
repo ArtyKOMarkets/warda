@@ -1,0 +1,352 @@
+import {
+  attachSignature,
+  buildUnsignedSpend,
+  decodeAddress,
+  signDigest,
+  scriptHashFor,
+  scriptHashToAddress,
+  successorState,
+  toHex,
+  type CovenantTemplate,
+  type GrantAuthority,
+  type GrantState,
+  type NetworkPrefix,
+  type NodeClient,
+  type RecipientSet,
+  type SpendPlan,
+} from "@warda_protocol/kaspa";
+
+import { X402Error, type PaymentRequirement } from "./protocol.ts";
+
+/**
+ * Paying an x402 invoice out of a Warda grant instead of a hot wallet.
+ *
+ * The two protocols answer different questions and compose almost exactly.
+ * x402 says HOW an agent pays for one call: here is the price, here is the
+ * address, come back with proof. Warda says WHAT the agent is allowed to pay
+ * — in total, per call, per epoch, and to whom — and puts that answer in
+ * consensus rather than in the process holding the key.
+ *
+ * The join is the payment step. A stock x402 client builds a plain transfer
+ * from a private key it was handed; this builds a covenant spend from a grant.
+ * Everything above and below is unchanged, which is the point: the vendor sees
+ * an ordinary Kaspa payment and never learns the difference.
+ *
+ * ## What this buys, concretely
+ *
+ * The reference client caps spending with an environment variable, and its own
+ * documentation says the server "refuses further calls until restarted". That
+ * cap is bypassed by a crash, a redeploy, a second instance, or anyone who can
+ * read the key. Backed by a grant, the same agent cannot exceed its budget
+ * even if the key is stolen outright: the thief inherits the limits, because
+ * the limits are in the script that unlocks the coin.
+ *
+ * ## Two constraints x402 does not know about
+ *
+ * A Warda grant can only pay a payee it committed to at genesis, and the
+ * covenant requires the payee output to be P2PK. So a vendor's `payTo` must be
+ * a P2PK address whose key is in the grant's `recipientsRoot`. Neither is a
+ * limitation of this adapter — they are the authority model working — but both
+ * fail at broadcast in a way that reads like a chain error, so both are
+ * checked here first and reported in words.
+ *
+ * In practice the allowlist IS the vendor list: a marketplace that validates
+ * services before listing them is describing the same set.
+ */
+
+export interface Grant {
+  template: CovenantTemplate;
+  authority: GrantAuthority;
+  /** The grant's CURRENT state. It moves after every spend. */
+  state: GrantState;
+  /** The full member list. A root cannot produce an inclusion proof. */
+  recipients: RecipientSet;
+}
+
+export type Signer = (digest: Uint8Array) => Uint8Array | Promise<Uint8Array>;
+
+export interface PayerOptions {
+  grant: Grant;
+  node: NodeClient;
+  /**
+   * The agent's key, or a function that signs with it.
+   *
+   * A function is the better shape for anything real: the key can live in an
+   * HSM, a remote signer, or another process, and this module never sees it.
+   * Raw bytes are accepted because a script or a test should not have to build
+   * a signer to try the thing out.
+   */
+  sign: Signer | Uint8Array;
+  prefix?: NetworkPrefix;
+  /** Network fee per payment, in sompi. */
+  fee?: bigint;
+  computeBudget?: number;
+  /**
+   * How far behind the tip to claim. The covenant proves the chain reached
+   * `claimedDaa` via a CLTV lock, so a value at or above the current score is
+   * not yet final and the transaction is rejected as non-final — for reasons
+   * that have nothing to do with the grant.
+   */
+  daaBackoff?: bigint;
+}
+
+const DEFAULT_FEE = 1_000_000n;
+const DEFAULT_COMPUTE_BUDGET = 16;
+const DEFAULT_DAA_BACKOFF = 100n;
+
+export interface PaymentResult {
+  txid: string;
+  /** The address the payment came from — the grant's address BEFORE it moved. */
+  payer: string;
+  amountSompi: bigint;
+  /** Where the grant lives now. Its address changed with its state. */
+  state: GrantState;
+  address: string;
+}
+
+/**
+ * The payee's x-only key, or a refusal that says which rule was missed.
+ *
+ * Kaspa addresses carry a version inside the payload: 0 is pay-to-pubkey and 8
+ * is pay-to-script-hash. The covenant builds the payee output as
+ * `P2PK(recipient)` and nothing else, so a P2SH vendor cannot be paid from a
+ * grant at all — not "rejected", but genuinely unrepresentable.
+ */
+export function payeeKey(payTo: string): Uint8Array {
+  let decoded;
+  try {
+    decoded = decodeAddress(payTo);
+  } catch (e) {
+    throw new X402Error(`the server's payTo address is not a valid Kaspa address: ${payTo} (${(e as Error).message})`);
+  }
+  if (decoded.version !== 0) {
+    throw new X402Error(
+      `${payTo} is a pay-to-script-hash address (version ${decoded.version}), and a Warda ` +
+        `grant can only pay pay-to-pubkey. The covenant builds the payee output as ` +
+        `P2PK(recipient) — there is no transaction shape that pays a script hash from a ` +
+        `grant, so this is not something a larger budget or a different grant would fix.`,
+    );
+  }
+  if (decoded.payload.length !== 32) {
+    throw new X402Error(`${payTo} decodes to ${decoded.payload.length} bytes; an x-only key is 32`);
+  }
+  return decoded.payload;
+}
+
+/**
+ * Everything that must hold before a payment is worth building, checked in the
+ * covenant's own order so the limit reported is the one the chain would report.
+ *
+ * None of this is a permission decision — the covenant makes those, on chain,
+ * and it re-derives every one of these itself. The point is that a caller
+ * learns *which* rule binds, in a sentence, instead of reading a script error.
+ */
+export function explainRefusal(
+  req: PaymentRequirement,
+  grant: Grant,
+  opts: { fee: bigint; coin?: bigint } = { fee: DEFAULT_FEE },
+): string | null {
+  const { state } = grant;
+  const amount = req.amountSompi;
+
+  let key: Uint8Array;
+  try {
+    key = payeeKey(req.payTo);
+  } catch (e) {
+    return (e as Error).message;
+  }
+
+  if (!grant.recipients.has(toHex(key))) {
+    return (
+      `${req.payTo} is not on this grant's allowlist, so no inclusion proof places it in ` +
+      `the recipients tree. There is no valid transaction that pays them — not one the ` +
+      `network would reject, none at all. A grant's payees are fixed at genesis: to pay ` +
+      `this vendor you need a grant that committed to them.`
+    );
+  }
+
+  if (amount > state.maxPerSpend) {
+    return (
+      `this invoice is ${amount} sompi and the grant's per-payment cap is ${state.maxPerSpend}. ` +
+      `The cap exists to bound what a single decision can do, so it binds here regardless of ` +
+      `how much budget remains.`
+    );
+  }
+
+  const committed = state.spentTotal + state.reserved;
+  const uncommitted = state.budgetTotal - committed;
+  if (amount > uncommitted) {
+    return (
+      `this invoice is ${amount} sompi and only ${uncommitted} of the grant's lifetime budget ` +
+      `is uncommitted (${state.budgetTotal} total, less ${state.spentTotal} spent and ` +
+      `${state.reserved} reserved for delegated children).`
+    );
+  }
+
+  if (opts.coin !== undefined && amount + opts.fee > opts.coin) {
+    return (
+      `the grant's coin holds ${opts.coin} sompi, which will not cover ${amount} plus a fee of ` +
+      `${opts.fee}. Budget accounting and coin diverge over a grant's life because fees leave ` +
+      `the coin without being charged against the budget.`
+    );
+  }
+
+  // The epoch allowance is checked against the epoch the payment will land in,
+  // which is not knowable until the DAA score is read. `payInvoice` re-checks
+  // it there; a caller passing no coin figure gets the static checks only.
+  return null;
+}
+
+/**
+ * A payer bound to one grant.
+ *
+ * It owns the grant's state and advances it after every payment, because a
+ * grant's address IS its state: spend once and the old address is empty. A
+ * caller that kept its own stale copy would aim the next payment at a UTXO
+ * that no longer exists.
+ *
+ * Payments are serialised. A grant is a single UTXO, so two concurrent spends
+ * would build on the same coin and one of them would be rejected as a double
+ * spend — arriving as a confusing chain error rather than an obvious
+ * concurrency bug. The queue makes the serialisation explicit instead.
+ */
+export class WardaPayer {
+  private grant: Grant;
+  private readonly node: NodeClient;
+  private readonly signer: Signer;
+  private readonly prefix: NetworkPrefix;
+  private readonly fee: bigint;
+  private readonly computeBudget: number;
+  private readonly daaBackoff: bigint;
+  /** Tail of the payment queue. See the class comment. */
+  private queue: Promise<unknown> = Promise.resolve();
+
+  constructor(opts: PayerOptions) {
+    this.grant = opts.grant;
+    this.node = opts.node;
+    const sign = opts.sign;
+    this.signer = typeof sign === "function" ? sign : (digest: Uint8Array) => signDigest(digest, sign);
+    this.prefix = opts.prefix ?? "kaspatest";
+    this.fee = opts.fee ?? DEFAULT_FEE;
+    this.computeBudget = opts.computeBudget ?? DEFAULT_COMPUTE_BUDGET;
+    this.daaBackoff = opts.daaBackoff ?? DEFAULT_DAA_BACKOFF;
+  }
+
+  /** The grant as it stands now. Persist this if the process may restart. */
+  get state(): GrantState {
+    return this.grant.state;
+  }
+
+  /** Where the grant currently lives. */
+  get address(): string {
+    return scriptHashToAddress(
+      scriptHashFor(this.grant.template, { authority: this.grant.authority, state: this.grant.state }),
+      this.prefix,
+    );
+  }
+
+  /** What this grant could pay right now, ignoring the coin. */
+  get headroom(): bigint {
+    const s = this.grant.state;
+    const uncommitted = s.budgetTotal - s.spentTotal - s.reserved;
+    return uncommitted < s.maxPerSpend ? uncommitted : s.maxPerSpend;
+  }
+
+  /** Why a given invoice cannot be paid, or null. Does not touch the network. */
+  refusalFor(req: PaymentRequirement): string | null {
+    return explainRefusal(req, this.grant, { fee: this.fee });
+  }
+
+  /** Pays one invoice and returns once it is broadcast. */
+  pay(req: PaymentRequirement): Promise<PaymentResult> {
+    const run = this.queue.then(
+      () => this.payNow(req),
+      () => this.payNow(req),
+    );
+    // The queue must not reject, or one failed payment poisons every later one.
+    this.queue = run.catch(() => undefined);
+    return run;
+  }
+
+  private async payNow(req: PaymentRequirement): Promise<PaymentResult> {
+    const key = payeeKey(req.payTo);
+    const fromAddress = this.address;
+
+    const [dag, utxo] = await Promise.all([
+      this.node.getBlockDagInfo(),
+      this.node.grantUtxo(fromAddress),
+    ]);
+
+    const refusal = explainRefusal(req, this.grant, { fee: this.fee, coin: utxo.entry.value });
+    if (refusal) throw new X402Error(refusal);
+
+    const claimedDaa =
+      dag.virtualDaaScore > this.daaBackoff ? dag.virtualDaaScore - this.daaBackoff : dag.virtualDaaScore;
+
+    // The epoch allowance, checked against the epoch this payment lands in.
+    // successorState refuses a backwards claim outright; this catches the
+    // forwards case where the allowance is simply used up.
+    const s = this.grant.state;
+    const epochIndex = (claimedDaa - s.notBefore) / s.epochLength;
+    const usedThisEpoch = epochIndex === s.epochIndex ? s.epochSpent : 0n;
+    if (usedThisEpoch + req.amountSompi > s.epochLimit) {
+      throw new X402Error(
+        `this invoice is ${req.amountSompi} sompi and only ${s.epochLimit - usedThisEpoch} remains ` +
+          `in the current epoch (${epochIndex}). The allowance refreshes as the chain advances — ` +
+          `and cannot be refreshed by claiming an earlier epoch, which the covenant refuses.`,
+      );
+    }
+
+    const plan: SpendPlan = {
+      template: this.grant.template,
+      authority: this.grant.authority,
+      state: this.grant.state,
+      utxo: {
+        outpointTransactionId: utxo.outpoint.transactionId,
+        outpointIndex: utxo.outpoint.index,
+        value: utxo.entry.value,
+        blockDaaScore: utxo.entry.blockDaaScore,
+        isCoinbase: utxo.entry.isCoinbase,
+        covenantId: utxo.entry.covenantId!,
+      },
+      amount: req.amountSompi,
+      recipient: key,
+      proof: this.grant.recipients.proof(toHex(key)),
+      claimedDaa,
+      fee: this.fee,
+      computeBudget: this.computeBudget,
+    };
+
+    const tx = await this.signPlan(plan);
+    const txid = await this.node.submitTransaction(tx);
+
+    // Advance only after the network has taken it. Moving first would leave
+    // the payer pointing at a successor that does not exist if submission
+    // failed, and every later payment would fail at an empty address.
+    const next = successorState(this.grant.state, req.amountSompi, claimedDaa);
+    this.grant = { ...this.grant, state: next };
+
+    return {
+      txid,
+      payer: fromAddress,
+      amountSompi: req.amountSompi,
+      state: next,
+      address: this.address,
+    };
+  }
+
+  private async signPlan(plan: SpendPlan) {
+    // The two-step form, not signSpend: signSpend takes raw key bytes, and the
+    // whole point of accepting a signer is that the key can stay elsewhere.
+    const unsigned = buildUnsignedSpend(plan);
+    const signature = await this.signer(unsigned.sighash);
+    if (signature.length !== 65) {
+      throw new X402Error(
+        `the signer returned ${signature.length} bytes; a Kaspa signature is 64 plus a ` +
+          `sighash-type byte. A signer that omits the trailing byte produces a transaction ` +
+          `the engine rejects without saying why.`,
+      );
+    }
+    return attachSignature(plan, unsigned, signature);
+  }
+}

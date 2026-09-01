@@ -1,0 +1,36 @@
+{
+  "name": "@warda_protocol/x402",
+  "version": "0.3.0",
+  "description": "Pay HTTP 402 (x402) invoices from a Warda grant on Kaspa, so an agent's spending limits are enforced by consensus rather than by the process holding the key.",
+  "type": "module",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "engines": { "node": ">=20" },
+  "files": ["dist", "README.md", "LICENSE"],
+  "scripts": {
+    "test": "node --experimental-strip-types --test test/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+  },
+  "dependencies": {
+    "@warda_protocol/kaspa": "^0.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.0"
+  },
+  "keywords": ["x402", "http-402", "kaspa", "agent", "payments", "warda", "agent-payments", "spending-limits"],
+  "repository": { "type": "git", "url": "git+https://github.com/ArtyKOMarkets/warda.git", "directory": "x402" },
+  "homepage": "https://wardaprotocol.com",
+  "bugs": { "url": "https://github.com/ArtyKOMarkets/warda/issues" },
+  "sideEffects": false
+}

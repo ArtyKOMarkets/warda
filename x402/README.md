@@ -1,0 +1,132 @@
+# @warda_protocol/x402
+
+Pay HTTP 402 invoices out of a Warda grant, so an agent's spending limits are
+enforced by consensus instead of by the process holding the key.
+
+```
+npm install @warda_protocol/x402
+```
+
+## The problem this replaces
+
+The usual way to let an agent pay per call is a hot wallet plus a counter. A
+real agent-payments library shipping today caps spending with an environment
+variable, and its own documentation says the server *"refuses further calls
+until restarted."*
+
+So the cap resets when the process does. It is bypassed by a crash, a redeploy,
+a second instance, or anyone who can read the key out of `env`. The wallet
+balance is the only limit that actually holds.
+
+Backed by a grant, the same agent cannot exceed its budget even if the key is
+stolen outright — the thief inherits the limits, because the limits are in the
+script that unlocks the coin.
+
+## How the two protocols compose
+
+They answer different questions and meet at exactly one point.
+
+**x402** says *how* to pay for one call: here is the price, here is the address,
+come back with proof.
+
+**Warda** says *what this agent may pay* — in total, per call, per epoch, and to
+whom.
+
+The join is the payment step. A stock x402 client builds a plain transfer from a
+key it was handed; this builds a covenant spend from a grant. Everything above
+and below is unchanged. The vendor sees an ordinary Kaspa payment and never
+learns the difference.
+
+## Usage
+
+```ts
+import { NodeClient, RecipientSet } from "@warda_protocol/kaspa";
+import { WardaPayer, wardaFetch } from "@warda_protocol/x402";
+import template from "@warda_protocol/kaspa/covenant-template.json" with { type: "json" };
+
+const payer = new WardaPayer({
+  grant: {
+    template,
+    authority: { principalKey, revocationKey },
+    state,                                   // the grant as it stands now
+    recipients: new RecipientSet(vendors),   // the full list, not just the root
+  },
+  node: await NodeClient.connect({ url: "ws://127.0.0.1:18210" }),
+  sign: agentSecret,                          // or a signer function
+  prefix: "kaspatest",
+});
+
+const res = await wardaFetch("https://vendor.example/compute", {
+  method: "POST",
+  body: JSON.stringify({ prompt: "explain GHOSTDAG" }),
+}, { payer });
+
+const result = await res.json();
+```
+
+That is the whole surface. Call a paid endpoint as you would a free one; the
+402, the payment and the proof are handled underneath.
+
+### Keeping the key out of this process
+
+`sign` takes a function as readily as bytes, so the key can live in an HSM, a
+remote signer, or another process:
+
+```ts
+sign: async (digest) => myRemoteSigner.sign(digest),   // returns 65 bytes
+```
+
+## Two constraints x402 does not know about
+
+A grant can only pay a payee it committed to at genesis, and the covenant
+requires that payee output to be **P2PK**. So a vendor's `payTo` must be a P2PK
+address whose key is on the grant's allowlist.
+
+Neither is a limitation of this adapter — they are the authority model working —
+but both would otherwise fail at broadcast as an opaque script error. Both are
+checked before anything is signed, and reported in words:
+
+```ts
+const why = payer.refusalFor(requirement);
+// "kaspatest:qq… is not on this grant's allowlist, so no inclusion proof
+//  places it in the recipients tree. There is no valid transaction that pays
+//  them — not one the network would reject, none at all."
+```
+
+In practice the allowlist *is* the vendor list. A marketplace that validates
+services before listing them is describing the same set.
+
+## Things worth knowing before you deploy this
+
+**It never pays twice.** When a server answers 402 a second time it means the
+payment is still settling, and the spec says re-present the same proof. This
+does exactly that. If the server never settles, it reports that the money is
+spent rather than paying again — the one bug in this design capable of draining
+a budget through nobody's fault.
+
+**Payments are serialised.** A grant is a single UTXO, so two concurrent spends
+would build on the same coin and one would be rejected as a double spend. The
+payer queues them rather than letting that surface as a confusing chain error.
+If you need real concurrency, delegate: *N* children are *N* independent UTXOs
+and therefore *N* parallel lanes.
+
+**The grant moves after every payment.** A grant's address *is* its state, so
+spending changes where it lives. The payer owns and advances that state; read
+`payer.state` if the process may restart and you need to resume.
+
+**`maxAmountSompi` is not a security control.** It refuses a call quoted above a
+ceiling, which is useful against a mis-typed price. But it lives in your
+process, which is precisely the kind of limit Warda exists to replace. The
+grant's `maxPerSpend` is the one that holds.
+
+## What it does not do
+
+It does not verify the facilitator's signature on the 402, and it does not
+implement any scheme other than `exact`. It also does not decide whether a spend
+is allowed — the covenant does that, on chain, and it is the only thing that
+can. Everything here refuses *earlier* than the chain would, never later, and
+never permits something the chain would not.
+
+## Licence
+
+MIT

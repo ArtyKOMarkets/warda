@@ -227,14 +227,17 @@
 <section>
   <div class="wrap">
     <p class="eyebrow">Install</p>
-    <h2 style="max-width:22ch">Two packages. Nothing to compile.</h2>
+    <h2 style="max-width:22ch">Three packages. Nothing to compile.</h2>
     <p class="lede">Compiled JavaScript with TypeScript declarations. Node 20+, no build step, no Rust toolchain and no Silverscript compiler — address derivation splices values into a compiled covenant template that ships inside the package.</p>
 
 <pre><span class="c"># the SDK — build, sign and verify grants</span>
 npm install @warda_protocol/kaspa
 
 <span class="c"># the MCP server — hand an agent framework a Warda tool</span>
-npx @warda_protocol/mcp</pre>
+npx @warda_protocol/mcp
+
+<span class="c"># the x402 adapter — pay metered APIs from a grant</span>
+npm install @warda_protocol/x402</pre>
 
     <h3 style="margin:2.1rem 0 0.75rem">Create a grant</h3>
 <pre><span class="k">import</span> { buildGenesis, attachGenesisSignature, signDigest, RecipientSet } <span class="k">from</span> <span class="s">"@warda_protocol/kaspa"</span>;
@@ -260,6 +263,23 @@ npx @warda_protocol/mcp</pre>
 
 <span class="k">const</span> unsigned = buildGenesis({ template, grant, funding, changeScriptPublicKey, fee });
 <span class="k">const</span> tx = attachGenesisSignature(unsigned, signDigest(unsigned.sighash, principalSecret));</pre>
+
+    <h3 style="margin:2.1rem 0 0.75rem">Paying a metered API</h3>
+<pre><span class="k">import</span> { WardaPayer, wardaFetch } <span class="k">from</span> <span class="s">"@warda_protocol/x402"</span>;
+
+<span class="k">const</span> payer = <span class="k">new</span> WardaPayer({
+  grant: { template, authority, state, recipients },
+  node, sign: agentSecret,             <span class="c">// or a remote signer function</span>
+});
+
+<span class="c">// A paid endpoint, called like a free one. The 402, the covenant</span>
+<span class="c">// spend and the X-PAYMENT proof are handled underneath.</span>
+<span class="k">const</span> res = <span class="k">await</span> wardaFetch(<span class="s">"https://vendor.example/compute"</span>, {
+  method: <span class="s">"POST"</span>,
+  body: JSON.stringify({ prompt: <span class="s">"explain GHOSTDAG"</span> }),
+}, { payer });</pre>
+
+    <p style="max-width:var(--measure);margin-bottom:1.4rem">It never pays twice. A second 402 means the payment is still settling, so the same proof is re-presented rather than a new one bought — and if the server never settles, it says the money is spent instead of paying again.</p>
 
     <h3 style="margin:2.1rem 0 0.75rem">The agent spends, unattended</h3>
 <pre><span class="k">import</span> { signSpend } <span class="k">from</span> <span class="s">"@warda_protocol/kaspa"</span>;
@@ -408,8 +428,8 @@ npx @warda_protocol/mcp</pre>
         <p><code>@warda_protocol/mcp</code> exposes four tools over stdio: read a grant's authority, check whether a spend is permitted and why, check a delegation, and build an unsigned spend. It never holds a key and never enforces — it explains, and the covenant decides.</p>
       </article>
       <article>
-        <p class="who">Next</p><h3>x402 / HTTP 402</h3>
-        <p>x402 answers <em>how</em> an agent pays for one call; Warda answers <em>what it may spend, in total, and to whom</em>. They compose: a marketplace's validated vendor list is the allowlist, and the payment step becomes a covenant spend instead of a hot-key transfer.</p>
+        <p class="who">Available now</p><h3>x402 / HTTP 402</h3>
+        <p><code>@warda_protocol/x402</code> is a drop-in <code>fetch</code>. Call a paid endpoint as you would a free one; the 402, the covenant spend and the proof happen underneath. x402 answers <em>how</em> to pay for one call; Warda answers <em>what may be spent, and to whom</em> — a marketplace's validated vendor list is the allowlist.</p>
       </article>
       <article>
         <p class="who">Built in</p><h3>Kaspa nodes</h3>
@@ -444,7 +464,7 @@ npx @warda_protocol/mcp</pre>
 <footer>
   <div class="wrap">
     <p>Warda runs on Kaspa L1 covenants, activated on mainnet with the Toccata hard fork on 30 June 2026 at DAA score 474,165,565. The protocol has been exercised end to end on <strong>testnet-10 only</strong> — genesis, spend, delegation, child spend and both reclaims, with a balanced ledger — and has not been deployed to mainnet or audited.</p>
-    <p style="margin-top:0.85rem">Covenant <strong>b3e5eeefacf2021f</strong> · 14 adversarial probes, all behaving · 177 tests across three packages · six vulnerabilities found and fixed, each documented with the engine transcript that found it. All three packages are published on npm.</p>
+    <p style="margin-top:0.85rem">Covenant <strong>b3e5eeefacf2021f</strong> · 14 adversarial probes, all behaving · 197 tests across four packages · six vulnerabilities found and fixed, each documented with the engine transcript that found it. All three packages are published on npm.</p>
     <p style="margin-top:0.85rem">Unaudited. Testnet first. Do not put money on this yet.</p>
   </div>
 </footer>

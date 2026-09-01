@@ -34,7 +34,8 @@
   "workspaces": [
     ".",
     "sdk",
-    "mcp"
+    "mcp",
+    "x402"
   ],
   "repository": {
     "type": "git",

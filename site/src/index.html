@@ -42,6 +42,14 @@
   a:hover { color: var(--teal-bright); }
   :focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
 
+  code { font-family: var(--mono); font-size: 0.88em; background: var(--panel); color: var(--teal); padding: 0.12em 0.4em; }
+
+  .works {
+    margin: 1.6rem auto 0; max-width: 50ch; font-size: 0.95rem;
+    color: var(--chrome-dim);
+  }
+  .works code { font-size: 0.84em; }
+
   .eyebrow { font-family: var(--mono); font-size: 0.68rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.17em; color: var(--teal); margin: 0 0 0.9rem; }
 
   section { padding: clamp(3.2rem, 7vw, 5.4rem) 0; border-top: 1px solid var(--edge); }
@@ -133,12 +141,13 @@
       <a class="cta primary" href="https://claude.ai/code/artifact/3821689d-e8c7-46d3-875a-0a47d459e8c7">If you're building, start here <span class="arw">&rarr;</span></a>
       <a class="cta ghost" href="https://github.com/ArtyKOMarkets/warda">Read the source</a>
     </div>
+    <p class="works">Works today with the Model Context Protocol, and with x402 metered APIs — <code>@warda_protocol/x402</code> is a drop-in <code>fetch</code> that calls a paid endpoint like a free one.</p>
     <div class="statline">
       <span>Kaspa L1 covenants</span>
       <span><b>14</b> adversarial probes, all behaving</span>
       <span><b>6</b> vulnerabilities found and fixed</span>
       <span>testnet-10</span>
-      <span><b>3</b> packages on npm</span>
+      <span><b>4</b> packages on npm</span>
     </div>
   </div>
 </section>
