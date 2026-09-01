@@ -99,6 +99,29 @@ export default async function handler(
     return;
   }
 
+  /**
+   * A root entrypoint answers every path, including the ones a crawler asks
+   * for before it will read anything else. Serving JSON at /robots.txt is not
+   * a malformed robots file — it is an unparseable one, and a robots-respecting
+   * fetcher treats that as "disallowed" and stops. Claude's own web fetch did
+   * exactly that against this endpoint.
+   *
+   * For a service whose whole argument is that agents can find it, being
+   * unreadable to the agents that check first is a self-inflicted wound. So:
+   * a real robots.txt, allowing everything, pointing at the discovery
+   * documents on the site.
+   */
+  if (req.method === "GET" && new URL(req.url ?? "/", "http://x").pathname === "/robots.txt") {
+    res.statusCode = 200;
+    res.setHeader("content-type", "text/plain; charset=utf-8");
+    res.end(
+      "User-agent: *\nAllow: /\n\n" +
+        "# This host is an MCP endpoint, not a website. POST JSON-RPC to /mcp.\n" +
+        "# Docs and discovery documents: https://wardaprotocol.com/llms.txt\n",
+    );
+    return;
+  }
+
   // A GET without an event-stream accept header is a person opening the URL,
   // or a health check. A transport error tells them nothing; this tells them
   // what they found.
