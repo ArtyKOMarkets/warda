@@ -41,11 +41,37 @@ test("the tools a framework would discover are registered", async () => {
   const c = await connect();
   const names = (await c.listTools()).tools.map((t) => t.name).sort();
   assert.deepEqual(names, [
+    "warda_build_delegation",
+    "warda_build_exit",
+    "warda_build_settlement",
     "warda_build_spend",
     "warda_check_delegation",
     "warda_check_spend",
+    "warda_grant_address",
     "warda_grant_authority",
+    "warda_recover_grant",
   ]);
+});
+
+/**
+ * A grant has a whole life, and for a while this server covered one step of it.
+ * An agent could ask what it may spend and get a spend built; nobody could
+ * delegate, settle a child back, revoke a misbehaving agent, or find a grant
+ * whose recorded state had gone stale. The last two are the ones that hurt: a
+ * monitor with no revocation path can only file a report, and a grant nobody
+ * can locate is money that is perfectly valid on chain and out of reach.
+ */
+test("every tool that moves a grant returns bytes and a digest, never a signature", async () => {
+  const c = await connect();
+  for (const t of (await c.listTools()).tools) {
+    if (!t.name.startsWith("warda_build_")) continue;
+    const text = `${t.description}`;
+    assert.match(
+      text,
+      /NEVER SEES|signs nothing|never signs|THIS SERVER NEVER/i,
+      `${t.name} must say, in the description a model reads, that it does not sign`,
+    );
+  }
 });
 
 test("authority reports the BINDING constraint, not just the budget", async () => {

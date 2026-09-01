@@ -1,7 +1,7 @@
 {
   "name": "@warda_protocol/mcp",
-  "version": "0.3.0",
-  "description": "MCP server exposing Warda grant authority to agent frameworks. Builds unsigned spends and explains verdicts; never holds a key, never enforces — the covenant does that on-chain.",
+  "version": "0.4.0",
+  "description": "MCP server exposing a Warda grant's whole life to agent frameworks: authority, spends, delegation, settlement, revocation and recovery. Builds unsigned transactions and explains verdicts; never holds a key, never enforces — the covenant does that on-chain.",
   "type": "module",
   "license": "MIT",
   "bin": {

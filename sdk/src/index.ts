@@ -88,6 +88,10 @@ export {
   buildUnsignedDelegation,
   childStateFrom,
   delegateSignatureScript,
+  // The reserve stack's push. Exported because settlement needs to CHECK a
+  // pop before attempting it — the chain re-derives this itself, so the value
+  // is in the error message rather than in what gets accepted.
+  pushChild,
   subsetWitness,
   parentSuccessorState,
   type ChildTerms,
@@ -101,7 +105,14 @@ export { RecipientSet } from "./recipients.ts";
 
 export { spendPlanFrom, type SpendPlanDocument } from "./plan.ts";
 
-export { toWire, type WireTransaction } from "./wire.ts";
+export {
+  toWire,
+  // A transaction whose inputs are spent under more than one covenant. A
+  // settlement is the first: each input's digest commits to its OWN entry, so
+  // a verifier given one entry can only judge input 0 and would report a pass.
+  toWireMulti,
+  type WireTransaction,
+} from "./wire.ts";
 
 export {
   agentPublicKey,

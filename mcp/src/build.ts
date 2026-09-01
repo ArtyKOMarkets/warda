@@ -18,7 +18,8 @@ import { fileURLToPath } from "node:url";
 import { buildUnsignedSpend, type MerkleProof, type SpendPlan } from "@warda_protocol/kaspa";
 import { toWire, type WireTransaction } from "@warda_protocol/kaspa";
 import { fromHex, toHex } from "@warda_protocol/kaspa";
-import { scriptHashFor, templateIdFor, type CovenantTemplate } from "@warda_protocol/kaspa";
+import { scriptHashFor, templateIdFor, type CovenantTemplate, type GrantState as SdkGrantState } from "@warda_protocol/kaspa";
+import { scriptHashToAddress, type NetworkPrefix } from "@warda_protocol/kaspa";
 import type { Materialised } from "./grant.ts";
 import type { MerkleProof as CoreProof } from "@warda_protocol/core";
 
@@ -94,9 +95,65 @@ export interface BuiltSpend {
   changeSompi: string;
 }
 
+/** The authority a descriptor carries. Fixed for the grant's life. */
+export function authorityOf(m: Materialised) {
+  return { principalKey: m.grant.principalKey, revocationKey: m.grant.revocationKey };
+}
+
+/**
+ * The descriptor's grant, in the covenant's vocabulary.
+ *
+ * Was inline in `buildSpend`, and every builder added since would have needed
+ * its own copy. A field that appears in five copies is a field that will be
+ * updated in four — `reserveRoot` is exactly that mistake, made once already
+ * in the CLI tools, where a parent that delegated became unfindable because
+ * five readers hardcoded an empty stack.
+ */
+export function stateOf(m: Materialised): SdkGrantState {
+  const { grant, state } = m;
+  return {
+    agentKey: grant.agentKey,
+    budgetTotal: grant.budgetTotal,
+    maxPerSpend: grant.maxPerSpend,
+    epochLimit: grant.epochLimit,
+    epochLength: grant.epochLength,
+    recipientsRoot: grant.recipientsRoot,
+    notBefore: grant.notBefore,
+    expiresAt: grant.expiresAt,
+    delegationDepth: BigInt(grant.delegationDepth),
+    // Derived, never supplied: the id is a property of the template and the
+    // authority together, so a descriptor cannot get it wrong by stating it.
+    templateId: templateIdFor(loadTemplate(), authorityOf(m)),
+    spentTotal: state.spentTotal,
+    reserved: state.reserved,
+    epochIndex: state.epochIndex,
+    epochSpent: state.epochSpent,
+    reserveRoot: m.reserveRoot,
+  };
+}
+
+/** Where this grant lives right now. Moves after every spend and delegation. */
+export function addressOf(m: Materialised, prefix: NetworkPrefix = "kaspatest"): string {
+  return scriptHashToAddress(
+    scriptHashFor(loadTemplate(), { authority: authorityOf(m), state: stateOf(m) }),
+    prefix,
+  );
+}
+
+/** The UTXO descriptor an agent supplies, in the shape the SDK plans want. */
+export function utxoOf(u: UtxoDescriptor) {
+  return {
+    outpointTransactionId: fromHex(u.transactionId),
+    outpointIndex: u.index,
+    value: BigInt(u.valueSompi),
+    blockDaaScore: BigInt(u.blockDaaScore),
+    isCoinbase: u.isCoinbase,
+    covenantId: fromHex(u.covenantId),
+  };
+}
+
 export function buildSpend(m: Materialised, set: Materialised["set"], o: BuildOptions): BuiltSpend {
   const template = loadTemplate();
-  const { grant, state } = m;
 
   const claimedDaa = o.daaScore > o.daaBackoff ? o.daaScore - o.daaBackoff : o.daaScore;
 
@@ -111,38 +168,11 @@ export function buildSpend(m: Materialised, set: Materialised["set"], o: BuildOp
     );
   }
 
-  const authority = { principalKey: grant.principalKey, revocationKey: grant.revocationKey };
-
   const plan: SpendPlan = {
     template,
-    authority,
-    state: {
-      agentKey: grant.agentKey,
-      budgetTotal: grant.budgetTotal,
-      maxPerSpend: grant.maxPerSpend,
-      epochLimit: grant.epochLimit,
-      epochLength: grant.epochLength,
-      recipientsRoot: grant.recipientsRoot,
-      notBefore: grant.notBefore,
-      expiresAt: grant.expiresAt,
-      delegationDepth: BigInt(grant.delegationDepth),
-      // Derived, never supplied: the id is a property of the template and the
-      // authority together, so a descriptor cannot get it wrong by stating it.
-      templateId: templateIdFor(template, authority),
-      spentTotal: state.spentTotal,
-      reserved: state.reserved,
-      epochIndex: state.epochIndex,
-      epochSpent: state.epochSpent,
-      reserveRoot: m.reserveRoot,
-    },
-    utxo: {
-      outpointTransactionId: fromHex(o.utxo.transactionId),
-      outpointIndex: o.utxo.index,
-      value: BigInt(o.utxo.valueSompi),
-      blockDaaScore: BigInt(o.utxo.blockDaaScore),
-      isCoinbase: o.utxo.isCoinbase,
-      covenantId: fromHex(o.utxo.covenantId),
-    },
+    authority: authorityOf(m),
+    state: stateOf(m),
+    utxo: utxoOf(o.utxo),
     amount: o.amount,
     recipient: fromHex(o.recipient),
     proof: toSdkProof(set.proof(o.recipient)),
@@ -151,14 +181,17 @@ export function buildSpend(m: Materialised, set: Materialised["set"], o: BuildOp
     computeBudget: o.computeBudget,
   };
 
+  // Built ONCE. This used to run twice — once to reach the successor state and
+  // again for the transaction — which is a doubled cost for a value the first
+  // call already returns.
+  const built = buildUnsignedSpend(plan);
   // The address the grant will occupy AFTER this spend. Worth returning: a
   // caller that watches the wrong address concludes its spend vanished.
   const successorScriptHash = scriptHashFor(template, {
     authority: plan.authority,
-    state: buildUnsignedSpend(plan).successorState,
+    state: built.successorState,
   });
 
-  const built = buildUnsignedSpend(plan);
   return {
     transaction: toWire(built.tx, built.entry, "@warda_protocol/mcp (unsigned)"),
     sighashHex: toHex(built.sighash),
