@@ -2,13 +2,30 @@
 #
 # Refresh the attack page's snapshot, and redeploy if it changed.
 #
-#     WARDA_RESOLVER=https://…  ./refresh-demo.sh
-#     WARDA_RESOLVER=https://…  ./refresh-demo.sh --no-deploy
+#     ./refresh-demo.sh                 # read, rebuild, deploy
+#     ./refresh-demo.sh --no-deploy     # read and rebuild only
 #
-# Meant for cron, so it is quiet when nothing happened and loud when something
-# did:
+# Reads the node on localhost:18210 by default. Set WARDA_RESOLVER to a real
+# Kaspa Resolver instead if you do not run one — leaving it UNSET is a choice,
+# not an omission.
 #
-#     */20 * * * * cd ~/Desktop/warda/site && WARDA_RESOLVER=… ./refresh-demo.sh
+# ## Running it on a timer
+#
+# This is quiet when nothing moved, so it is safe to run often. The line goes
+# in `crontab -e`, not in a shell:
+#
+#     PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin
+#     */20 * * * * cd $HOME/Desktop/warda/site && ./refresh-demo.sh
+#
+# The PATH line is not optional. cron runs with /usr/bin:/bin and nothing else,
+# so node, python3 and vercel — installed by homebrew or nvm — are simply not
+# found, and the job fails every twenty minutes into mail nobody reads. The
+# preflight below turns that into one legible sentence.
+#
+# On macOS there is a second trap: ~/Desktop is protected by TCC, and a cron
+# job cannot read it until /usr/sbin/cron has Full Disk Access (System Settings
+# → Privacy & Security). A launchd agent hits the same wall. If the job cannot
+# see files you can see from your own terminal, that is why.
 #
 # ## What it will and will not do on its own
 #
@@ -27,6 +44,20 @@ cd "$(dirname "$0")"
 
 DEPLOY=1
 [ "${1:-}" = "--no-deploy" ] && DEPLOY=0
+
+# Named separately from the work, because "node: command not found" three
+# layers into a pipeline is a different debugging session from "cron cannot
+# see your node".
+missing=""
+for c in node python3; do command -v "$c" >/dev/null || missing="$missing $c"; done
+[ "$DEPLOY" = "1" ] && { command -v vercel >/dev/null || missing="$missing vercel"; }
+if [ -n "$missing" ]; then
+  echo "not on PATH:$missing" >&2
+  echo "PATH is: $PATH" >&2
+  echo "Under cron that PATH is /usr/bin:/bin unless you set it yourself — see" >&2
+  echo "the header of this script." >&2
+  exit 127
+fi
 
 # Documentation ellipses have a way of surviving into shell history. An unset
 # WARDA_RESOLVER is a real choice — it means "use the node on localhost" — so
