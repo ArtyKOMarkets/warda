@@ -238,6 +238,23 @@
   /* Build your first agent. Code blocks scroll inside themselves rather than
      widening the page — a horizontally scrolling body on a phone is the fastest
      way to lose somebody mid-quickstart. */
+  /* Dashed marks cannot be drawn in: data-draw writes stroke-dasharray from
+     the path length, which overwrites the dash pattern and renders them solid
+     — losing the one distinction this figure is built on. They fade instead. */
+  [data-draw-group] [data-fade] { opacity: 0; }
+  [data-draw-group].seen [data-fade] { opacity: 1; }
+  @media (prefers-reduced-motion: no-preference) {
+    [data-draw-group] [data-fade] { transition: opacity 700ms ease var(--wait, 0ms); }
+  }
+
+  .cycle { margin-top: 1.8rem; }
+  .cycle svg { width: 100%; max-width: 100%; height: auto; display: block; }
+  .cycle text { font-family: var(--mono); }
+  .cycle figcaption { font-family: var(--mono); font-size: 0.72rem; color: var(--chrome-faint);
+                      line-height: 1.8; margin-top: 1.2rem; max-width: 66ch; }
+  .cycle figcaption b { color: var(--chrome-dim); font-weight: 500; }
+  figure { margin: 0; }
+
   .steps3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
             background: var(--edge); border: 1px solid var(--edge); margin-top: 1.8rem; }
   .steps3 > div { background: var(--ground); padding: 1.5rem 1.4rem; min-width: 0; }
@@ -317,12 +334,12 @@
   .cols svg { display: block; margin-bottom: 1.25rem; overflow: visible; }
   /* --len is measured from the path itself at load: a guessed length either
      leaves the stroke cut short or starts it already half drawn. */
-  .cols svg [data-draw] { stroke-dasharray: var(--len, 120); stroke-dashoffset: var(--len, 120); }
-  .cols.seen svg [data-draw] { stroke-dashoffset: 0; }
+  [data-draw-group] [data-draw] { stroke-dasharray: var(--len, 120); stroke-dashoffset: var(--len, 120); }
+  [data-draw-group].seen [data-draw] { stroke-dashoffset: 0; }
   @media (prefers-reduced-motion: no-preference) {
-    .cols svg [data-draw] { transition: stroke-dashoffset 900ms cubic-bezier(.3,.7,.3,1) var(--wait, 0ms); }
+    [data-draw-group] [data-draw] { transition: stroke-dashoffset 900ms cubic-bezier(.3,.7,.3,1) var(--wait, 0ms); }
   }
-  @media (prefers-reduced-motion: reduce) { .cols svg [data-draw] { stroke-dashoffset: 0; } }
+  @media (prefers-reduced-motion: reduce) { [data-draw-group] [data-draw] { stroke-dashoffset: 0; } }
 
   /* ---- counters -------------------------------------------------------- */
   .counts { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem,1fr)); gap: clamp(2rem, 5vw, 3.5rem); margin-top: 3rem; }
@@ -681,6 +698,79 @@ await wardaFetch("https://api.example/infer");</code></pre>
   </div>
 </section>
 
+<section class="rule">
+  <div class="wrap">
+    <div data-rise>
+      <p class="eyebrow">The whole cycle</p>
+      <h2>Two questions. Only one of them decides.</h2>
+      <p class="big" style="margin-top:1.2rem;max-width:54ch">
+        An agent can ask a server whether a payment is allowed. It can also just try. The
+        second question is the one with an answer, and the diagram is drawn so you can cut the
+        first path and see that nothing changes.
+      </p>
+    </div>
+
+    <figure class="cycle" data-rise data-draw-group style="--d:100ms">
+      <svg viewBox="0 0 820 340" role="img"
+           aria-label="An autonomous agent may ask an MCP server whether a payment is permitted — a dashed, advisory path whose server holds no key. The agent signs locally and submits to Kaspa consensus, which pays the vendor. A payment to any other payee has no inclusion proof, so no transaction exists to sign.">
+        <defs>
+          <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 z" fill="#8D989E"/>
+          </marker>
+          <marker id="art" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 z" fill="#14D7C1"/>
+          </marker>
+        </defs>
+
+        <!-- Advisory leaves the TOP and enforcement leaves the RIGHT, so the
+             two paths never cross and no label sits on another's line. -->
+        <g data-fade style="--wait:220ms">
+          <path d="M111 150 L111 61 L322 61" fill="none" stroke="#8D989E" stroke-width="1.5"
+                stroke-dasharray="5 4" marker-start="url(#ar)" marker-end="url(#ar)"/>
+          <text x="216" y="50" text-anchor="middle" font-size="11" fill="#8D989E">may I pay X? &mdash; advisory</text>
+        </g>
+
+        <g data-fade style="--wait:120ms">
+          <rect x="330" y="24" width="222" height="74" fill="none" stroke="#8D989E"
+                stroke-width="1.5" stroke-dasharray="5 4"/>
+          <text x="441" y="54" text-anchor="middle" font-size="13" fill="#DDE0E2">MCP server</text>
+          <text x="441" y="76" text-anchor="middle" font-size="11.5" fill="#8D989E">holds no key &middot; decides nothing</text>
+        </g>
+
+        <rect data-draw style="--wait:0ms" x="20" y="150" width="182" height="78" fill="none" stroke="#DDE0E2" stroke-width="1.5"/>
+        <text x="111" y="180" text-anchor="middle" font-size="13" fill="#DDE0E2">Autonomous agent</text>
+        <text x="111" y="202" text-anchor="middle" font-size="11.5" fill="#14D7C1">holds the only key</text>
+
+        <path data-draw style="--wait:560ms" d="M202 189 L352 189" fill="none" stroke="#14D7C1" stroke-width="2" marker-end="url(#art)"/>
+        <text x="277" y="180" text-anchor="middle" font-size="11" fill="#14D7C1">signed spend</text>
+
+        <rect data-draw style="--wait:640ms" x="352" y="150" width="212" height="78" fill="none" stroke="#14D7C1" stroke-width="1.5"/>
+        <text x="458" y="180" text-anchor="middle" font-size="13" fill="#DDE0E2">Kaspa consensus</text>
+        <text x="458" y="202" text-anchor="middle" font-size="11.5" fill="#14D7C1">runs the covenant</text>
+
+        <path data-draw style="--wait:800ms" d="M564 189 L636 189" fill="none" stroke="#14D7C1" stroke-width="2" marker-end="url(#art)"/>
+        <rect data-draw style="--wait:880ms" x="636" y="150" width="164" height="78" fill="none" stroke="#DDE0E2" stroke-width="1.5"/>
+        <text x="718" y="180" text-anchor="middle" font-size="13" fill="#DDE0E2">The vendor</text>
+        <text x="718" y="202" text-anchor="middle" font-size="11.5" fill="#8D989E">the only payee</text>
+
+        <g data-fade style="--wait:1000ms">
+          <path d="M111 228 L111 274" fill="none" stroke="#FF6B5A" stroke-width="1.5" stroke-dasharray="3 4"/>
+          <path d="M94 276 L128 310 M128 276 L94 310" fill="none" stroke="#FF6B5A" stroke-width="2"/>
+          <text x="152" y="290" font-size="11.5" fill="#FF6B5A">anyone else</text>
+          <text x="152" y="309" font-size="11" fill="#8D989E">no inclusion proof exists, so there is nothing to sign</text>
+        </g>
+      </svg>
+      <figcaption>
+        The dashed path is a convenience. <b>The MCP server never holds a key and never signs</b> —
+        it returns unsigned bytes and a digest, and an agent that skips it entirely gets exactly
+        the same outcome. The solid path is the one that decides, and it runs on every node,
+        including the ones nobody here operates. The red branch is not a rejection: a payee
+        outside the allowlist has no proof to carry, so the transaction cannot be built at all.
+      </figcaption>
+    </figure>
+  </div>
+</section>
+
 <section class="rule" id="stack">
   <div class="wrap">
     <div data-rise>
@@ -1007,15 +1097,22 @@ await wardaFetch("https://api.example/infer");</code></pre>
     try { el.style.setProperty("--len", Math.ceil(el.getTotalLength()) + ""); } catch (e) {}
   });
 
-  var cols = document.querySelector("[data-draw-group]");
-  if (cols && "IntersectionObserver" in window) {
+  /* Every group, not the first one. This observed querySelector's single
+     result, so a second diagram further down the page kept its strokes at
+     full dashoffset — drawn, invisible, and indistinguishable from a
+     rendering bug. */
+  var groups = [].slice.call(document.querySelectorAll("[data-draw-group]"));
+  if (groups.length && "IntersectionObserver" in window) {
     var cio = new IntersectionObserver(function (es) {
-      es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add("seen"); cio.disconnect(); } });
+      es.forEach(function (e) {
+        if (e.isIntersecting) { e.target.classList.add("seen"); cio.unobserve(e.target); }
+      });
     }, { threshold: 0.2 });
-    cio.observe(cols);
-  } else if (cols) {
-    cols.classList.add("seen");
+    groups.forEach(function (g) { cio.observe(g); });
+  } else if (groups.length) {
+    groups.forEach(function (g) { g.classList.add("seen"); });
   }
+
 })();
 </script>
 

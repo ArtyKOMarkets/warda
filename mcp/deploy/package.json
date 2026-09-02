@@ -4,9 +4,11 @@
   "version": "0.4.1",
   "description": "The Warda MCP server, hosted over Streamable HTTP. Deploys the published package rather than the working tree.",
   "type": "module",
-  "engines": { "node": "22.x" },
+  "engines": {
+    "node": "22.x"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
-    "@warda_protocol/mcp": "^0.4.1"
+    "@warda_protocol/mcp": "^0.4.3"
   }
 }

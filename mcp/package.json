@@ -1,8 +1,8 @@
 {
   "name": "@warda_protocol/mcp",
   "mcpName": "io.github.ArtyKOMarkets/warda",
-  "version": "0.4.2",
-  "description": "MCP server exposing a Warda grant's whole life to agent frameworks: authority, spends, delegation, settlement, revocation and recovery. Builds unsigned transactions and explains verdicts; never holds a key, never enforces — the covenant does that on-chain.",
+  "version": "0.4.3",
+  "description": "MCP server exposing a Warda grant's whole life to agent frameworks: authority, spends, delegation, settlement, revocation and recovery. Builds unsigned transactions and explains verdicts; never holds a key, never enforces \u2014 the covenant does that on-chain.",
   "type": "module",
   "license": "MIT",
   "bin": {
