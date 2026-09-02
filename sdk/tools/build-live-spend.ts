@@ -29,7 +29,8 @@
  *
  * Options:
  *   --amount <sompi>   default 30000000
- *   --to <hex>         payee, x-only. Default: the demo API key, when it is a member.
+ *   --to <addr|hex>    payee, as a kaspa address or a bare x-only key.
+ *                      Default: the demo API key, when it is a member.
  *   --recipients <l>   the grant's allowlist: a file, or inline addresses/keys
  *   --submit           broadcast it
  *   --fee <sompi>      default 1000000
@@ -40,7 +41,7 @@ import { readFileSync } from "node:fs";
 
 import { EMPTY_RESERVE } from "../src/keys.ts";
 
-import { scriptHashToAddress, type NetworkPrefix } from "../src/address.ts";
+import { scriptHashToAddress, decodeAddress, type NetworkPrefix } from "../src/address.ts";
 import { fromHex, toHex } from "../src/bytes.ts";
 import { blake2b256 } from "../src/hashers.ts";
 import { resolveSigner } from "../src/keys.ts";
@@ -228,7 +229,15 @@ if (!to) {
   );
   process.exit(1);
 }
-const recipient = fromHex(to);
+/**
+ * `--to` takes an address or a bare x-only key.
+ *
+ * It used to take hex only, which meant the last step of the quickstart handed
+ * somebody a placeholder — <payee-x-only-key> — and left them to discover that
+ * a kaspa address carries that key in its payload and needs bech32 decoding to
+ * get at it. Everything else in this tool accepts both.
+ */
+const recipient = to.includes(":") ? decodeAddress(to).payload : fromHex(to);
 if (!recipients.has(recipient)) {
   // No proof exists that places a non-member in the tree. Saying so here beats
   // building a transaction whose only defect is that it cannot succeed.

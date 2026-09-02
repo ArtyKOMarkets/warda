@@ -241,6 +241,25 @@
 
   /* The ladder. Numbered because the order is the argument: each layer is
      only worth anything if the one below it holds. */
+  /* Build your first agent. Code blocks scroll inside themselves rather than
+     widening the page — a horizontally scrolling body on a phone is the fastest
+     way to lose somebody mid-quickstart. */
+  .steps3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
+            background: var(--edge); border: 1px solid var(--edge); margin-top: 1.8rem; }
+  .steps3 > div { background: var(--ground); padding: 1.5rem 1.4rem; min-width: 0; }
+  .steps3 .sn { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.12em;
+                color: var(--teal); margin: 0 0 0.5rem; }
+  .steps3 h3 { font-size: 1.02rem; margin: 0 0 0.8rem; }
+  .steps3 pre { margin: 0 0 0.8rem; padding: 0.75rem 0.8rem; background: var(--void);
+                border: 1px solid var(--edge); overflow-x: auto; }
+  .steps3 pre code { font-family: var(--mono); font-size: 0.7rem; line-height: 1.7;
+                     color: var(--teal); white-space: pre; }
+  .steps3 p { color: var(--chrome-dim); font-size: 0.88rem; margin: 0; }
+  .needs { font-family: var(--mono); font-size: 0.74rem; color: var(--chrome-faint);
+           margin-top: 1.1rem; line-height: 1.8; }
+  .needs a { color: var(--teal); }
+  @media (max-width: 860px) { .steps3 { grid-template-columns: 1fr; } }
+
   .layers { margin-top: 1.8rem; border-top: 1px solid var(--edge); }
   .layers > div { display: grid; grid-template-columns: 3.2rem 1fr 1fr;
                   gap: 1.6rem; padding: 1.6rem 0; border-bottom: 1px solid var(--edge); }
@@ -376,7 +395,7 @@
   <div class="wrap">
     <span class="dot"></span>
     <span class="t">This agent's private key is published</span>
-    <span class="m">50 KAS on testnet-10 · take it, if you can find a way</span>
+    <span class="m" id="bar-m">Live on testnet-10 &middot; take it, if you can find a way</span>
     <a href="/attack">Take the key &rarr;</a>
   </div>
 </div>
@@ -384,11 +403,11 @@
 <section class="hero">
   <div class="wrap">
     <img src="assets/lockup-hero.png" alt="Warda Protocol — economic infrastructure for autonomous agents" data-rise>
-    <p class="thesis" data-rise style="--d:80ms">A spending limit the <span class="lit">network</span> enforces.</p>
-    <p class="sub" data-rise style="--d:170ms">Give an autonomous agent its own key and a real budget on Kaspa. It spends unattended — no co-signing, no relay, no custody — and consensus rejects anything outside its limits.</p>
+    <p class="thesis" data-rise style="--d:80ms">Give AI agents money without giving them <span class="lit">unlimited authority</span>.</p>
+    <p class="sub" data-rise style="--d:170ms">Warda creates cryptographically bounded grants for autonomous agents. The agent gets a key. The grant gets the money. Kaspa enforces the rules — so even if the agent is compromised, it cannot spend outside its authority.</p>
     <div class="cta-row" data-rise style="--d:250ms">
-      <a class="cta primary" href="/build">If you're building, start here <span class="arw">&rarr;</span></a>
-      <a class="cta ghost" href="https://github.com/ArtyKOMarkets/warda">Read the source</a>
+      <a class="cta primary" href="#challenge">Try the challenge <span class="arw">&rarr;</span></a>
+      <a class="cta ghost" href="/build">Build your first agent</a>
     </div>
     <div class="statline" data-rise style="--d:340ms">
       <span>Kaspa L1 covenants</span>
@@ -418,6 +437,80 @@
         <cite>Restarting changes nothing · neither does stealing the key</cite>
       </blockquote>
     </div>
+  </div>
+</section>
+
+<section class="rule" id="challenge" hidden>
+  <div class="wrap narrow">
+    <div data-rise>
+      <p class="eyebrow">The standing challenge</p>
+      <h2>The key is published. Take the money.</h2>
+      <p class="big" style="margin-top:1.4rem;max-width:54ch">
+        A funded grant on Kaspa testnet-10, with its agent's complete private key on a public
+        page. Not a hash of it. Anyone can sign with it. The most anyone has managed is to pay
+        the vendor.
+      </p>
+    </div>
+
+    <div class="chal" data-rise style="--d:120ms">
+      <p class="chal-lbl">Agent secret key &middot; live &middot; spend with it</p>
+      <p class="chal-key" id="ch-key"></p>
+      <div class="chal-figs">
+        <div><span class="n" id="ch-paid">&mdash;</span><span class="l">reached the vendor</span></div>
+        <div><span class="n" id="ch-n">&mdash;</span><span class="l" id="ch-n-l">payments</span></div>
+        <div><span class="n zero" id="ch-else">0 KAS</span><span class="l">reached anywhere else</span></div>
+      </div>
+      <p style="margin-top:1.3rem"><a class="cta arw" href="/attack">Take the key</a></p>
+    </div>
+  </div>
+</section>
+
+<section class="rule" id="build">
+  <div class="wrap">
+    <div data-rise>
+      <p class="eyebrow">Build your first agent</p>
+      <h2>A key, a budget, and limits the network keeps.</h2>
+      <p class="big" style="margin-top:1.2rem;max-width:54ch">
+        Three moves. The agent never holds anything but its own key, and the ceiling is in the
+        script rather than in your code.
+      </p>
+    </div>
+
+    <div class="steps3" data-rise style="--d:100ms">
+      <div>
+        <p class="sn">01</p>
+        <h3>Install</h3>
+        <pre><code>npm install @warda_protocol/kaspa</code></pre>
+        <p>Builds and signs covenant transactions from JavaScript. No Rust toolchain and no
+        Silverscript compiler.</p>
+      </div>
+      <div>
+        <p class="sn">02</p>
+        <h3>Create a grant</h3>
+        <pre><code>genesis.ts --budget 1000000000 \
+  --max-per-spend 100000000 \
+  --recipients vendors.txt \
+  --agent $AGENT_PUBKEY --submit</code></pre>
+        <p>A lifetime total, a per-payment cap, a per-epoch rate, and a fixed allowlist —
+        compiled into the script that unlocks the coin.</p>
+      </div>
+      <div>
+        <p class="sn">03</p>
+        <h3>Let it spend</h3>
+        <pre><code>import { wardaFetch } from "@warda_protocol/x402";
+
+await wardaFetch("https://api.example/infer");</code></pre>
+        <p>A drop-in <code>fetch</code>. It settles the 402 out of the grant and will not pay
+        twice for one resource. A payee outside the allowlist has no proof to carry, so there is
+        no transaction to refuse.</p>
+      </div>
+    </div>
+
+    <p class="needs" data-rise style="--d:200ms">
+      Needs a Kaspa testnet-10 node with <code>--utxoindex</code> and
+      <code>--rpclisten-json=</code>, or a resolver in <code>WARDA_RESOLVER</code>. Full
+      walkthrough in <a href="/build">the build guide</a>.
+    </p>
   </div>
 </section>
 
@@ -466,30 +559,6 @@
   </div>
 </section>
 
-<section class="rule" id="challenge" hidden>
-  <div class="wrap narrow">
-    <div data-rise>
-      <p class="eyebrow">The standing challenge</p>
-      <h2>The key is published. Take the money.</h2>
-      <p class="big" style="margin-top:1.4rem;max-width:54ch">
-        A funded grant on Kaspa testnet-10, with its agent's complete private key on a public
-        page. Not a hash of it. Anyone can sign with it. The most anyone has managed is to pay
-        the vendor.
-      </p>
-    </div>
-
-    <div class="chal" data-rise style="--d:120ms">
-      <p class="chal-lbl">Agent secret key &middot; live &middot; spend with it</p>
-      <p class="chal-key" id="ch-key"></p>
-      <div class="chal-figs">
-        <div><span class="n" id="ch-paid">&mdash;</span><span class="l">reached the vendor</span></div>
-        <div><span class="n" id="ch-n">&mdash;</span><span class="l" id="ch-n-l">payments</span></div>
-        <div><span class="n zero" id="ch-else">0 KAS</span><span class="l">reached anywhere else</span></div>
-      </div>
-      <p style="margin-top:1.3rem"><a class="cta arw" href="/attack">Take the key</a></p>
-    </div>
-  </div>
-</section>
 
 <section class="rule" id="receipt">
   <div class="wrap narrow">
@@ -981,6 +1050,16 @@
         document.getElementById("ch-n").textContent = String(st.payments);
         document.getElementById("ch-n-l").textContent = st.payments === 1 ? "payment" : "payments";
         document.getElementById("ch-else").textContent = st.paidElsewhere || "0 KAS";
+
+        /* The banner used to read "50 KAS on testnet-10". It was true when it
+           was written and became false with the first successful attack — the
+           grant holds less after every spend. A number in permanent chrome has
+           to come from the chain or not be a number at all. */
+        var bar = document.getElementById("bar-m");
+        if (bar && st.remainingAtPublishedAddress) {
+          bar.textContent = st.remainingAtPublishedAddress +
+            " unspent on testnet-10 \u00b7 take it, if you can find a way";
+        }
         sec.hidden = false;
       })
       .catch(function () { /* no demo, no section */ });
