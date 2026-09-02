@@ -70,10 +70,31 @@ import { agentPublicKey, signDigest, verifyDigest } from "../src/sign.ts";
 import { scriptHashFor, templateFingerprint, type CovenantTemplate, type GrantState, templateIdFor } from "../src/template.ts";
 import { toWire } from "../src/wire.ts";
 
-const DEFAULT_FEE = 1_000_000n;
-/** The delegate path does no Merkle work but does one signature check and
- *  builds two successor scripts; 16 matches what a spend provisions. */
-const DELEGATE_COMPUTE_BUDGET = 16;
+/**
+ * Both of these were wrong, and nothing could find out.
+ *
+ * This tool had no `--submit`, so no delegation it built was ever handed to a
+ * node. The first one that was came back:
+ *
+ *   script units exceeded the amount committed in the input:
+ *   used=180838, limit=169999
+ *
+ * The old comment reasoned that a delegation "does no Merkle work but does one
+ * signature check", so 16 — what a spend provisions — would do. It misses that
+ * the delegate path builds TWO successor scripts, the parent's and the child's,
+ * and hashes both. That is more work than a spend, not the same.
+ *
+ * 24 is empirical: 16 committed 169,999 units against 180,838 used, so the
+ * scale is ~10,600 units per budget unit and 24 provisions ~255,000. The
+ * ceiling is 65,535 budget units, so the headroom costs nothing worth counting.
+ *
+ * The fee moves for the same reason it moved in build-live-spend: a covenant
+ * transaction carries the whole redeem script in its signature script, and a
+ * delegation carries the machinery for two grants. 1,000,000 is an ordinary
+ * transfer's fee and was never going to cover it.
+ */
+const DEFAULT_FEE = 3_000_000n;
+const DELEGATE_COMPUTE_BUDGET = 24;
 
 function flag(name: string, fallback?: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -254,7 +275,9 @@ try {
     console.error(
 `no UTXO at ${address}.\n` +
         `Three things produce this, in the order worth checking:\n` +
-        `  - the genesis was built but never submitted, so the grant does not exist yet\n` +
+        `  - the transaction that created it was submitted seconds ago and has not
+    been accepted yet. This is a race, not a mistake: wait and look again
+  - the genesis was built but never submitted, so the grant does not exist yet\n` +
         `  - the manifest is stale: a grant's address derives from its state, so\n` +
         `    spending or delegating MOVES it, and the old address goes empty\n` +
         `  - the authority is wrong: principal, revocation and depth are all part\n` +
@@ -453,3 +476,88 @@ console.error(
 console.error(`wrote       : ${childManifestPath}`);
 
 process.stdout.write(JSON.stringify(toWire(tx, built.entry, "@warda_protocol/kaspa (live delegation)"), null, 2) + "\n");
+
+/**
+ * Broadcasting it.
+ *
+ * `genesis.ts` has had `--submit` from the start; the tools that DELEGATE and
+ * SETTLE never got it, so the only way to put either on chain was to hand the
+ * JSON to something else. That made delegation look one-way in a second sense:
+ * the covenant supported it, the tool built it, and nothing shipped could send
+ * it.
+ *
+ * Opt-in, and after the manifest is written — a submit that succeeds while the
+ * write fails strands coin at an address nobody can reconstruct.
+ */
+if (process.argv.includes("--submit")) {
+  const submitter = await NodeClient.connect({ url: flag("rpc") });
+  try {
+    const txid = await submitter.submitTransaction(tx);
+    console.error(`\nSUBMITTED: ${txid}`);
+    /**
+     * Submitting is not accepting.
+     *
+     * Returning here leaves the caller racing the network: the next tool asks
+     * for a UTXO that has been broadcast and not yet accepted, and gets "no
+     * UTXO at <address>" — an error whose three listed causes are all wrong.
+     * The showcase hit this twice, once after genesis and once here.
+     */
+    process.stderr.write("Waiting for the network to accept it");
+    let seen = false;
+    for (let i = 0; i < 40 && !seen; i++) {
+      if ((await submitter.getUtxosByAddresses([childAddress])).length > 0) { seen = true; break; }
+      process.stderr.write(".");
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+    console.error(seen ? " accepted." : "\nsubmitted, but not visible yet — look again in a moment.");
+    if (!seen) process.exit(1);
+
+    /**
+     * Advance the PARENT too.
+     *
+     * Delegating moves the parent as surely as spending does: its reserved
+     * total rises, its reserve root gains the child, and its address is a hash
+     * of both. The child manifest was written and the parent's was left
+     * describing the grant as it was before it delegated.
+     *
+     * The showcase found this at settlement, which is the first operation that
+     * reads the parent's reserve root: it reported the root as EMPTY and the
+     * child as "not on top of the parent's reserve stack" — true of the file,
+     * false of the chain, and impossible to act on without knowing that the
+     * file was the thing that was wrong.
+     */
+    const ps = built.parentSuccessorState;
+    writeFileSync(
+      manifestPath,
+      JSON.stringify(
+        {
+          ...m,
+          grant_value: Number(built.parentChange),
+          spent_total: Number(ps.spentTotal),
+          reserved: Number(ps.reserved),
+          epoch_index: Number(ps.epochIndex),
+          epoch_spent: Number(ps.epochSpent),
+          reserve_root: ps.reserveRoot,
+        },
+        null,
+        2,
+      ) + "\n",
+    );
+    console.error(`  parent advanced: ${manifestPath}`);
+  } catch (e) {
+    const message = (e as Error).message ?? String(e);
+    const needs = /required amount of (\d+)/.exec(message);
+    console.error(
+      needs
+        ? `\nNOT SUBMITTED: the fee is too low — offered ${plan.fee}, required ${needs[1]}.\n` +
+          `A covenant spend carries the whole redeem script, so it masses far more than an\n` +
+          `ordinary payment. Re-run with --fee ${needs[1]}.`
+        : `\nNOT SUBMITTED: ${message}`,
+    );
+    process.exit(1);
+  } finally {
+    submitter.close();
+  }
+} else {
+  console.error(`\n(not broadcast — add --submit, or verify the JSON first)`);
+}

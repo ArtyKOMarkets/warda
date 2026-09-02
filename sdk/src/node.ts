@@ -419,7 +419,10 @@ export class NodeClient {
         `no UTXO at ${address}.\n` +
           `A grant's address is derived from its state, and spending changes ` +
           `that state — so an empty result usually means the grant has moved ` +
-          `to its successor address, not that it is gone.`,
+          `to its successor address, not that it is gone.\n` +
+          `If the transaction that created it was submitted moments ago, this is ` +
+          `a race rather than a mistake: acceptance is not instant, and the ` +
+          `address is empty until it happens.`,
       );
     }
     if (utxos.length > 1) {

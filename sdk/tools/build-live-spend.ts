@@ -50,7 +50,7 @@ import { RecipientSet } from "../src/recipients.ts";
 
 import { membersFrom } from "./members.ts";
 import { agentPublicKey, signSpend } from "../src/sign.ts";
-import type { SpendPlan } from "../src/spend.ts";
+import { claimedDaaFor, type SpendPlan } from "../src/spend.ts";
 import { scriptHashFor, templateFingerprint, type CovenantTemplate, type GrantState, templateIdFor } from "../src/template.ts";
 import { toWire } from "../src/wire.ts";
 
@@ -244,6 +244,35 @@ if (!recipients.has(recipient)) {
   console.error(`${toHex(recipient)} is not in this grant's allowlist; no proof can place it there.`);
   process.exit(1);
 }
+/**
+ * The limits, checked here rather than left to the network.
+ *
+ * The covenant enforces these — that is the whole point — but this tool built
+ * and signed a spend of 1 KAS against a 0.05 cap and printed it, saying only
+ * "not broadcast". The transaction was unsubmittable and nothing said so. A
+ * caller reasonably reads a signed transaction as a valid one.
+ *
+ * Refusing locally does not add a rule. It reports the rule that is already
+ * there, at the point where it can name which limit and by how much, instead
+ * of leaving it to a node rejection whose text is about script units.
+ */
+const amount = BigInt(flag("amount", "30000000")!);
+const over = [
+  amount > state.maxPerSpend
+    ? `${amount} exceeds the per-payment cap of ${state.maxPerSpend}`
+    : null,
+  state.spentTotal + amount > state.budgetTotal
+    ? `${amount} would take spending to ${state.spentTotal + amount}, past the budget of ${state.budgetTotal}`
+    : null,
+].filter(Boolean);
+if (over.length > 0) {
+  console.error(`this spend is outside the grant's limits:\n  ${over.join("\n  ")}`);
+  console.error(
+    `\nThe covenant would refuse it, so there is no valid transaction to build. Nothing was signed.`,
+  );
+  process.exit(1);
+}
+
 const proof = recipients.proof(recipient);
 
 // ---- build ---------------------------------------------------------------
@@ -282,10 +311,10 @@ try {
       isCoinbase: found.entry.isCoinbase,
       covenantId: found.entry.covenantId!,
     },
-    amount: BigInt(flag("amount", "30000000")!),
+    amount,
     recipient,
     proof,
-    claimedDaa: dag.virtualDaaScore - DAA_BACKOFF,
+    claimedDaa: claimedDaaFor(state, dag.virtualDaaScore, DAA_BACKOFF),
     fee: BigInt(flag("fee", DEFAULT_FEE.toString())!),
     computeBudget: SPEND_COMPUTE_BUDGET,
   };

@@ -96,6 +96,30 @@ export interface UnsignedSpend {
  * covenant will, so that the successor lands at the address the covenant
  * expects. Get it wrong and the spend is refused, which is the safe direction.
  */
+/**
+ * The DAA score to claim for a spend.
+ *
+ * Two constraints pull in opposite directions. The covenant proves the chain
+ * reached `claimedDaa` with a CLTV lock, so claiming at or above the current
+ * score is not yet final and the transaction is rejected — hence backing off
+ * from the tip. But the covenant also requires `claimedDaa >= notBefore`, and
+ * `notBefore` is the score at the moment the grant was created.
+ *
+ * For the first `backoff` scores of a grant's life those two rules have no
+ * overlap under naive arithmetic: tip minus backoff lands before the grant
+ * opens. A grant made seconds ago could not be spent, and the error —
+ * "claimedDaa 559843820 is before the grant opens (559843882)" — reads like a
+ * clock problem rather than "wait ten seconds".
+ *
+ * Clamping up to `notBefore` is safe rather than a fudge: the chain has by
+ * definition already passed it, since it was read from the chain to create the
+ * grant, so the CLTV holds. It only ever raises the claim.
+ */
+export function claimedDaaFor(state: GrantState, virtualDaaScore: bigint, backoff: bigint): bigint {
+  const backedOff = virtualDaaScore > backoff ? virtualDaaScore - backoff : 0n;
+  return backedOff < state.notBefore ? state.notBefore : backedOff;
+}
+
 export function successorState(state: GrantState, amount: bigint, claimedDaa: bigint): GrantState {
   const epochIndex = (claimedDaa - state.notBefore) / state.epochLength;
   // The epoch RATCHETS. A claimedDaa in an earlier epoch used to reset the

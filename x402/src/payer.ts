@@ -1,6 +1,7 @@
 import {
   attachSignature,
   buildUnsignedSpend,
+  claimedDaaFor,
   decodeAddress,
   fromHex,
   signDigest,
@@ -298,8 +299,12 @@ export class WardaPayer {
     const refusal = explainRefusal(req, this.grant, { fee: this.fee, coin: utxo.entry.value });
     if (refusal) throw new X402Error(refusal);
 
-    const claimedDaa =
-      dag.virtualDaaScore > this.daaBackoff ? dag.virtualDaaScore - this.daaBackoff : dag.virtualDaaScore;
+    /* Backing off from the tip keeps the CLTV final; clamping up to notBefore
+       keeps a grant spendable in the first seconds of its life. Without the
+       clamp, an agent handed a freshly created grant fails with "claimedDaa …
+       is before the grant opens", which sounds like a clock problem and is
+       actually "wait ten seconds". */
+    const claimedDaa = claimedDaaFor(this.grant.state, dag.virtualDaaScore, this.daaBackoff);
 
     // The epoch allowance, checked against the epoch this payment lands in.
     // successorState refuses a backwards claim outright; this catches the

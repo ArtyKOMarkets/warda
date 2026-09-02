@@ -72,6 +72,7 @@ export {
   type MerkleProof,
   type SpendPlan,
   type UnsignedSpend,
+  claimedDaaFor,
 } from "./spend.ts";
 
 export {

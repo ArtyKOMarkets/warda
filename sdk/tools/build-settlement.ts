@@ -64,7 +64,14 @@ import {
 import { toWireMulti } from "../src/wire.ts";
 
 /** Two covenant inputs, so roughly twice a spend's mass. */
-const DEFAULT_FEE = 2_000_000n;
+/**
+ * A settlement has TWO covenant inputs — the parent reabsorbing and the child
+ * settling — so it carries two redeem scripts and masses roughly twice a
+ * spend. 2,000,000 was set before either half had ever been broadcast; this is
+ * headroom rather than a measurement, and the rejection path below turns the
+ * node's own figure into a --fee flag if it is still short.
+ */
+const DEFAULT_FEE = 5_000_000n;
 const SETTLE_COMPUTE_BUDGET = 32;
 
 function flag(name: string, fallback?: string): string | undefined {
@@ -315,3 +322,55 @@ const tx = attachReabsorbSignatures(plan, built, agentSignature, revocationSigna
 process.stdout.write(
   JSON.stringify(toWireMulti(tx, built.entries, "@warda_protocol/kaspa (settlement)"), null, 2) + "\n",
 );
+
+/**
+ * Broadcasting it.
+ *
+ * `genesis.ts` has had `--submit` from the start; the tools that DELEGATE and
+ * SETTLE never got it, so the only way to put either on chain was to hand the
+ * JSON to something else. That made delegation look one-way in a second sense:
+ * the covenant supported it, the tool built it, and nothing shipped could send
+ * it.
+ *
+ * Opt-in, and after the manifest is written — a submit that succeeds while the
+ * write fails strands coin at an address nobody can reconstruct.
+ */
+if (process.argv.includes("--submit")) {
+  const submitter = await NodeClient.connect({ url: flag("rpc") });
+  try {
+    const txid = await submitter.submitTransaction(tx);
+    console.error(`\nSUBMITTED: ${txid}`);
+    /**
+     * Submitting is not accepting.
+     *
+     * Returning here leaves the caller racing the network: the next tool asks
+     * for a UTXO that has been broadcast and not yet accepted, and gets "no
+     * UTXO at <address>" — an error whose three listed causes are all wrong.
+     * The showcase hit this twice, once after genesis and once here.
+     */
+    process.stderr.write("Waiting for the network to accept it");
+    let seen = false;
+    for (let i = 0; i < 40 && !seen; i++) {
+      if ((await submitter.getUtxosByAddresses([successorAddress])).length > 0) { seen = true; break; }
+      process.stderr.write(".");
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+    console.error(seen ? " accepted." : "\nsubmitted, but not visible yet — look again in a moment.");
+    if (!seen) process.exit(1);
+  } catch (e) {
+    const message = (e as Error).message ?? String(e);
+    const needs = /required amount of (\d+)/.exec(message);
+    console.error(
+      needs
+        ? `\nNOT SUBMITTED: the fee is too low — offered ${plan.fee}, required ${needs[1]}.\n` +
+          `A covenant spend carries the whole redeem script, so it masses far more than an\n` +
+          `ordinary payment. Re-run with --fee ${needs[1]}.`
+        : `\nNOT SUBMITTED: ${message}`,
+    );
+    process.exit(1);
+  } finally {
+    submitter.close();
+  }
+} else {
+  console.error(`\n(not broadcast — add --submit, or verify the JSON first)`);
+}

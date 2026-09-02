@@ -39,6 +39,7 @@ import {
   RecipientSet,
   agentPublicKey,
   pubkeyToAddress,
+  decodeAddress,
   templateIdFor,
   resolveSigner,
   fromHex,
@@ -59,7 +60,11 @@ const flag = (n: string, d?: string) => {
 const manifestPath = flag("grant", "covenant/deploy/grant.json")!;
 const rpcUrl = flag("rpc", process.env.WARDA_RPC_JSON ?? "ws://127.0.0.1:18210")!;
 const prefix = (flag("prefix", "kaspatest") as NetworkPrefix)!;
-const receiptPath = flag("out", "x402/demo/receipt.json")!;
+/* Resolved against this file, not the working directory. The default was
+   "x402/demo/receipt.json", which only worked when run from the repo root —
+   run from x402/ it resolved to x402/x402/demo/ and died with ENOENT after
+   the payment had already gone through, which is the worst moment to fail. */
+const receiptPath = flag("out") ?? new URL("receipt.json", import.meta.url).pathname;
 const PRICE = BigInt(flag("price", "20000000")!); // 0.2 KAS, the marketplace's floor
 // Kaspa prices by mass and a covenant spend is ~6 KB on the wire, so it costs
 // far more than a plain transfer. The node states the exact figure it wants if
@@ -75,8 +80,33 @@ if (!secretHex) {
 // ---- the vendor -----------------------------------------------------------
 
 const blake2b256 = (b: Uint8Array) => blake2b.create({ dkLen: 32 }).update(b).digest();
+/**
+ * Who the vendor is.
+ *
+ * By default, the reference demo key — derived from blake2b256 of a label, so
+ * anyone can reproduce it and nobody has to be handed a secret.
+ *
+ * `--recipients` overrides it with the grant's OWN allowlist, and the vendor
+ * becomes the first member. Without that this demo only ever worked against a
+ * grant minted with the reference set: pointed at any real grant it refused
+ * with "the vendor is not on this grant's list", which is true and sounds like
+ * the grant is at fault. The same assumption was in build-live-spend.ts.
+ */
+const recipientsFlag = flag("recipients");
+/* Inline only — addresses or bare x-only keys, comma or space separated.
+   The SDK's file-reading version lives in sdk/tools and is not exported: src/
+   touches no filesystem, deliberately, and this package depends on the
+   PUBLISHED SDK rather than the working tree. So this reads no files, which
+   also means there is no file-handling rule here to drift from that one. */
+const members = recipientsFlag
+  ? recipientsFlag
+      .split(/[\s,]+/)
+      .map((t) => t.trim())
+      .filter(Boolean)
+      .map((t) => (t.includes(":") ? toHex(decodeAddress(t).payload) : t.toLowerCase()))
+  : null;
 const vendorSecret = blake2b256(new TextEncoder().encode("warda-demo-api-v1"));
-const vendorKey = agentPublicKey(vendorSecret);
+const vendorKey = members ? fromHex(members[0]!) : agentPublicKey(vendorSecret);
 const vendorAddress = pubkeyToAddress(vendorKey, prefix);
 
 // ---- the grant ------------------------------------------------------------
@@ -92,16 +122,14 @@ const authority = {
 
 // Rebuilt, never copied: the root has to be one a spend can prove against, and
 // recomputing it is the only way to know the tree and the grant agree.
-const recipients = new RecipientSet([
-  vendorKey,
-  new Uint8Array(32).fill(0xa2),
-  new Uint8Array(32).fill(0xa3),
-  new Uint8Array(32).fill(0xa4),
-]);
+const recipients = new RecipientSet(
+  members ?? [vendorKey, new Uint8Array(32).fill(0xa2), new Uint8Array(32).fill(0xa3), new Uint8Array(32).fill(0xa4)],
+);
 if (recipients.rootHex !== m.recipients_root) {
   console.error(
     `this grant commits to recipients root ${m.recipients_root}, and the demo allowlist ` +
       `hashes to ${recipients.rootHex}. The vendor is not on this grant's list, so no ` +
+      (recipientsFlag ? "" : "(no --recipients was given, so the built-in reference set was used) ") +
       `payment to it can be proven. Mint the grant with tools/genesis.ts, which commits ` +
       `to this same set.`,
   );

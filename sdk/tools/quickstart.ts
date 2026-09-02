@@ -22,7 +22,7 @@
  * value: no default resolver, no guessed faucet, no fabricated allowlist.
  */
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 
 import { pubkeyToAddress, type NetworkPrefix } from "../src/address.ts";
 import { fromHex } from "../src/bytes.ts";
@@ -44,6 +44,17 @@ const maxPerSpend = flag("max-per-spend", "100000000")!; // 0.1 KAS
 const epochLimit = flag("epoch-limit", "500000000")!;    // 0.5 KAS
 const recipients = flag("recipients");
 const out = flag("out", "grant.json")!;
+/**
+ * Where to write the agent's secret.
+ *
+ * Without this the key is printed and nothing else — fine for a human reading
+ * the terminal, impossible for anything automating the next step. The showcase
+ * hit exactly that: it created a grant, then had no way to hand the agent's
+ * key to the delegation it wanted to make next, and failed with "WARDA_SK does
+ * not control this grant's agent" — which is true, and says nothing about the
+ * actual problem.
+ */
+const agentOut = flag("agent-out");
 
 const problems: string[] = [];
 const say = (s = "") => console.error(s);
@@ -167,6 +178,11 @@ if (!agentSecret || !agentPublic) {
   process.exit(1);
 }
 
+if (agentOut) {
+  writeFileSync(agentOut, agentSecret + "\n", { mode: 0o600 });
+  say(`Agent key written to ${agentOut} (0600).`);
+}
+
 say();
 say("Creating the grant on chain…");
 const genesis = spawnSync(
@@ -184,11 +200,61 @@ const genesis = spawnSync(
     ...(flag("rpc") ? ["--rpc", flag("rpc")!] : []),
     "--submit",
   ],
-  { encoding: "utf8", stdio: ["inherit", "pipe", "inherit"], env: process.env },
+  { encoding: "utf8", stdio: ["inherit", "pipe", "pipe"], env: process.env },
 );
+// Passed through rather than swallowed: genesis says useful things here, and
+// this is also where it prints the grant's address — which the manifest does
+// not carry and which nothing downstream can derive without rebuilding the
+// script hash.
+if (genesis.stderr) process.stderr.write(genesis.stderr);
 if (genesis.status !== 0) process.exit(genesis.status ?? 1);
 
 const manifest = JSON.parse(readFileSync(out, "utf8"));
+
+/**
+ * Wait until the grant is actually there.
+ *
+ * Submitting is not accepting. This printed "Done. The agent can now spend"
+ * the instant the node took the transaction, and the spend command it printed
+ * alongside failed with "no UTXO at <address>" — which lists three plausible
+ * causes, none of them "you were faster than the network".
+ *
+ * A quickstart that hands somebody a command that does not work yet has not
+ * finished. So it waits, says it is waiting, and gives up loudly rather than
+ * claiming success it cannot see.
+ */
+{
+  const { client: watcher } = await NodeClient.open({
+    url: flag("rpc"),
+    resolver: flag("resolver"),
+    networkId: network,
+    tolerate: true,
+  });
+  try {
+    const target = /grant address\s*:\s*(\S+)/.exec(genesis.stderr ?? "")?.[1];
+    if (target) {
+      say();
+      process.stderr.write("Waiting for the network to accept it");
+      let seen = false;
+      for (let i = 0; i < 40 && !seen; i++) {
+        const u = await watcher.getUtxosByAddresses([target]);
+        if (u.length > 0) { seen = true; break; }
+        process.stderr.write(".");
+        await new Promise((r) => setTimeout(r, 1500));
+      }
+      say(seen ? " accepted." : "");
+      if (!seen) {
+        say();
+        say(`The grant was submitted but has not appeared at ${target} after a minute.`);
+        say("The manifest is written and nothing is lost — look again in a moment.");
+        process.exit(1);
+      }
+    }
+  } finally {
+    watcher.close();
+  }
+}
+
 say();
 say("Done. The agent can now spend, within these limits and no others:");
 say();
