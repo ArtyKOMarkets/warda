@@ -45,11 +45,28 @@ if (!cardPath) {
 }
 const card = JSON.parse(readFileSync(cardPath, "utf8"));
 
+/**
+ * The health check runs WITHOUT `grantAddress`, and that is the point.
+ *
+ * Passing it makes `open` probe the UTXO at the grant address for a covenant
+ * id, to catch a node too old to report one. That probe cannot distinguish a
+ * pre-covenant node from an address with nothing at it — and an address with
+ * nothing at it is precisely what this tool exists to notice, because it is
+ * what a spend produces.
+ *
+ * With the probe enabled, the first successful attack made this tool refuse to
+ * run, citing the node. The refresh that depends on it then never reached the
+ * branch that follows the grant, so the demo's one self-healing path was
+ * unreachable by construction from the moment it was needed.
+ *
+ * The three checks that decide whether a reading can be believed — synced, utxo
+ * index present, right network — do not need the grant to exist. Whether it
+ * exists is the answer, not a precondition.
+ */
 const { client, health } = await NodeClient.open({
   url: flag("rpc"),
   resolver: flag("resolver"),
   networkId: flag("network") ?? process.env.WARDA_NETWORK ?? "testnet-10",
-  grantAddress: card.address,
   tolerate: true,
 });
 if (!health.usable) {
