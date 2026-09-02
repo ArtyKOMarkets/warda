@@ -286,7 +286,10 @@
 (function () {
   "use strict";
 
-  /* ---- blake2b-256, enough of it to check a Merkle path ----------------- */
+  /* Injected by site/build.py from src/_crypto.js.
+   Shared with verify.html rather than copied into it: two blake2b
+   implementations is one that can drift, and both pages exist to be believed. */
+/* ---- blake2b-256, enough of it to check a Merkle path ----------------- */
   /* Inlined rather than imported: this page's whole claim is that YOU can    */
   /* verify the refusal, and a claim that depends on fetching a script from   */
   /* someone else's CDN is a weaker claim.                                    */
@@ -395,6 +398,8 @@
     for (i = 0; i < arguments.length; i++) { out.set(arguments[i], o); o += arguments[i].length; }
     return out;
   }
+
+  
 
   /* ---- the grant's real allowlist --------------------------------------- */
   var MEMBERS = ["16e6af2030f7e4510d1a417391a7ff7ccad21864f17eef7ee035f0453e21a033"];

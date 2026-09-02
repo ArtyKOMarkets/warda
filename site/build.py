@@ -15,7 +15,7 @@ diffable; this fills them in. Edit src/, never the output.
 import base64, json, pathlib, sys
 
 here = pathlib.Path(__file__).parent
-PAGES = ["index.html", "build.html"]
+PAGES = ["index.html", "build.html", "verify.html"]
 
 # The attack page publishes a live grant's key and terms, so it can only be
 # built when there IS one. src/demo-grant.json is written by
@@ -30,6 +30,21 @@ if DEMO.exists():
 def data_uri(p):
     return "data:image/png;base64," + base64.b64encode(p.read_bytes()).decode()
 
+# blake2b, hex helpers and the address/splice code, shared by attack.html and
+# verify.html. Injected rather than duplicated: both pages exist to be checked
+# by strangers, and a second copy of a hash function is a second thing that can
+# quietly disagree with the SDK.
+CRYPTO = (here / "src" / "_crypto.js").read_text()
+VERIFY_CORE = (here / "src" / "verify-core.js").read_text()
+
+# The covenant template, so a browser can derive a grant's address with no node
+# and no server. It carries its own address vectors, which the page re-derives
+# on load and reports on — a verifier nobody can check is not a verifier.
+TEMPLATE = json.dumps(
+    json.loads((here.parent / "sdk" / "covenant-template.json").read_text()),
+    separators=(",", ":"),
+)
+
 lockup_png = here / "assets" / "lockup-hero.png"
 mark_png = here / "assets" / "mark-200.png"
 
@@ -39,6 +54,10 @@ flavours = {
     # file-referencing, for a real host
     "web": {"{{LOCKUP}}": "assets/lockup-hero.png", "{{MARK}}": "assets/mark-200.png"},
 }
+for _f in flavours.values():
+    _f["{{CRYPTO}}"] = CRYPTO
+    _f["{{VERIFY_CORE}}"] = VERIFY_CORE
+    _f["{{COVENANT_TEMPLATE}}"] = TEMPLATE
 
 # Files copied through untouched. They carry no placeholders, but they are
 # part of what gets deployed, and a discovery document that only exists in

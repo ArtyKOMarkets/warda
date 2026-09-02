@@ -610,6 +610,10 @@ await wardaFetch("https://api.example/infer");</code></pre>
         its own allowlist — without the parent surrendering custody or the child being able to
         exceed what it was given. The parent can revoke and reabsorb at any point, and is
         structurally unable to send the remainder anywhere but back.</p>
+        <p style="margin-top:0.7rem"><span class="n" style="margin:0">Run end to end</span>
+        A worker bought from a real paid endpoint, was refused a payee outside its inherited
+        allowlist and an amount over its cap, and had its remainder pulled home with its
+        spending charged to the parent — all on testnet-10, in one script.</p>
       </article>
       <article>
         <p class="n">Unattended</p><h3>Ops that run when you are asleep</h3>
@@ -723,6 +727,8 @@ await wardaFetch("https://api.example/infer");</code></pre>
         </div>
         <p class="ships">
           <code>@warda_protocol/kaspa</code> — build, sign, recover, watch<br>
+          one command from nothing to a bounded agent: it checks every
+          prerequisite first, then creates the grant and hands you the key<br>
           <code>@warda_protocol/mcp</code> — nine tools any agent framework can discover.
           It never holds a key and never signs: it returns unsigned bytes and a digest<br>
           hosted at <code>mcp.wardaprotocol.com/mcp</code>, listed in the official MCP registry
@@ -739,7 +745,9 @@ await wardaFetch("https://api.example/infer");</code></pre>
         <p class="ships">
           <code>@warda_protocol/x402</code> — a drop-in <code>fetch</code> that settles HTTP 402
           out of a grant and never pays twice for one resource<br>
-          exercised end to end against a real priced endpoint on testnet-10
+          exercised end to end against a real priced endpoint on testnet-10<br>
+          <code>showcase/autonomous-purchase.sh</code> — the whole protocol in six steps:
+          delegate, buy, be refused twice, reabsorb. Every transaction real.
         </p>
       </div>
     </div>

@@ -1,0 +1,296 @@
+<title>Verify a Warda grant</title>
+<style>
+  :root {
+    --void: #06090C; --ground: #0A1014; --panel: #101A20;
+    --edge: #1E2E37; --edge-bright: #2C4350;
+    --chrome: #DDE0E2; --chrome-dim: #8D989E; --chrome-faint: #5D6B73;
+    --teal: #14D7C1; --teal-deep: #06BBA1; --teal-ghost: rgba(20,215,193,0.10);
+    --refuse: #FF6B5A; --refuse-ghost: rgba(255,107,90,0.08);
+    --display: "Chakra Petch", "Arial Narrow", sans-serif;
+    --body: "Barlow", "Helvetica Neue", Arial, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    --gutter: clamp(1.15rem, 4vw, 3.4rem);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--void); color: var(--chrome);
+         font-family: var(--body); line-height: 1.6; }
+  .wrap { max-width: 62rem; margin: 0 auto; padding: 0 var(--gutter); }
+  header { border-bottom: 1px solid var(--edge); padding: 2.6rem 0 2.4rem; }
+  .home { font-family: var(--mono); font-size: 0.72rem; color: var(--chrome-faint);
+          text-decoration: none; letter-spacing: 0.08em; }
+  .home:hover { color: var(--teal); }
+  h1 { font-family: var(--display); font-size: clamp(1.9rem, 5vw, 3rem); line-height: 1.06;
+       margin: 1.3rem 0 0; font-weight: 600; letter-spacing: -0.01em; }
+  .lede { color: var(--chrome-dim); max-width: 56ch; margin-top: 1.1rem; }
+  .eyebrow { font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.18em;
+             text-transform: uppercase; color: var(--teal); margin: 0; }
+  section { border-bottom: 1px solid var(--edge); padding: 2.4rem 0; }
+  h2 { font-family: var(--display); font-size: clamp(1.3rem, 3vw, 1.8rem); margin: 0.7rem 0 0;
+       font-weight: 600; }
+  label { display: block; font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.12em;
+          text-transform: uppercase; color: var(--chrome-faint); margin: 1.2rem 0 0.5rem; }
+  textarea, input { width: 100%; background: var(--ground); color: var(--chrome);
+                    border: 1px solid var(--edge); padding: 0.8rem 0.9rem;
+                    font-family: var(--mono); font-size: 0.76rem; line-height: 1.7; }
+  textarea { min-height: 12rem; resize: vertical; }
+  textarea:focus, input:focus { outline: none; border-color: var(--teal-deep); }
+  button { font-family: var(--mono); font-size: 0.76rem; letter-spacing: 0.06em;
+           background: var(--teal); color: #04121; border: 0; padding: 0.7rem 1.3rem;
+           cursor: pointer; margin-top: 1rem; }
+  button.alt { background: transparent; color: var(--chrome-dim); border: 1px solid var(--edge);
+               margin-left: 0.5rem; }
+  button:hover { filter: brightness(1.08); }
+
+  .out { margin-top: 1.4rem; border: 1px solid; padding: 1.2rem 1.2rem; display: none;
+         font-family: var(--mono); font-size: 0.78rem; }
+  .out.on { display: block; }
+  .out.ok { border-color: var(--teal-deep); background: var(--teal-ghost); }
+  .out.no { border-color: var(--refuse); background: var(--refuse-ghost); }
+  .out .head { display: block; text-transform: uppercase; letter-spacing: 0.14em;
+               font-size: 0.7rem; margin-bottom: 0.7rem; }
+  .out.ok .head { color: var(--teal); }
+  .out.no .head { color: var(--refuse); }
+  .out .addr { word-break: break-all; color: var(--chrome); }
+
+  .terms { margin-top: 1.4rem; border-top: 1px solid var(--edge); display: none; }
+  .terms.on { display: block; }
+  .terms .row { display: grid; grid-template-columns: 12rem 1fr; gap: 1rem;
+                padding: 0.75rem 0; border-bottom: 1px solid var(--edge); }
+  .terms .k { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.1em;
+              text-transform: uppercase; color: var(--chrome-faint); }
+  .terms .v { font-size: 0.92rem; word-break: break-all; }
+  .terms .v .n { color: var(--chrome-faint); font-size: 0.82rem; display: block; margin-top: 0.2rem; }
+  @media (max-width: 620px) { .terms .row { grid-template-columns: 1fr; gap: 0.2rem; } }
+
+  .selftest { font-family: var(--mono); font-size: 0.72rem; padding: 0.8rem 1rem;
+              border: 1px solid var(--edge); color: var(--chrome-dim); margin-top: 1.4rem; }
+  .selftest b { color: var(--teal); font-weight: 500; }
+  .selftest.bad { border-color: var(--refuse); color: var(--refuse); }
+  footer { padding: 2.4rem 0 3.4rem; }
+  footer p { font-family: var(--mono); font-size: 0.7rem; color: var(--chrome-faint);
+             line-height: 1.75; max-width: 64ch; }
+  code { font-family: var(--mono); font-size: 0.92em; color: var(--chrome-dim); }
+</style>
+
+<header>
+  <div class="wrap">
+    <a class="home" href="/">&larr; wardaprotocol.com</a>
+    <p class="eyebrow" style="margin-top:1.4rem">Verification</p>
+    <h1>Check a grant without trusting<br>whoever showed it to you.</h1>
+    <p class="lede">
+      A Warda grant's address is a hash of its terms. Change the budget, the payee list, the
+      per-payment cap or who may revoke it, and the address changes. So terms and address cannot
+      disagree: if someone hands you both, you can recompute one from the other.
+    </p>
+    <p class="lede">
+      That check runs here, <strong style="color:var(--chrome);font-weight:500">in your
+      browser</strong>. Nothing is sent anywhere, and no node is contacted.
+    </p>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Paste what you were given</p>
+    <h2>The manifest, and the address it claims.</h2>
+
+    <label for="manifest">Grant manifest (JSON)</label>
+    <textarea id="manifest" spellcheck="false" placeholder='{ "agent": "…", "principal": "…", "budget": 1000000000, … }'></textarea>
+
+    <label for="claimed">Address you were given <span style="text-transform:none;letter-spacing:0">— optional; leave blank to just derive it</span></label>
+    <input type="text" id="claimed" spellcheck="false" autocomplete="off" placeholder="kaspatest:… or kaspa:…">
+
+    <button id="go" type="button">Derive the address</button>
+    <button class="alt" id="sample" type="button">Use a sample</button>
+
+    <div class="out" id="out"><span class="head"></span><span class="body"></span></div>
+    <div class="terms" id="terms"></div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Don't trust this page either</p>
+    <h2>It checks itself, in front of you.</h2>
+    <p style="color:var(--chrome-dim);max-width:54ch">
+      The covenant template ships with reference grants whose addresses were computed by the
+      Rust implementation. This page re-derives all of them on load. If its arithmetic disagreed
+      with the covenant's by one bit, the line below would say so.
+    </p>
+    <div class="selftest" id="selftest">running…</div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>
+      What this proves: that a set of terms hashes to a particular address. What it does not
+      prove: that the address holds anything, or that the grant has not already been spent — a
+      spend moves a grant to a new address, so a matching address means the terms are real, not
+      that the money is still there. For that, ask a node: <code>tools/verify-grant.ts</code>.
+    </p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  {{CRYPTO}}
+
+  {{VERIFY_CORE}}
+
+  var TPL = {{COVENANT_TEMPLATE}};
+
+  /* ---- the self-test ---------------------------------------------------- */
+  var st = document.getElementById("selftest");
+  try {
+    var pass = 0, total = TPL.addressVectors.length, bad = [];
+    TPL.addressVectors.forEach(function (v) {
+      var state = {};
+      for (var k in v.state) state[k] = typeof v.state[k] === "number" ? BigInt(v.state[k]) : v.state[k];
+      var got = addressFor(TPL, v.authority, state, "kaspatest");
+      if (got === v.address) pass++; else bad.push(v.label);
+    });
+    if (pass === total) {
+      st.innerHTML = "<b>" + pass + " of " + total + "</b> reference grants re-derived correctly, " +
+        "in this browser, just now. Those addresses were produced by the Rust implementation; " +
+        "this page reproduced every one from the terms alone.";
+    } else {
+      st.className = "selftest bad";
+      st.textContent = "FAILED on " + bad.join(", ") + ". Do not rely on this page.";
+    }
+  } catch (e) {
+    st.className = "selftest bad";
+    st.textContent = "self-test could not run: " + e.message;
+  }
+
+  /* ---- reading a manifest ----------------------------------------------- */
+  var EMPTY_RESERVE = "803b111f3c3952f7b7c9cb2bd240759e755a85ab2c6223614d08f216dd6a3bd1";
+
+  function kas(v) {
+    var n = BigInt(v), whole = n / 100000000n, frac = n % 100000000n;
+    return frac === 0n ? whole + " KAS"
+      : whole + "." + frac.toString().padStart(8, "0").replace(/0+$/, "") + " KAS";
+  }
+
+  /* templateId is itself a hash over the covenant and its authority, and the
+     manifest records it. Recomputing it is a separate job; taking it from the
+     manifest is safe here because a wrong one derives a different address,
+     which is exactly what this page is checking. */
+  function stateOf(m) {
+    return {
+      agentKey: m.agent,
+      budgetTotal: BigInt(m.budget),
+      maxPerSpend: BigInt(m.max_per_spend),
+      epochLimit: BigInt(m.epoch_limit),
+      epochLength: BigInt(m.epoch_length),
+      recipientsRoot: m.recipients_root,
+      notBefore: BigInt(m.not_before),
+      expiresAt: BigInt(m.expires_at),
+      delegationDepth: BigInt(m.delegation_depth === undefined ? 2 : m.delegation_depth),
+      templateId: m.template_id || TPL.addressVectors[0].state.templateId,
+      spentTotal: BigInt(m.spent_total || 0),
+      reserved: BigInt(m.reserved || 0),
+      epochIndex: BigInt(m.epoch_index || 0),
+      epochSpent: BigInt(m.epoch_spent || 0),
+      reserveRoot: m.reserve_root || EMPTY_RESERVE
+    };
+  }
+
+  var out = document.getElementById("out");
+  var head = out.querySelector(".head");
+  var body = out.querySelector(".body");
+  var terms = document.getElementById("terms");
+
+  function show(kind, title, html) {
+    out.className = "out on " + kind;
+    head.textContent = title;
+    body.innerHTML = html;
+  }
+  function row(k, v, note) {
+    return '<div class="row"><span class="k">' + k + '</span><span class="v">' + v +
+      (note ? '<span class="n">' + note + "</span>" : "") + "</span></div>";
+  }
+
+  function run() {
+    terms.className = "terms";
+    var raw = document.getElementById("manifest").value.trim();
+    if (!raw) { show("no", "Nothing to check", "Paste a grant manifest above."); return; }
+
+    var m;
+    try { m = JSON.parse(raw); }
+    catch (e) { show("no", "Not JSON", "The manifest could not be parsed: " + e.message); return; }
+
+    var missing = ["agent", "principal", "recipients_root", "budget", "max_per_spend",
+                   "epoch_limit", "epoch_length", "not_before", "expires_at"]
+      .filter(function (k) { return m[k] === undefined; });
+    if (missing.length) {
+      show("no", "Incomplete manifest",
+        "These fields are part of the address and are missing: <b>" + missing.join(", ") + "</b>. " +
+        "Without them there is nothing to derive.");
+      return;
+    }
+
+    var address;
+    try {
+      address = addressFor(TPL,
+        { principalKey: m.principal, revocationKey: m.revocation || m.principal },
+        stateOf(m), (m.prefix || "kaspatest"));
+    } catch (e) { show("no", "Could not derive", e.message); return; }
+
+    var claimed = document.getElementById("claimed").value.trim();
+    if (claimed && claimed !== address) {
+      show("no", "These do not match",
+        'The terms you pasted hash to<br><span class="addr">' + address + "</span><br><br>" +
+        'but you were given<br><span class="addr">' + claimed + "</span><br><br>" +
+        "One of the two is wrong. Either the terms are not the terms of that grant, or the " +
+        "grant has already moved — a spend changes the state, and the state is the address.");
+    } else if (claimed) {
+      show("ok", "They match",
+        'These terms hash to exactly the address you were given.<br><br><span class="addr">' +
+        address + "</span><br><br>Nobody can change the limits below without changing this " +
+        "address, so what you were shown is what the covenant will enforce.");
+    } else {
+      show("ok", "Derived",
+        'These terms belong to<br><br><span class="addr">' + address + "</span><br><br>" +
+        "If a grant lives at that address, these are its terms — nothing else hashes there.");
+    }
+
+    var rows =
+      row("agent may spend", kas(m.budget), "total, for the life of the grant") +
+      row("per payment", kas(m.max_per_spend), "a larger spend is not a rejected transaction; it is not a transaction") +
+      row("per epoch", kas(m.epoch_limit), "every " + m.epoch_length + " blocks") +
+      row("already spent", kas(m.spent_total || 0)) +
+      row("held for children", kas(m.reserved || 0), (m.reserved && BigInt(m.reserved) > 0n) ? "delegated to sub-agents, and reclaimable by settlement" : "nothing delegated") +
+      row("may pay", "only the members of the tree rooted at<br>" + m.recipients_root,
+          "fixed before the grant was funded; a payee outside it has no proof to carry") +
+      row("agent key", m.agent, "the whole authority the agent holds") +
+      row("principal", m.principal, "receives what is left on exit") +
+      row("revocation", m.revocation || m.principal, "may end the grant at any time") +
+      row("delegation depth", (m.delegation_depth === undefined ? 2 : m.delegation_depth),
+          "how many levels of sub-agent this may create") +
+      row("window", m.not_before + " to " + m.expires_at, "DAA scores, not wall-clock time");
+    terms.innerHTML = rows;
+    terms.className = "terms on";
+  }
+
+  document.getElementById("go").addEventListener("click", run);
+  document.getElementById("sample").addEventListener("click", function () {
+    var v = TPL.addressVectors[2];
+    var m = {
+      _comment: "A reference grant from the covenant template.",
+      agent: v.state.agentKey, principal: v.authority.principalKey,
+      revocation: v.authority.revocationKey, recipients_root: v.state.recipientsRoot,
+      budget: v.state.budgetTotal, max_per_spend: v.state.maxPerSpend,
+      epoch_limit: v.state.epochLimit, epoch_length: v.state.epochLength,
+      not_before: v.state.notBefore, expires_at: v.state.expiresAt,
+      delegation_depth: v.state.delegationDepth, template_id: v.state.templateId,
+      spent_total: v.state.spentTotal, reserved: v.state.reserved,
+      epoch_index: v.state.epochIndex, epoch_spent: v.state.epochSpent,
+      reserve_root: v.state.reserveRoot
+    };
+    document.getElementById("manifest").value = JSON.stringify(m, null, 2);
+    document.getElementById("claimed").value = v.address;
+    run();
+  });
+})();
+</script>
