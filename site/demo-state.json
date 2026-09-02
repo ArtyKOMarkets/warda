@@ -1,12 +1,12 @@
 {
   "_comment": "A snapshot, not a live feed. Written by tools/demo-state.ts, which counts what has reached the vendor — the one address this grant was ever able to pay. The claim that nothing reached anywhere else is not measured here; it is enforced by the covenant.",
-  "checkedAt": "2026-09-02T07:40:45.505Z",
+  "checkedAt": "2026-09-02T08:11:05.104Z",
   "network": "testnet-10",
-  "grant": "kaspatest:pzrt7dsaaul8t4ydcv2umqjq8xhnrqjwcqn73zaq6exlgwpny8sykr0gx8q4c",
+  "grant": "kaspatest:pqg5hngaqps0x40tp3pyvq7zy2naqgt6xvdljv8jetkhhhe2eknewsfwp86ev",
   "vendor": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
-  "payments": 0,
-  "paidToVendor": "0 KAS",
+  "payments": 1,
+  "paidToVendor": "0.1 KAS",
   "paidElsewhere": "0 KAS",
   "grantStillAtPublishedAddress": true,
-  "remainingAtPublishedAddress": "50 KAS"
+  "remainingAtPublishedAddress": "49.87 KAS"
 }

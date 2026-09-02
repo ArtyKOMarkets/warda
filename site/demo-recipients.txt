@@ -1,0 +1,4 @@
+# The grant's allowlist. A spend proves membership against the root
+# ba9e576ed159db9347d3f137e449cb31fbb802dcb77784dae6bea270e7ca92b2
+# which is committed in the covenant and cannot be changed.
+16e6af2030f7e4510d1a417391a7ff7ccad21864f17eef7ee035f0453e21a033

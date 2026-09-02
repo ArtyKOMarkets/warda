@@ -109,6 +109,18 @@
   .out .body b { color: var(--chrome); font-weight: 500; }
   .out .steps { margin-top: 0.8rem; color: var(--chrome-faint); font-size: 0.74rem; }
   .out .steps div { padding: 0.15rem 0; overflow-wrap: anywhere; }
+  /* Re-checking the same payee produces the same verdict, so without this a
+     second click renders identical bytes and reads as a dead button. */
+  @keyframes reflash { from { opacity: 0.25; } to { opacity: 1; } }
+  .out.flash { animation: reflash 220ms ease-out; }
+
+  .cmd { margin-top: 0.9rem; border-top: 1px solid var(--edge); padding-top: 0.8rem; }
+  .cmd .lbl { display: block; color: var(--chrome-faint); font-size: 0.72rem;
+              text-transform: uppercase; letter-spacing: 0.13em; margin-bottom: 0.5rem; }
+  .cmd pre { margin: 0; padding: 0.8rem 0.9rem; background: rgba(0,0,0,0.28);
+             border: 1px solid var(--edge); overflow-x: auto; font-size: 0.72rem;
+             line-height: 1.7; color: var(--chrome-dim); white-space: pre; }
+  .cmd .after { color: var(--chrome-faint); font-size: 0.72rem; margin: 0.6rem 0 0; }
 
   .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem,1fr));
           gap: 1px; background: var(--edge); border: 1px solid var(--edge); margin-top: 1.6rem; }
@@ -168,7 +180,7 @@
   <div class="wrap">
     <p class="eyebrow">What the key controls</p>
     <div class="terms">
-      <div class="row"><span class="k">grant</span><span class="v lit" id="addr">kaspatest:pzrt7dsaaul8t4ydcv2umqjq8xhnrqjwcqn73zaq6exlgwpny8sykr0gx8q4c</span></div>
+      <div class="row"><span class="k">grant</span><span class="v lit" id="addr">kaspatest:pqg5hngaqps0x40tp3pyvq7zy2naqgt6xvdljv8jetkhhhe2eknewsfwp86ev</span></div>
       <div class="row"><span class="k">budget</span><span class="v">50 KAS <span class="n">total, for the life of the grant</span></span></div>
       <div class="row"><span class="k">per payment</span><span class="v">0.1 KAS <span class="n">a larger spend is not a rejected transaction; it is not a transaction</span></span></div>
       <div class="row"><span class="k">per epoch</span><span class="v">0.5 KAS <span class="n">every 1000 blocks</span></span></div>
@@ -191,7 +203,7 @@
     <p class="eyebrow">What has actually happened</p>
     <div class="state">
       <div class="fig"><span class="num" id="st-paid">&mdash;</span><span class="cap">reached the vendor</span></div>
-      <div class="fig"><span class="num" id="st-n">&mdash;</span><span class="cap">payments made with this key</span></div>
+      <div class="fig"><span class="num" id="st-n">&mdash;</span><span class="cap" id="st-n-cap">payments made with this key</span></div>
       <div class="fig"><span class="num zero" id="st-else">0 KAS</span><span class="cap">reached anywhere else</span></div>
     </div>
     <p class="state-note" id="st-note"></p>
@@ -211,6 +223,9 @@
     <p style="color:var(--chrome-dim);max-width:52ch">
       This runs <strong style="color:var(--chrome);font-weight:500">in your browser</strong>, against the
       real member list and the real root the grant committed to. Nothing is sent anywhere.
+      An accepted payee comes with the commands to actually make the payment — the grant's
+      manifest and allowlist are published alongside this page, because a spend cannot be
+      constructed without them and they are not recoverable from chain until someone spends.
     </p>
 
     <div class="try">
@@ -220,7 +235,7 @@
         <div class="field">
           <input type="text" id="payee" spellcheck="false" autocomplete="off"
                  placeholder="kaspatest:q… or 64 hex characters">
-          <button id="go" type="button">Try to pay it</button>
+          <button id="go" type="button">Check this payee</button>
         </div>
         <div class="presets">
           <button class="alt" data-fill="kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4" type="button">Use the vendor</button>
@@ -455,6 +470,11 @@
     head.textContent = title;
     body.innerHTML = html;
     steps.innerHTML = (lines || []).map(function (l) { return "<div>" + l + "</div>"; }).join("");
+    /* Restarting a CSS animation needs the class gone AND a reflow between,
+       or the browser coalesces the two changes and nothing plays. */
+    out.classList.remove("flash");
+    void out.offsetWidth;
+    out.classList.add("flash");
   }
 
   function run() {
@@ -483,7 +503,32 @@
       okRoot
         ? "This payee is on the allowlist, so a proof exists and a spend can be built — capped at " +
           "<b>0.1 KAS</b> per payment and <b>0.5 KAS</b> per epoch. " +
-          "Sign it with the published key and the network will take it. The money goes to the vendor."
+          "Sign it with the published key and the network will take it. The money goes to the vendor." +
+          /* Everything referenced here is served from this site. The manifest
+             is the grant's public parameters — principal and revocation keys,
+             limits, epoch counters — which a spend needs and which are NOT
+             recoverable from chain until someone spends, because P2SH reveals
+             a redeem script only when it is used. Without them this page was
+             inviting an attack that could not be constructed. */
+          '<div class="cmd"><span class="lbl">Then go and do it</span><pre>' +
+          "git clone https://github.com/ArtyKOMarkets/warda\n" +
+          "cd warda/sdk && npm install\n\n" +
+          "curl -O https://www.wardaprotocol.com/demo-manifest.json\n" +
+          "curl -O https://www.wardaprotocol.com/demo-recipients.txt\n\n" +
+          "WARDA_SK=9fccfb08645b4a5a49f0f461b9ae7209865c234f941e9d4679e8a18da77af2ad \\\n" +
+          "  node --experimental-strip-types tools/build-live-spend.ts \\\n" +
+          "    demo-manifest.json \\\n" +
+          "    --recipients demo-recipients.txt \\\n" +
+          "    --to " + hex + " \\\n" +
+          "    --amount 10000000 \\\n" +
+          "    --rpc ws://127.0.0.1:18210 \\\n" +
+          "    --submit" +
+          '</pre><p class="after">Needs a testnet-10 kaspad with ' +
+          "<code>--utxoindex</code> and <code>--rpclisten-json=</code>. Drop " +
+          "<code>--submit</code> to inspect the signed transaction first. " +
+          "10000000 sompi is 0.1 KAS — the per-payment cap; ask for more and the " +
+          "tool builds nothing, because there is nothing to build." +
+          "</p></div>"
         : "The fold did not reproduce the committed root, which should be impossible. Please report it.",
       ["payee    " + hex,
        "siblings " + (p.siblings.length || "none — this leaf was promoted to the root"),
@@ -551,6 +596,10 @@
         if (typeof d.grant !== "string" || d.grant.trim() !== shown.trim()) return;
         document.getElementById("st-paid").textContent = d.paidToVendor;
         document.getElementById("st-n").textContent = String(d.payments);
+        /* "1 payments" undercuts a page whose argument is that the details
+           were checked. The first spend is exactly the case that hits it. */
+        document.getElementById("st-n-cap").textContent =
+          (d.payments === 1 ? "payment" : "payments") + " made with this key";
         document.getElementById("st-else").textContent = d.paidElsewhere || "0 KAS";
 
         var when = ago(d.checkedAt);

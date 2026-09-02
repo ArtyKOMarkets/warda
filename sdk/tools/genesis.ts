@@ -52,6 +52,8 @@ import { blake2b256 } from "../src/hashers.ts";
 import { derivePublic, EMPTY_RESERVE, KEY_DOMAIN } from "../src/keys.ts";
 import { NodeClient } from "../src/node.ts";
 import { RecipientSet } from "../src/recipients.ts";
+
+import { membersFrom } from "./members.ts";
 import { agentPublicKey, signDigest, verifyDigest } from "../src/sign.ts";
 import { templateFingerprint, type CovenantTemplate, type GrantState, templateIdFor } from "../src/template.ts";
 import { toWire } from "../src/wire.ts";
@@ -94,27 +96,14 @@ const budget = BigInt(flag("budget", "500000000")!);
  * created shared one demo allowlist: fine for a reference vector, useless for
  * a grant whose whole point is WHO it may pay.
  *
+ * `membersFrom` is shared with build-live-spend.ts rather than copied into it.
+ * The two tools must read a list identically — one fixes the root, the other
+ * reproduces it — and two copies of that rule is one rule that can drift.
+ *
  * Keep the member list. Payees are fixed at genesis and a spend cannot be
  * built without an inclusion proof, so a lost list is a grant that can still
  * be revoked and reclaimed but never spent.
  */
-function membersFrom(spec: string): string[] {
-  const looksLikePath = /[\\/\\\\]|\\.(txt|json|list)$/.test(spec);
-  if (looksLikePath && !existsSync(spec)) {
-    throw new Error(
-      `no such file: ${spec}\nA list can be given inline, but this looks like a path — and ` +
-        `treating a missing path as a one-member list produces a failure deep inside hex ` +
-        `decoding that names neither the file nor the flag.`,
-    );
-  }
-  const raw = existsSync(spec) ? readFileSync(spec, "utf8") : spec;
-  return raw
-    .split(/[\s,]+/)
-    .map((t) => t.trim())
-    .filter(Boolean)
-    .map((t) => (t.includes(":") ? toHex(decodeAddress(t).payload) : t.toLowerCase()));
-}
-
 const demoApiKey = agentPublicKey(blake2b256(new TextEncoder().encode("warda-demo-api-v1")));
 const recipients = new RecipientSet(
   flag("recipients")

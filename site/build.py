@@ -69,6 +69,30 @@ if STATE.exists():
     COPIES.append("demo-state.json")
 
 
+def manifest_matches(card):
+    """Whether src/demo-manifest.json describes the grant on the card."""
+    try:
+        m = json.loads((here / "src" / "demo-manifest.json").read_text())
+    except (ValueError, OSError):
+        return False
+    return m.get("agent") == card["agent"] and m.get("recipients_root") == card["root"]
+
+
+def recipients_match(card):
+    """Whether the published list is the list the card was derived from.
+
+    Not a root check — build.py has no blake2b and no business growing one.
+    demo-card.ts already hashed this list and refused if it disagreed with the
+    grant; this only confirms the file on disk is that same list.
+    """
+    try:
+        lines = (here / "src" / "demo-recipients.txt").read_text().splitlines()
+    except OSError:
+        return False
+    members = [l.strip().lower() for l in lines if l.strip() and not l.startswith("#")]
+    return members == [r.lower() for r in card["recipients"]]
+
+
 def snapshot_matches(card):
     """Whether src/demo-state.json describes the grant on the card.
 
@@ -159,6 +183,27 @@ if DEMO.exists():
 
     if STATE.exists() and not snapshot_matches(card):
         COPIES.remove("demo-state.json")
+
+    # What a stranger needs to construct a spend: the grant's public manifest
+    # and the allowlist behind its committed root. Without them the page
+    # invites an attack nobody can mount — neither is on the page, and neither
+    # is recoverable from chain, because P2SH reveals a redeem script only when
+    # it is SPENT and this grant never has been.
+    #
+    # Both are checked against the card. A manifest for a different grant is
+    # worse than none: the tooling would fail against the published address
+    # with an error blaming the recipient list.
+    for name, matches in (
+        ("demo-manifest.json", manifest_matches),
+        ("demo-recipients.txt", recipients_match),
+    ):
+        if not (here / "src" / name).exists():
+            print(f"! src/{name} missing — the page invites an attack nobody can attempt.")
+            print("  Regenerate with:  demo-card.ts \u2026 --emit ../site/src")
+        elif matches(card):
+            COPIES.append(name)
+        else:
+            print(f"! src/{name} does not match this grant; not publishing it")
 
 for outdir, subs in flavours.items():
     d = here / outdir

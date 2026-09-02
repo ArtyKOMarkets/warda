@@ -31,7 +31,7 @@
  * Each of those is a way the page could state something false, and each is
  * checked here rather than trusted.
  */
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 
 import { decodeAddress, pubkeyToAddress, scriptHashToAddress, type NetworkPrefix } from "../src/address.ts";
 import { fromHex, toHex } from "../src/bytes.ts";
@@ -54,7 +54,9 @@ function flag(name: string, fallback?: string): string | undefined {
 
 const manifestPath = process.argv.slice(2).find((a) => !a.startsWith("--") && a.endsWith(".json"));
 if (!manifestPath) {
-  console.error("usage: demo-card.ts <grant.json> --key <file|hex> --recipients <file|csv>");
+  console.error(
+    "usage: demo-card.ts <grant.json> --key <file|hex> --recipients <file|csv> [--emit <dir>]",
+  );
   process.exit(2);
 }
 
@@ -225,6 +227,50 @@ process.stdout.write(
     2,
   ) + "\n",
 );
+/**
+ * The files a stranger needs in order to try.
+ *
+ * The page publishes the key and says "take the money". It could not be taken:
+ * a spend needs the grant's manifest — principal and revocation keys, the
+ * limits, the epoch counters — and the allowlist behind the committed root, and
+ * neither was anywhere a visitor could reach. They are not recoverable from
+ * chain either, because P2SH only reveals a redeem script when it is SPENT,
+ * and an unspent grant has revealed nothing.
+ *
+ * So the invitation was unacceptable in the literal sense. Publishing these
+ * costs nothing: every field is a public key or a public parameter, and all of
+ * it becomes visible in the clear the first time anyone spends.
+ *
+ * `--emit <dir>` writes them beside the card.
+ */
+const emitDir = flag("emit");
+if (emitDir) {
+  // The manifest is public by construction, but "by construction" is an
+  // argument, and this is a check. A secret reaching a directory that gets
+  // deployed is not a mistake worth making twice.
+  const raw = readFileSync(manifestPath, "utf8");
+  for (const bad of [secretHex, secretHex.toUpperCase()]) {
+    if (raw.includes(bad)) {
+      console.error(
+        `refusing to emit: ${manifestPath} contains the agent SECRET. A manifest is meant to ` +
+          `hold public keys and parameters only.`,
+      );
+      process.exit(1);
+    }
+  }
+  const dir = emitDir.replace(/\/+$/, "");
+  writeFileSync(`${dir}/demo-manifest.json`, JSON.stringify(JSON.parse(raw), null, 2) + "\n");
+  writeFileSync(
+    `${dir}/demo-recipients.txt`,
+    "# The grant's allowlist. A spend proves membership against the root\n" +
+      `# ${set.rootHex}\n` +
+      "# which is committed in the covenant and cannot be changed.\n" +
+      set.members.map(toHex).join("\n") +
+      "\n",
+  );
+  console.error(`emitted : ${dir}/demo-manifest.json, ${dir}/demo-recipients.txt`);
+}
+
 console.error(`grant   : ${address}`);
 console.error(`agent   : ${m.agent} (key verified)`);
 console.error(`root    : ${set.rootHex} (${set.members.length} members, verified)`);

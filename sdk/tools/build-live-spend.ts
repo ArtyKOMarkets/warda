@@ -29,7 +29,9 @@
  *
  * Options:
  *   --amount <sompi>   default 30000000
- *   --to <hex>         payee, x-only. Default: the demo API key.
+ *   --to <hex>         payee, x-only. Default: the demo API key, when it is a member.
+ *   --recipients <l>   the grant's allowlist: a file, or inline addresses/keys
+ *   --submit           broadcast it
  *   --fee <sompi>      default 1000000
  *   --prefix, --rpc, --principal, --revocation, --depth as elsewhere
  */
@@ -44,12 +46,33 @@ import { blake2b256 } from "../src/hashers.ts";
 import { resolveSigner } from "../src/keys.ts";
 import { NodeClient } from "../src/node.ts";
 import { RecipientSet } from "../src/recipients.ts";
+
+import { membersFrom } from "./members.ts";
 import { agentPublicKey, signSpend } from "../src/sign.ts";
 import type { SpendPlan } from "../src/spend.ts";
 import { scriptHashFor, templateFingerprint, type CovenantTemplate, type GrantState, templateIdFor } from "../src/template.ts";
 import { toWire } from "../src/wire.ts";
 
 /** A lock time at or above the current DAA score is not yet final. */
+/**
+ * The fee, and why 0.01 KAS was never going to work.
+ *
+ * P2SH puts the redeem script in the SIGNATURE script of every spending
+ * transaction, in the clear. Covenant v4's is 6912 bytes, so a spend from this
+ * grant masses around 15000 where an ordinary payment masses a few hundred —
+ * and Kaspa's minimum relay fee is proportional to that mass. The old default
+ * of 1_000_000 was an ordinary-transaction number; a real spend was rejected
+ * as non-standard needing 1_498_600, having looked correct right up to the
+ * node.
+ *
+ * This is empirical, not derived: the SDK does not compute mass, so there is
+ * no honest way to calculate the exact minimum here. It is set high enough for
+ * the covenant this package ships with, and the rejection path below turns the
+ * node's own number into a command rather than a stack trace — that, not this
+ * constant, is what makes a wrong guess survivable.
+ */
+const DEFAULT_FEE = 3_000_000n;
+
 const DAA_BACKOFF = 100n;
 /** checksig is 100,000 units on its own; 16 covers that plus a depth-4 proof. */
 const SPEND_COMPUTE_BUDGET = 16;
@@ -159,24 +182,53 @@ const whose = found.how;
 
 // ---- the allowlist -------------------------------------------------------
 
+/**
+ * A grant commits to a ROOT, so the member list has to come from somewhere.
+ *
+ * `--recipients` takes the same thing genesis took: a file or an inline list,
+ * addresses or bare x-only keys. It falls back to the four-key set the
+ * reference vectors use, which is what this tool assumed unconditionally until
+ * now — and that assumption made it useless against every grant except the one
+ * it was written beside. A published grant with a real allowlist failed here
+ * with "this is the wrong recipient list", which is true and reads like the
+ * grant is at fault.
+ *
+ * Whoever holds the agent key needs this list to spend at all. That is by
+ * design and it is not a secret: publish it with the grant.
+ */
 const demoApiKey = agentPublicKey(blake2b256(new TextEncoder().encode("warda-demo-api-v1")));
-const recipients = new RecipientSet([
-  demoApiKey,
-  new Uint8Array(32).fill(0xa2),
-  new Uint8Array(32).fill(0xa3),
-  new Uint8Array(32).fill(0xa4),
-]);
+const recipients = new RecipientSet(
+  flag("recipients")
+    ? membersFrom(flag("recipients")!)
+    : [demoApiKey, new Uint8Array(32).fill(0xa2), new Uint8Array(32).fill(0xa3), new Uint8Array(32).fill(0xa4)],
+);
 if (toHex(recipients.root) !== state.recipientsRoot) {
   // Checked before anything is built. A proof from the wrong list fails inside
   // the covenant, where the error names a hash mismatch and nothing else.
   console.error(
     `the reconstructed allowlist hashes to ${toHex(recipients.root)}, but this grant ` +
-      `commits to ${state.recipientsRoot}. This is the wrong recipient list.`,
+      `commits to ${state.recipientsRoot}. This is the wrong recipient list.` +
+      (flag("recipients")
+        ? ""
+        : `\nNo --recipients was given, so the built-in reference set was used. Pass the ` +
+          `grant's own list: --recipients <file or comma-separated addresses>.`),
   );
   process.exit(1);
 }
 
-const recipient = fromHex(flag("to", toHex(demoApiKey))!);
+// Default to the demo key only when it is actually in this grant's list. For
+// any other grant that default is a payee the proof step will refuse, and the
+// refusal reads as though the caller asked for it.
+const defaultTo = recipients.has(demoApiKey) ? toHex(demoApiKey) : undefined;
+const to = flag("to", defaultTo);
+if (!to) {
+  console.error(
+    `--to is required: this grant's allowlist does not contain the built-in demo key, ` +
+      `so there is no sensible default payee.`,
+  );
+  process.exit(1);
+}
+const recipient = fromHex(to);
 if (!recipients.has(recipient)) {
   // No proof exists that places a non-member in the tree. Saying so here beats
   // building a transaction whose only defect is that it cannot succeed.
@@ -225,7 +277,7 @@ try {
     recipient,
     proof,
     claimedDaa: dag.virtualDaaScore - DAA_BACKOFF,
-    fee: BigInt(flag("fee", "1000000")!),
+    fee: BigInt(flag("fee", DEFAULT_FEE.toString())!),
     computeBudget: SPEND_COMPUTE_BUDGET,
   };
 } finally {
@@ -248,6 +300,67 @@ console.error(
 );
 console.error(`  claimedDaa: ${plan.claimedDaa}`);
 
-process.stdout.write(
-  JSON.stringify(toWire(tx, unsigned.entry, "@warda_protocol/kaspa (live spend)"), null, 2) + "\n",
-);
+const wire = toWire(tx, unsigned.entry, "@warda_protocol/kaspa (live spend)");
+
+/**
+ * Broadcasting it.
+ *
+ * This wrote a signed transaction to stdout and stopped, which left the last
+ * step — the only one that changes anything — to a tool the reader had to go
+ * and find. genesis.ts has had `--submit` all along; a spend is the operation
+ * people actually want to perform, and it did not.
+ *
+ * Still opt-in. A signed spend is easy to inspect and impossible to unsend.
+ *
+ * ## stdout first
+ *
+ * The transaction is written BEFORE the submit is attempted, because a submit
+ * can fail and the transaction is exactly what you want in your hands when it
+ * does. Writing it afterwards means a rejection destroys the artifact: the
+ * redirect leaves an empty file, and the next tool in the chain reports
+ * "Unexpected end of JSON input" about a transaction that was built perfectly
+ * and merely not accepted.
+ */
+process.stdout.write(JSON.stringify(wire, null, 2) + "\n");
+
+if (process.argv.includes("--submit")) {
+  const submitter = await NodeClient.connect({ url: flag("rpc") });
+  try {
+    const txid = await submitter.submitTransaction(tx);
+    console.error(`\nSUBMITTED: ${txid}`);
+    if (txid !== wire.txid) {
+      console.error(
+        `  NOTE: the node calls it ${txid}, this package predicted ${wire.txid}. ` +
+          `They disagree about serialization.`,
+      );
+    }
+    console.error(`  the grant now lives at ${successorAddress}`);
+  } catch (e) {
+    const message = (e as Error).message ?? String(e);
+    // The node names the exact fee it wants. Turning that into the command
+    // that would work beats re-deriving it from a rejection message by hand,
+    // and beats a stack trace by a wider margin.
+    const needs = /required amount of (\d+)/.exec(message);
+    if (needs) {
+      const required = BigInt(needs[1]!);
+      console.error(
+        `\nNOT SUBMITTED: the fee is too low.\n\n` +
+          `  offered  ${plan.fee} sompi\n` +
+          `  required ${required} sompi\n\n` +
+          `A covenant spend carries the whole redeem script, so it masses far more than an\n` +
+          `ordinary payment and the minimum relay fee scales with that. Re-run with:\n\n` +
+          `  --fee ${required}\n\n` +
+          `Nothing was broadcast. The grant has not moved, and the transaction above is\n` +
+          `still valid to inspect.`,
+      );
+      process.exit(1);
+    }
+    console.error(`\nNOT SUBMITTED: ${message}`);
+    console.error(`The grant has not moved.`);
+    process.exit(1);
+  } finally {
+    submitter.close();
+  }
+} else {
+  console.error(`\n(not broadcast — add --submit, or verify the JSON first)`);
+}
