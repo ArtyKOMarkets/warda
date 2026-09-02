@@ -1,0 +1,4 @@
+# A demo payment endpoint. Nothing here is worth indexing, and the interesting
+# part answers 402 rather than 200.
+User-agent: *
+Disallow:

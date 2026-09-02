@@ -280,7 +280,30 @@ export async function inspect(client: NodeClient, options: OpenOptions = {}): Pr
       await client.assertCovenantAware(options.grantAddress);
       checks.covenants = { ok: true, detail: "reports covenant ids" };
     } catch (e) {
-      checks.covenants = { ok: false, detail: (e as Error).message.split("\n")[0]! };
+      /**
+       * An empty address cannot answer this question either way.
+       *
+       * The probe asks a grant's UTXO whether it carries a covenant id. If
+       * there is no UTXO there is nothing to ask, and that happens constantly
+       * for an ordinary reason: a spend MOVES a grant, so any address more
+       * than one transaction old is empty.
+       *
+       * Reporting that as a failed check told the operator "this node would
+       * give you wrong answers rather than errors. Find another." about a node
+       * that was completely healthy — and the real cause, a stale address, was
+       * not mentioned. The check is unknown, not failed, and unknown must not
+       * make the node unusable.
+       */
+      const message = (e as Error).message.split("\n")[0]!;
+      checks.covenants = /^no UTXO at /.test(message)
+        ? {
+            ok: true,
+            detail:
+              "UNKNOWN — nothing is at that address, so there is no entry to inspect. " +
+              "A spend moves a grant, so this usually means the address is stale rather " +
+              "than that the grant is gone",
+          }
+        : { ok: false, detail: message };
     }
   } else {
     checks.covenants = {

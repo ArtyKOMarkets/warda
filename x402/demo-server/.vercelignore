@@ -1,0 +1,5 @@
+# The CLI uploads from DISK. covenant/deploy/target is gigabytes of Rust build
+# output and has nothing to do with this function; without this the upload is
+# aborted and the account is rate limited.
+../../covenant
+../../node_modules

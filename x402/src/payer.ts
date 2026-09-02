@@ -359,6 +359,33 @@ export class WardaPayer {
             `fee: ${need[1]}n or higher. Nothing was spent.`,
         );
       }
+      /**
+       * Storage mass: there is a floor under how small a payment can be.
+       *
+       * KIP-9 charges a transaction for the small outputs it creates, roughly
+       * in proportion to the reciprocal of each output's value. A payment of
+       * 0.01 KAS massed 1,000,000 against a 500,000 ceiling and was refused —
+       * so an x402 endpoint priced at a penny cannot be paid at all, however
+       * much budget the grant has.
+       *
+       * Worth translating rather than passing through, because the raw message
+       * says "storage mass" and the actionable fact is "this amount is too
+       * small". Measured, not derived: 0.01 KAS is refused, 0.05 and 0.1 go
+       * through, so the floor sits near 0.02 KAS. The exact constant is
+       * consensus's to state, which is why the node's own numbers are quoted
+       * back rather than a threshold of ours.
+       */
+      const storage = /storage mass of (\d+) is larger than max allowed size of (\d+)/.exec(msg);
+      if (storage) {
+        throw new X402Error(
+          `this payment of ${req.amountSompi} sompi is too SMALL to broadcast. Kaspa charges ` +
+            `storage mass for the small outputs a transaction creates: this one massed ` +
+            `${storage[1]} against a ceiling of ${storage[2]}. Nothing about the grant was ` +
+            `exceeded and nothing was spent — the amount itself is below what the network will ` +
+            `carry. In practice payments under about 0.02 KAS cannot be made, whatever the ` +
+            `budget allows.`,
+        );
+      }
       throw e;
     }
 
