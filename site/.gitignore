@@ -1,0 +1,5 @@
+# Written by refresh-demo.sh after a SUCCESSFUL deploy, so the next run can
+# tell "the chain has not moved" from "the chain has not moved and the site
+# already says so". Machine-local: two machines refreshing this demo should
+# each deploy once rather than trust the other's marker.
+.last-deployed-state.json

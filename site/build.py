@@ -59,6 +59,42 @@ COPIES = [
     "sitemap.xml",
 ]
 
+# Written by sdk/tools/demo-state.ts, refreshed on a schedule. Optional by
+# design: the attack page fetches it at load and stays silent when it is
+# missing, so a page built without a snapshot says less rather than something
+# wrong. Copied only when it exists, because a build that dies over a missing
+# optional file is a build that stops shipping the pages that were fine.
+STATE = here / "src" / "demo-state.json"
+if STATE.exists():
+    COPIES.append("demo-state.json")
+
+
+def snapshot_matches(card):
+    """Whether src/demo-state.json describes the grant on the card.
+
+    A snapshot is a set of numbers with no visible owner: "3 payments, 0.3 KAS"
+    reads as true of whatever address happens to be printed above it. Left over
+    from an earlier grant, or hand-written to see the layout, it renders exactly
+    like a real reading. So the snapshot names its grant and this checks the
+    name, and a snapshot that fails the check is dropped from the build rather
+    than published beside an address it never described.
+
+    Dropped, not fatal: a stale reading should cost the page one section, not
+    stop the site from shipping.
+    """
+    try:
+        snap = json.loads(STATE.read_text())
+    except (ValueError, OSError) as e:
+        print(f"! src/demo-state.json unreadable ({e}); not publishing it")
+        return False
+    if snap.get("grant") != card["address"] or snap.get("vendor") != card["vendor"]:
+        print("! src/demo-state.json does not name this grant; not publishing it.")
+        print("  Take a real reading:  cd sdk && node --experimental-strip-types \\")
+        print("                          tools/demo-state.ts ../site/src/demo-grant.json \\")
+        print("                          --resolver \"$WARDA_RESOLVER\" > ../site/src/demo-state.json")
+        return False
+    return True
+
 # The sources are written as artifact bodies: they start at <title> and carry
 # no <!doctype>, <html>, <head> or <body>, because the artifact host supplies
 # those. A real web server supplies nothing — and the missing tag that matters
@@ -120,6 +156,9 @@ if DEMO.exists():
     for k, v in demo_subs.items():
         flavours["."][k] = v
         flavours["web"][k] = v
+
+    if STATE.exists() and not snapshot_matches(card):
+        COPIES.remove("demo-state.json")
 
 for outdir, subs in flavours.items():
     d = here / outdir

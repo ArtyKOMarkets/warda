@@ -125,3 +125,48 @@ repo is the one layout where a broken path still resolves:
    the endpoint answers advertises a dead address.
 3. Deploy `site/`.
 4. Tag `mcp-v0.4.1` and let the workflow publish to the registry.
+
+## Keeping the attack page true
+
+The page publishes a grant's key, its address, and a snapshot of what has
+happened to it. The card and the snapshot are written by two different tools
+for two different reasons.
+
+    sdk/tools/demo-card.ts     the key, the address, the limits, the allowlist
+    sdk/tools/demo-state.ts    what has reached the vendor, and when it was read
+
+The card is written once, when the grant is funded. The snapshot is written
+repeatedly:
+
+    cd site
+    WARDA_RESOLVER="https://…" ./refresh-demo.sh          # read, rebuild, deploy
+    WARDA_RESOLVER="https://…" ./refresh-demo.sh --no-deploy
+
+It is quiet when nothing moved on chain, so it is safe on a timer:
+
+    */20 * * * * cd ~/Desktop/warda/site && WARDA_RESOLVER="https://…" ./refresh-demo.sh
+
+### The snapshot names its grant, and two places check the name
+
+A snapshot is a set of numbers with no visible owner. "3 payments · 0.3 KAS"
+reads as true of whatever address is printed above it, so a reading left over
+from an earlier grant would render as this one's, and nothing about the page
+would look wrong.
+
+So `demo-state.json` carries `grant` and `vendor`, and both `build.py` and the
+page itself refuse a snapshot whose `grant` is missing or is not the address on
+the card. A refused snapshot costs the page one section; it never contradicts
+the card. When the section is missing, that is why — run `demo-state.ts` again.
+
+### What refresh-demo.sh will not do
+
+It does not rewrite the card. A successful spend MOVES the grant: its address
+is a hash of its state, so paying the vendor gives it a new one. Finding where
+it went means following it through the mempool (`sdk/tools/watch-grant.ts`),
+not asking a node — a node can only say what is unspent at an address it is
+given, and an empty address is indistinguishable from drained, revoked, and
+never-funded.
+
+Rather than guess, the snapshot reports `grantStillAtPublishedAddress: false`
+and the page says the printed address is where the grant *was*. That is both
+honest and the more interesting sentence: it means somebody used the key.

@@ -112,6 +112,17 @@
   .cols .n { font-family: var(--mono); font-size: 0.64rem; letter-spacing: 0.13em;
              text-transform: uppercase; color: var(--teal); margin-bottom: 0.5rem; }
 
+  .state { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
+           background: var(--edge); border: 1px solid var(--edge); margin-top: 1.2rem; }
+  .fig { background: var(--ink); padding: 1.3rem 1.2rem; }
+  .fig .num { display: block; font-family: var(--mono); font-size: 1.5rem;
+              letter-spacing: -0.01em; color: var(--chrome); }
+  .fig .num.zero { color: var(--teal); }
+  .fig .cap { display: block; font-size: 0.82rem; color: var(--chrome-dim); margin-top: 0.4rem; }
+  .state-note { font-family: var(--mono); font-size: 0.7rem; color: var(--chrome-faint);
+                margin-top: 0.9rem; line-height: 1.7; max-width: 68ch; }
+  @media (max-width: 620px) { .state { grid-template-columns: 1fr; } }
+
   footer { border-top: 1px solid var(--edge); padding: 2.4rem 0 3.4rem; }
   footer p { font-family: var(--mono); font-size: 0.7rem; color: var(--chrome-faint);
              line-height: 1.75; max-width: 62ch; }
@@ -156,6 +167,25 @@
       <div class="row"><span class="k">may pay</span><span class="v">nobody else <span class="n">the allowlist is a Merkle root fixed before the grant was funded</span></span></div>
       <div class="row"><span class="k">covenant</span><span class="v">b3e5eeefacf2021f</span></div>
     </div>
+  </div>
+</section>
+
+<!--
+  Filled from /demo-state.json, and hidden until that fetch succeeds. The file
+  is a snapshot rather than a feed, so the timestamp is shown and no figure is
+  presented as current. "Reached anywhere else" is not measured by polling an
+  address: there is no other address the covenant can pay, which is why it can
+  be stated rather than checked.
+-->
+<section id="state" hidden>
+  <div class="wrap">
+    <p class="eyebrow">What has actually happened</p>
+    <div class="state">
+      <div class="fig"><span class="num" id="st-paid">&mdash;</span><span class="cap">reached the vendor</span></div>
+      <div class="fig"><span class="num" id="st-n">&mdash;</span><span class="cap">payments made with this key</span></div>
+      <div class="fig"><span class="num zero" id="st-else">0 KAS</span><span class="cap">reached anywhere else</span></div>
+    </div>
+    <p class="state-note" id="st-note"></p>
   </div>
 </section>
 
@@ -478,4 +508,73 @@
     });
   });
 })();
+</script>
+
+<script>
+  /* The snapshot. Deliberately its own script: if anything above throws, the
+     verifier is what matters and it must still run — and if this fetch fails,
+     404s, or is served from somewhere that has no snapshot at all (the
+     artifact flavour of this page has no origin to fetch from), the section
+     stays hidden and the page simply makes one claim fewer. */
+  (function () {
+    var sec = document.getElementById("state");
+    if (!sec || !window.fetch) return;
+
+    function ago(iso) {
+      var t = Date.parse(iso);
+      if (!t) return null;
+      var m = Math.round((Date.now() - t) / 60000);
+      if (m < 2) return "moments ago";
+      if (m < 90) return m + " minutes ago";
+      var h = Math.round(m / 60);
+      return h < 36 ? h + " hours ago" : Math.round(h / 24) + " days ago";
+    }
+
+    fetch("/demo-state.json", { cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d || typeof d.paidToVendor !== "string") return;
+        /* A snapshot names the grant it describes, and this refuses one that
+           names a different grant. Numbers with no owner read as true of
+           whatever address is printed above them, so a reading left over from
+           an earlier demo would render as this one's. */
+        var shown = (document.getElementById("addr") || {}).textContent || "";
+        if (typeof d.grant !== "string" || d.grant.trim() !== shown.trim()) return;
+        document.getElementById("st-paid").textContent = d.paidToVendor;
+        document.getElementById("st-n").textContent = String(d.payments);
+        document.getElementById("st-else").textContent = d.paidElsewhere || "0 KAS";
+
+        var when = ago(d.checkedAt);
+        /* At zero payments all three figures read "0", and the one that
+           matters is indistinguishable from the two that are merely empty.
+           Say which is which: two of them are a starting line, and the third
+           is not a measurement in either case. Claiming more than that —
+           that anyone has TRIED — would be a claim we cannot support. */
+        var untouched = d.payments === 0;
+        var note = untouched
+          ? "Nobody has spent from this grant yet, so the first two figures are " +
+            "a starting line rather than a result. The third is not a reading in " +
+            "either case: there is no address outside the allowlist the covenant " +
+            "is able to pay, so it is stated rather than checked. "
+          : "";
+        note +=
+          "Read from a " + (d.network || "testnet") + " node" +
+          (when ? " " + when : "") + ". A snapshot, not a live feed \u2014 " +
+          "reload for a newer one. The vendor's address is an ordinary key-hash " +
+          "address and never moves, so everything this grant has ever released " +
+          "is sitting there in the open and can be counted without following " +
+          "the grant.";
+        if (d.grantStillAtPublishedAddress === false) {
+          note += " The grant itself has since MOVED: a spend rewrites its " +
+            "address, so the one printed above named where it was, not where " +
+            "it is. That is the demo working.";
+        } else if (d.remainingAtPublishedAddress) {
+          note += " " + d.remainingAtPublishedAddress + " is still sitting at " +
+            "the address above.";
+        }
+        document.getElementById("st-note").textContent = note;
+        sec.hidden = false;
+      })
+      .catch(function () { /* no snapshot, no section */ });
+  })();
 </script>
