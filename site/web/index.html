@@ -623,6 +623,10 @@ await wardaFetch("https://api.example/infer");</code></pre>
         drop-in <code>fetch</code>: it calls a paid endpoint like a free one, settles the 402
         out of the grant, and will not pay twice for the same resource. The ceiling on what it
         can spend this hour is in the script, not in your rate limiter.</p>
+        <p style="margin-top:0.7rem"><span class="n" style="margin:0">Buy from it now</span>
+        <code>warda-demo-api.vercel.app</code> is a real 402 endpoint that verifies payment
+        against the UTXO set before it serves. The key published on <a href="/attack">/attack</a>
+        can buy from it &mdash; every price is inside that grant's per-payment cap.</p>
       </article>
       <article>
         <p class="n">Fleets</p><h3>A supervisor handing budgets to workers</h3>

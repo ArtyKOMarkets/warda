@@ -1,0 +1,33 @@
+{
+  "name": "warda",
+  "version": "0.1.0",
+  "description": "Give an AI agent a budget the network enforces. CLI for Warda grants on Kaspa.",
+  "type": "module",
+  "bin": {
+    "warda": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@warda_protocol/kaspa": "^0.5.0",
+    "@warda_protocol/x402": "^0.4.0"
+  },
+  "keywords": [
+    "kaspa",
+    "agent",
+    "x402",
+    "covenant",
+    "warda"
+  ],
+  "license": "MIT"
+}

@@ -263,6 +263,13 @@
       public one exists, this means running a node.
     </p>
     <p style="max-width:56ch">
+      There is also a floor under how <em>small</em> a payment can be. Kaspa charges storage
+      mass for the small outputs a transaction creates, and a payment of 0.01 KAS is refused by
+      consensus &mdash; massing 1,000,000 against a ceiling of 500,000 &mdash; with the grant,
+      the budget and the fee all perfectly fine. In practice nothing under about 0.02 KAS can be
+      broadcast, so per-request micropayments below that are not a thing this chain does.
+    </p>
+    <p style="max-width:56ch">
       <code>tools/check-node.ts</code> interrogates whichever node you point at before you build
       anything against it. Each thing it checks fails by returning a plausible wrong answer that
       reads as a problem with your grant rather than with the node.

@@ -1,6 +1,6 @@
 {
   "name": "@warda_protocol/kaspa",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Build, sign and verify Warda agent grants on Kaspa L1 covenants. Derives grant addresses and assembles covenant transactions with no Silverscript compiler and no Rust toolchain.",
   "type": "module",
   "license": "MIT",
