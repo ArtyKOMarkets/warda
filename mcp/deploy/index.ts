@@ -67,6 +67,32 @@
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
 
+import { fileURLToPath } from "node:url";
+
+/**
+ * Point the server at the template file sitting beside this one.
+ *
+ * `loadTemplate` resolves `@warda_protocol/kaspa/covenant-template.json`
+ * through the package's exports map, which is correct everywhere except here:
+ * the resolution happens at RUNTIME, so the bundler that traces this function's
+ * imports never sees the file and does not upload it. Every build tool works
+ * that way; the package is not at fault.
+ *
+ * The result was a server that answered tools/list perfectly and failed the
+ * moment anyone asked it to build a transaction, reporting a path under
+ * /var/task that no local checkout has.
+ *
+ * A copy in this directory is uploaded because it is source, not a resolved
+ * dependency. WARDA_TEMPLATE is consulted before anything else.
+ *
+ * It must stay in step with sdk/covenant-template.json. A covenant upgrade
+ * changes the bytecode and therefore every address derived from it, so a stale
+ * copy here would not fail — it would derive plausible addresses that hold
+ * nothing, and report the grants missing. test/deploy-template.test.ts fails
+ * if the two files ever differ.
+ */
+process.env.WARDA_TEMPLATE ??= fileURLToPath(new URL("covenant-template.json", import.meta.url));
+
 import { buildServer } from "@warda_protocol/mcp";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 

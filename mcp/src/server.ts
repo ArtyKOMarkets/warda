@@ -57,6 +57,21 @@ const EXPLAIN: Record<FailureCode, string> = {
   PARENT_ID_MISMATCH: "This request does not refer to the grant it claims to.",
 };
 
+/**
+ * The default fee.
+ *
+ * 1,000,000 was an ordinary transfer's, and a covenant spend is not one: P2SH
+ * puts the whole redeem script in the signature script of every spending
+ * transaction, so a spend masses like a 7KB transaction and Kaspa prices by
+ * mass. A real one was rejected as non-standard needing 1,498,600 — by a node
+ * that had already accepted the signature.
+ *
+ * An agent taking the default got a rejection about mass, which says nothing
+ * about fees and nothing it could act on. Callers who know better still pass
+ * feeSompi; this is only what happens when nobody does.
+ */
+const DEFAULT_FEE = 3_000_000n;
+
 const GrantShape = z.object({
   agentKey: z.string(), principalKey: z.string(), revocationKey: z.string(),
   budgetKas: z.string(), maxPerSpendKas: z.string(), epochLimitKas: z.string(),
@@ -256,7 +271,7 @@ const json = (v: unknown) => ({ content: [{ type: "text" as const, text: JSON.st
         isCoinbase: z.boolean(),
         covenantId: z.string(),
       }).describe("The grant's CURRENT UTXO. Its address moves after every spend, so a stale one will not be found."),
-      feeSompi: z.string().optional().describe("Defaults to 1000000. A spend carries a ~3KB redeem script, so its mass is dominated by size."),
+      feeSompi: z.string().optional().describe("Defaults to 3000000. A covenant spend carries the whole redeem script in its signature script — about 7KB — so its mass is dominated by size and an ordinary transfer's fee is rejected as non-standard."),
       computeBudget: z.number().optional().describe("Defaults to 16. Charged as mass, so over-provisioning costs money and under-provisioning is rejected outright."),
     },
   },
@@ -272,7 +287,7 @@ const json = (v: unknown) => ({ content: [{ type: "text" as const, text: JSON.st
         recipient,
         daaScore: daa,
         utxo,
-        feeSompi: feeSompi === undefined ? 1_000_000n : BigInt(feeSompi),
+        feeSompi: feeSompi === undefined ? DEFAULT_FEE : BigInt(feeSompi),
         computeBudget: computeBudget ?? 16,
         daaBackoff: 100n,
       });
@@ -450,7 +465,7 @@ const json = (v: unknown) => ({ content: [{ type: "text" as const, text: JSON.st
             },
             parentRecipients: a.parentRecipients,
             utxo: a.utxo,
-            feeSompi: a.feeSompi === undefined ? 1_000_000n : BigInt(a.feeSompi),
+            feeSompi: a.feeSompi === undefined ? DEFAULT_FEE : BigInt(a.feeSompi),
             computeBudget: a.computeBudget ?? 16,
             prefix: (a.prefix ?? "kaspatest") as NetworkPrefix,
           }),
@@ -545,7 +560,7 @@ const json = (v: unknown) => ({ content: [{ type: "text" as const, text: JSON.st
             kind: a.kind,
             utxo: a.utxo,
             lockTime: a.lockTime === undefined ? (a.kind === "revoke" ? 0n : m.grant.expiresAt) : BigInt(a.lockTime),
-            feeSompi: a.feeSompi === undefined ? 1_000_000n : BigInt(a.feeSompi),
+            feeSompi: a.feeSompi === undefined ? DEFAULT_FEE : BigInt(a.feeSompi),
             computeBudget: a.computeBudget ?? 16,
           }),
           enforcement:

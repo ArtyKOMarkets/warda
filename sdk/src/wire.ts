@@ -1,4 +1,4 @@
-import { toHex } from "./bytes.ts";
+import { fromHex, toHex } from "./bytes.ts";
 import { transactionId, type Transaction, type UtxoEntry } from "./tx.ts";
 
 /**
@@ -99,6 +99,51 @@ export function toWireMulti(
 }
 
 /** Integers go out as strings: a sompi value exceeds what JSON numbers hold exactly. */
+/**
+ * Wire form back to a transaction.
+ *
+ * The inverse of `toWire`, and it did not exist because nothing needed it:
+ * every tool here builds a transaction, holds it, and converts outward once at
+ * the end.
+ *
+ * An MCP client is the case that breaks that. `warda_build_spend` returns the
+ * WIRE form — the server holds no key, so the transaction leaves it unsigned
+ * and comes back later from somewhere else entirely. Whatever signs it has
+ * only the wire form and still has to submit, and `submitTransaction` takes
+ * the internal shape.
+ *
+ * Not a parser: it assumes the shape `toWire` produces and will throw on
+ * anything else, which is the right failure for a file that claims to be one.
+ */
+export function fromWire(w: WireTransaction): Transaction {
+  return {
+    version: w.version,
+    lockTime: BigInt(w.lockTime),
+    subnetworkId: fromHex(w.subnetworkId),
+    gas: BigInt(w.gas),
+    payload: fromHex(w.payloadHex),
+    inputs: w.inputs.map((i) => ({
+      previousOutpoint: {
+        transactionId: fromHex(i.previousOutpointTransactionId),
+        index: i.previousOutpointIndex,
+      },
+      signatureScript: fromHex(i.signatureScriptHex),
+      sequence: BigInt(i.sequence),
+      computeBudget: i.computeBudget,
+    })),
+    outputs: w.outputs.map((o) => ({
+      value: BigInt(o.value),
+      scriptPublicKey: { version: o.scriptPublicKeyVersion, script: fromHex(o.scriptPublicKeyHex) },
+      covenant: o.covenant
+        ? {
+            authorizingInput: o.covenant.authorizingInput,
+            covenantId: fromHex(o.covenant.covenantId),
+          }
+        : undefined,
+    })),
+  };
+}
+
 export function toWire(tx: Transaction, entry: UtxoEntry, builtBy = "@warda_protocol/kaspa"): WireTransaction {
   return {
     version: tx.version,

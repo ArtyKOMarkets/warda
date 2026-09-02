@@ -107,6 +107,7 @@ export { RecipientSet } from "./recipients.ts";
 export { spendPlanFrom, type SpendPlanDocument } from "./plan.ts";
 
 export {
+  fromWire,
   toWire,
   // A transaction whose inputs are spent under more than one covenant. A
   // settlement is the first: each input's digest commits to its OWN entry, so

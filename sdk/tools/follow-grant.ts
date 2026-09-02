@@ -89,6 +89,8 @@ if (!vendor) {
 }
 const vendorScriptKey = toHexKey(decodeAddress(vendor).payload);
 
+const toHexBytes = (b: Uint8Array) => toHexKey(b);
+
 function toHexKey(b: Uint8Array): string {
   return Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
 }
@@ -149,7 +151,7 @@ try {
     if (found.length > 0) break;
 
     for (const utxo of paid) {
-      const id = `${utxo.outpoint.transactionId}:${utxo.outpoint.index}`;
+      const id = `${toHexBytes(utxo.outpoint.transactionId)}:${utxo.outpoint.index}`;
       if (applied.includes(id)) continue;
 
       // Candidate epochs: at least the grant's own (the covenant ratchets and
