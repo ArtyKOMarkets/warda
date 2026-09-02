@@ -194,6 +194,7 @@ if DEMO.exists():
     # worse than none: the tooling would fail against the published address
     # with an error blaming the recipient list.
     for name, matches in (
+        ("demo-grant.json", lambda c: True),
         ("demo-manifest.json", manifest_matches),
         ("demo-recipients.txt", recipients_match),
     ):

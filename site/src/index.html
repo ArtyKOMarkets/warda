@@ -218,6 +218,50 @@
   .replay:hover { border-color: var(--teal); color: var(--teal-bright); }
 
   /* ---- the receipt ----------------------------------------------------- */
+  /* The standing challenge. Figures come from /demo-state.json when it is
+     there; the section reads correctly without it, because a page whose
+     argument is "check it yourself" cannot depend on a fetch to make sense. */
+  .chal { border: 1px solid var(--edge); background: var(--ground);
+          padding: 1.8rem 1.7rem; margin-top: 1.6rem; }
+  .chal-key { font-family: var(--mono); font-size: 0.78rem; word-break: break-all;
+              color: var(--teal); margin: 0 0 0.3rem; }
+  .chal-lbl { font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.14em;
+              text-transform: uppercase; color: var(--chrome-faint); margin: 0 0 0.5rem; }
+  .chal-figs { display: flex; flex-wrap: wrap; gap: 2.2rem; margin-top: 1.4rem; }
+  .chal-figs div { min-width: 8rem; }
+  .chal-figs .n { display: block; font-family: var(--mono); font-size: 1.35rem; color: var(--chrome); }
+  .chal-figs .n.zero { color: var(--teal); }
+  .chal-figs .l { display: block; font-size: 0.82rem; color: var(--chrome-dim); margin-top: 0.3rem; }
+
+  /* The ladder. Numbered because the order is the argument: each layer is
+     only worth anything if the one below it holds. */
+  .layers { margin-top: 1.8rem; border-top: 1px solid var(--edge); }
+  .layers > div { display: grid; grid-template-columns: 3.2rem 1fr 1fr;
+                  gap: 1.6rem; padding: 1.6rem 0; border-bottom: 1px solid var(--edge); }
+  .layers .lv { font-family: var(--mono); font-size: 0.72rem; color: var(--teal);
+                letter-spacing: 0.1em; padding-top: 0.25rem; }
+  .layers h3 { font-size: 1.06rem; margin: 0 0 0.4rem; }
+  .layers .what { color: var(--chrome-dim); font-size: 0.92rem; margin: 0; }
+  .layers .ships { font-family: var(--mono); font-size: 0.74rem; color: var(--chrome-faint);
+                   margin: 0; line-height: 1.85; }
+  .layers .ships code { color: var(--chrome-dim); }
+  @media (max-width: 760px) {
+    .layers > div { grid-template-columns: 1fr; gap: 0.7rem; }
+    .layers .lv { padding-top: 0; }
+  }
+
+  /* The roadmap carries no dates, deliberately. A date is a promise; a
+     direction is a statement of intent, and only one of those can be broken. */
+  .road { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px;
+          background: var(--edge); border: 1px solid var(--edge); margin-top: 1.6rem; }
+  .road > div { background: var(--ground); padding: 1.4rem 1.4rem; }
+  .road h3 { font-size: 0.98rem; margin: 0 0 0.4rem; }
+  .road p { color: var(--chrome-dim); font-size: 0.88rem; margin: 0; }
+  .road .tag { font-family: var(--mono); font-size: 0.64rem; letter-spacing: 0.13em;
+               text-transform: uppercase; color: var(--chrome-faint); display: block;
+               margin-bottom: 0.5rem; }
+  @media (max-width: 700px) { .road { grid-template-columns: 1fr; } }
+
   .receipt { border: 1px solid var(--edge-bright); background: var(--ground); margin-top: 2.4rem; text-align: left; }
   .receipt-head {
     display: flex; gap: 0.6rem 1.2rem; flex-wrap: wrap; align-items: baseline;
@@ -413,6 +457,31 @@
   </div>
 </section>
 
+<section class="rule" id="challenge" hidden>
+  <div class="wrap narrow">
+    <div data-rise>
+      <p class="eyebrow">The standing challenge</p>
+      <h2>The key is published. Take the money.</h2>
+      <p class="big" style="margin-top:1.4rem;max-width:54ch">
+        A funded grant on Kaspa testnet-10, with its agent's complete private key on a public
+        page. Not a hash of it. Anyone can sign with it. The most anyone has managed is to pay
+        the vendor.
+      </p>
+    </div>
+
+    <div class="chal" data-rise style="--d:120ms">
+      <p class="chal-lbl">Agent secret key &middot; live &middot; spend with it</p>
+      <p class="chal-key" id="ch-key"></p>
+      <div class="chal-figs">
+        <div><span class="n" id="ch-paid">&mdash;</span><span class="l">reached the vendor</span></div>
+        <div><span class="n" id="ch-n">&mdash;</span><span class="l" id="ch-n-l">payments</span></div>
+        <div><span class="n zero" id="ch-else">0 KAS</span><span class="l">reached anywhere else</span></div>
+      </div>
+      <p style="margin-top:1.3rem"><a class="cta arw" href="/attack">Take the key</a></p>
+    </div>
+  </div>
+</section>
+
 <section class="rule" id="receipt">
   <div class="wrap narrow">
     <div data-rise>
@@ -439,6 +508,38 @@
       <div class="receipt-foot">
         The grant's address changed because the address <em>is</em> the state. Every line above is re-derived from the UTXO set by <code>x402/demo/verify-receipt.ts</code> &mdash; the receipt was written by the process that made the payment, which is exactly the party you would not take it from.
       </div>
+    </div>
+  </div>
+</section>
+
+<section class="rule">
+  <div class="wrap">
+    <div data-rise>
+      <p class="eyebrow">Who this is for</p>
+      <h2>Three things that spend while nobody watches.</h2>
+    </div>
+    <div class="cols" data-rise style="--d:100ms">
+      <article>
+        <p class="n">Paid endpoints</p><h3>An agent that buys APIs and data</h3>
+        <p>Inference, feeds, compute, scraping credits. <code>@warda_protocol/x402</code> is a
+        drop-in <code>fetch</code>: it calls a paid endpoint like a free one, settles the 402
+        out of the grant, and will not pay twice for the same resource. The ceiling on what it
+        can spend this hour is in the script, not in your rate limiter.</p>
+      </article>
+      <article>
+        <p class="n">Fleets</p><h3>A supervisor handing budgets to workers</h3>
+        <p>A parent grant delegates a bounded child to each worker — its own key, its own caps,
+        its own allowlist — without the parent surrendering custody or the child being able to
+        exceed what it was given. The parent can revoke and reabsorb at any point, and is
+        structurally unable to send the remainder anywhere but back.</p>
+      </article>
+      <article>
+        <p class="n">Unattended</p><h3>Ops that run when you are asleep</h3>
+        <p>CI, autoscaling, monitoring, restocking. The failure you are insuring against is not
+        a bug in your budget check — it is the machine holding the key being taken. A limit
+        enforced by every node on the network survives that; a limit enforced by your process
+        does not.</p>
+      </article>
     </div>
   </div>
 </section>
@@ -507,24 +608,100 @@
   </div>
 </section>
 
+<section class="rule" id="stack">
+  <div class="wrap">
+    <div data-rise>
+      <p class="eyebrow">What exists today</p>
+      <h2>Three layers. All of them shipped.</h2>
+      <p class="big" style="margin-top:1.2rem;max-width:56ch">
+        Each one is only worth something if the one below it holds, which is why they are
+        numbered. Everything named here is published and installable now.
+      </p>
+    </div>
+
+    <div class="layers" data-rise style="--d:100ms">
+      <div>
+        <p class="lv">01</p>
+        <div>
+          <h3>The covenant</h3>
+          <p class="what">A spending limit compiled into the script that unlocks the coin.
+          A spend outside it is not a refused request — it is not a transaction. Every node
+          applies it, including the ones nobody here runs.</p>
+        </div>
+        <p class="ships">
+          Kaspa L1, live on mainnet since the Toccata fork, 30 June 2026<br>
+          <code>@warda_protocol/core</code> — the rules, as one reference implementation<br>
+          measured against the running script engine: 0.4% of the size ceiling,
+          13 of 65,535 compute units
+        </p>
+      </div>
+      <div>
+        <p class="lv">02</p>
+        <div>
+          <h3>The grant lifecycle</h3>
+          <p class="what">Creating a grant, spending from it, delegating a bounded child,
+          settling it back, revoking, and finding one you have lost. No Rust toolchain and no
+          compiler — it is JavaScript that builds and signs the transactions.</p>
+        </div>
+        <p class="ships">
+          <code>@warda_protocol/kaspa</code> — build, sign, recover, watch<br>
+          <code>@warda_protocol/mcp</code> — nine tools any agent framework can discover.
+          It never holds a key and never signs: it returns unsigned bytes and a digest<br>
+          hosted at <code>mcp.wardaprotocol.com/mcp</code>, listed in the official MCP registry
+        </p>
+      </div>
+      <div>
+        <p class="lv">03</p>
+        <div>
+          <h3>Applications</h3>
+          <p class="what">What you actually build on top. Paying for things is the first one,
+          because an agent that cannot pay for an API is not autonomous — it is waiting for
+          somebody.</p>
+        </div>
+        <p class="ships">
+          <code>@warda_protocol/x402</code> — a drop-in <code>fetch</code> that settles HTTP 402
+          out of a grant and never pays twice for one resource<br>
+          exercised end to end against a real priced endpoint on testnet-10
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section class="rule">
   <div class="wrap">
     <div data-rise>
-      <p class="eyebrow">Works today</p>
-      <h2>Two integrations, no glue.</h2>
+      <p class="eyebrow">Still building</p>
+      <h2>What comes next, without dates.</h2>
+      <p class="big" style="margin-top:1.2rem;max-width:56ch">
+        A date is a promise and a direction is an intention, and only one of those can be
+        broken quietly. None of the below exists yet. Everything above does.
+      </p>
     </div>
-    <div class="with" data-rise style="--d:100ms">
+    <div class="road" data-rise style="--d:100ms">
       <div>
-        <p class="h">Model Context Protocol</p>
-        <p class="d">Nine tools an agent framework can discover: what may I spend, where does my grant live, build me a payment, delegate, settle, revoke, and find a grant I have lost. It never sees a key.</p>
+        <span class="tag">Before real money</span>
+        <h3>Audit, then mainnet</h3>
+        <p>Covenants are live on mainnet; Warda is not. It has been exercised end to end on
+        testnet-10 only and is unaudited. That order does not change.</p>
       </div>
       <div>
-        <p class="h">x402</p>
-        <p class="d"><code>@warda_protocol/x402</code> is a drop-in <code>fetch</code>. It calls a paid endpoint like a free one, pays the 402 out of the grant, and never pays twice for one resource.</p>
+        <span class="tag">Visibility</span>
+        <h3>Spend dashboard and verification API</h3>
+        <p>What an agent has spent, against what it was permitted — and an endpoint anyone can
+        call to verify a grant's terms without trusting whoever showed them to you.</p>
       </div>
       <div>
-        <p class="h">Kaspa L1</p>
-        <p class="d">Covenants went live on mainnet with the Toccata fork on 30 June 2026. No sidechain, no bridge, no rollup — the limit is enforced by the same consensus that moves the coin.</p>
+        <span class="tag">Infrastructure</span>
+        <h3>Hosted grant following</h3>
+        <p>A grant's address moves on every spend. Following one currently means running a node
+        and a poller; this would run that so an integrator does not have to.</p>
+      </div>
+      <div>
+        <span class="tag">Reach</span>
+        <h3>Frameworks and wallets</h3>
+        <p>Beyond MCP: agent SDKs that can hold a grant directly, and wallet support so a grant
+        is something an ordinary wallet can display and manage.</p>
       </div>
     </div>
   </div>
@@ -763,4 +940,40 @@
     cols.classList.add("seen");
   }
 })();
+</script>
+
+<script>
+  /* The standing challenge, filled from what is actually published.
+   *
+   * The key is NOT baked in at build time. index.html is built whether or not
+   * a demo grant exists, so a hardcoded key would keep being shown after the
+   * demo was retired or replaced — a page inviting people to spend from a
+   * grant that is gone, with the credibility cost landing on every other claim
+   * around it.
+   *
+   * So both files are fetched, and the section stays hidden unless both
+   * answer. A missing section costs the page one argument. A wrong key costs
+   * it all of them. */
+  (function () {
+    var sec = document.getElementById("challenge");
+    if (!sec || !window.fetch) return;
+    var get = function (u) { return fetch(u, { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; }); };
+
+    Promise.all([get("/demo-grant.json"), get("/demo-state.json")])
+      .then(function (r) {
+        var card = r[0], st = r[1];
+        if (!card || !card.secret || !st || typeof st.paidToVendor !== "string") return;
+        /* The snapshot names the grant it describes; if it is not describing
+           the grant on the card, the two disagree and neither is shown. */
+        if (st.grant !== card.address) return;
+
+        document.getElementById("ch-key").textContent = card.secret;
+        document.getElementById("ch-paid").textContent = st.paidToVendor;
+        document.getElementById("ch-n").textContent = String(st.payments);
+        document.getElementById("ch-n-l").textContent = st.payments === 1 ? "payment" : "payments";
+        document.getElementById("ch-else").textContent = st.paidElsewhere || "0 KAS";
+        sec.hidden = false;
+      })
+      .catch(function () { /* no demo, no section */ });
+  })();
 </script>

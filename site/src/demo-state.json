@@ -1,6 +1,6 @@
 {
   "_comment": "A snapshot, not a live feed. Written by tools/demo-state.ts, which counts what has reached the vendor — the one address this grant was ever able to pay. The claim that nothing reached anywhere else is not measured here; it is enforced by the covenant.",
-  "checkedAt": "2026-09-02T08:31:12.194Z",
+  "checkedAt": "2026-09-02T09:00:06.383Z",
   "network": "testnet-10",
   "grant": "kaspatest:pqg5hngaqps0x40tp3pyvq7zy2naqgt6xvdljv8jetkhhhe2eknewsfwp86ev",
   "vendor": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
