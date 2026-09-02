@@ -12,10 +12,20 @@ diffable; this fills them in. Edit src/, never the output.
 
     python3 build.py            # both flavours
 """
-import base64, pathlib, sys
+import base64, json, pathlib, sys
 
 here = pathlib.Path(__file__).parent
 PAGES = ["index.html", "build.html"]
+
+# The attack page publishes a live grant's key and terms, so it can only be
+# built when there IS one. src/demo-grant.json is written by
+# sdk/tools/demo-card.ts, which derives every field from the grant and refuses
+# if they disagree. Without it the page is skipped rather than built with
+# placeholders — a page that says {{DEMO_ADDRESS}} to a stranger is worse than
+# no page.
+DEMO = here / "src" / "demo-grant.json"
+if DEMO.exists():
+    PAGES.append("attack.html")
 
 def data_uri(p):
     return "data:image/png;base64," + base64.b64encode(p.read_bytes()).decode()
@@ -49,6 +59,68 @@ COPIES = [
     "sitemap.xml",
 ]
 
+# The sources are written as artifact bodies: they start at <title> and carry
+# no <!doctype>, <html>, <head> or <body>, because the artifact host supplies
+# those. A real web server supplies nothing — and the missing tag that matters
+# is the VIEWPORT META. Without it a phone lays the page out at 980px and
+# scales the result down, so every breakpoint in the CSS is present and never
+# fires. The page looked responsive in a resized desktop window and was not
+# responsive on a phone.
+HEAD = """<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+"""
+
+def as_document(html: str) -> str:
+    """Wrap an artifact body in the document skeleton a web host does not add."""
+    cut = html.rindex("</style>") + len("</style>")
+    return HEAD + html[:cut] + "\n</head>\n<body>\n" + html[cut:] + "\n</body>\n</html>\n"
+
+if DEMO.exists():
+    # A failed `demo-card.ts > src/demo-grant.json` still leaves the file: the
+    # shell creates it before the command runs. So an empty or truncated card
+    # is the NORMAL result of the previous step failing, and it should say that
+    # rather than raise a JSON traceback from inside the build.
+    try:
+        card = json.loads(DEMO.read_text())
+    except (ValueError, UnicodeDecodeError) as e:
+        sys.exit(
+            f"src/demo-grant.json is not valid JSON ({e}).\n"
+            "It is written by sdk/tools/demo-card.ts — if that command failed, this file is the "
+            "empty one your shell left behind. Delete it to build without the attack page."
+        )
+    # This page hands strangers a private key and tells them what it controls.
+    # A placeholder shipped here is not a cosmetic bug: it invites people to
+    # test a claim about a grant that does not exist, and the first one who
+    # checks is right to conclude the rest is theatre too.
+    bad = [k for k, v in card.items()
+           if isinstance(v, str) and ("SAMPLE" in v or "{{" in v)]
+    if bad or not card.get("address", "").startswith(("kaspa:", "kaspatest:")):
+        sys.exit(
+            "refusing to build attack.html: src/demo-grant.json is not a real grant"
+            + (f" (placeholder in {', '.join(bad)})" if bad else "")
+            + ".\nGenerate it with sdk/tools/demo-card.ts, which derives every field from the"
+            + " grant and refuses if they disagree."
+        )
+    demo_subs = {
+        "{{DEMO_AGENT_SECRET}}": card["secret"],
+        "{{DEMO_ADDRESS}}": card["address"],
+        "{{DEMO_VENDOR}}": card["vendor"],
+        "{{DEMO_BUDGET}}": card["budget"],
+        "{{DEMO_MAX_PER_SPEND}}": card["maxPerSpend"],
+        "{{DEMO_EPOCH_LIMIT}}": card["epochLimit"],
+        "{{DEMO_EPOCH_LENGTH}}": card["epochLength"],
+        "{{DEMO_COVENANT}}": card["covenant"],
+        "{{DEMO_ROOT}}": card["root"],
+        "{{DEMO_RECIPIENTS}}": json.dumps(card["recipients"]),
+    }
+    for k, v in demo_subs.items():
+        flavours["."][k] = v
+        flavours["web"][k] = v
+
 for outdir, subs in flavours.items():
     d = here / outdir
     d.mkdir(exist_ok=True)
@@ -56,6 +128,10 @@ for outdir, subs in flavours.items():
         html = (here / "src" / name).read_text()
         for k, v in subs.items():
             html = html.replace(k, v)
+        # Only the web flavour. The artifact host wraps the body itself, and a
+        # second <html> inside its skeleton is a malformed document.
+        if outdir == "web":
+            html = as_document(html)
         (d / name).write_text(html)
     for name in COPIES:
         src = here / "src" / name

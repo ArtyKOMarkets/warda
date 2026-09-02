@@ -30,6 +30,11 @@
  *   --window <daa>          term from now  (default 25920000, ~30d at 10bps)
  *   --depth <n>             how deep delegation may go    (default 2)
  *   --agent <hex>           the spending key    (default: derived from WARDA_SK)
+ *   --recipients <list>     who the agent may pay: kaspa addresses or x-only
+ *                           keys, comma-separated or one per line in a file.
+ *                           Fixed at genesis and unchangeable afterwards, so a
+ *                           lost list is a grant that can be reclaimed but
+ *                           never spent. (default: the demo set)
  *   --principal <hex>       receives on exit    (default: the funder)
  *   --revocation <hex>      may stop the grant  (default: the principal)
  *   --fee <sompi>           default 1000000
@@ -38,9 +43,9 @@
  *   --prefix, --rpc
  */
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 
-import { pubkeyToAddress, scriptHashToAddress, type NetworkPrefix } from "../src/address.ts";
+import { decodeAddress, pubkeyToAddress, scriptHashToAddress, type NetworkPrefix } from "../src/address.ts";
 import { fromHex, toHex } from "../src/bytes.ts";
 import { attachGenesisSignature, buildGenesis } from "../src/genesis.ts";
 import { blake2b256 } from "../src/hashers.ts";
@@ -77,16 +82,45 @@ const outPath = flag("out", "grant.json")!;
 const fee = BigInt(flag("fee", "1000000")!);
 const budget = BigInt(flag("budget", "500000000")!);
 
-// The demo allowlist, rebuilt rather than copied — the root has to match what
-// a spend can later prove against, and recomputing it is the only way to know
-// the two agree.
+/**
+ * The allowlist.
+ *
+ * Rebuilt rather than copied — the root has to match what a spend will later
+ * prove against, and recomputing it from the members is the only way to know
+ * the two agree.
+ *
+ * `--recipients` takes kaspa addresses or bare x-only keys, comma-separated or
+ * one per line in a file. It was hardcoded, which meant every grant this tool
+ * created shared one demo allowlist: fine for a reference vector, useless for
+ * a grant whose whole point is WHO it may pay.
+ *
+ * Keep the member list. Payees are fixed at genesis and a spend cannot be
+ * built without an inclusion proof, so a lost list is a grant that can still
+ * be revoked and reclaimed but never spent.
+ */
+function membersFrom(spec: string): string[] {
+  const looksLikePath = /[\\/\\\\]|\\.(txt|json|list)$/.test(spec);
+  if (looksLikePath && !existsSync(spec)) {
+    throw new Error(
+      `no such file: ${spec}\nA list can be given inline, but this looks like a path — and ` +
+        `treating a missing path as a one-member list produces a failure deep inside hex ` +
+        `decoding that names neither the file nor the flag.`,
+    );
+  }
+  const raw = existsSync(spec) ? readFileSync(spec, "utf8") : spec;
+  return raw
+    .split(/[\s,]+/)
+    .map((t) => t.trim())
+    .filter(Boolean)
+    .map((t) => (t.includes(":") ? toHex(decodeAddress(t).payload) : t.toLowerCase()));
+}
+
 const demoApiKey = agentPublicKey(blake2b256(new TextEncoder().encode("warda-demo-api-v1")));
-const recipients = new RecipientSet([
-  demoApiKey,
-  new Uint8Array(32).fill(0xa2),
-  new Uint8Array(32).fill(0xa3),
-  new Uint8Array(32).fill(0xa4),
-]);
+const recipients = new RecipientSet(
+  flag("recipients")
+    ? membersFrom(flag("recipients")!)
+    : [demoApiKey, new Uint8Array(32).fill(0xa2), new Uint8Array(32).fill(0xa3), new Uint8Array(32).fill(0xa4)],
+);
 
 /**
  * Three roles, three keys.

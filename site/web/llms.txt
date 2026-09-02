@@ -65,6 +65,14 @@ empty address is indistinguishable from a grant that was drained, revoked, or
 never funded. Use `warda_grant_address` for where it is, and
 `warda_recover_grant` when a record has fallen behind.
 
+## The proof, if you want to check rather than read
+
+https://wardaprotocol.com/attack publishes the complete private key of an agent
+holding a funded grant on testnet-10. The key is real and the grant is funded.
+Anyone can sign with it; the covenant bounds what those signatures can do to
+0.1 KAS per payment, to one allowlisted address. That page is the shortest path
+to deciding whether any of this is true.
+
 ## Docs
 
 - [Developer guide](https://wardaprotocol.com/build):

@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Take the key</title>
+<meta name="description" content="A live Warda grant on Kaspa testnet-10, with the agent's private key published in full. Take it. The most you can do is give the vendor money.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+  :root {
+    --void: #06090C; --ground: #0A1014; --panel: #101A20;
+    --edge: #1E2E37; --edge-bright: #2C4350;
+    --chrome: #DDE0E2; --chrome-dim: #8D989E; --chrome-faint: #5D6B73;
+    --teal: #14D7C1; --teal-bright: #38F9E9; --teal-deep: #06BBA1;
+    --teal-ghost: rgba(20,215,193,0.10);
+    --refuse: #FF6B5A; --refuse-ghost: rgba(255,107,90,0.08);
+    --display: "Chakra Petch", "Arial Narrow", sans-serif;
+    --body: "Barlow", "Helvetica Neue", Arial, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    --gutter: clamp(1.15rem, 4vw, 3.4rem);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--void); color: var(--chrome); font-family: var(--body);
+         font-size: 17px; line-height: 1.66; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+  .wrap { max-width: 58rem; margin: 0 auto; padding: 0 var(--gutter); }
+  h1, h2, h3 { font-family: var(--display); font-weight: 700; margin: 0; line-height: 1.05;
+               letter-spacing: -0.02em; text-wrap: balance; }
+  h1 { font-size: clamp(2.4rem, 7vw, 4.6rem); }
+  h2 { font-size: clamp(1.5rem, 3.4vw, 2.1rem); margin-bottom: 0.9rem; }
+  p { margin: 0 0 1.05em; }
+  a { color: var(--teal); text-decoration-color: var(--teal-deep); text-underline-offset: 3px; }
+  a:hover { color: var(--teal-bright); }
+  :focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
+  code, .m { font-family: var(--mono); }
+  section { padding: clamp(2.8rem, 6vw, 4.4rem) 0; border-top: 1px solid var(--edge); }
+  .eyebrow { font-family: var(--mono); font-size: 0.68rem; text-transform: uppercase;
+             letter-spacing: 0.19em; color: var(--teal); margin: 0 0 1rem;
+             display: flex; align-items: center; gap: 0.7rem; }
+  .eyebrow::before { content: ""; width: 1.6rem; height: 1px; background: var(--teal-deep); flex: none; }
+
+  header { padding: clamp(2.4rem, 6vw, 4rem) 0 clamp(2rem, 5vw, 3rem); }
+  .home { font-family: var(--mono); font-size: 0.7rem; text-transform: uppercase;
+          letter-spacing: 0.14em; color: var(--chrome-faint); text-decoration: none;
+          display: inline-flex; align-items: center; min-height: 2.75rem; }
+  .home:hover { color: var(--teal-bright); }
+  .lede { font-size: clamp(1.05rem, 2vw, 1.25rem); color: var(--chrome-dim); max-width: 46ch; margin-top: 1.2rem; }
+  .lede strong { color: var(--chrome); font-weight: 500; }
+
+  /* ---- the key, presented as the provocation it is ---------------------- */
+  .key {
+    border: 1px solid var(--refuse); background: var(--refuse-ghost);
+    padding: 1.2rem 1.3rem; margin: 2rem 0 0;
+  }
+  .key .lbl { font-family: var(--mono); font-size: 0.68rem; text-transform: uppercase;
+              letter-spacing: 0.16em; color: var(--refuse); margin-bottom: 0.7rem; }
+  .key .val { font-family: var(--mono); font-size: clamp(0.7rem, 2.4vw, 0.92rem);
+              color: var(--chrome); overflow-wrap: anywhere; line-height: 1.75; user-select: all; }
+  .key .note { font-family: var(--mono); font-size: 0.7rem; color: var(--chrome-faint);
+               margin-top: 0.9rem; line-height: 1.7; }
+
+  /* ---- the grant's terms, as facts ------------------------------------- */
+  .terms { border: 1px solid var(--edge-bright); background: var(--ground); }
+  .row { display: grid; grid-template-columns: 11rem minmax(0,1fr); gap: 1rem;
+         padding: 0.6rem 1.2rem; border-bottom: 1px solid var(--edge);
+         font-family: var(--mono); font-size: 0.78rem; align-items: baseline; }
+  .row:last-child { border-bottom: 0; }
+  .row .k { color: var(--chrome-faint); }
+  .row .v { color: var(--chrome); overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+  .row .v.lit { color: var(--teal); }
+  .row .v .n { color: var(--chrome-faint); }
+  @media (max-width: 620px) { .row { grid-template-columns: 1fr; gap: 0.1rem; } }
+
+  /* ---- the check, run in the visitor's browser -------------------------- */
+  .try { border: 1px solid var(--edge-bright); background: var(--ground); margin-top: 1.8rem; }
+  .try-head { padding: 1rem 1.2rem; border-bottom: 1px solid var(--edge-bright);
+              font-family: var(--mono); font-size: 0.7rem; text-transform: uppercase;
+              letter-spacing: 0.14em; color: var(--chrome-faint); }
+  .try-body { padding: 1.2rem; }
+  label { display: block; font-family: var(--mono); font-size: 0.72rem; color: var(--chrome-dim);
+          margin-bottom: 0.6rem; }
+  .field { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+  input[type=text] {
+    flex: 1 1 20rem; min-width: 0; background: var(--void); border: 1px solid var(--edge-bright);
+    color: var(--chrome); font-family: var(--mono); font-size: 0.8rem; padding: 0.8rem 0.9rem;
+  }
+  input[type=text]:focus { outline: 2px solid var(--teal); outline-offset: 1px; }
+  button {
+    background: var(--teal); border: 1px solid var(--teal); color: var(--void);
+    font-family: var(--mono); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; padding: 0.8rem 1.3rem; min-height: 2.75rem; cursor: pointer;
+  }
+  button:hover { background: var(--teal-bright); border-color: var(--teal-bright); }
+  button.alt { background: none; color: var(--chrome-dim); border-color: var(--edge-bright); font-weight: 500; }
+  button.alt:hover { background: none; color: var(--teal-bright); border-color: var(--teal); }
+  .presets { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.9rem; }
+  .presets button { font-size: 0.68rem; padding: 0.6rem 0.9rem; min-height: 2.4rem; }
+
+  .out { margin-top: 1.3rem; padding: 1.1rem 1.2rem; border: 1px solid; font-family: var(--mono);
+         font-size: 0.8rem; line-height: 1.75; display: none; }
+  .out.on { display: block; }
+  .out .head { display: block; text-transform: uppercase; letter-spacing: 0.14em;
+               font-size: 0.72rem; margin-bottom: 0.5rem; }
+  .out.no { border-color: var(--refuse); background: var(--refuse-ghost); }
+  .out.no .head { color: var(--refuse); }
+  .out.ok { border-color: var(--teal-deep); background: var(--teal-ghost); }
+  .out.ok .head { color: var(--teal); }
+  .out .body { color: var(--chrome-dim); }
+  .out .body b { color: var(--chrome); font-weight: 500; }
+  .out .steps { margin-top: 0.8rem; color: var(--chrome-faint); font-size: 0.74rem; }
+  .out .steps div { padding: 0.15rem 0; overflow-wrap: anywhere; }
+
+  .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem,1fr));
+          gap: 1px; background: var(--edge); border: 1px solid var(--edge); margin-top: 1.6rem; }
+  .cols > div { background: var(--void); padding: 1.3rem 1.2rem; }
+  .cols h3 { font-size: 1rem; margin-bottom: 0.4rem; }
+  .cols p { font-size: 0.9rem; color: var(--chrome-dim); margin: 0; }
+  .cols .n { font-family: var(--mono); font-size: 0.64rem; letter-spacing: 0.13em;
+             text-transform: uppercase; color: var(--teal); margin-bottom: 0.5rem; }
+
+  footer { border-top: 1px solid var(--edge); padding: 2.4rem 0 3.4rem; }
+  footer p { font-family: var(--mono); font-size: 0.7rem; color: var(--chrome-faint);
+             line-height: 1.75; max-width: 62ch; }
+</style>
+</head>
+<body>
+
+
+<header>
+  <div class="wrap">
+    <a class="home" href="/">&larr; wardaprotocol.com</a>
+    <p class="eyebrow" style="margin-top:1.4rem">Live on Kaspa testnet-10</p>
+    <h1>Here is the key.<br>Take the money.</h1>
+    <p class="lede">
+      Below is the complete private key of an agent holding a funded Warda grant. Not a
+      hash of it, not a testnet placeholder — <strong>the key itself</strong>. Copy it, sign
+      with it, broadcast whatever you like.
+    </p>
+    <p class="lede" style="margin-top:-0.4rem">
+      The most you can do is <strong>give the vendor money</strong>.
+    </p>
+
+    <div class="key">
+      <p class="lbl">Agent secret key · secp256k1 · spend with it</p>
+      <p class="val" id="sk">9fccfb08645b4a5a49f0f461b9ae7209865c234f941e9d4679e8a18da77af2ad</p>
+      <p class="note">
+        Independently generated for this page. It is not derived from, and cannot be used to
+        reach, the principal or revocation key — those never leave a machine you cannot get to.
+        Everything this key controls is described below, and the description is enforced by
+        Kaspa consensus rather than by us.
+      </p>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">What the key controls</p>
+    <div class="terms">
+      <div class="row"><span class="k">grant</span><span class="v lit" id="addr">kaspatest:pzrt7dsaaul8t4ydcv2umqjq8xhnrqjwcqn73zaq6exlgwpny8sykr0gx8q4c</span></div>
+      <div class="row"><span class="k">budget</span><span class="v">50 KAS <span class="n">total, for the life of the grant</span></span></div>
+      <div class="row"><span class="k">per payment</span><span class="v">0.1 KAS <span class="n">a larger spend is not a rejected transaction; it is not a transaction</span></span></div>
+      <div class="row"><span class="k">per epoch</span><span class="v">0.5 KAS <span class="n">every 1000 blocks</span></span></div>
+      <div class="row"><span class="k">may pay</span><span class="v lit">kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4</span></div>
+      <div class="row"><span class="k">may pay</span><span class="v">nobody else <span class="n">the allowlist is a Merkle root fixed before the grant was funded</span></span></div>
+      <div class="row"><span class="k">covenant</span><span class="v">b3e5eeefacf2021f</span></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Check it yourself</p>
+    <h2>Pick a payee. Watch the proof fail to exist.</h2>
+    <p style="color:var(--chrome-dim);max-width:52ch">
+      A Warda spend carries a Merkle inclusion proof placing the payee in the grant's allowlist.
+      The covenant recomputes the root from that proof and compares. For an address outside the
+      tree there is no path to supply — so there is nothing to sign, nothing to broadcast, and
+      nothing for a node to reject.
+    </p>
+    <p style="color:var(--chrome-dim);max-width:52ch">
+      This runs <strong style="color:var(--chrome);font-weight:500">in your browser</strong>, against the
+      real member list and the real root the grant committed to. Nothing is sent anywhere.
+    </p>
+
+    <div class="try">
+      <div class="try-head">blake2b-256 · leaf 0x01 · node 0x02 · odd nodes promoted</div>
+      <div class="try-body">
+        <label for="payee">Address or 32-byte x-only key</label>
+        <div class="field">
+          <input type="text" id="payee" spellcheck="false" autocomplete="off"
+                 placeholder="kaspatest:q… or 64 hex characters">
+          <button id="go" type="button">Try to pay it</button>
+        </div>
+        <div class="presets">
+          <button class="alt" data-fill="kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4" type="button">Use the vendor</button>
+          <button class="alt" data-fill="random" type="button">Use a random address</button>
+          <button class="alt" data-fill="mine" type="button">Use my own</button>
+        </div>
+        <div class="out" id="out"><span class="head"></span><span class="body"></span><div class="steps"></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Why this is not a stunt</p>
+    <h2>No platform can run this demo.</h2>
+    <div class="cols">
+      <div>
+        <p class="n">Server-enforced limits</p>
+        <h3>The key is the authority</h3>
+        <p>When a platform holds the limit, the key is unrestricted and the platform declines to
+        use it. Publish that key and it simply works, somewhere else.</p>
+      </div>
+      <div>
+        <p class="n">Consensus-enforced limits</p>
+        <h3>The key is bounded</h3>
+        <p>The limit is compiled into the script that unlocks the coin. There is no elsewhere.
+        Every node on the network applies it, including the ones we do not run.</p>
+      </div>
+      <div>
+        <p class="n">What is still ours</p>
+        <h3>Revocation and the balance</h3>
+        <p>The principal can end this grant at any moment and sweep what is left — and is
+        structurally unable to send it anywhere but back. Publishing the agent key gives that
+        away to nobody.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>
+      Kaspa testnet-10. Testnet coin has no market value, so nothing here is a claim about
+      custody of real funds — it is a claim about what a covenant permits, and that part is
+      identical on mainnet, where Toccata activated on 30 June 2026. Warda is unaudited and has
+      not been deployed to mainnet.
+      <br><br>
+      If you do move funds to the vendor, that is the demo working. If you move them anywhere
+      else, please <a href="https://github.com/ArtyKOMarkets/warda/issues">open an issue</a> —
+      that is a vulnerability, and six have been found and fixed so far by exactly this method.
+    </p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---- blake2b-256, enough of it to check a Merkle path ----------------- */
+  /* Inlined rather than imported: this page's whole claim is that YOU can    */
+  /* verify the refusal, and a claim that depends on fetching a script from   */
+  /* someone else's CDN is a weaker claim.                                    */
+  var IV = new Uint32Array([
+    0xf3bcc908,0x6a09e667, 0x84caa73b,0xbb67ae85, 0xfe94f82b,0x3c6ef372, 0x5f1d36f1,0xa54ff53a,
+    0xade682d1,0x510e527f, 0x2b3e6c1f,0x9b05688c, 0xfb41bd6b,0x1f83d9ab, 0x137e2179,0x5be0cd19]);
+  var SIGMA = [
+    [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15],[14,10,4,8,9,15,13,6,1,12,0,2,11,7,5,3],
+    [11,8,12,0,5,2,15,13,10,14,3,6,7,1,9,4],[7,9,3,1,13,12,11,14,2,6,5,10,4,0,15,8],
+    [9,0,5,7,2,4,10,15,14,1,11,12,6,8,3,13],[2,12,6,10,0,11,8,3,4,13,7,5,15,14,1,9],
+    [12,5,1,15,14,13,4,10,0,7,6,3,9,2,8,11],[13,11,7,14,12,1,3,9,5,0,15,4,8,6,2,10],
+    [6,15,14,9,11,3,0,8,12,2,13,7,1,4,10,5],[10,2,8,4,7,6,1,5,15,11,9,14,3,12,13,0],
+    [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15],[14,10,4,8,9,15,13,6,1,12,0,2,11,7,5,3]];
+  var v = new Uint32Array(32), m = new Uint32Array(32);
+
+  function add64(a, b, c, d) { // v[a] += v[b], 64-bit little-endian halves
+    var lo = (v[a] >>> 0) + (v[b] >>> 0);
+    v[a] = lo >>> 0;
+    v[a + 1] = (v[a + 1] + v[b + 1] + (lo >= 0x100000000 ? 1 : 0)) >>> 0;
+  }
+  function rot(a, bits) {
+    var lo = v[a], hi = v[a + 1], nl, nh;
+    if (bits === 32) { nl = hi; nh = lo; }
+    else if (bits < 32) { nl = (lo >>> bits) ^ (hi << (32 - bits)); nh = (hi >>> bits) ^ (lo << (32 - bits)); }
+    else { var b2 = bits - 32; nl = (hi >>> b2) ^ (lo << (32 - b2)); nh = (lo >>> b2) ^ (hi << (32 - b2)); }
+    v[a] = nl >>> 0; v[a + 1] = nh >>> 0;
+  }
+  function xorInto(a, b) { v[a] = (v[a] ^ v[b]) >>> 0; v[a + 1] = (v[a + 1] ^ v[b + 1]) >>> 0; }
+  function G(r, i, a, b, c, d) {
+    var x = SIGMA[r][2 * i], y = SIGMA[r][2 * i + 1];
+    add64(a, b); v[a] = (v[a] + m[2 * x]) >>> 0;
+    if ((v[a] >>> 0) < (m[2 * x] >>> 0)) v[a + 1] = (v[a + 1] + 1) >>> 0;
+    v[a + 1] = (v[a + 1] + m[2 * x + 1]) >>> 0;
+    xorInto(d, a); rot(d, 32);
+    add64(c, d); xorInto(b, c); rot(b, 24);
+    add64(a, b); v[a] = (v[a] + m[2 * y]) >>> 0;
+    if ((v[a] >>> 0) < (m[2 * y] >>> 0)) v[a + 1] = (v[a + 1] + 1) >>> 0;
+    v[a + 1] = (v[a + 1] + m[2 * y + 1]) >>> 0;
+    xorInto(d, a); rot(d, 16);
+    add64(c, d); xorInto(b, c); rot(b, 63);
+  }
+
+  function blake2b256(input) {
+    var h = new Uint32Array(IV);
+    h[0] ^= 0x01010000 ^ 32;              // no key, 32-byte digest
+    var block = new Uint8Array(128), dv = new DataView(block.buffer);
+    var t = 0, i, off = 0;
+    function compress(last) {
+      for (i = 0; i < 32; i++) m[i] = dv.getUint32(i * 4, true);
+      for (i = 0; i < 16; i++) v[i] = h[i];
+      for (i = 0; i < 16; i++) v[i + 16] = IV[i];
+      v[24] = (v[24] ^ (t >>> 0)) >>> 0;
+      v[25] = (v[25] ^ Math.floor(t / 0x100000000)) >>> 0;
+      if (last) { v[28] = (~v[28]) >>> 0; v[29] = (~v[29]) >>> 0; }
+      for (var r = 0; r < 12; r++) {
+        G(r,0,0,8,16,24); G(r,1,2,10,18,26); G(r,2,4,12,20,28); G(r,3,6,14,22,30);
+        G(r,4,0,10,20,30); G(r,5,2,12,22,24); G(r,6,4,14,16,26); G(r,7,6,8,18,28);
+      }
+      for (i = 0; i < 16; i++) h[i] = (h[i] ^ v[i] ^ v[i + 16]) >>> 0;
+    }
+    while (input.length - off > 128) {
+      block.set(input.subarray(off, off + 128)); t += 128; off += 128; compress(false);
+    }
+    block.fill(0); block.set(input.subarray(off)); t += input.length - off; compress(true);
+    var out = new Uint8Array(32);
+    for (i = 0; i < 8; i++) { new DataView(out.buffer).setUint32(i * 4, h[i], true); }
+    return out;
+  }
+
+  /* ---- bech32m, to read a kaspa address --------------------------------- */
+  var CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
+  function decodeAddress(addr) {
+    var i = addr.indexOf(":");
+    if (i < 0) return null;
+    var data = addr.slice(i + 1);
+    // The checksum is the last EIGHT FIVE-BIT GROUPS — 40 bits, five bytes —
+    // not eight bytes. Reading it as eight bytes leaves the payload short and
+    // every address looks malformed, which is exactly how this first failed.
+    if (data.length < 9) return null;
+    var body = data.slice(0, -8), bits = 0, acc = 0, out = [];
+    for (var k = 0; k < body.length; k++) {
+      var vv = CHARSET.indexOf(body[k].toLowerCase());
+      if (vv < 0) return null;
+      acc = (acc << 5) | vv; bits += 5;
+      while (bits >= 8) { bits -= 8; out.push((acc >> bits) & 0xff); }
+    }
+    // byte 0 is the address version; a 32-byte payload follows.
+    if (out.length < 33) return null;
+    return new Uint8Array(out.slice(1, 33));
+  }
+
+  function fromHex(h) {
+    var out = new Uint8Array(h.length / 2);
+    for (var i = 0; i < out.length; i++) out[i] = parseInt(h.substr(i * 2, 2), 16);
+    return out;
+  }
+  function toHex(b) {
+    var s = "";
+    for (var i = 0; i < b.length; i++) s += b[i].toString(16).padStart(2, "0");
+    return s;
+  }
+  function cat() {
+    var n = 0, i;
+    for (i = 0; i < arguments.length; i++) n += arguments[i].length;
+    var out = new Uint8Array(n), o = 0;
+    for (i = 0; i < arguments.length; i++) { out.set(arguments[i], o); o += arguments[i].length; }
+    return out;
+  }
+
+  /* ---- the grant's real allowlist --------------------------------------- */
+  var MEMBERS = ["16e6af2030f7e4510d1a417391a7ff7ccad21864f17eef7ee035f0453e21a033"];
+  var ROOT = "ba9e576ed159db9347d3f137e449cb31fbb802dcb77784dae6bea270e7ca92b2";
+
+  var LEAF = Uint8Array.of(0x01), NODE = Uint8Array.of(0x02);
+
+  // Canonical order, matching RecipientSet: sorted by hex.
+  var sorted = MEMBERS.slice().sort();
+
+  function levels() {
+    var lv = [sorted.map(function (h) { return blake2b256(cat(LEAF, fromHex(h))); })];
+    while (lv[lv.length - 1].length > 1) {
+      var prev = lv[lv.length - 1], next = [];
+      for (var i = 0; i < prev.length; i += 2) {
+        // Odd nodes are PROMOTED, not duplicated: duplicating lets two
+        // different member sets produce one root.
+        next.push(i + 1 < prev.length ? blake2b256(cat(NODE, prev[i], prev[i + 1])) : prev[i]);
+      }
+      lv.push(next);
+    }
+    return lv;
+  }
+  var LV = levels();
+
+  function proofFor(hex) {
+    var idx = sorted.indexOf(hex);
+    if (idx < 0) return null;
+    var sib = [], side = [], i = idx;
+    for (var l = 0; l < LV.length - 1; l++) {
+      var lvl = LV[l], partner = (i % 2 === 0) ? i + 1 : i - 1;
+      if (partner < lvl.length) { sib.push(lvl[partner]); side.push(partner < i); i = Math.floor(i / 2); }
+      else { i = Math.floor(i / 2); }   // promoted; no sibling at this level
+    }
+    return { siblings: sib, left: side };
+  }
+
+  function fold(leafHex, p) {
+    var node = blake2b256(cat(LEAF, fromHex(leafHex)));
+    for (var i = 0; i < p.siblings.length; i++) {
+      node = p.left[i] ? blake2b256(cat(NODE, p.siblings[i], node))
+                       : blake2b256(cat(NODE, node, p.siblings[i]));
+    }
+    return toHex(node);
+  }
+
+  /* ---- the panel --------------------------------------------------------- */
+  var input = document.getElementById("payee"),
+      out = document.getElementById("out"),
+      head = out.querySelector(".head"),
+      body = out.querySelector(".body"),
+      steps = out.querySelector(".steps");
+
+  function normalise(raw) {
+    var s = raw.trim();
+    if (!s) return null;
+    if (/^[0-9a-fA-F]{64}$/.test(s)) return s.toLowerCase();
+    if (s.indexOf(":") > 0) { var b = decodeAddress(s); return b ? toHex(b) : null; }
+    return null;
+  }
+
+  function show(kind, title, html, lines) {
+    out.className = "out on " + kind;
+    head.textContent = title;
+    body.innerHTML = html;
+    steps.innerHTML = (lines || []).map(function (l) { return "<div>" + l + "</div>"; }).join("");
+  }
+
+  function run() {
+    var hex = normalise(input.value);
+    if (!hex) {
+      show("no", "Not an address",
+           "Paste a kaspa address, or 64 hex characters of an x-only public key.", []);
+      return;
+    }
+    var p = proofFor(hex);
+    if (!p) {
+      show("no", "No valid transaction exists",
+        "This payee is not a leaf of the tree the grant committed to, so there is no inclusion " +
+        "proof to carry. The spend cannot be <b>built</b> — this is not a transaction the network " +
+        "refuses, it is an absence of one.",
+        ["payee   " + hex,
+         "root    " + ROOT,
+         "members " + sorted.length + " — checked every one, in your browser",
+         "result  no path from this leaf to that root"]);
+      return;
+    }
+    var folded = fold(hex, p);
+    var okRoot = folded === ROOT;
+    show(okRoot ? "ok" : "no",
+      okRoot ? "This one would be accepted" : "Root mismatch",
+      okRoot
+        ? "This payee is on the allowlist, so a proof exists and a spend can be built — capped at " +
+          "<b>0.1 KAS</b> per payment and <b>0.5 KAS</b> per epoch. " +
+          "Sign it with the published key and the network will take it. The money goes to the vendor."
+        : "The fold did not reproduce the committed root, which should be impossible. Please report it.",
+      ["payee    " + hex,
+       "siblings " + (p.siblings.length || "none — this leaf was promoted to the root"),
+       "folded   " + folded,
+       "root     " + ROOT,
+       "match    " + (okRoot ? "yes" : "NO")]);
+  }
+
+  document.getElementById("go").addEventListener("click", run);
+  input.addEventListener("keydown", function (e) { if (e.key === "Enter") run(); });
+
+  Array.prototype.forEach.call(document.querySelectorAll("[data-fill]"), function (b) {
+    b.addEventListener("click", function () {
+      var f = b.getAttribute("data-fill");
+      if (f === "random") {
+        var r = new Uint8Array(32);
+        (window.crypto || {}).getRandomValues ? crypto.getRandomValues(r)
+          : r.forEach(function (_, i) { r[i] = (Math.random() * 256) | 0; });
+        input.value = toHex(r);
+      } else if (f === "mine") {
+        input.value = "";
+        input.focus();
+        show("no", "Go on",
+             "Paste any address you control. That is the interesting case: the one where you " +
+             "have the agent's key and want the money to arrive somewhere you own.", []);
+        return;
+      } else {
+        input.value = f;
+      }
+      run();
+    });
+  });
+})();
+</script>
+
+</body>
+</html>

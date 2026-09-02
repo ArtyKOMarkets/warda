@@ -191,6 +191,14 @@ const derived = childKey === derivedChild;
  * person has to hand, and decoding it here beats making them convert.
  */
 function members(spec: string): string[] {
+  const looksLikePath = /[\\/\\\\]|\\.(txt|json|list)$/.test(spec);
+  if (looksLikePath && !existsSync(spec)) {
+    throw new Error(
+      `no such file: ${spec}\nA list can be given inline, but this looks like a path — and ` +
+        `treating a missing path as a one-member list produces a failure deep inside hex ` +
+        `decoding that names neither the file nor the flag.`,
+    );
+  }
   const raw = existsSync(spec) ? readFileSync(spec, "utf8") : spec;
   return raw
     .split(/[\s,]+/)

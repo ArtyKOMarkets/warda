@@ -79,8 +79,15 @@
   .bar .dot { width: 6px; height: 6px; background: var(--teal); flex: none; border-radius: 50%; }
   .bar .t { color: var(--chrome); }
   .bar .m { color: var(--chrome-faint); letter-spacing: 0.04em; text-transform: none; }
-  .bar a { margin-left: auto; color: var(--teal); text-decoration: none; white-space: nowrap; }
+  .bar a { margin-left: auto; color: var(--teal); text-decoration: none; white-space: nowrap;
+           padding: 0.55rem 0; display: inline-flex; align-items: center; min-height: 2.75rem; }
   .bar a:hover { color: var(--teal-bright); }
+  @media (max-width: 640px) {
+    .bar .wrap { gap: 0.2rem 0.7rem; }
+    .bar .m { display: none; }
+    .bar .t { font-size: 0.62rem; }
+    .bar a { margin-left: auto; font-size: 0.62rem; }
+  }
   @media (prefers-reduced-motion: no-preference) {
     .bar .dot { animation: pulse 2.6s ease-in-out infinite; }
     @keyframes pulse { 0%,100% { opacity: 1; box-shadow: 0 0 0 0 rgba(20,215,193,0.5); } 50% { opacity: 0.55; box-shadow: 0 0 0 5px rgba(20,215,193,0); } }
@@ -207,7 +214,7 @@
   .track { height: 6px; background: var(--panel); border: 1px solid var(--edge); position: relative; overflow: hidden; }
   .track i { position: absolute; inset: 0 auto 0 0; width: var(--used, 0%); background: var(--teal); display: block; }
   @media (prefers-reduced-motion: no-preference) { .track i { transition: width 900ms cubic-bezier(.2,.7,.3,1); } }
-  .replay { margin-top: 1.2rem; background: none; border: 1px solid var(--edge-bright); color: var(--chrome-dim); font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.55rem 1rem; cursor: pointer; }
+  .replay { margin-top: 1.2rem; background: none; border: 1px solid var(--edge-bright); color: var(--chrome-dim); font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.8rem 1.2rem; min-height: 2.75rem; cursor: pointer; }
   .replay:hover { border-color: var(--teal); color: var(--teal-bright); }
 
   /* ---- the receipt ----------------------------------------------------- */
@@ -277,8 +284,9 @@
   footer { border-top: 1px solid var(--edge); padding: 2.6rem 0 3.4rem; }
   footer p { font-family: var(--mono); font-size: 0.7rem; color: var(--chrome-faint); line-height: 1.75; max-width: 64ch; }
   footer strong { color: var(--chrome-dim); }
-  footer .ln { margin-top: 1.2rem; display: flex; gap: 1.4rem; flex-wrap: wrap; }
-  footer .ln a { font-family: var(--mono); font-size: 0.7rem; color: var(--chrome-dim); text-decoration: none; letter-spacing: 0.06em; text-transform: uppercase; }
+  footer .ln { margin-top: 0.6rem; display: flex; gap: 0.2rem 1.4rem; flex-wrap: wrap; }
+  footer .ln a { font-family: var(--mono); font-size: 0.7rem; color: var(--chrome-dim); text-decoration: none; letter-spacing: 0.06em; text-transform: uppercase;
+                 padding: 0.6rem 0; display: inline-flex; align-items: center; min-height: 2.75rem; }
   footer .ln a:hover { color: var(--teal-bright); }
 
   /* ---- reveal on scroll ------------------------------------------------ */
@@ -314,9 +322,9 @@
 <div class="bar">
   <div class="wrap">
     <span class="dot"></span>
-    <span class="t">An autonomous agent bought something on Kaspa</span>
-    <span class="m">testnet-10 · 1 Sep 2026 · and could not have bought anything else</span>
-    <a href="#receipt">See the receipt &rarr;</a>
+    <span class="t">This agent's private key is published</span>
+    <span class="m">50 KAS on testnet-10 · take it, if you can find a way</span>
+    <a href="/attack">Take the key &rarr;</a>
   </div>
 </div>
 
@@ -550,10 +558,11 @@
 
 <section class="rule close">
   <div class="wrap" data-rise>
-    <h2>Read it before you trust it.</h2>
-    <p>The covenant is 6,912 bytes of Silverscript, and the argument for it is entirely in what it refuses. The developer guide has the install, the lifecycle and the limits.</p>
+    <h2>Don't take our word for it.</h2>
+    <p>There is a funded grant on testnet-10 whose agent key we published in full. Take it and try to move the money somewhere we do not control. The check runs in your browser, against the real allowlist.</p>
     <div class="cta-row">
-      <a class="cta primary" href="/build">Developer guide <span class="arw">&rarr;</span></a>
+      <a class="cta primary" href="/attack">Take the key <span class="arw">&rarr;</span></a>
+      <a class="cta ghost" href="/build">Developer guide</a>
       <a class="cta ghost" href="https://github.com/ArtyKOMarkets/warda">GitHub</a>
     </div>
   </div>
