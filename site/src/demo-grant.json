@@ -2,7 +2,7 @@
   "_comment": "Published by tools/demo-card.ts. The secret here is DELIBERATELY public: it is an independently generated agent key for a testnet grant whose limits are enforced by the covenant, not by us. Every field is derived from the grant and checked against it.",
   "secret": "9fccfb08645b4a5a49f0f461b9ae7209865c234f941e9d4679e8a18da77af2ad",
   "agent": "b7c837bbf1d6e2d974594a8c0b91bcd193226176e57cbbee663f8538b16f914e",
-  "address": "kaspatest:pqg5hngaqps0x40tp3pyvq7zy2naqgt6xvdljv8jetkhhhe2eknewsfwp86ev",
+  "address": "kaspatest:ppj6y76w6lrw65kqes9dd0e0ay5ulda3rrhfah65zy28ugj89e2mq35suz3g2",
   "covenant": "b3e5eeefacf2021f",
   "vendor": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
   "recipients": [
@@ -10,7 +10,7 @@
   ],
   "root": "ba9e576ed159db9347d3f137e449cb31fbb802dcb77784dae6bea270e7ca92b2",
   "budget": "50 KAS",
-  "funded": "49.87 KAS",
+  "funded": "49.74 KAS",
   "maxPerSpend": "0.1 KAS",
   "epochLimit": "0.5 KAS",
   "epochLength": "1000"

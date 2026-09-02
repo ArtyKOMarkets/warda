@@ -247,6 +247,40 @@
 
 <section>
   <div class="wrap">
+    <p class="eyebrow">Before you start</p>
+    <h2>One prerequisite, and it is not optional.</h2>
+    <p style="max-width:56ch">
+      <strong>You need a Kaspa testnet-10 node you can reach.</strong> Everything in this SDK
+      builds and signs transactions locally &mdash; no server sees a key &mdash; but building one
+      means reading the UTXO set, and reading the UTXO set means talking to a node.
+    </p>
+    <p style="max-width:56ch">
+      Run your own:
+    </p>
+    <pre><code>kaspad --testnet --netsuffix=10 --utxoindex \
+      --rpclisten-json=127.0.0.1:18210</code></pre>
+    <p style="max-width:56ch">
+      Both flags matter. Without <code>--utxoindex</code> a node reports every grant as spent.
+      The JSON wRPC port is separate from the Borsh one (18210 versus 17210) and only listens
+      when that flag is given &mdash; note the <code>=</code>, which the flag requires.
+    </p>
+    <p style="max-width:56ch">
+      <code>WARDA_RESOLVER</code> is the alternative, and an honest note about it: a Kaspa
+      Resolver picks a public node for you, and <strong>we know of no published public
+      instance</strong>. The SDK supports it and compiles no host in, because naming one is a
+      decision about who you trust to answer "which node", and that belongs to you. Until a
+      public one exists, this means running a node.
+    </p>
+    <p style="max-width:56ch">
+      <code>tools/check-node.ts</code> interrogates whichever node you point at before you build
+      anything against it. Each thing it checks fails by returning a plausible wrong answer that
+      reads as a problem with your grant rather than with the node.
+    </p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
     <p class="eyebrow">Install</p>
     <h2 style="max-width:22ch">Three packages. Nothing to compile.</h2>
     <p class="lede">Compiled JavaScript with TypeScript declarations. Node 20+, no build step, no Rust toolchain and no Silverscript compiler — address derivation splices values into a compiled covenant template that ships inside the package.</p>

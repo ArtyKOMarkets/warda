@@ -524,9 +524,12 @@ await wardaFetch("https://api.example/infer");</code></pre>
     </div>
 
     <p class="needs" data-rise style="--d:200ms">
-      Needs a Kaspa testnet-10 node with <code>--utxoindex</code> and
-      <code>--rpclisten-json=</code>, or a resolver in <code>WARDA_RESOLVER</code>. Full
-      walkthrough in <a href="/build">the build guide</a>.
+      <strong style="color:var(--chrome-dim);font-weight:500">You need a Kaspa testnet-10 node
+      you can reach.</strong> Warda builds and signs transactions locally, but it has to read
+      the UTXO set to do it. Run <code>kaspad</code> with <code>--utxoindex</code> and
+      <code>--rpclisten-json=</code>, or point <code>WARDA_RESOLVER</code> at a Kaspa Resolver
+      if you have one &mdash; no public resolver instance is published anywhere we can find, so
+      in practice this means a node. Full walkthrough in <a href="/build">the build guide</a>.
     </p>
   </div>
 </section>
