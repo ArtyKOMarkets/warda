@@ -12,7 +12,7 @@ diffable; this fills them in. Edit src/, never the output.
 
     python3 build.py            # both flavours
 """
-import base64, json, pathlib, sys
+import base64, json, pathlib, re, sys
 
 here = pathlib.Path(__file__).parent
 PAGES = ["index.html", "build.html", "verify.html"]
@@ -84,6 +84,7 @@ COPIES = [
 # wrong. Copied only when it exists, because a build that dies over a missing
 # optional file is a build that stops shipping the pages that were fine.
 STATE = here / "src" / "demo-state.json"
+SRC_INDEX = here / "src" / "index.html"
 if STATE.exists():
     COPIES.append("demo-state.json")
 
@@ -135,6 +136,25 @@ def snapshot_matches(card):
         print("  Take a real reading:  cd sdk && node --experimental-strip-types \\")
         print("                          tools/demo-state.ts ../site/src/demo-grant.json \\")
         print("                          --resolver \"$WARDA_RESOLVER\" > ../site/src/demo-state.json")
+        return False
+
+    # And whether the page can READ it.
+    #
+    # The challenge section renders only when the snapshot carries the field
+    # its guard tests, and stays hidden otherwise — the right failure, because
+    # a wrong number on that section is worse than no section. It is also a
+    # SILENT failure: the page ships, looks fine, and the button that scrolls
+    # to the challenge does nothing at all, because its target is hidden.
+    #
+    # That is not hypothetical. Renaming paidToVendor to spentByThisGrant in
+    # the snapshot did exactly this, and the symptom reported was "the try the
+    # challenge button is not working".
+    guard = re.search(r'typeof st\.(\w+) !== "string"', SRC_INDEX.read_text())
+    if guard and not isinstance(snap.get(guard.group(1)), str):
+        print(f"! the page renders the challenge only when the snapshot has a string")
+        print(f"  `{guard.group(1)}`, and src/demo-state.json does not. The section would be")
+        print(f"  hidden and every link to #challenge would scroll nowhere.")
+        print(f"  The field names in src/index.html and sdk/tools/demo-state.ts move together.")
         return False
     return True
 
