@@ -304,12 +304,15 @@ test("the happy path pays once, settles, and moves the grant", async () => {
   );
 });
 
-test("a vendor that fails AFTER being handed a payment leaves the payer stopped", async () => {
+test("a spend the chain accepted is banked even when the vendor refuses to serve", async () => {
+  // Two different facts: whether the COIN moved, and whether the SERVICE was
+  // delivered. The chain settles the first and the vendor the second, and
+  // conflating them left the manifest pointing at an address holding nothing.
   const p = payer();
   const events: string[] = [];
   const fetchImpl = (async (_url: string, init: RequestInit) =>
     (init?.headers as Record<string, string>)?.["PAYMENT-SIGNATURE"]
-      ? res(500, { error: "model unavailable" })
+      ? res(402, { error: "invalid_transaction_state" })
       : res(402, quoted())) as never;
 
   await assert.rejects(
@@ -319,11 +322,31 @@ test("a vendor that fails AFTER being handed a payment leaves the payer stopped"
         fetchImpl,
         onEvent: (e) => events.push(e.type),
       }),
-    /answered 500.*cannot be told from here/s,
+    /IS on chain and accepted.*not served/s,
   );
-  assert.deepEqual(events, ["quote", "signed", "broadcast", "unresolved"]);
+
+  assert.deepEqual(events, ["quote", "signed", "broadcast", "settled", "unresolved"]);
+  assert.equal(p.outstanding.status, "none", "not stuck: we watched it land");
+  assert.equal(p.state.spentTotal, 20_000_000n, "and the grant moved, because it did");
+});
+
+test("a spend that never reached the chain still stops the payer", async () => {
+  const p = payer();
+  const fetchImpl = (async (_url: string, init: RequestInit) =>
+    (init?.headers as Record<string, string>)?.["PAYMENT-SIGNATURE"]
+      ? res(500, { error: "boom" })
+      : res(402, quoted())) as never;
+
+  await assert.rejects(
+    () =>
+      wardaFetchV2("https://vendor.example/infer", {}, {
+        payer: p,
+        fetchImpl,
+        broadcast: false,
+      }),
+    /stopped rather than assume/,
+  );
   assert.equal(p.outstanding.status, "unresolved");
-  // and it did NOT quietly bank the spend either
   assert.equal(p.state.spentTotal, 0n);
 });
 

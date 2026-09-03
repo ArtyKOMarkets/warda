@@ -163,10 +163,12 @@ export async function wardaFetchV2(
   const pending = await opts.payer.buildPaymentV2({ accepted, request });
   emit({ type: "signed", pending });
 
+  let confirmedOnChain = false;
   if (opts.broadcast !== false) {
     const { txid, accepted: onChain } = await opts.payer.broadcastPendingV2({
       timeoutMs: opts.acceptTimeoutMs,
     });
+    confirmedOnChain = onChain;
     emit({ type: "broadcast", txid, accepted: onChain });
     if (!onChain) {
       // Presenting anyway would very likely earn the same refusal, and the
@@ -189,6 +191,24 @@ export async function wardaFetchV2(
   } as never);
 
   if (!paid.ok) {
+    /**
+     * A spend the chain accepted is final, whatever the vendor thinks.
+     *
+     * These are two different facts and conflating them was a bug: whether the
+     * COIN moved, and whether the SERVICE was delivered. Once the network has
+     * accepted the transaction the grant has moved and the manifest must
+     * follow, or the next run aims at an address holding nothing — the exact
+     * failure `follow-grant` exists to repair, caused here for no reason.
+     *
+     * So the grant advances and the request still fails. The caller is told it
+     * paid and got nothing, which is the truth and is actionable; the
+     * alternative was a correct refusal to guess about a spend we had watched
+     * land ourselves.
+     */
+    if (confirmedOnChain) {
+      const result = opts.payer.settledV2();
+      emit({ type: "settled", result });
+    }
     /**
      * What the vendor said, verbatim.
      *
@@ -221,20 +241,26 @@ export async function wardaFetchV2(
      * two this is, because the operator's next step differs.
      */
     const rejected = paid.status === 402;
-    const out = opts.payer.abandonedV2(
-      `the vendor answered ${paid.status} to the paid request.`,
-    );
-    const why = out.status === "unresolved" ? out.why : "";
+    let why = "";
+    if (!confirmedOnChain) {
+      const out = opts.payer.abandonedV2(
+        `the vendor answered ${paid.status} to the paid request.`,
+      );
+      why = out.status === "unresolved" ? out.why : "";
+    }
     emit({ type: "unresolved", why, status: paid.status, vendorSaid });
 
     throw new X402Error(
       `the vendor was handed a signed payment of ${amountSompi} sompi and answered ` +
         `${paid.status}.\n\n` +
         (vendorSaid ? `They said:\n  ${vendorSaid.replace(/\n/g, "\n  ")}\n\n` : "") +
-        (rejected
-          ? `402 means they do not consider themselves paid, so the transaction was very ` +
-            `likely never broadcast — a facilitator that had verified and submitted it would ` +
-            `not ask for payment again. Confirm against the chain before reusing this grant.`
+        (confirmedOnChain
+          ? `The payment IS on chain and accepted, and the grant has been advanced to match — ` +
+            `so this is a paid request that was not served, not a lost grant. ` +
+            (rejected
+              ? `They answered 402, meaning they do not consider themselves paid despite an ` +
+                `accepted transaction paying the address they quoted.`
+              : ``)
           : `Whether they broadcast it first cannot be told from here, so this payer has ` +
             `stopped rather than assume.`) +
         `\n${why}`,

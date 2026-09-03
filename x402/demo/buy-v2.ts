@@ -184,6 +184,29 @@ try {
   console.error(`\ngrant advanced in ${manifestPath}: spent ${after.spentTotal}, epoch ${after.epochIndex}`);
 } catch (e) {
   console.error(`\n${(e as Error).message}`);
+
+  // The spend may have landed even though the request failed. If the payer
+  // advanced, the manifest must too — otherwise the next run looks for the
+  // grant where it used to be.
+  if (payer.outstanding.status === "none" && payer.state.spentTotal > BigInt(m.spent_total ?? 0)) {
+    const after = payer.state;
+    writeFileSync(
+      manifestPath,
+      JSON.stringify(
+        {
+          ...m,
+          spent_total: Number(after.spentTotal),
+          epoch_index: Number(after.epochIndex),
+          epoch_spent: Number(after.epochSpent),
+        },
+        null,
+        2,
+      ) + "\n",
+    );
+    console.error(`\ngrant advanced anyway in ${manifestPath}: the coin moved even though the`);
+    console.error(`request was refused. spent ${after.spentTotal}, epoch ${after.epochIndex}`);
+  }
+
   if (payer.outstanding.status === "unresolved") {
     console.error(
       `\nThe manifest was NOT advanced, and it may now be wrong: a signed spend is in\n` +
