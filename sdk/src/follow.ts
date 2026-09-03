@@ -80,6 +80,21 @@ export interface Candidate {
 
 export interface EnumerateOptions {
   /**
+   * Also try payment SUBSETS, not just suffixes.
+   *
+   * The suffix assumption holds when a vendor address serves one grant: its
+   * payments are the tail of the list, everything before belongs to whatever
+   * used the address earlier. When the address is SHARED and in use by both at
+   * once, this grant's payments are interleaved with another's and no suffix
+   * describes them.
+   *
+   * Off by default because it is 2^n candidates. With the cap and the
+   * per-payment filter above, n is usually small enough that it is seconds —
+   * and it is the difference between recovering a grant and re-minting one.
+   */
+  subsets?: boolean;
+
+  /**
    * Stop after this many distinct candidates. A safety rail, not a tuning
    * knob: the enumeration is bounded by the payment count and the epoch span,
    * and a run that hits this has found a grant whose vendor has thousands of
@@ -117,13 +132,25 @@ function key(s: GrantState): string {
 export function partitionPayments(
   state: GrantState,
   payments: Payment[],
-): { usable: Payment[]; tooEarly: Payment[] } {
+): { usable: Payment[]; tooEarly: Payment[]; tooLarge: Payment[] } {
   const ordered = [...payments].sort((a, b) =>
     a.blockDaaScore === b.blockDaaScore ? 0 : a.blockDaaScore < b.blockDaaScore ? -1 : 1,
   );
+  const tooEarly = ordered.filter((p) => p.blockDaaScore < state.notBefore);
+  const rest = ordered.filter((p) => p.blockDaaScore >= state.notBefore);
+
+  /**
+   * A coin larger than the per-payment cap cannot have come from this grant.
+   *
+   * The covenant refuses a spend above `maxPerSpend`, so this is not a
+   * heuristic — there is no transaction from this grant that produces such an
+   * output. On a shared vendor address it is the sharpest filter available,
+   * because the grants sharing it usually have different caps.
+   */
   return {
-    usable: ordered.filter((p) => p.blockDaaScore >= state.notBefore),
-    tooEarly: ordered.filter((p) => p.blockDaaScore < state.notBefore),
+    usable: rest.filter((p) => p.value <= state.maxPerSpend),
+    tooEarly,
+    tooLarge: rest.filter((p) => p.value > state.maxPerSpend),
   };
 }
 
@@ -199,6 +226,27 @@ export function candidateStates(
       // puts in that epoch.
       let f = applied.length - 1;
       while (f > 0 && epochOf(applied[f - 1]!.blockDaaScore) - slack >= e) f--;
+      offer(build(applied, f, e));
+    }
+  }
+
+  /**
+   * Subsets, when asked: the plain reading of each one.
+   *
+   * Only the natural epoch assignment per subset, not every epoch — the point
+   * here is to handle an interleaved payee, and pairing 2^n subsets with every
+   * epoch assignment would be an enumeration nobody can wait for.
+   */
+  if (options.subsets && n <= 20) {
+    for (let mask = 1; mask < 1 << n; mask++) {
+      if (out.length >= limit) break;
+      const applied: Payment[] = [];
+      for (let i = 0; i < n; i++) if (mask & (1 << i)) applied.push(usable[i]!);
+      const last = applied[applied.length - 1]!;
+      const e = epochOf(last.blockDaaScore);
+      if (e < state.epochIndex) continue;
+      let f = applied.length - 1;
+      while (f > 0 && epochOf(applied[f - 1]!.blockDaaScore) >= e) f--;
       offer(build(applied, f, e));
     }
   }

@@ -108,6 +108,33 @@ test("the plain reading of what happened is offered before the exhaustive search
 
 // ---- the other bug: vendor addresses outlive grants ---------------------
 
+test("a coin bigger than the per-payment cap cannot be this grant's", () => {
+  // The sharpest filter on a shared vendor address, and not a heuristic: the
+  // covenant refuses a spend above maxPerSpend, so no transaction from this
+  // grant produces such an output.
+  const split = partitionPayments(base, [
+    pay(base.maxPerSpend + 1n, base.notBefore + 2_000n),
+    pay(base.maxPerSpend, base.notBefore + 2_001n),
+    pay(1n, base.notBefore + 2_002n),
+  ]);
+  assert.equal(split.tooLarge.length, 1);
+  assert.equal(split.usable.length, 2, "the cap itself is payable");
+});
+
+test("an interleaved payee needs subsets, and suffixes alone will not find it", () => {
+  // Two grants sharing one vendor: ours paid 1st and 3rd, theirs paid 2nd.
+  const ours = [pay(4_000_000n, base.notBefore + 1_000n), pay(6_000_000n, base.notBefore + 3_000n)];
+  const theirs = pay(9_000_000n, base.notBefore + 2_000n);
+
+  let truth = base;
+  truth = successorState(truth, 4_000_000n, base.notBefore + 1n * base.epochLength);
+  truth = successorState(truth, 6_000_000n, base.notBefore + 3n * base.epochLength);
+
+  const all = [ours[0]!, theirs, ours[1]!];
+  assert.ok(!has(candidateStates(base, all), truth), "no suffix describes an interleaved pair");
+  assert.ok(has(candidateStates(base, all, { subsets: true }), truth));
+});
+
 test("payments mined before the grant opened belong to an earlier grant", () => {
   const older = [pay(20_000_000n, base.notBefore - 5_000n), pay(3_000_000n, base.notBefore - 10n)];
   const ours = [pay(5_000_000n, base.notBefore + 2_500n)];

@@ -69,6 +69,8 @@ import {
   type GrantState,
 } from "../src/template.ts";
 
+const has = (name: string) => process.argv.includes(`--${name}`);
+
 function flag(name: string, fallback?: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
   return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : fallback;
@@ -151,7 +153,7 @@ try {
   // because the covenant pays exactly one recipient per spend.
   const paid = await client.getUtxosByAddresses([vendor]);
 
-  const { usable, tooEarly } = partitionPayments(state, paid.map(toPayment));
+  const { usable, tooEarly, tooLarge } = partitionPayments(state, paid.map(toPayment));
   console.error(`grant is not at ${address}`);
   if (tooEarly.length > 0) {
     console.error(
@@ -159,9 +161,15 @@ try {
         `(mined before DAA ${state.notBefore}) and belong to an earlier one`,
     );
   }
+  if (tooLarge.length > 0) {
+    console.error(
+      `${tooLarge.length} more exceed this grant's ${state.maxPerSpend} sompi per-payment cap, ` +
+        `so the covenant could not have produced them`,
+    );
+  }
   console.error(`searching from ${usable.length} payment(s), epoch ${state.epochIndex} onward`);
 
-  const candidates = candidateStates(state, usable);
+  const candidates = candidateStates(state, usable, { subsets: has("subsets") });
   if (candidates.length === 0) {
     console.error(
       `\nNothing at the vendor could have come from this grant. Either it has not spent, ` +
