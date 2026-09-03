@@ -1,0 +1,5 @@
+Readings land here, one JSON file per run of tools/read.ts.
+
+They are committed on purpose: a digest's only claim is that it is the
+difference between two of these files, and that claim is worth nothing if the
+files are not there to check it against.

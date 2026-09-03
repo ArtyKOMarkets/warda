@@ -113,7 +113,13 @@ export {
   // settlement is the first: each input's digest commits to its OWN entry, so
   // a verifier given one entry can only judge input 0 and would report a pass.
   toWireMulti,
+  // The Kaspa SDK's own transaction encoding, which kaspa-x402 v2 carries an
+  // exact payment in. Not ours to design, and verified against the real SDK
+  // rather than against our reading of it — see test/safe-json.test.ts.
+  toSafeJson,
+  serializedScriptPublicKey,
   type WireTransaction,
+  type SafeJsonTransaction,
 } from "./wire.ts";
 
 export {

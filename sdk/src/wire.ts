@@ -172,3 +172,128 @@ export function toWire(tx: Transaction, entry: UtxoEntry, builtBy = "@warda_prot
     builtBy,
   };
 }
+
+// ---- the Kaspa SDK's "safe JSON" ----------------------------------------
+
+/**
+ * A transaction in `kaspa-sdk-safe-json-v2.0.0`, the encoding kaspa-x402 v2
+ * carries an exact payment in.
+ *
+ * ## Why this is not `toWire`
+ *
+ * `toWire` is OUR shape: it exists so a built transaction can be handed to
+ * `warda-deploy verify` and run through the real script engine, and it carries
+ * things only this repository cares about — the compute budget per input, the
+ * covenant binding per output, who built it.
+ *
+ * This is the Kaspa WASM SDK's shape, produced by `Transaction.serializeToSafeJSON`
+ * and consumed by `Transaction.deserializeFromSafeJSON`. It is not ours to
+ * design, and three of its details are exactly the kind that a plausible
+ * reimplementation gets wrong:
+ *
+ *   - every u64 is a STRING, not a number — hence "safe";
+ *   - `scriptPublicKey` is the SERIALIZED form: a little-endian u16 version
+ *     followed by the script, so an ordinary v0 script starts `0000`. Not the
+ *     bare script, which is what every other part of this SDK passes around;
+ *   - the input carries `transactionId` and `index` FLATTENED, not a nested
+ *     `previousOutpoint` as the constructor takes.
+ *
+ * `mass` is emitted as "0". The SDK emits whatever mass the transaction object
+ * is carrying, and a transaction this SDK built has never been through a mass
+ * calculator — so "0" is the true statement, and any other value here would be
+ * a number we made up about a transaction we are asking someone else to accept.
+ *
+ * Verified against the real SDK rather than against this comment: see
+ * `test/safe-json.test.ts`, which hands this output to
+ * `Transaction.deserializeFromSafeJSON` and requires the id it derives to match
+ * the one this SDK computes independently.
+ */
+export interface SafeJsonTransaction {
+  id: string;
+  version: number;
+  inputs: {
+    transactionId: string;
+    index: number;
+    sequence: string;
+    sigOpCount: number;
+    signatureScript: string;
+    utxo: {
+      address: string | null;
+      amount: string;
+      scriptPublicKey: string;
+      blockDaaScore: string;
+      isCoinbase: boolean;
+    };
+  }[];
+  outputs: { value: string; scriptPublicKey: string }[];
+  subnetworkId: string;
+  lockTime: string;
+  gas: string;
+  mass: string;
+  payload: string;
+}
+
+/**
+ * The serialized script public key: a little-endian u16 version, then the
+ * script. This is the form the SDK's safe JSON uses and the form kaspa-x402's
+ * schema pins with its `^0000…` pattern; the two agree because they are the
+ * same encoding.
+ */
+export function serializedScriptPublicKey(spk: { version: number; script: Uint8Array }): string {
+  const version = new Uint8Array(2);
+  version[0] = spk.version & 0xff;
+  version[1] = (spk.version >> 8) & 0xff;
+  return toHex(version) + toHex(spk.script);
+}
+
+/**
+ * `sigOpCount` is 1 per input here.
+ *
+ * Every input this SDK builds is spent by exactly one signature — a covenant
+ * spend authorized by the agent key, or a P2PK exit. There is no path in this
+ * repository that produces a multisig input, so a count derived from the script
+ * would be a computation with one possible answer, dressed up as a general one.
+ * If that ever stops being true this must stop being a constant, and the test
+ * that pins it against the real SDK is what will say so.
+ */
+export function toSafeJson(tx: Transaction, entries: UtxoEntry[]): SafeJsonTransaction {
+  if (entries.length !== tx.inputs.length) {
+    throw new Error(
+      `this transaction has ${tx.inputs.length} inputs and ${entries.length} utxo entries; ` +
+        `the safe-JSON form carries each input's entry inline, so they must correspond`,
+    );
+  }
+  return {
+    id: toHex(transactionId(tx)),
+    version: tx.version,
+    inputs: tx.inputs.map((input, i) => {
+      const entry = entries[i]!;
+      return {
+        transactionId: toHex(input.previousOutpoint.transactionId),
+        index: input.previousOutpoint.index,
+        sequence: input.sequence.toString(),
+        sigOpCount: 1,
+        signatureScript: toHex(input.signatureScript),
+        utxo: {
+          // The SDK writes null when the entry carries no address, and an
+          // entry built here never does: an address is a rendering of the
+          // script, and the script is already right there.
+          address: null,
+          amount: entry.value.toString(),
+          scriptPublicKey: serializedScriptPublicKey(entry.scriptPublicKey),
+          blockDaaScore: entry.blockDaaScore.toString(),
+          isCoinbase: entry.isCoinbase,
+        },
+      };
+    }),
+    outputs: tx.outputs.map((o) => ({
+      value: o.value.toString(),
+      scriptPublicKey: serializedScriptPublicKey(o.scriptPublicKey),
+    })),
+    subnetworkId: toHex(tx.subnetworkId),
+    lockTime: tx.lockTime.toString(),
+    gas: tx.gas.toString(),
+    mass: "0",
+    payload: toHex(tx.payload),
+  };
+}
