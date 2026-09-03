@@ -198,16 +198,17 @@ Check it runs on its own terms first:
 `env -i` strips the environment, which is roughly what cron gives it. If that
 writes a reading, cron will too.
 
-Then add ONE line to your crontab. Open the editor:
+Then install the schedule. This is a script rather than a line to paste,
+because a crontab line and a shell command are indistinguishable in a chat
+window and pasting one where the other belongs fails silently — the trailing
+`>> log 2>&1` swallows the shell's complaint:
 
-    crontab -e
+    ~/Desktop/warda/ops/install-cron.sh
 
-and add exactly this line, on its own, leaving anything already there alone:
+It keeps whatever is already in your crontab, replaces any previous entry for
+this script rather than duplicating it, and prints the result.
 
-    17 * * * * $HOME/Desktop/warda/ops/hourly-reading.sh >> $HOME/Library/Logs/warda-agent.log 2>&1
-
-Minute 17 rather than 0 for no reason except that nothing else is likely to be
-running then. Check after the next hour:
+Check after the next :17 past the hour:
 
     tail ~/Library/Logs/warda-agent.log
     ls ~/Desktop/warda/agent/readings/
