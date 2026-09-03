@@ -12,7 +12,71 @@ machine sleeps. That is the honest limit of hosting this here rather than on a
 small VPS, and it is fine for demos and development. It is not fine for
 anything that claims to be always-on.
 
-## What you need first
+## The short path: Tailscale Funnel
+
+Free on every plan, needs no domain, and the hostname is stable across
+restarts. It is what unblocks the work today. It does not make anything
+always-on — see the note above about laptops — but it gets a real, public,
+stable `wss://` endpoint in about ten minutes.
+
+**1. Install Tailscale and sign in.**
+
+Download the `.pkg` from <https://pkgs.tailscale.com/stable/> (the macOS
+installer; the `.zip` is the same app without the installer), run it, and sign
+in. Signing in creates your tailnet and names this machine.
+
+The CLI lives inside the app bundle rather than on PATH:
+
+    /Applications/Tailscale.app/Contents/MacOS/Tailscale status
+
+That path is used in full below. If a plain `tailscale` works for you, use that
+instead.
+
+**2. Start the node first**, in its own Terminal window, so there is something
+to funnel:
+
+    ~/Desktop/warda/ops/run-node.sh
+
+**3. Funnel the JSON RPC port.**
+
+    sudo /Applications/Tailscale.app/Contents/MacOS/Tailscale funnel --bg 18210
+
+`--bg` stores the configuration rather than holding the terminal, and
+tailscaled re-applies it when it starts — so unlike a foreground tunnel this
+survives a reboot without a LaunchAgent of its own.
+
+The first run may refuse and print a link: Funnel needs HTTPS certificates and
+the Funnel node attribute enabled for the tailnet. Follow the link, enable it,
+run the command again.
+
+It prints the public URL, which looks like
+`https://artautass-macbook-pro-2.tailXXXX.ts.net`. Note it down — with `wss://`
+in place of `https://`, that is the node's address.
+
+**4. Check it from outside.**
+
+    cd ~/Desktop/warda/sdk
+    node --experimental-strip-types tools/check-node.ts --rpc wss://YOUR-NAME.tailXXXX.ts.net
+
+This does not just connect — it asks whether the node is worth believing:
+synced, utxo-indexed, on the network it claims. All four checks should pass.
+
+Funnel is documented as an HTTPS proxy and Tailscale does not state anywhere
+whether it carries a WebSocket upgrade. It should, and this command is how we
+find out; if it does not, that is the point to fall back to a rented box.
+
+**5. Keep the node up across a reboot.**
+
+Funnel already persists. kaspad does not, so it gets a LaunchAgent:
+
+    cp ~/Desktop/warda/ops/com.wardaprotocol.kaspad.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.wardaprotocol.kaspad.plist
+
+Then run step 4 again.
+
+## The other path: a named Cloudflare tunnel
+
+### What you need first
 
 A domain in a Cloudflare account. Named tunnels route through Cloudflare DNS,
 so the zone has to be there — if `wardaprotocol.com` is on Vercel's
@@ -20,7 +84,7 @@ nameservers, either move the zone to Cloudflare or use a different domain you
 already have there. `cloudflared tunnel login` lists what is available, so run
 that first and see.
 
-## Steps
+### Steps
 
 Run each of these in Terminal, one at a time.
 
