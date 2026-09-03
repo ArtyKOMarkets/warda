@@ -20,6 +20,7 @@ import {
   type NodeClient,
   type RecipientSet,
   type SpendPlan,
+  type Transaction,
 } from "@warda_protocol/kaspa";
 
 import { X402Error, type PaymentRequirement } from "./protocol.ts";
@@ -254,6 +255,8 @@ export class WardaPayer {
   private queue: Promise<unknown> = Promise.resolve();
   /** v2 only: a signed spend somebody else is holding. See pay-v2.ts. */
   private held: Outstanding = { status: "none" };
+  /** The same spend in its internal form, so broadcasting need not re-parse it. */
+  private heldTx: Transaction | null = null;
 
   constructor(opts: PayerOptions) {
     this.grant = opts.grant;
@@ -463,7 +466,56 @@ export class WardaPayer {
       expiresAt: payment.payload.authorization.expiresAt,
     };
     this.held = { status: "pending", payment: pending };
+    this.heldTx = tx;
     return pending;
+  }
+
+  /**
+   * Put the pending spend on chain, and wait until the network accepts it.
+   *
+   * ## Why the payer broadcasts after all
+   *
+   * The first reading of kaspa-x402 v2 here was that the VENDOR broadcasts:
+   * the payload carries the whole signed transaction, and their server
+   * interface has `sendTransaction`. Both true, and the conclusion wrong.
+   * Their verifier requires the payment to have reached the finality the quote
+   * names — `accepted`, in the quote their own demo serves — and nothing can
+   * require accepted finality of a transaction it is about to submit itself.
+   * Their `sendTransaction` is a REbroadcast for a payment already verified,
+   * which their own error text says out loud: "pending trusted chain
+   * reconciliation and will not be rebroadcast".
+   *
+   * So the transaction travels for VERIFICATION, not for submission.
+   *
+   * Waiting is not a courtesy. Presenting before acceptance is what produced
+   * `invalid_transaction_state` from their facilitator: a payment that exists
+   * only in our process is, from their side, a payment that does not exist.
+   *
+   * Acceptance is observed at the SUCCESSOR address. A coin there is the
+   * covenant's own proof that the spend was accepted — the successor cannot
+   * exist unless the transaction that creates it did.
+   */
+  async broadcastPendingV2(
+    options: { timeoutMs?: number; pollMs?: number } = {},
+  ): Promise<{ txid: string; accepted: boolean }> {
+    if (this.held.status !== "pending" || !this.heldTx) {
+      throw new X402Error(
+        `there is no payment outstanding to broadcast (status: ${this.held.status}).`,
+      );
+    }
+    const pending = this.held.payment;
+    const txid = await this.node.submitTransaction(this.heldTx);
+
+    const deadline = Date.now() + (options.timeoutMs ?? 30_000);
+    const pollMs = options.pollMs ?? 1_000;
+    while (Date.now() < deadline) {
+      const at = await this.node.getUtxosByAddresses([pending.successorAddress]);
+      if (at.length > 0) return { txid, accepted: true };
+      await new Promise((r) => setTimeout(r, pollMs));
+    }
+    // Submitted and not seen. Reported rather than thrown: the transaction is
+    // on the network either way, and the caller may still want to present it.
+    return { txid, accepted: false };
   }
 
   /**
@@ -482,6 +534,7 @@ export class WardaPayer {
     const { payment } = this.held;
     this.grant = { ...this.grant, state: payment.successor };
     this.held = { status: "none" };
+    this.heldTx = null;
     return {
       txid: payment.txid,
       payer: payment.payer,

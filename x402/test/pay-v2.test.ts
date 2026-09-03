@@ -75,9 +75,13 @@ const node = {
       covenantId: fromHex("ee".repeat(32)),
     },
   }),
-  submitTransaction: async () => {
-    throw new Error("a v2 payer must not broadcast — the vendor does that");
-  },
+  // The payer DOES broadcast in v2. The transaction travels in the payload for
+  // the vendor to VERIFY, not to submit — their facilitator requires the
+  // payment to have reached the finality the quote names, which nothing can
+  // require of a transaction it is about to submit itself.
+  submitTransaction: async () => "cafe".repeat(16),
+  // Non-empty: acceptance is observed as a coin at the successor address.
+  getUtxosByAddresses: async () => [{ entry: { value: 1n } }],
 } as never;
 
 function quote(over: Record<string, unknown> = {}, extra: Record<string, unknown> = {}) {
@@ -125,7 +129,7 @@ test("a vendor expecting a script a grant cannot build is refused before signing
 
 // ---- building ------------------------------------------------------------
 
-test("a built payment is complete, valid by their schema, and NOT broadcast", async () => {
+test("a built payment is complete and valid by their schema", async () => {
   const p = payer();
   const pending = await p.buildPaymentV2({ accepted: quote(), request: REQUEST });
 
@@ -285,7 +289,7 @@ test("the happy path pays once, settles, and moves the grant", async () => {
 
   assert.equal(out.status, 200);
   assert.deepEqual(await out.json(), { answer: "42" });
-  assert.deepEqual(events, ["quote", "signed", "settled", "done"]);
+  assert.deepEqual(events, ["quote", "signed", "broadcast", "settled", "done"]);
   assert.equal(p.outstanding.status, "none");
   assert.equal(p.state.spentTotal, 20_000_000n);
 
@@ -317,7 +321,7 @@ test("a vendor that fails AFTER being handed a payment leaves the payer stopped"
       }),
     /answered 500.*cannot be told from here/s,
   );
-  assert.deepEqual(events, ["quote", "signed", "unresolved"]);
+  assert.deepEqual(events, ["quote", "signed", "broadcast", "unresolved"]);
   assert.equal(p.outstanding.status, "unresolved");
   // and it did NOT quietly bank the spend either
   assert.equal(p.state.spentTotal, 0n);

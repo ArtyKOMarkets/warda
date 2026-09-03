@@ -67,18 +67,24 @@ facilitator over a key ordering. Their package is MIT, pure, and imports only
 `node:crypto`, so the encoder, the schema validators and the digest preimages
 are theirs; the covenant spend and the agent's signature are ours.
 
-### The vendor broadcasts
+### The transaction travels for verification, not for submission
 
-This is the one difference that changes how a grant is book-kept. In v1 the
-payer submits the transaction and hands over a txid. In v2 the payer hands over
-the whole signed transaction and the **vendor** submits it.
+v2's payload carries the whole signed transaction, and their server interface
+has a `sendTransaction`. It is tempting to read that as "the vendor
+broadcasts", and this adapter did, and it was wrong: their verifier requires
+the payment to have reached the finality the quote names — `accepted`, in the
+quote their own demo serves — and nothing can require accepted finality of a
+transaction it is about to submit itself. Their `sendTransaction` is a
+*re*broadcast for a payment already verified.
 
-For an agent that is an improvement: paying no longer needs a node, only a
-signer. For the grant it is a problem, because a grant's address *is* its
-state — after a spend the old address is empty and the payer must move with it,
-and here it never finds out unless somebody says so.
+Presenting a payment that has not been broadcast earns
+`invalid_transaction_state`, which is what it looked like from the other side:
+a payment that exists only in your process is a payment that does not exist.
 
-So a v2 payment holds the grant. `buildPaymentV2` returns a `PendingPayment`
+So the payer broadcasts, waits for the network to accept it, and only then
+presents it. The transaction in the payload is evidence, not instruction.
+
+A v2 payment still holds the grant between building and settling. `buildPaymentV2` returns a `PendingPayment`
 and the payer refuses to build another until it is told what happened:
 
 ```ts
@@ -88,10 +94,11 @@ payer.settledV2();   // they confirmed: advance the grant
 payer.abandonedV2(); // they did not: stop, and resolve against the chain
 ```
 
-`abandonedV2()` does not roll back. A vendor that crashed after broadcasting
-looks exactly like one that never tried, so the payer marks itself unresolved
-and names the two addresses the grant can be at. One query per candidate
-settles it — `sdk/tools/follow-grant.ts` does exactly that.
+`abandonedV2()` does not roll back. Once a spend is broadcast the grant has
+moved whether or not the vendor served the request, so the payer marks itself
+unresolved and names the two addresses the grant can be at. One query per
+candidate settles it — `sdk/tools/follow-grant.ts --subsets` does exactly
+that.
 
 Rolling back optimistically would mean spending from a coin that is already
 gone, which surfaces much later as an inexplicable chain error. Stopping is

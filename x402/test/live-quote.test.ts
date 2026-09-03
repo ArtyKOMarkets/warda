@@ -141,9 +141,13 @@ const node = {
       covenantId: fromHex("ee".repeat(32)),
     },
   }),
-  submitTransaction: async () => {
-    throw new Error("a v2 payer must not broadcast — their server does that");
-  },
+  // The payer DOES broadcast in v2. The transaction travels in the payload for
+  // the vendor to VERIFY, not to submit — their facilitator requires the
+  // payment to have reached the finality the quote names, which nothing can
+  // require of a transaction it is about to submit itself.
+  submitTransaction: async () => "cafe".repeat(16),
+  // Non-empty: acceptance is observed as a coin at the successor address.
+  getUtxosByAddresses: async () => [{ entry: { value: 1n } }],
 } as never;
 
 /** Their response, reproduced exactly: the stub body, the header, the type. */
@@ -179,7 +183,7 @@ test("a grant that commits to their payee pays their real quote, start to finish
   );
 
   assert.equal(res.status, 200);
-  assert.deepEqual(events, ["quote", "signed", "settled", "done"]);
+  assert.deepEqual(events, ["quote", "signed", "broadcast", "settled", "done"]);
   assert.equal(payer.state.spentTotal, 20_000_000n, "0.2 KAS charged against the budget");
 
   const payment = JSON.parse(Buffer.from(sent!, "base64").toString("utf8"));

@@ -60,11 +60,25 @@ export interface WardaFetchV2Options {
    * say what the vendor will see rather than let this infer it.
    */
   body?: unknown;
+
+  /**
+   * Put the spend on chain before presenting it. Default true.
+   *
+   * Their verifier requires the payment to have reached the finality the quote
+   * names, so a payment that has not been broadcast is one they refuse with
+   * `invalid_transaction_state`. Turn this off only for a vendor that
+   * explicitly submits on the client's behalf.
+   */
+  broadcast?: boolean;
+
+  /** How long to wait for the network to accept it. Default 30s. */
+  acceptTimeoutMs?: number;
 }
 
 export type WardaFetchV2Event =
   | { type: "quote"; amountSompi: bigint; payTo: string }
   | { type: "signed"; pending: PendingPayment }
+  | { type: "broadcast"; txid: string; accepted: boolean }
   | { type: "settled"; result: PaymentResult }
   | { type: "unresolved"; why: string; status: number; vendorSaid: string }
   | { type: "done"; status: number };
@@ -148,6 +162,25 @@ export async function wardaFetchV2(
   const request: PaidRequest = { method, url, body: bodyForBinding(init, opts.body) };
   const pending = await opts.payer.buildPaymentV2({ accepted, request });
   emit({ type: "signed", pending });
+
+  if (opts.broadcast !== false) {
+    const { txid, accepted: onChain } = await opts.payer.broadcastPendingV2({
+      timeoutMs: opts.acceptTimeoutMs,
+    });
+    emit({ type: "broadcast", txid, accepted: onChain });
+    if (!onChain) {
+      // Presenting anyway would very likely earn the same refusal, and the
+      // authorization expires on the quote's own clock. Better to say the
+      // spend is on the network and this run ran out of patience than to have
+      // the vendor say something less specific.
+      opts.payer.abandonedV2(`the spend was submitted but not accepted within the wait.`);
+      throw new X402Error(
+        `the payment was broadcast as ${txid} but the network had not accepted it before ` +
+          `the wait ran out, and this vendor's quote requires accepted finality. The spend ` +
+          `is on the network: reconcile the grant against the chain rather than re-paying.`,
+      );
+    }
+  }
 
   const paid = await doFetch(url as never, {
     ...init,

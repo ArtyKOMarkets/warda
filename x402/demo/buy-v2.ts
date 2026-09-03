@@ -148,8 +148,10 @@ try {
       if (e.type === "quote") console.error(`  quoted : ${e.amountSompi} sompi to ${e.payTo}`);
       if (e.type === "signed") {
         console.error(`  signed : ${e.pending.txid}`);
-        console.error(`           NOT broadcast — the vendor does that in v2`);
         console.error(`           authorization expires ${e.pending.expiresAt}`);
+      }
+      if (e.type === "broadcast") {
+        console.error(`  onchain: ${e.txid} — ${e.accepted ? "accepted" : "NOT YET ACCEPTED"}`);
       }
       if (e.type === "settled") console.error(`  settled: grant now at ${e.result.address}`);
       if (e.type === "unresolved") {
