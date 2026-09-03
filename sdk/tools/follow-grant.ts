@@ -51,10 +51,16 @@
  */
 import { readFileSync, writeFileSync } from "node:fs";
 
-import { scriptHashToAddress, decodeAddress, type NetworkPrefix } from "../src/address.ts";
+import {
+  pubkeyToAddress,
+  scriptHashToAddress,
+  decodeAddress,
+  type NetworkPrefix,
+} from "../src/address.ts";
+import { fromHex } from "../src/bytes.ts";
 import { EMPTY_RESERVE } from "../src/keys.ts";
 import { NodeClient } from "../src/node.ts";
-import { successorState } from "../src/spend.ts";
+import { candidateStates, partitionPayments, type Payment } from "../src/follow.ts";
 import {
   scriptHashFor,
   templateIdFor,
@@ -87,9 +93,9 @@ if (!vendor) {
   console.error("UTXOs sitting there are what make the amounts knowable.");
   process.exit(2);
 }
-const vendorScriptKey = toHexKey(decodeAddress(vendor).payload);
-
-const toHexBytes = (b: Uint8Array) => toHexKey(b);
+// Decoded here and nowhere else: a malformed --vendor should fail on the
+// command line, not sixty lines later inside a query.
+decodeAddress(vendor);
 
 function toHexKey(b: Uint8Array): string {
   return Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
@@ -120,6 +126,12 @@ function stateFrom(raw: typeof m): GrantState {
   };
 }
 
+/** A vendor UTXO as the follower needs it: an amount and when it landed. */
+const toPayment = (u: { entry: { value: bigint; blockDaaScore: bigint } }): Payment => ({
+  value: u.entry.value,
+  blockDaaScore: u.entry.blockDaaScore,
+});
+
 const addressOf = (state: GrantState) =>
   scriptHashToAddress(scriptHashFor(template, { authority, state }), prefix);
 
@@ -137,78 +149,115 @@ try {
 
   // Every payment this grant ever made, oldest first. One UTXO per payment,
   // because the covenant pays exactly one recipient per spend.
-  const paid = (await client.getUtxosByAddresses([vendor])).sort((a, b) =>
-    a.entry.blockDaaScore < b.entry.blockDaaScore ? -1 : 1,
-  );
+  const paid = await client.getUtxosByAddresses([vendor]);
+
+  const { usable, tooEarly } = partitionPayments(state, paid.map(toPayment));
   console.error(`grant is not at ${address}`);
-  console.error(`vendor holds ${paid.length} payment(s); walking forward from epoch ${state.epochIndex}`);
+  if (tooEarly.length > 0) {
+    console.error(
+      `vendor holds ${paid.length} coin(s); ${tooEarly.length} of them predate this grant ` +
+        `(mined before DAA ${state.notBefore}) and belong to an earlier one`,
+    );
+  }
+  console.error(`searching from ${usable.length} payment(s), epoch ${state.epochIndex} onward`);
 
-  const applied: string[] = [];
-  let progress = true;
-  while (progress) {
-    progress = false;
-    const found = await client.getUtxosByAddresses([addressOf(state)]);
-    if (found.length > 0) break;
+  const candidates = candidateStates(state, usable);
+  if (candidates.length === 0) {
+    console.error(
+      `\nNothing at the vendor could have come from this grant. Either it has not spent, ` +
+        `or\nthe coins it paid have since been moved on by the vendor.`,
+    );
+    process.exit(1);
+  }
 
-    for (const utxo of paid) {
-      const id = `${toHexBytes(utxo.outpoint.transactionId)}:${utxo.outpoint.index}`;
-      if (applied.includes(id)) continue;
-
-      // Candidate epochs: at least the grant's own (the covenant ratchets and
-      // refuses to move backwards), at most the epoch of the block that mined
-      // this payment. claimedDaa cannot exceed the DAA the network had.
-      const maxEpoch = (utxo.entry.blockDaaScore - state.notBefore) / state.epochLength;
-      const candidates: { state: GrantState; epoch: bigint }[] = [];
-      for (let e = state.epochIndex; e <= maxEpoch; e++) {
-        const claimedDaa = state.notBefore + e * state.epochLength;
-        try {
-          candidates.push({ state: successorState(state, utxo.entry.value, claimedDaa), epoch: e });
-        } catch {
-          // successorState refuses an epoch behind the recorded one. Not a
-          // candidate, and not an error worth stopping for.
-        }
-      }
-      if (candidates.length === 0) continue;
-
-      /* Asked one address at a time, deliberately.
-       *
-       * Batching them into a single getUtxosByAddresses is one call instead of
-       * a dozen, but the reply does not say which address each UTXO came from
-       * — you get entries, and matching them back means picking the script
-       * hash out of a P2SH scriptPublicKey at an offset this code would have
-       * to assume. A wrong assumption there does not fail; it identifies the
-       * wrong state and writes it to the manifest as fact.
-       *
-       * A handful of round trips to a local node, once every poll, is not
-       * worth that. */
-      let chosen: { state: GrantState; epoch: bigint } | undefined;
-      for (const c of candidates) {
-        const at = await client.getUtxosByAddresses([addressOf(c.state)]);
-        if (at.length > 0) {
-          chosen = c;
-          break;
-        }
-      }
-      if (!chosen) continue;
-
-      state = chosen.state;
-      applied.push(id);
-      progress = true;
-      console.error(
-        `  +${utxo.entry.value} sompi in epoch ${chosen.epoch} -> ${addressOf(state)}`,
-      );
+  /* Asked one address at a time, deliberately.
+   *
+   * Batching them into a single getUtxosByAddresses is one call instead of
+   * many, but the reply does not say which address each UTXO came from — you
+   * get entries, and matching them back means picking the script hash out of a
+   * P2SH scriptPublicKey at an offset this code would have to assume. A wrong
+   * assumption there does not fail; it identifies the wrong state and writes
+   * it to the manifest as fact.
+   *
+   * The candidates are ordered so that the plain reading of what happened
+   * comes first, which is what keeps this to a handful of round trips in
+   * practice rather than the full list. */
+  let found: (typeof candidates)[number] | undefined;
+  let asked = 0;
+  for (const c of candidates) {
+    asked++;
+    const at = await client.getUtxosByAddresses([addressOf(c.state)]);
+    if (at.length > 0) {
+      found = c;
       break;
     }
+  }
+
+  if (found) {
+    state = found.state;
+    for (const p of found.applied) console.error(`  +${p.value} sompi`);
+    console.error(
+      `  epoch ${found.finalEpoch}, ${found.applied.length} payment(s), ` +
+        `${asked} address(es) asked about`,
+    );
   }
 
   const finalAddress = addressOf(state);
   const settled = await client.getUtxosByAddresses([finalAddress]);
   if (settled.length === 0) {
+    /**
+     * Before shrugging: a grant does not only spend.
+     *
+     * `reclaim` and `revoke` both send the WHOLE balance to P2PK(principal),
+     * an address this search never visits because it only ever models
+     * payments. So a grant that was ended looks exactly like a grant that was
+     * lost, and the difference is one query.
+     *
+     * Reported as a likelihood rather than a fact. The principal is usually
+     * also the funder, so its address accumulates ordinary coins too; what
+     * makes one of them evidence is that it is close to the grant's value and
+     * was mined after the grant opened. A reclaim whose output has since been
+     * spent onward leaves nothing to find, which is why this says "probably"
+     * and never writes anything.
+     */
+    const principalAddress = pubkeyToAddress(fromHex(authority.principalKey), prefix);
+    const atPrincipal = (await client.getUtxosByAddresses([principalAddress])).filter(
+      (u) => u.entry.blockDaaScore >= state.notBefore,
+    );
+    const value = BigInt(m.grant_value ?? 0);
+    const looksLikeExit = atPrincipal.filter(
+      (u) => value > 0n && u.entry.value <= value && u.entry.value * 100n >= value * 90n,
+    );
+
+    if (looksLikeExit.length > 0) {
+      console.error(`\nTHIS GRANT WAS PROBABLY ENDED, not lost.`);
+      console.error(
+        `The principal's address holds a coin the right size, mined after the grant opened:`,
+      );
+      for (const u of looksLikeExit) {
+        console.error(`  ${u.entry.value} sompi at DAA ${u.entry.blockDaaScore} — ${principalAddress}`);
+      }
+      console.error(
+        `\nreclaim and revoke both pay the whole balance to P2PK(principal), so this is what\n` +
+          `an ended grant looks like. Nothing was written: a manifest cannot describe a grant\n` +
+          `that no longer exists.`,
+      );
+      process.exit(1);
+    }
+
     console.error(
-      `\nCOULD NOT FOLLOW IT. The grant is not at any state reachable from the manifest by\n` +
-        `the payments sitting at the vendor. That means something happened this cannot\n` +
-        `model — a delegation, a settlement, a revocation, or a spend to a payee whose\n` +
-        `coin has since been moved on.\n\n` +
+      `\nThe principal's address holds nothing that looks like this grant's balance ` +
+        `(${atPrincipal.length} coin(s) mined after it opened), so it was probably not ` +
+        `reclaimed or revoked either.`,
+    );
+    console.error(
+      `\nCOULD NOT FOLLOW IT. ${candidates.length} candidate state(s) were derived from the\n` +
+        `${usable.length} payment(s) at the vendor that could belong to this grant, and the\n` +
+        `chain holds a coin at none of them.\n\n` +
+        `That means something happened this cannot model: a delegation, a settlement, a\n` +
+        `revocation, or a payment whose coin the VENDOR has since spent — that last one\n` +
+        `removes the evidence, because the amounts are only knowable while the coins sit\n` +
+        `where the covenant put them.\n\n` +
         `Nothing was written. The manifest still describes the last state known to be real.`,
     );
     process.exit(1);

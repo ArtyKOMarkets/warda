@@ -95,6 +95,7 @@ trap 'rm -f "$tmp"' EXIT
 snapshot() {
   (cd ../sdk && node --experimental-strip-types tools/demo-state.ts \
       ../site/src/demo-grant.json \
+      --manifest ../covenant/deploy/grant-demo.json \
       ${WARDA_RESOLVER:+--resolver "$WARDA_RESOLVER"} \
       ${WARDA_RPC_JSON:+--rpc "$WARDA_RPC_JSON"}) > "$tmp"
 }

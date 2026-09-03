@@ -112,6 +112,35 @@ const recipients = new RecipientSet(
 );
 
 /**
+ * The default allowlist is a REFERENCE VECTOR, not a payee list.
+ *
+ * Every grant created without `--recipients` commits to the same four keys, so
+ * every such grant pays the same address. That is exactly right for a golden
+ * vector and it quietly breaks anything that reasons backwards from a vendor's
+ * balance — `follow-grant.ts` infers a grant's spending from the coins sitting
+ * at its payee, and coins from a different grant are indistinguishable from
+ * this one's.
+ *
+ * It is not a hypothetical: the published demo grant shared its payee with the
+ * hosted demo API, so a day of unrelated traffic landed at the same address,
+ * the follower could not reconcile it, and the demo page went stale naming an
+ * address holding nothing.
+ *
+ * A warning rather than a refusal, because the shared default is the right
+ * thing for the vectors this tool also produces.
+ */
+if (!flag("recipients")) {
+  console.error(
+    `WARNING: no --recipients, so this grant commits to the shared demo allowlist.\n` +
+      `Every grant made this way pays the SAME address, and tools that reconcile a\n` +
+      `grant against its payee's balance cannot then tell one grant's payments from\n` +
+      `another's. Fine for a reference vector; wrong for a grant anyone will watch.\n` +
+      `Give it its own payee: tools/new-key.ts writes one, and --recipients takes a\n` +
+      `file of them.\n`,
+  );
+}
+
+/**
  * Three roles, three keys.
  *
  * WARDA_SK is the FUNDER's key: it signs genesis, because genesis spends the

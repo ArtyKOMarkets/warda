@@ -28,6 +28,21 @@
  *
  * That is a smaller claim than "here is the grant's live state", and it is the
  * one worth making, because it is true between polls as well as during them.
+ *
+ * ## What this used to get wrong
+ *
+ * It counted EVERY coin at the vendor as this grant's spending. That reads as
+ * obviously true — the covenant permits exactly one payee — and it is false
+ * for a reason outside the covenant entirely: a vendor address outlives the
+ * grants that pay it. The demo vendor was also the address the hosted demo API
+ * received at, so every CLI run, showcase and test buy landed in the same
+ * place, and the page reported 2.43 KAS "paid by this grant" from a grant
+ * whose per-payment cap made 1.2 KAS its ceiling.
+ *
+ * So the spending figure now comes from the MANIFEST, which `follow-grant.ts`
+ * keeps current and which is the covenant's own accounting rather than an
+ * inference from what happens to be lying at an address. What is at the vendor
+ * is still reported, as context, labelled as what it is.
  */
 import { readFileSync } from "node:fs";
 
@@ -38,12 +53,27 @@ function flag(name: string, fallback?: string): string | undefined {
   return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : fallback;
 }
 
-const cardPath = process.argv.slice(2).find((a) => !a.startsWith("--") && a.endsWith(".json"));
+const positional = process.argv.slice(2).filter((a, i, all) => {
+  if (a.startsWith("--") || !a.endsWith(".json")) return false;
+  return !all[i - 1]?.startsWith("--");
+});
+const cardPath = positional[0];
 if (!cardPath) {
-  console.error("usage: demo-state.ts <demo-grant.json> [--resolver url] [--rpc url]");
+  console.error(
+    "usage: demo-state.ts <demo-grant.json> [--manifest <grant.json>] [--resolver url] [--rpc url]",
+  );
   process.exit(2);
 }
 const card = JSON.parse(readFileSync(cardPath, "utf8"));
+
+/**
+ * The manifest, if we were given one.
+ *
+ * Optional so a card alone still produces a snapshot, but strongly preferred:
+ * without it the only spending figure available is inferred from the vendor's
+ * balance, and that inference is exactly the one that was wrong.
+ */
+const manifest = flag("manifest") ? JSON.parse(readFileSync(flag("manifest")!, "utf8")) : null;
 
 /**
  * The health check runs WITHOUT `grantAddress`, and that is the point.
@@ -88,10 +118,19 @@ try {
     client.getUtxosByAddresses([card.address]),
   ]);
 
-  // Every coin the grant has ever released is here, because there is nowhere
-  // else it could be. Each UTXO is one payment: the covenant pays exactly one
-  // recipient per spend.
-  const received = vendorUtxos.reduce((a, u) => a + u.entry.value, 0n);
+  // What is sitting at the vendor. NOT this grant's spending: the address may
+  // receive from anything, and on this demo it did.
+  const atVendor = vendorUtxos.reduce((a, u) => a + u.entry.value, 0n);
+
+  // What this grant actually spent, per the covenant's own accounting.
+  const spentTotal = manifest ? BigInt(manifest.spent_total ?? 0) : null;
+
+  // Coins the vendor holds that this grant could not possibly have produced,
+  // because they predate it. Cheap, and it is what makes a shared vendor
+  // address visible on the page rather than a silent overstatement.
+  const beforeGrant = manifest
+    ? vendorUtxos.filter((u) => u.entry.blockDaaScore < BigInt(manifest.not_before ?? 0)).length
+    : null;
 
   /**
    * Whether the grant is still at the address the card names.
@@ -118,9 +157,16 @@ try {
         // a newer card's address as though it belonged to it.
         grant: card.address,
         vendor: card.vendor,
-        payments: vendorUtxos.length,
-        paidToVendor: kas(received),
+        // The number that matters, and the only one this grant is the source
+        // of truth for. Null when no manifest was supplied — better absent
+        // than inferred, because the inference was the bug.
+        spentByThisGrant: spentTotal === null ? null : kas(spentTotal),
         paidElsewhere: "0 KAS",
+        // Context, not accounting. A vendor address can receive from any
+        // number of grants; these figures describe the ADDRESS.
+        vendorHolds: kas(atVendor),
+        vendorCoins: vendorUtxos.length,
+        vendorCoinsPredatingThisGrant: beforeGrant,
         grantStillAtPublishedAddress: stillThere,
         remainingAtPublishedAddress: stillThere ? kas(grantUtxos[0]!.entry.value) : null,
       },
@@ -130,7 +176,14 @@ try {
   );
 
   console.error(`vendor    : ${card.vendor}`);
-  console.error(`  received: ${kas(received)} across ${vendorUtxos.length} payment(s)`);
+  console.error(`  holds   : ${kas(atVendor)} across ${vendorUtxos.length} coin(s)`);
+  if (spentTotal !== null) console.error(`  this grant spent: ${kas(spentTotal)} (per the manifest)`);
+  if (beforeGrant) {
+    console.error(
+      `  NOTE    : ${beforeGrant} of those coins predate this grant. This vendor address is ` +
+        `shared, so its balance is not this grant's spending.`,
+    );
+  }
   console.error(`grant     : ${card.address}`);
   console.error(
     stillThere
