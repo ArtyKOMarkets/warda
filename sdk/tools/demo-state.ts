@@ -146,9 +146,11 @@ try {
     JSON.stringify(
       {
         _comment:
-          "A snapshot, not a live feed. Written by tools/demo-state.ts, which counts what has " +
-          "reached the vendor — the one address this grant was ever able to pay. The claim that " +
-          "nothing reached anywhere else is not measured here; it is enforced by the covenant.",
+          "A snapshot, not a live feed. Written by tools/demo-state.ts. `spentByThisGrant` is " +
+          "the covenant's own accounting, carried in the grant's manifest. The `vendor*` fields " +
+          "describe the ADDRESS, not this grant: a payee can receive from any number of grants, " +
+          "and this one's did. The claim that nothing reached anywhere else is not measured " +
+          "here; it is enforced by the covenant.",
         checkedAt: new Date().toISOString(),
         network: health.network,
         // Which grant this describes. Not decoration: the page and the build

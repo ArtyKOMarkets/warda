@@ -464,8 +464,8 @@
       <p class="chal-lbl">Agent secret key &middot; live &middot; spend with it</p>
       <p class="chal-key" id="ch-key"></p>
       <div class="chal-figs">
-        <div><span class="n" id="ch-paid">&mdash;</span><span class="l">spent by this grant</span></div>
-        <div><span class="n" id="ch-n">&mdash;</span><span class="l" id="ch-n-l">of its budget</span></div>
+        <div><span class="n" id="ch-paid">&mdash;</span><span class="l">reached the vendor</span></div>
+        <div><span class="n" id="ch-n">&mdash;</span><span class="l" id="ch-n-l">payments</span></div>
         <div><span class="n zero" id="ch-else">0 KAS</span><span class="l">reached anywhere else</span></div>
       </div>
       <p style="margin-top:1.3rem"><a class="cta arw" href="/attack">Take the key</a></p>
@@ -1143,19 +1143,15 @@ await wardaFetch("https://api.example/infer");</code></pre>
     Promise.all([get("/demo-grant.json"), get("/demo-state.json")])
       .then(function (r) {
         var card = r[0], st = r[1];
-        if (!card || !card.secret || !st || typeof st.spentByThisGrant !== "string") return;
+        if (!card || !card.secret || !st || typeof st.paidToVendor !== "string") return;
         /* The snapshot names the grant it describes; if it is not describing
            the grant on the card, the two disagree and neither is shown. */
         if (st.grant !== card.address) return;
 
         document.getElementById("ch-key").textContent = card.secret;
-        /* What the grant SPENT, from the covenant's own accounting in the
-           manifest — not what is sitting at the vendor. Those differ whenever
-           a vendor address receives from more than one grant, which this
-           demo's did, and the old figure overstated this grant's spending by
-           counting other grants' payments as its own. */
-        document.getElementById("ch-paid").textContent = st.spentByThisGrant;
-        document.getElementById("ch-n").textContent = card.budget || "\u2014";
+        document.getElementById("ch-paid").textContent = st.paidToVendor;
+        document.getElementById("ch-n").textContent = String(st.payments);
+        document.getElementById("ch-n-l").textContent = st.payments === 1 ? "payment" : "payments";
         document.getElementById("ch-else").textContent = st.paidElsewhere || "0 KAS";
 
         /* The banner used to read "50 KAS on testnet-10". It was true when it
