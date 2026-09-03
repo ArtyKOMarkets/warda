@@ -179,6 +179,43 @@ in there has to be absolute and correct.
 
 Then run step 8 again. If it still passes, the node has a permanent address.
 
+## Taking a reading every hour
+
+Agent #001 wants a reading on a schedule; a daily digest is then whichever two
+of them sit closest to 24 hours apart. Each run is independent — it reads no
+previous file and writes no state — so a missed hour costs one data point and
+leaves nothing to repair.
+
+`hourly-reading.sh` exists because cron runs with a nearly empty PATH and does
+not read your shell profile. Everything it needs is named in the script,
+absolutely. A cron entry that leans on the interactive shell's environment
+works perfectly when tested by hand and then silently does nothing at 3am.
+
+Check it runs on its own terms first:
+
+    env -i HOME="$HOME" ~/Desktop/warda/ops/hourly-reading.sh
+
+`env -i` strips the environment, which is roughly what cron gives it. If that
+writes a reading, cron will too.
+
+Then add ONE line to your crontab. Open the editor:
+
+    crontab -e
+
+and add exactly this line, on its own, leaving anything already there alone:
+
+    17 * * * * $HOME/Desktop/warda/ops/hourly-reading.sh >> $HOME/Library/Logs/warda-agent.log 2>&1
+
+Minute 17 rather than 0 for no reason except that nothing else is likely to be
+running then. Check after the next hour:
+
+    tail ~/Library/Logs/warda-agent.log
+    ls ~/Desktop/warda/agent/readings/
+
+macOS note: cron needs Full Disk Access to write inside `~/Desktop`. If the log
+shows "Operation not permitted", grant it to `/usr/sbin/cron` in System
+Settings > Privacy & Security > Full Disk Access.
+
 ## Afterwards
 
     launchctl list | grep wardaprotocol          # are they running
