@@ -38,6 +38,7 @@ import {
   RecipientSet,
   decodeAddress,
   fromHex,
+  pubkeyToAddress,
   resolveSigner,
   templateIdFor,
   toHex,
@@ -151,7 +152,10 @@ try {
         console.error(`           authorization expires ${e.pending.expiresAt}`);
       }
       if (e.type === "settled") console.error(`  settled: grant now at ${e.result.address}`);
-      if (e.type === "unresolved") console.error(`  STUCK  : ${e.why}`);
+      if (e.type === "unresolved") {
+        console.error(`  REFUSED: ${e.status}`);
+        if (e.vendorSaid) console.error(`  vendor : ${e.vendorSaid}`);
+      }
       if (e.type === "done") console.error(`  status : ${e.status}`);
     },
   });
@@ -184,7 +188,8 @@ try {
         `someone else's hands and whether they broadcast it cannot be told from here.\n` +
         `Resolve it against the chain before using this grant again:\n\n` +
         `  node --experimental-strip-types ../sdk/tools/follow-grant.ts ${manifestPath} \\\n` +
-        `    --vendor <payee address> --subsets --write`,
+        `    --vendor ${members.map((k) => pubkeyToAddress(fromHex(k), "kaspatest")).join(" ")} ` +
+        `--subsets --write`,
     );
   }
   process.exitCode = 1;

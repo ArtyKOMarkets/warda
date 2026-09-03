@@ -66,7 +66,7 @@ export type WardaFetchV2Event =
   | { type: "quote"; amountSompi: bigint; payTo: string }
   | { type: "signed"; pending: PendingPayment }
   | { type: "settled"; result: PaymentResult }
-  | { type: "unresolved"; why: string }
+  | { type: "unresolved"; why: string; status: number; vendorSaid: string }
   | { type: "done"; status: number };
 
 /**
@@ -156,15 +156,55 @@ export async function wardaFetchV2(
   } as never);
 
   if (!paid.ok) {
+    /**
+     * What the vendor said, verbatim.
+     *
+     * The first live run of this against a real vendor came back 402 and this
+     * function discarded the body, so the only thing anyone could report was
+     * the status code. Their protocol carries stable error identifiers for
+     * exactly this situation and we threw them away — leaving "it did not
+     * work" as the entire finding from a payment that cost a real signature.
+     *
+     * Bounded, because an error page can be any size, and included in both the
+     * event and the thrown message so a caller that logs either one has it.
+     */
+    const vendorSaid = await paid
+      .clone()
+      .text()
+      .then((t) => t.slice(0, 2_000).trim())
+      .catch(() => "");
+
+    /**
+     * A 402 is not the same kind of failure as a 500.
+     *
+     * 402 means "payment required" — the vendor is saying it does NOT consider
+     * itself paid, which a facilitator that had verified and broadcast the
+     * transaction would not say. It is strong evidence the spend never left
+     * their process. Not proof: they could broadcast and then fail to serve.
+     *
+     * So the payer still stops, because the difference between "almost
+     * certainly not broadcast" and "not broadcast" is a grant that spends from
+     * a coin somebody else already moved. But the message says which of the
+     * two this is, because the operator's next step differs.
+     */
+    const rejected = paid.status === 402;
     const out = opts.payer.abandonedV2(
       `the vendor answered ${paid.status} to the paid request.`,
     );
     const why = out.status === "unresolved" ? out.why : "";
-    emit({ type: "unresolved", why });
+    emit({ type: "unresolved", why, status: paid.status, vendorSaid });
+
     throw new X402Error(
-      `the vendor was handed a signed payment of ${amountSompi} sompi and then answered ` +
-        `${paid.status}. Whether they broadcast it first cannot be told from here, so this ` +
-        `payer has stopped rather than assume. ${why}`,
+      `the vendor was handed a signed payment of ${amountSompi} sompi and answered ` +
+        `${paid.status}.\n\n` +
+        (vendorSaid ? `They said:\n  ${vendorSaid.replace(/\n/g, "\n  ")}\n\n` : "") +
+        (rejected
+          ? `402 means they do not consider themselves paid, so the transaction was very ` +
+            `likely never broadcast — a facilitator that had verified and submitted it would ` +
+            `not ask for payment again. Confirm against the chain before reusing this grant.`
+          : `Whether they broadcast it first cannot be told from here, so this payer has ` +
+            `stopped rather than assume.`) +
+        `\n${why}`,
       paid.status,
     );
   }
