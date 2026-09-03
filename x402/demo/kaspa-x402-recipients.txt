@@ -1,0 +1,10 @@
+# The payee kaspa-x402's own testnet demo endpoint quotes.
+#
+# Read out of a real 402 from https://demo.kaspa-x402.org/exact on 2026-09-03,
+# not from documentation. Its script public key in that quote matches, byte for
+# byte, the P2PK script a Warda covenant builds for this address — which is
+# what makes it payable from a grant at all. A P2SH payee would not be.
+#
+# A grant commits to the ROOT of this list at genesis and cannot be changed
+# afterwards, so this file is the grant's payee list for its whole life.
+kaspatest:qzlws9lm7uyt0tftzffshnyeu2zcqk4kf7hw5ghk6v0zh093vnkljcy2fl0fh
