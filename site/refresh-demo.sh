@@ -4,6 +4,7 @@
 #
 #     ./refresh-demo.sh                 # read, rebuild, deploy
 #     ./refresh-demo.sh --no-deploy     # read and rebuild only
+#     ./refresh-demo.sh --force         # deploy even if nothing changed
 #
 # Reads the node on localhost:18210 by default. Set WARDA_RESOLVER to a real
 # Kaspa Resolver instead if you do not run one — leaving it UNSET is a choice,
@@ -52,7 +53,11 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 DEPLOY=1
-[ "${1:-}" = "--no-deploy" ] && DEPLOY=0
+FORCE=0
+for arg in "$@"; do
+  [ "$arg" = "--no-deploy" ] && DEPLOY=0
+  [ "$arg" = "--force" ] && FORCE=1
+done
 
 # Named separately from the work, because "node: command not found" three
 # layers into a pipeline is a different debugging session from "cron cannot
@@ -163,20 +168,42 @@ fi
 # failed vercel, a cancelled cron), and comparing against disk in that state
 # reports "no change" while the site still serves the older snapshot — true
 # about the chain, and wrong about the only thing the run is for.
-MARK=.last-deployed-state.json
-
-sig() { grep -v '"checkedAt"' "$1" 2>/dev/null || true; }
+MARK=.last-deployed.sha
 
 cp "$tmp" src/demo-state.json
-if [ -f "$MARK" ] && [ "$(sig "$tmp")" = "$(sig "$MARK")" ]; then
-  echo "no change since the last deploy."
+
+# The site is BUILT before anything is compared.
+#
+# This used to compare the snapshot alone and exit before building, on the
+# reasoning that the snapshot is the only thing a scheduled run changes. That
+# is true of the chain and false of the repository: an edit to src/index.html
+# changes the site and not the reading, so the run reported "no change" and the
+# fix never shipped. It took a reported bug — a button that did nothing —
+# to notice, because nothing about the output said it had been skipped.
+#
+# So the signature covers the whole built site. demo-state.json is excluded
+# from the file walk and folded in with its timestamp stripped, because
+# `checkedAt` changes on every reading and would make every run look different.
+python3 build.py >/dev/null
+
+sig() { grep -v '"checkedAt"' "$1" 2>/dev/null || true; }
+signature() {
+  {
+    sig src/demo-state.json
+    find web -type f ! -name demo-state.json -print0 | sort -z | xargs -0 shasum -a 256
+  } | shasum -a 256 | cut -d" " -f1
+}
+now=$(signature)
+
+if [ "$FORCE" = "0" ] && [ -f "$MARK" ] && [ "$now" = "$(cat "$MARK")" ]; then
+  echo "no change since the last deploy — neither the reading nor the site."
+  echo "  (--force deploys anyway)"
   exit 0
 fi
 
-echo "snapshot changed:"
+echo "current reading:"
 sed 's/^/  /' src/demo-state.json
 
-python3 build.py >/dev/null
 if [ "$DEPLOY" = "0" ]; then
   echo "built; not deployed (--no-deploy). The next run will still deploy this."
   exit 0
@@ -185,4 +212,4 @@ fi
 vercel --cwd web --prod
 # Only now. A marker written before the deploy succeeds is a marker that
 # silences every run after a failure.
-cp src/demo-state.json "$MARK"
+printf '%s\n' "$now" > "$MARK"
