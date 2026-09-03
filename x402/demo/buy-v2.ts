@@ -38,6 +38,7 @@ import {
   RecipientSet,
   decodeAddress,
   fromHex,
+  resolveSigner,
   templateIdFor,
   toHex,
   type CovenantTemplate,
@@ -65,7 +66,7 @@ if (!url || !manifestPath || !recipientsSpec) {
 
 const secretHex = process.env.WARDA_SK;
 if (!secretHex) {
-  console.error("WARDA_SK must be the AGENT's key — the one the grant names, not the funder's.");
+  console.error("WARDA_SK must be a key that can sign for this grant's agent.");
   process.exit(1);
 }
 
@@ -107,11 +108,35 @@ const state = {
   reserveRoot: m.reserve_root ?? EMPTY_RESERVE,
 };
 
+/**
+ * The agent key is usually DERIVED from the funder's, not equal to it.
+ *
+ * `genesis.ts` derives it by default and records the derivation in the
+ * manifest, so the obvious thing — hand the tool the key you have — signs with
+ * the funder's key and produces a transaction the covenant refuses. On chain
+ * that arrives as "script ran, verification failed", which says nothing about
+ * keys at all. It is the first way the live x402 demo failed, and it took a
+ * node round trip to find out.
+ *
+ * So the key is resolved against the agent the grant actually names, before
+ * anything is built.
+ */
+const resolved = resolveSigner(fromHex(secretHex.trim()), m.agent, m.agent_key_derived);
+if (!resolved) {
+  console.error(
+    `the key in WARDA_SK is not this grant's agent (${String(m.agent).slice(0, 16)}…), and no
+` +
+      `derivation of it is either. The grant can only be spent by the agent it names.`,
+  );
+  process.exit(1);
+}
+console.error(`agent    : ${m.agent} — signing with ${resolved.how}`);
+
 const node = await NodeClient.connect({ url: flag("rpc") ?? process.env.WARDA_RPC_JSON });
 const payer = new WardaPayer({
   grant: { template, authority, state, recipients },
   node,
-  sign: fromHex(secretHex.trim()),
+  sign: resolved.secret,
 });
 
 try {
