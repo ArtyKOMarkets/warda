@@ -32,6 +32,41 @@ export {
 } from "./payer.ts";
 
 export {
+  // kaspa-x402 v2: a second dialect, not a superset. `dialect()` reads which
+  // one a server speaks from the server's own answer.
+  dialect,
+  selectRequirement,
+  paymentRequirementsHash,
+  requestHash,
+  authorize,
+  buildPayment,
+  paymentSignatureHeader,
+  PAYMENT_REQUIRED_HEADER,
+  PAYMENT_SIGNATURE_HEADER,
+  PAYMENT_RESPONSE_HEADER,
+  type PaidRequest,
+  type ExactPayment,
+  type AuthorizationSigner,
+} from "./v2.ts";
+
+export {
+  amountOf,
+  assertPayeeScriptMatches,
+  PAYEE_OUTPUT_INDEX,
+  GRANT_INPUT_INDEX,
+  type PendingPayment,
+  type Outstanding,
+  type BuildV2Input,
+} from "./pay-v2.ts";
+
+export {
+  wardaFetchV2,
+  bodyForBinding,
+  type WardaFetchV2Options,
+  type WardaFetchV2Event,
+} from "./fetch-v2.ts";
+
+export {
   wardaFetch,
   type WardaFetchOptions,
   type WardaFetchEvent,

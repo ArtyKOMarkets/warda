@@ -1,0 +1,18 @@
+{
+  "_comment": [
+    "A real 402, captured from https://demo.kaspa-x402.org/exact on 2026-09-03.",
+    "The reference implementation's own server, not a fixture written from the spec.",
+    "Two things here were not obvious from their documentation and both would have",
+    "broken this client against a live vendor: the quote travels in the",
+    "PAYMENT-REQUIRED header rather than the body, and the body is a text/plain stub",
+    "that parses as JSON but carries no x402Version — so a body-first client reports",
+    "'this server speaks v1' about a server that is unambiguously v2."
+  ],
+  "status": 402,
+  "headers": {
+    "content-type": "text/plain;charset=UTF-8",
+    "access-control-expose-headers": "PAYMENT-REQUIRED, PAYMENT-RESPONSE",
+    "PAYMENT-REQUIRED": "eyJhY2NlcHRzIjpbeyJhbW91bnQiOiIyMDAwMDAwMCIsImFzc2V0IjoiS0FTIiwiZXh0cmEiOnsiYmluZGluZyI6Imthc3BhLWV4YWN0LXYyIiwiZmluYWxpdHkiOiJhY2NlcHRlZCIsInBheVRvU2NyaXB0UHVibGljS2V5IjoiMDAwMDIwYmVlODE3ZmJmNzA4YjdhZDJiMTI1MzBiY2M5OWUyODU4MDVhYjY0ZmFlZWEyMmY2ZDMxZTJiYmNiMTY0ZWRmOWFjIiwicHJvZmlsZSI6InN0YW5kYXJkLW5hdGl2ZSIsInRyYW5zYWN0aW9uRW5jb2RpbmciOiJrYXNwYS1zZGstc2FmZS1qc29uLXYyLjAuMCJ9LCJtYXhUaW1lb3V0U2Vjb25kcyI6NjAsIm5ldHdvcmsiOiJrYXNwYTp0ZXN0bmV0LTEwIiwicGF5VG8iOiJrYXNwYXRlc3Q6cXpsd3M5bG03dXl0MHRmdHpmZnNobnlldTJ6Y3FrNGtmN2h3NWdoazZ2MHpoMDkzdm5rbGpjeTJmbDBmaCIsInNjaGVtZSI6ImV4YWN0In1dLCJyZXNvdXJjZSI6eyJkZXNjcmlwdGlvbiI6Ikthc3BhIHg0MDIgZXhhY3QgdGVzdG5ldCByZXNvdXJjZSIsIm1pbWVUeXBlIjoiYXBwbGljYXRpb24vanNvbiIsInVybCI6Imh0dHBzOi8vZGVtby5rYXNwYS14NDAyLm9yZy9leGFjdCJ9LCJ4NDAyVmVyc2lvbiI6Mn0="
+  },
+  "body": "{\"ok\":false,\"error\":\"payment_required\"}"
+}

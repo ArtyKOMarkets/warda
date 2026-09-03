@@ -37,6 +37,66 @@ key it was handed; this builds a covenant spend from a grant. Everything above
 and below is unchanged. The vendor sees an ordinary Kaspa payment and never
 learns the difference.
 
+## Two dialects: v1 and v2
+
+kaspa-x402 has moved to v2, and v2 is not a superset of v1. The header names
+changed, `amountSompi` became `amount`, the per-invoice nonce was replaced by a
+binding to the request itself, and the payment is now an authorization signed
+over a digest rather than a bare txid. A server speaking one does not
+understand the other.
+
+Both are implemented. `dialect()` reads which one a server speaks from what the
+server actually answered, because the answer is in the response and asking an
+operator to configure it is how a client ends up wrong against half the
+network.
+
+```ts
+import { wardaFetchV2 } from "@warda_protocol/x402";
+
+const res = await wardaFetchV2("https://vendor/infer", {
+  method: "POST",
+  body: JSON.stringify({ prompt: "..." }),
+}, { payer });
+```
+
+The v2 path depends on [`@kaspa-x402/core`](https://www.npmjs.com/package/@kaspa-x402/core)
+rather than reimplementing it. Every value on that wire is a hash over a
+canonical JSON encoding, and a plausible reimplementation of a canonical
+encoder is one that passes its own tests and is rejected by somebody else's
+facilitator over a key ordering. Their package is MIT, pure, and imports only
+`node:crypto`, so the encoder, the schema validators and the digest preimages
+are theirs; the covenant spend and the agent's signature are ours.
+
+### The vendor broadcasts
+
+This is the one difference that changes how a grant is book-kept. In v1 the
+payer submits the transaction and hands over a txid. In v2 the payer hands over
+the whole signed transaction and the **vendor** submits it.
+
+For an agent that is an improvement: paying no longer needs a node, only a
+signer. For the grant it is a problem, because a grant's address *is* its
+state — after a spend the old address is empty and the payer must move with it,
+and here it never finds out unless somebody says so.
+
+So a v2 payment holds the grant. `buildPaymentV2` returns a `PendingPayment`
+and the payer refuses to build another until it is told what happened:
+
+```ts
+const pending = await payer.buildPaymentV2({ accepted, request });
+// ... hand pending.header to the vendor as PAYMENT-SIGNATURE ...
+payer.settledV2();   // they confirmed: advance the grant
+payer.abandonedV2(); // they did not: stop, and resolve against the chain
+```
+
+`abandonedV2()` does not roll back. A vendor that crashed after broadcasting
+looks exactly like one that never tried, so the payer marks itself unresolved
+and names the two addresses the grant can be at. One query per candidate
+settles it — `sdk/tools/follow-grant.ts` does exactly that.
+
+Rolling back optimistically would mean spending from a coin that is already
+gone, which surfaces much later as an inexplicable chain error. Stopping is
+more disruptive and it is the only honest option.
+
 ## Usage
 
 ```ts

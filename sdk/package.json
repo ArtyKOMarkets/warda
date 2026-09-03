@@ -62,7 +62,8 @@
     "@noble/hashes": "^2.3.0"
   },
   "devDependencies": {
-    "@types/node": "^26.4.0"
+    "@types/node": "^26.4.0",
+    "kaspa-wasm32-sdk": "^0.15.2"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
