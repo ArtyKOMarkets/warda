@@ -1,0 +1,20 @@
+# ~/.cloudflared/config.yml
+#
+# Copy this there and fill in the two placeholders. Both come out of
+# `cloudflared tunnel create` — it prints the tunnel's UUID and writes the
+# credentials file it names.
+#
+# The service is http://, not ws://. cloudflared has no ws:// scheme; a
+# WebSocket is an HTTP request that upgrades, and cloudflared carries the
+# upgrade over the http:// origin automatically. Clients still connect with
+# wss://, because the hostname is behind Cloudflare's TLS.
+
+tunnel: PUT-TUNNEL-UUID-HERE
+credentials-file: /Users/artautasjasinskas/.cloudflared/PUT-TUNNEL-UUID-HERE.json
+
+ingress:
+  - hostname: PUT-HOSTNAME-HERE
+    service: http://127.0.0.1:18210
+  # Every ingress list must end with a catch-all, or cloudflared refuses to
+  # start. This one refuses anything not addressed to the hostname above.
+  - service: http_status:404

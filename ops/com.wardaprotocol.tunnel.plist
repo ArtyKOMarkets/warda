@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Keeps the named tunnel running, on the same terms as the node above.
+
+  Replace warda-node if you named the tunnel something else, and check the
+  cloudflared path with `which cloudflared` — Homebrew puts it in
+  /opt/homebrew/bin on Apple Silicon and /usr/local/bin on Intel.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.wardaprotocol.tunnel</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/cloudflared</string>
+    <string>tunnel</string>
+    <string>run</string>
+    <string>warda-node</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/Users/artautasjasinskas/Library/Logs/warda-tunnel.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/artautasjasinskas/Library/Logs/warda-tunnel.log</string>
+</dict>
+</plist>

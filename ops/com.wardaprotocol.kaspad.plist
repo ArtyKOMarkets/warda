@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Keeps kaspad running: starts at login, restarts if it dies.
+
+  A LaunchAgent, not a LaunchDaemon, so no sudo and nothing runs as root.
+  The trade-off is that it only runs while you are logged in — which is the
+  known limit of hosting this on a laptop rather than a box.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.wardaprotocol.kaspad</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/artautasjasinskas/Desktop/warda/ops/run-node.sh</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/Users/artautasjasinskas/Library/Logs/warda-kaspad.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/artautasjasinskas/Library/Logs/warda-kaspad.log</string>
+</dict>
+</plist>
