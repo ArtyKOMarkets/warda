@@ -24,15 +24,31 @@ that first and see.
 
 Run each of these in Terminal, one at a time.
 
-**1. Check cloudflared is there.**
+**1. Install cloudflared.**
 
-    cloudflared --version
+It is a single static binary, so this needs neither Homebrew nor sudo. For
+Apple Silicon:
 
-If not: `brew install cloudflared`.
+    mkdir -p ~/.local/bin
+    curl -L -o /tmp/cloudflared.tgz https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-darwin-arm64.tgz
+    tar xzf /tmp/cloudflared.tgz -C ~/.local/bin
+    chmod +x ~/.local/bin/cloudflared
+    ~/.local/bin/cloudflared --version
+
+(On an Intel Mac the asset is `cloudflared-darwin-amd64.tgz`.)
+
+`~/.local/bin` is probably not on your PATH, and the steps below all use the
+full path so it does not need to be. To type `cloudflared` instead, append
+this one line to `~/.zshrc` — note the `>>`, which adds to the file, and that
+the line keeps the existing PATH rather than replacing it:
+
+    echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
+
+Then open a new Terminal tab and check `echo $PATH` still looks right.
 
 **2. Log in and pick the zone.**
 
-    cloudflared tunnel login
+    ~/.local/bin/cloudflared tunnel login
 
 A browser opens and lists the domains in your Cloudflare account. Choosing one
 writes a certificate to `~/.cloudflared/cert.pem`. If the list is empty or does
@@ -40,14 +56,14 @@ not contain the domain you want, stop here — the rest cannot work yet.
 
 **3. Create the tunnel.**
 
-    cloudflared tunnel create warda-node
+    ~/.local/bin/cloudflared tunnel create warda-node
 
 This prints a UUID and writes `~/.cloudflared/<UUID>.json`. Keep both; the
 config file needs them.
 
 **4. Point a hostname at it.**
 
-    cloudflared tunnel route dns warda-node node.example.com
+    ~/.local/bin/cloudflared tunnel route dns warda-node node.example.com
 
 Use a subdomain of the zone you chose in step 2.
 
@@ -71,7 +87,7 @@ next step.
 
 **7. In a second Terminal window, start the tunnel once.**
 
-    cloudflared tunnel run warda-node
+    ~/.local/bin/cloudflared tunnel run warda-node
 
 **8. Check it from outside.**
 
@@ -92,8 +108,10 @@ them as LaunchAgents:
     launchctl load ~/Library/LaunchAgents/com.wardaprotocol.kaspad.plist
     launchctl load ~/Library/LaunchAgents/com.wardaprotocol.tunnel.plist
 
-Check the cloudflared path in the tunnel plist first — `which cloudflared` —
-and the tunnel name if you called it something other than `warda-node`.
+The tunnel plist points at `~/.local/bin/cloudflared`. If you installed it
+somewhere else, or named the tunnel something other than `warda-node`, edit the
+plist before copying it — launchd does not read your shell profile, so the path
+in there has to be absolute and correct.
 
 Then run step 8 again. If it still passes, the node has a permanent address.
 

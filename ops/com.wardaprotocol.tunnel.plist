@@ -2,9 +2,12 @@
 <!--
   Keeps the named tunnel running, on the same terms as the node above.
 
-  Replace warda-node if you named the tunnel something else, and check the
-  cloudflared path with `which cloudflared` — Homebrew puts it in
-  /opt/homebrew/bin on Apple Silicon and /usr/local/bin on Intel.
+  Replace warda-node if you named the tunnel something else. The path below
+  is where README.md's install puts the binary; if you installed it some other
+  way, `command -v cloudflared` says where. launchd does not read your shell
+  profile, so this must be an absolute path either way — a LaunchAgent with a
+  bare command name fails silently and shows up only as a service that never
+  starts.
 -->
 <plist version="1.0">
 <dict>
@@ -12,7 +15,7 @@
   <string>com.wardaprotocol.tunnel</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/opt/homebrew/bin/cloudflared</string>
+    <string>/Users/artautasjasinskas/.local/bin/cloudflared</string>
     <string>tunnel</string>
     <string>run</string>
     <string>warda-node</string>
