@@ -16,3 +16,7 @@ js-delegation.json
 .vercel
 .env*
 sdk/rt-check.mjs
+
+# The node endpoint. A public URL pointing at a machine we do not want
+# strangers using as their RPC provider, so it stays out of a public repo.
+ops/node.env
