@@ -122,6 +122,41 @@ export function toBigInt(value: unknown, label: string): bigint {
   return BigInt(value);
 }
 
+
+/**
+ * `JSON.parse`, without silently rounding the u64s a Kaspa node sends.
+ *
+ * kaspad writes u64 fields as raw JSON NUMBERS, and JSON has one numeric type:
+ * a double. `getCoinSupply` on testnet-10 answers with a circulating supply of
+ * 2,690,917,752,273,334,000 sompi — nearly three hundred times
+ * `Number.MAX_SAFE_INTEGER` — so by the time `JSON.parse` returns, the value
+ * has already been rounded to the nearest representable double and the true
+ * digits are gone. No check downstream can recover them; `toBigInt` can only
+ * refuse, which is what it did, and refusing is the right answer to a value
+ * that is already wrong.
+ *
+ * The fix has to happen during parsing, and Node gives exactly the hook for
+ * it: a reviver's third argument carries `source`, the original literal text
+ * as it appeared in the document. An integer literal that a double cannot hold
+ * exactly is handed on as a STRING, which `toBigInt` already accepts, so the
+ * exact digits survive and nothing downstream changes.
+ *
+ * Deliberately narrow. Safe integers stay numbers, so every field that was a
+ * number before still is; floats are untouched; strings are untouched. Only a
+ * value that would otherwise be quietly wrong changes shape.
+ *
+ * On a runtime that does not supply `source` this is exactly `JSON.parse`, and
+ * `toBigInt` refuses the oversized values as before. That is a worse outcome
+ * and not a dangerous one: the failure is loud.
+ */
+export function parseJsonPreservingIntegers(text: string): any {
+  return JSON.parse(text, function (_key, value, context?: { source?: string }) {
+    if (typeof value !== "number" || Number.isSafeInteger(value)) return value;
+    const source = context?.source;
+    return source !== undefined && /^-?\d+$/.test(source) ? source : value;
+  });
+}
+
 const BIG_OPEN = "\u0000<bigint:";
 const BIG_CLOSE = ">\u0000";
 
@@ -197,7 +232,7 @@ export class RpcConnection {
       const onMessage = (ev: MessageEvent) => {
         let reply: RpcReply;
         try {
-          reply = JSON.parse(String(ev.data));
+          reply = parseJsonPreservingIntegers(String(ev.data));
         } catch {
           return; // not parseable; if it was ours the timeout reports it
         }
