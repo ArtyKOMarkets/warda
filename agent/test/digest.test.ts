@@ -187,6 +187,11 @@ test("duration reads as a person would write it", () => {
   assert.equal(duration(604_800), "7 d");
   assert.equal(duration(90_000), "25 h");
   assert.equal(duration(200_000), "2 d 7 h");
+  // A schedule that fires a second early makes this the common case, not an
+  // edge one: 86,399 s is 23 h 59.98 m, and rounding it alone reads "23 h 60 m".
+  assert.equal(duration(86_399), "24 h");
+  assert.equal(duration(3_599), "1 h");
+  assert.equal(duration(86_340), "23 h 59 m");
 });
 
 // ---- storage -------------------------------------------------------------

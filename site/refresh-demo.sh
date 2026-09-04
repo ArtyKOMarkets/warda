@@ -184,6 +184,25 @@ cp "$tmp" src/demo-state.json
 # So the signature covers the whole built site. demo-state.json is excluded
 # from the file walk and folded in with its timestamp stripped, because
 # `checkedAt` changes on every reading and would make every run look different.
+# The agent's dashboard, on the same schedule as everything else.
+#
+# It was manual, which meant the page was accurate exactly as often as someone
+# remembered — and a dashboard that is stale by an unknown amount is worse than
+# one that says when it was read. Failure is not fatal: a refresh that cannot
+# reach the node should cost the agent page its freshness, not stop the site
+# from shipping the pages that were fine.
+if ! (cd ../agent && node --experimental-strip-types tools/dashboard.ts \
+        ../x402/demo/kaspa-x402-grant.json \
+        --recipients ../x402/demo/kaspa-x402-recipients.txt \
+        --readings readings \
+        ${WARDA_RPC_JSON:+--rpc "$WARDA_RPC_JSON"} \
+        > /tmp/agent-001.$$.json); then
+  echo "agent dashboard refresh failed — keeping the previous one" >&2
+  rm -f /tmp/agent-001.$$.json
+else
+  mv /tmp/agent-001.$$.json src/agent-001.json
+fi
+
 python3 build.py >/dev/null
 
 sig() { grep -v '"checkedAt"' "$1" 2>/dev/null || true; }

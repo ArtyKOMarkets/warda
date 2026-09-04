@@ -159,8 +159,15 @@ export function hashrate(hps: bigint): string {
 }
 
 export function duration(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.round((seconds % 3600) / 60);
+  let h = Math.floor(seconds / 3600);
+  let m = Math.round((seconds % 3600) / 60);
+  // 86,399 seconds is 23 h and 59.98 m, which rounds to 60 and reads as
+  // "23 h 60 m". An hourly schedule lands a second or two either side of the
+  // hour constantly, so this is the ordinary case rather than an edge one.
+  if (m === 60) {
+    h += 1;
+    m = 0;
+  }
 
   // Days only past 48 h. A daily digest's own window is 24 h, and "1 d" for it
   // would be a worse heading than "24 h" — the hours are the point at that

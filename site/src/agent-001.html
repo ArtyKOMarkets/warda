@@ -84,6 +84,7 @@
           font-size: 0.95rem; margin: 1.5rem 0 0; }
   .note strong { color: var(--chrome); font-weight: 500; }
 
+  #a-digest { font-size: clamp(0.63rem, 2.1vw, 0.76rem); color: var(--chrome); }
   pre { background: var(--ground); border: 1px solid var(--edge); padding: 1rem 1.1rem;
         overflow-x: auto; font-family: var(--mono); font-size: 0.74rem; line-height: 1.75;
         color: var(--chrome-dim); margin: 1.2rem 0 0; }
@@ -124,6 +125,24 @@
     at genesis and <strong>cannot add one afterwards</strong> &mdash; so &ldquo;authorized payees: 1&rdquo;
     means there is exactly one address in the universe this agent can pay. That number grows when
     a new grant is issued, never when the agent decides it would like to buy something else.
+  </p>
+</section>
+
+<section id="a-work" hidden>
+  <p class="eyebrow">Published</p>
+  <h2>What it does</h2>
+  <p class="lede" style="margin-top:0.6rem">
+    Agent&nbsp;#001 reads the Kaspa network on a schedule and publishes the difference between
+    two readings. It never asks the chain what happened yesterday &mdash; it asks where the chain
+    is now, writes that down, and yesterday&rsquo;s answer is the file it wrote yesterday.
+    <strong>No indexer, no archive node, no history.</strong>
+  </p>
+  <pre id="a-digest">&mdash;</pre>
+  <p class="note">
+    Every figure there is the difference between two counters the network keeps for its own
+    reasons. Nothing is sampled or extrapolated; the hashrate is the node&rsquo;s own estimate and
+    says so. Both readings are kept, so anyone with a node can take their own pair and get the
+    same differences.
   </p>
 </section>
 
@@ -204,6 +223,11 @@
         set("a-payees", a.authorizedPayees + (a.authorizedPayees === 1 ? " address" : " addresses"));
         set("a-depth", String(a.delegationDepth));
         set("a-onchain", a.onChain || "nothing at this address");
+
+        if (d.digest && d.digest.text) {
+          set("a-digest", d.digest.text);
+          document.getElementById("a-work").hidden = false;
+        }
 
         var box = document.getElementById("a-refusals");
         d.refusals.forEach(function (r) {

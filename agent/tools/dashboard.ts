@@ -52,11 +52,28 @@ import {
 // and two copies of RecipientSet reached by different routes are two different
 // types to the compiler even when they are one file on disk.
 import { explainRefusal, type Grant } from "../../x402/src/payer.ts";
+import { compare, duration, renderText } from "../src/digest.ts";
+import { loadReadings, pickPair, windowSeconds } from "../src/readings.ts";
 
 function flag(name: string, fallback?: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
   return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : fallback;
 }
+
+/**
+ * The digest belongs on this page.
+ *
+ * Without it the dashboard describes an agent that has spent money and
+ * produced nothing, which is an unflattering and incomplete picture of a
+ * thing that has published a reading every hour, unattended, since it was
+ * switched on. What it SPENDS and what it DOES are the two halves, and only
+ * one of them was here.
+ *
+ * Folded into the same file rather than served separately: one fetch, one
+ * guard, and a page that cannot end up showing a fresh balance beside a stale
+ * digest because they arrived at different times.
+ */
+const readingsDir = flag("readings");
 
 const manifestPath = process.argv.slice(2).find((a) => !a.startsWith("--") && a.endsWith(".json"));
 const recipientsPath = flag("recipients");
@@ -204,6 +221,29 @@ refusals.push({
   derived: false,
 });
 
+// ---- what it published ---------------------------------------------------
+
+let digest: { window: string; from: string; to: string; text: string } | null = null;
+if (readingsDir) {
+  const want = windowSeconds(flag("digest-window", "24h")!);
+  const pair = pickPair(loadReadings(readingsDir), want);
+  if (!pair) {
+    console.error(`only ${loadReadings(readingsDir).length} reading(s) in ${readingsDir} — no digest`);
+  } else {
+    const report = compare(pair.before.reading, pair.after.reading);
+    digest = {
+      // The interval OBTAINED, not the one asked for — computed from the two
+      // timestamps, the same way the renderer computes its heading. Scraping
+      // that heading instead worked and was a second thing to keep in step
+      // with the renderer's formatting.
+      window: duration(report.seconds),
+      from: report.from,
+      to: report.to,
+      text: renderText(report),
+    };
+  }
+}
+
 // ---- what actually happened ----------------------------------------------
 
 const { client, health } = await NodeClient.open({
@@ -270,6 +310,7 @@ try {
             })),
         },
         refusals,
+        digest,
       },
       null,
       2,
@@ -282,6 +323,7 @@ try {
   console.error(`payees    : ${members.length}`);
   console.error(`payments  : ${ours.length} attributable to this grant`);
   console.error(`refusals  : ${refusals.length} (${refusals.filter((r) => r.derived).length} run, 1 quoted)`);
+  console.error(`digest    : ${digest ? digest.window + " to " + digest.to : "none (pass --readings)"}`);
 } finally {
   client.close();
 }
