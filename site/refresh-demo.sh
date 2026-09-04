@@ -187,10 +187,15 @@ cp "$tmp" src/demo-state.json
 python3 build.py >/dev/null
 
 sig() { grep -v '"checkedAt"' "$1" 2>/dev/null || true; }
+
+# `sort -z` is a GNU extension and this runs on macOS, where BSD sort does not
+# have it — the pipeline then produced nothing, the signature collapsed to the
+# reading alone, and a run that had built a whole new page reported "no change".
+# Sorting the hash LINES instead needs no extension and no NUL handling.
 signature() {
   {
     sig src/demo-state.json
-    find web -type f ! -name demo-state.json -print0 | sort -z | xargs -0 shasum -a 256
+    find web -type f ! -name demo-state.json -exec shasum -a 256 {} + | sort
   } | shasum -a 256 | cut -d" " -f1
 }
 now=$(signature)
