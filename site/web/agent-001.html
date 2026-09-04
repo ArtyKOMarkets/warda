@@ -86,6 +86,13 @@
   .pay .tx { color: var(--chrome-dim); overflow-wrap: anywhere; user-select: all;
              margin-top: 0.5rem; line-height: 1.7; }
 
+  .mission { margin-top: 1.6rem; max-width: 50ch; font-size: clamp(1rem, 1.9vw, 1.15rem);
+             color: var(--chrome); border-left: 2px solid var(--teal-deep); padding-left: 1.1rem; }
+  .verdict { margin-top: 0.65rem; display: flex; flex-wrap: wrap; gap: 0.4rem 1.1rem;
+             font-size: 0.7rem; letter-spacing: 0.04em; }
+  .verdict .ok { color: var(--teal); }
+  .verdict .no { color: var(--refuse); }
+
   .story { list-style: none; padding: 0; margin: 1.6rem 0 0; max-width: 44ch; }
   .story li { font-size: clamp(1.05rem, 2.2vw, 1.35rem); line-height: 1.5; padding: 0.28rem 0;
               color: var(--chrome-dim); font-family: var(--display); font-weight: 500; }
@@ -143,6 +150,7 @@
     <li><strong>It cannot change its own rules.</strong></li>
     <li>You can verify every line of this.</li>
   </ul>
+  <p class="mission" id="a-mission">&mdash;</p>
   <p class="lede">
     The limits are in the script that unlocks the coin &mdash; not in the process holding the key.
     So they hold if the agent is confused, if it is jailbroken, and if someone takes the key
@@ -151,6 +159,30 @@
 </header></div>
 
 <div class="wrap" id="a-body" hidden>
+
+<section id="a-work" hidden>
+  <p class="eyebrow">The job</p>
+  <h2>What Agent&nbsp;#001 does</h2>
+  <p class="lede" style="margin-top:0.6rem">
+    It reads the Kaspa network on a schedule and publishes the difference between two readings.
+    It never asks the chain what happened yesterday &mdash; it asks where the chain is now,
+    writes that down, and yesterday&rsquo;s answer is the file it wrote yesterday.
+    <strong>No indexer, no archive node, no history.</strong>
+  </p>
+  <div class="stmt" style="margin:1.6rem 0">
+    <div class="row"><span class="k">Last run</span><span class="v big" id="a-lastrun">&mdash;</span></div>
+    <div class="row"><span class="k">Runs</span><span class="v" id="a-runs">&mdash;</span></div>
+    <div class="row"><span class="k">Services used</span><span class="v" id="a-services">&mdash;</span></div>
+    <div class="row"><span class="k">Spent on this run</span><span class="v" id="a-runspent">&mdash;</span></div>
+  </div>
+  <pre id="a-digest">&mdash;</pre>
+  <p class="note">
+    Every figure there is the difference between two counters the network keeps for its own
+    reasons. Nothing is sampled or extrapolated; the hashrate is the node&rsquo;s own estimate and
+    says so. Both readings are kept, so anyone with a node can take their own pair and get the
+    same differences.
+  </p>
+</section>
 
 <section>
   <p class="eyebrow">Authority</p>
@@ -174,24 +206,6 @@
   </p>
 </section>
 
-<section id="a-work" hidden>
-  <p class="eyebrow">Published</p>
-  <h2>What it does</h2>
-  <p class="lede" style="margin-top:0.6rem">
-    Agent&nbsp;#001 reads the Kaspa network on a schedule and publishes the difference between
-    two readings. It never asks the chain what happened yesterday &mdash; it asks where the chain
-    is now, writes that down, and yesterday&rsquo;s answer is the file it wrote yesterday.
-    <strong>No indexer, no archive node, no history.</strong>
-  </p>
-  <pre id="a-digest">&mdash;</pre>
-  <p class="note">
-    Every figure there is the difference between two counters the network keeps for its own
-    reasons. Nothing is sampled or extrapolated; the hashrate is the node&rsquo;s own estimate and
-    says so. Both readings are kept, so anyone with a node can take their own pair and get the
-    same differences.
-  </p>
-</section>
-
 <section>
   <p class="eyebrow red">Refused</p>
   <h2>What it cannot do</h2>
@@ -204,8 +218,8 @@
 </section>
 
 <section>
-  <p class="eyebrow">Activity</p>
-  <h2>What it has actually done</h2>
+  <p class="eyebrow">Economic history</p>
+  <h2>Every payment it has ever made</h2>
   <div class="stmt" style="margin-bottom:1.6rem">
     <div class="row"><span class="k">Payments</span><span class="v big" id="a-count">&mdash;</span></div>
     <div class="row"><span class="k">Paid</span><span class="v big" id="a-paid">&mdash;</span></div>
@@ -213,7 +227,8 @@
   </div>
   <div id="a-payments"></div>
   <p class="note" id="a-served">
-    <strong>Paid, and not served.</strong> These went to a vendor nobody here controls &mdash;
+    <strong>Warda enforced the authority. It did not guarantee the vendor.</strong>
+    These went to a vendor nobody here controls &mdash;
     the demo endpoint of the reference kaspa-x402 implementation. Their facilitator refused to
     serve the request each time, for a reason we cannot see from outside; the money moved anyway,
     because a spend the chain accepted is final whatever the vendor thinks. Whether a covenant
@@ -335,6 +350,15 @@
           tree.appendChild(row);
         });
 
+        if (d.mission) set("a-mission", d.mission);
+        if (d.lastRun) {
+          set("a-lastrun", d.lastRun.at.replace("T", " ").replace(/:\d\d\.\d+Z$/, " UTC"));
+          set("a-runs", d.lastRun.runs + " since " +
+              d.lastRun.since.replace("T", " ").replace(/:\d\d\.\d+Z$/, " UTC"));
+          set("a-services", String(d.lastRun.servicesUsed) + " \u2014 " + d.lastRun.note);
+          set("a-runspent", d.lastRun.spent);
+        }
+
         if (d.digest && d.digest.text) {
           set("a-digest", d.digest.text);
           document.getElementById("a-work").hidden = false;
@@ -367,7 +391,18 @@
           daa.textContent = "DAA " + c.daaScore + " · output " + c.index;
           top.appendChild(amt); top.appendChild(daa);
           var tx = document.createElement("div"); tx.className = "tx"; tx.textContent = c.txid;
-          el.appendChild(top); el.appendChild(tx);
+          /* Three separate questions, and only the first two are Warda's to
+             answer. Collapsing them into one tick is how an authority layer
+             gets mistaken for a guarantee of delivery. */
+          var v = document.createElement("div"); v.className = "verdict";
+          [["Authorized", true], ["Settled on chain", true], ["Service delivered", false]]
+            .forEach(function (pair) {
+              var sp = document.createElement("span");
+              sp.className = pair[1] ? "ok" : "no";
+              sp.textContent = (pair[1] ? "\u2713 " : "\u2715 ") + pair[0];
+              v.appendChild(sp);
+            });
+          el.appendChild(top); el.appendChild(tx); el.appendChild(v);
           pays.appendChild(el);
         });
         if (act.payments === 0) {

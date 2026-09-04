@@ -224,13 +224,35 @@ refusals.push({
 // ---- what it published ---------------------------------------------------
 
 let digest: { window: string; from: string; to: string; text: string } | null = null;
+let lastRun: {
+  at: string; runs: number; since: string;
+  servicesUsed: number; spent: string; note: string;
+} | null = null;
 if (readingsDir) {
   const want = windowSeconds(flag("digest-window", "24h")!);
   const pair = pickPair(loadReadings(readingsDir), want);
   if (!pair) {
     console.error(`only ${loadReadings(readingsDir).length} reading(s) in ${readingsDir} — no digest`);
   } else {
+    const all = loadReadings(readingsDir);
     const report = compare(pair.before.reading, pair.after.reading);
+    /**
+     * The run's cost is zero, and that is worth stating rather than hiding.
+     *
+     * Reading a node needs no vendor, so the agent's daily work spends
+     * nothing. The temptation on a page like this is to show services used
+     * and KAS spent on the last run because those make better numbers — but
+     * they would be invented, and the true version makes a better point:
+     * an agent only needs authority for what it cannot do itself.
+     */
+    lastRun = {
+      at: pair.after.reading.at,
+      runs: all.length,
+      since: all[0]!.reading.at,
+      servicesUsed: 0,
+      spent: "0 KAS",
+      note: "reading the chain needs no vendor, so this run bought nothing",
+    };
     digest = {
       // The interval OBTAINED, not the one asked for — computed from the two
       // timestamps, the same way the renderer computes its heading. Scraping
@@ -310,6 +332,10 @@ try {
             })),
         },
         refusals,
+        mission:
+          "Monitor the Kaspa network and publish an independent daily digest, unattended. " +
+          "It holds a bounded Warda grant and may buy an approved service when it needs one.",
+        lastRun,
         digest,
       },
       null,
@@ -324,6 +350,7 @@ try {
   console.error(`payments  : ${ours.length} attributable to this grant`);
   console.error(`refusals  : ${refusals.length} (${refusals.filter((r) => r.derived).length} run, 1 quoted)`);
   console.error(`digest    : ${digest ? digest.window + " to " + digest.to : "none (pass --readings)"}`);
+  console.error(`runs      : ${lastRun ? lastRun.runs + " since " + lastRun.since : "unknown"}`);
 } finally {
   client.close();
 }
