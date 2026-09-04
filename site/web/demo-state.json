@@ -1,6 +1,6 @@
 {
   "_comment": "A snapshot, not a live feed. Written by tools/demo-state.ts. `spentByThisGrant` is the covenant's own accounting, carried in the grant's manifest. The `vendor*` fields describe the ADDRESS, not this grant: a payee can receive from any number of grants, and this one's did. The claim that nothing reached anywhere else is not measured here; it is enforced by the covenant.",
-  "checkedAt": "2026-09-04T10:22:07.485Z",
+  "checkedAt": "2026-09-04T10:40:01.463Z",
   "network": "testnet-10",
   "grant": "kaspatest:prw9hklems02v8apxlx5m6y0d90e0j6657ztr3c3cjqf0wsnwsxz2fs9n0jxr",
   "vendor": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",

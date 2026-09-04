@@ -1,6 +1,6 @@
 {
   "_comment": "Written by agent/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, or the chain — none is typed. The refusal sentences are produced by running the same explainRefusal the payer calls, except the one marked derived:false, which is consensus's answer quoted from a node's actual rejection.",
-  "checkedAt": "2026-09-04T10:22:07.372Z",
+  "checkedAt": "2026-09-04T10:40:01.860Z",
   "network": "testnet-10",
   "identity": {
     "agentId": "WARDA-001",
@@ -87,5 +87,11 @@
       "refusal": "this payment of 1000000 sompi is too SMALL to broadcast. Kaspa charges storage mass for the small outputs a transaction creates: this one massed 1000000 against a ceiling of 500000. Nothing about the grant was exceeded and nothing was spent — the amount itself is below what the network will carry.",
       "derived": false
     }
-  ]
+  ],
+  "digest": {
+    "window": "24 h",
+    "from": "2026-09-03T10:17:01.285Z",
+    "to": "2026-09-04T10:17:00.748Z",
+    "text": "Kaspa testnet-10 · 24 h to 2026-09-04 10:17 UTC\n\n  blue score  +863,550           9.99 blue blocks/s\n  DAA score   +863,837           now 561,582,374\n  minted      +2,825,016.50 KAS  26,912,234,862 KAS in existence\n  hashrate    18.38 MH/s         node estimate over its last 1,000 blocks\n  mempool     0 tx               held, unaccepted, at the closing reading\n  DAG         3 tips             1,132,370 blocks held by this node\n\nmeasured between two readings of one node (kaspad 2.0.1)\n"
+  }
 }

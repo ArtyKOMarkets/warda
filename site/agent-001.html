@@ -80,10 +80,39 @@
   .pay .tx { color: var(--chrome-dim); overflow-wrap: anywhere; user-select: all;
              margin-top: 0.5rem; line-height: 1.7; }
 
+  .story { list-style: none; padding: 0; margin: 1.6rem 0 0; max-width: 44ch; }
+  .story li { font-size: clamp(1.05rem, 2.2vw, 1.35rem); line-height: 1.5; padding: 0.28rem 0;
+              color: var(--chrome-dim); font-family: var(--display); font-weight: 500; }
+  .story li strong { color: var(--chrome); font-weight: 700; }
+  .story li:last-child { color: var(--teal); }
+
+  .tree { font-family: var(--mono); font-size: 0.78rem; line-height: 2; margin-top: 1.6rem;
+          border: 1px solid var(--edge-bright); background: var(--ground); padding: 1.1rem 1.2rem; }
+  .tree .h { color: var(--chrome-faint); text-transform: uppercase; letter-spacing: 0.1em;
+             font-size: 0.66rem; display: block; margin-bottom: 0.4rem; }
+  .tree .can { color: var(--teal); overflow-wrap: anywhere; }
+  .tree .cant { color: var(--refuse); }
+  .tree .gap { display: block; height: 0.8rem; }
+
+  .two { display: grid; gap: 1.1rem; margin-top: 1.8rem; }
+  @media (min-width: 46rem) { .two { grid-template-columns: 1fr 1fr; } }
+  .col { border: 1px solid var(--edge-bright); background: var(--ground); padding: 1.1rem 1.2rem; }
+  .col h3 { font-family: var(--mono); font-size: 0.7rem; text-transform: uppercase;
+            letter-spacing: 0.14em; margin-bottom: 0.9rem; }
+  .col.yes { border-color: var(--teal-deep); }
+  .col.yes h3 { color: var(--teal); }
+  .col.no h3 { color: var(--chrome-dim); }
+  .col ul { list-style: none; padding: 0; margin: 0; }
+  .col li { font-size: 0.92rem; line-height: 1.5; padding: 0.34rem 0 0.34rem 1.3rem;
+            position: relative; color: var(--chrome-dim); }
+  .col.yes li::before { content: "\2713"; position: absolute; left: 0; color: var(--teal); }
+  .col.no li::before { content: "\2715"; position: absolute; left: 0; color: var(--chrome-faint); }
+
   .note { border-left: 2px solid var(--edge-bright); padding-left: 1.1rem; color: var(--chrome-dim);
           font-size: 0.95rem; margin: 1.5rem 0 0; }
   .note strong { color: var(--chrome); font-weight: 500; }
 
+  #a-digest { font-size: clamp(0.63rem, 2.1vw, 0.76rem); color: var(--chrome); }
   pre { background: var(--ground); border: 1px solid var(--edge); padding: 1rem 1.1rem;
         overflow-x: auto; font-family: var(--mono); font-size: 0.74rem; line-height: 1.75;
         color: var(--chrome-dim); margin: 1.2rem 0 0; }
@@ -96,11 +125,19 @@
   <a class="home" href="/">&larr; Warda</a>
   <p class="live" id="a-live" hidden><span class="dot"></span><span id="a-net">testnet</span></p>
   <h1>Agent&nbsp;#001</h1>
+  <ul class="story">
+    <li>It has a job.</li>
+    <li>It has money.</li>
+    <li>It has rules.</li>
+    <li>It makes purchases.</li>
+    <li>Sometimes those purchases fail.</li>
+    <li><strong>It cannot change its own rules.</strong></li>
+    <li>You can verify every line of this.</li>
+  </ul>
   <p class="lede">
-    It can spend money. It <strong>cannot spend outside its authority</strong> &mdash; not if it is
-    confused, not if it is jailbroken, not if someone takes its key. The limits are in the script
-    that unlocks the coin, so the only party whose opinion matters has already been consulted by
-    the time a transaction exists.
+    The limits are in the script that unlocks the coin &mdash; not in the process holding the key.
+    So they hold if the agent is confused, if it is jailbroken, and if someone takes the key
+    outright. A thief inherits the limits.
   </p>
 </header></div>
 
@@ -119,11 +156,30 @@
     <div class="row"><span class="k">Delegation depth</span><span class="v" id="a-depth">&mdash;</span></div>
     <div class="row"><span class="k">Held on chain</span><span class="v" id="a-onchain">&mdash;</span></div>
   </div>
+  <div class="tree" id="a-tree"></div>
   <p class="note">
     The payee count is the length of the allowlist, not a headline. A grant commits to its payees
-    at genesis and <strong>cannot add one afterwards</strong> &mdash; so &ldquo;authorized payees: 1&rdquo;
+    at genesis and <strong>cannot add one afterwards</strong> &mdash; so one authorized address
     means there is exactly one address in the universe this agent can pay. That number grows when
     a new grant is issued, never when the agent decides it would like to buy something else.
+  </p>
+</section>
+
+<section id="a-work" hidden>
+  <p class="eyebrow">Published</p>
+  <h2>What it does</h2>
+  <p class="lede" style="margin-top:0.6rem">
+    Agent&nbsp;#001 reads the Kaspa network on a schedule and publishes the difference between
+    two readings. It never asks the chain what happened yesterday &mdash; it asks where the chain
+    is now, writes that down, and yesterday&rsquo;s answer is the file it wrote yesterday.
+    <strong>No indexer, no archive node, no history.</strong>
+  </p>
+  <pre id="a-digest">&mdash;</pre>
+  <p class="note">
+    Every figure there is the difference between two counters the network keeps for its own
+    reasons. Nothing is sampled or extrapolated; the hashrate is the node&rsquo;s own estimate and
+    says so. Both readings are kept, so anyone with a node can take their own pair and get the
+    same differences.
   </p>
 </section>
 
@@ -155,6 +211,48 @@
     spend is a shape their verifier admits is
     <a href="https://github.com/ArtyKOMarkets/warda/blob/main/x402/INTEROP-KASPA-X402.md">written up in full</a>.
     It is an honest thing to show: the covenant did its job, and the market has not arrived yet.
+  </p>
+</section>
+
+<section>
+  <p class="eyebrow">Scope</p>
+  <h2>What this does and does not protect you from</h2>
+  <p class="lede" style="margin-top:0.6rem">
+    The payments above went through and the service did not arrive. That is not a gap in the
+    demonstration &mdash; it is the boundary of what an authority layer can promise, and it is
+    worth stating before anyone discovers it with real money.
+  </p>
+  <div class="two">
+    <div class="col yes">
+      <h3>Warda guarantees</h3>
+      <ul>
+        <li>Only an authorized agent key can spend</li>
+        <li>Never more than the per-payment cap</li>
+        <li>Never more than the epoch allowance</li>
+        <li>Never more than the lifetime budget</li>
+        <li>Only to payees committed at genesis</li>
+        <li>Delegation only within the parent&rsquo;s own limits</li>
+        <li>Revocation and reclaim by the principal, at any time</li>
+      </ul>
+    </div>
+    <div class="col no">
+      <h3>Warda does not guarantee</h3>
+      <ul>
+        <li>That the service you paid for arrives</li>
+        <li>That the vendor is honest</li>
+        <li>That you can get a refund</li>
+        <li>That the price was fair</li>
+        <li>That the agent chose well</li>
+      </ul>
+    </div>
+  </div>
+  <p class="note">
+    <strong>Warda is not escrow.</strong> It bounds what an agent may spend; it says nothing about
+    what it receives. Escrow is a different mechanism and
+    <a href="https://www.npmjs.com/package/@kaspa-x402/covenant">kaspa-x402 built one</a> &mdash;
+    a covenant holding funds against a server key until a claim settles. The two compose: an
+    escrow channel funded from a grant is bounded on the way in and conditional on the way out.
+    Neither replaces the other, and anything claiming to do both at once is worth reading twice.
   </p>
 </section>
 
@@ -204,6 +302,34 @@
         set("a-payees", a.authorizedPayees + (a.authorizedPayees === 1 ? " address" : " addresses"));
         set("a-depth", String(a.delegationDepth));
         set("a-onchain", a.onChain || "nothing at this address");
+
+        /* Drawn from the allowlist, not described. The "cannot" side is not a
+           sample of blocked addresses — it is every address that is not on the
+           list, which is what a Merkle commitment at genesis actually means. */
+        var tree = document.getElementById("a-tree");
+        var head = document.createElement("span"); head.className = "h";
+        head.textContent = "Agent " + i.agentId + " can pay";
+        tree.appendChild(head);
+        a.payees.forEach(function (p, n) {
+          var row = document.createElement("div"); row.className = "can";
+          row.textContent = (n === a.payees.length - 1 ? "  \u2514\u2500 " : "  \u251C\u2500 ") + p;
+          tree.appendChild(row);
+        });
+        var gap = document.createElement("span"); gap.className = "gap"; tree.appendChild(gap);
+        var h2 = document.createElement("span"); h2.className = "h";
+        h2.textContent = "and cannot pay";
+        tree.appendChild(h2);
+        ["every other address on Kaspa", "including any it is persuaded to try",
+         "including one it generates itself"].forEach(function (t, n, all) {
+          var row = document.createElement("div"); row.className = "cant";
+          row.textContent = (n === all.length - 1 ? "  \u2514\u2500 " : "  \u251C\u2500 ") + t;
+          tree.appendChild(row);
+        });
+
+        if (d.digest && d.digest.text) {
+          set("a-digest", d.digest.text);
+          document.getElementById("a-work").hidden = false;
+        }
 
         var box = document.getElementById("a-refusals");
         d.refusals.forEach(function (r) {
