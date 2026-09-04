@@ -15,7 +15,7 @@ diffable; this fills them in. Edit src/, never the output.
 import base64, json, pathlib, re, sys
 
 here = pathlib.Path(__file__).parent
-PAGES = ["index.html", "build.html", "verify.html"]
+PAGES = ["index.html", "build.html", "verify.html", "agent-001.html"]
 
 # The attack page publishes a live grant's key and terms, so it can only be
 # built when there IS one. src/demo-grant.json is written by
@@ -83,10 +83,57 @@ COPIES = [
 # missing, so a page built without a snapshot says less rather than something
 # wrong. Copied only when it exists, because a build that dies over a missing
 # optional file is a build that stops shipping the pages that were fine.
+AGENT = here / "src" / "agent-001.json"
+SRC_AGENT = here / "src" / "agent-001.html"
+
+
+def agent_publishable():
+    """Whether agent-001.json is something the agent page can render.
+
+    The page hides itself when the data is absent or incomplete, which is the
+    right failure and a silent one — it ships looking finished with one link
+    that leads to an empty screen. That exact shape has now bitten this site
+    twice, so the build checks the page's own requirements instead of trusting
+    them: every key the renderer refuses to proceed without must be present.
+
+    Dropped, not fatal. A missing reading should cost the page one section,
+    not stop the site from shipping.
+    """
+    if not AGENT.exists():
+        print("! src/agent-001.json missing — /agent-001 would render nothing.")
+        print("  Take a reading:  cd agent && node --experimental-strip-types \\")
+        print("                     tools/dashboard.ts ../x402/demo/kaspa-x402-grant.json \\")
+        print("                     --recipients ../x402/demo/kaspa-x402-recipients.txt \\")
+        print("                     > ../site/src/agent-001.json")
+        return False
+    try:
+        d = json.loads(AGENT.read_text())
+    except (ValueError, OSError) as e:
+        print(f"! src/agent-001.json unreadable ({e}); not publishing it")
+        return False
+
+    # The renderer's own guard, read out of the page rather than restated here.
+    guard = re.search(r"if \(!d \|\| ([^)]+)\) return;", SRC_AGENT.read_text())
+    needed = re.findall(r"d\.(\w+)", guard.group(1)) if guard else []
+    missing = [k for k in needed if not d.get(k)]
+    if missing:
+        print(f"! src/agent-001.json is missing {', '.join(missing)} — the page would hide itself.")
+        return False
+    if not d.get("refusals"):
+        print("! src/agent-001.json carries no refusals, which are the point of the page.")
+        return False
+    return True
+
+
 STATE = here / "src" / "demo-state.json"
 SRC_INDEX = here / "src" / "index.html"
 if STATE.exists():
     COPIES.append("demo-state.json")
+
+if agent_publishable():
+    COPIES.append("agent-001.json")
+else:
+    PAGES.remove("agent-001.html")
 
 
 def manifest_matches(card):

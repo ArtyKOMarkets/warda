@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Agent #001</title>
+<meta name="description" content="A live agent on Kaspa testnet-10 with a budget the network enforces. Six things it cannot do, five of them refused by the covenant itself. Every figure derived from the chain.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+  :root {
+    --void: #06090C; --ground: #0A1014; --panel: #101A20;
+    --edge: #1E2E37; --edge-bright: #2C4350;
+    --chrome: #DDE0E2; --chrome-dim: #8D989E; --chrome-faint: #5D6B73;
+    --teal: #14D7C1; --teal-bright: #38F9E9; --teal-deep: #06BBA1;
+    --teal-ghost: rgba(20,215,193,0.10);
+    --refuse: #FF6B5A; --refuse-ghost: rgba(255,107,90,0.08);
+    --display: "Chakra Petch", "Arial Narrow", sans-serif;
+    --body: "Barlow", "Helvetica Neue", Arial, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    --gutter: clamp(1.15rem, 4vw, 3.4rem);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--void); color: var(--chrome); font-family: var(--body);
+         font-size: 17px; line-height: 1.66; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+  .wrap { max-width: 58rem; margin: 0 auto; padding: 0 var(--gutter); }
+  h1, h2, h3 { font-family: var(--display); font-weight: 700; margin: 0; line-height: 1.05;
+               letter-spacing: -0.02em; text-wrap: balance; }
+  h1 { font-size: clamp(2.4rem, 7vw, 4.6rem); }
+  h2 { font-size: clamp(1.5rem, 3.4vw, 2.1rem); margin-bottom: 0.9rem; }
+  h3 { font-size: 1rem; }
+  p { margin: 0 0 1.05em; }
+  a { color: var(--teal); text-decoration-color: var(--teal-deep); text-underline-offset: 3px; }
+  a:hover { color: var(--teal-bright); }
+  :focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
+  code, .m { font-family: var(--mono); }
+  section { padding: clamp(2.8rem, 6vw, 4.4rem) 0; border-top: 1px solid var(--edge); }
+  .eyebrow { font-family: var(--mono); font-size: 0.68rem; text-transform: uppercase;
+             letter-spacing: 0.19em; color: var(--teal); margin: 0 0 1rem;
+             display: flex; align-items: center; gap: 0.7rem; }
+  .eyebrow::before { content: ""; width: 1.6rem; height: 1px; background: var(--teal-deep); flex: none; }
+  .eyebrow.red { color: var(--refuse); }
+  .eyebrow.red::before { background: var(--refuse); }
+
+  header { padding: clamp(2.4rem, 6vw, 4rem) 0 clamp(2rem, 5vw, 3rem); }
+  .home { font-family: var(--mono); font-size: 0.7rem; text-transform: uppercase;
+          letter-spacing: 0.14em; color: var(--chrome-faint); text-decoration: none;
+          display: inline-flex; align-items: center; min-height: 2.75rem; }
+  .home:hover { color: var(--teal-bright); }
+  .lede { font-size: clamp(1.05rem, 2vw, 1.25rem); color: var(--chrome-dim); max-width: 48ch; margin-top: 1.2rem; }
+  .lede strong { color: var(--chrome); font-weight: 500; }
+
+  .live { display: inline-flex; align-items: center; gap: 0.55rem; font-family: var(--mono);
+          font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.16em;
+          color: var(--teal); margin-bottom: 1.4rem; }
+  .live .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--teal); flex: none; }
+
+  /* ---- authority, as a statement --------------------------------------- */
+  .stmt { border: 1px solid var(--edge-bright); background: var(--ground); margin-top: 1.6rem; }
+  .row { display: grid; grid-template-columns: 12rem minmax(0,1fr); gap: 1rem;
+         padding: 0.62rem 1.2rem; border-bottom: 1px solid var(--edge);
+         font-family: var(--mono); font-size: 0.78rem; align-items: baseline; }
+  .row:last-child { border-bottom: 0; }
+  .row .k { color: var(--chrome-faint); text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.66rem; }
+  .row .v { color: var(--chrome); overflow-wrap: anywhere; }
+  .row .v.big { font-size: 1.05rem; }
+  .row .v em { font-style: normal; color: var(--chrome-faint); }
+
+  /* ---- the refusals: the centre of the page ---------------------------- */
+  .ref { border: 1px solid var(--refuse); background: var(--refuse-ghost);
+         padding: 1.1rem 1.2rem; margin-bottom: 0.9rem; }
+  .ref .try { font-family: var(--mono); font-size: 0.72rem; color: var(--refuse);
+              text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 0.55rem; }
+  .ref .said { font-size: 0.95rem; color: var(--chrome); line-height: 1.62; margin: 0; }
+  .ref .rule { font-family: var(--mono); font-size: 0.66rem; color: var(--chrome-faint);
+               margin-top: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; }
+  .ref.quoted { border-color: var(--edge-bright); background: var(--ground); }
+  .ref.quoted .try { color: var(--chrome-dim); }
+
+  /* ---- what it did ----------------------------------------------------- */
+  .pay { border: 1px solid var(--edge); background: var(--ground); padding: 0.85rem 1.1rem;
+         margin-bottom: 0.6rem; font-family: var(--mono); font-size: 0.75rem; }
+  .pay .top { display: flex; flex-wrap: wrap; gap: 0.5rem 1.1rem; align-items: baseline; }
+  .pay .amt { color: var(--teal); font-size: 0.95rem; }
+  .pay .daa { color: var(--chrome-faint); }
+  .pay .tx { color: var(--chrome-dim); overflow-wrap: anywhere; user-select: all;
+             margin-top: 0.5rem; line-height: 1.7; }
+
+  .note { border-left: 2px solid var(--edge-bright); padding-left: 1.1rem; color: var(--chrome-dim);
+          font-size: 0.95rem; margin: 1.5rem 0 0; }
+  .note strong { color: var(--chrome); font-weight: 500; }
+
+  pre { background: var(--ground); border: 1px solid var(--edge); padding: 1rem 1.1rem;
+        overflow-x: auto; font-family: var(--mono); font-size: 0.74rem; line-height: 1.75;
+        color: var(--chrome-dim); margin: 1.2rem 0 0; }
+  .stale { font-family: var(--mono); font-size: 0.7rem; color: var(--chrome-faint); margin-top: 1.4rem; }
+  footer { padding: 3rem 0 4rem; border-top: 1px solid var(--edge); font-family: var(--mono);
+           font-size: 0.72rem; color: var(--chrome-faint); }
+</style>
+</head>
+<body>
+
+
+<div class="wrap"><header>
+  <a class="home" href="/">&larr; Warda</a>
+  <p class="live" id="a-live" hidden><span class="dot"></span><span id="a-net">testnet</span></p>
+  <h1>Agent&nbsp;#001</h1>
+  <p class="lede">
+    It can spend money. It <strong>cannot spend outside its authority</strong> &mdash; not if it is
+    confused, not if it is jailbroken, not if someone takes its key. The limits are in the script
+    that unlocks the coin, so the only party whose opinion matters has already been consulted by
+    the time a transaction exists.
+  </p>
+</header></div>
+
+<div class="wrap" id="a-body" hidden>
+
+<section>
+  <p class="eyebrow">Authority</p>
+  <h2>What it is allowed to do</h2>
+  <div class="stmt">
+    <div class="row"><span class="k">Budget</span><span class="v big" id="a-budget">&mdash;</span></div>
+    <div class="row"><span class="k">Spent</span><span class="v big" id="a-spent">&mdash;</span></div>
+    <div class="row"><span class="k">Remaining</span><span class="v big" id="a-remaining">&mdash;</span></div>
+    <div class="row"><span class="k">Max / payment</span><span class="v" id="a-max">&mdash;</span></div>
+    <div class="row"><span class="k">Per epoch</span><span class="v" id="a-epoch">&mdash;</span></div>
+    <div class="row"><span class="k">Authorized payees</span><span class="v" id="a-payees">&mdash;</span></div>
+    <div class="row"><span class="k">Delegation depth</span><span class="v" id="a-depth">&mdash;</span></div>
+    <div class="row"><span class="k">Held on chain</span><span class="v" id="a-onchain">&mdash;</span></div>
+  </div>
+  <p class="note">
+    The payee count is the length of the allowlist, not a headline. A grant commits to its payees
+    at genesis and <strong>cannot add one afterwards</strong> &mdash; so &ldquo;authorized payees: 1&rdquo;
+    means there is exactly one address in the universe this agent can pay. That number grows when
+    a new grant is issued, never when the agent decides it would like to buy something else.
+  </p>
+</section>
+
+<section>
+  <p class="eyebrow red">Refused</p>
+  <h2>What it cannot do</h2>
+  <p class="lede" style="margin-top:0.6rem">
+    None of these sentences was written for this page. Five are produced by running the same
+    check the payer runs before it builds anything; if a refusal stopped happening, the page
+    would fail to build rather than keep the claim.
+  </p>
+  <div id="a-refusals" style="margin-top:1.8rem"></div>
+</section>
+
+<section>
+  <p class="eyebrow">Activity</p>
+  <h2>What it has actually done</h2>
+  <div class="stmt" style="margin-bottom:1.6rem">
+    <div class="row"><span class="k">Payments</span><span class="v big" id="a-count">&mdash;</span></div>
+    <div class="row"><span class="k">Paid</span><span class="v big" id="a-paid">&mdash;</span></div>
+    <div class="row"><span class="k">Outside the allowlist</span><span class="v big" id="a-else">0 KAS</span></div>
+  </div>
+  <div id="a-payments"></div>
+  <p class="note" id="a-served">
+    <strong>Paid, and not served.</strong> These went to a vendor nobody here controls &mdash;
+    the demo endpoint of the reference kaspa-x402 implementation. Their facilitator refused to
+    serve the request each time, for a reason we cannot see from outside; the money moved anyway,
+    because a spend the chain accepted is final whatever the vendor thinks. Whether a covenant
+    spend is a shape their verifier admits is
+    <a href="https://github.com/ArtyKOMarkets/warda/blob/main/x402/INTEROP-KASPA-X402.md">written up in full</a>.
+    It is an honest thing to show: the covenant did its job, and the market has not arrived yet.
+  </p>
+</section>
+
+<section>
+  <p class="eyebrow">Identity</p>
+  <h2>The dashboard is not the source of truth</h2>
+  <p>Kaspa is. Everything above is derived from these, and you can derive it yourself.</p>
+  <div class="stmt">
+    <div class="row"><span class="k">Agent ID</span><span class="v" id="a-id">&mdash;</span></div>
+    <div class="row"><span class="k">Network</span><span class="v" id="a-network">&mdash;</span></div>
+    <div class="row"><span class="k">Grant address</span><span class="v" id="a-address">&mdash;</span></div>
+    <div class="row"><span class="k">Agent key</span><span class="v" id="a-agent">&mdash;</span></div>
+    <div class="row"><span class="k">Principal</span><span class="v" id="a-principal">&mdash;</span></div>
+    <div class="row"><span class="k">Covenant ID</span><span class="v" id="a-covenant">&mdash;</span></div>
+    <div class="row"><span class="k">Template</span><span class="v" id="a-template">&mdash;</span></div>
+  </div>
+  <pre id="a-verify">&mdash;</pre>
+  <p class="stale" id="a-checked">&mdash;</p>
+</section>
+
+<footer><div class="wrap" style="padding:0">
+  Agent #001 also publishes a daily digest of Kaspa network activity, unattended, on a schedule.
+  Testnet coin. Nothing here is a security, an offer, or advice.
+</div></footer>
+
+</div>
+
+<script>
+  (function () {
+    var body = document.getElementById("a-body");
+    if (!body || !window.fetch) return;
+    var set = function (id, text) { var el = document.getElementById(id); if (el) el.textContent = text; };
+
+    fetch("/agent-001.json", { cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        /* The page renders nothing it cannot source. A snapshot missing any of
+           these is a snapshot describing something else, and half a dashboard
+           is worse than none: the numbers that DID render would look complete. */
+        if (!d || !d.authority || !d.identity || !d.activity || !Array.isArray(d.refusals)) return;
+
+        var a = d.authority, i = d.identity, act = d.activity;
+        set("a-net", d.network);
+        set("a-budget", a.budget); set("a-spent", a.spent); set("a-remaining", a.remaining);
+        set("a-max", a.maxPerPayment);
+        set("a-epoch", a.epochLimit + "  (epoch = " + a.epochLengthDaa + " DAA)");
+        set("a-payees", a.authorizedPayees + (a.authorizedPayees === 1 ? " address" : " addresses"));
+        set("a-depth", String(a.delegationDepth));
+        set("a-onchain", a.onChain || "nothing at this address");
+
+        var box = document.getElementById("a-refusals");
+        d.refusals.forEach(function (r) {
+          var el = document.createElement("div");
+          el.className = "ref" + (r.derived ? "" : " quoted");
+          var t = document.createElement("p"); t.className = "try";
+          t.textContent = "It tried to " + r.attempted;
+          var s = document.createElement("p"); s.className = "said"; s.textContent = r.refusal;
+          var u = document.createElement("p"); u.className = "rule";
+          u.textContent = r.derived
+            ? "refused by the covenant · " + r.rule
+            : "refused by Kaspa consensus, not the covenant · " + r.rule;
+          el.appendChild(t); el.appendChild(s); el.appendChild(u);
+          box.appendChild(el);
+        });
+
+        set("a-count", String(act.payments));
+        set("a-paid", act.paid);
+        set("a-else", act.paidOutsideTheAllowlist);
+        var pays = document.getElementById("a-payments");
+        act.coins.forEach(function (c) {
+          var el = document.createElement("div"); el.className = "pay";
+          var top = document.createElement("div"); top.className = "top";
+          var amt = document.createElement("span"); amt.className = "amt"; amt.textContent = c.amount;
+          var daa = document.createElement("span"); daa.className = "daa";
+          daa.textContent = "DAA " + c.daaScore + " · output " + c.index;
+          top.appendChild(amt); top.appendChild(daa);
+          var tx = document.createElement("div"); tx.className = "tx"; tx.textContent = c.txid;
+          el.appendChild(top); el.appendChild(tx);
+          pays.appendChild(el);
+        });
+        if (act.payments === 0) {
+          document.getElementById("a-served").hidden = true;
+        }
+
+        set("a-id", i.agentId); set("a-network", d.network);
+        set("a-address", i.grantAddress); set("a-agent", i.agent);
+        set("a-principal", i.principal); set("a-covenant", i.covenantId);
+        set("a-template", i.template);
+
+        /* No explorer link. There is no testnet-10 explorer this page can name
+           without guessing, and a dead "verify" link on the one page that
+           claims verifiability is worse than no link. This is the check that
+           actually works, against any node. */
+        set("a-verify",
+          "# check the payee's coins yourself, against any Kaspa node\n" +
+          "npm i -g warda\n" +
+          "warda check --rpc wss://<your-node>\n\n" +
+          "# or re-derive this whole page from the chain\n" +
+          "git clone https://github.com/ArtyKOMarkets/warda && cd warda/agent\n" +
+          "node --experimental-strip-types tools/dashboard.ts \\\n" +
+          "  ../x402/demo/kaspa-x402-grant.json \\\n" +
+          "  --recipients ../x402/demo/kaspa-x402-recipients.txt --rpc wss://<your-node>");
+
+        set("a-checked", "Read from the chain at " + d.checkedAt + ". A snapshot, not a live feed.");
+        document.getElementById("a-live").hidden = false;
+        body.hidden = false;
+      })
+      .catch(function () { /* no data, no dashboard */ });
+  })();
+</script>
+
+</body>
+</html>

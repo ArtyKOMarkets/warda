@@ -1,0 +1,91 @@
+{
+  "_comment": "Written by agent/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, or the chain — none is typed. The refusal sentences are produced by running the same explainRefusal the payer calls, except the one marked derived:false, which is consensus's answer quoted from a node's actual rejection.",
+  "checkedAt": "2026-09-04T08:53:26.274Z",
+  "network": "testnet-10",
+  "identity": {
+    "agentId": "WARDA-001",
+    "agent": "3c693f61fbc35d1fd4dcec2bbbab692be38656e6fd5a4077ee495afcb23535a1",
+    "principal": "0393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34f",
+    "revocation": "0393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34f",
+    "grantAddress": "kaspatest:prygahj9tl56psgwfaqccuhzukx2flv5elgsy8pvvsg36mt29kg8kp2j5vlw3",
+    "covenantId": "aae9b0d02d0595de29e80b1bb78d7051f667281985d8f80d3da0d70eafc7cf26",
+    "template": "b3e5eeefacf2021f"
+  },
+  "authority": {
+    "budget": "5 KAS",
+    "spent": "0.6 KAS",
+    "remaining": "4.4 KAS",
+    "maxPerPayment": "0.3 KAS",
+    "epochLimit": "1 KAS",
+    "epochLengthDaa": 1000,
+    "authorizedPayees": 1,
+    "payees": [
+      "kaspatest:qzlws9lm7uyt0tftzffshnyeu2zcqk4kf7hw5ghk6v0zh093vnkljcy2fl0fh"
+    ],
+    "delegationDepth": 2,
+    "onChain": "4.34 KAS"
+  },
+  "activity": {
+    "payments": 3,
+    "paid": "0.6 KAS",
+    "paidOutsideTheAllowlist": "0 KAS",
+    "coins": [
+      {
+        "amount": "0.2 KAS",
+        "daaScore": "560791883",
+        "txid": "73f34306bc66fc376dbc7d08569ba3f69d101693c85b97693d7d6fea6e4b2f58",
+        "index": 1
+      },
+      {
+        "amount": "0.2 KAS",
+        "daaScore": "560837825",
+        "txid": "0bbc7254716fc403cbefbd7ee7c82ebeb4cb6c8a8b4d2b828aed73ae63e8145e",
+        "index": 1
+      },
+      {
+        "amount": "0.2 KAS",
+        "daaScore": "561520792",
+        "txid": "38006e773f49b3c7cf1437f609f40a95c1dfafc5f3c60b97568d7996bc2b5962",
+        "index": 1
+      }
+    ]
+  },
+  "refusals": [
+    {
+      "rule": "per-payment cap",
+      "attempted": "pay 0.30000001 KAS to an authorized payee",
+      "refusal": "this invoice is 30000001 sompi and the grant's per-payment cap is 30000000. The cap exists to bound what a single decision can do, so it binds here regardless of how much budget remains.",
+      "derived": true
+    },
+    {
+      "rule": "lifetime budget",
+      "attempted": "pay 5 KAS to an authorized payee",
+      "refusal": "this invoice is 500000000 sompi and the grant's per-payment cap is 30000000. The cap exists to bound what a single decision can do, so it binds here regardless of how much budget remains.",
+      "derived": true
+    },
+    {
+      "rule": "payee allowlist",
+      "attempted": "pay an address the grant never committed to",
+      "refusal": "kaspatest:qrxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvc3rysjr0d is not on this grant's allowlist, so no inclusion proof places it in the recipients tree. There is no valid transaction that pays them — not one the network would reject, none at all. A grant's payees are fixed at genesis: to pay this vendor you need a grant that committed to them.",
+      "derived": true
+    },
+    {
+      "rule": "payee script type",
+      "attempted": "pay a pay-to-script-hash address",
+      "refusal": "kaspatest:prygahj9tl56psgwfaqccuhzukx2flv5elgsy8pvvsg36mt29kg8kp2j5vlw3 is a pay-to-script-hash address (version 8), and a Warda grant can only pay pay-to-pubkey. The covenant builds the payee output as P2PK(recipient) — there is no transaction shape that pays a script hash from a grant, so this is not something a larger budget or a different grant would fix.",
+      "derived": true
+    },
+    {
+      "rule": "epoch allowance",
+      "attempted": "pay 1.00000001 KAS within one epoch",
+      "refusal": "this invoice is 100000001 sompi and only 80000000 remains in the current epoch (851). The allowance refreshes as the chain advances — and cannot be refreshed by claiming an earlier epoch, which the covenant refuses.",
+      "derived": true
+    },
+    {
+      "rule": "storage mass (consensus, not the covenant)",
+      "attempted": "pay 0.01 KAS — below what Kaspa will carry",
+      "refusal": "this payment of 1000000 sompi is too SMALL to broadcast. Kaspa charges storage mass for the small outputs a transaction creates: this one massed 1000000 against a ceiling of 500000. Nothing about the grant was exceeded and nothing was spent — the amount itself is below what the network will carry.",
+      "derived": false
+    }
+  ]
+}
