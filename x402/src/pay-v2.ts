@@ -102,6 +102,8 @@ export interface BuildV2Input {
   request: PaidRequest;
   /** Now, in ms. Injectable so expiry arithmetic is testable. */
   nowMs?: number;
+  /** Leave `payerAddress` out of the payload. See WardaFetchV2Options. */
+  omitPayerAddress?: boolean;
 }
 
 /**

@@ -73,6 +73,17 @@ export interface WardaFetchV2Options {
 
   /** How long to wait for the network to accept it. Default 30s. */
   acceptTimeoutMs?: number;
+
+  /**
+   * Omit `payerAddress` from the payload. Optional in their schema.
+   *
+   * Their own client fills it from a funding wallet's identity, so every
+   * payment their verifier has ever seen carries a pay-to-pubkey address
+   * there. A grant's address is pay-to-script-hash, and a verifier that
+   * decodes it expecting a wallet is one plausible reading of the refusal we
+   * cannot see inside.
+   */
+  omitPayerAddress?: boolean;
 }
 
 export type WardaFetchV2Event =
@@ -160,7 +171,11 @@ export async function wardaFetchV2(
   // built from the same values used to send it rather than from the first
   // attempt's response.
   const request: PaidRequest = { method, url, body: bodyForBinding(init, opts.body) };
-  const pending = await opts.payer.buildPaymentV2({ accepted, request });
+  const pending = await opts.payer.buildPaymentV2({
+    accepted,
+    request,
+    omitPayerAddress: opts.omitPayerAddress,
+  });
   emit({ type: "signed", pending });
 
   let confirmedOnChain = false;

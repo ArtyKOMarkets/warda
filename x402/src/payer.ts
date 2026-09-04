@@ -449,7 +449,7 @@ export class WardaPayer {
         transactionId: safe.id,
         paymentOutputIndex: PAYEE_OUTPUT_INDEX,
         inputIndex: GRANT_INPUT_INDEX,
-        payerAddress: fromAddress,
+        ...(input.omitPayerAddress ? {} : { payerAddress: fromAddress }),
         nowMs: input.nowMs,
       },
       this.signer,
