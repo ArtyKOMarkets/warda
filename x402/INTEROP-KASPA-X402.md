@@ -16,6 +16,7 @@ epoch, whose allowlist commits to exactly one payee: the address
 | 2 | `f2e2213b…` | no | 402 `invalid_transaction_state` |
 | 3 | `73f34306…` | yes, accepted | 402 `invalid_transaction_state` |
 | 4 | `0bbc7254…` | yes, accepted, fresh requestHash | 402 `invalid_transaction_state` |
+| 5 | `38006e77…` | yes, accepted, no `payerAddress` | 402 `invalid_transaction_state` |
 
 ## What works
 
@@ -44,6 +45,11 @@ still refused.
 **Replay.** `requestHash` is `sha256(method, url, body, paymentRequirementsHash)`
 and their quote is static, so attempts 1–3 shared one fingerprint. Attempt 4
 used a different URL and therefore a different fingerprint. Same refusal.
+
+**`payerAddress`.** Optional in their schema, and their own client fills it from
+a funding wallet, so every payment their verifier has seen carries a
+pay-to-pubkey address there while a grant's is pay-to-script-hash. Attempt 5
+omitted the field entirely. Same refusal.
 
 ## The open question
 
@@ -84,14 +90,14 @@ what a payment transaction may look like.
 ## What would settle it
 
 One line from whoever runs that verifier, naming which of the eight codes
-attempt 4 raised. Failing that: whether the verifier constrains outputs other
+attempt 5 raised. Failing that: whether the verifier constrains outputs other
 than `paymentOutputIndex`, and whether it decodes `payerAddress` expecting a
 pay-to-pubkey address.
 
 ## Why this is worth publishing either way
 
 Every payment this repository had made before today went to an endpoint it also
-wrote. That makes the money real and the market imaginary. These four went to a
+wrote. That makes the money real and the market imaginary. These five went to a
 vendor built by the people who specified the protocol, encoded with their own
 published packages, from a budget the network enforces — and the disagreement
 that surfaced is more interesting than the success would have been.
