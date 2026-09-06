@@ -79,6 +79,23 @@ So no directory in this repository is called `api/` except the one that
 already is a functions directory. The service lives in `verify/`, which is
 also what its package is called.
 
+That rename fixed a real problem and not the one that had broken the build.
+The root `.vercel/repo.json` links this repository to Vercel as a whole and
+lists the directories that are projects — today exactly one, `warda_mcp` at
+`mcp/deploy`. A `vercel` command run anywhere else in the repo does not fail:
+it CREATES a project named after that directory. `api/` produced a project
+called `api`, and the moment the directory became `verify/`, the next run
+produced one called `verify`. Two projects nobody wanted, deploying a
+repository that has no web app at its root.
+
+So: run `vercel` only from a directory listed in `.vercel/repo.json`, and if a
+project appears in `vercel projects ls` that nobody chose to make, that is
+where it came from. `vercel project rm <name>` removes it.
+
+And nothing that holds a connection open belongs on Vercel at all. The
+verification service keeps a WebSocket to a kaspad between requests, which a
+function cannot do; it needs somewhere a process can stay running.
+
 The handler takes Node's `(IncomingMessage, ServerResponse)`, not a Web
 `Request`. Vercel's Node runtime calls it that way, and a web-standard handler
 is invoked with arguments it does not understand. The Edge runtime IS
