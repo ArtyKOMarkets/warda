@@ -286,6 +286,42 @@ try {
     (u) => u.entry.blockDaaScore >= state.notBefore && u.entry.value <= state.maxPerSpend,
   );
 
+  // The manifest's own claim about the coin, checked against the coin.
+  //
+  // grant_value is not part of the address, so a wrong one derives the right
+  // address and nothing notices. That is exactly what happened: it was
+  // maintained through the first spend and then left behind while the state
+  // fields kept being updated around it, and the page published a balance
+  // 0.44 KAS too high for three commits. Nothing here reads grant_value — but
+  // the page is an argument that its numbers can be checked, and a number
+  // nobody checks does not belong in it.
+  //
+  // Fatal, because refresh-demo.sh already treats this tool's failure as
+  // costing the agent page its freshness rather than stopping the deploy. A
+  // stale page is the right outcome for a manifest that disagrees with the
+  // chain; a fresh page built around the disagreement is not.
+  if (m.grant_value !== undefined && m.grant_value !== null) {
+    const claimed = BigInt(m.grant_value);
+    const actual = here.length ? here[0]!.entry.value : null;
+    if (actual === null) {
+      console.error(
+        `the manifest says this grant holds ${kas(claimed)}, and there is nothing at\n` +
+          `${address}. The grant has moved to a successor address: recover it with\n` +
+          `sdk/tools/follow-grant.ts before publishing a page about where it used to be.`,
+      );
+      process.exit(1);
+    }
+    if (actual !== claimed) {
+      console.error(
+        `the manifest says this grant holds ${kas(claimed)}; the chain says ${kas(actual)}.\n` +
+          `Refusing to publish a balance the node disagrees with. Set grant_value to\n` +
+          `${actual} in ${manifestPath} if the chain is right, and find out why it drifted\n` +
+          `if it is not.`,
+      );
+      process.exit(1);
+    }
+  }
+
   process.stdout.write(
     JSON.stringify(
       {
