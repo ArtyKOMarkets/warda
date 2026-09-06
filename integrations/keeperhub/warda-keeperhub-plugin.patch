@@ -1,0 +1,1464 @@
+From 2d5fb952416e164be33d1a324d1d2d2ccd5e8f32 Mon Sep 17 00:00:00 2001
+From: Warda <noreply@wardaprotocol.com>
+Date: Sun, 6 Sep 2026 14:34:01 +0000
+Subject: [PATCH] =?UTF-8?q?feat(plugins):=20warda=20=E2=80=94=20check=20an?=
+ =?UTF-8?q?=20agent's=20on-chain=20spending=20authority?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Adds a plugin for Warda, an economic-authority protocol for autonomous
+agents on Kaspa. An agent holds a grant: a covenant-bound coin whose
+per-payment cap, lifetime budget, epoch allowance and payee allowlist are
+enforced by the network rather than by the process holding the key.
+
+Three read-only actions, all through a self-hosted verification service:
+
+  check-authority  would this payment be refused, and which rule refuses it
+  verify-grant     does the chain agree with the terms a manifest claims
+  locate-grant     where a grant went when a stored manifest is stale
+
+This is the layer under the one KeeperHub already describes. The agentic
+wallet evaluates a price against safety thresholds and signs; these actions
+answer what happens when the agent itself is the thing that is wrong. A
+threshold enforced by the process holding the key is a policy; a grant is a
+limit. So `allowed` here is never a permission — the covenant decides, on
+chain, and decides the same way whether or not a workflow asked. Every
+response carries an `enforcement` field saying so, and the step surfaces it.
+
+Notes for review:
+
+- egress is "user-destination": the service URL comes from the connection
+  because there is no shared instance and should not be one. The answer
+  depends on which Kaspa node was read, so every result names it in
+  `readFrom`, and that is an output field rather than something hidden.
+- Requests go through assertUrlIsPublic + safeFetch, mirroring
+  plugins/blockscout/steps/blockscout-core.ts, since the host is
+  user-configurable.
+- Amounts convert KAS to sompi with string arithmetic. Kaspa amounts are
+  u64 and a budget passed through a float can be rounded before anything
+  looks at it; a rounded amount is indistinguishable from an amount.
+- check-authority requires the payee list rather than the manifest's Merkle
+  root: a root can confirm a list but cannot produce a membership proof
+  from one, so "is this vendor allowed" is unanswerable without it. The
+  service checks the list against the committed root before answering.
+
+10 unit tests. Nothing signs, nothing holds a key, nothing broadcasts.
+---
+ lib/types/integration.ts                 |   3 +-
+ plugins/index.ts                         |   3 +-
+ plugins/plugin-allowlist.json            |   1 +
+ plugins/warda/credentials.ts             |   3 +
+ plugins/warda/icon.tsx                   |  20 ++
+ plugins/warda/index.ts                   | 262 +++++++++++++++++++++++
+ plugins/warda/steps/check-authority.ts   | 149 +++++++++++++
+ plugins/warda/steps/locate-grant.ts      | 159 ++++++++++++++
+ plugins/warda/steps/verify-grant.ts      | 141 ++++++++++++
+ plugins/warda/steps/warda-core.ts        | 261 ++++++++++++++++++++++
+ plugins/warda/test.ts                    |  52 +++++
+ tests/unit/warda-check-authority.test.ts | 237 ++++++++++++++++++++
+ 12 files changed, 1289 insertions(+), 2 deletions(-)
+ create mode 100644 plugins/warda/credentials.ts
+ create mode 100644 plugins/warda/icon.tsx
+ create mode 100644 plugins/warda/index.ts
+ create mode 100644 plugins/warda/steps/check-authority.ts
+ create mode 100644 plugins/warda/steps/locate-grant.ts
+ create mode 100644 plugins/warda/steps/verify-grant.ts
+ create mode 100644 plugins/warda/steps/warda-core.ts
+ create mode 100644 plugins/warda/test.ts
+ create mode 100644 tests/unit/warda-check-authority.test.ts
+
+diff --git a/lib/types/integration.ts b/lib/types/integration.ts
+index 61a7a2c..95b2f0a 100755
+--- a/lib/types/integration.ts
++++ b/lib/types/integration.ts
+@@ -9,7 +9,7 @@
+  * 2. Add a system integration to SYSTEM_INTEGRATION_TYPES in discover-plugins.ts
+  * 3. Run: pnpm discover-plugins
+  *
+- * Generated types: aave-v3, aave-v4, aerodrome, ai-gateway, ajna, blockscout, chainlink, chronicle, clerk, code, compound, cowswap, curve, database, discord, ethena, frax-ether-v2, hyperliquid, lido, linear, math, morpho, pendle, protocol, resend, robinhood, rocket-pool, safe, sendgrid, sky, slack, spark, superfluid, telegram, tempo, uniswap, v0, web3, webflow, webhook, wrapped, yearn
++ * Generated types: aave-v3, aave-v4, aerodrome, ai-gateway, ajna, blockscout, chainlink, chronicle, clerk, code, compound, cowswap, curve, database, discord, ethena, frax-ether-v2, hyperliquid, lido, linear, math, morpho, pendle, protocol, resend, robinhood, rocket-pool, safe, sendgrid, sky, slack, spark, superfluid, telegram, tempo, uniswap, v0, warda, web3, webflow, webhook, wrapped, yearn
+  */
+ 
+ // Integration type union - plugins + system integrations
+@@ -51,6 +51,7 @@ export type IntegrationType =
+   | "tempo"
+   | "uniswap"
+   | "v0"
++  | "warda"
+   | "web3"
+   | "webflow"
+   | "webhook"
+diff --git a/plugins/index.ts b/plugins/index.ts
+index 31421ac..ea577f2 100644
+--- a/plugins/index.ts
++++ b/plugins/index.ts
+@@ -13,7 +13,7 @@
+  * 1. Delete the plugin directory
+  * 2. Run: pnpm discover-plugins (or it runs automatically on build)
+  *
+- * Discovered plugins: blockscout, code, discord, hyperliquid, math, protocol, robinhood, safe, sendgrid, slack, telegram, tempo, web3, webhook
++ * Discovered plugins: blockscout, code, discord, hyperliquid, math, protocol, robinhood, safe, sendgrid, slack, telegram, tempo, warda, web3, webhook
+  */
+ 
+ import "./blockscout";
+@@ -28,5 +28,6 @@ import "./sendgrid";
+ import "./slack";
+ import "./telegram";
+ import "./tempo";
++import "./warda";
+ import "./web3";
+ import "./webhook";
+diff --git a/plugins/plugin-allowlist.json b/plugins/plugin-allowlist.json
+index 97f6439..39c4860 100644
+--- a/plugins/plugin-allowlist.json
++++ b/plugins/plugin-allowlist.json
+@@ -14,6 +14,7 @@
+     "slack",
+     "telegram",
+     "tempo",
++    "warda",
+     "web3",
+     "webhook"
+   ]
+diff --git a/plugins/warda/credentials.ts b/plugins/warda/credentials.ts
+new file mode 100644
+index 0000000..b65935d
+--- /dev/null
++++ b/plugins/warda/credentials.ts
+@@ -0,0 +1,3 @@
++export type WardaCredentials = {
++  WARDA_VERIFY_URL?: string;
++};
+diff --git a/plugins/warda/icon.tsx b/plugins/warda/icon.tsx
+new file mode 100644
+index 0000000..2302e4e
+--- /dev/null
++++ b/plugins/warda/icon.tsx
+@@ -0,0 +1,20 @@
++export function WardaIcon({ className }: { className?: string }) {
++  return (
++    <svg
++      aria-label="Warda logo"
++      className={className}
++      fill="none"
++      stroke="currentColor"
++      strokeLinecap="round"
++      strokeLinejoin="round"
++      strokeWidth="2"
++      viewBox="0 0 24 24"
++      xmlns="http://www.w3.org/2000/svg"
++    >
++      <title>Warda</title>
++      {/* A bounded shield: authority with a ceiling, which is the whole idea. */}
++      <path d="M12 3 4 6v6c0 4 3.4 7.4 8 9 4.6-1.6 8-5 8-9V6l-8-3Z" />
++      <path d="M8 12h8" />
++    </svg>
++  );
++}
+diff --git a/plugins/warda/index.ts b/plugins/warda/index.ts
+new file mode 100644
+index 0000000..4c88fd3
+--- /dev/null
++++ b/plugins/warda/index.ts
+@@ -0,0 +1,262 @@
++import type { ActionConfigField, IntegrationPlugin } from "@/plugins/registry";
++import { registerIntegration } from "@/plugins/registry-core";
++import { WardaIcon } from "./icon";
++
++// Shared across actions. Factories return fresh objects so no field instance is
++// aliased between them, matching plugins/blockscout/index.ts.
++const manifestField = (): ActionConfigField => ({
++  key: "manifest",
++  label: "Grant Manifest",
++  type: "template-textarea",
++  required: true,
++  rows: 6,
++  placeholder: '{"agent": "...", "budget": 500000000, ...}  or  {{@node1:Fetch.body}}',
++  helpTip:
++    "The JSON a Warda grant was issued with. It states the agent's key, its budget, per-payment cap, epoch allowance and the root of its payee list. The service derives the grant's address from these fields and checks the chain against them — so a manifest that describes a different grant finds nothing rather than answering wrongly.",
++});
++
++const recipientsField = (required: boolean): ActionConfigField => ({
++  key: "recipients",
++  label: "Payee Allowlist",
++  type: "template-textarea",
++  required,
++  rows: 3,
++  placeholder: "kaspatest:qz...\nkaspatest:qr...",
++  helpTip:
++    "The grant's payees, one per line. A grant commits to the Merkle root of this list at genesis and it cannot be changed afterwards. The root alone cannot prove membership, which is why the list is needed to answer whether a particular payee is allowed. It is checked against the manifest's root before anything else.",
++});
++
++const networkField = (): ActionConfigField => ({
++  key: "network",
++  label: "Network",
++  type: "select",
++  options: [
++    { value: "testnet-10", label: "Kaspa testnet-10" },
++    { value: "mainnet", label: "Kaspa mainnet" },
++  ],
++  defaultValue: "testnet-10",
++  helpTip:
++    "Which network the grant lives on. Getting this wrong is the quiet failure: a testnet manifest read against a mainnet node derives a perfectly valid address and finds nothing at it.",
++});
++
++const readFromOutputs = [
++  {
++    field: "readFrom",
++    description:
++      "Which Kaspa node answered, its network, sync state and DAA score. A verifier that will not say whom it asked is asking to be trusted.",
++  },
++  {
++    field: "assumptions",
++    description:
++      "Fields the service defaulted because the manifest did not state them, with reasons. Several of these are part of the grant's address.",
++  },
++  {
++    field: "enforcement",
++    description:
++      "A restatement that this decided nothing. The covenant enforces on chain and is the only thing that can.",
++  },
++];
++
++const wardaPlugin: IntegrationPlugin = {
++  type: "warda",
++  egress: "user-destination",
++  label: "Warda",
++  description:
++    "Check what an autonomous agent is allowed to spend on Kaspa before a workflow spends it. A Warda grant's per-payment cap, lifetime budget, epoch allowance and payee allowlist are enforced by consensus rather than by the process holding the key.",
++
++  icon: WardaIcon,
++
++  // The verification service is self-hosted: it reads a Kaspa node, and which
++  // node answered is part of every result, so there is no shared instance to
++  // fall back to.
++  requiresCredentials: true,
++
++  formFields: [
++    {
++      id: "verifyUrl",
++      label: "Verification Service URL",
++      type: "url",
++      placeholder: "https://verify.example.com",
++      configKey: "verifyUrl",
++      envVar: "WARDA_VERIFY_URL",
++      helpText:
++        "Base URL of a Warda verification service. It reads a Kaspa node and re-derives what a grant's covenant would decide; it holds no keys and signs nothing.",
++      helpLink: {
++        text: "Run one",
++        url: "https://github.com/ArtyKOMarkets/warda/tree/main/verify",
++      },
++    },
++  ],
++
++  testConfig: {
++    getTestFunction: async () => {
++      const { testWarda } = await import("./test");
++      return testWarda;
++    },
++  },
++
++  actions: [
++    {
++      slug: "check-authority",
++      label: "Check Spending Authority",
++      description:
++        "Ask whether a specific payment would be refused by the agent's grant, and which rule would refuse it. Use it to gate a spend before attempting one the chain will reject.",
++      category: "Warda",
++      stepFunction: "checkAuthorityStep",
++      stepImportPath: "check-authority",
++      docUrl: "https://wardaprotocol.com",
++      outputFields: [
++        {
++          field: "allowed",
++          description:
++            "True when nothing the covenant checks would refuse this payment. Not a permission: the covenant decides on chain, and decides the same way whether or not this was asked.",
++        },
++        {
++          field: "refusal",
++          description:
++            "Why it would be refused, in a sentence, or null. Produced by the same code the Warda payer runs before it builds a transaction.",
++        },
++        {
++          field: "boundBy",
++          description:
++            "Which limit binds right now: maxPerSpend, epoch, budget or coin.",
++        },
++        {
++          field: "maxNextSpendKas",
++          description:
++            "The largest single payment this grant could currently make — the tightest of the four limits, including the coin itself.",
++        },
++        { field: "maxNextSpendSompi", description: "The same figure in sompi." },
++        { field: "requestedKas", description: "The payment that was asked about, in KAS." },
++        { field: "requestedSompi", description: "The payment that was asked about, in sompi." },
++        { field: "grantAddress", description: "The address this grant's current state derives." },
++        {
++          field: "grantFound",
++          description:
++            "Whether a coin was found there. False usually means the manifest is stale by a spend, not that the grant is gone.",
++        },
++        ...readFromOutputs,
++        { field: "error", description: "Error message if the check could not be made" },
++      ],
++      configFields: [
++        manifestField(),
++        recipientsField(true),
++        {
++          key: "payTo",
++          label: "Pay To",
++          type: "template-input",
++          required: true,
++          placeholder: "kaspatest:qz... or {{@node1:Quote.payTo}}",
++          helpTip:
++            "The address that would be paid. A grant can only pay a payee it committed to at genesis, and the covenant requires that payee to be a pay-to-public-key address.",
++        },
++        {
++          key: "amount",
++          label: "Amount",
++          type: "template-input",
++          required: true,
++          placeholder: "0.25",
++          example: "0.25",
++          helpTip: "The payment to test against the grant's limits.",
++        },
++        {
++          key: "amountUnit",
++          label: "Unit",
++          type: "select",
++          options: [
++            { value: "kas", label: "KAS" },
++            { value: "sompi", label: "sompi" },
++          ],
++          defaultValue: "kas",
++          helpTip:
++            "Sompi is Kaspa's smallest unit: one KAS is 100,000,000 sompi. Amounts are converted with integer arithmetic, never through a float.",
++        },
++        networkField(),
++      ],
++    },
++    {
++      slug: "verify-grant",
++      label: "Verify Grant",
++      description:
++        "Check a grant manifest against the chain: does a grant on these terms exist, does it hold what the manifest claims, and how much of it is left.",
++      category: "Warda",
++      stepFunction: "verifyGrantStep",
++      stepImportPath: "verify-grant",
++      docUrl: "https://wardaprotocol.com",
++      outputFields: [
++        {
++          field: "agrees",
++          description:
++            "True when the chain agrees with everything the manifest claimed — no error findings.",
++        },
++        {
++          field: "found",
++          description: "Whether a coin exists at the address these terms derive.",
++        },
++        { field: "grantAddress", description: "The address these terms derive." },
++        { field: "holdsKas", description: "What the grant actually holds, or null if nothing is there." },
++        {
++          field: "remainingKas",
++          description:
++            "Budget less spent and reserved. An accounting figure the coin may not cover — see maxNextSpendKas.",
++        },
++        { field: "epochRemainingKas", description: "What is left in the current epoch." },
++        { field: "maxNextSpendKas", description: "The largest single payment currently possible." },
++        { field: "boundBy", description: "Which of the four limits binds." },
++        { field: "covenantId", description: "The covenant the coin is bound by, as the node reports it." },
++        { field: "reclaimable", description: "Whether the principal's reclaim right has opened." },
++        { field: "findings", description: "Every check the service made, each with a level and a sentence." },
++        { field: "problems", description: "Just the error-level findings, for gating on." },
++        ...readFromOutputs,
++        { field: "error", description: "Error message if the grant could not be checked" },
++      ],
++      configFields: [manifestField(), recipientsField(false), networkField()],
++    },
++    {
++      slug: "locate-grant",
++      label: "Locate Moved Grant",
++      description:
++        "Find where a grant went when a stored manifest has gone stale. A grant's address is a hash of its state, so every payment relocates it.",
++      category: "Warda",
++      stepFunction: "locateGrantStep",
++      stepImportPath: "locate-grant",
++      docUrl: "https://wardaprotocol.com",
++      outputFields: [
++        { field: "found", description: "Whether a candidate state was confirmed on chain." },
++        { field: "grantAddress", description: "Where the grant is now, or null." },
++        { field: "holdsKas", description: "What it holds there." },
++        { field: "spentTotalKas", description: "Its current spent total." },
++        { field: "epochIndex", description: "The epoch its current state claims." },
++        { field: "candidatesTried", description: "How many possible states were probed." },
++        { field: "note", description: "What the outcome means, including what to try when nothing was found." },
++        ...readFromOutputs,
++        { field: "error", description: "Error message if the search could not be made" },
++      ],
++      configFields: [
++        manifestField(),
++        {
++          key: "payments",
++          label: "Payments Made",
++          type: "template-textarea",
++          required: true,
++          rows: 4,
++          placeholder: '[{"valueSompi": "20000000", "blockDaaScore": "563400000"}]',
++          helpTip:
++            "The payments this grant made since the manifest was written, as JSON. They are what advanced its state, and kaspad keeps no index that recovers them from an address — whoever was paid has them, and so does anyone watching the payee.",
++        },
++        {
++          key: "subsets",
++          label: "Try Payment Subsets",
++          type: "protocol-bool",
++          defaultValue: "false",
++          helpTip:
++            "Off, the search assumes this grant's payments are the tail of the list. Turn it on when the payee address is shared with another grant, so the payments are interleaved and no suffix describes them. It costs 2^n candidates.",
++        },
++        networkField(),
++      ],
++    },
++  ],
++};
++
++registerIntegration(wardaPlugin);
++export default wardaPlugin;
+diff --git a/plugins/warda/steps/check-authority.ts b/plugins/warda/steps/check-authority.ts
+new file mode 100644
+index 0000000..37a0410
+--- /dev/null
++++ b/plugins/warda/steps/check-authority.ts
+@@ -0,0 +1,149 @@
++import "server-only";
++import { fetchCredentials } from "@/lib/credential-fetcher";
++import { ExecutionErrorType } from "@/lib/errors/execution-error-type";
++import {
++  runPluginStep,
++  type StepInput,
++} from "@/lib/workflow/executor/step-handler";
++import type { WardaCredentials } from "../credentials";
++import {
++  parseManifest,
++  parseRecipients,
++  toSompi,
++  wardaPost,
++  type WardaAssumption,
++  type WardaReadFrom,
++} from "./warda-core";
++
++type Amount = { sompi: string; kas: string };
++
++type AuthorityResult = {
++  address: string;
++  wouldBeRefused: boolean;
++  refusal: string | null;
++  requested: Amount;
++  payTo: string;
++  maxNextSpend: Amount;
++  boundBy: string;
++  found: boolean;
++};
++
++type CheckAuthorityResult =
++  | {
++      success: true;
++      /**
++       * True when nothing the covenant checks would refuse this payment. It is
++       * not a permission: the covenant decides, on chain, and it decides the
++       * same way whether or not this was asked.
++       */
++      allowed: boolean;
++      refusal: string | null;
++      boundBy: string;
++      maxNextSpendKas: string;
++      maxNextSpendSompi: string;
++      requestedKas: string;
++      requestedSompi: string;
++      grantAddress: string;
++      grantFound: boolean;
++      readFrom: WardaReadFrom;
++      assumptions: WardaAssumption[];
++      enforcement: string;
++    }
++  | { success: false; error: string; errorClass?: ExecutionErrorType };
++
++export type CheckAuthorityCoreInput = {
++  manifest: string;
++  recipients: string;
++  amount: string;
++  amountUnit?: string;
++  payTo: string;
++  network?: string;
++};
++
++export type CheckAuthorityInput = StepInput &
++  CheckAuthorityCoreInput & {
++    integrationId?: string;
++  };
++
++function invalid(error: string): CheckAuthorityResult {
++  return { success: false, error, errorClass: ExecutionErrorType.USER };
++}
++
++async function stepHandler(
++  input: CheckAuthorityCoreInput,
++  credentials: WardaCredentials
++): Promise<CheckAuthorityResult> {
++  const manifest = parseManifest(input.manifest);
++  if ("error" in manifest) {
++    return invalid(manifest.error);
++  }
++
++  const recipients = parseRecipients(input.recipients);
++  if (recipients.length === 0) {
++    return invalid(
++      "The grant's payee list is required. A grant commits to the Merkle root of its payees, and a root cannot produce a membership proof — so whether this payee is allowed cannot be answered from the manifest alone."
++    );
++  }
++
++  const payTo = input.payTo?.trim();
++  if (!payTo) {
++    return invalid("A payee address is required.");
++  }
++
++  const amount = toSompi(input.amount, input.amountUnit);
++  if ("error" in amount) {
++    return invalid(amount.error);
++  }
++
++  const response = await wardaPost<AuthorityResult>(
++    "/v1/authority",
++    {
++      manifest: manifest.manifest,
++      recipients,
++      ...(input.network ? { network: input.network } : {}),
++      payment: { amountSompi: amount.sompi, payTo },
++    },
++    credentials
++  );
++
++  if (!response.success) {
++    return response;
++  }
++
++  const { result, readFrom, assumptions, enforcement } = response.data;
++  return {
++    success: true,
++    allowed: !result.wouldBeRefused,
++    refusal: result.refusal,
++    boundBy: result.boundBy,
++    maxNextSpendKas: result.maxNextSpend.kas,
++    maxNextSpendSompi: result.maxNextSpend.sompi,
++    requestedKas: result.requested.kas,
++    requestedSompi: result.requested.sompi,
++    grantAddress: result.address,
++    grantFound: result.found,
++    readFrom,
++    assumptions,
++    enforcement,
++  };
++}
++
++export async function checkAuthorityStep(
++  input: CheckAuthorityInput
++): Promise<CheckAuthorityResult> {
++  "use step";
++
++  const credentials = input.integrationId
++    ? await fetchCredentials(input.integrationId, {
++        organizationId: input._context?.organizationId ?? null,
++      })
++    : {};
++
++  return runPluginStep(
++    { pluginName: "warda", actionName: "check-authority" },
++    input,
++    () => stepHandler(input, credentials)
++  );
++}
++
++export const _integrationType = "warda";
+diff --git a/plugins/warda/steps/locate-grant.ts b/plugins/warda/steps/locate-grant.ts
+new file mode 100644
+index 0000000..2d28f1b
+--- /dev/null
++++ b/plugins/warda/steps/locate-grant.ts
+@@ -0,0 +1,159 @@
++import "server-only";
++import { fetchCredentials } from "@/lib/credential-fetcher";
++import { ExecutionErrorType } from "@/lib/errors/execution-error-type";
++import {
++  runPluginStep,
++  type StepInput,
++} from "@/lib/workflow/executor/step-handler";
++import type { WardaCredentials } from "../credentials";
++import {
++  parseManifest,
++  wardaPost,
++  type WardaAssumption,
++  type WardaReadFrom,
++} from "./warda-core";
++
++type Amount = { sompi: string; kas: string };
++
++type LocateResult = {
++  found: boolean;
++  address?: string;
++  value?: Amount;
++  state?: {
++    spentTotal: Amount;
++    reserved: Amount;
++    epochIndex: string;
++    epochSpent: Amount;
++  };
++  paymentsApplied?: number;
++  candidatesTried: number;
++  note: string;
++};
++
++type LocateGrantResult =
++  | {
++      success: true;
++      found: boolean;
++      grantAddress: string | null;
++      holdsKas: string | null;
++      spentTotalKas: string | null;
++      epochIndex: string | null;
++      candidatesTried: number;
++      note: string;
++      readFrom: WardaReadFrom;
++      assumptions: WardaAssumption[];
++      enforcement: string;
++    }
++  | { success: false; error: string; errorClass?: ExecutionErrorType };
++
++type PaymentInput = {
++  valueSompi?: string | number;
++  blockDaaScore?: string | number;
++  id?: string;
++};
++
++export type LocateGrantCoreInput = {
++  manifest: string;
++  payments: string;
++  subsets?: boolean | string;
++  network?: string;
++};
++
++export type LocateGrantInput = StepInput &
++  LocateGrantCoreInput & {
++    integrationId?: string;
++  };
++
++/** The protocol-bool field arrives as a string when it came from the UI. */
++function isTrue(value: boolean | string | undefined): boolean {
++  return value === true || value === "true";
++}
++
++function invalid(error: string): LocateGrantResult {
++  return { success: false, error, errorClass: ExecutionErrorType.USER };
++}
++
++function parsePayments(raw: string | undefined): PaymentInput[] | { error: string } {
++  const text = raw?.trim();
++  if (!text) {
++    return {
++      error:
++        "The payments the grant made are required. They are what advanced its state, and no index recovers them from an address — whoever was paid has them.",
++    };
++  }
++  let parsed: unknown;
++  try {
++    parsed = JSON.parse(text);
++  } catch (_error) {
++    return { error: "Payments must be a JSON array of { valueSompi, blockDaaScore }." };
++  }
++  if (!Array.isArray(parsed) || parsed.length === 0) {
++    return { error: "Payments must be a non-empty JSON array." };
++  }
++  return parsed as PaymentInput[];
++}
++
++async function stepHandler(
++  input: LocateGrantCoreInput,
++  credentials: WardaCredentials
++): Promise<LocateGrantResult> {
++  const manifest = parseManifest(input.manifest);
++  if ("error" in manifest) {
++    return invalid(manifest.error);
++  }
++
++  const payments = parsePayments(input.payments);
++  if ("error" in payments) {
++    return invalid(payments.error);
++  }
++
++  const response = await wardaPost<LocateResult>(
++    "/v1/locate",
++    {
++      manifest: manifest.manifest,
++      payments,
++      ...(isTrue(input.subsets) ? { subsets: true } : {}),
++      ...(input.network ? { network: input.network } : {}),
++    },
++    credentials
++  );
++
++  if (!response.success) {
++    return response;
++  }
++
++  const { result, readFrom, assumptions, enforcement } = response.data;
++  return {
++    success: true,
++    found: result.found,
++    grantAddress: result.address ?? null,
++    holdsKas: result.value?.kas ?? null,
++    spentTotalKas: result.state?.spentTotal.kas ?? null,
++    epochIndex: result.state?.epochIndex ?? null,
++    candidatesTried: result.candidatesTried,
++    note: result.note,
++    readFrom,
++    assumptions,
++    enforcement,
++  };
++}
++
++export async function locateGrantStep(
++  input: LocateGrantInput
++): Promise<LocateGrantResult> {
++  "use step";
++
++  const credentials = input.integrationId
++    ? await fetchCredentials(input.integrationId, {
++        organizationId: input._context?.organizationId ?? null,
++      })
++    : {};
++
++  return runPluginStep(
++    { pluginName: "warda", actionName: "locate-grant" },
++    input,
++    () => stepHandler(input, credentials)
++  );
++}
++
++export const _integrationType = "warda";
+diff --git a/plugins/warda/steps/verify-grant.ts b/plugins/warda/steps/verify-grant.ts
+new file mode 100644
+index 0000000..cb473cd
+--- /dev/null
++++ b/plugins/warda/steps/verify-grant.ts
+@@ -0,0 +1,141 @@
++import "server-only";
++import { fetchCredentials } from "@/lib/credential-fetcher";
++import { ExecutionErrorType } from "@/lib/errors/execution-error-type";
++import {
++  runPluginStep,
++  type StepInput,
++} from "@/lib/workflow/executor/step-handler";
++import type { WardaCredentials } from "../credentials";
++import {
++  parseManifest,
++  parseRecipients,
++  wardaPost,
++  type WardaAssumption,
++  type WardaReadFrom,
++} from "./warda-core";
++
++type Amount = { sompi: string; kas: string };
++type Finding = { level: "ok" | "warn" | "error"; text: string };
++
++type VerifyResult = {
++  address: string;
++  found: boolean;
++  value: Amount | null;
++  covenantId: string | null;
++  remaining: Amount;
++  epochRemaining: Amount;
++  maxNextSpend: Amount;
++  boundBy: string;
++  reclaimable: boolean;
++  agrees: boolean;
++  findings: Finding[];
++};
++
++type VerifyGrantResult =
++  | {
++      success: true;
++      /** No error findings: the chain agrees with everything the manifest claimed. */
++      agrees: boolean;
++      found: boolean;
++      grantAddress: string;
++      holdsKas: string | null;
++      remainingKas: string;
++      epochRemainingKas: string;
++      maxNextSpendKas: string;
++      boundBy: string;
++      covenantId: string | null;
++      reclaimable: boolean;
++      findings: Finding[];
++      problems: string[];
++      readFrom: WardaReadFrom;
++      assumptions: WardaAssumption[];
++      enforcement: string;
++    }
++  | { success: false; error: string; errorClass?: ExecutionErrorType };
++
++export type VerifyGrantCoreInput = {
++  manifest: string;
++  recipients?: string;
++  network?: string;
++};
++
++export type VerifyGrantInput = StepInput &
++  VerifyGrantCoreInput & {
++    integrationId?: string;
++  };
++
++async function stepHandler(
++  input: VerifyGrantCoreInput,
++  credentials: WardaCredentials
++): Promise<VerifyGrantResult> {
++  const manifest = parseManifest(input.manifest);
++  if ("error" in manifest) {
++    return {
++      success: false,
++      error: manifest.error,
++      errorClass: ExecutionErrorType.USER,
++    };
++  }
++
++  const recipients = parseRecipients(input.recipients);
++  const response = await wardaPost<VerifyResult>(
++    "/v1/verify",
++    {
++      manifest: manifest.manifest,
++      ...(recipients.length > 0 ? { recipients } : {}),
++      ...(input.network ? { network: input.network } : {}),
++    },
++    credentials
++  );
++
++  if (!response.success) {
++    return response;
++  }
++
++  const { result, readFrom, assumptions, enforcement } = response.data;
++  const problems: string[] = [];
++  for (const finding of result.findings) {
++    if (finding.level === "error") {
++      problems.push(finding.text);
++    }
++  }
++
++  return {
++    success: true,
++    agrees: result.agrees,
++    found: result.found,
++    grantAddress: result.address,
++    holdsKas: result.value ? result.value.kas : null,
++    remainingKas: result.remaining.kas,
++    epochRemainingKas: result.epochRemaining.kas,
++    maxNextSpendKas: result.maxNextSpend.kas,
++    boundBy: result.boundBy,
++    covenantId: result.covenantId,
++    reclaimable: result.reclaimable,
++    findings: result.findings,
++    problems,
++    readFrom,
++    assumptions,
++    enforcement,
++  };
++}
++
++export async function verifyGrantStep(
++  input: VerifyGrantInput
++): Promise<VerifyGrantResult> {
++  "use step";
++
++  const credentials = input.integrationId
++    ? await fetchCredentials(input.integrationId, {
++        organizationId: input._context?.organizationId ?? null,
++      })
++    : {};
++
++  return runPluginStep(
++    { pluginName: "warda", actionName: "verify-grant" },
++    input,
++    () => stepHandler(input, credentials)
++  );
++}
++
++export const _integrationType = "warda";
+diff --git a/plugins/warda/steps/warda-core.ts b/plugins/warda/steps/warda-core.ts
+new file mode 100644
+index 0000000..e4d6d38
+--- /dev/null
++++ b/plugins/warda/steps/warda-core.ts
+@@ -0,0 +1,261 @@
++import "server-only";
++import { ExecutionErrorType } from "@/lib/errors/execution-error-type";
++import { ErrorCategory, logUserError } from "@/lib/logging";
++import {
++  assertUrlIsPublic,
++  safeFetch,
++  SsrfBlockedError,
++} from "@/lib/safe-fetch";
++import { getErrorMessage } from "@/lib/utils";
++import type { WardaCredentials } from "../credentials";
++
++/**
++ * Shared plumbing for talking to a Warda verification service.
++ *
++ * Warda is an economic-authority protocol for autonomous agents on Kaspa. An
++ * agent holds a GRANT: a covenant-bound coin whose per-payment cap, lifetime
++ * budget, epoch allowance and payee allowlist are enforced by the network, not
++ * by the process holding the key. The verification service reads a Kaspa node
++ * and re-derives what that covenant would decide.
++ *
++ * Nothing here enforces anything, and no step in this plugin ever will. A
++ * workflow that gates on `wouldBeRefused` is choosing not to attempt a payment
++ * the chain would reject — saving a fee and a confusing script error. The
++ * limit itself holds whether or not anybody asks.
++ *
++ * The service URL comes from the connection because there is no shared
++ * instance and should not be one: the answer depends on which Kaspa node was
++ * read, so every response names it, and `readFrom` is surfaced as an output
++ * field rather than hidden.
++ */
++
++const TRAILING_SLASH_RE = /\/+$/;
++const LIST_SPLIT_RE = /[\s,]+/;
++
++/** Which node answered, carried through to the workflow's output. */
++export type WardaReadFrom = {
++  url: string;
++  network: string;
++  synced: boolean;
++  utxoIndexed: boolean;
++  virtualDaaScore: string;
++  usable: boolean;
++  notes: string[];
++};
++
++/** A field the service defaulted because the manifest did not state it. */
++export type WardaAssumption = {
++  field: string;
++  value: string;
++  why: string;
++};
++
++export type WardaEnvelope<T> = {
++  ok: true;
++  result: T;
++  readFrom: WardaReadFrom;
++  assumptions: WardaAssumption[];
++  enforcement: string;
++};
++
++export type WardaFetchResult<T> =
++  | { success: true; data: WardaEnvelope<T> }
++  | { success: false; error: string; errorClass?: ExecutionErrorType };
++
++type Resolution = { url: string } | { error: string };
++
++export function resolveService(credentials: WardaCredentials): Resolution {
++  const raw = credentials.WARDA_VERIFY_URL?.trim();
++  if (!raw) {
++    return {
++      error:
++        "No Warda verification service is configured. Add a Warda connection with the URL of a service you run or trust — there is no shared instance, because the answer depends on which Kaspa node it reads.",
++    };
++  }
++  return { url: raw.replace(TRAILING_SLASH_RE, "") };
++}
++
++/**
++ * A grant manifest, as JSON text from a config field or an upstream node.
++ *
++ * Parsed here rather than passed through so a typo is a clear message instead
++ * of a 400 from a service the workflow author may not have realised it was
++ * talking to.
++ */
++export function parseManifest(
++  raw: string | undefined
++): { manifest: unknown } | { error: string } {
++  const text = raw?.trim();
++  if (!text) {
++    return {
++      error:
++        "A grant manifest is required. It is the JSON the grant was issued with — the same file a principal hands to a counterparty.",
++    };
++  }
++  let parsed: unknown;
++  try {
++    parsed = JSON.parse(text);
++  } catch (error) {
++    return { error: `The manifest is not valid JSON: ${getErrorMessage(error)}` };
++  }
++  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
++    return { error: "The manifest must be a JSON object." };
++  }
++  return { manifest: parsed };
++}
++
++/**
++ * The payee list, one address per line or comma separated.
++ *
++ * A grant commits to the Merkle ROOT of its payees. A root can confirm a list
++ * but cannot produce a membership proof from one, so asking whether a given
++ * vendor is allowed needs the members themselves. The service checks them
++ * against the root before it answers anything.
++ */
++export function parseRecipients(raw: string | undefined): string[] {
++  const text = raw?.trim();
++  if (!text) {
++    return [];
++  }
++  return text
++    .split(LIST_SPLIT_RE)
++    .map((entry) => entry.trim())
++    .filter((entry) => entry.length > 0);
++}
++
++type ServiceError = {
++  error?: string;
++  field?: string | null;
++  message?: string;
++};
++
++/** Turn the service's own error shape into something a workflow author can act on. */
++function describeFailure(
++  status: number,
++  body: ServiceError | null
++): { error: string; errorClass: ExecutionErrorType } {
++  const detail = body?.message ?? `HTTP ${status}`;
++
++  if (status === 503) {
++    return {
++      error: `The verification service will not answer from its Kaspa node: ${detail}`,
++      errorClass: ExecutionErrorType.EXTERNAL,
++    };
++  }
++  if (body?.field) {
++    return {
++      error: `${body.field}: ${detail}`,
++      errorClass: ExecutionErrorType.USER,
++    };
++  }
++  return {
++    error: detail,
++    errorClass:
++      status >= 500 ? ExecutionErrorType.EXTERNAL : ExecutionErrorType.USER,
++  };
++}
++
++/**
++ * POST to the verification service and normalise the outcome.
++ *
++ * The service URL is supplied by the connection, so it is validated as a
++ * public destination before any request leaves — `assertUrlIsPublic` ignores
++ * shadow mode, which `safeFetch` alone does not. Mirrors
++ * plugins/blockscout/steps/blockscout-core.ts.
++ */
++export async function wardaPost<T>(
++  path: string,
++  body: Record<string, unknown>,
++  credentials: WardaCredentials
++): Promise<WardaFetchResult<T>> {
++  const resolved = resolveService(credentials);
++  if ("error" in resolved) {
++    return {
++      success: false,
++      error: resolved.error,
++      errorClass: ExecutionErrorType.USER,
++    };
++  }
++
++  const url = `${resolved.url}${path}`;
++
++  try {
++    await assertUrlIsPublic(url);
++
++    const response = await safeFetch(url, {
++      plugin: "warda",
++      method: "POST",
++      headers: { "Content-Type": "application/json", Accept: "application/json" },
++      body: JSON.stringify(body),
++    });
++
++    if (!response.ok) {
++      const failure = (await response.json().catch(() => null)) as ServiceError | null;
++      return { success: false, ...describeFailure(response.status, failure) };
++    }
++
++    const data = (await response.json()) as WardaEnvelope<T>;
++    return { success: true, data };
++  } catch (error) {
++    if (error instanceof SsrfBlockedError) {
++      logUserError(
++        ErrorCategory.VALIDATION,
++        "[Warda] Blocked SSRF target",
++        error.message,
++        { plugin_name: "warda" }
++      );
++      return {
++        success: false,
++        error: `The Warda service URL is not allowed: ${error.message}`,
++        errorClass: ExecutionErrorType.USER,
++      };
++    }
++    return {
++      success: false,
++      error: `Failed to reach the Warda verification service: ${getErrorMessage(error)}`,
++      errorClass: ExecutionErrorType.EXTERNAL,
++    };
++  }
++}
++
++const DECIMAL_RE = /^\d+(\.\d+)?$/;
++const SOMPI_DECIMALS = 8;
++
++/**
++ * A KAS or sompi amount as an integer string of sompi.
++ *
++ * Done with string arithmetic rather than by multiplying a float. Kaspa has
++ * eight decimal places and this protocol's amounts are u64: a budget expressed
++ * as a JavaScript number can be rounded before anything has looked at it, and
++ * a rounded amount is indistinguishable from an amount.
++ */
++export function toSompi(
++  amount: string | undefined,
++  unit: string | undefined
++): { sompi: string } | { error: string } {
++  const text = amount?.trim();
++  if (!text) {
++    return { error: "An amount is required." };
++  }
++
++  if (unit === "sompi") {
++    if (!/^\d+$/.test(text)) {
++      return { error: `Sompi must be a whole number, got "${text}".` };
++    }
++    return { sompi: text };
++  }
++
++  if (!DECIMAL_RE.test(text)) {
++    return { error: `"${text}" is not a KAS amount.` };
++  }
++  const [whole = "0", fraction = ""] = text.split(".");
++  if (fraction.length > SOMPI_DECIMALS) {
++    return {
++      error: `KAS has ${SOMPI_DECIMALS} decimal places, got ${fraction.length}.`,
++    };
++  }
++  const padded = fraction.padEnd(SOMPI_DECIMALS, "0");
++  const scale = BigInt("1" + "0".repeat(SOMPI_DECIMALS));
++  const sompi = BigInt(whole) * scale + BigInt(padded || "0");
++  return { sompi: sompi.toString() };
++}
+diff --git a/plugins/warda/test.ts b/plugins/warda/test.ts
+new file mode 100644
+index 0000000..f2d9a7c
+--- /dev/null
++++ b/plugins/warda/test.ts
+@@ -0,0 +1,52 @@
++const TRAILING_SLASH_RE = /\/+$/;
++
++/**
++ * Reaches the verification service's own health route, which reports the Kaspa
++ * node behind it. A service answering at all is not enough: it refuses to serve
++ * from a node that would produce a plausible wrong answer, and that refusal is
++ * a 503 the connection test should surface now rather than at workflow runtime.
++ */
++export async function testWarda(
++  credentials: Record<string, string>
++): Promise<{ success: boolean; error?: string }> {
++  const raw = credentials.WARDA_VERIFY_URL?.trim();
++  if (!raw) {
++    return {
++      success: false,
++      error:
++        "A Warda verification service URL is required. There is no shared instance: the service reads a Kaspa node, and which node answered is part of every result.",
++    };
++  }
++
++  try {
++    const base = raw.replace(TRAILING_SLASH_RE, "");
++    const response = await fetch(`${base}/health`, {
++      method: "GET",
++      headers: { Accept: "application/json" },
++    });
++
++    if (response.status === 503) {
++      const body = (await response.json().catch(() => null)) as {
++        message?: string;
++      } | null;
++      return {
++        success: false,
++        error: `The service is reachable but its Kaspa node is not usable: ${body?.message ?? "no detail given"}`,
++      };
++    }
++
++    if (!response.ok) {
++      return {
++        success: false,
++        error: `Verification service returned HTTP ${response.status}. Check the URL.`,
++      };
++    }
++
++    return { success: true };
++  } catch (error) {
++    return {
++      success: false,
++      error: error instanceof Error ? error.message : String(error),
++    };
++  }
++}
+diff --git a/tests/unit/warda-check-authority.test.ts b/tests/unit/warda-check-authority.test.ts
+new file mode 100644
+index 0000000..6d8326c
+--- /dev/null
++++ b/tests/unit/warda-check-authority.test.ts
+@@ -0,0 +1,237 @@
++import { beforeEach, describe, expect, it, vi } from "vitest";
++
++vi.mock("server-only", () => ({}));
++
++vi.mock("@/lib/workflow/executor/step-handler", () => ({
++  runPluginStep: (
++    _options: unknown,
++    _input: unknown,
++    fn: (input: unknown) => unknown
++  ) => fn(_input),
++  withStepLogging: (_input: unknown, fn: () => unknown) => fn(),
++}));
++
++vi.mock("@/lib/logging", () => ({
++  ErrorCategory: {
++    VALIDATION: "validation",
++    NETWORK_RPC: "network_rpc",
++    EXTERNAL_SERVICE: "external_service",
++  },
++  logUserError: vi.fn(),
++}));
++
++const safeFetch = vi.fn();
++const assertUrlIsPublic = vi.fn().mockResolvedValue(undefined);
++
++vi.mock("@/lib/safe-fetch", () => ({
++  safeFetch: (...args: unknown[]) => safeFetch(...args),
++  assertUrlIsPublic: (...args: unknown[]) => assertUrlIsPublic(...args),
++  SsrfBlockedError: class SsrfBlockedError extends Error {},
++}));
++
++const fetchCredentials = vi.fn();
++vi.mock("@/lib/credential-fetcher", () => ({
++  fetchCredentials: (...args: unknown[]) => fetchCredentials(...args),
++}));
++
++import { checkAuthorityStep } from "@/plugins/warda/steps/check-authority";
++import { toSompi } from "@/plugins/warda/steps/warda-core";
++
++const MANIFEST = JSON.stringify({
++  agent: "22".repeat(32),
++  principal: "21".repeat(32),
++  budget: 500000000,
++  max_per_spend: 30000000,
++});
++
++const PAYEE = "kaspatest:qzlws9lm7uyt0tftzffshnyeu2zcqk4kf7hw5ghk6v0zh093vnkljcy2fl0fh";
++
++function envelope(result: Record<string, unknown>) {
++  return {
++    ok: true,
++    result,
++    readFrom: {
++      url: "ws://127.0.0.1:18210",
++      network: "testnet-10",
++      synced: true,
++      utxoIndexed: true,
++      virtualDaaScore: "563428316",
++      usable: true,
++      notes: [],
++    },
++    assumptions: [],
++    enforcement: "Advisory. The covenant enforces, on chain.",
++  };
++}
++
++function ok(body: unknown) {
++  return { ok: true, status: 200, json: () => Promise.resolve(body) };
++}
++
++function fail(status: number, body: unknown) {
++  return { ok: false, status, statusText: "", json: () => Promise.resolve(body) };
++}
++
++const base = {
++  manifest: MANIFEST,
++  recipients: PAYEE,
++  amount: "0.1",
++  amountUnit: "kas",
++  payTo: PAYEE,
++  integrationId: "int_1",
++};
++
++describe("warda/check-authority", () => {
++  beforeEach(() => {
++    vi.clearAllMocks();
++    assertUrlIsPublic.mockResolvedValue(undefined);
++    fetchCredentials.mockResolvedValue({
++      WARDA_VERIFY_URL: "https://verify.example.com",
++    });
++  });
++
++  it("says what is missing when no service is configured", async () => {
++    fetchCredentials.mockResolvedValue({});
++    const result = await checkAuthorityStep(base);
++    expect(result.success).toBe(false);
++    if (result.success) {
++      return;
++    }
++    expect(result.error).toMatch(/no shared instance/i);
++    expect(safeFetch).not.toHaveBeenCalled();
++  });
++
++  it("will not answer from a Merkle root alone, and explains why", async () => {
++    const result = await checkAuthorityStep({ ...base, recipients: "  " });
++    expect(result.success).toBe(false);
++    if (result.success) {
++      return;
++    }
++    expect(result.error).toMatch(/membership proof/);
++    expect(safeFetch).not.toHaveBeenCalled();
++  });
++
++  it("reports a refusal as not allowed, with the covenant's own sentence", async () => {
++    safeFetch.mockResolvedValue(
++      ok(
++        envelope({
++          address: "kaspatest:pryg",
++          wouldBeRefused: true,
++          refusal:
++            "this invoice is 30000001 sompi and the grant's per-payment cap is 30000000.",
++          requested: { sompi: "30000001", kas: "0.30000001" },
++          payTo: PAYEE,
++          maxNextSpend: { sompi: "30000000", kas: "0.3" },
++          boundBy: "maxPerSpend",
++          found: true,
++        })
++      )
++    );
++
++    const result = await checkAuthorityStep({ ...base, amount: "0.30000001" });
++    expect(result.success).toBe(true);
++    if (!result.success) {
++      return;
++    }
++    expect(result.allowed).toBe(false);
++    expect(result.refusal).toMatch(/per-payment cap/);
++    expect(result.boundBy).toBe("maxPerSpend");
++    expect(result.readFrom.url).toBe("ws://127.0.0.1:18210");
++  });
++
++  it("sends the amount in sompi, converted without a float", async () => {
++    safeFetch.mockResolvedValue(
++      ok(
++        envelope({
++          address: "kaspatest:pryg",
++          wouldBeRefused: false,
++          refusal: null,
++          requested: { sompi: "30000001", kas: "0.30000001" },
++          payTo: PAYEE,
++          maxNextSpend: { sompi: "30000000", kas: "0.3" },
++          boundBy: "maxPerSpend",
++          found: true,
++        })
++      )
++    );
++
++    await checkAuthorityStep({ ...base, amount: "0.30000001" });
++    const body = JSON.parse(safeFetch.mock.calls[0][1].body as string);
++    expect(body.payment.amountSompi).toBe("30000001");
++    expect(body.recipients).toEqual([PAYEE]);
++  });
++
++  it("passes a service validation error through with its field", async () => {
++    safeFetch.mockResolvedValue(
++      fail(400, {
++        ok: false,
++        error: "invalid_manifest",
++        field: "agent",
++        message: "agent: expected 64 hex characters",
++      })
++    );
++
++    const result = await checkAuthorityStep(base);
++    expect(result.success).toBe(false);
++    if (result.success) {
++      return;
++    }
++    expect(result.error).toMatch(/^agent: /);
++  });
++
++  it("distinguishes an unusable node from a bad request", async () => {
++    safeFetch.mockResolvedValue(
++      fail(503, {
++        ok: false,
++        error: "node_unusable",
++        message: "the node at ws://bad is NOT SYNCED",
++      })
++    );
++
++    const result = await checkAuthorityStep(base);
++    expect(result.success).toBe(false);
++    if (result.success) {
++      return;
++    }
++    expect(result.error).toMatch(/will not answer from its Kaspa node/);
++  });
++
++  it("validates the URL as public before any request leaves", async () => {
++    safeFetch.mockResolvedValue(
++      ok(
++        envelope({
++          address: "kaspatest:pryg",
++          wouldBeRefused: false,
++          refusal: null,
++          requested: { sompi: "10000000", kas: "0.1" },
++          payTo: PAYEE,
++          maxNextSpend: { sompi: "30000000", kas: "0.3" },
++          boundBy: "maxPerSpend",
++          found: true,
++        })
++      )
++    );
++
++    await checkAuthorityStep(base);
++    expect(assertUrlIsPublic).toHaveBeenCalledWith(
++      "https://verify.example.com/v1/authority"
++    );
++  });
++});
++
++describe("warda toSompi", () => {
++  it("converts KAS with integer arithmetic", () => {
++    expect(toSompi("1", "kas")).toEqual({ sompi: "100000000" });
++    expect(toSompi("0.30000001", "kas")).toEqual({ sompi: "30000001" });
++    expect(toSompi("0.1", "kas")).toEqual({ sompi: "10000000" });
++  });
++
++  it("passes sompi through and refuses a fractional one", () => {
++    expect(toSompi("30000001", "sompi")).toEqual({ sompi: "30000001" });
++    expect(toSompi("1.5", "sompi")).toHaveProperty("error");
++  });
++
++  it("refuses more precision than Kaspa has", () => {
++    expect(toSompi("0.123456789", "kas")).toHaveProperty("error");
++  });
++});
+-- 
+2.43.0
+
