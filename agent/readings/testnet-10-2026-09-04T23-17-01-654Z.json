@@ -1,0 +1,19 @@
+{
+  "at": "2026-09-04T23:17:01.654Z",
+  "network": "testnet-10",
+  "node": {
+    "url": "wss://artautass-macbook-pro-2.tailc0c0ec.ts.net",
+    "serverVersion": "2.0.1",
+    "synced": true
+  },
+  "daaScore": "562050338",
+  "sink": "8b78fdddc0284176e2636eb1b722bf838104e31fa847800f55bdb8a75f9f6fa5",
+  "tips": 1,
+  "mempoolSize": "0",
+  "blockCount": "1167952",
+  "blueScore": "551103181",
+  "circulatingSompi": "2691376526110923767",
+  "maxSompi": "2900000000000000000",
+  "hashesPerSecond": "20197994",
+  "missing": []
+}

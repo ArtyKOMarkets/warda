@@ -1,6 +1,6 @@
 {
   "_comment": "Written by agent/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, or the chain — none is typed. The refusal sentences are produced by running the same explainRefusal the payer calls, except the one marked derived:false, which is consensus's answer quoted from a node's actual rejection.",
-  "checkedAt": "2026-09-04T10:44:38.175Z",
+  "checkedAt": "2026-09-06T07:40:01.731Z",
   "network": "testnet-10",
   "identity": {
     "agentId": "WARDA-001",
@@ -88,10 +88,19 @@
       "derived": false
     }
   ],
+  "mission": "Monitor the Kaspa network and publish an independent daily digest, unattended. It holds a bounded Warda grant and may buy an approved service when it needs one.",
+  "lastRun": {
+    "at": "2026-09-05T10:17:01.053Z",
+    "runs": 53,
+    "since": "2026-09-03T08:18:38.642Z",
+    "servicesUsed": 0,
+    "spent": "0 KAS",
+    "note": "reading the chain needs no vendor, so this run bought nothing"
+  },
   "digest": {
     "window": "24 h",
-    "from": "2026-09-03T10:17:01.285Z",
-    "to": "2026-09-04T10:17:00.748Z",
-    "text": "Kaspa testnet-10 · 24 h to 2026-09-04 10:17 UTC\n\n  blue score  +863,550           9.99 blue blocks/s\n  DAA score   +863,837           now 561,582,374\n  minted      +2,825,016.50 KAS  26,912,234,862 KAS in existence\n  hashrate    18.38 MH/s         node estimate over its last 1,000 blocks\n  mempool     0 tx               held, unaccepted, at the closing reading\n  DAG         3 tips             1,132,370 blocks held by this node\n\nmeasured between two readings of one node (kaspad 2.0.1)\n"
+    "from": "2026-09-04T10:17:00.748Z",
+    "to": "2026-09-05T10:17:01.053Z",
+    "text": "Kaspa testnet-10 · 24 h to 2026-09-05 10:17 UTC\n\n  blue score  +863,163           9.99 blue blocks/s\n  DAA score   +864,250           now 562,446,624\n  minted      +1,617,385.46 KAS  26,913,852,248 KAS in existence\n  hashrate    19.87 MH/s         node estimate over its last 1,000 blocks\n  mempool     0 tx               held, unaccepted, at the closing reading\n  DAG         1 tips             1,132,086 blocks held by this node\n\nmeasured between two readings of one node (kaspad 2.0.1)\n"
   }
 }
