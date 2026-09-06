@@ -36,7 +36,8 @@
     ".",
     "sdk",
     "mcp",
-    "x402"
+    "x402",
+    "api"
   ],
   "repository": {
     "type": "git",

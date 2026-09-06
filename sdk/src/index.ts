@@ -186,6 +186,22 @@ export {
   type NetworkPrefix,
 } from "./address.ts";
 
+/**
+ * Finding a grant that has moved.
+ *
+ * A grant's address is a hash of its state, so every spend relocates it and a
+ * record that is a spend behind points at an empty address — indistinguishable
+ * from a grant that is gone. Enumerating the states the known payments could
+ * have produced turns that into a short list of addresses to probe.
+ */
+export {
+  candidateStates,
+  partitionPayments,
+  type Candidate,
+  type EnumerateOptions,
+  type Payment,
+} from "./follow.ts";
+
 export {
   describeGrant,
   verifyGrant,
