@@ -68,6 +68,17 @@ handler: `index.ts`, no `src/`, no `main`, no build script, no `api/`.
 Whatever Vercel picks there, it can only pick this. Because a root entrypoint
 serves every path, no rewrites are needed.
 
+The same rule bites in the other direction, and a third deploy was lost to it.
+`api/` is Vercel's name for a functions directory, not a name a package may
+take: the verification service was added as a top-level `api/`, and the next
+push made the site's git-integration build install that package and run its
+`tsc` instead of leaving the static site alone. The build failed, and nothing
+in the log said why a static site was compiling TypeScript.
+
+So no directory in this repository is called `api/` except the one that
+already is a functions directory. The service lives in `verify/`, which is
+also what its package is called.
+
 The handler takes Node's `(IncomingMessage, ServerResponse)`, not a Web
 `Request`. Vercel's Node runtime calls it that way, and a web-standard handler
 is invoked with arguments it does not understand. The Edge runtime IS
