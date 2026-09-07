@@ -25,7 +25,8 @@
  *   --submit               broadcast it. Refused unless WARDA_SK signed it:
  *                          an unsigned exit is a shape to verify, not a
  *                          transaction to send.
- *   --fee <sompi>          default 1000000
+ *   --fee <sompi>          default 3000000 — an exit carries the whole redeem
+ *                          script, so an ordinary transfer's fee is refused
  *   --principal <hex>      default: the manifest's `principal`, else its agent
  *   --revocation <hex>     default: the manifest's `revocation`, else principal
  *   --depth <n>            default: the manifest's delegation_depth, else 2
@@ -49,7 +50,22 @@ import { toWire } from "../src/wire.ts";
  *  current DAA score is not yet final, so the transaction would be rejected
  *  as non-final rather than for anything to do with the covenant. */
 const DAA_BACKOFF = 100n;
-const DEFAULT_FEE = 1_000_000n;
+/**
+ * 3,000,000, not 1,000,000.
+ *
+ * An exit spends a covenant output, so the whole redeem script travels in the
+ * signature script and the transaction is large — the node priced the first
+ * real revoke at 1,437,200 sompi for a transient mass of 14,372 and refused it
+ * as non-standard at the ordinary-transfer fee this used to default to.
+ *
+ * It is the third tool to learn this. build-live-spend and build-delegation
+ * both moved off 1,000,000 for exactly this reason, and this one kept the old
+ * default because nothing here had ever been broadcast: the fee is not part of
+ * the shape a script engine verifies, so `cargo run -- verify` accepted every
+ * exit this tool ever produced. A default only wrong at broadcast survives any
+ * amount of offline checking.
+ */
+const DEFAULT_FEE = 3_000_000n;
 /** One signature verification is 100,000 script units; 12 covers this path,
  *  which does no Merkle work. Under-provisioning is rejected outright. */
 const EXIT_COMPUTE_BUDGET = 12;

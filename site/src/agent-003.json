@@ -1,0 +1,116 @@
+{
+  "_comment": "Written by agents/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, the purchase log or the chain — none is typed. Each payee's LABEL is re-derived on every run from the artefact agents/known-payees.json names, and a label that stops matching is dropped rather than published: an address with no name is honest, an address with the wrong name is not.",
+  "checkedAt": "2026-09-07T16:34:34.270Z",
+  "network": "testnet-10",
+  "identity": {
+    "agentId": "WARDA-003",
+    "agent": "bf9921d061c7dbba26fbf682b15ed30bb287cfa41be777272fff0827f55ed2a1",
+    "principal": "0393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34f",
+    "revocation": "0393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34f",
+    "grantAddress": "kaspatest:pz2e2l559v923g7yz9qrur0gffy92nky5mxpwq8a0sx3asgnyy7qknn5dpz04",
+    "covenantId": "e8f9cc204f5872303dd8563b92c2b3af96327b1e1b4cee617113d12f0a743a8c",
+    "template": "b3e5eeefacf2021f"
+  },
+  "buysFrom": {
+    "endpoint": "https://warda-demo-api.vercel.app/digest",
+    "payees": [
+      {
+        "address": "kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e",
+        "key": "3c693f61fbc35d1fd4dcec2bbbab692be38656e6fd5a4077ee495afcb23535a1",
+        "label": "agent #001",
+        "derivation": "the pay-to-public-key address of the agent key named in agent #001's published manifest, x402/demo/kaspa-x402-grant.json"
+      },
+      {
+        "address": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
+        "key": "16e6af2030f7e4510d1a417391a7ff7ccad21864f17eef7ee035f0453e21a033",
+        "label": "the Warda demo vendor",
+        "derivation": "the pay-to-public-key address of covenant/deploy/demo-vendor.key, which is the address https://warda-demo-api.vercel.app quotes for /weather, /fact and /inference"
+      }
+    ],
+    "address": "kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e",
+    "bothEndsAreOurs": true,
+    "disclosure": "Every agent on this site was built here, and the vendors they buy from are ours too. What is demonstrated is therefore not a market — it is a payment: separate grants, separate keys, a fixed list of addresses each may pay, and settlements anyone can look up. Agent #001's digest is published free at wardaprotocol.com/agent-001.json, because pretending it was scarce would have traded the checkable claim for a flattering one."
+  },
+  "succession": {
+    "replaced": "WARDA-002",
+    "grantAddress": "kaspatest:pr85s0qlju2trsmdzc6ut0ksuc7euy5dhrq8k50jm6tn3fzs24qwxqxd6a0ke",
+    "agentKey": "fa4707951df802609d7fcb9258bfd0735ad2959175be8905f0da9db6e8e38622",
+    "differentKey": true,
+    "itSpent": "0.08 KAS",
+    "stillHoldsCoin": "1.88 KAS",
+    "ended": false,
+    "endedBy": "the revocation key, which is not the agent's. A grant's terms cannot be edited, so replacing an agent's authority means ending one grant and starting another — and the one that ends does not get a say in it.",
+    "handoverGap": "the successor was published timelocked and the predecessor revoked during the lock, so there was a window in which neither grant could spend. A handover between two authorities that never share a key is not atomic, and this page does not pretend it is."
+  },
+  "timelock": {
+    "notBefore": "564404779",
+    "virtualDaaScore": "564401923",
+    "open": false,
+    "lockedFor": "5 minutes",
+    "openedAgo": null,
+    "enforcedBy": "the covenant, on every spend: claimedDaa >= notBefore. Not a scheduler, not this process, and not revocable by whoever issued the grant."
+  },
+  "authority": {
+    "budget": "2 KAS",
+    "spent": "0 KAS",
+    "remaining": "2 KAS",
+    "maxPerPayment": "0.1 KAS",
+    "epochLimit": "0.5 KAS",
+    "epochLengthDaa": 1000,
+    "authorizedPayees": 2,
+    "payees": [
+      "kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e",
+      "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4"
+    ],
+    "delegationDepth": 2,
+    "onChain": "2 KAS",
+    "sompi": {
+      "budget": "200000000",
+      "spent": "0",
+      "reserved": "0",
+      "maxPerPayment": "10000000",
+      "epochLimit": "50000000",
+      "onChain": "200000000"
+    }
+  },
+  "activity": {
+    "payments": 0,
+    "paid": "0 KAS",
+    "paidOutsideTheAllowlist": "0 KAS",
+    "coins": []
+  },
+  "purchases": [],
+  "reconciliation": {
+    "paymentsOnChain": 0,
+    "accountedForInTheLog": 0,
+    "unaccountedFor": [],
+    "note": "Every coin at the payee is named by a purchase this agent recorded. The two halves of this page agree."
+  },
+  "refusals": [
+    {
+      "rule": "start time (not_before)",
+      "attempted": "spend before the grant opens",
+      "refusal": "this grant may not spend until DAA 564404779 and the network is at 564401923 — 5 minutes away. The covenant checks the claimed DAA score on every spend, so nobody can bring it forward, including whoever issued the grant.",
+      "derived": true
+    },
+    {
+      "rule": "payee allowlist",
+      "attempted": "pay any address other than agent #001",
+      "refusal": "kaspatest:qrxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvc3rysjr0d is not on this grant's allowlist, so no inclusion proof places it in the recipients tree. There is no valid transaction that pays them — not one the network would reject, none at all. A grant's payees are fixed at genesis: to pay this vendor you need a grant that committed to them.",
+      "derived": true
+    },
+    {
+      "rule": "per-payment cap",
+      "attempted": "pay 0.10000001 KAS to agent #001",
+      "refusal": "this invoice is 10000001 sompi and the grant's per-payment cap is 10000000. The cap exists to bound what a single decision can do, so it binds here regardless of how much budget remains.",
+      "derived": true
+    },
+    {
+      "rule": "lifetime budget",
+      "attempted": "pay 2 KAS to agent #001",
+      "refusal": "this invoice is 200000000 sompi and the grant's per-payment cap is 10000000. The cap exists to bound what a single decision can do, so it binds here regardless of how much budget remains.",
+      "derived": true
+    }
+  ],
+  "mission": "Take over agent #002's buying, holding its own key, from a grant published before it could be used."
+}

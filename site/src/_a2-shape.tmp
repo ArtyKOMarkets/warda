@@ -1,0 +1,498 @@
+<style>
+  /* ---- the timelock, which is this page's argument --------------------- */
+
+  /* A number in a table cannot show a delay. This can: the track is the whole
+     lock, the fill is how much of it consensus has ground through, and it
+     keeps moving while you read because the DAA score does. */
+  .lock { border: 1px solid var(--edge-bright); background: var(--ground);
+          padding: 1.4rem 1.3rem; margin-top: 1.8rem; }
+  .lock.open { border-color: var(--teal-deep); }
+  .lock .state { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.17em;
+                 text-transform: uppercase; display: flex; align-items: center; gap: 0.6rem;
+                 color: var(--refuse); margin-bottom: 1rem; }
+  .lock.open .state { color: var(--teal); }
+  .lock .state i { width: 7px; height: 7px; border-radius: 50%; background: currentColor;
+                   flex: none; animation: pulse 2.4s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
+  @media (prefers-reduced-motion: reduce) { .lock .state i { animation: none; } }
+  .lock .big { font-family: var(--mono); font-size: clamp(1.6rem, 4.4vw, 2.6rem);
+               color: var(--chrome); letter-spacing: -0.02em; line-height: 1.1; }
+  .lock .sub { font-size: 0.9rem; color: var(--chrome-dim); margin: 0.6rem 0 0; }
+  .track { position: relative; height: 10px; background: var(--void); margin-top: 1.2rem;
+           border: 1px solid var(--edge-bright); overflow: hidden; }
+  .track i { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--refuse);
+             transition: width 1200ms cubic-bezier(.2,.7,.3,1); }
+  .lock.open .track i { background: var(--teal); }
+  @media (prefers-reduced-motion: reduce) { .track i { transition: none; } }
+  .ends { display: flex; justify-content: space-between; gap: 1rem; margin-top: 0.5rem;
+          font-family: var(--mono); font-size: 0.63rem; letter-spacing: 0.1em;
+          text-transform: uppercase; color: var(--chrome-faint); }
+
+  /* ---- the two agents, as a shape rather than a sentence --------------- */
+  .flow { display: grid; gap: 0.9rem; margin-top: 1.8rem; align-items: stretch; }
+  @media (min-width: 46rem) { .flow { grid-template-columns: 1fr auto 1fr; align-items: center; } }
+  .node { border: 1px solid var(--edge-bright); background: var(--ground); padding: 1.1rem 1.2rem; }
+  .node.self { border-color: var(--teal-deep); }
+  .node .who { font-family: var(--display); font-weight: 700; font-size: 1.3rem; }
+  .node .does { font-size: 0.88rem; color: var(--chrome-dim); margin: 0.3rem 0 0.7rem; }
+  .node .addr { font-family: var(--mono); font-size: 0.66rem; color: var(--chrome-faint);
+                overflow-wrap: anywhere; user-select: all; line-height: 1.6; }
+  .arrow { font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.12em;
+           text-transform: uppercase; color: var(--teal); text-align: center;
+           white-space: nowrap; padding: 0.4rem 0; }
+  .arrow b { display: block; font-size: 1.4rem; letter-spacing: 0; line-height: 1; }
+
+  /* ---- the purchase log ------------------------------------------------ */
+  .buy { border: 1px solid var(--edge); background: var(--ground); padding: 0.9rem 1.1rem;
+         margin-bottom: 0.6rem; font-family: var(--mono); font-size: 0.75rem; }
+  .buy.no { border-color: var(--refuse); background: var(--refuse-ghost); }
+  .buy.ok { border-color: var(--teal-deep); }
+  .buy .top { display: flex; flex-wrap: wrap; gap: 0.4rem 1.1rem; align-items: baseline; }
+  .buy .verdict2 { letter-spacing: 0.12em; text-transform: uppercase; font-size: 0.66rem; }
+  .buy.ok .verdict2 { color: var(--teal); }
+  .buy.no .verdict2 { color: var(--refuse); }
+  .buy .when { color: var(--chrome-faint); }
+  .buy .amt { color: var(--teal); font-size: 0.9rem; }
+  .buy .why { color: var(--chrome-dim); margin-top: 0.55rem; line-height: 1.7;
+              font-family: var(--body); font-size: 0.9rem; overflow-wrap: anywhere; }
+  .buy .tx { color: var(--chrome-dim); overflow-wrap: anywhere; user-select: all;
+             margin-top: 0.5rem; line-height: 1.7; }
+
+  /* The disclosure. Bordered like a refusal because it is one: it refuses the
+     reading a visitor would otherwise take away. */
+  .disclose { border: 1px solid var(--edge-bright); background: var(--ground);
+              padding: 1.1rem 1.2rem; margin-top: 1.6rem; }
+  .disclose h3 { font-family: var(--mono); font-size: 0.68rem; text-transform: uppercase;
+                 letter-spacing: 0.14em; color: var(--chrome-dim); margin-bottom: 0.7rem; }
+  .disclose p { font-size: 0.94rem; color: var(--chrome-dim); margin: 0 0 0.8em; }
+  .disclose p:last-child { margin-bottom: 0; }
+  .disclose strong { color: var(--chrome); font-weight: 500; }
+</style>
+
+<div class="wrap"><header>
+  <a class="home" href="/">&larr; Warda</a>
+  <p class="live" id="b-live" hidden><span class="dot"></span><span id="b-net">testnet</span></p>
+  <h1>Agent&nbsp;#002</h1>
+  <p class="lede">
+    It buys <a href="/agent-001">agent&nbsp;#001</a>&rsquo;s network digest over HTTP&nbsp;402.
+    It may pay <strong>one address</strong>, fixed when the grant was created, and it
+    <strong>could not pay at all</strong> until a start time the covenant checks on every spend.
+  </p>
+  <p class="mission" id="b-mission">&mdash;</p>
+</header></div>
+
+<div class="wrap" id="b-body" hidden>
+
+<!-- ------------------------------------------------------------------ -->
+<section>
+  <p class="eyebrow">The question this answers</p>
+  <h2>Who can change what an agent may spend, and how fast?</h2>
+  <p>
+    Agent&nbsp;#001 answers <em>how much</em> and <em>to whom</em>. The harder question is the
+    one people ask second: fine, but who edits that policy, and how long does it take to
+    take effect? On most systems the answer is <em>whoever holds the config, immediately</em>
+    &mdash; which means the limits are a description of intent, not a constraint.
+  </p>
+  <p>
+    A Warda grant&rsquo;s terms cannot be changed once it exists. Not by the agent, not by the
+    operator, not by the principal, not by all of them together. The only way to give an
+    agent different authority is to issue a <strong>different grant</strong>. So the real
+    question becomes how fast a new grant can start &mdash; and that is a number the network
+    enforces.
+  </p>
+
+  <div class="lock" id="b-lock">
+    <p class="state" id="b-lockstate"><i></i><span>&mdash;</span></p>
+    <p class="big" id="b-lockbig">&mdash;</p>
+    <p class="sub" id="b-locksub"></p>
+    <div class="track"><i id="b-lockfill"></i></div>
+    <p class="ends">
+      <span id="b-lockfrom">created</span>
+      <span id="b-lockto">may first spend</span>
+    </p>
+  </div>
+
+  <p class="note">
+    There is no timelock mechanism in any of this. The covenant already checks
+    <code>claimedDaa&nbsp;&gt;=&nbsp;notBefore</code> on every spend, so the delay is enforced by
+    consensus rather than by a contract somebody could upgrade to skip it. And because a
+    grant&rsquo;s address is a hash of its terms, <strong>pending authority is publishable the
+    moment it is created</strong>: anyone can read what it will permit and check that it
+    cannot yet permit anything.
+  </p>
+</section>
+
+<!-- ------------------------------------------------------------------ -->
+<section>
+  <p class="eyebrow">Who it pays</p>
+  <h2>One agent paying another</h2>
+
+  <div class="flow">
+    <div class="node self">
+      <p class="who">Agent&nbsp;#002</p>
+      <p class="does">Holds a grant. Buys a digest.</p>
+      <p class="addr" id="b-selfaddr">&mdash;</p>
+    </div>
+    <div class="arrow"><b>&rarr;</b><span id="b-flowamt">pays</span></div>
+    <div class="node">
+      <p class="who">Agent&nbsp;#001</p>
+      <p class="does">Reads the network hourly. Sells the digest.</p>
+      <p class="addr" id="b-selleraddr">&mdash;</p>
+    </div>
+  </div>
+
+  <p style="margin-top:1.6rem">
+    That second address is not chosen and it is not asserted. It is the pay-to-public-key
+    address of <strong>the agent key that agent&nbsp;#001&rsquo;s own published manifest names</strong>,
+    so the money went to the key that authorizes #001 and to nothing else.
+  </p>
+  <pre id="b-derive">&mdash;</pre>
+  <p class="note">
+    <strong>&ldquo;Agent #002 paid agent #001&rdquo; is a claim about identity</strong>, and an ordinary
+    address makes it unfalsifiable &mdash; it is whoever we say it is. The tool that writes this
+    page re-derives the address from #001&rsquo;s manifest on every run and exits rather than
+    publish the sentence if the two stop matching.
+  </p>
+
+  <div class="disclose">
+    <h3>Both ends of this are ours</h3>
+    <p>
+      Agent&nbsp;#001 and agent&nbsp;#002 were both built here. This is therefore
+      <strong>not a market</strong>, and saying otherwise would be the easiest claim on this
+      site to catch out.
+    </p>
+    <p>
+      What it is: a payment between two independent grants, with two different keys, each able
+      to pay exactly one address, settled on a public chain where anyone can look it up. The
+      demonstration is that the <em>rails</em> work between agents &mdash; not that a third party
+      chose to trade with us.
+    </p>
+    <p>
+      The digest #002 pays for is also published free at
+      <a href="/agent-001.json">wardaprotocol.com/agent-001.json</a>. Paywalling it to make this
+      look better would have swapped the one claim here a stranger can verify for one that
+      merely sounds impressive.
+    </p>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------------ -->
+<section>
+  <p class="eyebrow">Its authority</p>
+  <h2>What it is allowed to do</h2>
+
+  <div class="meter" id="b-meter" hidden>
+    <div class="mnums">
+      <div><span class="mn" id="bm-spent">0</span> <span class="mu">KAS spent</span></div>
+      <div><span class="mn" id="bm-left">0</span> <span class="mu">KAS it may still spend</span></div>
+      <div><span class="mn" id="bm-cap">0</span> <span class="mu">KAS ceiling, any one payment</span></div>
+    </div>
+    <div class="bar"><i class="fill" id="bm-fill"></i><i class="cap" id="bm-captick"></i></div>
+    <p class="mlegend" id="bm-legend"></p>
+  </div>
+
+  <div class="stmt">
+    <div class="row"><span class="k">Budget</span><span class="v big" id="b-budget">&mdash;</span></div>
+    <div class="row"><span class="k">Spent</span><span class="v big" id="b-spent">&mdash;</span></div>
+    <div class="row"><span class="k">Remaining</span><span class="v big" id="b-remaining">&mdash;</span></div>
+    <div class="row"><span class="k">Max / payment</span><span class="v" id="b-max">&mdash;</span></div>
+    <div class="row"><span class="k">Per epoch</span><span class="v" id="b-epoch">&mdash;</span></div>
+    <div class="row"><span class="k">Authorized payees</span><span class="v" id="b-payees">&mdash;</span></div>
+    <div class="row"><span class="k">May not spend before</span><span class="v" id="b-notbefore">&mdash;</span></div>
+    <div class="row"><span class="k">Held on chain</span><span class="v" id="b-onchain">&mdash;</span></div>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------------ -->
+<section>
+  <p class="eyebrow red">Its limits</p>
+  <h2>What it cannot do</h2>
+  <p>
+    Every sentence below is produced by running the same function the payer runs before it
+    builds a transaction &mdash; against this grant, with these numbers. None of them is copy.
+    If the grant&rsquo;s limits changed, these would change with them, or the page would not build.
+  </p>
+  <div id="b-refusals" style="margin-top:1.8rem"></div>
+</section>
+
+<!-- ------------------------------------------------------------------ -->
+<section>
+  <p class="eyebrow">Its work</p>
+  <h2>Every attempt it has made</h2>
+  <p>
+    Refusals included. A purchase log that records only the successes is a sales brochure, and
+    the run that was turned away for being early is the more interesting half of this one.
+  </p>
+  <div class="stmt">
+    <div class="row"><span class="k">Attempts</span><span class="v big" id="b-attempts">&mdash;</span></div>
+    <div class="row"><span class="k">Served</span><span class="v big" id="b-served">&mdash;</span></div>
+    <div class="row"><span class="k">Settled on chain</span><span class="v big" id="b-paid">&mdash;</span></div>
+    <div class="row"><span class="k">Outside the allowlist</span><span class="v big">0 KAS</span></div>
+  </div>
+  <h3 class="sub-h">What the agent says it did</h3>
+  <div id="b-buys" style="margin-top:0.9rem"></div>
+
+  <h3 class="sub-h">What the chain says arrived</h3>
+  <p style="font-size:0.9rem;color:var(--chrome-dim);margin:0.5rem 0 0.9rem">
+    Read from agent&nbsp;#001&rsquo;s address, filtered to coins this grant could have produced.
+    The log above is the agent&rsquo;s own account of itself; this is the network&rsquo;s, and they
+    are only the same thing when the agent is telling the truth &mdash; or when nothing went
+    wrong while it was writing things down.
+  </p>
+  <div id="b-coins"></div>
+  <p class="recon" id="b-recon" hidden></p>
+</section>
+
+<!-- ------------------------------------------------------------------ -->
+<section>
+  <p class="eyebrow">Honesty</p>
+  <h2>What this does and does not protect you from</h2>
+  <div class="two">
+    <div class="col yes">
+      <h3>The network enforces</h3>
+      <ul>
+        <li>It can pay agent&nbsp;#001 and nobody else</li>
+        <li>It could not pay anything before its start time</li>
+        <li>No single payment above the cap</li>
+        <li>No more than the budget, ever</li>
+        <li>Its terms cannot be edited &mdash; only replaced, by a new grant</li>
+      </ul>
+    </div>
+    <div class="col no">
+      <h3>Nothing here promises</h3>
+      <ul>
+        <li>That the digest is correct</li>
+        <li>That the seller delivers what it charged for</li>
+        <li>That a payment is refundable</li>
+        <li>That the two agents are strangers &mdash; they are not</li>
+        <li>That testnet coins are worth anything</li>
+      </ul>
+    </div>
+  </div>
+  <p class="note">
+    Agent&nbsp;#001&rsquo;s second grant paid a third-party vendor 1.47&nbsp;KAS for a service that
+    never arrived. That is <a href="/agent-001">on its page</a>, with the transaction id, for
+    the same reason this column is here: the covenant bounds what a vendor who takes payment
+    without delivering can take, and it does not do anything else.
+  </p>
+</section>
+
+<!-- ------------------------------------------------------------------ -->
+<section>
+  <p class="eyebrow">Check it</p>
+  <h2>The dashboard is not the source of truth</h2>
+  <p>Every field below is on the chain. Nothing here needs to be believed.</p>
+  <div class="stmt">
+    <div class="row"><span class="k">Agent ID</span><span class="v" id="b-id">&mdash;</span></div>
+    <div class="row"><span class="k">Network</span><span class="v" id="b-network">&mdash;</span></div>
+    <div class="row"><span class="k">Grant address</span><span class="v" id="b-address">&mdash;</span></div>
+    <div class="row"><span class="k">Agent key</span><span class="v" id="b-agent">&mdash;</span></div>
+    <div class="row"><span class="k">Principal</span><span class="v" id="b-principal">&mdash;</span></div>
+    <div class="row"><span class="k">Covenant ID</span><span class="v" id="b-covenant">&mdash;</span></div>
+    <div class="row"><span class="k">Buys from</span><span class="v" id="b-endpoint">&mdash;</span></div>
+  </div>
+  <p style="margin-top:1.6rem">Reproduce the purchase yourself:</p>
+  <pre>git clone https://github.com/ArtyKOMarkets/warda &amp;&amp; cd warda/agent-002
+source ../ops/node.env
+WARDA_SK=$(cat ../covenant/deploy/agent-002.key) \
+  node --experimental-strip-types tools/buy.ts \
+  https://warda-demo-api.vercel.app/digest</pre>
+  <p class="note">
+    The key is not in the repository, so that command will pay from <em>your</em> grant, not
+    ours. <a href="https://github.com/ArtyKOMarkets/warda/tree/main/agent-002">agent-002/README.md</a>
+    has the three commands that mint one.
+  </p>
+  <p class="readat" id="b-checked"></p>
+</section>
+
+</div>
+
+<div class="wrap"><footer>
+  <p>Warda &middot; agent #002 &middot; testnet-10 &middot; every figure derived from the chain</p>
+</footer></div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var set = function (id, v) { var e = $(id); if (e) e.textContent = v; };
+
+  /* Sompi, not the display strings above them. Parsing "1.4 KAS" back into a
+     number makes a thousands separator or a unit change silently move a bar. */
+  var S = function (v) { return v == null ? null : Number(v) / 1e8; };
+  var fmt = function (n) {
+    if (n == null) return "—";
+    return n >= 100 ? n.toFixed(0) : n >= 1 ? n.toFixed(2) : n.toFixed(3).replace(/0+$/, "");
+  };
+
+  function countTo(el, target) {
+    if (!el) return;
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) { el.textContent = fmt(target); return; }
+    var t0 = null, dur = 900;
+    function step(t) {
+      if (t0 === null) t0 = t;
+      var p = Math.min(1, (t - t0) / dur);
+      el.textContent = fmt(target * (1 - Math.pow(1 - p, 3)));
+      if (p < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  fetch("/agent-002.json", { cache: "no-store" })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) {
+      if (!d || !d.identity || !d.authority || !d.timelock || !d.buysFrom) return;
+      $("b-body").hidden = false;
+      $("b-live").hidden = false;
+      set("b-net", d.network || "testnet-10");
+      set("b-mission", d.mission || "");
+
+      // ---- the timelock ---------------------------------------------------
+      var tl = d.timelock;
+      var lock = $("b-lock");
+      var now = Number(tl.virtualDaaScore), open = Number(tl.notBefore);
+      lock.className = "lock" + (tl.open ? " open" : "");
+      $("b-lockstate").lastElementChild.textContent = tl.open ? "open — it may spend" : "locked — it may not spend";
+      $("b-lockbig").textContent = tl.open
+        ? "Opened " + (tl.openedAgo || "—") + " after it was created"
+        : (tl.lockedFor || "—") + " until it may spend";
+      set("b-locksub", tl.enforcedBy || "");
+      set("b-lockfrom", "created · DAA " + (d.identity.createdAtDaa || "—"));
+      set("b-lockto", "may spend · DAA " + tl.notBefore);
+      var from = Number(d.identity.createdAtDaa || tl.notBefore);
+      var span = Math.max(1, open - from);
+      var pct = Math.max(0, Math.min(100, ((now - from) / span) * 100));
+      setTimeout(function () { $("b-lockfill").style.width = pct + "%"; }, 120);
+
+      // ---- the two agents -------------------------------------------------
+      set("b-selfaddr", d.identity.grantAddress);
+      set("b-selleraddr", d.buysFrom.address);
+      set("b-flowamt", d.authority.maxPerPayment + " max");
+      set("b-derive",
+        "# agent #001's published manifest names its agent key:\n" +
+        "#   " + d.buysFrom.agentKey + "\n" +
+        "# the only address agent #002 may pay is that key's P2PK address:\n" +
+        "    " + d.buysFrom.address);
+
+      // ---- authority ------------------------------------------------------
+      var a = d.authority, s = a.sompi || {};
+      set("b-budget", a.budget); set("b-spent", a.spent); set("b-remaining", a.remaining);
+      set("b-max", a.maxPerPayment);
+      set("b-epoch", a.epochLimit + "  (epoch = " + a.epochLengthDaa + " DAA)");
+      set("b-payees", a.authorizedPayees + " — agent #001, and nobody else");
+      set("b-notbefore", "DAA " + tl.notBefore);
+      set("b-onchain", a.onChain || "—");
+
+      var budget = S(s.budget), spent = S(s.spent), cap = S(s.maxPerPayment);
+      if (budget) {
+        $("b-meter").hidden = false;
+        countTo($("bm-spent"), spent);
+        countTo($("bm-left"), budget - spent - (S(s.reserved) || 0));
+        countTo($("bm-cap"), cap);
+        setTimeout(function () { $("bm-fill").style.width = (spent / budget) * 100 + "%"; }, 120);
+        $("bm-captick").style.left = "calc(" + Math.min(100, (cap / budget) * 100) + "% - 1px)";
+        set("bm-legend",
+          "The white tick is the furthest a single payment can reach: " + fmt(cap) + " of " +
+          fmt(budget) + " KAS. Everything past it needs another payment, and the whole bar is " +
+          "everything this agent may ever spend.");
+      }
+
+      // ---- refusals -------------------------------------------------------
+      var wrap = $("b-refusals");
+      (d.refusals || []).forEach(function (r, i) {
+        var el = document.createElement("details");
+        el.className = "ref";
+        if (i < 2) el.open = true;
+        var sum = document.createElement("summary");
+        var t = document.createElement("p");
+        t.className = "try"; t.textContent = "it tried to " + r.attempted;
+        sum.appendChild(t);
+        el.appendChild(sum);
+        var said = document.createElement("p");
+        said.className = "said"; said.textContent = r.refusal;
+        el.appendChild(said);
+        var rule = document.createElement("p");
+        rule.className = "rule"; rule.textContent = "refused by: " + r.rule;
+        el.appendChild(rule);
+        wrap.appendChild(el);
+      });
+
+      // ---- purchases ------------------------------------------------------
+      var buys = d.purchases || [];
+      var served = buys.filter(function (p) { return p.outcome === "bought"; });
+      set("b-attempts", String(buys.length));
+      set("b-served", String(served.length));
+      set("b-paid", (d.activity && d.activity.paid) || "0 KAS");
+
+      var log = $("b-buys");
+      buys.slice().reverse().forEach(function (p) {
+        var el = document.createElement("div");
+        el.className = "buy " + (p.outcome === "bought" ? "ok" : "no");
+        var top = document.createElement("div");
+        top.className = "top";
+        var v = document.createElement("span");
+        v.className = "verdict2";
+        v.textContent = p.outcome === "bought" ? "served"
+          : p.outcome === "refused" ? "refused · " + (p.reason || "")
+          : p.outcome === "paid-then-failed" ? "paid, not served"
+          : p.outcome === "failed" ? "no service, no record"
+          : p.outcome;
+        top.appendChild(v);
+        if (p.paid) { var am = document.createElement("span"); am.className = "amt"; am.textContent = p.paid; top.appendChild(am); }
+        var w = document.createElement("span");
+        w.className = "when"; w.textContent = (p.at || "").replace("T", " ").slice(0, 16) + " UTC";
+        top.appendChild(w);
+        el.appendChild(top);
+        if (p.refusal) { var why = document.createElement("p"); why.className = "why"; why.textContent = p.refusal; el.appendChild(why); }
+        if (p.txid) { var tx = document.createElement("p"); tx.className = "tx"; tx.textContent = p.txid; el.appendChild(tx); }
+        /* An attempt that ended without a transaction id says so, rather than
+           showing a bare parser error that reads as noise. It does NOT claim
+           which coin on the chain was its — that would be an inference, and
+           the reconciliation below is where the two sides are compared. */
+        if (!p.txid && p.outcome !== "refused") {
+          var gap = document.createElement("p");
+          gap.className = "rule";
+          gap.textContent = "this attempt recorded no transaction id — see the chain's account below";
+          el.appendChild(gap);
+        }
+        log.appendChild(el);
+      });
+
+      var rc = d.reconciliation;
+      if (rc) {
+        var el = $("b-recon");
+        el.hidden = false;
+        el.className = "recon" + (rc.unaccountedFor && rc.unaccountedFor.length ? " off" : "");
+        el.textContent =
+          rc.accountedForInTheLog + " of " + rc.paymentsOnChain +
+          " payment(s) on chain are named by the log above. " + rc.note;
+      }
+
+      var coins = $("b-coins");
+      ((d.activity && d.activity.coins) || []).forEach(function (c) {
+        var el = document.createElement("div");
+        el.className = "pay";
+        var top = document.createElement("div");
+        top.className = "top";
+        var am = document.createElement("span"); am.className = "amt"; am.textContent = c.amount;
+        var daa = document.createElement("span"); daa.className = "daa"; daa.textContent = "DAA " + c.daaScore;
+        top.appendChild(am); top.appendChild(daa);
+        el.appendChild(top);
+        var tx = document.createElement("p"); tx.className = "tx"; tx.textContent = c.txid;
+        el.appendChild(tx);
+        coins.appendChild(el);
+      });
+
+      // ---- identity -------------------------------------------------------
+      set("b-id", d.identity.agentId);
+      set("b-network", d.network);
+      set("b-address", d.identity.grantAddress);
+      set("b-agent", d.identity.agent);
+      set("b-principal", d.identity.principal);
+      set("b-covenant", d.identity.covenantId);
+      set("b-endpoint", d.buysFrom.endpoint);
+      set("b-checked", "chain read " + (d.checkedAt || "").replace("T", " ").slice(0, 16) + " UTC");
+    })
+    .catch(function () { /* the page stays hidden rather than show placeholders */ });
+})();
+</script>
