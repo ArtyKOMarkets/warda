@@ -69,14 +69,24 @@ in place of `https://`, that is the node's address.
 **4. Check it from outside.**
 
     cd ~/Desktop/warda/sdk
-    node --experimental-strip-types tools/check-node.ts --rpc wss://YOUR-NAME.tailXXXX.ts.net
+    node --experimental-strip-types tools/check-node.ts --rpc wss://YOUR-NAME.tailXXXX.ts.net \
+      --grant kaspatest:pr48zd34ys4dxzsmn0r98jmaj2ehk3h8pzy47qzq78xqu4dp478y7h8nesqdw
 
 This does not just connect — it asks whether the node is worth believing:
-synced, utxo-indexed, on the network it claims. All four checks should pass.
+synced, utxo-indexed, on the network it claims.
+
+Pass `--grant`. Without it the covenant check is skipped, and it is the only one
+of the four whose failure produces a signed transaction rather than an error: a
+node that drops covenant ids hands back an unbound spend that looks perfectly
+well-formed and is refused by everything that knows better. Any grant address
+that exists will do; the one above is agent #002's.
 
 Funnel is documented as an HTTPS proxy and Tailscale does not state anywhere
-whether it carries a WebSocket upgrade. It should, and this command is how we
-find out; if it does not, that is the point to fall back to a rented box.
+whether it carries a WebSocket upgrade. **It does** — checked on 2026-09-07
+against kaspad 2.0.1 through `https://<machine>.<tailnet>.ts.net` with `wss://`
+in place of `https://`: synced, utxo-indexed and on testnet-10, all four checks
+answered over the funnelled socket. So this path works and the fallback to a
+rented box is not needed for that reason.
 
 **5. Keep the node up across a reboot.**
 
