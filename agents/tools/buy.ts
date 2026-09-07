@@ -1,10 +1,19 @@
 /**
- * Agent #002 buying agent #001's digest.
+ * An agent buying something, and writing down what happened.
  *
- *   source ../ops/node.env
- *   WARDA_SK=$(cat ../covenant/deploy/agent-002.key) \
- *     node --experimental-strip-types tools/buy.ts \
- *     https://warda-demo-api.vercel.app/digest
+ *   source ops/node.env
+ *   WARDA_SK=$(cat covenant/deploy/agent-003.key) \
+ *     node --experimental-strip-types agents/tools/buy.ts \
+ *     https://warda-demo-api.vercel.app/digest \
+ *     --id WARDA-003 \
+ *     --grant x402/demo/agent-003-grant.json \
+ *     --recipients x402/demo/agent-003-recipients.txt \
+ *     --out agent-003/purchases
+ *
+ * Shared by every agent here rather than copied into each. It lived in
+ * agent-002/ and was about to be duplicated for #003 and #004; three copies of
+ * a payment loop is three places for the manifest-advance to drift, and the
+ * one that drifts is the one nobody is looking at.
  *
  * ## Why this is not just `x402/demo/buy.ts`
  *
@@ -58,15 +67,26 @@ const has = (n: string) => process.argv.includes(`--${n}`);
 const here = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
 const url = process.argv.slice(2).find((a) => a.startsWith("http")) ?? "https://warda-demo-api.vercel.app/digest";
-const manifestPath = flag("grant", here("../../x402/demo/agent-002-grant.json"))!;
-const recipientsPath = flag("recipients", here("../../x402/demo/agent-002-recipients.txt"))!;
-const outDir = flag("out", here("../purchases"))!;
+const agentId = flag("id");
+const manifestPath = flag("grant");
+const recipientsPath = flag("recipients");
+const outDir = flag("out");
+if (!agentId || !manifestPath || !recipientsPath || !outDir) {
+  /* No defaults. This file used to default to agent #002's grant and #002's
+     purchase directory, which was harmless while it lived in agent-002/ and is
+     a loaded gun now that three agents share it: a missing flag would pay from
+     the wrong grant and file the receipt under the wrong agent. */
+  console.error(
+    "usage: buy.ts <url> --id WARDA-00N --grant <manifest.json> --recipients <file> --out <dir>\n\n" +
+      "Every one is required. This tool is shared by all the agents, so an omitted flag\n" +
+      "would spend a grant you did not mean to spend.",
+  );
+  process.exit(2);
+}
 
 const secretHex = process.env.WARDA_SK;
 if (!secretHex) {
-  console.error(
-    "WARDA_SK must be agent #002's key — covenant/deploy/agent-002.key, not the funder's.",
-  );
+  console.error(`WARDA_SK must be ${agentId}'s own key — the one its grant names, not the funder's.`);
   process.exit(1);
 }
 
@@ -121,7 +141,7 @@ const record = (result: Record<string, unknown>) => {
           "Written by agent-002/tools/buy.ts. One file per attempt, refusals included: a " +
           "purchase log that only records successes is a sales brochure.",
         at: startedAt.toISOString(),
-        agent: "WARDA-002",
+        agent: agentId,
         url,
         ...result,
       },

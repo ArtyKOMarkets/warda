@@ -1,0 +1,17 @@
+{
+  "_comment": "Labels for addresses the agents here are allowed to pay. A label is a claim about WHO an address belongs to, so each one says how it is derived and from what public artefact — an allowlist that merely asserts 'this is agent #001' is worth nothing. agents/tools/dashboard.ts re-derives every entry on each run and refuses to publish a label that no longer matches. An address with no entry here is shown as an address; that is not an error, it is the honest rendering of a payee nobody has identified.",
+  "payees": [
+    {
+      "key": "3c693f61fbc35d1fd4dcec2bbbab692be38656e6fd5a4077ee495afcb23535a1",
+      "label": "agent #001",
+      "derivation": "the pay-to-public-key address of the agent key named in agent #001's published manifest, x402/demo/kaspa-x402-grant.json",
+      "checkAgainst": "x402/demo/kaspa-x402-grant.json#agent"
+    },
+    {
+      "key": "16e6af2030f7e4510d1a417391a7ff7ccad21864f17eef7ee035f0453e21a033",
+      "label": "the Warda demo vendor",
+      "derivation": "the pay-to-public-key address of covenant/deploy/demo-vendor.key, which is the address https://warda-demo-api.vercel.app quotes for /weather, /fact and /inference",
+      "checkAgainst": "covenant/deploy/demo-vendor.key.pub"
+    }
+  ]
+}

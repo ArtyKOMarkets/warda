@@ -22,6 +22,9 @@
  * Options:
  *   --reclaim | --revoke   which exit. Reclaim needs the chain past
  *                          expiresAt; revoke works at any time.
+ *   --submit               broadcast it. Refused unless WARDA_SK signed it:
+ *                          an unsigned exit is a shape to verify, not a
+ *                          transaction to send.
  *   --fee <sompi>          default 1000000
  *   --principal <hex>      default: the manifest's `principal`, else its agent
  *   --revocation <hex>     default: the manifest's `revocation`, else principal
@@ -226,3 +229,58 @@ console.error(`  lock time : ${lockTime}${kind === "reclaim" ? ` (expiresAt ${st
 console.error(`  signed    : ${signed ? "yes" : "NO — set WARDA_SK to sign"}`);
 
 process.stdout.write(JSON.stringify(toWire(tx, unsigned.entry), null, 2) + "\n");
+
+/**
+ * `--submit`, which this tool did not have.
+ *
+ * Its own header says the exits are "the two paths with no on-chain evidence
+ * behind them, and they are the ones the whole trust story rests on" — and
+ * then it could only ever print a transaction. Every claim about revoking a
+ * grant or reclaiming an expired one has rested on the script engine accepting
+ * the SHAPE of a transaction nobody broadcast.
+ *
+ * Deliberately last, after the JSON is on stdout: a broadcast that succeeds
+ * while the caller loses the transaction is the one ordering worth avoiding,
+ * and `> exit.json` has already been written by the time this runs.
+ *
+ * There is no manifest to advance. An exit does not move a grant, it ENDS one:
+ * the coin leaves the covenant entirely and lands at a P2PK address, so there
+ * is no successor state and the manifest describes something that no longer
+ * exists. Saying so is more useful than rewriting the file.
+ */
+if (process.argv.includes("--submit")) {
+  if (!signed) {
+    console.error(
+      `\nrefusing to submit an unsigned ${kind}. Set WARDA_SK to the ` +
+        `${unsigned.signingKey.replace("Key", "")} key this covenant checks.`,
+    );
+    process.exit(1);
+  }
+  const submitter = await NodeClient.connect({ url: flag("rpc") });
+  try {
+    const txid = await submitter.submitTransaction(tx);
+    console.error(`\nSUBMITTED: ${txid}`);
+    process.stderr.write("waiting for the coin to leave the grant");
+    let gone = false;
+    for (let i = 0; i < 20; i++) {
+      await new Promise((r) => setTimeout(r, 1500));
+      process.stderr.write(".");
+      if ((await submitter.getUtxosByAddresses([address])).length === 0) { gone = true; break; }
+    }
+    console.error(gone ? " done." : "\nsubmitted, but the grant still holds coin — look again in a moment.");
+    if (gone) {
+      console.error(
+        `\nThe grant at ${address} is ended. ${manifestPath} still describes it and no\n` +
+          `longer describes anything on chain — an exit has no successor state, so there is\n` +
+          `nothing to advance the file to.`,
+      );
+    }
+  } catch (e) {
+    console.error(`\nnot accepted: ${(e as Error).message}`);
+    process.exit(1);
+  } finally {
+    submitter.close();
+  }
+} else {
+  console.error(`\n(not broadcast — add --submit, or verify the JSON first)`);
+}

@@ -1,0 +1,22 @@
+# Agent #003's allowlist: two addresses, fixed for the life of the grant.
+#
+# #002 could pay exactly one address, which made a clean demonstration and a
+# poor parent. A sub-agent's allowlist has to be a SUBSET of its parent's, and
+# the only subsets of a one-element set are that element and nothing — so a
+# grant with one payee cannot demonstrate the one attenuation that actually
+# stops a delegated agent doing something: narrowing who it may pay.
+#
+# So #003 holds two, both real endpoints it can buy from, and agent #004 is
+# delegated from it with the list narrowed to the first.
+#
+# Neither address is asserted. Both are re-derived on every dashboard run from
+# the artefact named in agents/known-payees.json, and a label that stops
+# matching is dropped rather than published.
+
+# agent #001 — the pay-to-public-key address of the agent key named in
+# x402/demo/kaspa-x402-grant.json. Sells its network digest at /digest.
+kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e
+
+# the Warda demo vendor — covenant/deploy/demo-vendor.key, which is the address
+# warda-demo-api.vercel.app quotes for /weather, /fact and /inference.
+kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4

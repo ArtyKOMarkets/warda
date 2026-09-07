@@ -15,7 +15,8 @@ diffable; this fills them in. Edit src/, never the output.
 import base64, json, pathlib, re, sys
 
 here = pathlib.Path(__file__).parent
-PAGES = ["index.html", "build.html", "verify.html", "agents.html", "agent-001.html", "agent-002.html"]
+PAGES = ["index.html", "build.html", "verify.html", "agents.html",
+         "agent-001.html", "agent-002.html", "agent-003.html", "agent-004.html"]
 
 # The attack page publishes a live grant's key and terms, so it can only be
 # built when there IS one. src/demo-grant.json is written by
@@ -95,8 +96,24 @@ AGENTS = [
      "    ../x402/demo/kaspa-x402-grant.json \\\n"
      "    --recipients ../x402/demo/kaspa-x402-recipients.txt > ../site/src/agent-001.json"),
     ("agent-002.json", "agent-002.html",
-     "cd agent-002 && node --experimental-strip-types tools/dashboard.ts \\\n"
-     "    > ../site/src/agent-002.json"),
+     "node --experimental-strip-types agents/tools/dashboard.ts \\\n"
+     "    x402/demo/agent-002-grant.json --id WARDA-002 \\\n"
+     "    --recipients x402/demo/agent-002-recipients.txt \\\n"
+     "    --purchases agent-002/purchases > site/src/agent-002.json"),
+    ("agent-003.json", "agent-003.html",
+     "node --experimental-strip-types agents/tools/dashboard.ts \\\n"
+     "    x402/demo/agent-003-grant.json --id WARDA-003 \\\n"
+     "    --recipients x402/demo/agent-003-recipients.txt \\\n"
+     "    --purchases agent-003/purchases \\\n"
+     "    --succeeds x402/demo/agent-002-grant.json --succeeds-id WARDA-002 \\\n"
+     "    > site/src/agent-003.json"),
+    ("agent-004.json", "agent-004.html",
+     "node --experimental-strip-types agents/tools/dashboard.ts \\\n"
+     "    x402/demo/agent-004-grant.json --id WARDA-004 \\\n"
+     "    --recipients x402/demo/agent-004-recipients.txt \\\n"
+     "    --purchases agent-004/purchases \\\n"
+     "    --parent x402/demo/agent-003-grant.json --parent-id WARDA-003 \\\n"
+     "    > site/src/agent-004.json"),
 ]
 
 

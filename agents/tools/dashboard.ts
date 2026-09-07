@@ -1,33 +1,36 @@
 /**
- * The data behind agent #002's public page.
+ * The data behind an agent's public page.
  *
- *   source ../ops/node.env
- *   node --experimental-strip-types tools/dashboard.ts \
- *     ../x402/demo/agent-002-grant.json \
- *     --recipients ../x402/demo/agent-002-recipients.txt \
- *     --seller ../x402/demo/kaspa-x402-grant.json \
- *     > ../site/src/agent-002.json
+ *   source ops/node.env
+ *   node --experimental-strip-types agents/tools/dashboard.ts \
+ *     x402/demo/agent-003-grant.json \
+ *     --id WARDA-003 \
+ *     --recipients x402/demo/agent-003-recipients.txt \
+ *     --purchases agent-003/purchases \
+ *     --succeeds x402/demo/agent-002-grant.json \
+ *     > site/src/agent-003.json
  *
- * ## The claim this page has to survive
+ * One tool for every agent, because they are not three different dashboards —
+ * they are one grant, reported, with a few optional facts. `--succeeds` adds
+ * the grant this one replaced; `--parent` adds the grant that delegated it.
+ * Neither is inferred: an agent whose page claims a lineage has to be handed
+ * the manifest that proves it.
  *
- * #001's page says an agent spent money within limits the network enforced.
- * #002's says something a reader has more reason to doubt: that one agent paid
- * ANOTHER agent. Both ends are ours, so "agent #002 paid agent #001" is worth
- * exactly as much as the evidence that the address it paid belongs to #001 —
- * and an address we simply assert is #001's is not evidence at all.
+ * ## What is derived and what is refused
  *
- * So the link is derived, and derived here, every time this runs: #001's
- * published manifest names its agent key, and the only address #002 may pay is
- * the pay-to-public-key address of that key. If those two stop matching, this
- * tool exits rather than publishing the sentence.
+ * Nothing here is typed. The authority comes from the grant's manifest, which
+ * is the covenant's own accounting; the payees come from the allowlist and
+ * their COUNT is that list's length; the spending comes from the chain; and the
+ * refusal sentences are produced by running the same `explainRefusal` the payer
+ * calls, against real requirements.
  *
- * ## Two limits, one of which is new
- *
- * #002 has a payee allowlist of exactly one, which is #001's answer as well.
- * What is new is `not_before`: authority that exists on chain and cannot be
- * used yet. That is the honest answer to "who can change what this agent may
- * spend, and how fast" — nobody, and not before a DAA score the covenant
- * checks on every spend, including the party that issued the grant.
+ * The one thing a page like this can assert without evidence is WHOSE address
+ * it is allowed to pay. "Agent #002 paid agent #001" is a claim about identity,
+ * and an ordinary address makes it unfalsifiable — it is whoever we say it is.
+ * So every label comes from agents/known-payees.json, which carries the public
+ * key and where to check it, and every label is re-derived on each run. A label
+ * that stops matching is dropped rather than published, and an address nobody
+ * has identified is rendered as an address.
  */
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -54,13 +57,28 @@ const flag = (n: string, d?: string) => {
 };
 const here = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
-const manifestPath =
-  process.argv.slice(2).find((a) => !a.startsWith("--") && a.endsWith(".json")) ??
-  here("../../x402/demo/agent-002-grant.json");
-const recipientsPath = flag("recipients", here("../../x402/demo/agent-002-recipients.txt"))!;
-const sellerManifest = flag("seller", here("../../x402/demo/kaspa-x402-grant.json"))!;
-const purchasesDir = flag("purchases", here("../purchases"))!;
+const manifestPath = process.argv.slice(2).find((a) => !a.startsWith("--") && a.endsWith(".json"));
+const agentId = flag("id");
+const recipientsPath = flag("recipients");
+const purchasesDir = flag("purchases");
+if (!manifestPath || !agentId || !recipientsPath || !purchasesDir) {
+  console.error(
+    "usage: dashboard.ts <grant.json> --id WARDA-00N --recipients <file> --purchases <dir>\n" +
+      "       [--mission text]\n" +
+      "       [--succeeds <manifest> --succeeds-id WARDA-00N]   the grant this one replaced\n" +
+      "       [--parent <manifest> --parent-id WARDA-00N]       the grant that delegated it\n" +
+      "       [--endpoint url] [--rpc url]\n\n" +
+      "Shared by every agent, so nothing defaults: a page built from the wrong grant\n" +
+      "renders perfectly and is entirely false.",
+  );
+  process.exit(2);
+}
 const endpoint = flag("endpoint", "https://warda-demo-api.vercel.app/digest")!;
+const mission = flag("mission", "");
+/** The grant this one replaced, if any. Not inferred — handed over. */
+const succeedsPath = flag("succeeds");
+/** The grant that delegated this one, if this is a child. */
+const parentPath = flag("parent");
 
 const m = JSON.parse(readFileSync(manifestPath, "utf8"));
 const template: CovenantTemplate = JSON.parse(
@@ -83,25 +101,47 @@ if (recipients.rootHex !== m.recipients_root) {
 }
 
 /**
- * The identity check, run rather than asserted.
+ * Who each allowed payee actually is, re-derived.
  *
- * Fatal on mismatch. The alternative — publishing the page with a softer
- * sentence — is how a claim survives the evidence that supported it.
+ * A label is a claim about identity, and this is the one place a page like
+ * this could assert something with nothing behind it. So the labels live in
+ * agents/known-payees.json beside the public key they describe, and each is
+ * checked here against the artefact it says it comes from. A label that no
+ * longer matches is DROPPED — the address still renders, unlabelled, which is
+ * the honest fallback. Publishing "agent #001" over an address that is no
+ * longer agent #001's would be worse than publishing no name at all.
  */
-const seller = JSON.parse(readFileSync(sellerManifest, "utf8"));
-const sellerAddress = pubkeyToAddress(fromHex(seller.agent), prefix);
-const payee = pubkeyToAddress(fromHex(members[0]!), prefix);
-if (members.length !== 1 || payee !== sellerAddress) {
-  console.error(
-    `agent #002's allowlist is ${members.length} address(es), the first being\n` +
-      `  ${payee}\n` +
-      `and agent #001's published agent key ${seller.agent}\n` +
-      `is the address\n  ${sellerAddress}\n` +
-      `These must be the same address, or the page's central claim — that #002 paid #001 —\n` +
-      `is not supported by anything. Refusing to publish it.`,
-  );
-  process.exit(1);
-}
+interface KnownPayee { key: string; label: string; derivation: string; checkAgainst: string }
+const known: KnownPayee[] = JSON.parse(
+  readFileSync(here("../known-payees.json"), "utf8"),
+).payees;
+
+const payees = members.map((key) => {
+  const address = pubkeyToAddress(fromHex(key), prefix);
+  const entry = known.find((k) => k.key.toLowerCase() === key.toLowerCase());
+  if (!entry) return { address, key, label: null, derivation: null };
+  /* Re-derive from the named artefact. `#field` reads that field of a JSON
+     manifest; anything else is a file whose whole contents are the key. */
+  const [file, field] = entry.checkAgainst.split("#");
+  let actual: string | null = null;
+  try {
+    const raw = readFileSync(here(`../../${file}`), "utf8");
+    actual = field ? String(JSON.parse(raw)[field]).toLowerCase() : raw.trim().toLowerCase();
+  } catch {
+    actual = null;
+  }
+  if (actual !== key.toLowerCase()) {
+    console.error(
+      `dropping the label "${entry.label}" for ${address}:\n` +
+        `  ${entry.checkAgainst} says ${actual ?? "nothing readable"}\n` +
+        `  the allowlist commits to ${key}\n` +
+        `  The address is published without a name rather than with the wrong one.`,
+    );
+    return { address, key, label: null, derivation: null };
+  }
+  return { address, key, label: entry.label, derivation: entry.derivation };
+});
+const payee = payees[0]!.address;
 
 const authority = { principalKey: m.principal, revocationKey: m.revocation ?? m.principal };
 const state: GrantState = {
@@ -272,6 +312,103 @@ try {
     : [];
 
   /**
+   * The grant this one replaced, and whether it is actually gone.
+   *
+   * A succession page's whole claim is that one authority ENDED and another
+   * began. The predecessor's manifest says what it was; only the chain says
+   * whether it still exists. So the old grant's address is derived from its
+   * own manifest and asked about directly, and `stillHoldsCoin` is the answer
+   * rather than a sentence.
+   *
+   * There is a window in this that most systems would hide: the successor is
+   * created timelocked and the predecessor is revoked while the lock is still
+   * on, so for a few minutes NEITHER grant can spend. That gap is real, it is
+   * the honest shape of a handover between two authorities that never share a
+   * key, and pretending it is atomic would be the one lie available here.
+   */
+  let succession: Record<string, unknown> | undefined;
+  if (succeedsPath) {
+    const pm = JSON.parse(readFileSync(succeedsPath, "utf8"));
+    const pAuthority = { principalKey: pm.principal, revocationKey: pm.revocation ?? pm.principal };
+    const pState: GrantState = {
+      agentKey: pm.agent,
+      budgetTotal: BigInt(pm.budget),
+      maxPerSpend: BigInt(pm.max_per_spend),
+      epochLimit: BigInt(pm.epoch_limit),
+      epochLength: BigInt(pm.epoch_length),
+      recipientsRoot: pm.recipients_root,
+      notBefore: BigInt(pm.not_before),
+      expiresAt: BigInt(pm.expires_at),
+      delegationDepth: BigInt(pm.delegation_depth ?? 2),
+      templateId: templateIdFor(template, pAuthority),
+      spentTotal: BigInt(pm.spent_total ?? 0),
+      reserved: BigInt(pm.reserved ?? 0),
+      epochIndex: BigInt(pm.epoch_index ?? 0),
+      epochSpent: BigInt(pm.epoch_spent ?? 0),
+      reserveRoot: pm.reserve_root ?? EMPTY_RESERVE,
+    };
+    const pAddress = scriptHashToAddress(
+      scriptHashFor(template, { authority: pAuthority, state: pState }),
+      prefix,
+    );
+    const still = await client.getUtxosByAddresses([pAddress]);
+    succession = {
+      replaced: flag("succeeds-id", "the previous agent"),
+      grantAddress: pAddress,
+      agentKey: pm.agent,
+      /* Neither agent ever held the other's key: two different agent keys on
+         two grants, which is a fact about the manifests and checkable here. */
+      differentKey: pm.agent !== m.agent,
+      itSpent: kas(BigInt(pm.spent_total ?? 0)),
+      stillHoldsCoin: still.length > 0 ? kas(still[0]!.entry.value) : null,
+      ended: still.length === 0,
+      endedBy:
+        "the revocation key, which is not the agent's. A grant's terms cannot be edited, so " +
+        "replacing an agent's authority means ending one grant and starting another — and the " +
+        "one that ends does not get a say in it.",
+      handoverGap:
+        still.length === 0 && !open
+          ? "right now: the old grant is ended and the new one has not opened. Neither can spend."
+          : "the successor was published timelocked and the predecessor revoked during the lock, " +
+            "so there was a window in which neither grant could spend. A handover between two " +
+            "authorities that never share a key is not atomic, and this page does not pretend it is.",
+    };
+  }
+
+  /**
+   * The grant that delegated this one, for a child.
+   *
+   * A child's authority is not merely smaller by convention — the covenant
+   * refuses a delegation that widens anything, and the child commits to a NODE
+   * of the parent's recipients tree rather than to a list of its own. So the
+   * interesting numbers are the comparisons, and they are computed from the two
+   * manifests rather than described.
+   */
+  let delegatedBy: Record<string, unknown> | undefined;
+  if (parentPath) {
+    const gm = JSON.parse(readFileSync(parentPath, "utf8"));
+    delegatedBy = {
+      parent: flag("parent-id", "its parent"),
+      parentAgentKey: gm.agent,
+      differentKey: gm.agent !== m.agent,
+      narrower: {
+        budget: `${kas(BigInt(gm.budget))} → ${kas(state.budgetTotal)}`,
+        maxPerPayment: `${kas(BigInt(gm.max_per_spend))} → ${kas(state.maxPerSpend)}`,
+        epochLimit: `${kas(BigInt(gm.epoch_limit))} → ${kas(state.epochLimit)}`,
+        delegationDepth: `${Number(gm.delegation_depth ?? 2)} → ${Number(state.delegationDepth)}`,
+        payees: `${Number(gm.recipients_count ?? 0) || "the parent's list"} → ${members.length}`,
+      },
+      /* The reserve is the parent's accounting of what it has lent out: budget
+         it may no longer spend itself until the child settles back. */
+      heldInReserveByTheParent: kas(BigInt(gm.reserved ?? 0)),
+      enforcedBy:
+        "the covenant, at delegation time. Every one of these may only ever shrink, and the " +
+        "child's allowlist is a node of the parent's recipients tree with the path proved on " +
+        "every spend — so a sub-agent cannot pay someone its parent could not.",
+    };
+  }
+
+  /**
    * The agent's account of itself, checked against the chain's.
    *
    * Two sections of this page report the same money from two directions, and
@@ -300,14 +437,15 @@ try {
     JSON.stringify(
       {
         _comment:
-          "Written by agent-002/tools/dashboard.ts. Every figure is derived from the grant's " +
-          "manifest, its allowlist, the purchase log or the chain — none is typed. The claim " +
-          "that #002's payee IS agent #001 is re-derived from #001's published manifest on " +
-          "every run, and this tool exits rather than publish it if the derivation fails.",
+          "Written by agents/tools/dashboard.ts. Every figure is derived from the grant's " +
+          "manifest, its allowlist, the purchase log or the chain — none is typed. Each payee's " +
+          "LABEL is re-derived on every run from the artefact agents/known-payees.json names, " +
+          "and a label that stops matching is dropped rather than published: an address with no " +
+          "name is honest, an address with the wrong name is not.",
         checkedAt: new Date().toISOString(),
         network: health.network,
         identity: {
-          agentId: "WARDA-002",
+          agentId,
           agent: m.agent,
           principal: m.principal,
           revocation: m.revocation ?? m.principal,
@@ -316,22 +454,22 @@ try {
           template: m.covenant,
         },
         buysFrom: {
-          agentId: "WARDA-001",
           endpoint,
+          /* Every address this grant may pay, with a name only where the name
+             was re-derived from something published. */
+          payees,
           address: payee,
-          agentKey: seller.agent,
-          derivation:
-            "the pay-to-public-key address of the agent key named in agent #001's published " +
-            "manifest, x402/demo/kaspa-x402-grant.json. Rebuild it and compare: this page is " +
-            "not asking to be taken at its word about whose address this is.",
           bothEndsAreOurs: true,
           disclosure:
-            "Agent #001 and agent #002 were both built here. What is demonstrated is therefore " +
-            "not a market — it is a payment: two independent grants, two keys, one address each " +
-            "may pay, and a settlement anyone can look up. The digest #002 buys is published " +
-            "free at wardaprotocol.com/agent-001.json, because pretending it was scarce would " +
-            "have traded the checkable claim for a flattering one.",
+            "Every agent on this site was built here, and the vendors they buy from are ours " +
+            "too. What is demonstrated is therefore not a market — it is a payment: separate " +
+            "grants, separate keys, a fixed list of addresses each may pay, and settlements " +
+            "anyone can look up. Agent #001's digest is published free at " +
+            "wardaprotocol.com/agent-001.json, because pretending it was scarce would have " +
+            "traded the checkable claim for a flattering one.",
         },
+        ...(succession ? { succession } : {}),
+        ...(delegatedBy ? { delegatedBy } : {}),
         timelock: {
           notBefore: state.notBefore.toString(),
           virtualDaaScore: daa.toString(),
@@ -350,7 +488,7 @@ try {
           epochLimit: kas(state.epochLimit),
           epochLengthDaa: Number(state.epochLength),
           authorizedPayees: members.length,
-          payees: members.map((k) => pubkeyToAddress(fromHex(k), prefix)),
+          payees: payees.map((p) => p.address),
           delegationDepth: Number(state.delegationDepth),
           onChain: atGrant.length > 0 ? kas(atGrant[0]!.entry.value) : null,
           sompi: {
@@ -390,9 +528,7 @@ try {
                 `is the failure this page reports rather than the one it hides.`,
         },
         refusals,
-        mission:
-          "Buy agent #001's network digest over HTTP 402, out of a grant that may pay one " +
-          "address and could not pay it at all until a DAA score the covenant enforces.",
+        mission,
       },
       null,
       2,
