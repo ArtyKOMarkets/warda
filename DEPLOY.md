@@ -122,6 +122,33 @@ An agent framework then needs one line rather than an install:
 
     { "mcpServers": { "warda": { "url": "https://mcp.wardaprotocol.com/mcp" } } }
 
+## The demo vendor → warda-demo-api.vercel.app
+
+    cd x402/demo-server && vercel --prod
+
+Run it from THAT directory and no other. The repository root carries a
+`.vercel/repo.json`, so a `vercel` command run anywhere not listed in it
+creates a brand new project named after whatever directory you were standing
+in. Two stray projects have been made this way already.
+
+Its environment (Vercel project `warda-demo-api`, production):
+
+    WARDA_DEMO_VENDOR      the demo vendor's address — /weather, /fact, /inference
+    WARDA_AGENT_001_PAYEE  agent #001's address — /digest
+    WARDA_RPC_JSON         a testnet-10 JSON wRPC url reachable FROM VERCEL,
+                           so the tunnel hostname here, not 127.0.0.1
+    WARDA_QUOTE_SECRET     optional; signs quotes so the function needs no state
+
+`WARDA_AGENT_001_PAYEE` is not a new address to invent. It is the
+pay-to-public-key address of the agent key named in
+`x402/demo/kaspa-x402-grant.json`, and `x402/demo/agent-002-recipients.txt`
+carries both the value and the command that re-derives it. Agent #002's grant
+commits to that address for its whole life, so changing it here does not
+redirect #002's money — it makes /digest quote an address #002 must refuse, and
+the demo stops working with no error anywhere.
+
+Without it set, /digest answers 503 and the other three endpoints carry on.
+
 ## Publishing to npm
 
 In dependency order, because the ranges are exact about it:
