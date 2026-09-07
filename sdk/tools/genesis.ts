@@ -323,9 +323,17 @@ try {
   console.error(`  revocation  : ${revocationKey}${revocationKey === principalKey ? " (= principal)" : " (separate)"}`);
   console.error(`  budget      : ${budget} sompi, cap ${state.maxPerSpend}, epoch ${state.epochLimit}`);
   if (startsIn > 0n) {
+    // 10 blocks/second, so 864,000 DAA is a day and 36,000 is an hour. Printed
+    // in whichever reads as a number rather than a fraction, because a delay
+    // nobody can shorten is worth stating in a unit a person can hold.
+    const daa = Number(startsIn);
+    const delay =
+      daa >= 864_000
+        ? `${+(daa / 864_000).toFixed(daa % 864_000 ? 1 : 0)} day${daa === 864_000 ? "" : "s"}`
+        : `${+(daa / 36_000).toFixed(daa % 36_000 ? 1 : 0)} hour${daa === 36_000 ? "" : "s"}`;
     console.error(
       `  TIMELOCKED  : cannot spend until DAA ${state.notBefore}, ${startsIn} ahead of now ` +
-        `(~${Number(startsIn) / 864_000} days at 10 bps).\n` +
+        `(~${delay} at 10 bps).\n` +
         `                Until then consensus refuses every spend it attempts — not this tool,` +
         `\n                and not anything anyone here could choose to skip.`,
     );
