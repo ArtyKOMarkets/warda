@@ -104,6 +104,8 @@ export interface BuildV2Input {
   nowMs?: number;
   /** Leave `payerAddress` out of the payload. See WardaFetchV2Options. */
   omitPayerAddress?: boolean;
+  /** Declare the SUCCESSOR grant address as the payer. See WardaFetchV2Options. */
+  payerIsSuccessor?: boolean;
 }
 
 /**

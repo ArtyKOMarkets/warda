@@ -145,6 +145,7 @@ try {
   const res = await wardaFetchV2(url, { method: "GET" }, {
     payer,
     omitPayerAddress: process.argv.includes("--no-payer-address"),
+    payerIsSuccessor: process.argv.includes("--payer-successor"),
     onEvent: (e) => {
       if (e.type === "quote") console.error(`  quoted : ${e.amountSompi} sompi to ${e.payTo}`);
       if (e.type === "signed") {

@@ -450,7 +450,20 @@ export class WardaPayer {
         transactionId: safe.id,
         paymentOutputIndex: PAYEE_OUTPUT_INDEX,
         inputIndex: GRANT_INPUT_INDEX,
-        ...(input.omitPayerAddress ? {} : { payerAddress: fromAddress }),
+        // Which address to declare as the payer.
+        //
+        // `fromAddress` is where the coin is being spent FROM, which is what a
+        // wallet would say. But a covenant spend does not leave change at the
+        // address it spent from — it leaves a successor at a new one. If their
+        // verifier checks that non-payment outputs return to `payerAddress`,
+        // the address that actually receives is the successor, and declaring
+        // the spent-from address fails a check a wallet would pass.
+        //
+        // Untested when this was written. It is one flag and one payment, and
+        // the alternative is guessing at a verifier we cannot read.
+        ...(input.omitPayerAddress
+          ? {}
+          : { payerAddress: input.payerIsSuccessor ? successorAddress : fromAddress }),
         nowMs: input.nowMs,
       },
       this.signer,

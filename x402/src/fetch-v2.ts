@@ -84,6 +84,21 @@ export interface WardaFetchV2Options {
    * cannot see inside.
    */
   omitPayerAddress?: boolean;
+
+  /**
+   * Declare the SUCCESSOR grant's address as `payerAddress`, rather than the
+   * address the coin was spent from.
+   *
+   * A wallet's change returns to the address it paid from, so for a wallet
+   * those two are the same and nothing distinguishes them. A covenant spend
+   * relocates: output 0 is a successor at a NEW address. If the check we
+   * cannot see is "every output that is not the payment returns to the payer",
+   * then the successor address is the one that satisfies it and the spent-from
+   * address never will.
+   *
+   * Mutually exclusive with `omitPayerAddress`, which wins if both are set.
+   */
+  payerIsSuccessor?: boolean;
 }
 
 export type WardaFetchV2Event =
@@ -175,6 +190,7 @@ export async function wardaFetchV2(
     accepted,
     request,
     omitPayerAddress: opts.omitPayerAddress,
+    payerIsSuccessor: opts.payerIsSuccessor,
   });
   emit({ type: "signed", pending });
 
