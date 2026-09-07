@@ -20,6 +20,26 @@ which four were broadcast and accepted on chain.
 | 5 | `38006e77…` | yes, accepted, no `payerAddress` | 402 `invalid_transaction_state` |
 | 6 | `7821fc2a…` | yes, accepted, `payerAddress` = SUCCESSOR | 402 `invalid_transaction_state` |
 
+## It is not one vendor
+
+Attempt 7 used a different vendor entirely: `kaspa-402-summarize.kaspadev.workers.dev/exact`,
+listed on kaspa-402.org, the only entry in that directory settling on
+testnet-10. Served from Cloudflare Workers rather than whatever runs
+demo.kaspa-x402.org.
+
+Everything else was different too. A grant minted fresh for it, with its own
+covenant id `145b89b1…`, its own payee, its own caps. A different quoted amount
+— 146802739 sompi rather than 20000000. The same client, unchanged.
+
+`3cb85aa8226bac1297ffd6db4c6f48f77cb8e483222834a7c736eadb0effd254` was accepted
+on chain, paying the address they quoted the amount they quoted. They answered
+`402 {"error":"invalid_transaction_state"}`.
+
+So this is not one server's configuration, not one grant, not one amount, and
+not one deployment. Two independently hosted vendors on the same standard
+refuse the same payment shape identically. Whatever the check is, it is in the
+implementation both of them run.
+
 ## What works
 
 Everything up to their verifier.

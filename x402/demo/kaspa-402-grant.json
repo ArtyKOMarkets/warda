@@ -1,0 +1,24 @@
+{
+  "covenant": "b3e5eeefacf2021f",
+  "covenant_id": "145b89b184928e3e5d6df0343126b79442b91e04a01ebbbe9bb26d5dca422cbf",
+  "agent": "3c693f61fbc35d1fd4dcec2bbbab692be38656e6fd5a4077ee495afcb23535a1",
+  "agent_key_derived": {
+    "domain": "WardaAgent",
+    "index": 0
+  },
+  "principal": "0393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34f",
+  "revocation": "0393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34f",
+  "recipients_root": "1e79fdb9203e6b66ef3537c3c5982c988bed02fb7f05e5b9c90e14d266abb7c5",
+  "not_before": 564077190,
+  "expires_at": 589997190,
+  "budget": 1500000000,
+  "max_per_spend": 300000000,
+  "epoch_limit": 900000000,
+  "epoch_length": 1000,
+  "delegation_depth": 2,
+  "grant_value": 1351197261,
+  "spent_total": 146802739,
+  "reserved": 0,
+  "epoch_index": 0,
+  "epoch_spent": 146802739
+}

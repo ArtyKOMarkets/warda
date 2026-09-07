@@ -10,8 +10,21 @@ about to answer it.
 
 I've been building an x402 v2 client against `demo.kaspa-x402.org/exact` using
 your published `@kaspa-x402/core`, and I'm stuck on a refusal I can't diagnose
-from outside. Six attempts, all `402 {"error":"invalid_transaction_state"}`;
-four of them broadcast and accepted on chain.
+from outside. Six attempts there, all `402 {"error":"invalid_transaction_state"}`;
+four broadcast and accepted on chain.
+
+**It reproduces on a second vendor.** `kaspa-402-summarize.kaspadev.workers.dev/exact`,
+listed on kaspa-402.org and the only entry there settling on testnet-10, is
+hosted separately — Cloudflare Workers — and refused identically. That attempt
+used a grant minted fresh for it, with its own covenant id, its own payee and a
+different quoted amount (146802739 sompi), and the same unchanged client.
+`3cb85aa8226bac1297ffd6db4c6f48f77cb8e483222834a7c736eadb0effd254` was accepted
+on chain, paying their quoted address their quoted amount, and came back
+`402 {"error":"invalid_transaction_state"}`.
+
+So it isn't one server's configuration, one grant, one amount or one
+deployment. It is the same payment shape refused by the implementation both
+vendors run — which is why I think this is worth your time rather than mine.
 
 What works:
 
