@@ -20,6 +20,28 @@ which four were broadcast and accepted on chain.
 | 5 | `38006e77…` | yes, accepted, no `payerAddress` | 402 `invalid_transaction_state` |
 | 6 | `7821fc2a…` | yes, accepted, `payerAddress` = SUCCESSOR | 402 `invalid_transaction_state` |
 
+## The cause
+
+A version-1 transaction id commits to each output's covenant binding.
+`kaspa-sdk-safe-json-v2.0.0` — the encoding the scheme pins — has no field for
+it. And the `exact-transaction` payload schema forbids the client from
+supplying `transactionId`.
+
+So the verifier must derive an id it cannot derive correctly. Measured against
+a recorded testnet-10 spend:
+
+| | |
+|---|---|
+| recorded txid | `7dbc957fbf87ca26bc9b83ec81849f4f713c255fa6d39f44a53301813ceb86ba` |
+| id with the covenant binding | `7dbc957f…` — matches |
+| id with it stripped | `747315c5…` — does not |
+
+Pinned by `sdk/test/safe-json-covenant.test.ts`, which runs offline.
+
+This explains the one thing nothing else did: why the refusal never moved.
+Finality, replay, `payerAddress` in both directions — none of them change the
+encoded transaction, so none of them could change the derived id.
+
 ## It is not one vendor
 
 Attempt 7 used a different vendor entirely: `kaspa-402-summarize.kaspadev.workers.dev/exact`,

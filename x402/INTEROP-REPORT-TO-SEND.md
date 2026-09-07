@@ -6,97 +6,67 @@ about to answer it.
 
 ---
 
-**Title:** `exact` / `standard-native`: `invalid_transaction_state` on an accepted on-chain payment
+**Title:** `exact` cannot carry a covenant-bound payment: the id commits to a field `kaspa-sdk-safe-json-v2.0.0` has no slot for
 
-I've been building an x402 v2 client against `demo.kaspa-x402.org/exact` using
-your published `@kaspa-x402/core`, and I'm stuck on a refusal I can't diagnose
-from outside. Six attempts there, all `402 {"error":"invalid_transaction_state"}`;
-four broadcast and accepted on chain.
+I've been paying `demo.kaspa-x402.org/exact` from a Kaspa covenant using your
+published packages. Six attempts, all `402 {"error":"invalid_transaction_state"}`,
+four of them accepted on chain paying your quoted address the quoted amount. It
+reproduces identically against a second, separately hosted vendor —
+`kaspa-402-summarize.kaspadev.workers.dev/exact`, listed on kaspa-402.org — with
+a different grant, a different payee and a different amount.
 
-**It reproduces on a second vendor.** `kaspa-402-summarize.kaspadev.workers.dev/exact`,
-listed on kaspa-402.org and the only entry there settling on testnet-10, is
-hosted separately — Cloudflare Workers — and refused identically. That attempt
-used a grant minted fresh for it, with its own covenant id, its own payee and a
-different quoted amount (146802739 sompi), and the same unchanged client.
-`3cb85aa8226bac1297ffd6db4c6f48f77cb8e483222834a7c736eadb0effd254` was accepted
-on chain, paying their quoted address their quoted amount, and came back
-`402 {"error":"invalid_transaction_state"}`.
+I think I can now say why, and I don't think it's a bug in your code or mine.
 
-So it isn't one server's configuration, one grant, one amount or one
-deployment. It is the same payment shape refused by the implementation both
-vendors run — which is why I think this is worth your time rather than mine.
+**A version-1 transaction id commits to each output's covenant binding.** The
+id preimage writes, per output, a presence flag and — when set — the
+authorizing input index and the covenant id.
 
-What works:
+**`kaspa-sdk-safe-json-v2.0.0` has no field for it.** Its outputs are
+`{ value, scriptPublicKey }`. The encoding predates covenants.
 
-- your `PAYMENT-REQUIRED` header parses; I select the `exact` /
-  `standard-native` requirement
-- the `payToScriptPublicKey` you advertise matches the P2PK script I build for
-  your `payTo`, byte for byte
-- `encodePaymentSignatureHeader` accepts the payload, so it passes
-  `validatePaymentPayload`
-- the authorization digest comes from your `exactRequestAuthorizationDigest`
-  over your `stableStringify`
-- the transaction is broadcast and **accepted on chain**, paying your quoted
-  address the quoted 20000000 sompi
+**And your payload schema forbids the client from supplying the id:** for
+`type: "exact-transaction"`, `"not": { "required": ["transactionId"] }`.
 
-Ruled out across attempts:
+Those three together are the problem. The verifier must obtain the transaction
+id, the only deterministic way to obtain it is to derive it from `transaction`,
+and for a covenant-bound transaction that derivation cannot reach the id the
+network assigned — because the bytes it commits to were dropped at encoding
+time. Whatever the verifier does next, it is looking for a transaction that
+does not exist.
 
-| | change | result |
-|---|---|---|
-| 1–2 | not broadcast | refused |
-| 3 | broadcast, accepted before presenting | refused |
-| 4 | fresh `requestHash` (different URL) | refused |
-| 5 | `payerAddress` omitted | refused |
-| 6 | `payerAddress` = the successor address | refused |
+Reproducible in isolation, against a spend recorded on testnet-10:
 
-Attempt 6 is worth a sentence. A wallet's change returns to the address it paid
-from, so for a wallet the spent-from address and the address that receives are
-the same one. A covenant spend relocates — the address that receives is the
-successor, at a script that did not exist before. If the check were "outputs
-that are not the payment return to the payer", the successor is the only
-address that could satisfy it. It did not, so `payerAddress` is closed in both
-directions.
+```
+recorded txid       7dbc957fbf87ca26bc9b83ec81849f4f713c255fa6d39f44a53301813ceb86ba
+id with covenant    7dbc957fbf87ca26bc9b83ec81849f4f713c255fa6d39f44a53301813ceb86ba
+id without covenant 747315c516067e4b1805c9ae42909194117a90f4e671c2dc8ed25621667d5465
+safe-JSON output    { value, scriptPublicKey }
+```
 
-Latest txid on testnet-10: `7821fc2a554551af559a078626d9cc071205a97965b953334a6d8c7ba32e31bc`
+That also explains what I could not explain before: why the refusal never
+moved. Broadcasting first, waiting for `accepted`, a fresh `requestHash`,
+omitting `payerAddress`, declaring the successor as `payerAddress` — none of
+those change the encoded transaction, so none of them could change the derived
+id.
 
-`toX402ErrorReason` maps eight internal codes onto `invalid_transaction_state`,
-so from the client side those eight arrive as one message. The
-`ExactTransactionVerifier` interface is published; the implementation you
-inject behind the demo endpoint is not, which is entirely normal — it just
-means the failing check is the one thing I cannot read.
+**The one way it could still work**, which I mention because it would make me
+wrong: a verifier that finds the payment by searching the chain for an output
+matching `payToScriptPublicKey` and `amount`, rather than by deriving an id.
+Evidently that is not what happens, but you would know.
 
-**The question:** which internal code does that attempt raise?
+**Two fixes, and the first is small.**
 
-**A guess, in case it saves you the lookup.** My payer is a covenant, not a
-wallet. Its spend has two outputs:
+Allow `transactionId` in the `exact-transaction` payload and confirm it against
+the chain instead of deriving it. That is not trusting the client: the id is
+checked against a transaction that either exists, pays your address the right
+amount, and has the finality you require, or does not. Deriving it buys nothing
+that the chain lookup does not already establish, and it costs the scheme every
+payer whose transaction the encoding cannot represent — today covenants, and
+anything else the SDK's JSON gains a field for later.
 
-- output 0 — the successor covenant (P2SH), carrying the remaining budget
-- output 1 — your payee (P2PK), the exact invoiced amount
+Or extend the encoding so outputs can carry their binding. That is the more
+complete fix and it is upstream of you.
 
-I set `paymentOutputIndex: 1` and you carry it faithfully. But if the verifier
-constrains outputs other than the payment one, an output owned by a script
-rather than a key would fail that, and no client-side change fixes it.
-
-**Which leads to the question I actually care about.** Reading your published
-types, `exact` already has a notion of a non-wallet payer: `ExactHeadContinuation`
-is documented as the "canonical KIP-10 continuation verified from the signed
-transaction", and the `additive` profile is built on a reusable KIP-10 head
-chain with its own redeem script. So a payer that continues into a successor is
-not foreign to the design — it is how `additive` works.
-
-The difference is order. `ExactHeadChallenge` types `paymentOutputIndex` as the
-literal `0`: payment first, continuation after. My covenant is the reverse, and
-that is not a choice I can make at the client — the script enforces
-`outputs[0].value >= inValue - amount - maxFee`, so the continuation is output
-0 or the transaction is invalid. Meanwhile `standard-native` carries
-`paymentOutputIndex` as a free integer, which is why I assumed index 1 was
-admissible.
-
-So: **is `standard-native` intended to admit a continuation output belonging to
-a covenant that isn't yours, given `paymentOutputIndex` says which output is
-the payment?** If yes, this is a bug worth a code. If no, it's a scheme
-boundary worth writing down, and I'd rather cite your answer than guess at it
-in public.
-
-Happy to test any change against it; I can reproduce on demand, and everything
-above is on testnet-10 and checkable.
+I'd rather cite your answer than guess in public. Happy to test any change
+against a real covenant payer on demand; everything above is on testnet-10 and
+checkable, and the id experiment runs offline from the recorded spend.
