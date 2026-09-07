@@ -961,6 +961,14 @@ await wardaFetch("https://api.example/infer");</code></pre>
         service, for a reason inside a verifier that is not published. Until a stranger's
         endpoint takes a Warda payment, every demo here is us paying ourselves.</p>
       </div>
+      <div class="next">
+        <span class="tag">Next <em>&middot; somebody else's platform</em></span>
+        <h3>A Warda plugin for KeeperHub</h3>
+        <p>Three actions that let a workflow ask what an agent may spend before it spends it,
+        written against their repository and checked by their own compiler, tests and CI rules
+        rather than against their documentation. It has not been submitted yet, and it points
+        at a verification endpoint that is not hosted &mdash; both of which are above this line.</p>
+      </div>
       <div class="planned">
         <span class="tag">Planned <em>&middot; before real money</em></span>
         <h3>Audit, then mainnet</h3>
@@ -975,9 +983,19 @@ await wardaFetch("https://api.example/infer");</code></pre>
       </div>
       <div class="planned">
         <span class="tag">Planned <em>&middot; reach</em></span>
-        <h3>Frameworks and wallets</h3>
-        <p>Beyond MCP: agent SDKs that can hold a grant directly, and wallet support so a grant
-        is something an ordinary wallet can display and manage.</p>
+        <h3>An SDK that holds a grant itself</h3>
+        <p>The MCP server already gives any agent framework nine tools to reason about its own
+        authority, but it hands back unsigned bytes and something else does the signing. An
+        agent library that carries a grant directly is a different piece of work, and none of
+        it has been started.</p>
+      </div>
+      <div class="planned">
+        <span class="tag">Planned <em>&middot; not ours to ship</em></span>
+        <h3>Wallets that understand a grant</h3>
+        <p>A grant is a covenant-bound output, so an ordinary wallet cannot display its terms or
+        manage it without its authors adding covenant support. We can make that easy and we
+        cannot make it happen &mdash; which is why it sits here rather than anywhere that
+        implies a date.</p>
       </div>
     </div>
   </div>
