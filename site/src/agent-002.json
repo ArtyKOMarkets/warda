@@ -1,6 +1,6 @@
 {
   "_comment": "Written by agent-002/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, the purchase log or the chain — none is typed. The claim that #002's payee IS agent #001 is re-derived from #001's published manifest on every run, and this tool exits rather than publish it if the derivation fails.",
-  "checkedAt": "2026-09-07T12:52:13.907Z",
+  "checkedAt": "2026-09-07T12:56:11.758Z",
   "network": "testnet-10",
   "identity": {
     "agentId": "WARDA-002",
@@ -22,10 +22,10 @@
   },
   "timelock": {
     "notBefore": "564258425",
-    "virtualDaaScore": "564268868",
+    "virtualDaaScore": "564271262",
     "open": true,
     "lockedFor": "5 minutes",
-    "openedAgo": "17 minutes",
+    "openedAgo": "21 minutes",
     "enforcedBy": "the covenant, on every spend: claimedDaa >= notBefore. Not a scheduler, not this process, and not revocable by whoever issued the grant."
   },
   "authority": {
@@ -115,11 +115,23 @@
       "sellerClaimed": "WARDA-001"
     }
   ],
+  "reconciliation": {
+    "paymentsOnChain": 2,
+    "accountedForInTheLog": 1,
+    "unaccountedFor": [
+      {
+        "amount": "0.04 KAS",
+        "txid": "4791db53737c8544a847a3c54ac8376e24bbd35dd13abf291efdc0fff821c389",
+        "daaScore": "564259713"
+      }
+    ],
+    "note": "1 payment(s) reached the payee that this agent's own log does not name. The chain is the half that cannot be lost, so it is the one to believe. Money left this grant and the record of why did not survive — which is the failure this page reports rather than the one it hides."
+  },
   "refusals": [
     {
       "rule": "start time (not_before)",
       "attempted": "spend before the grant opens",
-      "refusal": "this grant could not spend anything until DAA 564258425. The covenant checks the claimed DAA score against that number on every spend, so the delay was not a policy in the agent's process and could not be brought forward by whoever issued it. It opened 17 minutes ago.",
+      "refusal": "this grant could not spend anything until DAA 564258425. The covenant checks the claimed DAA score against that number on every spend, so the delay was not a policy in the agent's process and could not be brought forward by whoever issued it. It opened 21 minutes ago.",
       "derived": true
     },
     {

@@ -642,6 +642,8 @@ WARDA_SK=$(cat ../covenant/deploy/agent-002.key) \
         v.className = "verdict2";
         v.textContent = p.outcome === "bought" ? "served"
           : p.outcome === "refused" ? "refused · " + (p.reason || "")
+          : p.outcome === "paid-then-failed" ? "paid, not served"
+          : p.outcome === "failed" ? "no service, no record"
           : p.outcome;
         top.appendChild(v);
         if (p.paid) { var am = document.createElement("span"); am.className = "amt"; am.textContent = p.paid; top.appendChild(am); }
@@ -651,6 +653,16 @@ WARDA_SK=$(cat ../covenant/deploy/agent-002.key) \
         el.appendChild(top);
         if (p.refusal) { var why = document.createElement("p"); why.className = "why"; why.textContent = p.refusal; el.appendChild(why); }
         if (p.txid) { var tx = document.createElement("p"); tx.className = "tx"; tx.textContent = p.txid; el.appendChild(tx); }
+        /* An attempt that ended without a transaction id says so, rather than
+           showing a bare parser error that reads as noise. It does NOT claim
+           which coin on the chain was its — that would be an inference, and
+           the reconciliation below is where the two sides are compared. */
+        if (!p.txid && p.outcome !== "refused") {
+          var gap = document.createElement("p");
+          gap.className = "rule";
+          gap.textContent = "this attempt recorded no transaction id — see the chain's account below";
+          el.appendChild(gap);
+        }
         log.appendChild(el);
       });
 
