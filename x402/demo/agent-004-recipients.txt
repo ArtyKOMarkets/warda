@@ -1,0 +1,15 @@
+# Agent #004's allowlist: agent #001, and nobody else.
+#
+# This is a SUBSET of agent #003's list, not a list of its own. A child grant
+# commits to a node of its parent's recipients tree, and every spend carries the
+# path from that node up to the parent's root — so the covenant checks that
+# whoever #004 is paying was somebody #003 could have paid, rather than taking
+# the child's word for it.
+#
+# #003 may pay agent #001 or the Warda demo vendor. #004 may pay agent #001.
+# The vendor is one address away and completely unreachable: there is no valid
+# transaction in which #004 pays it, and no inclusion proof that would make one.
+#
+# Keep both files. A grant commits to a ROOT, and a root cannot produce a proof
+# — building a spend from this one needs the parent's full list as well.
+kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e
