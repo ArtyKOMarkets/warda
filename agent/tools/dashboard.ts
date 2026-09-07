@@ -427,6 +427,22 @@ try {
           payees: members.map((k) => pubkeyToAddress(fromHex(k), prefix)),
           delegationDepth: Number(state.delegationDepth),
           onChain: here.length > 0 ? kas(here[0]!.entry.value) : null,
+          /**
+           * The same figures in sompi, as strings.
+           *
+           * The page draws a meter from these. It could parse the display
+           * strings above instead, and then a rendering decision — a thousands
+           * separator, a unit change — would silently move a bar. Sompi are
+           * what the covenant counts in; the KAS strings are for reading.
+           */
+          sompi: {
+            budget: state.budgetTotal.toString(),
+            spent: state.spentTotal.toString(),
+            reserved: state.reserved.toString(),
+            maxPerPayment: state.maxPerSpend.toString(),
+            epochLimit: state.epochLimit.toString(),
+            onChain: here.length > 0 ? here[0]!.entry.value.toString() : null,
+          },
         },
         activity: {
           payments: ours.length,

@@ -1,7 +1,25 @@
 {
   "_comment": "Written by agent/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, or the chain — none is typed. The refusal sentences are produced by running the same explainRefusal the payer calls, except the one marked derived:false, which is consensus's answer quoted from a node's actual rejection.",
-  "checkedAt": "2026-09-07T08:00:01.617Z",
+  "checkedAt": "2026-09-07T08:20:01.283Z",
   "network": "testnet-10",
+  "elsewhere": {
+    "vendor": "kaspatest:qr50gmc7t3jp33gg68aj63s9av54yc7w9kyjpwqdjhva9tt8j0a7wz2h6cnll",
+    "sameAgent": true,
+    "cap": "3 KAS",
+    "budget": "15 KAS",
+    "spent": "1.46802739 KAS",
+    "reachedTheVendor": "1.46802739 KAS",
+    "coins": [
+      {
+        "amount": "1.46802739 KAS",
+        "txid": "3cb85aa8226bac1297ffd6db4c6f48f77cb8e483222834a7c736eadb0effd254",
+        "blockDaaScore": "564077281"
+      }
+    ],
+    "served": false,
+    "servedDerived": false,
+    "note": "The payment settled and the service did not arrive. Why is unknown: the same vendor refuses a payment from an ordinary wallet too, so it is not about this grant, and it has been reported. What the covenant did is the part that is checkable — it bounded what a vendor who takes payment without delivering can take."
+  },
   "identity": {
     "agentId": "WARDA-001",
     "agent": "3c693f61fbc35d1fd4dcec2bbbab692be38656e6fd5a4077ee495afcb23535a1",
@@ -23,11 +41,19 @@
       "kaspatest:qzlws9lm7uyt0tftzffshnyeu2zcqk4kf7hw5ghk6v0zh093vnkljcy2fl0fh"
     ],
     "delegationDepth": 2,
-    "onChain": "4.12 KAS"
+    "onChain": "4.12 KAS",
+    "sompi": {
+      "budget": "500000000",
+      "spent": "80000000",
+      "reserved": "0",
+      "maxPerPayment": "30000000",
+      "epochLimit": "100000000",
+      "onChain": "412000000"
+    }
   },
   "activity": {
-    "payments": 4,
-    "paid": "0.8 KAS",
+    "payments": 5,
+    "paid": "1 KAS",
     "paidOutsideTheAllowlist": "0 KAS",
     "coins": [
       {
@@ -53,6 +79,12 @@
         "daaScore": "564064563",
         "txid": "7821fc2a554551af559a078626d9cc071205a97965b953334a6d8c7ba32e31bc",
         "index": 1
+      },
+      {
+        "amount": "0.2 KAS",
+        "daaScore": "564094891",
+        "txid": "29726ba017ba1880709c6ea6214edfb19d662f8ef745b1c91c04cad1a8cd7e74",
+        "index": 0
       }
     ]
   },
@@ -96,17 +128,17 @@
   ],
   "mission": "Monitor the Kaspa network and publish an independent daily digest, unattended. It holds a bounded Warda grant and may buy an approved service when it needs one.",
   "lastRun": {
-    "at": "2026-09-07T07:17:01.361Z",
-    "runs": 55,
+    "at": "2026-09-07T08:17:00.430Z",
+    "runs": 56,
     "since": "2026-09-03T08:18:38.642Z",
     "servicesUsed": 0,
     "spent": "0 KAS",
     "note": "reading the chain needs no vendor, so this run bought nothing"
   },
   "digest": {
-    "window": "45 h",
+    "window": "46 h",
     "from": "2026-09-05T10:17:01.053Z",
-    "to": "2026-09-07T07:17:01.361Z",
-    "text": "Kaspa testnet-10 · 45 h to 2026-09-07 07:17 UTC\n\n  blue score  +1,620,081         10.00 blue blocks/s\n  DAA score   +1,620,795         now 564,067,419\n  minted      +6,509,505.83 KAS  26,920,361,754 KAS in existence\n  hashrate    19.96 MH/s         node estimate over its last 1,000 blocks\n  mempool     0 tx               held, unaccepted, at the closing reading\n  DAG         3 tips             1,455,493 blocks held by this node\n\nmeasured between two readings of one node (kaspad 2.0.1)\n"
+    "to": "2026-09-07T08:17:00.430Z",
+    "text": "Kaspa testnet-10 · 46 h to 2026-09-07 08:17 UTC\n\n  blue score  +1,656,170         10.00 blue blocks/s\n  DAA score   +1,656,883         now 564,103,507\n  minted      +6,627,531.66 KAS  26,920,479,779 KAS in existence\n  hashrate    20.34 MH/s         node estimate over its last 1,000 blocks\n  mempool     0 tx               held, unaccepted, at the closing reading\n  DAG         1 tips             1,491,581 blocks held by this node\n\nmeasured between two readings of one node (kaspad 2.0.1)\n"
   }
 }

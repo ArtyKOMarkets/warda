@@ -51,6 +51,44 @@
 
   /* ---- authority, as a statement --------------------------------------- */
   .stmt { border: 1px solid var(--edge-bright); background: var(--ground); margin-top: 1.6rem; }
+
+  /* The budget, drawn once rather than stated four times. A page arguing that
+     spending is bounded should show the bound; a table of eight rows states it
+     and shows nothing. */
+  .meter { margin-top: 1.6rem; }
+  .mnums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 0.9rem; }
+  .mn { font-family: var(--mono); font-size: clamp(1.5rem, 3.4vw, 2.1rem); color: var(--chrome);
+        letter-spacing: -0.02em; }
+  .mu { font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.1em;
+        text-transform: uppercase; color: var(--chrome-faint); display: block; margin-top: 0.15rem; }
+  .bar { position: relative; height: 14px; background: var(--ground);
+         border: 1px solid var(--edge-bright); overflow: hidden; }
+  .bar .fill { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--teal);
+               transition: width 900ms cubic-bezier(.2,.7,.3,1); }
+  /* Where a single payment can reach. Usually a sliver, which is the point —
+     so it is drawn ON TOP of the fill and outlined, or it disappears into the
+     teal exactly when it matters most. */
+  .bar .cap { position: absolute; top: -1px; bottom: -1px; width: 2px; background: var(--chrome);
+              box-shadow: 0 0 0 1px var(--void); z-index: 2; }
+  .mlegend { font-size: 0.8rem; color: var(--chrome-dim); margin: 0.7rem 0 0; }
+  @media (prefers-reduced-motion: reduce) { .bar .fill { transition: none; } }
+  @media (max-width: 640px) { .mnums { grid-template-columns: 1fr; gap: 0.7rem; } }
+
+  /* Six refusals, each a paragraph, is a wall. The claim of each one is its
+     first line; the reasoning is worth reading once. So the claim always
+     shows and the reasoning opens — nothing is hidden from a reader who
+     wants it, and nothing is dumped on one who does not. */
+  details.ref > summary { cursor: pointer; list-style: none; display: flex;
+                          align-items: baseline; justify-content: space-between; gap: 1.2rem; }
+  details.ref > summary::-webkit-details-marker { display: none; }
+  details.ref > summary .try { margin: 0; }
+  details.ref > summary::after { content: "why \2193"; flex: none; font-family: var(--mono);
+                                 font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase;
+                                 color: var(--chrome-faint); }
+  details.ref[open] > summary::after { content: "why \2191"; }
+  details.ref[open] > summary { margin-bottom: 0.6rem; }
+  details.ref > summary:hover::after { color: var(--chrome-dim); }
+  details.ref > summary:focus-visible { outline: 1px solid var(--refuse); outline-offset: 3px; }
   /* Shown only when the agent has gone quiet. Red, because on this site red is
      the colour of something that must not pass — and a two-day-old figure
      passing as current is exactly that. */
@@ -199,6 +237,19 @@
 <section>
   <p class="eyebrow">Authority</p>
   <h2>What it is allowed to do</h2>
+
+  <!-- The bounded thing, drawn. Every figure here is the same sompi the
+       covenant counts in, not a parse of the display strings below. -->
+  <div class="meter" id="a-meter" hidden>
+    <div class="mnums">
+      <div><span class="mn" id="m-spent">0</span> <span class="mu">KAS spent</span></div>
+      <div><span class="mn" id="m-left">0</span> <span class="mu">KAS it may still spend</span></div>
+      <div><span class="mn" id="m-cap">0</span> <span class="mu">KAS ceiling, any one payment</span></div>
+    </div>
+    <div class="bar"><i class="fill" id="m-fill"></i><i class="cap" id="m-captick"></i></div>
+    <p class="mlegend" id="m-legend"></p>
+  </div>
+
   <div class="stmt">
     <div class="row"><span class="k">Budget</span><span class="v big" id="a-budget">&mdash;</span></div>
     <div class="row"><span class="k">Spent</span><span class="v big" id="a-spent">&mdash;</span></div>
@@ -361,6 +412,39 @@
         set("a-depth", String(a.delegationDepth));
         set("a-onchain", a.onChain || "nothing at this address");
 
+        // The meter. Sompi in, so a change to how KAS is formatted cannot move
+        // a bar; and it draws the coin rather than the budget, because the coin
+        // is what binds — fees leave it without being charged against spending.
+        if (a.sompi) {
+          var SOMPI = 100000000;
+          var budget = Number(a.sompi.budget) / SOMPI;
+          var spent = Number(a.sompi.spent) / SOMPI;
+          var reserved = Number(a.sompi.reserved || 0) / SOMPI;
+          var cap = Number(a.sompi.maxPerPayment) / SOMPI;
+          var left = Math.max(budget - spent - reserved, 0);
+
+          countTo(document.getElementById("m-spent"), spent);
+          countTo(document.getElementById("m-left"), left);
+          countTo(document.getElementById("m-cap"), cap);
+
+          var pct = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0;
+          var capPct = budget > 0 ? Math.min((cap / budget) * 100, 100) : 0;
+          document.getElementById("m-captick").style.left = capPct + "%";
+          document.getElementById("m-legend").textContent =
+            "Teal is what it has already spent, of a lifetime budget of " + fmt(budget) +
+            " KAS it can never exceed. The mark at " + fmt(cap) +
+            " KAS is as far as any single payment can reach — which is why draining this " +
+            "grant would take " + Math.ceil(budget / cap) + " separate payments, each one " +
+            "refused the moment the budget runs out.";
+          document.getElementById("a-meter").hidden = false;
+          // Next frame, so the width transition has something to move from.
+          requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
+              document.getElementById("m-fill").style.width = pct + "%";
+            });
+          });
+        }
+
         /* Drawn from the allowlist, not described. The "cannot" side is not a
            sample of blocked addresses — it is every address that is not on the
            list, which is what a Merkle commitment at genesis actually means. */
@@ -383,6 +467,22 @@
           row.textContent = (n === all.length - 1 ? "  \u2514\u2500 " : "  \u251C\u2500 ") + t;
           tree.appendChild(row);
         });
+
+        function fmt(n) {
+          return n >= 100 ? n.toFixed(0) : n >= 1 ? n.toFixed(2).replace(/\.?0+$/, "") : n.toFixed(4).replace(/\.?0+$/, "");
+        }
+        function countTo(el, value) {
+          if (!el) return;
+          var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+          if (reduce || !value) { el.textContent = fmt(value); return; }
+          var start = performance.now(), ms = 900;
+          (function step(now) {
+            var t = Math.min((now - start) / ms, 1);
+            // Ease out, so it lands rather than stops.
+            el.textContent = fmt(value * (1 - Math.pow(1 - t, 3)));
+            if (t < 1) requestAnimationFrame(step);
+          })(performance.now());
+        }
 
         if (d.mission) set("a-mission", d.mission);
         if (d.lastRun) {
@@ -448,17 +548,22 @@
         }
 
         var box = document.getElementById("a-refusals");
-        d.refusals.forEach(function (r) {
-          var el = document.createElement("div");
+        d.refusals.forEach(function (r, i) {
+          var el = document.createElement("details");
           el.className = "ref" + (r.derived ? "" : " quoted");
+          // The first two open, so the shape of an answer is visible without
+          // a click; the rest wait to be asked.
+          if (i < 2) el.open = true;
+          var sum = document.createElement("summary");
           var t = document.createElement("p"); t.className = "try";
           t.textContent = "It tried to " + r.attempted;
+          sum.appendChild(t);
           var s = document.createElement("p"); s.className = "said"; s.textContent = r.refusal;
           var u = document.createElement("p"); u.className = "rule";
           u.textContent = r.derived
             ? "refused by the covenant · " + r.rule
             : "refused by Kaspa consensus, not the covenant · " + r.rule;
-          el.appendChild(t); el.appendChild(s); el.appendChild(u);
+          el.appendChild(sum); el.appendChild(s); el.appendChild(u);
           box.appendChild(el);
         });
 
