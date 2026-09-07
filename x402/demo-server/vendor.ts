@@ -246,7 +246,27 @@ export async function serve(
   if (bad) return send(400, { error: bad });
   if (!proof.txid) return send(400, { error: "no txid in the payment proof" });
 
-  const client = await NodeClient.connect({ url: RPC });
+  /**
+   * INSIDE the try, not above it.
+   *
+   * This connect sat outside, so a node this function could not reach threw
+   * before any handler existed and the host answered its own generic 500 —
+   * an HTML error page, to a client holding a payment it had just broadcast.
+   * Every branch below already answers in JSON with a reason; the one failure
+   * most likely to actually happen in production was the one that did not.
+   */
+  let client: NodeClient;
+  try {
+    client = await NodeClient.connect({ url: RPC });
+  } catch (e) {
+    return send(503, {
+      error: `could not reach a node: ${(e as Error).message}`,
+      detail:
+        "the payment may well be on chain; this vendor cannot see it. Re-present the same " +
+        "X-PAYMENT header rather than paying again.",
+    });
+  }
+
   try {
     const utxos = await client.getUtxosByAddresses([payTo]);
     const paid = utxos.find(

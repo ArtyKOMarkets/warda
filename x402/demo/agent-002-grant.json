@@ -1,0 +1,22 @@
+{
+  "covenant": "b3e5eeefacf2021f",
+  "covenant_id": "5eec211b62dd03009a56eaff82ecbe543c609f01e3cfa6d5c44eddf9023234bd",
+  "agent": "fa4707951df802609d7fcb9258bfd0735ad2959175be8905f0da9db6e8e38622",
+  "agent_key_derived": null,
+  "principal": "0393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34f",
+  "revocation": "0393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34f",
+  "recipients_root": "11e62dc71290002d6b615d58d61c45a9d22254761d42938f6760712c72524155",
+  "created_at_daa": 564255425,
+  "not_before": 564258425,
+  "expires_at": 590178425,
+  "budget": 200000000,
+  "max_per_spend": 10000000,
+  "epoch_limit": 50000000,
+  "epoch_length": 1000,
+  "delegation_depth": 2,
+  "grant_value": 200000000,
+  "spent_total": 0,
+  "reserved": 0,
+  "epoch_index": 0,
+  "epoch_spent": 0
+}

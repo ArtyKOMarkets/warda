@@ -132,6 +132,12 @@ const record = (result: Record<string, unknown>) => {
   console.error(`recorded : ${path}`);
 };
 
+/* One mutable object rather than three `let`s: assignments made inside a
+   callback are invisible to the compiler's narrowing, so plain locals read
+   back as `null` no matter what the callback did. Declared out here because
+   the catch block needs the txid as much as the success path does. */
+const seen: { payTo?: string; amountSompi?: bigint; txid?: string } = {};
+
 const node = await NodeClient.connect({ url: flag("rpc") ?? process.env.WARDA_RPC_JSON });
 try {
   /**
@@ -166,11 +172,6 @@ try {
 
   console.error(`buying   : ${url}`);
 
-  /* One mutable object rather than three `let`s: assignments made inside a
-     callback are invisible to the compiler's narrowing, so plain locals read
-     back as `null` no matter what the callback did. */
-  const seen: { payTo?: string; amountSompi?: bigint; txid?: string } = {};
-
   const res = await wardaFetch(url, undefined, {
     payer,
     onEvent: (e) => {
@@ -188,7 +189,27 @@ try {
     },
   });
 
-  const body = await res.json();
+  /**
+   * Text first, then JSON.
+   *
+   * `res.json()` THROWS on a body that is not JSON, and a serverless host
+   * answering 500 sends an HTML error page. That throw landed in the catch
+   * below, which records `outcome: "failed"` and the parser's complaint —
+   * losing the transaction id of a payment that had already settled. Which is
+   * precisely the failure the comment under this block warns about, written
+   * two screens above the code that caused it.
+   *
+   * So the body is read as text, parsed if it can be, and kept verbatim if it
+   * cannot. A vendor that takes the money and answers with a stack trace still
+   * owes this agent a record of what it paid and to whom.
+   */
+  const text = await res.text();
+  let body: unknown;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    body = { notJson: text.slice(0, 500), contentType: res.headers.get("content-type") };
+  }
 
   /* Written BEFORE the manifest, and before anything is printed. A purchase
      that succeeded and was not recorded is indistinguishable afterwards from
@@ -210,16 +231,19 @@ try {
      tool reports as "no UTXO at <address>": a message that names three causes,
      none of them this one. */
   const s = payer.state;
+  /* Numbers, not strings — genesis, advance-manifest and follow-grant all
+     write numbers here, and a manifest that changes shape depending on which
+     tool touched it last is a manifest every reader has to guess at. */
   const advanced = {
     ...m,
-    spent_total: s.spentTotal.toString(),
-    reserved: s.reserved.toString(),
-    epoch_index: s.epochIndex.toString(),
-    epoch_spent: s.epochSpent.toString(),
+    spent_total: Number(s.spentTotal),
+    reserved: Number(s.reserved),
+    epoch_index: Number(s.epochIndex),
+    epoch_spent: Number(s.epochSpent),
     /* Payment AND fee. The budget is charged the payment; the coin loses both,
        and a grant_value advanced by only the payment drifts by one fee per
        purchase until the dashboard refuses to publish it. */
-    grant_value: (BigInt(m.grant_value) - (seen.amountSompi ?? 0n) - payer.fee).toString(),
+    grant_value: Number(BigInt(m.grant_value) - (seen.amountSompi ?? 0n) - payer.fee),
   };
   writeFileSync(manifestPath, JSON.stringify(advanced, null, 1) + "\n");
   console.error(`manifest : advanced to spent_total=${advanced.spent_total}`);
@@ -229,7 +253,15 @@ try {
 } catch (e) {
   const why = (e as Error).message;
   console.error(why);
-  record({ outcome: "failed", error: why });
+  /* `seen` may hold a txid even here: everything after `payer.pay` can throw
+     with the money already on chain. A failure record without it is a payment
+     nothing in this repository remembers making. */
+  record({
+    outcome: seen.txid ? "paid-then-failed" : "failed",
+    txid: seen.txid ?? null,
+    quoted: seen.payTo ? { payTo: seen.payTo, amountSompi: seen.amountSompi?.toString() ?? null } : null,
+    error: why,
+  });
   process.exit(1);
 } finally {
   node.close();

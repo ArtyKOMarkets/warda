@@ -1,0 +1,11 @@
+{
+  "_comment": "Written by agent-002/tools/buy.ts. One file per attempt, refusals included: a purchase log that only records successes is a sales brochure.",
+  "at": "2026-09-07T12:30:15.280Z",
+  "agent": "WARDA-002",
+  "url": "https://warda-demo-api.vercel.app/digest",
+  "outcome": "refused",
+  "reason": "timelock",
+  "virtualDaaScore": "564255616",
+  "notBefore": "564258425",
+  "refusal": "agent #002 may not spend until DAA 564258425 and the network is at 564255616 — 2809 short, roughly 281 seconds at ten blocks per second. This is not a policy in this process: the covenant checks the claimed DAA score against 564258425 on every spend, so no version of this program can bring the payment forward, and neither can whoever issued the grant."
+}
