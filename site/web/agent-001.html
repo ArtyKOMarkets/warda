@@ -250,13 +250,35 @@
   <p class="note" id="a-served">
     <strong>Warda enforced the authority. It did not guarantee the vendor.</strong>
     These went to a vendor nobody here controls &mdash;
-    the demo endpoint of the reference kaspa-x402 implementation. Their facilitator refused to
-    serve the request each time, for a reason we cannot see from outside; the money moved anyway,
-    because a spend the chain accepted is final whatever the vendor thinks. Whether a covenant
-    spend is a shape their verifier admits is
+    the demo endpoint of the reference kaspa-x402 implementation. It refused to serve the
+    request each time, for a reason still unknown; the money moved anyway, because a spend the
+    chain accepted is final whatever the vendor thinks. It is not about covenants: the same
+    endpoint refuses a payment from an ordinary wallet, which is the control that settled it.
+    Eight attempts and everything ruled out is
     <a href="https://github.com/ArtyKOMarkets/warda/blob/main/x402/INTEROP-KASPA-X402.md">written up in full</a>.
     It is an honest thing to show: the covenant did its job, and the market has not arrived yet.
   </p>
+</section>
+
+<section id="a-elsewhere-sec" hidden>
+  <p class="eyebrow">A second vendor</p>
+  <h2>The same agent, a second grant, somewhere else entirely</h2>
+  <p class="lede" style="margin-top:0.6rem">
+    An agent may hold any number of grants. Each commits to its own payees with its own caps at
+    genesis, and <strong>none of them can pay another's</strong>. This one was created for a
+    service listed on an independent Kaspa marketplace, and it paid for a call there. The same
+    agent key holds both; nothing was added to it and nothing about the first grant changed.
+  </p>
+  <div class="stmt" style="margin:1.6rem 0">
+    <div class="row"><span class="k">Vendor</span><span class="v mono" id="e-vendor">&mdash;</span></div>
+    <div class="row"><span class="k">Per-payment cap</span><span class="v" id="e-cap">&mdash;</span></div>
+    <div class="row"><span class="k">Budget</span><span class="v" id="e-budget">&mdash;</span></div>
+    <div class="row"><span class="k">Spent</span><span class="v big" id="e-spent">&mdash;</span></div>
+    <div class="row"><span class="k">Reached the vendor</span><span class="v big" id="e-reached">&mdash;</span></div>
+    <div class="row"><span class="k">Service delivered</span><span class="v big" id="e-served">&mdash;</span></div>
+  </div>
+  <div id="e-coins"></div>
+  <p class="note" id="e-note"></p>
 </section>
 
 <section>
@@ -401,6 +423,32 @@
               d.lastRun.since.replace("T", " ").replace(/:\d\d\.\d+Z$/, " UTC"));
           set("a-services", String(d.lastRun.servicesUsed) + " \u2014 " + d.lastRun.note);
           set("a-runspent", d.lastRun.spent);
+        }
+
+        if (d.elsewhere) {
+          var e = d.elsewhere;
+          set("e-vendor", e.vendor);
+          set("e-cap", e.cap);
+          set("e-budget", e.budget);
+          set("e-spent", e.spent);
+          set("e-reached", e.reachedTheVendor);
+          // Said in words rather than a tick, because it is the one figure on
+          // this page that is not derived from the chain — the chain can show
+          // that money arrived, and cannot show that nothing came back.
+          set("e-served", "No \u2014 not a chain fact, see below");
+          var cbox = document.getElementById("e-coins");
+          (e.coins || []).forEach(function (c) {
+            var el = document.createElement("div");
+            el.className = "ref";
+            var t = document.createElement("p"); t.className = "try";
+            t.textContent = "It paid " + c.amount;
+            var said = document.createElement("p"); said.className = "said";
+            said.textContent = "The vendor received it. Transaction " + c.txid +
+              ", accepted at DAA " + c.blockDaaScore + ".";
+            el.appendChild(t); el.appendChild(said); cbox.appendChild(el);
+          });
+          set("e-note", e.note);
+          document.getElementById("a-elsewhere-sec").hidden = false;
         }
 
         if (d.digest && d.digest.text) {

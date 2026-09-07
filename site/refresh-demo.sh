@@ -194,6 +194,8 @@ cp "$tmp" src/demo-state.json
 if ! (cd ../agent && node --experimental-strip-types tools/dashboard.ts \
         ../x402/demo/kaspa-x402-grant.json \
         --recipients ../x402/demo/kaspa-x402-recipients.txt \
+        --also ../x402/demo/kaspa-402-grant.json \
+        --also-recipients ../x402/demo/kaspa-402-recipients.txt \
         --readings readings \
         ${WARDA_RPC_JSON:+--rpc "$WARDA_RPC_JSON"} \
         > /tmp/agent-001.$$.json); then

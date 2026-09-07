@@ -75,6 +75,17 @@ function flag(name: string, fallback?: string): string | undefined {
  */
 const readingsDir = flag("readings");
 
+/**
+ * A SECOND grant the same agent holds, for a different vendor.
+ *
+ * Not a variant of the first. An agent may hold any number of grants, each
+ * committing to its own payees with its own caps, and none of them can pay
+ * another's. That is the shape this page has argued for in the abstract since
+ * it was written, and there are now two on chain to point at.
+ */
+const alsoPath = flag("also");
+const alsoRecipients = flag("also-recipients");
+
 const manifestPath = process.argv.slice(2).find((a) => !a.startsWith("--") && a.endsWith(".json"));
 const recipientsPath = flag("recipients");
 if (!manifestPath || !recipientsPath) {
@@ -322,6 +333,68 @@ try {
     }
   }
 
+  /**
+   * The second grant, read from the chain the same way the first is.
+   *
+   * What this section reports is a payment that WORKED and a service that did
+   * not arrive. Both halves are the point. The page has always said Warda does
+   * not guarantee that the service arrives, that the vendor is honest, or that
+   * anything is refundable; this is that sentence with a transaction id
+   * attached rather than as a disclaimer.
+   *
+   * It does not say whose fault the missing service is, because nobody here
+   * knows. The same vendor refuses a payment from an ordinary wallet too, so
+   * it is not about this grant, and two confident explanations of it have
+   * already turned out wrong. What is on chain is on chain; the rest is
+   * reported as unknown.
+   */
+  let elsewhere: Record<string, unknown> | undefined;
+  if (alsoPath && alsoRecipients) {
+    const am = JSON.parse(readFileSync(alsoPath, "utf8"));
+    const alsoMembers = readFileSync(alsoRecipients, "utf8")
+      .split(/\r?\n/)
+      .map((l) => l.replace(/#.*$/, "").trim())
+      .filter(Boolean)
+      .map((t) => (t.includes(":") ? toHex(decodeAddress(t).payload) : t.toLowerCase()));
+    const alsoSet = new RecipientSet(alsoMembers);
+    if (alsoSet.rootHex !== am.recipients_root) {
+      console.error(
+        `the second grant's payees hash to ${alsoSet.rootHex} and it commits to ` +
+          `${am.recipients_root}. Refusing to publish an allowlist that grant did not authorize.`,
+      );
+      process.exit(1);
+    }
+    const alsoPayee = pubkeyToAddress(fromHex(alsoMembers[0]!), prefix);
+    const alsoAt = await client.getUtxosByAddresses([alsoPayee]);
+    const alsoNotBefore = BigInt(am.not_before);
+    const alsoCap = BigInt(am.max_per_spend);
+    const ours = alsoAt.filter(
+      (u) => u.entry.blockDaaScore >= alsoNotBefore && u.entry.value <= alsoCap,
+    );
+    elsewhere = {
+      vendor: alsoPayee,
+      // Same agent key as this page's grant, which is the claim worth checking.
+      sameAgent: am.agent === m.agent,
+      cap: kas(alsoCap),
+      budget: kas(BigInt(am.budget)),
+      spent: kas(BigInt(am.spent_total ?? 0)),
+      reachedTheVendor: kas(ours.reduce((a, u) => a + u.entry.value, 0n)),
+      coins: ours.map((u) => ({
+        amount: kas(u.entry.value),
+        txid: toHex(u.outpoint.transactionId),
+        blockDaaScore: u.entry.blockDaaScore.toString(),
+      })),
+      served: false,
+      servedDerived: false,
+      note:
+        "The payment settled and the service did not arrive. Why is unknown: the same " +
+        "vendor refuses a payment from an ordinary wallet too, so it is not about this " +
+        "grant, and it has been reported. What the covenant did is the part that is " +
+        "checkable — it bounded what a vendor who takes payment without delivering can " +
+        "take.",
+    };
+  }
+
   process.stdout.write(
     JSON.stringify(
       {
@@ -332,6 +405,7 @@ try {
           "derived:false, which is consensus's answer quoted from a node's actual rejection.",
         checkedAt: new Date().toISOString(),
         network: health.network,
+        ...(elsewhere ? { elsewhere } : {}),
         identity: {
           agentId: "WARDA-001",
           agent: m.agent,
