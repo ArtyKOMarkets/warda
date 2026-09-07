@@ -103,13 +103,19 @@ function addressOf(m: Materialised, template: CovenantTemplate): string {
 async function chainAt(
   source: ChainSource,
   address: string,
-): Promise<{ utxo: AddressUtxo | null; dag: DagInfo; live: Live }> {
+): Promise<{ utxo: AddressUtxo | null; all: AddressUtxo[]; dag: DagInfo; live: Live }> {
   const live = await source.acquire();
   const [entries, dag] = await Promise.all([
     live.client.getUtxosByAddresses([address]),
     live.client.getBlockDagInfo(),
   ]);
-  return { utxo: entries[0] ?? null, dag, live };
+  // The whole list, not just the first. A GRANT holds exactly one coin by
+  // construction, so `entries[0]` is the right answer there and was the only
+  // case this was written for. Any other address may hold many, and reporting
+  // the first as though it were the balance is a wrong number that looks like
+  // a right one — it under-reported a funding wallet by four orders of
+  // magnitude the first time somebody pointed this at one.
+  return { utxo: entries[0] ?? null, all: entries, dag, live };
 }
 
 /** Whether the node reported a covenant binding for this coin. */
@@ -188,7 +194,7 @@ export async function grantAt(source: ChainSource, address: string): Promise<Rep
   if (!address || !address.includes(":")) {
     throw new RequestError(400, `${JSON.stringify(address)} is not a Kaspa address`, "address");
   }
-  const { utxo, live } = await chainAt(source, address);
+  const { utxo, all, live } = await chainAt(source, address);
 
   const notKnowable =
     "A grant's terms are not derivable from its address. The address is the hash of a " +
@@ -221,6 +227,7 @@ export async function grantAt(source: ChainSource, address: string): Promise<Rep
   }
 
   const covenantId = covenantHex(utxo);
+  const total = all.reduce((sum, u) => sum + u.entry.value, 0n);
   return {
     status: 200,
     body: envelope(
@@ -228,10 +235,20 @@ export async function grantAt(source: ChainSource, address: string): Promise<Rep
         address,
         found: true,
         value: amount(utxo.entry.value),
+        coins: all.length,
+        total: amount(total),
+        largest: amount(all.reduce((m, u) => (u.entry.value > m ? u.entry.value : m), 0n)),
         covenantId,
-        note: covenantId
-          ? "a covenant-bound coin. Which covenant, and under what terms, is what /v1/verify checks."
-          : "the node reports no covenant id for this coin, so nothing here is bound by a covenant at all.",
+        note:
+          (all.length > 1
+            ? `this address holds ${all.length} coins. A Warda grant holds exactly one, so ` +
+              `this is not a grant at its current state — and if you are funding one, note that ` +
+              `genesis takes a single input, so the figure that matters is the largest coin ` +
+              `rather than the total. `
+            : "") +
+          (covenantId
+            ? "a covenant-bound coin. Which covenant, and under what terms, is what /v1/verify checks."
+            : "the node reports no covenant id for this coin, so nothing here is bound by a covenant at all."),
         termsKnowable: false,
         whyNot: notKnowable,
       },

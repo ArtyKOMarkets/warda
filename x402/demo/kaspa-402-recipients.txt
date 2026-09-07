@@ -1,0 +1,17 @@
+# The payee quoted by kaspa-402.org's summarize service, the only listing in
+# that directory that settles on testnet-10.
+#
+# Read out of a real 402 from
+# https://kaspa-402-summarize.kaspadev.workers.dev/exact on 2026-09-07, not
+# from the directory page, which truncates it. The quote advertised
+#
+#   payToScriptPublicKey: 000020e8f46f…fbe7ac
+#
+# and the P2PK script a Warda covenant builds for this address matches it byte
+# for byte, which is what makes it payable from a grant at all. A P2SH payee
+# would not be.
+#
+# A grant commits to the ROOT of this list at genesis and cannot be changed
+# afterwards, so this file is the grant's payee list for its whole life. One
+# member means a proof of depth 0 — no Merkle path at all.
+kaspatest:qr50gmc7t3jp33gg68aj63s9av54yc7w9kyjpwqdjhva9tt8j0a7wz2h6cnll

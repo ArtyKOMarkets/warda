@@ -128,13 +128,18 @@ const DAG: DagInfo = {
 };
 
 function chain(entries: AddressUtxo[]): ChainSource {
-  const byAddress = new Map(entries.map((e) => [e.address!, e]));
+  const byAddress = new Map<string, AddressUtxo[]>();
+  for (const e of entries) {
+    const list = byAddress.get(e.address!) ?? [];
+    list.push(e);
+    byAddress.set(e.address!, list);
+  }
   const live: Live = {
     health: HEALTH,
     checkedAt: Date.now(),
     client: {
       async getUtxosByAddresses(addresses: string[]) {
-        return addresses.flatMap((a) => (byAddress.has(a) ? [byAddress.get(a)!] : []));
+        return addresses.flatMap((a) => byAddress.get(a) ?? []);
       },
       async getBlockDagInfo() {
         return DAG;
@@ -279,6 +284,37 @@ test("an address alone yields the coin and an explicit refusal to guess the term
   assert.equal(r.termsKnowable, false);
   assert.match(r.whyNot, /not derivable from its address/);
   assert.equal(r.covenantId, "cf".repeat(32));
+});
+
+test("an address holding many coins reports all of them, not the first", async () => {
+  // The bug this pins: a funding wallet was reported as holding 1.68 KAS
+  // because that was its first coin. It held 9,798, across six — and genesis
+  // takes ONE input, so the largest is the figure that decides what can be
+  // built, not the total and certainly not the first.
+  const a = remember(stateOf());
+  const many = [utxo(a, 168_000_000n), utxo(a, 977_974_000_000n), utxo(a, 1_000_000n)];
+  const reply = await grantAt(chain(many), a);
+  const r = result<{
+    value: { sompi: string };
+    coins: number;
+    total: { sompi: string };
+    largest: { sompi: string };
+    note: string;
+  }>(reply);
+  assert.equal(r.coins, 3);
+  assert.equal(r.value.sompi, "168000000");
+  assert.equal(r.total.sompi, "978143000000");
+  assert.equal(r.largest.sompi, "977974000000");
+  assert.match(r.note, /holds 3 coins/);
+  assert.match(r.note, /genesis takes a single input/);
+});
+
+test("a grant holds exactly one coin, and says nothing about counts", async () => {
+  const a = remember(stateOf());
+  const reply = await grantAt(chain([utxo(a, 1_000_000_000n)]), a);
+  const r = result<{ coins: number; note: string }>(reply);
+  assert.equal(r.coins, 1);
+  assert.doesNotMatch(r.note, /coins\./);
 });
 
 test("an address with no coin still refuses to guess the terms", async () => {
