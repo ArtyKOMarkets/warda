@@ -1,6 +1,6 @@
 {
   "_comment": "Written by agents/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, the purchase log or the chain — none is typed. Each payee's LABEL is re-derived on every run from the artefact agents/known-payees.json names, and a label that stops matching is dropped rather than published: an address with no name is honest, an address with the wrong name is not.",
-  "checkedAt": "2026-09-07T17:11:43.369Z",
+  "checkedAt": "2026-09-07T17:22:38.470Z",
   "network": "testnet-10",
   "identity": {
     "agentId": "WARDA-004",
@@ -49,10 +49,10 @@
   },
   "timelock": {
     "notBefore": "564404779",
-    "virtualDaaScore": "564424220",
+    "virtualDaaScore": "564430763",
     "open": true,
     "lockedFor": "0 seconds",
-    "openedAgo": "32 minutes",
+    "openedAgo": "43 minutes",
     "enforcedBy": "the covenant, on every spend: claimedDaa >= notBefore. Not a scheduler, not this process, and not revocable by whoever issued the grant."
   },
   "authority": {
@@ -114,7 +114,7 @@
     {
       "rule": "start time (not_before)",
       "attempted": "spend before the grant opens",
-      "refusal": "this grant could not spend anything until DAA 564404779. The covenant checks the claimed DAA score against that number on every spend, so the delay was not a policy in the agent's process and could not be brought forward by whoever issued it. It opened 32 minutes ago.",
+      "refusal": "this grant could not spend anything until DAA 564404779. The covenant checks the claimed DAA score against that number on every spend, so the delay was not a policy in the agent's process and could not be brought forward by whoever issued it. It opened 43 minutes ago.",
       "derived": true
     },
     {

@@ -38,6 +38,13 @@ def data_uri(p):
 # both, because two inline copies drift the first time a colour changes.
 AGENT_CSS = (here / "src" / "_agent.css").read_text()
 
+# The four-agent diagram and the hero's live line. One implementation, injected
+# into /agents and the landing page both — it was written for one and wanted on
+# the other within the hour, and a second copy of a diagram is a second diagram.
+GRAPH_HTML = (here / "src" / "_graph.html").read_text()
+GRAPH_CSS = (here / "src" / "_graph.css").read_text()
+GRAPH_JS = (here / "src" / "_graph.js").read_text()
+
 # The timelock panel. Every grant has a notBefore, so every agent page shows
 # one — but each page introduces it with its own argument, so the markup is
 # injected into the per-agent intro rather than fixed above or below it.
@@ -89,6 +96,9 @@ flavours = {
 }
 for _f in flavours.values():
     _f["{{AGENT_CSS}}"] = AGENT_CSS
+    _f["{{AGENT_GRAPH}}"] = GRAPH_HTML
+    _f["{{AGENT_GRAPH_CSS}}"] = GRAPH_CSS
+    _f["{{AGENT_GRAPH_JS}}"] = GRAPH_JS
     _f["{{CRYPTO}}"] = CRYPTO
     _f["{{VERIFY_CORE}}"] = VERIFY_CORE
     _f["{{COVENANT_TEMPLATE}}"] = TEMPLATE

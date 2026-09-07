@@ -1,0 +1,25 @@
+  <!-- Drawn from the same JSON the cards below are drawn from. A diagram is
+       the easiest thing on a site like this to let drift: it is made once, in
+       a drawing program, and then the agents change and the picture does not.
+       This one has no positions for an agent it cannot read. -->
+  <figure class="graph" id="g-graph" hidden>
+    <svg viewBox="0 0 760 440" role="img" aria-labelledby="g-graph-t">
+      <title id="g-graph-t">Four agents: who replaced whom, who delegated whom, and who paid whom</title>
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--teal)"></path>
+        </marker>
+        <marker id="ar-dim" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--chrome-faint)"></path>
+        </marker>
+      </defs>
+      <g id="g-edges"></g>
+      <g id="g-nodes"></g>
+    </svg>
+    <figcaption>
+      <span class="hint">Scroll the diagram sideways to reach the sellers. </span>
+      Solid arrows are payments that settled, with the amount this grant has spent on that payee.
+      Dotted arrows are authority: <span class="lg-auth">who replaced whom, and who delegated whom</span>.
+      A dimmed agent&rsquo;s grant no longer exists.
+    </figcaption>
+  </figure>

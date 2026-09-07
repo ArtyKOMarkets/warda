@@ -134,6 +134,11 @@
     color: var(--chrome-faint); letter-spacing: 0.04em;
     display: flex; gap: 0.55rem 1.5rem; justify-content: center; flex-wrap: wrap;
   }
+  /* The live half. Same shape as the line above it, teal figures, so a reader
+     can tell at a glance which numbers were read off the chain a moment ago
+     and which are facts about the codebase. */
+  .statline.live { margin-top: 0.7rem; }
+  .statline.live b { color: var(--teal); }
   .statline b { color: var(--teal-deep); font-weight: 500; }
 
   .scroll-cue { margin-top: 2.4rem; font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--chrome-faint); }
@@ -423,6 +428,45 @@
   @media (prefers-reduced-motion: no-preference) {
     .cta, a { transition: background-color 130ms ease, border-color 130ms ease, color 130ms ease; }
   }
+
+/* Shared by /agents and the landing page; build.py injects it into both.
+   Lifted out of agents.html the moment the second page wanted it. */
+  /* ---- the agent graph -------------------------------------------------
+     Four agents are a graph now, not a list: two of them exist because
+     another one made them. A page that only stacks cards leaves the reader to
+     infer the edges, and the edges are the interesting part. */
+  .graph { margin: 2.4rem 0 0; padding: 0; overflow-x: auto; }
+  /* The min-width is the point of this. Scaled to a 390px phone the whole
+     diagram fits and its labels land at about five pixels, which is a picture
+     of a diagram rather than a diagram. Below the min-width it scrolls
+     sideways inside its own box and stays readable; the page itself never
+     scrolls horizontally. */
+  .graph svg { width: 100%; min-width: 580px; height: auto; display: block; overflow: visible; }
+  .graph figcaption { font-size: 0.82rem; color: var(--chrome-faint); margin-top: 1rem;
+                      line-height: 1.6; max-width: 60ch; }
+  .graph figcaption .lg-auth { color: var(--chrome-dim); }
+  /* The diagram scrolls inside its own box below 580px, and nothing on screen
+     says so — the sellers are simply off the right edge. */
+  .graph figcaption .hint { display: none; color: var(--teal); }
+  @media (max-width: 640px) { .graph figcaption .hint { display: inline; } }
+
+  .gnode rect { fill: var(--ground); stroke: var(--edge-bright); stroke-width: 1; }
+  .gnode .gn-name { fill: var(--chrome); font-family: var(--display); font-weight: 700;
+                    font-size: 15px; text-anchor: middle; }
+  .gnode .gn-sub { fill: var(--chrome-faint); font-family: var(--mono); font-size: 9.5px;
+                   letter-spacing: 0.09em; text-transform: uppercase; text-anchor: middle; }
+  /* A grant that no longer exists must not look like one that does. */
+  .gnode.dead rect { stroke: var(--edge); stroke-dasharray: 3 3; }
+  .gnode.dead .gn-name { fill: var(--chrome-dim); }
+
+  .gedge { fill: none; stroke: var(--teal); stroke-width: 1.4; }
+  .gedge.auth { stroke: var(--chrome-faint); stroke-width: 1; stroke-dasharray: 4 4; }
+  .gedge-l { fill: var(--teal); font-family: var(--mono); font-size: 10px; text-anchor: middle; }
+  /* text-anchor is set in CSS and CSS beats the presentation attribute, so the
+     start-anchor the code asked for on the lineage edges was silently
+     overridden and their labels sat centred ON the arrow they describe. */
+  .gedge-l.auth { fill: var(--chrome-faint); font-size: 9px; text-anchor: start; }
+
 </style>
 </head>
 <body>
@@ -466,6 +510,16 @@
       <span>testnet-10</span>
       <span><b>4</b> packages on npm</span>
     </div>
+    <!-- Read from the agents' own published JSON at load, so it cannot claim a
+         payment that did not happen or miss one that did. Hidden until the
+         data arrives: a hero that says "0 agents" while a file is fetching is
+         worse than a hero that says nothing yet. -->
+    <div class="statline live" id="liveline" data-rise style="--d:380ms" hidden>
+      <span><b id="live-agents">—</b> agents, <b id="live-holding">—</b> still holding a grant</span>
+      <span><b id="live-payments">—</b> payments settled</span>
+      <span><b id="live-spent">—</b> KAS spent, none of it outside the limits</span>
+      <span><b>0</b> human approvals</span>
+    </div>
     <p class="scroll-cue" data-rise style="--d:430ms">Scroll<span></span></p>
   </div>
 </section>
@@ -490,156 +544,47 @@
   </div>
 </section>
 
-<section class="rule" id="challenge" hidden>
-  <div class="wrap narrow">
-    <div data-rise>
-      <p class="eyebrow">The standing challenge</p>
-      <h2>The key is published. Take the money.</h2>
-      <p class="big" style="margin-top:1.4rem;max-width:54ch">
-        A funded grant on Kaspa testnet-10, with its agent's complete private key on a public
-        page. Not a hash of it. Anyone can sign with it. The most anyone has managed is to pay
-        the vendor.
-      </p>
-    </div>
-
-    <div class="chal" data-rise style="--d:120ms">
-      <p class="chal-lbl">Agent secret key &middot; live &middot; spend with it</p>
-      <p class="chal-key" id="ch-key"></p>
-      <div class="chal-figs">
-        <div><span class="n" id="ch-paid">&mdash;</span><span class="l">spent by this grant</span></div>
-        <div><span class="n" id="ch-n">&mdash;</span><span class="l" id="ch-n-l">of its budget</span></div>
-        <div><span class="n zero" id="ch-else">0 KAS</span><span class="l">reached anywhere else</span></div>
-      </div>
-      <p style="margin-top:1.3rem"><a class="cta arw" href="/attack">Take the key</a></p>
-    </div>
-  </div>
-</section>
-
-<section class="rule" id="build">
+<section class="rule" id="graph">
   <div class="wrap">
     <div data-rise>
-      <p class="eyebrow">Build your first agent</p>
-      <h2>A key, a budget, and limits the network keeps.</h2>
-      <p class="big" style="margin-top:1.2rem;max-width:54ch">
-        Three moves. The agent never holds anything but its own key, and the ceiling is in the
-        script rather than in your code.
+      <p class="eyebrow">Four agents, on chain</p>
+      <h2>They pay each other, and two of them exist because another one made them.</h2>
+      <p style="max-width:58ch;color:var(--chrome-dim)">
+        Agent&nbsp;#002 was revoked and replaced by #003, which delegated a bounded piece of its
+        own grant to #004, which spent some of it and settled the rest back. Every arrow below is
+        a transaction. None of the numbers is typed &mdash; the picture is drawn from the same
+        files the agents publish about themselves, so it cannot outlive what it describes.
       </p>
     </div>
+  <!-- Drawn from the same JSON the cards below are drawn from. A diagram is
+       the easiest thing on a site like this to let drift: it is made once, in
+       a drawing program, and then the agents change and the picture does not.
+       This one has no positions for an agent it cannot read. -->
+  <figure class="graph" id="g-graph" hidden>
+    <svg viewBox="0 0 760 440" role="img" aria-labelledby="g-graph-t">
+      <title id="g-graph-t">Four agents: who replaced whom, who delegated whom, and who paid whom</title>
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--teal)"></path>
+        </marker>
+        <marker id="ar-dim" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--chrome-faint)"></path>
+        </marker>
+      </defs>
+      <g id="g-edges"></g>
+      <g id="g-nodes"></g>
+    </svg>
+    <figcaption>
+      <span class="hint">Scroll the diagram sideways to reach the sellers. </span>
+      Solid arrows are payments that settled, with the amount this grant has spent on that payee.
+      Dotted arrows are authority: <span class="lg-auth">who replaced whom, and who delegated whom</span>.
+      A dimmed agent&rsquo;s grant no longer exists.
+    </figcaption>
+  </figure>
 
-    <div class="steps3" data-rise style="--d:100ms">
-      <div>
-        <p class="sn">01</p>
-        <h3>Install</h3>
-        <pre><code>npm install @warda_protocol/kaspa</code></pre>
-        <p>Builds and signs covenant transactions from JavaScript. No Rust toolchain and no
-        Silverscript compiler.</p>
-      </div>
-      <div>
-        <p class="sn">02</p>
-        <h3>Create a grant</h3>
-        <pre><code>genesis.ts --budget 1000000000 \
-  --max-per-spend 100000000 \
-  --recipients vendors.txt \
-  --agent $AGENT_PUBKEY --submit</code></pre>
-        <p>A lifetime total, a per-payment cap, a per-epoch rate, and a fixed allowlist —
-        compiled into the script that unlocks the coin.</p>
-      </div>
-      <div>
-        <p class="sn">03</p>
-        <h3>Let it spend</h3>
-        <pre><code>import { wardaFetch } from "@warda_protocol/x402";
-
-await wardaFetch("https://api.example/infer");</code></pre>
-        <p>A drop-in <code>fetch</code>. It settles the 402 out of the grant and will not pay
-        twice for one resource. A payee outside the allowlist has no proof to carry, so there is
-        no transaction to refuse.</p>
-      </div>
-    </div>
-
-    <p class="needs" data-rise style="--d:200ms">
-      <strong style="color:var(--chrome-dim);font-weight:500">You need a Kaspa testnet-10 node
-      you can reach.</strong> Warda builds and signs transactions locally, but it has to read
-      the UTXO set to do it. Run <code>kaspad</code> with <code>--utxoindex</code> and
-      <code>--rpclisten-json=</code>, or point <code>WARDA_RESOLVER</code> at a Kaspa Resolver
-      if you have one &mdash; no public resolver instance is published anywhere we can find, so
-      in practice this means a node. Full walkthrough in <a href="/build">the build guide</a>.
+    <p class="cta-row" style="margin-top:1.8rem">
+      <a class="cta ghost" href="/agents">See all four agents <span class="arw">&rarr;</span></a>
     </p>
-  </div>
-</section>
-
-<section class="rule">
-  <div class="wrap narrow">
-    <div data-rise>
-      <p class="eyebrow">Watch it decide</p>
-      <h2>Ask the covenant for money.</h2>
-      <p class="big" style="margin-top:1.4rem;max-width:52ch">Every number below is from the grant that made the payment on testnet-10. Pick a payee and watch the script run — the same checks a Kaspa node runs before it will relay anything.</p>
-    </div>
-
-    <div class="gate" data-rise style="--d:120ms">
-      <div class="gate-tabs" role="tablist" aria-label="Choose a payee">
-        <button role="tab" id="tab-ok" aria-selected="true" aria-controls="gate-out" data-case="ok">
-          <span class="who">The vendor</span>
-          <span class="addr">kaspatest:qrn33jmr…8ym5</span>
-        </button>
-        <button role="tab" id="tab-no" aria-selected="false" aria-controls="gate-out" data-case="no">
-          <span class="who">Anyone else</span>
-          <span class="addr">kaspatest:qrxvenxv…jr0d</span>
-        </button>
-      </div>
-
-      <div class="gate-body" id="gate-out" role="tabpanel" aria-live="polite">
-        <p class="gate-ask">Pay <b>0.2 KAS</b> to <b id="gate-to">the vendor</b></p>
-        <div id="gate-checks"></div>
-        <div class="verdict" id="gate-verdict"><span class="head"></span><span class="body"></span></div>
-
-        <div class="budget">
-          <div class="budget-top">
-            <span>Budget</span>
-            <span><b id="budget-num">0.0</b> of 3.0 KAS spent</span>
-          </div>
-          <div class="track"><i id="budget-bar"></i></div>
-        </div>
-
-        <button class="replay" id="gate-replay" type="button">Run it again</button>
-      </div>
-    </div>
-
-    <p style="margin-top:1.6rem;font-family:var(--mono);font-size:0.74rem;color:var(--chrome-faint);line-height:1.8;max-width:62ch">
-      The allowlist is not a filter in front of a wallet. Payees are committed as a Merkle root before the
-      grant is funded, and every spend carries an inclusion proof. For a payee outside it, there is no proof
-      to carry — so there is no valid transaction to build, refuse, or intercept.
-    </p>
-  </div>
-</section>
-
-
-<section class="rule" id="receipt">
-  <div class="wrap narrow">
-    <div data-rise>
-      <p class="eyebrow">Not a diagram</p>
-      <h2>It already happened.</h2>
-      <p class="big" style="margin-top:1.4rem;max-width:54ch">A real HTTP 402 endpoint, priced at 0.2 KAS. A real covenant spend on Kaspa testnet-10. The vendor checked the UTXO set before it served anything.</p>
-    </div>
-
-    <div class="receipt" data-rise style="--d:120ms">
-      <div class="receipt-head">
-        <span class="lit">testnet-10</span>
-        <span>covenant b3e5eeefacf2021f</span>
-        <span class="when">1 Sep 2026, 09:58 UTC</span>
-      </div>
-      <div class="receipt-body">
-        <div class="rline"><span class="k">refused first</span><span class="v">a payee the grant never committed to &mdash; <span class="note">nothing signed, nothing spent</span></span></div>
-        <div class="rline"><span class="k">then paid</span><span class="v hash">267e1bac1270fde34d9719d676b378745fb57007062cd1b6de52f2d2a4af433e</span></div>
-        <div class="rline"><span class="k">amount</span><span class="v">20,000,000 sompi <span class="note">(0.2 KAS) to the vendor's allowlisted address</span></span></div>
-        <div class="rline"><span class="k">grant was at</span><span class="v hash">kaspatest:pqckh2ay4rxxtpuv3g9snaclza47tz0f0uxmfwsaflr0uupmg4yx6eddrwck5</span></div>
-        <div class="rline"><span class="k">grant is now at</span><span class="v hash">kaspatest:pp985pts8r297cpl8u28e6hpztxj4mss9fpnvcjzla4p79rrl7glw5apwk4dg</span></div>
-        <div class="rline"><span class="k">spent total</span><span class="v">0 &rarr; 20,000,000 <span class="note">of a 300,000,000 budget</span></span></div>
-        <div class="rline"><span class="k">round trip</span><span class="v">1.1s <span class="note">including one settling retry, which re-presented the same proof rather than paying twice</span></span></div>
-      </div>
-      <div class="receipt-foot">
-        The grant's address changed because the address <em>is</em> the state. Every line above is re-derived from the UTXO set by <code>x402/demo/verify-receipt.ts</code> &mdash; the receipt was written by the process that made the payment, which is exactly the party you would not take it from.
-      </div>
-    </div>
   </div>
 </section>
 
@@ -679,6 +624,154 @@ await wardaFetch("https://api.example/infer");</code></pre>
         enforced by every node on the network survives that; a limit enforced by your process
         does not.</p>
       </article>
+    </div>
+  </div>
+</section>
+
+<section class="rule" id="receipt">
+  <div class="wrap narrow">
+    <div data-rise>
+      <p class="eyebrow">Not a diagram</p>
+      <h2>It already happened.</h2>
+      <p class="big" style="margin-top:1.4rem;max-width:54ch">A real HTTP 402 endpoint, priced at 0.2 KAS. A real covenant spend on Kaspa testnet-10. The vendor checked the UTXO set before it served anything.</p>
+    </div>
+
+    <div class="receipt" data-rise style="--d:120ms">
+      <div class="receipt-head">
+        <span class="lit">testnet-10</span>
+        <span>covenant b3e5eeefacf2021f</span>
+        <span class="when">1 Sep 2026, 09:58 UTC</span>
+      </div>
+      <div class="receipt-body">
+        <div class="rline"><span class="k">refused first</span><span class="v">a payee the grant never committed to &mdash; <span class="note">nothing signed, nothing spent</span></span></div>
+        <div class="rline"><span class="k">then paid</span><span class="v hash">267e1bac1270fde34d9719d676b378745fb57007062cd1b6de52f2d2a4af433e</span></div>
+        <div class="rline"><span class="k">amount</span><span class="v">20,000,000 sompi <span class="note">(0.2 KAS) to the vendor's allowlisted address</span></span></div>
+        <div class="rline"><span class="k">grant was at</span><span class="v hash">kaspatest:pqckh2ay4rxxtpuv3g9snaclza47tz0f0uxmfwsaflr0uupmg4yx6eddrwck5</span></div>
+        <div class="rline"><span class="k">grant is now at</span><span class="v hash">kaspatest:pp985pts8r297cpl8u28e6hpztxj4mss9fpnvcjzla4p79rrl7glw5apwk4dg</span></div>
+        <div class="rline"><span class="k">spent total</span><span class="v">0 &rarr; 20,000,000 <span class="note">of a 300,000,000 budget</span></span></div>
+        <div class="rline"><span class="k">round trip</span><span class="v">1.1s <span class="note">including one settling retry, which re-presented the same proof rather than paying twice</span></span></div>
+      </div>
+      <div class="receipt-foot">
+        The grant's address changed because the address <em>is</em> the state. Every line above is re-derived from the UTXO set by <code>x402/demo/verify-receipt.ts</code> &mdash; the receipt was written by the process that made the payment, which is exactly the party you would not take it from.
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="rule" id="challenge" hidden>
+  <div class="wrap narrow">
+    <div data-rise>
+      <p class="eyebrow">The standing challenge</p>
+      <h2>The key is published. Take the money.</h2>
+      <p class="big" style="margin-top:1.4rem;max-width:54ch">
+        A funded grant on Kaspa testnet-10, with its agent's complete private key on a public
+        page. Not a hash of it. Anyone can sign with it. The most anyone has managed is to pay
+        the vendor.
+      </p>
+    </div>
+
+    <div class="chal" data-rise style="--d:120ms">
+      <p class="chal-lbl">Agent secret key &middot; live &middot; spend with it</p>
+      <p class="chal-key" id="ch-key"></p>
+      <div class="chal-figs">
+        <div><span class="n" id="ch-paid">&mdash;</span><span class="l">spent by this grant</span></div>
+        <div><span class="n" id="ch-n">&mdash;</span><span class="l" id="ch-n-l">of its budget</span></div>
+        <div><span class="n zero" id="ch-else">0 KAS</span><span class="l">reached anywhere else</span></div>
+      </div>
+      <p style="margin-top:1.3rem"><a class="cta arw" href="/attack">Take the key</a></p>
+    </div>
+  </div>
+</section>
+
+<section class="rule" id="stack">
+  <div class="wrap">
+    <div data-rise>
+      <p class="eyebrow">What exists today</p>
+      <h2>Three layers. All of them shipped.</h2>
+      <p class="big" style="margin-top:1.2rem;max-width:56ch">
+        Each one is only worth something if the one below it holds, which is why they are
+        numbered. Everything named here is published and installable now.
+      </p>
+    </div>
+
+    <div class="layers" data-rise style="--d:100ms">
+      <div>
+        <p class="lv">01</p>
+        <div>
+          <h3>The covenant</h3>
+          <p class="what">A spending limit compiled into the script that unlocks the coin.
+          A spend outside it is not a refused request — it is not a transaction. Every node
+          applies it, including the ones nobody here runs.</p>
+        </div>
+        <p class="ships">
+          Kaspa L1, live on mainnet since the Toccata fork, 30 June 2026<br>
+          <code>@warda_protocol/core</code> — the rules, as one reference implementation<br>
+          measured against the running script engine: 0.4% of the size ceiling,
+          13 of 65,535 compute units
+        </p>
+      </div>
+      <div>
+        <p class="lv">02</p>
+        <div>
+          <h3>The grant lifecycle</h3>
+          <p class="what">Creating a grant, spending from it, delegating a bounded child,
+          settling it back, revoking, and finding one you have lost. No Rust toolchain and no
+          compiler — it is JavaScript that builds and signs the transactions.</p>
+        </div>
+        <p class="ships">
+          <code>@warda_protocol/kaspa</code> — build, sign, recover, watch<br>
+          one command from nothing to a bounded agent: it checks every
+          prerequisite first, then creates the grant and hands you the key<br>
+          <code>@warda_protocol/mcp</code> — nine tools any agent framework can discover.
+          It never holds a key and never signs: it returns unsigned bytes and a digest<br>
+          hosted at <code>mcp.wardaprotocol.com/mcp</code>, listed in the official MCP registry
+        </p>
+      </div>
+      <div>
+        <p class="lv">03</p>
+        <div>
+          <h3>Applications</h3>
+          <p class="what">What you actually build on top. Paying for things is the first one,
+          because an agent that cannot pay for an API is not autonomous — it is waiting for
+          somebody.</p>
+        </div>
+        <p class="ships">
+          <code>@warda_protocol/x402</code> — a drop-in <code>fetch</code> that settles HTTP 402
+          out of a grant and never pays twice for one resource<br>
+          exercised end to end against a real priced endpoint on testnet-10<br>
+          <code>showcase/autonomous-purchase.sh</code> — the whole protocol in six steps:
+          delegate, buy, be refused twice, reabsorb. Every transaction real.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="rule">
+  <div class="wrap">
+    <div data-rise>
+      <p class="eyebrow">Built to be checked</p>
+      <h2>The limits are published as loudly as the guarantees.</h2>
+    </div>
+    <div class="counts" data-rise style="--d:100ms" data-counts>
+      <div>
+        <p class="lab">Vulnerabilities found</p>
+        <p class="num" data-to="6">0</p>
+        <p>Not one was found by reading the code. Each came from handing an attack to the real script engine and reading its verdict.</p>
+      </div>
+      <div>
+        <p class="lab">Adversarial probes</p>
+        <p class="num" data-to="14">0</p>
+        <p>Every fixed vulnerability is pinned by a probe that fails if it comes back.</p>
+      </div>
+      <div>
+        <p class="lab">Tests, five packages</p>
+        <!-- Passing, not total: the sdk suite skips six that need a live node,
+             and a skipped test proves nothing. Recount with
+             `npm test` in each of ., sdk, x402, mcp and verify. -->
+        <p class="num" data-to="388">0</p>
+        <p>Including a fixture built from the live testnet payment — anchored on the chain, not on the encoder that wrote it.</p>
+      </div>
     </div>
   </div>
 </section>
@@ -744,6 +837,51 @@ await wardaFetch("https://api.example/infer");</code></pre>
         <p>Revocation is a separate key that halts a grant and returns the balance to you — and is structurally incapable of sending it anywhere else, or burning it.</p>
       </article>
     </div>
+  </div>
+</section>
+
+<section class="rule">
+  <div class="wrap narrow">
+    <div data-rise>
+      <p class="eyebrow">Watch it decide</p>
+      <h2>Ask the covenant for money.</h2>
+      <p class="big" style="margin-top:1.4rem;max-width:52ch">Every number below is from the grant that made the payment on testnet-10. Pick a payee and watch the script run — the same checks a Kaspa node runs before it will relay anything.</p>
+    </div>
+
+    <div class="gate" data-rise style="--d:120ms">
+      <div class="gate-tabs" role="tablist" aria-label="Choose a payee">
+        <button role="tab" id="tab-ok" aria-selected="true" aria-controls="gate-out" data-case="ok">
+          <span class="who">The vendor</span>
+          <span class="addr">kaspatest:qrn33jmr…8ym5</span>
+        </button>
+        <button role="tab" id="tab-no" aria-selected="false" aria-controls="gate-out" data-case="no">
+          <span class="who">Anyone else</span>
+          <span class="addr">kaspatest:qrxvenxv…jr0d</span>
+        </button>
+      </div>
+
+      <div class="gate-body" id="gate-out" role="tabpanel" aria-live="polite">
+        <p class="gate-ask">Pay <b>0.2 KAS</b> to <b id="gate-to">the vendor</b></p>
+        <div id="gate-checks"></div>
+        <div class="verdict" id="gate-verdict"><span class="head"></span><span class="body"></span></div>
+
+        <div class="budget">
+          <div class="budget-top">
+            <span>Budget</span>
+            <span><b id="budget-num">0.0</b> of 3.0 KAS spent</span>
+          </div>
+          <div class="track"><i id="budget-bar"></i></div>
+        </div>
+
+        <button class="replay" id="gate-replay" type="button">Run it again</button>
+      </div>
+    </div>
+
+    <p style="margin-top:1.6rem;font-family:var(--mono);font-size:0.74rem;color:var(--chrome-faint);line-height:1.8;max-width:62ch">
+      The allowlist is not a filter in front of a wallet. Payees are committed as a Merkle root before the
+      grant is funded, and every spend carries an inclusion proof. For a payee outside it, there is no proof
+      to carry — so there is no valid transaction to build, refuse, or intercept.
+    </p>
   </div>
 </section>
 
@@ -820,67 +958,55 @@ await wardaFetch("https://api.example/infer");</code></pre>
   </div>
 </section>
 
-<section class="rule" id="stack">
+<section class="rule" id="build">
   <div class="wrap">
     <div data-rise>
-      <p class="eyebrow">What exists today</p>
-      <h2>Three layers. All of them shipped.</h2>
-      <p class="big" style="margin-top:1.2rem;max-width:56ch">
-        Each one is only worth something if the one below it holds, which is why they are
-        numbered. Everything named here is published and installable now.
+      <p class="eyebrow">Build your first agent</p>
+      <h2>A key, a budget, and limits the network keeps.</h2>
+      <p class="big" style="margin-top:1.2rem;max-width:54ch">
+        Three moves. The agent never holds anything but its own key, and the ceiling is in the
+        script rather than in your code.
       </p>
     </div>
 
-    <div class="layers" data-rise style="--d:100ms">
+    <div class="steps3" data-rise style="--d:100ms">
       <div>
-        <p class="lv">01</p>
-        <div>
-          <h3>The covenant</h3>
-          <p class="what">A spending limit compiled into the script that unlocks the coin.
-          A spend outside it is not a refused request — it is not a transaction. Every node
-          applies it, including the ones nobody here runs.</p>
-        </div>
-        <p class="ships">
-          Kaspa L1, live on mainnet since the Toccata fork, 30 June 2026<br>
-          <code>@warda_protocol/core</code> — the rules, as one reference implementation<br>
-          measured against the running script engine: 0.4% of the size ceiling,
-          13 of 65,535 compute units
-        </p>
+        <p class="sn">01</p>
+        <h3>Install</h3>
+        <pre><code>npm install @warda_protocol/kaspa</code></pre>
+        <p>Builds and signs covenant transactions from JavaScript. No Rust toolchain and no
+        Silverscript compiler.</p>
       </div>
       <div>
-        <p class="lv">02</p>
-        <div>
-          <h3>The grant lifecycle</h3>
-          <p class="what">Creating a grant, spending from it, delegating a bounded child,
-          settling it back, revoking, and finding one you have lost. No Rust toolchain and no
-          compiler — it is JavaScript that builds and signs the transactions.</p>
-        </div>
-        <p class="ships">
-          <code>@warda_protocol/kaspa</code> — build, sign, recover, watch<br>
-          one command from nothing to a bounded agent: it checks every
-          prerequisite first, then creates the grant and hands you the key<br>
-          <code>@warda_protocol/mcp</code> — nine tools any agent framework can discover.
-          It never holds a key and never signs: it returns unsigned bytes and a digest<br>
-          hosted at <code>mcp.wardaprotocol.com/mcp</code>, listed in the official MCP registry
-        </p>
+        <p class="sn">02</p>
+        <h3>Create a grant</h3>
+        <pre><code>genesis.ts --budget 1000000000 \
+  --max-per-spend 100000000 \
+  --recipients vendors.txt \
+  --agent $AGENT_PUBKEY --submit</code></pre>
+        <p>A lifetime total, a per-payment cap, a per-epoch rate, and a fixed allowlist —
+        compiled into the script that unlocks the coin.</p>
       </div>
       <div>
-        <p class="lv">03</p>
-        <div>
-          <h3>Applications</h3>
-          <p class="what">What you actually build on top. Paying for things is the first one,
-          because an agent that cannot pay for an API is not autonomous — it is waiting for
-          somebody.</p>
-        </div>
-        <p class="ships">
-          <code>@warda_protocol/x402</code> — a drop-in <code>fetch</code> that settles HTTP 402
-          out of a grant and never pays twice for one resource<br>
-          exercised end to end against a real priced endpoint on testnet-10<br>
-          <code>showcase/autonomous-purchase.sh</code> — the whole protocol in six steps:
-          delegate, buy, be refused twice, reabsorb. Every transaction real.
-        </p>
+        <p class="sn">03</p>
+        <h3>Let it spend</h3>
+        <pre><code>import { wardaFetch } from "@warda_protocol/x402";
+
+await wardaFetch("https://api.example/infer");</code></pre>
+        <p>A drop-in <code>fetch</code>. It settles the 402 out of the grant and will not pay
+        twice for one resource. A payee outside the allowlist has no proof to carry, so there is
+        no transaction to refuse.</p>
       </div>
     </div>
+
+    <p class="needs" data-rise style="--d:200ms">
+      <strong style="color:var(--chrome-dim);font-weight:500">You need a Kaspa testnet-10 node
+      you can reach.</strong> Warda builds and signs transactions locally, but it has to read
+      the UTXO set to do it. Run <code>kaspad</code> with <code>--utxoindex</code> and
+      <code>--rpclisten-json=</code>, or point <code>WARDA_RESOLVER</code> at a Kaspa Resolver
+      if you have one &mdash; no public resolver instance is published anywhere we can find, so
+      in practice this means a node. Full walkthrough in <a href="/build">the build guide</a>.
+    </p>
   </div>
 </section>
 
@@ -1005,35 +1131,6 @@ await wardaFetch("https://api.example/infer");</code></pre>
         manage it without its authors adding covenant support. We can make that easy and we
         cannot make it happen &mdash; which is why it sits here rather than anywhere that
         implies a date.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section class="rule">
-  <div class="wrap">
-    <div data-rise>
-      <p class="eyebrow">Built to be checked</p>
-      <h2>The limits are published as loudly as the guarantees.</h2>
-    </div>
-    <div class="counts" data-rise style="--d:100ms" data-counts>
-      <div>
-        <p class="lab">Vulnerabilities found</p>
-        <p class="num" data-to="6">0</p>
-        <p>Not one was found by reading the code. Each came from handing an attack to the real script engine and reading its verdict.</p>
-      </div>
-      <div>
-        <p class="lab">Adversarial probes</p>
-        <p class="num" data-to="14">0</p>
-        <p>Every fixed vulnerability is pinned by a probe that fails if it comes back.</p>
-      </div>
-      <div>
-        <p class="lab">Tests, five packages</p>
-        <!-- Passing, not total: the sdk suite skips six that need a live node,
-             and a skipped test proves nothing. Recount with
-             `npm test` in each of ., sdk, x402, mcp and verify. -->
-        <p class="num" data-to="388">0</p>
-        <p>Including a fixture built from the live testnet payment — anchored on the chain, not on the encoder that wrote it.</p>
       </div>
     </div>
   </div>
@@ -1308,6 +1405,184 @@ await wardaFetch("https://api.example/infer");</code></pre>
       })
       .catch(function () { /* no demo, no section */ });
   })();
+</script>
+
+<script>
+/**
+ * The agent graph, and the live line under the landing page's hero.
+ *
+ * Injected into BOTH /agents and / by build.py, because it was written for one
+ * of them and immediately wanted on the other. A second copy of a diagram is a
+ * second diagram: the first colour, position or rule that changes in one and
+ * not the other makes them disagree about the same four agents, and nothing
+ * warns you.
+ *
+ * Every number and every arrow comes from the agents' published JSON — the same
+ * files their own pages render — so a diagram cannot outlive the thing it
+ * describes. It no-ops on a page that carries none of the elements it fills.
+ */
+(function () {
+  var AGENT_IDS = ["001", "002", "003", "004"];
+
+/* ---- the diagram -------------------------------------------------------
+   Positions are fixed; everything else — which nodes exist, which are dead,
+   which arrows to draw and what they are worth — comes from the data. An
+   agent whose JSON is missing simply is not drawn. */
+var POS = {
+  "001": { x: 545, y: 120, role: "sells its digest" },
+  "002": { x: 120, y:  70, role: "retired" },
+  "003": { x: 120, y: 215, role: "buys" },
+  "004": { x: 120, y: 360, role: "settled" },
+  vendor: { x: 545, y: 330, role: "sells /weather /fact" }
+};
+var W = 175, H = 62;
+
+function svgEl(name, attrs) {
+  var e = document.createElementNS("http://www.w3.org/2000/svg", name);
+  Object.keys(attrs || {}).forEach(function (k) { e.setAttribute(k, attrs[k]); });
+  return e;
+}
+
+function drawGraph(loaded) {
+  var nodes = document.getElementById("g-nodes");
+  var edges = document.getElementById("g-edges");
+  var drawn = {};
+
+  function box(key, label, sub, dead) {
+    var p = POS[key];
+    if (!p) return;
+    drawn[key] = p;
+    var g = svgEl("g", { class: "gnode" + (dead ? " dead" : "") });
+    g.appendChild(svgEl("rect", { x: p.x - W / 2, y: p.y - H / 2, width: W, height: H, rx: 2 }));
+    var t = svgEl("text", { x: p.x, y: p.y - 6, class: "gn-name" });
+    t.textContent = label;
+    g.appendChild(t);
+    var u = svgEl("text", { x: p.x, y: p.y + 14, class: "gn-sub" });
+    u.textContent = sub;
+    g.appendChild(u);
+    nodes.appendChild(g);
+  }
+
+  function edge(from, to, label, dotted) {
+    var a = drawn[from], b = drawn[to];
+    if (!a || !b) return;
+    var x1 = a.x + (b.x > a.x ? W / 2 : 0), y1 = a.y;
+    var x2 = b.x - (b.x > a.x ? W / 2 : 0), y2 = b.y;
+    var d;
+    if (b.x === a.x) {             // straight down: lineage
+      x1 = a.x; y1 = a.y + H / 2; x2 = b.x; y2 = b.y - H / 2;
+      d = "M" + x1 + "," + y1 + " L" + x2 + "," + y2;
+    } else {
+      var mx = (x1 + x2) / 2;
+      d = "M" + x1 + "," + y1 + " C" + mx + "," + y1 + " " + mx + "," + y2 + " " + x2 + "," + y2;
+    }
+    edges.appendChild(svgEl("path", {
+      d: d, class: "gedge" + (dotted ? " auth" : ""),
+      "marker-end": "url(#" + (dotted ? "ar-dim" : "ar") + ")"
+    }));
+    if (!label) return;
+    /* Near the SOURCE, not the midpoint. Every payment edge converges on one
+       of two sellers, so midpoint labels stacked on top of each other exactly
+       where the curves crowd together. Anchored to where an edge leaves, each
+       label sits beside the agent that paid it and reads as that agent's. */
+    var lx = b.x === a.x ? a.x + 8 : x1 + (x2 - x1) * 0.3;
+    var ly = b.x === a.x ? (y1 + y2) / 2 + 4 : y1 + (y2 - y1) * 0.1 - 9;
+    var t = svgEl("text", {
+      x: lx, y: ly, class: "gedge-l" + (dotted ? " auth" : ""),
+      "text-anchor": b.x === a.x ? "start" : "middle"
+    });
+    t.textContent = label;
+    edges.appendChild(t);
+  }
+
+  var any = false;
+  Object.keys(loaded).forEach(function (id) {
+    var d = loaded[id];
+    if (!d) return;
+    any = true;
+    box(id, "Agent #" + id, POS[id] ? POS[id].role : "", !!d.retired);
+  });
+  if (!any) return;
+  box("vendor", "Demo vendor", POS.vendor.role, false);
+
+  /* Payments, aggregated from the receipts. Only what was actually served:
+     an arrow for money that bought nothing would be a different claim. */
+  Object.keys(loaded).forEach(function (id) {
+    var d = loaded[id];
+    if (!d || !d.purchases) return;
+    var byPayee = {};
+    d.purchases.forEach(function (p) {
+      if (p.outcome !== "bought" || !p.payTo || !p.paid) return;
+      byPayee[p.payTo] = (byPayee[p.payTo] || 0) + parseFloat(p.paid);
+    });
+    var names = {};
+    (d.buysFrom && d.buysFrom.payees || []).forEach(function (p) {
+      names[p.address] = (p.label || "").indexOf("#001") >= 0 ? "001" : "vendor";
+    });
+    Object.keys(byPayee).forEach(function (addr) {
+      edge(id, names[addr] || "vendor", byPayee[addr].toFixed(2) + " KAS", false);
+    });
+  });
+
+  /* Authority. Each edge is drawn only when the data carries the fact. */
+  Object.keys(loaded).forEach(function (id) {
+    var d = loaded[id];
+    if (!d) return;
+    if (d.succession) edge((d.succession.replaced || "").replace("WARDA-", ""), id, "revoked, replaced by", true);
+    if (d.delegatedBy) edge((d.delegatedBy.parent || "").replace("WARDA-", ""), id, "delegated", true);
+  });
+
+  document.getElementById("g-graph").hidden = false;
+}
+  /**
+   * The line under the hero.
+   *
+   * Four figures, none of them typed. "0 human approvals" is the one worth
+   * having: every payment in the other three happened with nobody in the loop,
+   * and it is the difference between a spending limit and a review queue.
+   */
+  function liveLine(loaded) {
+    var agents = 0, holding = 0, payments = 0, spent = 0;
+    Object.keys(loaded).forEach(function (id) {
+      var d = loaded[id];
+      if (!d) return;
+      agents++;
+      /* Four agents exist; two of their grants do. #002 was revoked and #004
+         settled back into its parent, and calling either of them "running"
+         would be the page's own figures overstating it — which is the one
+         thing every other number here is arranged to prevent. */
+      if (!d.retired && d.authority && d.authority.onChain) holding++;
+      (d.purchases || []).forEach(function (p) {
+        if (p.outcome !== "bought") return;
+        payments++;
+        if (p.paid) spent += parseFloat(p.paid) || 0;
+      });
+    });
+    var set = function (id, v) { var e = document.getElementById(id); if (e) e.textContent = v; };
+    if (!agents) return;
+    set("live-agents", String(agents));
+    set("live-holding", String(holding));
+    set("live-payments", String(payments));
+    set("live-spent", spent.toFixed(2));
+    var row = document.getElementById("liveline");
+    if (row) row.hidden = false;
+  }
+
+  Promise.all(AGENT_IDS.map(function (id) {
+    return fetch("/agent-" + id + ".json", { cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .catch(function () { return null; });
+  })).then(function (all) {
+    var loaded = {};
+    AGENT_IDS.forEach(function (id, i) { if (all[i]) loaded[id] = all[i]; });
+    /* Either half failing must not take the other with it, and neither is
+       worth an error on a marketing page: a missing diagram beats a broken
+       one, and a missing figure beats a wrong one. */
+    try { drawGraph(loaded); } catch (e) {}
+    try { liveLine(loaded); } catch (e) {}
+  });
+})();
+
 </script>
 
 </body>

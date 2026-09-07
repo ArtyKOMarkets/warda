@@ -1,0 +1,37 @@
+/* Shared by /agents and the landing page; build.py injects it into both.
+   Lifted out of agents.html the moment the second page wanted it. */
+  /* ---- the agent graph -------------------------------------------------
+     Four agents are a graph now, not a list: two of them exist because
+     another one made them. A page that only stacks cards leaves the reader to
+     infer the edges, and the edges are the interesting part. */
+  .graph { margin: 2.4rem 0 0; padding: 0; overflow-x: auto; }
+  /* The min-width is the point of this. Scaled to a 390px phone the whole
+     diagram fits and its labels land at about five pixels, which is a picture
+     of a diagram rather than a diagram. Below the min-width it scrolls
+     sideways inside its own box and stays readable; the page itself never
+     scrolls horizontally. */
+  .graph svg { width: 100%; min-width: 580px; height: auto; display: block; overflow: visible; }
+  .graph figcaption { font-size: 0.82rem; color: var(--chrome-faint); margin-top: 1rem;
+                      line-height: 1.6; max-width: 60ch; }
+  .graph figcaption .lg-auth { color: var(--chrome-dim); }
+  /* The diagram scrolls inside its own box below 580px, and nothing on screen
+     says so — the sellers are simply off the right edge. */
+  .graph figcaption .hint { display: none; color: var(--teal); }
+  @media (max-width: 640px) { .graph figcaption .hint { display: inline; } }
+
+  .gnode rect { fill: var(--ground); stroke: var(--edge-bright); stroke-width: 1; }
+  .gnode .gn-name { fill: var(--chrome); font-family: var(--display); font-weight: 700;
+                    font-size: 15px; text-anchor: middle; }
+  .gnode .gn-sub { fill: var(--chrome-faint); font-family: var(--mono); font-size: 9.5px;
+                   letter-spacing: 0.09em; text-transform: uppercase; text-anchor: middle; }
+  /* A grant that no longer exists must not look like one that does. */
+  .gnode.dead rect { stroke: var(--edge); stroke-dasharray: 3 3; }
+  .gnode.dead .gn-name { fill: var(--chrome-dim); }
+
+  .gedge { fill: none; stroke: var(--teal); stroke-width: 1.4; }
+  .gedge.auth { stroke: var(--chrome-faint); stroke-width: 1; stroke-dasharray: 4 4; }
+  .gedge-l { fill: var(--teal); font-family: var(--mono); font-size: 10px; text-anchor: middle; }
+  /* text-anchor is set in CSS and CSS beats the presentation attribute, so the
+     start-anchor the code asked for on the lineage edges was silently
+     overridden and their labels sat centred ON the arrow they describe. */
+  .gedge-l.auth { fill: var(--chrome-faint); font-size: 9px; text-anchor: start; }
