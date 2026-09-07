@@ -45,11 +45,38 @@ correct client re-present the same proof instead of paying twice.
     WARDA_RPC_JSON         a testnet-10 node's JSON wRPC url
     WARDA_AGENT_001_URL    optional; where /digest reads #001's published state
                            (default https://wardaprotocol.com/agent-001.json)
+    WARDA_RESOLVER         optional but strongly recommended; a Kaspa Resolver
+                           to fall back to when the node above is unreachable
     WARDA_QUOTE_SECRET     optional; signs quotes so no server state is needed
 
 An endpoint whose payee variable is unset answers 503 on its own route rather
 than taking the whole server down, so a misconfigured second seller cannot cost
 the first one its traffic.
+
+## Which node answers, and why there are two
+
+`WARDA_RPC_JSON` has to name the node **as Vercel reaches it**, which means a
+public hostname — the opposite of everything in `ops/`, which runs beside the
+node and must use localhost.
+
+It was pointed at a Cloudflare *quick* tunnel, and those are handed a new random
+hostname every time they restart. It restarted. Every paid request after that
+returned a 500, including one that had already been paid for, and nothing
+anywhere said so. That is the second time in this repository a public service
+went dark because it reached a laptop through a hostname that does not survive a
+reboot; the first cost the hourly readings two days.
+
+So a public endpoint gets a hostname that is stable by construction — a *named*
+cloudflared tunnel (see `ops/cloudflared-config.yml`) or a Tailscale Funnel, not
+a quick tunnel — and, separately, this vendor no longer depends on that being
+true. When the configured node cannot be reached and `WARDA_RESOLVER` is set, it
+falls back to a resolver-found public node.
+
+That fallback is a real weakening and is reported rather than hidden: this
+vendor's entire security is "the money is visibly in the UTXO set", and a node it
+does not control is what answers that. A dishonest one could report a payment
+that does not exist. The risk is the vendor's and not the buyer's, the amounts
+are testnet, and `readFrom` in every response says which node was believed.
 
 ## Why quotes are signed rather than remembered
 

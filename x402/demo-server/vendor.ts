@@ -34,7 +34,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 
-import { NodeClient, toHex } from "@warda_protocol/kaspa";
+import { NodeClient, resolverFrom, toHex } from "@warda_protocol/kaspa";
 
 interface Priced {
   sompi: bigint;
@@ -139,6 +139,62 @@ const SECRET = process.env.WARDA_QUOTE_SECRET ?? "warda-demo-quote";
 const rpc = () => process.env.WARDA_RPC_JSON;
 
 /**
+ * A node, preferring the one this vendor was given.
+ *
+ * ## Why there is a fallback at all
+ *
+ * `WARDA_RPC_JSON` pointed at a Cloudflare *quick* tunnel, which is handed a
+ * new random hostname every time it restarts. It restarted. Every paid request
+ * after that failed, including one that had already been paid for, and nothing
+ * anywhere said so — the second time in this repository that a public service
+ * quietly went dark because it reached a laptop through a hostname that does
+ * not survive a reboot.
+ *
+ * A published endpoint that only works while one machine is up is not
+ * published. So a resolver-found public node is tried when the configured one
+ * cannot be reached.
+ *
+ * ## What that costs, said out loud
+ *
+ * This vendor's entire security is "the money is visibly in the UTXO set", and
+ * a node it does not control is the thing answering that question. A dishonest
+ * one could report a payment that does not exist and this would hand over the
+ * goods. That risk is the VENDOR's — a buyer loses nothing by it — the amounts
+ * are testnet, and the alternative on offer is an endpoint that is down. It is
+ * still a weaker claim than reading its own node, so which node answered is
+ * reported in the response rather than left for someone to discover.
+ *
+ * The configured node is always tried first, and `NodeClient.open` checks a
+ * resolved node is utxo-indexed, synced and on the right network before
+ * anything is believed — the three ways a node returns a plausible wrong
+ * answer instead of an error.
+ */
+async function nodeFor(): Promise<{ client: NodeClient; readFrom: string }> {
+  const url = rpc();
+  let firstFailure: string | null = null;
+  if (url) {
+    try {
+      return { client: await NodeClient.connect({ url }), readFrom: "this vendor's own node" };
+    } catch (e) {
+      firstFailure = (e as Error).message;
+    }
+  }
+  if (resolverFrom({})) {
+    const { client, health } = await NodeClient.open({ networkId: "testnet-10" });
+    return {
+      client,
+      readFrom:
+        `a public node found by a resolver (kaspad ${health.serverVersion}), because this ` +
+        `vendor's own node could not be reached. A node this vendor does not control is ` +
+        `answering whether you paid it.`,
+    };
+  }
+  throw new Error(
+    firstFailure ?? "no WARDA_RPC_JSON and no WARDA_RESOLVER: this vendor cannot read the chain",
+  );
+}
+
+/**
  * The quote, signed rather than remembered.
  *
  * The original held `issuedNonce` in a module variable. One caller at a time
@@ -207,11 +263,10 @@ export async function serve(
   if (!priced) return send(404, { error: `no such endpoint: ${path}` });
 
   const payTo = process.env[priced.payToEnv];
-  const RPC = rpc();
-  if (!payTo || !RPC) {
+  if (!payTo) {
     return send(503, {
       error: `the seller of ${path} is not configured`,
-      detail: `${priced.payToEnv} and WARDA_RPC_JSON must both be set`,
+      detail: `${priced.payToEnv} must be set to the address this endpoint is paid at`,
     });
   }
 
@@ -256,14 +311,16 @@ export async function serve(
    * most likely to actually happen in production was the one that did not.
    */
   let client: NodeClient;
+  let readFrom: string;
   try {
-    client = await NodeClient.connect({ url: RPC });
+    ({ client, readFrom } = await nodeFor());
   } catch (e) {
     return send(503, {
       error: `could not reach a node: ${(e as Error).message}`,
       detail:
         "the payment may well be on chain; this vendor cannot see it. Re-present the same " +
-        "X-PAYMENT header rather than paying again.",
+        "X-PAYMENT header rather than paying again — this vendor has NOT been paid twice " +
+        "and a second payment would not help.",
     });
   }
 
@@ -276,7 +333,7 @@ export async function serve(
       /* Not visible yet. Answering 402 here is what makes a well-built client
          re-present the SAME proof rather than pay a second time, and it is the
          case the adapter exists to handle. */
-      return send(402, { error: "payment not yet visible on chain", retry: true });
+      return send(402, { error: "payment not yet visible on chain", retry: true, readFrom });
     }
 
     /* The body is produced only AFTER the money is on chain, and it may fail:
@@ -302,6 +359,9 @@ export async function serve(
       paidTo: payTo,
       settledBy: proof.txid,
       verified: "a UTXO at this endpoint's payee address, from that transaction, for exactly the quoted amount",
+      /* WHICH node said so. The sentence above is only as good as the node
+         behind it, and this vendor does not always get to use its own. */
+      readFrom,
     });
   } catch (e) {
     return send(503, { error: `could not reach a node: ${(e as Error).message}` });
