@@ -20,7 +20,29 @@ which four were broadcast and accepted on chain.
 | 5 | `38006e77…` | yes, accepted, no `payerAddress` | 402 `invalid_transaction_state` |
 | 6 | `7821fc2a…` | yes, accepted, `payerAddress` = SUCCESSOR | 402 `invalid_transaction_state` |
 
-## A lossy encoding, which is not the cause
+## It is not the covenant either
+
+Attempt 8 paid from an ORDINARY WALLET. One P2PK input the funder's key
+unlocks, the payee at output 0, change back to the payer at output 1 — the
+shape a wallet produces and the one `exact` was presumably written against. No
+covenant anywhere in it.
+
+`29726ba017ba1880709c6ea6214edfb19d662f8ef745b1c91c04cad1a8cd7e74` was accepted
+on chain, paying the quoted address the quoted 20000000 sompi.
+`402 {"error":"invalid_transaction_state"}`.
+
+That is the control that should have been run first, and it removes Warda from
+the question entirely. Seven covenant attempts were spent distinguishing
+between hypotheses that a single wallet payment separates: the vendor does not
+reject covenant-shaped payments, because it rejects wallet-shaped ones too.
+
+What remains is that this client cannot get a payment accepted by this server,
+for a reason neither the covenant nor the encoding explains, and which cannot
+be narrowed further from outside: their validator checks only the quote, their
+client's funding adapter is not published, and no known-good payload exists to
+diff against.
+
+## A lossy encoding, which is not the cause either
 
 A version-1 transaction id commits to each output's covenant binding.
 `kaspa-sdk-safe-json-v2.0.0` — the encoding the scheme pins — has no field for
