@@ -78,6 +78,13 @@
   .ref .try { font-family: var(--mono); font-size: 0.72rem; color: var(--refuse);
               text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 0.55rem; }
   .ref .said { font-size: 0.95rem; color: var(--chrome); line-height: 1.62; margin: 0; }
+  /* A Kaspa address is 60-odd characters with nothing to break on, so a refusal
+     that quotes one is a single unbreakable word. On a phone it pushed its card,
+     the section and the whole document wider than the viewport — 583px of page
+     in a 390px screen — and every figure on the page slid sideways with it.
+     `anywhere` breaks only when the line cannot otherwise fit, so prose reads
+     normally and only the address is broken. */
+  .ref .said, .ref .try { overflow-wrap: anywhere; }
   .ref .rule { font-family: var(--mono); font-size: 0.66rem; color: var(--chrome-faint);
                margin-top: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; }
   .ref.quoted { border-color: var(--edge-bright); background: var(--ground); }
@@ -115,6 +122,13 @@
 
   .two { display: grid; gap: 1.1rem; margin-top: 1.8rem; }
   @media (min-width: 46rem) { .two { grid-template-columns: 1fr 1fr; } }
+
+  /* Long unbreakable tokens — addresses, hashes, transaction ids — appear in
+     ordinary prose all over this page. None of them may widen the document;
+     the <pre> blocks keep their own horizontal scroll, which is the right
+     behaviour for a command you want to copy intact. */
+  #a-body { overflow-x: clip; }
+  #a-body p, #a-body li, #a-body td, #a-body .v { overflow-wrap: anywhere; }
   .col { border: 1px solid var(--edge-bright); background: var(--ground); padding: 1.1rem 1.2rem; }
   .col h3 { font-family: var(--mono); font-size: 0.7rem; text-transform: uppercase;
             letter-spacing: 0.14em; margin-bottom: 0.9rem; }
