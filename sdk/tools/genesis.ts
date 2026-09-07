@@ -27,7 +27,13 @@
  *   --max-per-spend <n>     per-transaction cap           (default 100000000)
  *   --epoch-limit <n>       per-epoch cap                 (default 250000000)
  *   --epoch-length <daa>    epoch size                    (default 1000)
- *   --window <daa>          term from now  (default 25920000, ~30d at 10bps)
+ *   --window <daa>          term from notBefore (default 25920000, ~30d at 10bps)
+ *   --starts-in <daa>       delay before it may spend at all (default 0).
+ *                           Consensus-enforced: the covenant checks
+ *                           claimedDaa >= notBefore on every spend. Publishes
+ *                           authority that cannot be used yet — a policy change
+ *                           nobody can bring forward, including whoever issued
+ *                           it.
  *   --depth <n>             how deep delegation may go    (default 2)
  *   --agent <hex>           the spending key    (default: derived from WARDA_SK)
  *   --recipients <list>     who the agent may pay: kaspa addresses or x-only
@@ -208,7 +214,28 @@ try {
     process.exit(1);
   }
 
-  notBefore = dag.virtualDaaScore;
+  /**
+   * When this grant may first spend, as a DAA score.
+   *
+   * Almost always now, which is why it was `now` unconditionally until a
+   * question forced the distinction. A grant's terms cannot be changed once it
+   * exists — not by the agent, not the operator, not the principal, not
+   * everyone colluding — so the only way to give an agent different authority
+   * is to issue a DIFFERENT grant. `--starts-in` puts a delay on that one.
+   *
+   * The result is a timelock with no timelock mechanism in it. The covenant
+   * already checks `claimedDaa >= notBefore` on every spend, so the delay is
+   * enforced by consensus rather than by a contract that could be upgraded to
+   * skip it. And because a grant's address derives from its terms, the pending
+   * authority is publishable the moment it is created: anyone can read what it
+   * will permit, and verify that it cannot yet permit anything.
+   *
+   * Meanwhile the grant it replaces keeps running under its own terms and can
+   * be revoked in the next block. Nothing about it changes because a successor
+   * exists.
+   */
+  const startsIn = BigInt(flag("starts-in", "0")!);
+  notBefore = dag.virtualDaaScore + startsIn;
   state = {
     agentKey,
     budgetTotal: budget,
@@ -295,6 +322,14 @@ try {
   console.error(`  principal   : ${principalKey}${principalKey === key ? " (the funder)" : ""}`);
   console.error(`  revocation  : ${revocationKey}${revocationKey === principalKey ? " (= principal)" : " (separate)"}`);
   console.error(`  budget      : ${budget} sompi, cap ${state.maxPerSpend}, epoch ${state.epochLimit}`);
+  if (startsIn > 0n) {
+    console.error(
+      `  TIMELOCKED  : cannot spend until DAA ${state.notBefore}, ${startsIn} ahead of now ` +
+        `(~${Number(startsIn) / 864_000} days at 10 bps).\n` +
+        `                Until then consensus refuses every spend it attempts — not this tool,` +
+        `\n                and not anything anyone here could choose to skip.`,
+    );
+  }
   console.error(
     `  window      : ${state.notBefore} to ${state.expiresAt} ` +
       `(~${(state.expiresAt - state.notBefore) / 864_000n} days at 10 blocks/second)`,
