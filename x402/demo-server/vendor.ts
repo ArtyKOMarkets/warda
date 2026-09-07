@@ -34,7 +34,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 
-import { NodeClient, resolverFrom, toHex } from "@warda_protocol/kaspa";
+import { NodeClient, resolveNode, resolverFrom, toHex } from "@warda_protocol/kaspa";
 
 interface Priced {
   sompi: bigint;
@@ -180,7 +180,20 @@ async function nodeFor(): Promise<{ client: NodeClient; readFrom: string }> {
     }
   }
   if (resolverFrom({})) {
-    const { client, health } = await NodeClient.open({ networkId: "testnet-10" });
+    /**
+     * `resolveNode` then `open`, not `open` alone.
+     *
+     * `NodeClient.open` consults a resolver only when NO node is named, and it
+     * counts `WARDA_RPC_JSON` as naming one — correctly, for its own purposes.
+     * Here that variable holds the very url that just failed, so calling
+     * `open()` at this point re-dialled the dead host and threw the same error
+     * a second time. The fallback existed, was deployed, and did nothing.
+     *
+     * Resolving first and passing the url explicitly is what actually gets
+     * past a configured-but-unreachable node.
+     */
+    const found = await resolveNode({ networkId: "testnet-10" });
+    const { client, health } = await NodeClient.open({ url: found.url, networkId: "testnet-10" });
     return {
       client,
       readFrom:
@@ -190,7 +203,9 @@ async function nodeFor(): Promise<{ client: NodeClient; readFrom: string }> {
     };
   }
   throw new Error(
-    firstFailure ?? "no WARDA_RPC_JSON and no WARDA_RESOLVER: this vendor cannot read the chain",
+    firstFailure
+      ? `${firstFailure}\n\nNo WARDA_RESOLVER is set, so there was nothing to fall back to.`
+      : "no WARDA_RPC_JSON and no WARDA_RESOLVER: this vendor cannot read the chain",
   );
 }
 
