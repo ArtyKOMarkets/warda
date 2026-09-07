@@ -360,7 +360,7 @@ npm install @warda_protocol/x402</pre>
       <div class="a">
         <h3>In your process</h3>
         <p>The usual pattern: fund a hot wallet with "only what the agent should spend", and keep a running total in the code that pays.</p>
-        <p>A real agent-payments library shipping today caps spending with an environment variable, and its own docs say the server <em>"refuses further calls until restarted."</em></p>
+        <p>The x402 documentation describes the standard control: the client <em>"applies a $1 USD spend cap unless you override spendControls"</em> — a default in the process that pays.</p>
         <p>So the cap resets when the process does. It is bypassed by a crash, a redeploy, a second instance, or anyone who reads the key out of <code>env</code>. The wallet balance is the only true limit.</p>
       </div>
       <div class="b">

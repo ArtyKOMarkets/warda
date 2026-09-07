@@ -24,6 +24,11 @@
     --teal-deep:   #06BBA1;
     --teal-ghost:  rgba(20, 215, 193, 0.10);
     --refuse:      #FF6B5A;
+    /* Roadmap status only. Deliberately NOT --refuse: on this site red
+       already means the covenant will not allow a thing, and reusing it
+       for "we are working on it" would make the strongest signal here
+       ambiguous. */
+    --amber:       #E8B23A;
 
     --display: "Chakra Petch", "Arial Narrow", sans-serif;
     --body: "Barlow", "Helvetica Neue", Arial, sans-serif;
@@ -294,15 +299,42 @@
 
   /* The roadmap carries no dates, deliberately. A date is a promise; a
      direction is a statement of intent, and only one of those can be broken. */
-  .road { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px;
-          background: var(--edge); border: 1px solid var(--edge); margin-top: 1.6rem; }
-  .road > div { background: var(--ground); padding: 1.4rem 1.4rem; }
+  .road { border: 1px solid var(--edge); margin-top: 1.6rem; --state: var(--chrome-faint); }
+  .road > div { background: var(--ground); padding: 1.25rem 1.4rem 1.25rem 2.7rem;
+                position: relative; border-bottom: 1px solid var(--edge); }
+  .road > div:last-child { border-bottom: 0; }
+  /* The rail and its dot. The dot is decoration: every row also says its state
+     in words, because a reader who cannot separate teal from amber must still
+     be able to read this list. */
+  .road > div::before { content: ""; position: absolute; left: 1.2rem; top: 0; bottom: 0;
+                        width: 1px; background: var(--edge); }
+  .road > div:first-child::before { top: 1.5rem; }
+  .road > div:last-child::before { bottom: auto; height: 1.5rem; }
+  .road > div::after { content: ""; position: absolute; left: 0.9rem; top: 1.32rem;
+                       width: 9px; height: 9px; border-radius: 50%;
+                       background: var(--state); box-shadow: 0 0 0 4px var(--ground); }
+  /* Shipped gets a tick rather than a dot. The list is partly an argument about
+     how much of this exists, and a tick says that at a glance where a coloured
+     dot only says it to someone who has read the key. The background masks the
+     rail passing behind it. */
+  .road .shipped::after { content: "\2713"; width: auto; height: auto; border-radius: 0;
+                          background: var(--ground); color: var(--teal); box-shadow: none;
+                          font-size: 0.82rem; line-height: 1; font-weight: 700;
+                          left: 0.68rem; top: 1.16rem; padding: 3px 4px; }
+  /* Planned is hollow: nothing has been put into it yet. */
+  .road .planned::after { background: transparent; border: 1.5px solid var(--chrome-faint);
+                          width: 7px; height: 7px; }
+  .road .shipped { --state: var(--teal); }
+  .road .next    { --state: var(--amber); }
+  .road .planned { --state: var(--chrome-faint); }
   .road h3 { font-size: 0.98rem; margin: 0 0 0.4rem; }
   .road p { color: var(--chrome-dim); font-size: 0.88rem; margin: 0; }
   .road .tag { font-family: var(--mono); font-size: 0.64rem; letter-spacing: 0.13em;
-               text-transform: uppercase; color: var(--chrome-faint); display: block;
-               margin-bottom: 0.5rem; }
-  @media (max-width: 700px) { .road { grid-template-columns: 1fr; } }
+               text-transform: uppercase; color: var(--state); display: block;
+               margin-bottom: 0.45rem; }
+  .road .tag em { font-style: normal; color: var(--chrome-faint); }
+  .road a { color: var(--chrome); border-bottom: 1px solid var(--edge-bright); }
+  @media (max-width: 700px) { .road > div { padding-left: 2.4rem; } }
 
   .receipt { border: 1px solid var(--edge-bright); background: var(--ground); margin-top: 2.4rem; text-align: left; }
   .receipt-head {
@@ -443,16 +475,16 @@
     <div data-rise>
       <p class="eyebrow">The problem</p>
       <h2>Every agent that spends money today is trusted not to.</h2>
-      <p class="big" style="margin-top:1.6rem">The standard pattern is a hot wallet holding "only what the agent should spend", and a counter in the code that pays. Both halves fail the same way: <strong>the limit lives in the process</strong>.</p>
+      <p class="big" style="margin-top:1.6rem">The standard pattern is a hot wallet holding "only what the agent should spend", and a counter in the code that pays. Both halves fail the same way: <strong>the limit lives in the process</strong>. Read the sentence beside this one again: the ceiling is a default, and the code that pays is the code that can raise it.</p>
     </div>
     <div data-rise style="--d:140ms">
       <blockquote class="quote">
-        <q>Once the server has spent that much it refuses further calls until restarted.</q>
-        <cite>A production agent-payments library, describing its own spending cap</cite>
+        <q>By default the underlying x402Client only allows recognized default assets and applies a $1 USD spend cap unless you override spendControls.</q>
+        <cite><a href="https://docs.x402.org/guides/mcp-server-with-x402" rel="noopener" target="_blank">The x402 documentation</a>, on its default spending control</cite>
       </blockquote>
       <blockquote class="quote answer">
         <q>A Warda grant's limits are part of the script that unlocks the coin. A spend exceeding them is not refused by a server — it is an invalid transaction. No node relays it. No miner can include it.</q>
-        <cite>Restarting changes nothing · neither does stealing the key</cite>
+        <cite>Nothing to override · nothing to steal past</cite>
       </blockquote>
     </div>
   </div>
@@ -855,36 +887,94 @@ await wardaFetch("https://api.example/infer");</code></pre>
 <section class="rule">
   <div class="wrap">
     <div data-rise>
-      <p class="eyebrow">Still building</p>
-      <h2>What comes next, without dates.</h2>
-      <p class="big" style="margin-top:1.2rem;max-width:56ch">
+      <p class="eyebrow">Where this is</p>
+      <h2>The whole road, without dates.</h2>
+      <p class="big" style="margin-top:1.2rem;max-width:58ch">
         A date is a promise and a direction is an intention, and only one of those can be
-        broken quietly. None of the below exists yet. Everything above does &mdash; and when
-        something here ships, it leaves this list rather than staying on it with a tick.
+        broken quietly. So there are none here &mdash; only the state each thing is actually
+        in. <b>Shipped</b> means you can open it and check it, and every one of them links to
+        the thing itself. <b>Next</b> is being worked on now. <b>Planned</b> has not been
+        started.
       </p>
     </div>
     <div class="road" data-rise style="--d:100ms">
-      <div>
-        <span class="tag">Before real money</span>
+      <div class="shipped">
+        <span class="tag">Shipped <em>&middot; the covenant</em></span>
+        <h3>A spending limit enforced by Kaspa itself</h3>
+        <p>Live on mainnet since the Toccata fork, 30 June 2026. A spend outside a grant's
+        limits is not a refused request &mdash; it is not a transaction. Measured against the
+        running script engine at 0.4% of the size ceiling and 13 of 65,535 compute units.</p>
+      </div>
+      <div class="shipped">
+        <span class="tag">Shipped <em>&middot; the libraries</em></span>
+        <h3>Four packages on npm</h3>
+        <p>The rules, the transaction builder, an HTTP&nbsp;402 client, and an MCP server that
+        never holds a key. Installable now &mdash;
+        <a href="https://github.com/ArtyKOMarkets/warda" rel="noopener">source</a>.</p>
+      </div>
+      <div class="shipped">
+        <span class="tag">Shipped <em>&middot; the lifecycle</em></span>
+        <h3>Delegate, settle, revoke, recover</h3>
+        <p>A grant can subdivide itself into a bounded child and take the reserve back. A grant
+        whose record has gone stale can be found again from the chain. Every covenant feature
+        has been exercised end to end on testnet-10 &mdash; <a href="/build">how it works</a>.</p>
+      </div>
+      <div class="shipped">
+        <span class="tag">Shipped <em>&middot; a real purchase</em></span>
+        <h3>An agent bought something, bounded</h3>
+        <p>A priced endpoint on testnet-10, paid out of a grant, with the limits enforced by
+        consensus rather than by the process holding the key.</p>
+      </div>
+      <div class="shipped">
+        <span class="tag">Shipped <em>&middot; an agent in the open</em></span>
+        <h3>Agent&nbsp;#001, running unattended</h3>
+        <p>It reads the network every hour and publishes a daily digest, and it cannot change
+        its own rules. Every figure it prints is the difference between two counters the network
+        keeps for its own reasons &mdash; <a href="/agent-001">watch it</a>.</p>
+      </div>
+      <div class="shipped">
+        <span class="tag">Shipped <em>&middot; the standing challenge</em></span>
+        <h3>A funded grant with its key published</h3>
+        <p>The agent's complete private key is on a public page. Everything that grant has spent
+        went to the one address it was allowed to pay, and the counter would say so if that ever
+        stopped being true &mdash; <a href="/attack">take the key</a>.</p>
+      </div>
+      <div class="next">
+        <span class="tag">Next <em>&middot; visibility</em></span>
+        <h3>A hosted verification endpoint</h3>
+        <p>Anyone should be able to check a grant's terms without trusting whoever showed them
+        to you. The service is written and tested and you can run it yourself today; what is
+        missing is somewhere it runs that is not a laptop. Until then this is honest but not
+        useful to a stranger.</p>
+      </div>
+      <div class="next">
+        <span class="tag">Next <em>&middot; delegation in public</em></span>
+        <h3>Agent&nbsp;#001 hiring a sub-agent</h3>
+        <p>The covenant already supports it and the SDK already builds it. What has not happened
+        is doing it in the open, with a second agent holding authority its parent can bound and
+        take back.</p>
+      </div>
+      <div class="next">
+        <span class="tag">Next <em>&middot; interoperability</em></span>
+        <h3>A payment someone else's server accepts</h3>
+        <p>Five payments to a vendor we do not control settled on chain and were all refused
+        service, for a reason inside a verifier that is not published. Until a stranger's
+        endpoint takes a Warda payment, every demo here is us paying ourselves.</p>
+      </div>
+      <div class="planned">
+        <span class="tag">Planned <em>&middot; before real money</em></span>
         <h3>Audit, then mainnet</h3>
-        <p>Covenants are live on mainnet; Warda is not. It has been exercised end to end on
-        testnet-10 only and is unaudited. That order does not change.</p>
+        <p>Covenants are live on mainnet; Warda is not. It has been exercised on testnet-10 only
+        and is unaudited. That order does not change.</p>
       </div>
-      <div>
-        <span class="tag">Visibility</span>
-        <h3>A verification API</h3>
-        <p>An endpoint anyone can call to check a grant's terms without trusting whoever showed
-        them to you. The spend dashboard half of this has shipped — it is
-        <a href="/agent-001">agent&nbsp;#001</a> — so it has left this list.</p>
-      </div>
-      <div>
-        <span class="tag">Infrastructure</span>
+      <div class="planned">
+        <span class="tag">Planned <em>&middot; infrastructure</em></span>
         <h3>Hosted grant following</h3>
         <p>A grant's address moves on every spend. Following one currently means running a node
         and a poller; this would run that so an integrator does not have to.</p>
       </div>
-      <div>
-        <span class="tag">Reach</span>
+      <div class="planned">
+        <span class="tag">Planned <em>&middot; reach</em></span>
         <h3>Frameworks and wallets</h3>
         <p>Beyond MCP: agent SDKs that can hold a grant directly, and wallet support so a grant
         is something an ordinary wallet can display and manage.</p>
@@ -911,8 +1001,8 @@ await wardaFetch("https://api.example/infer");</code></pre>
         <p>Every fixed vulnerability is pinned by a probe that fails if it comes back.</p>
       </div>
       <div>
-        <p class="lab">Tests, four packages</p>
-        <p class="num" data-to="265">0</p>
+        <p class="lab">Tests, five packages</p>
+        <p class="num" data-to="380">0</p>
         <p>Including a fixture built from the live testnet payment — anchored on the chain, not on the encoder that wrote it.</p>
       </div>
     </div>
