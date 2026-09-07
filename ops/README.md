@@ -6,6 +6,19 @@ it. That is why the demo page went stale, why the CLI quickstart could not be
 followed by anyone else, and why the interop tests still have not touched a
 chain.
 
+It then did it again, after this file was written, and this time it cost money:
+a laptop restart took the tunnel down, the hosted demo vendor kept the dead
+hostname in its environment, and every paid request to it returned 500 for days
+with nothing anywhere saying so. Agent #002's first purchase settled 0.04 KAS on
+chain and got an HTML error page back. The node was up the whole time — the
+hourly readings never missed, because they go to localhost.
+
+Two lessons, and they are separate. A public hostname has to be stable by
+construction, which is what the rest of this file is for. And a hosted service
+that depends on one has to say when it cannot reach it: the demo vendor now
+falls back to a resolver-found node and reports which node answered, rather than
+dying in a way only a stranger's failed purchase reveals.
+
 A *named* tunnel fixes the hostname. It does not fix the laptop: both services
 below are LaunchAgents, so they run while you are logged in and stop when the
 machine sleeps. That is the honest limit of hosting this here rather than on a
