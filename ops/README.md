@@ -70,7 +70,7 @@ in place of `https://`, that is the node's address.
 
     cd ~/Desktop/warda/sdk
     node --experimental-strip-types tools/check-node.ts --rpc wss://YOUR-NAME.tailXXXX.ts.net \
-      --grant kaspatest:pr48zd34ys4dxzsmn0r98jmaj2ehk3h8pzy47qzq78xqu4dp478y7h8nesqdw
+      --grant "$(curl -s https://wardaprotocol.com/agent-001.json | python3 -c 'import sys,json;print(json.load(sys.stdin)["identity"]["grantAddress"])')"
 
 This does not just connect — it asks whether the node is worth believing:
 synced, utxo-indexed, on the network it claims.
@@ -78,8 +78,15 @@ synced, utxo-indexed, on the network it claims.
 Pass `--grant`. Without it the covenant check is skipped, and it is the only one
 of the four whose failure produces a signed transaction rather than an error: a
 node that drops covenant ids hands back an unbound spend that looks perfectly
-well-formed and is refused by everything that knows better. Any grant address
-that exists will do; the one above is agent #002's.
+well-formed and is refused by everything that knows better.
+
+It has to be an address that holds coin **now**, which is why it is fetched
+rather than written down here. A grant's address is a hash of its state, so it
+moves on every spend, and a hardcoded one is correct until the grant it names
+next pays for something. Pasting a stale address does not fail loudly: the check
+reports UNKNOWN, "nothing is at that address", and the node goes unverified on
+the one property that matters. Agent #001's page republishes its current address
+hourly, which is what the command above reads.
 
 Funnel is documented as an HTTPS proxy and Tailscale does not state anywhere
 whether it carries a WebSocket upgrade. **It does** — checked on 2026-09-07
