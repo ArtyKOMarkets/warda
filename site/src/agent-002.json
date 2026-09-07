@@ -1,6 +1,6 @@
 {
   "_comment": "Written by agents/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, the purchase log or the chain — none is typed. Each payee's LABEL is re-derived on every run from the artefact agents/known-payees.json names, and a label that stops matching is dropped rather than published: an address with no name is honest, an address with the wrong name is not.",
-  "checkedAt": "2026-09-07T17:09:12.142Z",
+  "checkedAt": "2026-09-07T17:11:43.178Z",
   "network": "testnet-10",
   "identity": {
     "agentId": "WARDA-002",
@@ -35,7 +35,7 @@
   },
   "timelock": {
     "notBefore": "564258425",
-    "virtualDaaScore": "564422682",
+    "virtualDaaScore": "564424216",
     "open": true,
     "lockedFor": "5 minutes",
     "openedAgo": "5 hours",
@@ -126,16 +126,16 @@
     "spentPerTheCovenant": "0.08 KAS",
     "namedByTheLog": "0.04 KAS",
     "unrecorded": "0.04 KAS",
-    "atThePayeesWithNoReceipt": [
-      {
-        "amount": "0.04 KAS",
-        "txid": "84a5e45803ae1985c91bd837fdf2ac27c53ba2f9e1005dd264493051f7af19bd",
-        "daaScore": "564422587"
-      },
+    "couldAccountForIt": [
       {
         "amount": "0.04 KAS",
         "txid": "f241cd7b62bc23b9170afb98cd8efb50c6fa43fb7a591d1f90a8cf4a384f4fcd",
         "daaScore": "564406272"
+      },
+      {
+        "amount": "0.04 KAS",
+        "txid": "84a5e45803ae1985c91bd837fdf2ac27c53ba2f9e1005dd264493051f7af19bd",
+        "daaScore": "564422587"
       },
       {
         "amount": "0.04 KAS",

@@ -1,6 +1,6 @@
 {
   "_comment": "Written by agents/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, the purchase log or the chain — none is typed. Each payee's LABEL is re-derived on every run from the artefact agents/known-payees.json names, and a label that stops matching is dropped rather than published: an address with no name is honest, an address with the wrong name is not.",
-  "checkedAt": "2026-09-07T17:09:12.345Z",
+  "checkedAt": "2026-09-07T17:11:43.369Z",
   "network": "testnet-10",
   "identity": {
     "agentId": "WARDA-004",
@@ -25,6 +25,14 @@
     "bothEndsAreOurs": true,
     "disclosure": "Every agent on this site was built here, and the vendors they buy from are ours too. What is demonstrated is therefore not a market — it is a payment: separate grants, separate keys, a fixed list of addresses each may pay, and settlements anyone can look up. Agent #001's digest is published free at wardaprotocol.com/agent-001.json, because pretending it was scarce would have traded the checkable claim for a flattering one."
   },
+  "retired": {
+    "endedBy": "85fa34cdd19d9d3a18675e005eb0af8f653c3bf8a89c77dc99928ce9127ba0a9",
+    "grantAddress": "kaspatest:pq8axyh6duu9rsjntr8z7c6n0r7yn5kvjf3qs5zg4ws7xz0fzlynu4d4ly8rs",
+    "holdsNothing": true,
+    "itSpent": "0.04 KAS",
+    "ofBudget": "0.5 KAS",
+    "note": "This agent's authority is over. Its grant was ended by a transaction the revocation key signed, and the address above holds nothing — which anyone can check. What it did while it ran is below and does not change."
+  },
   "delegatedBy": {
     "parent": "WARDA-003",
     "parentAgentKey": "bf9921d061c7dbba26fbf682b15ed30bb287cfa41be777272fff0827f55ed2a1",
@@ -41,10 +49,10 @@
   },
   "timelock": {
     "notBefore": "564404779",
-    "virtualDaaScore": "564422683",
+    "virtualDaaScore": "564424220",
     "open": true,
     "lockedFor": "0 seconds",
-    "openedAgo": "30 minutes",
+    "openedAgo": "32 minutes",
     "enforcedBy": "the covenant, on every spend: claimedDaa >= notBefore. Not a scheduler, not this process, and not revocable by whoever issued the grant."
   },
   "authority": {
@@ -59,14 +67,14 @@
       "kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e"
     ],
     "delegationDepth": 1,
-    "onChain": "0.44 KAS",
+    "onChain": null,
     "sompi": {
       "budget": "50000000",
       "spent": "4000000",
       "reserved": "0",
       "maxPerPayment": "5000000",
       "epochLimit": "20000000",
-      "onChain": "44000000"
+      "onChain": null
     }
   },
   "activity": {
@@ -99,20 +107,14 @@
     "spentPerTheCovenant": "0.04 KAS",
     "namedByTheLog": "0.04 KAS",
     "unrecorded": "0 KAS",
-    "atThePayeesWithNoReceipt": [
-      {
-        "amount": "0.04 KAS",
-        "txid": "f241cd7b62bc23b9170afb98cd8efb50c6fa43fb7a591d1f90a8cf4a384f4fcd",
-        "daaScore": "564406272"
-      }
-    ],
+    "couldAccountForIt": [],
     "note": "Every sompi the covenant says this grant spent is named by a purchase it recorded. The two halves of this page agree."
   },
   "refusals": [
     {
       "rule": "start time (not_before)",
       "attempted": "spend before the grant opens",
-      "refusal": "this grant could not spend anything until DAA 564404779. The covenant checks the claimed DAA score against that number on every spend, so the delay was not a policy in the agent's process and could not be brought forward by whoever issued it. It opened 30 minutes ago.",
+      "refusal": "this grant could not spend anything until DAA 564404779. The covenant checks the claimed DAA score against that number on every spend, so the delay was not a policy in the agent's process and could not be brought forward by whoever issued it. It opened 32 minutes ago.",
       "derived": true
     },
     {
