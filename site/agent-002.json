@@ -1,0 +1,145 @@
+{
+  "_comment": "Written by agent-002/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, the purchase log or the chain — none is typed. The claim that #002's payee IS agent #001 is re-derived from #001's published manifest on every run, and this tool exits rather than publish it if the derivation fails.",
+  "checkedAt": "2026-09-07T12:52:13.907Z",
+  "network": "testnet-10",
+  "identity": {
+    "agentId": "WARDA-002",
+    "agent": "fa4707951df802609d7fcb9258bfd0735ad2959175be8905f0da9db6e8e38622",
+    "principal": "0393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34f",
+    "revocation": "0393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34f",
+    "grantAddress": "kaspatest:pr85s0qlju2trsmdzc6ut0ksuc7euy5dhrq8k50jm6tn3fzs24qwxqxd6a0ke",
+    "covenantId": "5eec211b62dd03009a56eaff82ecbe543c609f01e3cfa6d5c44eddf9023234bd",
+    "template": "b3e5eeefacf2021f"
+  },
+  "buysFrom": {
+    "agentId": "WARDA-001",
+    "endpoint": "https://warda-demo-api.vercel.app/digest",
+    "address": "kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e",
+    "agentKey": "3c693f61fbc35d1fd4dcec2bbbab692be38656e6fd5a4077ee495afcb23535a1",
+    "derivation": "the pay-to-public-key address of the agent key named in agent #001's published manifest, x402/demo/kaspa-x402-grant.json. Rebuild it and compare: this page is not asking to be taken at its word about whose address this is.",
+    "bothEndsAreOurs": true,
+    "disclosure": "Agent #001 and agent #002 were both built here. What is demonstrated is therefore not a market — it is a payment: two independent grants, two keys, one address each may pay, and a settlement anyone can look up. The digest #002 buys is published free at wardaprotocol.com/agent-001.json, because pretending it was scarce would have traded the checkable claim for a flattering one."
+  },
+  "timelock": {
+    "notBefore": "564258425",
+    "virtualDaaScore": "564268868",
+    "open": true,
+    "lockedFor": "5 minutes",
+    "openedAgo": "17 minutes",
+    "enforcedBy": "the covenant, on every spend: claimedDaa >= notBefore. Not a scheduler, not this process, and not revocable by whoever issued the grant."
+  },
+  "authority": {
+    "budget": "2 KAS",
+    "spent": "0.08 KAS",
+    "remaining": "1.92 KAS",
+    "maxPerPayment": "0.1 KAS",
+    "epochLimit": "0.5 KAS",
+    "epochLengthDaa": 1000,
+    "authorizedPayees": 1,
+    "payees": [
+      "kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e"
+    ],
+    "delegationDepth": 2,
+    "onChain": "1.88 KAS",
+    "sompi": {
+      "budget": "200000000",
+      "spent": "8000000",
+      "reserved": "0",
+      "maxPerPayment": "10000000",
+      "epochLimit": "50000000",
+      "onChain": "188000000"
+    }
+  },
+  "activity": {
+    "payments": 2,
+    "paid": "0.08 KAS",
+    "paidOutsideTheAllowlist": "0 KAS",
+    "coins": [
+      {
+        "amount": "0.04 KAS",
+        "daaScore": "564259713",
+        "txid": "4791db53737c8544a847a3c54ac8376e24bbd35dd13abf291efdc0fff821c389",
+        "index": 1
+      },
+      {
+        "amount": "0.04 KAS",
+        "daaScore": "564268813",
+        "txid": "fa7ad66b6b177617b870a6a79fd97dd926b792e2106154cc6853a7b72bdca74d",
+        "index": 1
+      }
+    ]
+  },
+  "purchases": [
+    {
+      "at": "2026-09-07T12:30:03.624Z",
+      "outcome": "refused",
+      "url": "https://warda-demo-api.vercel.app/digest",
+      "reason": "timelock",
+      "txid": null,
+      "paid": null,
+      "payTo": null,
+      "refusal": "agent #002 may not spend until DAA 564258425 and the network is at 564255480 — 2945 short, roughly 295 seconds at ten blocks per second. This is not a policy in this process: the covenant checks the claimed DAA score against 564258425 on every spend, so no version of this program can bring the payment forward, and neither can whoever issued the grant.",
+      "sellerClaimed": null
+    },
+    {
+      "at": "2026-09-07T12:30:15.280Z",
+      "outcome": "refused",
+      "url": "https://warda-demo-api.vercel.app/digest",
+      "reason": "timelock",
+      "txid": null,
+      "paid": null,
+      "payTo": null,
+      "refusal": "agent #002 may not spend until DAA 564258425 and the network is at 564255616 — 2809 short, roughly 281 seconds at ten blocks per second. This is not a policy in this process: the covenant checks the claimed DAA score against 564258425 on every spend, so no version of this program can bring the payment forward, and neither can whoever issued the grant.",
+      "sellerClaimed": null
+    },
+    {
+      "at": "2026-09-07T12:36:50.464Z",
+      "outcome": "failed",
+      "url": "https://warda-demo-api.vercel.app/digest",
+      "reason": null,
+      "txid": null,
+      "paid": null,
+      "payTo": null,
+      "refusal": "Unexpected token 'A', \"A server e\"... is not valid JSON",
+      "sellerClaimed": null
+    },
+    {
+      "at": "2026-09-07T12:52:06.327Z",
+      "outcome": "bought",
+      "url": "https://warda-demo-api.vercel.app/digest",
+      "reason": null,
+      "txid": "fa7ad66b6b177617b870a6a79fd97dd926b792e2106154cc6853a7b72bdca74d",
+      "paid": "0.04 KAS",
+      "payTo": "kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e",
+      "refusal": null,
+      "sellerClaimed": "WARDA-001"
+    }
+  ],
+  "refusals": [
+    {
+      "rule": "start time (not_before)",
+      "attempted": "spend before the grant opens",
+      "refusal": "this grant could not spend anything until DAA 564258425. The covenant checks the claimed DAA score against that number on every spend, so the delay was not a policy in the agent's process and could not be brought forward by whoever issued it. It opened 17 minutes ago.",
+      "derived": true
+    },
+    {
+      "rule": "payee allowlist",
+      "attempted": "pay any address other than agent #001",
+      "refusal": "kaspatest:qrxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvc3rysjr0d is not on this grant's allowlist, so no inclusion proof places it in the recipients tree. There is no valid transaction that pays them — not one the network would reject, none at all. A grant's payees are fixed at genesis: to pay this vendor you need a grant that committed to them.",
+      "derived": true
+    },
+    {
+      "rule": "per-payment cap",
+      "attempted": "pay 0.10000001 KAS to agent #001",
+      "refusal": "this invoice is 10000001 sompi and the grant's per-payment cap is 10000000. The cap exists to bound what a single decision can do, so it binds here regardless of how much budget remains.",
+      "derived": true
+    },
+    {
+      "rule": "lifetime budget",
+      "attempted": "pay 2 KAS to agent #001",
+      "refusal": "this invoice is 200000000 sompi and the grant's per-payment cap is 10000000. The cap exists to bound what a single decision can do, so it binds here regardless of how much budget remains.",
+      "derived": true
+    }
+  ],
+  "mission": "Buy agent #001's network digest over HTTP 402, out of a grant that may pay one address and could not pay it at all until a DAA score the covenant enforces."
+}

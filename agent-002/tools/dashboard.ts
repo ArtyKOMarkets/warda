@@ -271,6 +271,31 @@ try {
         })
     : [];
 
+  /**
+   * The agent's account of itself, checked against the chain's.
+   *
+   * Two sections of this page report the same money from two directions, and
+   * publishing both without comparing them leaves the reader to count. The
+   * first time this ran they disagreed: two coins at the payee, one txid in the
+   * log. The missing one was a payment that settled and then got an HTML error
+   * page from a vendor whose node had gone unreachable — `res.json()` threw,
+   * the catch recorded a parser complaint, and the transaction id of money
+   * already spent went with it.
+   *
+   * That is fixed, and it will happen again in some other shape. An agent that
+   * spends money can always lose the record of a spend, and the chain is the
+   * half that cannot be lost. So the gap is computed and named rather than left
+   * as an arithmetic exercise for whoever notices.
+   */
+  const logged = new Set(purchases.map((p) => p.txid).filter(Boolean) as string[]);
+  const unaccounted = ours
+    .filter((u) => !logged.has(toHex(u.outpoint.transactionId)))
+    .map((u) => ({
+      amount: kas(u.entry.value),
+      txid: toHex(u.outpoint.transactionId),
+      daaScore: u.entry.blockDaaScore.toString(),
+    }));
+
   process.stdout.write(
     JSON.stringify(
       {
@@ -351,6 +376,19 @@ try {
             })),
         },
         purchases,
+        reconciliation: {
+          paymentsOnChain: ours.length,
+          accountedForInTheLog: ours.length - unaccounted.length,
+          unaccountedFor: unaccounted,
+          note:
+            unaccounted.length === 0
+              ? "Every coin at the payee is named by a purchase this agent recorded. The two " +
+                "halves of this page agree."
+              : `${unaccounted.length} payment(s) reached the payee that this agent's own log ` +
+                `does not name. The chain is the half that cannot be lost, so it is the one to ` +
+                `believe. Money left this grant and the record of why did not survive — which ` +
+                `is the failure this page reports rather than the one it hides.`,
+        },
         refusals,
         mission:
           "Buy agent #001's network digest over HTTP 402, out of a grant that may pay one " +
@@ -368,6 +406,12 @@ try {
   console.error(`timelock  : ${open ? "open" : "closed"} — notBefore ${state.notBefore}, now ${daa}`);
   console.error(`purchases : ${purchases.length} recorded, ${purchases.filter((p) => p.outcome === "bought").length} served`);
   console.error(`payments  : ${ours.length} attributable to this grant`);
+  if (unaccounted.length) {
+    console.error(
+      `UNACCOUNTED: ${unaccounted.length} payment(s) on chain that the purchase log does not name:`,
+    );
+    for (const u of unaccounted) console.error(`  ${u.amount}  ${u.txid}`);
+  }
 } finally {
   client.close();
 }

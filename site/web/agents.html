@@ -198,6 +198,13 @@
   /* When the chain was last read. NOT `.stale`: that class is the red
      staleness banner, and its border and background survived the later
      override, so this benign line rendered as an alarm on both agent pages. */
+  /* The two accounts of the same money, compared. Amber rather than red: a
+     gap here is not a refusal and not an attack, it is a record that went
+     missing, and the page's job is to say so rather than to alarm. */
+  .recon { border-left: 2px solid var(--edge-bright); padding: 0.6rem 0 0.6rem 1.1rem;
+           font-size: 0.9rem; color: var(--chrome-dim); margin: 1.2rem 0 0; }
+  .recon.off { border-left-color: #E8B23A; color: var(--chrome); }
+
   .sub-h { font-family: var(--mono); font-size: 0.7rem; text-transform: uppercase;
            letter-spacing: 0.14em; color: var(--chrome-faint); margin-top: 2rem; }
   .readat { font-family: var(--mono); font-size: 0.7rem; color: var(--chrome-faint);
