@@ -10,7 +10,8 @@ about to answer it.
 
 I've been building an x402 v2 client against `demo.kaspa-x402.org/exact` using
 your published `@kaspa-x402/core`, and I'm stuck on a refusal I can't diagnose
-from outside. Five attempts, all `402 {"error":"invalid_transaction_state"}`.
+from outside. Six attempts, all `402 {"error":"invalid_transaction_state"}`;
+four of them broadcast and accepted on chain.
 
 What works:
 
@@ -46,9 +47,10 @@ directions.
 Latest txid on testnet-10: `7821fc2a554551af559a078626d9cc071205a97965b953334a6d8c7ba32e31bc`
 
 `toX402ErrorReason` maps eight internal codes onto `invalid_transaction_state`,
-so from the client side those eight are one message, and the check that fails
-lives in the injected `exactTransactionVerifier` rather than in the published
-packages.
+so from the client side those eight arrive as one message. The
+`ExactTransactionVerifier` interface is published; the implementation you
+inject behind the demo endpoint is not, which is entirely normal — it just
+means the failing check is the one thing I cannot read.
 
 **The question:** which internal code does that attempt raise?
 
