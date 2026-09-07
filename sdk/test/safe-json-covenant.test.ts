@@ -13,9 +13,18 @@
  * and it is pinned here because it is invisible until somebody on the other
  * side derives an id and finds nothing.
  *
- * kaspa-x402's `exact` scheme is the first place it bit: its payload schema
- * forbids the client from supplying `transactionId`, so the verifier must
- * derive one, and for a covenant spend it cannot derive the right one.
+ * What this does NOT establish, though a first version of this file said it
+ * did: that a receiver cannot obtain the right id. The safe-JSON document
+ * carries its own `id` field, and the reference parser returns that field
+ * verbatim — `Transaction.deserializeFromSafeJSON` hands back a deliberately
+ * false id unchanged, so it trusts rather than derives. The id is therefore
+ * available to anyone using the reference SDK; it is only unavailable to a
+ * receiver who recomputes it from the parsed fields, and nothing obliges one
+ * to.
+ *
+ * The distinction matters because an interop report went out claiming the
+ * stronger thing. Lossy encoding is a real defect with real consequences for
+ * anyone deriving an id. It is not, by itself, an explanation of a refusal.
  */
 import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
@@ -58,7 +67,7 @@ test("safe JSON has nowhere to put it", () => {
   assert.ok(tx.outputs[0]!.covenant, "the fixture's first output is covenant-bound");
 });
 
-test("so an id recomputed from safe JSON is not the id on chain", () => {
+test("an id RECOMPUTED from safe JSON is not the id on chain (but one is carried)", () => {
   // What a receiver can reconstruct from the encoding: outputs with no
   // binding, because the encoding carried none.
   const asReceived = {

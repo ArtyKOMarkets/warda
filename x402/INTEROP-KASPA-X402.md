@@ -20,7 +20,7 @@ which four were broadcast and accepted on chain.
 | 5 | `38006e77…` | yes, accepted, no `payerAddress` | 402 `invalid_transaction_state` |
 | 6 | `7821fc2a…` | yes, accepted, `payerAddress` = SUCCESSOR | 402 `invalid_transaction_state` |
 
-## The cause
+## A lossy encoding, which is not the cause
 
 A version-1 transaction id commits to each output's covenant binding.
 `kaspa-sdk-safe-json-v2.0.0` — the encoding the scheme pins — has no field for
@@ -38,9 +38,20 @@ a recorded testnet-10 spend:
 
 Pinned by `sdk/test/safe-json-covenant.test.ts`, which runs offline.
 
-This explains the one thing nothing else did: why the refusal never moved.
-Finality, replay, `payerAddress` in both directions — none of them change the
-encoded transaction, so none of them could change the derived id.
+For a while this looked like the whole answer. It is not, and the correction is
+worth keeping because the mistake was a reasoning one rather than a measurement
+one.
+
+The safe-JSON document carries its own `id` field, and the reference parser
+returns it verbatim: `Transaction.deserializeFromSafeJSON` in
+kaspa-wasm32-sdk 0.15.2 hands back a deliberately false id unchanged. So it
+trusts rather than derives, and the correct id IS available to any verifier
+using it. The payload schema forbidding `transactionId` stops the client
+asserting the id a second time; it does not force anybody to recompute.
+
+So the encoding is genuinely lossy for covenant transactions, and a receiver
+who recomputes will be wrong — but nothing establishes that this receiver
+recomputes. The cause is still unknown.
 
 ## It is not one vendor
 
