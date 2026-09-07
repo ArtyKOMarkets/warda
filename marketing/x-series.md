@@ -10,6 +10,15 @@ diagram supports it, and every number is one we can point at. Nothing here is
 a claim the repo can't back — a series that gets caught inventing one number
 loses the credibility the honest ones bought.
 
+Two of those got through the first draft anyway, and both are worth naming
+because they are the shapes to watch for. One was a **quote** attributed to an
+unnamed library that could not be sourced afterwards — an unverifiable number
+is a claim, an unverifiable quote puts words in somebody's mouth. The other
+was a **claim about what a third party did**: that someone had attempted to
+drain the published key. Nothing recorded it. Anything asserting what an
+outsider did, or how long something has been true, needs a line in the repo or
+a timestamp behind it before it ships.
+
 Where a post needs a picture, the brief is in *italics* underneath. Most are
 already in the repo or trivially screenshottable.
 
@@ -106,16 +115,28 @@ every other address on Kaspa.*
 > There's a funded grant on Kaspa testnet with its agent's complete private
 > key printed on a public web page. Not a hash of it. The actual key.
 >
-> Anyone can sign with it. It's been up for weeks.
+> Anyone can sign with it. It has been up since 2 September.
 >
-> The most anyone has managed is to pay the vendor it was already allowed to
-> pay. Someone tried to drain it at exactly the per-payment cap, which is the
-> correct attack. The covenant let through exactly the cap and not a sompi
-> more.
+> Everything that grant has spent went to the single address it was allowed
+> to pay. Nothing has reached anywhere else. That figure is on the page, read
+> from the chain, and it updates.
+>
+> The point isn't that nobody has taken it yet. It's that the page cannot be
+> made to lie: if a coin ever landed anywhere else, the counter would say so.
 >
 > wardaprotocol.com/attack
 
 *Screenshot of the key on the page. The provocation is the point.*
+
+*Do not claim anyone has attacked it. An earlier draft said someone had tried
+to drain it at exactly the per-payment cap — nothing in the repo, on the page,
+or in the published state records any outside attempt, and the page's own
+counter proves only that nothing succeeded, not that anything was tried. The
+honest version does not need an attacker: an unspent published key is the
+claim.*
+
+*Check the date before posting. The page went up 2 September 2026; "for weeks"
+was wrong when it was written.*
 
 ---
 
@@ -228,10 +249,16 @@ shipped invites them to check it.
 
 ## Two things to avoid
 
-**Don't claim an agent economy.** x402 across all chains does roughly $28k a
-day and about half of that is self-dealing. The honest position — *the
-authority layer is ready and the market isn't* — is more defensible and ages
-better than being early to a boom that hasn't happened.
+**Don't claim an agent economy.** The honest position — *the authority layer is
+ready and the market isn't* — is more defensible and ages better than being
+early to a boom that hasn't happened.
+
+(An earlier draft here carried a daily volume figure for x402 across all chains
+and a claim about how much of it was self-dealing. Neither has a source in this
+repo and both would be stale within a week of writing. If a version of this
+argument needs a number, get it from a dated public dashboard on the day of
+posting and cite it in the post. Otherwise the argument stands without one —
+it is about what we should not claim, not about what the market did.)
 
 **Don't round the numbers.** One authorized payee, three payments, six
 refusals, 0.6 KAS. Every one is checkable, and the smallness is the proof
