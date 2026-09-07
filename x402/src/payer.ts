@@ -51,10 +51,11 @@ import { buildPayment, paymentSignatureHeader } from "./v2.ts";
  *
  * ## What this buys, concretely
  *
- * The reference client caps spending with an environment variable, and its own
- * documentation says the server "refuses further calls until restarted". That
- * cap is bypassed by a crash, a redeploy, a second instance, or anyone who can
- * read the key. Backed by a grant, the same agent cannot exceed its budget
+ * The x402 documentation describes the standard control: the client "applies a
+ * $1 USD spend cap unless you override spendControls". The ceiling is a default
+ * in the process that pays, so it is bypassed by a redeploy with a different
+ * value, a second instance, or anyone who can read the key. Backed by a grant,
+ * the same agent cannot exceed its budget
  * even if the key is stolen outright: the thief inherits the limits, because
  * the limits are in the script that unlocks the coin.
  *

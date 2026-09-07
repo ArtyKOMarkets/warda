@@ -35,18 +35,29 @@ already in the repo or trivially screenshottable.
 
 > "Just add a spending cap."
 >
-> Here's a real agent-payments library, shipping today. Its cap is an
-> environment variable, and its own documentation says the server
-> *"refuses further calls until restarted."*
+> The x402 docs describe the standard one: the client "applies a $1 USD
+> spend cap unless you override `spendControls`."
 >
-> So the cap resets when the process does. It's bypassed by a crash, a
-> redeploy, a second instance, or anyone who can read the key out of `env`.
+> Unless you override it. The code that pays is the code that sets the
+> ceiling — so the cap is bypassed by a redeploy with a different value, a
+> second instance, or anyone who can read the key out of `env`.
 >
 > A limit enforced by the thing being limited isn't a limit. It's a
 > preference.
 
-*Screenshot of that documentation line. It's their words, quoted fairly, and
-it makes the argument better than we can.*
+*Screenshot of that line at <https://docs.x402.org/guides/mcp-server-with-x402>.
+Their words, quoted in full, and the reader can open the page themselves.*
+
+*Cite the protocol's own documentation, not an individual project's repo.
+Several small libraries put the same cap in an environment variable and would
+make the point more vividly, but naming one developer's work to score against
+it reads as punching down — and the standard is the stronger target anyway,
+because nobody can answer that it was just one implementation getting it
+wrong.*
+
+*What this post does NOT claim: that the $1 cap is per-payment, per-session or
+cumulative. The documentation does not say, so neither do we. The argument
+does not need it — "unless you override" carries the whole thing.*
 
 ---
 

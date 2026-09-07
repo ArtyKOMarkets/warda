@@ -9,13 +9,14 @@ npm install @warda_protocol/x402
 
 ## The problem this replaces
 
-The usual way to let an agent pay per call is a hot wallet plus a counter. A
-real agent-payments library shipping today caps spending with an environment
-variable, and its own documentation says the server *"refuses further calls
-until restarted."*
+The usual way to let an agent pay per call is a hot wallet plus a counter. The
+x402 documentation describes the standard control: the client *"applies a $1 USD
+spend cap unless you override `spendControls`"*
+([source](https://docs.x402.org/guides/mcp-server-with-x402)).
 
-So the cap resets when the process does. It is bypassed by a crash, a redeploy,
-a second instance, or anyone who can read the key out of `env`. The wallet
+The ceiling is a default, and the code that pays is the code that can raise it.
+It is bypassed by a redeploy with a different value, a second instance, or
+anyone who can read the key out of `env`. The wallet
 balance is the only limit that actually holds.
 
 Backed by a grant, the same agent cannot exceed its budget even if the key is

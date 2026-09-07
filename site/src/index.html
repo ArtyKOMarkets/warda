@@ -434,16 +434,16 @@
     <div data-rise>
       <p class="eyebrow">The problem</p>
       <h2>Every agent that spends money today is trusted not to.</h2>
-      <p class="big" style="margin-top:1.6rem">The standard pattern is a hot wallet holding "only what the agent should spend", and a counter in the code that pays. Both halves fail the same way: <strong>the limit lives in the process</strong>.</p>
+      <p class="big" style="margin-top:1.6rem">The standard pattern is a hot wallet holding "only what the agent should spend", and a counter in the code that pays. Both halves fail the same way: <strong>the limit lives in the process</strong>. Read the sentence beside this one again: the ceiling is a default, and the code that pays is the code that can raise it.</p>
     </div>
     <div data-rise style="--d:140ms">
       <blockquote class="quote">
-        <q>Once the server has spent that much it refuses further calls until restarted.</q>
-        <cite>A production agent-payments library, describing its own spending cap</cite>
+        <q>By default the underlying x402Client only allows recognized default assets and applies a $1 USD spend cap unless you override spendControls.</q>
+        <cite><a href="https://docs.x402.org/guides/mcp-server-with-x402" rel="noopener" target="_blank">The x402 documentation</a>, on its default spending control</cite>
       </blockquote>
       <blockquote class="quote answer">
         <q>A Warda grant's limits are part of the script that unlocks the coin. A spend exceeding them is not refused by a server — it is an invalid transaction. No node relays it. No miner can include it.</q>
-        <cite>Restarting changes nothing · neither does stealing the key</cite>
+        <cite>Nothing to override · nothing to steal past</cite>
       </blockquote>
     </div>
   </div>
