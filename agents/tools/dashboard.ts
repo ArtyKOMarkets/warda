@@ -270,7 +270,10 @@ try {
   if (m.grant_value !== undefined && m.grant_value !== null) {
     const claimed = BigInt(m.grant_value);
     const actual = atGrant.length ? atGrant[0]!.entry.value : null;
-    if (actual === null) {
+    if (actual === null && endedBy) {
+      /* Expected. An ended grant holds nothing — that is what ending one does,
+         and the operator has named the transaction that did it. */
+    } else if (actual === null) {
       console.error(
         `the manifest says this grant holds ${kas(claimed)}, and there is nothing at\n` +
           `${address}. Either it MOVED — recover it with sdk/tools/follow-grant.ts before\n` +
@@ -280,7 +283,7 @@ try {
       );
       process.exit(1);
     }
-    if (actual !== claimed) {
+    if (actual !== null && actual !== claimed) {
       console.error(
         `the manifest says this grant holds ${kas(claimed)}; the chain says ${kas(actual)}.\n` +
           `Refusing to publish a balance the node disagrees with.`,

@@ -66,6 +66,13 @@ import { attachDelegationSignature, buildUnsignedDelegation, type DelegationPlan
 import { derivePublic, EMPTY_RESERVE, KEY_DOMAIN, resolveSigner } from "../src/keys.ts";
 import { NodeClient } from "../src/node.ts";
 import { RecipientSet } from "../src/recipients.ts";
+/* The SHARED list reader, not a copy. This file had its own, written before
+   comments were stripped per line — so a `#` header in a recipients file was
+   split on whitespace and every word of it became a payee. The first delegation
+   attempted with a commented allowlist died on "address payload too short:
+   allowlist:". members.ts's own header says copying it was the obvious move and
+   the wrong one; this was the copy. */
+import { membersFrom } from "./members.ts";
 import { agentPublicKey, signDigest, verifyDigest } from "../src/sign.ts";
 import { scriptHashFor, templateFingerprint, type CovenantTemplate, type GrantState, templateIdFor } from "../src/template.ts";
 import { toWire } from "../src/wire.ts";
@@ -206,28 +213,6 @@ const derivedChild = derivePublic(parentSecret, KEY_DOMAIN.subAgent, index);
 const childKey = flag("child-key", derivedChild)!;
 const derived = childKey === derivedChild;
 
-/**
- * Members, from a file (one key per line) or a comma-separated list. Both
- * hex x-only keys and kaspa addresses are accepted: an address is what a
- * person has to hand, and decoding it here beats making them convert.
- */
-function members(spec: string): string[] {
-  const looksLikePath = /[\\/\\\\]|\\.(txt|json|list)$/.test(spec);
-  if (looksLikePath && !existsSync(spec)) {
-    throw new Error(
-      `no such file: ${spec}\nA list can be given inline, but this looks like a path — and ` +
-        `treating a missing path as a one-member list produces a failure deep inside hex ` +
-        `decoding that names neither the file nor the flag.`,
-    );
-  }
-  const raw = existsSync(spec) ? readFileSync(spec, "utf8") : spec;
-  return raw
-    .split(/[\s,]+/)
-    .map((t) => t.trim())
-    .filter(Boolean)
-    .map((t) => (t.includes(":") ? toHex(decodeAddress(t).payload) : t.toLowerCase()));
-}
-
 const parentMembersFlag = flag("recipients");
 const childMembersFlag = flag("child-recipients");
 if (childMembersFlag && !parentMembersFlag) {
@@ -240,7 +225,7 @@ if (childMembersFlag && !parentMembersFlag) {
 }
 let parentSet: RecipientSet | undefined;
 if (parentMembersFlag) {
-  parentSet = new RecipientSet(members(parentMembersFlag));
+  parentSet = new RecipientSet(membersFrom(parentMembersFlag));
   if (parentSet.rootHex !== state.recipientsRoot.toLowerCase()) {
     console.error(
       `the recipient set given hashes to ${parentSet.rootHex},\n` +
@@ -304,7 +289,7 @@ try {
       maxPerSpend: BigInt(flag("max-per-spend", "50000000")!),
       epochLimit: BigInt(flag("epoch-limit", "100000000")!),
       delegationDepth: BigInt(flag("depth", (parentDepth - 1n).toString())!),
-      ...(childMembersFlag ? { recipients: members(childMembersFlag) } : {}),
+      ...(childMembersFlag ? { recipients: membersFrom(childMembersFlag) } : {}),
       ...childWindow,
     },
     recipients: parentSet,
@@ -459,7 +444,7 @@ console.error(
   `  payees    : ${
     built.childState.recipientsRoot === state.recipientsRoot
       ? "inherited — the child may pay anyone the parent may"
-      : `narrowed to ${members(childMembersFlag!).length} of ${parentSet!.members.length}, proven by witness`
+      : `narrowed to ${membersFrom(childMembersFlag!).length} of ${parentSet!.members.length}, proven by witness`
   }`,
 );
 console.error(
