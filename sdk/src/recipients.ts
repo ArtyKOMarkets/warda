@@ -188,3 +188,36 @@ export class RecipientSet {
     return { siblings, left };
   }
 }
+
+/**
+ * Refuse a payee list the covenant could never prove membership in.
+ *
+ * The proof loop is UNROLLED at compile time — `maxProofDepth` is baked into
+ * the bytecode, not spliced — so a template that unrolls four times can verify
+ * a proof of at most four steps, which is at most sixteen payees. Nothing
+ * about a deeper set looks wrong on the way in: the root hashes, the grant
+ * address derives, the funding transaction is accepted, and the money arrives.
+ * Every spend to every payee then fails inside the script, forever, and the
+ * only way out is the principal reclaiming at expiry.
+ *
+ * That is the worst failure shape this codebase has: silent at the moment of
+ * the mistake, total afterwards, and indistinguishable on chain from a
+ * covenant bug. So it is checked where the set and the template first meet,
+ * before anything is funded.
+ */
+export function assertRecipientsFitTemplate(
+  template: { baked: { maxProofDepth: number } },
+  set: RecipientSet,
+): void {
+  const max = template.baked.maxProofDepth;
+  if (set.depth <= max) return;
+  const capacity = 2 ** max;
+  throw new Error(
+    `this allowlist has ${set.members.length} payees, needing a proof ${set.depth} deep, and ` +
+      `this covenant template unrolls its proof loop ${max} times — so it can only verify ` +
+      `membership in a set of at most ${capacity}.\n\n` +
+      `A grant built from it would fund normally and then be unspendable to every payee on ` +
+      `it, recoverable only by the principal at expiry. Use at most ${capacity} payees, or ` +
+      `build against a template compiled with a larger maxProofDepth.`,
+  );
+}

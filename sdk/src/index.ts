@@ -102,7 +102,12 @@ export {
 
 export { pushState, pushStateArray, STATE_FIELDS } from "./state.ts";
 
-export { RecipientSet } from "./recipients.ts";
+export {
+  RecipientSet,
+  // A set too deep for the template is unprovable, and the grant built from
+  // it funds normally and can never pay anyone. Checked before funding.
+  assertRecipientsFitTemplate,
+} from "./recipients.ts";
 
 export { spendPlanFrom, type SpendPlanDocument } from "./plan.ts";
 

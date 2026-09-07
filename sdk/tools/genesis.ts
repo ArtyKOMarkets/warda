@@ -51,7 +51,7 @@ import { attachGenesisSignature, buildGenesis } from "../src/genesis.ts";
 import { blake2b256 } from "../src/hashers.ts";
 import { derivePublic, EMPTY_RESERVE, KEY_DOMAIN } from "../src/keys.ts";
 import { NodeClient } from "../src/node.ts";
-import { RecipientSet } from "../src/recipients.ts";
+import { RecipientSet, assertRecipientsFitTemplate } from "../src/recipients.ts";
 
 import { membersFrom } from "./members.ts";
 import { agentPublicKey, signDigest, verifyDigest } from "../src/sign.ts";
@@ -110,6 +110,10 @@ const recipients = new RecipientSet(
     ? membersFrom(flag("recipients")!)
     : [demoApiKey, new Uint8Array(32).fill(0xa2), new Uint8Array(32).fill(0xa3), new Uint8Array(32).fill(0xa4)],
 );
+
+// Before anything is funded. A set deeper than the template can prove produces
+// a grant that accepts money and can never pay anyone on it.
+assertRecipientsFitTemplate(template, recipients);
 
 /**
  * The default allowlist is a REFERENCE VECTOR, not a payee list.
