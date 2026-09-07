@@ -135,6 +135,7 @@ const HELP = `warda — bounded spending authority for an agent, on Kaspa.
 
   warda node                    is a node worth believing? (run this first)
   warda key      [--out f.key]  a new keypair, and its address
+  warda wallet   [consolidate]  an ordinary key: what it holds, what it can fund
   warda grant    --payees <f>   create a grant. Limits in KAS.
                                 [--budget 10] [--max-per-spend 1] [--epoch-limit 2]
   warda balance                 what may this agent spend right now?
@@ -195,6 +196,46 @@ switch (verb) {
         flag("label", "wallet")!,
         ...(out ? ["--out", out] : []),
       ]),
+    );
+    break;
+  }
+
+  /* The wallet and the grant are different things and this is the seam between
+     them. A wallet is an ordinary key with nothing bounding it — the funder
+     before a grant exists, and where an agent's earnings arrive after one
+     spends. Everything below `grant` is bounded; this verb is not, and says
+     so every time it runs. */
+  case "wallet": {
+    const cfg = readConfig();
+    const sub = rest[0] && !rest[0].startsWith("--") ? rest[0] : undefined;
+    if (sub && sub !== "consolidate") {
+      die(`warda wallet [consolidate]   — unknown subcommand: ${sub}`, 2);
+    }
+    /* The FUNDER key, which is not the agent key the config remembers. Naming
+       the wrong one here would consolidate a grant's agent key instead, and
+       the two files sit side by side in the same directory. */
+    const key = flag("key") ?? (existsSync("wallet.key") ? "wallet.key" : undefined);
+    if (!key && !process.env.WARDA_SK) {
+      die(
+        "no wallet key.\n" +
+          "  `warda key --out wallet.key` makes one, or pass --key <file>.\n" +
+          "  This is the funder's key, not the agent's — " +
+          (cfg.agentKey ? `not ${cfg.agentKey}.` : "they are different keys."),
+      );
+    }
+    process.exit(
+      run(
+        sub === "consolidate" ? "sdk/tools/consolidate.ts" : "sdk/tools/wallet.ts",
+        [
+          ...(key ? ["--key", key] : []),
+          ...rpcArgs(cfg),
+          ...(has("submit") ? ["--submit"] : []),
+          ...(has("json") ? ["--json"] : []),
+          ...(flag("max-inputs") ? ["--max-inputs", flag("max-inputs")!] : []),
+          ...(flag("fee") ? ["--fee", flag("fee")!] : []),
+          ...(flag("prefix") ? ["--prefix", flag("prefix")!] : []),
+        ],
+      ),
     );
     break;
   }

@@ -12,6 +12,7 @@ npx warda pay https://warda-demo-api.vercel.app/fact
 ```
 warda node                    is a node worth believing? (run this first)
 warda key      [--out f.key]  a new keypair, and its address
+warda wallet   [consolidate]  an ordinary key: what it holds, what it can fund
 warda grant    --payees <f>   create a grant. Limits in KAS.
 warda balance                 what may this agent spend right now?
 warda pay      <url>          buy something behind an HTTP 402
@@ -50,7 +51,45 @@ first one's budget.
 it lives in and hands it to one child process. Nothing is sent anywhere, nothing
 is stored that you did not give a path to, and no key is left in shell history.
 
-## This is not a wallet, and the difference is the product
+## The wallet and the grant are different things
+
+`warda wallet` is the seam between them, and it is deliberately the one verb
+here that bounds nothing.
+
+Two things happen at a plain key — before any covenant exists, and after one
+ends — and both were unserved. **Funding:** genesis takes ONE input, so the
+largest grant a key can create is bounded by its largest single coin, not by
+its total. Someone who used a faucet three times got *"the largest coin is X; a
+budget of Y needs Z — consolidate or lower --budget"*, and nothing in the
+repository consolidated. An instruction with no implementation behind it reads
+like the user's mistake. **Earnings:** an agent that sells is paid to an
+ordinary address. Agent #001's income lands at a plain key with no bounds on it
+at all, which is the honest position — money coming in has no covenant, because
+nobody agreed to one — but it still has to be countable before it can be put
+back inside a grant.
+
+```
+$ warda wallet
+  address     kaspatest:qr7z…x77c4m
+  holds       12.4 KAS across 7 coins
+  largest     3.1 KAS
+
+  You can fund a grant of up to 3.09 KAS — the LARGEST coin less the fee,
+  not the total. Genesis takes one input, so 7 coins of 12.4 KAS still only
+  reach 3.09 KAS.
+
+  To use all of it:  warda wallet consolidate
+```
+
+`consolidate` merges them at the same address. It builds and prints by default;
+`--submit` broadcasts. The output script comes from the coins themselves rather
+than from an argument, so there is no destination to get wrong. The fee is
+estimated and then **corrected by the node** — this SDK does not compute mass,
+and a hardcoded fee is how `build-exit.ts` shipped a default the node refused,
+so on a rejection that names a required figure this rebuilds at that figure and
+says what it learned.
+
+## The grant is not a wallet, and the difference is the product
 
 A wallet holds a key and asks software to check the limits before it signs.
 Change the software and the limits change with it.

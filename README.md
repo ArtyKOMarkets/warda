@@ -53,6 +53,7 @@ break without notice.
 git clone https://github.com/ArtyKOMarkets/warda && cd warda && npm install
 
 npx warda key --out wallet.key                  # fund the address it prints
+npx warda wallet                                # what it holds, and what it can fund
 echo kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e > payees.txt
 WARDA_SK=$(cat wallet.key) npx warda grant --payees payees.txt --budget 10 --max-per-spend 1
 npx warda pay https://warda-demo-api.vercel.app/fact
