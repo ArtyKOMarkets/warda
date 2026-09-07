@@ -66,6 +66,7 @@ if (!manifestPath || !agentId || !recipientsPath || !purchasesDir) {
     "usage: dashboard.ts <grant.json> --id WARDA-00N --recipients <file> --purchases <dir>\n" +
       "       [--mission text]\n" +
       "       [--succeeds <manifest> --succeeds-id WARDA-00N]   the grant this one replaced\n" +
+      "       [--ended <txid>]                                  this grant has been revoked\n" +
       "       [--parent <manifest> --parent-id WARDA-00N]       the grant that delegated it\n" +
       "       [--endpoint url] [--rpc url]\n\n" +
       "Shared by every agent, so nothing defaults: a page built from the wrong grant\n" +
@@ -79,6 +80,21 @@ const mission = flag("mission", "");
 const succeedsPath = flag("succeeds");
 /** The grant that delegated this one, if this is a child. */
 const parentPath = flag("parent");
+/**
+ * This grant has been revoked or reclaimed, and the txid that did it.
+ *
+ * An empty grant address means one of two things — the grant ENDED, or it
+ * MOVED and this manifest has fallen behind — and the chain cannot tell them
+ * apart: Kaspa's RPC answers "what is unspent here", never "what spent this".
+ * The balance guard below is fatal precisely because guessing wrong publishes
+ * a page about an agent that is quietly still running, or an obituary for one
+ * that is.
+ *
+ * So it is not guessed. The operator says which, and hands over the exit's
+ * transaction id — an assertion, but a checkable one: anyone can look it up
+ * and watch the coin leave the covenant.
+ */
+const endedBy = flag("ended");
 
 const m = JSON.parse(readFileSync(manifestPath, "utf8"));
 const template: CovenantTemplate = JSON.parse(
@@ -257,8 +273,10 @@ try {
     if (actual === null) {
       console.error(
         `the manifest says this grant holds ${kas(claimed)}, and there is nothing at\n` +
-          `${address}. It has moved to a successor address: recover it with\n` +
-          `sdk/tools/follow-grant.ts before publishing a page about where it used to be.`,
+          `${address}. Either it MOVED — recover it with sdk/tools/follow-grant.ts before\n` +
+          `publishing a page about where it used to be — or it ENDED, in which case pass\n` +
+          `--ended <txid> naming the exit and this reports a retired agent instead of\n` +
+          `refusing. The chain cannot tell those apart and neither can this tool.`,
       );
       process.exit(1);
     }
@@ -468,6 +486,21 @@ try {
             "wardaprotocol.com/agent-001.json, because pretending it was scarce would have " +
             "traded the checkable claim for a flattering one.",
         },
+        ...(endedBy
+          ? {
+              retired: {
+                endedBy,
+                grantAddress: address,
+                holdsNothing: atGrant.length === 0,
+                itSpent: kas(state.spentTotal),
+                ofBudget: kas(state.budgetTotal),
+                note:
+                  "This agent's authority is over. Its grant was ended by a transaction the " +
+                  "revocation key signed, and the address above holds nothing — which anyone " +
+                  "can check. What it did while it ran is below and does not change.",
+              },
+            }
+          : {}),
         ...(succession ? { succession } : {}),
         ...(delegatedBy ? { delegatedBy } : {}),
         timelock: {

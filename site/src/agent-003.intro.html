@@ -1,0 +1,23 @@
+<section>
+  <p class="eyebrow">The question this answers</p>
+  <h2>How does one agent hand its job to another?</h2>
+  <p>
+    Agent&nbsp;#002 could pay one address and could not pay it before a start time the network
+    enforced. Both facts were fixed when its grant was created and neither could be edited
+    afterwards &mdash; which is the property, and also the problem. An agent whose authority
+    cannot be changed cannot be <em>updated</em> either.
+  </p>
+  <p>
+    So it is not updated. It is <strong>replaced</strong>. Agent&nbsp;#003 holds a key
+    agent&nbsp;#002 never saw, under a grant published before it could be used, and #002&rsquo;s
+    grant was ended by a key that was not #002&rsquo;s. Two authorities, one ending and one
+    beginning, neither able to act for the other.
+  </p>
+  <p>
+    The handover is <strong>not atomic</strong>, and this page does not pretend it is. The
+    successor was created timelocked and the predecessor revoked while the lock was still on,
+    so there was a window in which <em>neither grant could spend anything</em>. That gap is the
+    honest shape of a handover between two authorities that never share a key.
+  </p>
+  {{LOCK}}
+</section>

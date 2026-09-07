@@ -89,7 +89,7 @@
 <!-- ------------------------------------------------------------------ -->
 <section>
   <p class="eyebrow">Who it pays</p>
-  <h2>One agent paying another</h2>
+  <h2>The addresses it may pay</h2>
 
   <div class="flow" id="b-flow"></div>
 
@@ -345,14 +345,95 @@ WARDA_SK=$(cat ../covenant/deploy/agent-002.key) \
       setTimeout(function () { $("b-lockfill").style.width = pct + "%"; }, 120);
 
       // ---- the two agents -------------------------------------------------
-      set("b-selfaddr", d.identity.grantAddress);
-      set("b-selleraddr", d.buysFrom.address);
-      set("b-flowamt", d.authority.maxPerPayment + " max");
-      set("b-derive",
-        "# agent #001's published manifest names its agent key:\n" +
-        "#   " + d.buysFrom.agentKey + "\n" +
-        "# the only address agent #002 may pay is that key's P2PK address:\n" +
-        "    " + d.buysFrom.address);
+      /* The grant on the left, every allowed payee on the right. Built from
+         the allowlist rather than written, so an agent with two payees renders
+         two and nobody has to remember to update a sentence. */
+      var flow = $("b-flow");
+      var self = document.createElement("div");
+      self.className = "node self";
+      self.innerHTML = '<p class="who">Agent #' + d.identity.agentId.replace("WARDA-", "") + "</p>";
+      var sm = document.createElement("p");
+      sm.className = "does"; sm.textContent = "Holds a grant. May pay the addresses opposite, and no others.";
+      self.appendChild(sm);
+      var sa = document.createElement("p");
+      sa.className = "addr"; sa.textContent = d.identity.grantAddress;
+      self.appendChild(sa);
+      flow.appendChild(self);
+
+      var arrow = document.createElement("div");
+      arrow.className = "arrow";
+      arrow.innerHTML = "<b>&rarr;</b>";
+      var am = document.createElement("span");
+      am.textContent = d.authority.maxPerPayment + " max";
+      arrow.appendChild(am);
+      flow.appendChild(arrow);
+
+      var right = document.createElement("div");
+      var list = (d.buysFrom.payees || []);
+      list.forEach(function (p, i) {
+        var n = document.createElement("div");
+        n.className = "node";
+        if (i) n.style.marginTop = "0.9rem";
+        var who = document.createElement("p");
+        who.className = "who";
+        who.textContent = p.label || "an address nobody here has named";
+        if (!p.label) { who.style.color = "var(--chrome-dim)"; who.style.fontSize = "1rem"; }
+        n.appendChild(who);
+        var ad = document.createElement("p");
+        ad.className = "addr"; ad.textContent = p.address;
+        n.appendChild(ad);
+        right.appendChild(n);
+      });
+      flow.appendChild(right);
+
+      var der = $("b-derivations");
+      list.forEach(function (p) {
+        if (!p.derivation) return;
+        var pre = document.createElement("pre");
+        pre.textContent = p.label + "\n  " + p.address + "\n\n" + p.derivation;
+        der.appendChild(pre);
+      });
+
+      // ---- lineage: succession ------------------------------------------
+      if (d.succession) {
+        var sc = d.succession;
+        $("b-succ-sec").hidden = false;
+        set("s-who", sc.replaced);
+        set("s-addr", sc.grantAddress);
+        set("s-spent", sc.itSpent);
+        set("s-holds", sc.ended ? "nothing — its authority is over" : sc.stillHoldsCoin);
+        set("s-key", sc.differentKey
+          ? "no — two different agent keys. Neither agent ever held the other's."
+          : "yes, which would defeat the point");
+        set("s-gap", sc.handoverGap + " " + sc.endedBy);
+      }
+
+      // ---- lineage: delegation ------------------------------------------
+      if (d.delegatedBy) {
+        var dg = d.delegatedBy;
+        $("b-del-sec").hidden = false;
+        var rows = $("d-rows");
+        var labels = { budget: "Budget", maxPerPayment: "Max / payment",
+                       epochLimit: "Per epoch", delegationDepth: "Delegation depth",
+                       payees: "Payees" };
+        Object.keys(labels).forEach(function (k) {
+          if (!dg.narrower || !dg.narrower[k]) return;
+          var row = document.createElement("div");
+          row.className = "row";
+          var kk = document.createElement("span"); kk.className = "k"; kk.textContent = labels[k];
+          var vv = document.createElement("span"); vv.className = "v"; vv.textContent = dg.narrower[k];
+          row.appendChild(kk); row.appendChild(vv);
+          rows.appendChild(row);
+        });
+        var pr = document.createElement("div");
+        pr.className = "row";
+        pr.innerHTML = '<span class="k">Held in reserve by ' + dg.parent + "</span>";
+        var pv = document.createElement("span");
+        pv.className = "v big"; pv.textContent = dg.heldInReserveByTheParent;
+        pr.appendChild(pv);
+        rows.appendChild(pr);
+        set("d-note", dg.enforcedBy);
+      }
 
       // ---- authority ------------------------------------------------------
       var a = d.authority, s = a.sompi || {};

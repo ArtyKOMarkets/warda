@@ -270,10 +270,11 @@
   <div class="cards" id="g-cards"></div>
 
   <p class="note" style="margin-top:2.4rem">
-    <strong>#002 buys from #001, and both were built here.</strong> That makes this a
-    demonstration of the rails, not of a market &mdash; and it is said on #002's page as
-    plainly as here. What is checkable is the payment: two grants, two keys, one address each
-    may pay, settled where anyone can look it up.
+    <strong>They were all built here, and so were the vendors they buy from.</strong> That makes
+    this a demonstration of the rails, not of a market &mdash; and each page says so as plainly
+    as this one does. What is checkable is what the network enforced: separate grants, separate
+    keys, a fixed list of addresses each may pay, an authority that ended, and one that was
+    handed down. All of it settled where anyone can look it up.
   </p>
 </section>
 </div>
@@ -294,15 +295,16 @@
       does: "Reads the Kaspa network every hour and publishes a digest of what changed. It pays for the one thing it cannot do itself." },
     { id: "002", href: "/agent-002", json: "/agent-002.json",
       name: "The buyer",
-      does: "Buys agent #001's digest over HTTP 402, from a grant that may pay one address and could not pay it at all until a start time the covenant enforces." }
+      does: "Bought agent #001's digest over HTTP 402, from a grant that could pay one address and could not pay it at all until a start time the covenant enforced." },
+    { id: "003", href: "/agent-003", json: "/agent-003.json",
+      name: "The successor",
+      does: "Took over #002's job holding a key #002 never saw, under a grant published before it could be used. #002's grant was ended by a key that was not #002's." },
+    { id: "004", href: "/agent-004", json: "/agent-004.json",
+      name: "The sub-agent",
+      does: "Not issued by a person. Agent #003 subdivided its own grant and handed over a bounded piece of it — every limit smaller, the payee list narrowed, and the remainder settling back." }
   ];
 
-  var PLANNED = [
-    { id: "003", name: "Succession",
-      does: "Handing an agent's authority to its replacement without either one holding the other's key. A ceremony with transaction ids, not a running agent." },
-    { id: "004", name: "Delegation in public",
-      does: "An agent hiring a sub-agent: bounded authority it can hand out and take back. The covenant supports it and it has not been done in the open." }
-  ];
+  var PLANNED = [];
 
   var wrap = document.getElementById("g-cards");
 
@@ -311,14 +313,18 @@
     el.className = "card";
     el.href = a.href;
 
+    var retired = !!d.retired;
+    if (retired) el.className = "card done";
+
     var no = document.createElement("p");
-    no.className = "no";
-    var dot = document.createElement("i");
-    no.appendChild(dot);
+    no.className = "no" + (retired ? " shut" : "");
+    no.appendChild(document.createElement("i"));
     var lbl = document.createElement("span");
     /* "Live" is a claim about right now. The only thing this page knows is
-       when the chain was last read for that agent, so that is what it says. */
-    lbl.textContent = "Agent #" + a.id + " · " + (d.network || "testnet");
+       when the chain was last read for that agent, and whether its grant still
+       exists — so that is what it says, and a retired agent does not get to
+       look like a running one. */
+    lbl.textContent = "Agent #" + a.id + " · " + (retired ? "retired" : (d.network || "testnet"));
     no.appendChild(lbl);
     el.appendChild(no);
 
@@ -335,10 +341,12 @@
     var auth = d.authority || {};
     var rows = [
       ["Budget", auth.budget || "—"],
-      ["Spent", auth.spent || "—"],
-      ["May pay", (auth.authorizedPayees != null ? auth.authorizedPayees : "—") +
-                 (auth.authorizedPayees === 1 ? " address" : " addresses")],
-      ["Refuses", ((d.refusals || []).length) + " things, derived"]
+      [retired ? "It spent" : "Spent", auth.spent || "—"],
+      [retired ? "Could pay" : "May pay",
+       (auth.authorizedPayees != null ? auth.authorizedPayees : "—") +
+       (auth.authorizedPayees === 1 ? " address" : " addresses")],
+      [retired ? "Ended by" : "Refuses",
+       retired ? "its revocation key" : ((d.refusals || []).length) + " things, derived"]
     ];
     rows.forEach(function (r) {
       var dt = document.createElement("dt"); dt.textContent = r[0];
@@ -349,7 +357,7 @@
 
     var more = document.createElement("p");
     more.className = "more";
-    more.textContent = "Details →";
+    more.textContent = retired ? "What it did →" : "Details →";
     el.appendChild(more);
     return el;
   }

@@ -1,0 +1,25 @@
+<section>
+  <p class="eyebrow">The question this answers</p>
+  <h2>Who can change what an agent may spend, and how fast?</h2>
+  <p>
+    Agent&nbsp;#001 answers <em>how much</em> and <em>to whom</em>. The harder question is the
+    one people ask second: fine, but who edits that policy, and how long does it take to take
+    effect? On most systems the answer is <em>whoever holds the config, immediately</em> &mdash;
+    which means the limits are a description of intent, not a constraint.
+  </p>
+  <p>
+    A Warda grant&rsquo;s terms cannot be changed once it exists. Not by the agent, not by the
+    operator, not by the principal, not by all of them together. The only way to give an agent
+    different authority is to issue a <strong>different grant</strong>. So the real question
+    becomes how fast a new grant can start &mdash; and that is a number the network enforces.
+  </p>
+  {{LOCK}}
+  <p class="note">
+    There is no timelock mechanism in any of this. The covenant already checks
+    <code>claimedDaa&nbsp;&gt;=&nbsp;notBefore</code> on every spend, so the delay is enforced by
+    consensus rather than by a contract somebody could upgrade to skip it. And because a
+    grant&rsquo;s address is a hash of its terms, <strong>pending authority is publishable the
+    moment it is created</strong>: anyone can read what it will permit and check that it cannot
+    yet permit anything.
+  </p>
+</section>
