@@ -32,8 +32,10 @@
  * `parent_reserve_root_before`, and this reads it from there.
  *
  * Options:
- *   --fee <sompi>     default 2000000; a settlement is two covenant inputs and
- *                     therefore roughly twice the mass of a spend
+ *   --fee <sompi>     default 5000000. A settlement has two covenant inputs and
+ *                     carries two redeem scripts, so it masses roughly twice a
+ *                     spend. For scale: a revoke with ONE covenant input massed
+ *                     14,372 and the node required 1,437,200 sompi for it.
  *   --rpc <url> --prefix <p> --template <path> --principal <hex> --revocation <hex>
  *   --prev-root <hex> override, when the child manifest predates the field
  *   --dry-run         print what it would do and stop before signing
@@ -63,13 +65,18 @@ import {
 } from "../src/template.ts";
 import { toWireMulti } from "../src/wire.ts";
 
-/** Two covenant inputs, so roughly twice a spend's mass. */
 /**
  * A settlement has TWO covenant inputs — the parent reabsorbing and the child
  * settling — so it carries two redeem scripts and masses roughly twice a
  * spend. 2,000,000 was set before either half had ever been broadcast; this is
  * headroom rather than a measurement, and the rejection path below turns the
  * node's own figure into a --fee flag if it is still short.
+ *
+ * The headroom is not paranoia. build-exit kept an ordinary transfer's
+ * 1,000,000 for the same reason this file kept 2,000,000 — nothing it produced
+ * had ever been sent — and the first real revoke was refused for needing
+ * 1,437,200. A fee is not part of the shape a script engine verifies, so
+ * `cargo run -- verify` accepts a transaction no node will relay.
  */
 const DEFAULT_FEE = 5_000_000n;
 const SETTLE_COMPUTE_BUDGET = 32;
