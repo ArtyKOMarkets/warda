@@ -73,6 +73,20 @@ Anyone can sign with it; the covenant bounds what those signatures can do to
 0.1 KAS per payment, to one allowlisted address. That page is the shortest path
 to deciding whether any of this is true.
 
+## Agents running against this protocol
+
+https://wardaprotocol.com/agents indexes them. Two exist:
+
+- #001 reads the Kaspa network every hour, publishes a digest, and pays for the
+  one service it cannot provide itself.
+- #002 buys #001's digest over HTTP 402, out of a grant that may pay exactly one
+  address and could not pay at all before a start time the covenant enforces.
+
+Both were built by the same people, which is stated on #002's page: the payment
+between them is real and checkable on chain, and the market around it is not.
+Each agent's figures are published as JSON beside its page (`/agent-001.json`,
+`/agent-002.json`) and every one of them is derived from the chain.
+
 ## Docs
 
 - [Developer guide](https://wardaprotocol.com/build):

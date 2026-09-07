@@ -1,0 +1,25 @@
+# Agent #002's allowlist: agent #001, and nobody else.
+#
+# This address is not asserted to belong to agent #001 — it is DERIVED from
+# agent #001's published identity, and anyone can repeat the derivation:
+#
+#   x402/demo/kaspa-x402-grant.json  names agent #001's spending key as
+#   3c693f61fbc35d1fd4dcec2bbbab692be38656e6fd5a4077ee495afcb23535a1
+#
+#   node --experimental-strip-types -e 'import {pubkeyToAddress} from "./sdk/src/address.ts";
+#     import {fromHex} from "./sdk/src/bytes.ts";
+#     console.log(pubkeyToAddress(fromHex("3c693f61fbc35d1fd4dcec2bbbab692be38656e6fd5a4077ee495afcb23535a1"), "kaspatest"))'
+#
+#   kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e
+#
+# That matters more than it looks. "Agent #002 paid agent #001" is a claim
+# about identity, and an ordinary address makes it unfalsifiable — it is
+# whoever we say it is. This address is the pay-to-public-key address of the
+# very key #001's covenant names as its agent, so the money went to the key
+# that authorizes #001 and to nothing else. A reader who disbelieves the claim
+# can rebuild the address from #001's own published manifest.
+#
+# One member means a proof of depth 0 — no Merkle path at all. A grant commits
+# to the ROOT of this list at genesis and cannot be changed afterwards, so this
+# file is the grant's payee list for its whole life.
+kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e

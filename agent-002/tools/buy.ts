@@ -1,0 +1,236 @@
+/**
+ * Agent #002 buying agent #001's digest.
+ *
+ *   source ../ops/node.env
+ *   WARDA_SK=$(cat ../covenant/deploy/agent-002.key) \
+ *     node --experimental-strip-types tools/buy.ts \
+ *     https://warda-demo-api.vercel.app/digest
+ *
+ * ## Why this is not just `x402/demo/buy.ts`
+ *
+ * The payment mechanics are identical and are not copied: this calls the same
+ * `wardaFetch` through the same `WardaPayer`. What is different is what has to
+ * be RECORDED. buy.ts prints a response and updates a manifest, which is right
+ * for a demo of a payment. #002's whole output is the purchase itself, so
+ * every attempt — including the refused ones — is written to `purchases/` as a
+ * file, and a refusal is as much a result as a receipt.
+ *
+ * That asymmetry is the point of the agent. #001 spends money in order to do
+ * something else; #002's work IS the spending, so its log has to survive the
+ * process rather than scroll past in a terminal.
+ *
+ * ## Nothing here decides whether the payment is allowed
+ *
+ * The covenant did that before the transaction existed, and the two limits
+ * that matter to #002 cannot be relaxed by editing this file:
+ *
+ *   - it may pay exactly one address, fixed at genesis;
+ *   - it may not pay at all before its `not_before` DAA score, which is
+ *     checked by the script that unlocks the coin.
+ *
+ * The second one is why a run before the timelock expires writes a refusal
+ * file and exits non-zero rather than waiting. An agent that quietly slept
+ * until it was allowed to spend would look identical from outside to one with
+ * no timelock at all, and the record is the product here.
+ */
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
+import {
+  NodeClient,
+  RecipientSet,
+  EMPTY_RESERVE,
+  decodeAddress,
+  fromHex,
+  toHex,
+  templateIdFor,
+  type CovenantTemplate,
+  type GrantState,
+} from "@warda_protocol/kaspa";
+import { WardaPayer, wardaFetch } from "@warda_protocol/x402";
+
+const flag = (n: string, d?: string) => {
+  const i = process.argv.indexOf(`--${n}`);
+  return i >= 0 && process.argv[i + 1] ? process.argv[i + 1]! : d;
+};
+const has = (n: string) => process.argv.includes(`--${n}`);
+
+const here = (p: string) => fileURLToPath(new URL(p, import.meta.url));
+
+const url = process.argv.slice(2).find((a) => a.startsWith("http")) ?? "https://warda-demo-api.vercel.app/digest";
+const manifestPath = flag("grant", here("../../x402/demo/agent-002-grant.json"))!;
+const recipientsPath = flag("recipients", here("../../x402/demo/agent-002-recipients.txt"))!;
+const outDir = flag("out", here("../purchases"))!;
+
+const secretHex = process.env.WARDA_SK;
+if (!secretHex) {
+  console.error(
+    "WARDA_SK must be agent #002's key — covenant/deploy/agent-002.key, not the funder's.",
+  );
+  process.exit(1);
+}
+
+const m = JSON.parse(readFileSync(manifestPath, "utf8"));
+const template: CovenantTemplate = JSON.parse(
+  readFileSync(here("../../sdk/covenant-template.json"), "utf8"),
+);
+
+const members = readFileSync(recipientsPath, "utf8")
+  .split(/\r?\n/)
+  .map((l) => l.replace(/#.*$/, "").trim())
+  .filter(Boolean)
+  .map((t) => (t.includes(":") ? toHex(decodeAddress(t).payload) : t.toLowerCase()));
+const recipients = new RecipientSet(members);
+if (recipients.rootHex !== m.recipients_root) {
+  console.error(
+    `these recipients hash to ${recipients.rootHex}, but the grant commits to ` +
+      `${m.recipients_root}. This is the wrong list for this grant.`,
+  );
+  process.exit(1);
+}
+
+const authority = { principalKey: m.principal, revocationKey: m.revocation ?? m.principal };
+const state: GrantState = {
+  agentKey: m.agent,
+  budgetTotal: BigInt(m.budget),
+  maxPerSpend: BigInt(m.max_per_spend),
+  epochLimit: BigInt(m.epoch_limit),
+  epochLength: BigInt(m.epoch_length),
+  recipientsRoot: m.recipients_root,
+  notBefore: BigInt(m.not_before),
+  expiresAt: BigInt(m.expires_at),
+  delegationDepth: BigInt(m.delegation_depth ?? 2),
+  templateId: templateIdFor(template, authority),
+  spentTotal: BigInt(m.spent_total ?? 0),
+  reserved: BigInt(m.reserved ?? 0),
+  epochIndex: BigInt(m.epoch_index ?? 0),
+  epochSpent: BigInt(m.epoch_spent ?? 0),
+  reserveRoot: m.reserve_root ?? EMPTY_RESERVE,
+};
+
+mkdirSync(outDir, { recursive: true });
+const startedAt = new Date();
+const stamp = startedAt.toISOString().replace(/[:.]/g, "-");
+const record = (result: Record<string, unknown>) => {
+  const path = `${outDir}/${stamp}.json`;
+  writeFileSync(
+    path,
+    JSON.stringify(
+      {
+        _comment:
+          "Written by agent-002/tools/buy.ts. One file per attempt, refusals included: a " +
+          "purchase log that only records successes is a sales brochure.",
+        at: startedAt.toISOString(),
+        agent: "WARDA-002",
+        url,
+        ...result,
+      },
+      null,
+      2,
+    ) + "\n",
+  );
+  console.error(`recorded : ${path}`);
+};
+
+const node = await NodeClient.connect({ url: flag("rpc") ?? process.env.WARDA_RPC_JSON });
+try {
+  /**
+   * The timelock, checked before anything is built.
+   *
+   * The covenant enforces `claimedDaa >= notBefore` and would refuse the
+   * transaction anyway, which is the guarantee. This check exists so the
+   * refusal is legible: a node's script-verification failure is a true answer
+   * and an unreadable one, and an agent that cannot say why it did not buy
+   * something has not really reported anything.
+   */
+  const dag = await node.getBlockDagInfo();
+  const daa = dag.virtualDaaScore;
+  if (daa < state.notBefore) {
+    const short = state.notBefore - daa;
+    const refusal =
+      `agent #002 may not spend until DAA ${state.notBefore} and the network is at ${daa} — ` +
+      `${short} short, roughly ${Math.round(Number(short) / 10)} seconds at ten blocks per ` +
+      `second. This is not a policy in this process: the covenant checks the claimed DAA score ` +
+      `against ${state.notBefore} on every spend, so no version of this program can bring the ` +
+      `payment forward, and neither can whoever issued the grant.`;
+    console.error(refusal);
+    record({ outcome: "refused", reason: "timelock", virtualDaaScore: daa.toString(), notBefore: state.notBefore.toString(), refusal });
+    process.exit(has("expect-refusal") ? 0 : 3);
+  }
+
+  const payer = new WardaPayer({
+    grant: { template, authority, state, recipients },
+    node,
+    sign: fromHex(secretHex.trim()),
+  });
+
+  console.error(`buying   : ${url}`);
+
+  /* One mutable object rather than three `let`s: assignments made inside a
+     callback are invisible to the compiler's narrowing, so plain locals read
+     back as `null` no matter what the callback did. */
+  const seen: { payTo?: string; amountSompi?: bigint; txid?: string } = {};
+
+  const res = await wardaFetch(url, undefined, {
+    payer,
+    onEvent: (e) => {
+      if (e.type === "quote") {
+        seen.payTo = e.requirement.payTo;
+        seen.amountSompi = e.requirement.amountSompi;
+        console.error(`  quoted : ${e.requirement.amountSompi} sompi to ${e.requirement.payTo}`);
+      }
+      if (e.type === "paid") {
+        seen.txid = e.result.txid;
+        console.error(`  paid   : ${e.result.txid}`);
+      }
+      if (e.type === "settling") console.error(`  settling, retrying in ${e.delayMs}ms with the SAME proof`);
+      if (e.type === "done") console.error(`  status : ${e.status}`);
+    },
+  });
+
+  const body = await res.json();
+
+  /* Written BEFORE the manifest, and before anything is printed. A purchase
+     that succeeded and was not recorded is indistinguishable afterwards from
+     one that never happened, and the money is gone either way. */
+  record({
+    outcome: res.ok ? "bought" : "paid-but-refused",
+    status: res.status,
+    quoted: seen.payTo ? { payTo: seen.payTo, amountSompi: seen.amountSompi?.toString() ?? null } : null,
+    txid: seen.txid ?? null,
+    /* Who the vendor says sold it, recorded verbatim and NOT trusted: the
+       checkable fact is which address the money reached, and that is `quoted`
+       above, matched against this grant's allowlist by the covenant itself. */
+    sellerClaimed: (body as Record<string, unknown>)?.seller ?? null,
+    response: body,
+  });
+
+  /* The grant has MOVED — its address is a hash of its state. Write the new
+     state back or the next run looks for it where it used to be, which every
+     tool reports as "no UTXO at <address>": a message that names three causes,
+     none of them this one. */
+  const s = payer.state;
+  const advanced = {
+    ...m,
+    spent_total: s.spentTotal.toString(),
+    reserved: s.reserved.toString(),
+    epoch_index: s.epochIndex.toString(),
+    epoch_spent: s.epochSpent.toString(),
+    /* Payment AND fee. The budget is charged the payment; the coin loses both,
+       and a grant_value advanced by only the payment drifts by one fee per
+       purchase until the dashboard refuses to publish it. */
+    grant_value: (BigInt(m.grant_value) - (seen.amountSompi ?? 0n) - payer.fee).toString(),
+  };
+  writeFileSync(manifestPath, JSON.stringify(advanced, null, 1) + "\n");
+  console.error(`manifest : advanced to spent_total=${advanced.spent_total}`);
+
+  process.stdout.write(JSON.stringify(body, null, 2) + "\n");
+  if (!res.ok) process.exit(4);
+} catch (e) {
+  const why = (e as Error).message;
+  console.error(why);
+  record({ outcome: "failed", error: why });
+  process.exit(1);
+} finally {
+  node.close();
+}

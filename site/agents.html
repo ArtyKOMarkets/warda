@@ -1,0 +1,370 @@
+<title>Agents</title>
+<meta name="description" content="The Warda agents running on Kaspa testnet-10. Each holds a grant whose limits the network enforces; every figure on these pages is derived from the chain.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+/* Shared by agent-001.html and agent-002.html. build.py injects it into both
+   wherever they carry the AGENT_CSS placeholder.
+
+   It was inline in agent-001.html and was lifted verbatim when the second
+   agent page appeared. Two copies of a palette is two palettes: the first
+   colour changed in one and not the other makes the pair look like two sites
+   that happen to share a logo, and nothing warns you. Edit here. */
+:root {
+    --void: #06090C; --ground: #0A1014; --panel: #101A20;
+    --edge: #1E2E37; --edge-bright: #2C4350;
+    --chrome: #DDE0E2; --chrome-dim: #8D989E; --chrome-faint: #5D6B73;
+    --teal: #14D7C1; --teal-bright: #38F9E9; --teal-deep: #06BBA1;
+    --teal-ghost: rgba(20,215,193,0.10);
+    --refuse: #FF6B5A; --refuse-ghost: rgba(255,107,90,0.08);
+    --display: "Chakra Petch", "Arial Narrow", sans-serif;
+    --body: "Barlow", "Helvetica Neue", Arial, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    --gutter: clamp(1.15rem, 4vw, 3.4rem);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--void); color: var(--chrome); font-family: var(--body);
+         font-size: 17px; line-height: 1.66; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+  .wrap { max-width: 58rem; margin: 0 auto; padding: 0 var(--gutter); }
+  h1, h2, h3 { font-family: var(--display); font-weight: 700; margin: 0; line-height: 1.05;
+               letter-spacing: -0.02em; text-wrap: balance; }
+  h1 { font-size: clamp(2.4rem, 7vw, 4.6rem); }
+  h2 { font-size: clamp(1.5rem, 3.4vw, 2.1rem); margin-bottom: 0.9rem; }
+  h3 { font-size: 1rem; }
+  p { margin: 0 0 1.05em; }
+  a { color: var(--teal); text-decoration-color: var(--teal-deep); text-underline-offset: 3px; }
+  a:hover { color: var(--teal-bright); }
+  :focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
+  code, .m { font-family: var(--mono); }
+  section { padding: clamp(2.8rem, 6vw, 4.4rem) 0; border-top: 1px solid var(--edge); }
+  .eyebrow { font-family: var(--mono); font-size: 0.68rem; text-transform: uppercase;
+             letter-spacing: 0.19em; color: var(--teal); margin: 0 0 1rem;
+             display: flex; align-items: center; gap: 0.7rem; }
+  .eyebrow::before { content: ""; width: 1.6rem; height: 1px; background: var(--teal-deep); flex: none; }
+  .eyebrow.red { color: var(--refuse); }
+  .eyebrow.red::before { background: var(--refuse); }
+
+  header { padding: clamp(2.4rem, 6vw, 4rem) 0 clamp(2rem, 5vw, 3rem); }
+  .home { font-family: var(--mono); font-size: 0.7rem; text-transform: uppercase;
+          letter-spacing: 0.14em; color: var(--chrome-faint); text-decoration: none;
+          display: inline-flex; align-items: center; min-height: 2.75rem; }
+  .home:hover { color: var(--teal-bright); }
+  .lede { font-size: clamp(1.05rem, 2vw, 1.25rem); color: var(--chrome-dim); max-width: 48ch; margin-top: 1.2rem; }
+  .lede strong { color: var(--chrome); font-weight: 500; }
+
+  .live { display: inline-flex; align-items: center; gap: 0.55rem; font-family: var(--mono);
+          font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.16em;
+          color: var(--teal); margin-bottom: 1.4rem; }
+  .live .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--teal); flex: none; }
+
+  /* ---- authority, as a statement --------------------------------------- */
+  .stmt { border: 1px solid var(--edge-bright); background: var(--ground); margin-top: 1.6rem; }
+
+  /* The budget, drawn once rather than stated four times. A page arguing that
+     spending is bounded should show the bound; a table of eight rows states it
+     and shows nothing. */
+  .meter { margin-top: 1.6rem; }
+  .mnums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 0.9rem; }
+  .mn { font-family: var(--mono); font-size: clamp(1.5rem, 3.4vw, 2.1rem); color: var(--chrome);
+        letter-spacing: -0.02em; }
+  .mu { font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.1em;
+        text-transform: uppercase; color: var(--chrome-faint); display: block; margin-top: 0.15rem; }
+  .bar { position: relative; height: 14px; background: var(--ground);
+         border: 1px solid var(--edge-bright); overflow: hidden; }
+  .bar .fill { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--teal);
+               transition: width 900ms cubic-bezier(.2,.7,.3,1); }
+  /* Where a single payment can reach. Usually a sliver, which is the point —
+     so it is drawn ON TOP of the fill and outlined, or it disappears into the
+     teal exactly when it matters most. */
+  .bar .cap { position: absolute; top: -1px; bottom: -1px; width: 2px; background: var(--chrome);
+              box-shadow: 0 0 0 1px var(--void); z-index: 2; }
+  .mlegend { font-size: 0.8rem; color: var(--chrome-dim); margin: 0.7rem 0 0; }
+  @media (prefers-reduced-motion: reduce) { .bar .fill { transition: none; } }
+  @media (max-width: 640px) { .mnums { grid-template-columns: 1fr; gap: 0.7rem; } }
+
+  /* Six refusals, each a paragraph, is a wall. The claim of each one is its
+     first line; the reasoning is worth reading once. So the claim always
+     shows and the reasoning opens — nothing is hidden from a reader who
+     wants it, and nothing is dumped on one who does not. */
+  details.ref > summary { cursor: pointer; list-style: none; display: flex;
+                          align-items: baseline; justify-content: space-between; gap: 1.2rem; }
+  details.ref > summary::-webkit-details-marker { display: none; }
+  details.ref > summary .try { margin: 0; }
+  details.ref > summary::after { content: "why \2193"; flex: none; font-family: var(--mono);
+                                 font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase;
+                                 color: var(--chrome-faint); }
+  details.ref[open] > summary::after { content: "why \2191"; }
+  details.ref[open] > summary { margin-bottom: 0.6rem; }
+  details.ref > summary:hover::after { color: var(--chrome-dim); }
+  details.ref > summary:focus-visible { outline: 1px solid var(--refuse); outline-offset: 3px; }
+  /* Shown only when the agent has gone quiet. Red, because on this site red is
+     the colour of something that must not pass — and a two-day-old figure
+     passing as current is exactly that. */
+  .stale { border-left: 2px solid var(--refuse); background: rgba(255, 107, 90, 0.07);
+           color: var(--chrome); padding: 0.75rem 1rem; margin: 0.9rem 0 1.6rem;
+           font-size: 0.86rem; line-height: 1.55; }
+  .row { display: grid; grid-template-columns: 12rem minmax(0,1fr); gap: 1rem;
+         padding: 0.62rem 1.2rem; border-bottom: 1px solid var(--edge);
+         font-family: var(--mono); font-size: 0.78rem; align-items: baseline; }
+  .row:last-child { border-bottom: 0; }
+  .row .k { color: var(--chrome-faint); text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.66rem; }
+  .row .v { color: var(--chrome); overflow-wrap: anywhere; }
+  .row .v.big { font-size: 1.05rem; }
+  .row .v em { font-style: normal; color: var(--chrome-faint); }
+
+  /* ---- the refusals: the centre of the page ---------------------------- */
+  .ref { border: 1px solid var(--refuse); background: var(--refuse-ghost);
+         padding: 1.1rem 1.2rem; margin-bottom: 0.9rem; }
+  .ref .try { font-family: var(--mono); font-size: 0.72rem; color: var(--refuse);
+              text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 0.55rem; }
+  .ref .said { font-size: 0.95rem; color: var(--chrome); line-height: 1.62; margin: 0; }
+  /* A Kaspa address is 60-odd characters with nothing to break on, so a refusal
+     that quotes one is a single unbreakable word. On a phone it pushed its card,
+     the section and the whole document wider than the viewport — 583px of page
+     in a 390px screen — and every figure on the page slid sideways with it.
+     `anywhere` breaks only when the line cannot otherwise fit, so prose reads
+     normally and only the address is broken. */
+  .ref .said, .ref .try { overflow-wrap: anywhere; }
+  .ref .rule { font-family: var(--mono); font-size: 0.66rem; color: var(--chrome-faint);
+               margin-top: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; }
+  .ref.quoted { border-color: var(--edge-bright); background: var(--ground); }
+  .ref.quoted .try { color: var(--chrome-dim); }
+
+  /* ---- what it did ----------------------------------------------------- */
+  .pay { border: 1px solid var(--edge); background: var(--ground); padding: 0.85rem 1.1rem;
+         margin-bottom: 0.6rem; font-family: var(--mono); font-size: 0.75rem; }
+  .pay .top { display: flex; flex-wrap: wrap; gap: 0.5rem 1.1rem; align-items: baseline; }
+  .pay .amt { color: var(--teal); font-size: 0.95rem; }
+  .pay .daa { color: var(--chrome-faint); }
+  .pay .tx { color: var(--chrome-dim); overflow-wrap: anywhere; user-select: all;
+             margin-top: 0.5rem; line-height: 1.7; }
+
+  .mission { margin-top: 1.6rem; max-width: 50ch; font-size: clamp(1rem, 1.9vw, 1.15rem);
+             color: var(--chrome); border-left: 2px solid var(--teal-deep); padding-left: 1.1rem; }
+  .verdict { margin-top: 0.65rem; display: flex; flex-wrap: wrap; gap: 0.4rem 1.1rem;
+             font-size: 0.7rem; letter-spacing: 0.04em; }
+  .verdict .ok { color: var(--teal); }
+  .verdict .no { color: var(--refuse); }
+
+  .story { list-style: none; padding: 0; margin: 1.6rem 0 0; max-width: 44ch; }
+  .story li { font-size: clamp(1.05rem, 2.2vw, 1.35rem); line-height: 1.5; padding: 0.28rem 0;
+              color: var(--chrome-dim); font-family: var(--display); font-weight: 500; }
+  .story li strong { color: var(--chrome); font-weight: 700; }
+  .story li:last-child { color: var(--teal); }
+
+  .tree { font-family: var(--mono); font-size: 0.78rem; line-height: 2; margin-top: 1.6rem;
+          border: 1px solid var(--edge-bright); background: var(--ground); padding: 1.1rem 1.2rem; }
+  .tree .h { color: var(--chrome-faint); text-transform: uppercase; letter-spacing: 0.1em;
+             font-size: 0.66rem; display: block; margin-bottom: 0.4rem; }
+  .tree .can { color: var(--teal); overflow-wrap: anywhere; }
+  .tree .cant { color: var(--refuse); }
+  .tree .gap { display: block; height: 0.8rem; }
+
+  .two { display: grid; gap: 1.1rem; margin-top: 1.8rem; }
+  @media (min-width: 46rem) { .two { grid-template-columns: 1fr 1fr; } }
+
+  /* Long unbreakable tokens — addresses, hashes, transaction ids — appear in
+     ordinary prose all over this page. None of them may widen the document;
+     the <pre> blocks keep their own horizontal scroll, which is the right
+     behaviour for a command you want to copy intact. */
+  #a-body, #b-body { overflow-x: clip; }
+  #a-body p, #a-body li, #a-body td, #a-body .v,
+  #b-body p, #b-body li, #b-body td, #b-body .v { overflow-wrap: anywhere; }
+  .col { border: 1px solid var(--edge-bright); background: var(--ground); padding: 1.1rem 1.2rem; }
+  .col h3 { font-family: var(--mono); font-size: 0.7rem; text-transform: uppercase;
+            letter-spacing: 0.14em; margin-bottom: 0.9rem; }
+  .col.yes { border-color: var(--teal-deep); }
+  .col.yes h3 { color: var(--teal); }
+  .col.no h3 { color: var(--chrome-dim); }
+  .col ul { list-style: none; padding: 0; margin: 0; }
+  .col li { font-size: 0.92rem; line-height: 1.5; padding: 0.34rem 0 0.34rem 1.3rem;
+            position: relative; color: var(--chrome-dim); }
+  .col.yes li::before { content: "\2713"; position: absolute; left: 0; color: var(--teal); }
+  .col.no li::before { content: "\2715"; position: absolute; left: 0; color: var(--chrome-faint); }
+
+  .note { border-left: 2px solid var(--edge-bright); padding-left: 1.1rem; color: var(--chrome-dim);
+          font-size: 0.95rem; margin: 1.5rem 0 0; }
+  .note strong { color: var(--chrome); font-weight: 500; }
+
+  #a-digest { font-size: clamp(0.63rem, 2.1vw, 0.76rem); color: var(--chrome); }
+  pre { background: var(--ground); border: 1px solid var(--edge); padding: 1rem 1.1rem;
+        overflow-x: auto; font-family: var(--mono); font-size: 0.74rem; line-height: 1.75;
+        color: var(--chrome-dim); margin: 1.2rem 0 0; }
+  /* When the chain was last read. NOT `.stale`: that class is the red
+     staleness banner, and its border and background survived the later
+     override, so this benign line rendered as an alarm on both agent pages. */
+  .sub-h { font-family: var(--mono); font-size: 0.7rem; text-transform: uppercase;
+           letter-spacing: 0.14em; color: var(--chrome-faint); margin-top: 2rem; }
+  .readat { font-family: var(--mono); font-size: 0.7rem; color: var(--chrome-faint);
+            margin-top: 1.4rem; border: 0; background: none; padding: 0; }
+  footer { padding: 3rem 0 4rem; border-top: 1px solid var(--edge); font-family: var(--mono);
+           font-size: 0.72rem; color: var(--chrome-faint); }
+
+
+  /* ---- the index -------------------------------------------------------- */
+  .cards { display: grid; gap: 1.1rem; margin-top: 2rem; }
+  @media (min-width: 52rem) { .cards { grid-template-columns: 1fr 1fr; } }
+
+  .card { border: 1px solid var(--edge-bright); background: var(--ground);
+          padding: 1.4rem 1.4rem 1.2rem; display: flex; flex-direction: column;
+          text-decoration: none; color: inherit; transition: border-color 200ms, transform 200ms; }
+  .card:hover { border-color: var(--teal-deep); transform: translateY(-2px); }
+  .card:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
+  @media (prefers-reduced-motion: reduce) { .card { transition: none; } .card:hover { transform: none; } }
+  .card .no { font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.17em;
+              text-transform: uppercase; color: var(--teal); display: flex;
+              align-items: center; gap: 0.5rem; }
+  .card .no i { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); flex: none; }
+  .card .no.shut { color: var(--refuse); }
+  .card .no.shut i { background: var(--refuse); }
+  .card h3 { font-size: clamp(1.35rem, 3vw, 1.75rem); margin: 0.7rem 0 0.5rem; }
+  .card .does { color: var(--chrome-dim); font-size: 0.95rem; margin: 0 0 1.1rem; flex: 1; }
+  .card dl { display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem 1rem; margin: 0 0 1.1rem;
+             border-top: 1px solid var(--edge); padding-top: 1rem; }
+  .card dt { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.11em;
+             text-transform: uppercase; color: var(--chrome-faint); margin: 0; }
+  .card dd { font-family: var(--mono); font-size: 0.95rem; color: var(--chrome); margin: 0.15rem 0 0; }
+  .card .more { font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.13em;
+                text-transform: uppercase; color: var(--teal); }
+  .card:hover .more { color: var(--teal-bright); }
+
+  /* A planned agent is not a running one and must not look like one. No
+     border colour, no live dot, and it is not a link, because a card you can
+     click that goes nowhere is worse than one you cannot. */
+  .card.soon { border-style: dashed; border-color: var(--edge); cursor: default; }
+  .card.soon:hover { border-color: var(--edge); transform: none; }
+  .card.soon .no { color: var(--chrome-faint); }
+  .card.soon .no i { background: transparent; border: 1.5px solid var(--chrome-faint); }
+  .card.soon h3, .card.soon dd { color: var(--chrome-dim); }
+  .card.soon .more { color: var(--chrome-faint); }
+</style>
+
+<div class="wrap"><header>
+  <a class="home" href="/">&larr; Warda</a>
+  <h1>The agents</h1>
+  <p class="lede">
+    Each one holds a Warda grant on Kaspa testnet-10: a budget, a per-payment ceiling, and a
+    list of addresses it may pay, all fixed when the grant was created and
+    <strong>enforced by the network</strong> rather than by the process holding the key.
+    Every figure on their pages is read off the chain.
+  </p>
+</header></div>
+
+<div class="wrap">
+<section style="border-top:0;padding-top:0">
+  <div class="cards" id="g-cards"></div>
+
+  <p class="note" style="margin-top:2.4rem">
+    <strong>#002 buys from #001, and both were built here.</strong> That makes this a
+    demonstration of the rails, not of a market &mdash; and it is said on #002's page as
+    plainly as here. What is checkable is the payment: two grants, two keys, one address each
+    may pay, settled where anyone can look it up.
+  </p>
+</section>
+</div>
+
+<div class="wrap"><footer>
+  <p>Warda &middot; testnet-10 &middot; unaudited &middot; not for real money</p>
+</footer></div>
+
+<script>
+(function () {
+  /* The cards are built from each agent's published JSON, not typed here. An
+     index that restates figures maintained somewhere else is the one page on a
+     site like this guaranteed to go stale, because nothing breaks when it
+     does. A card whose JSON is missing is dropped rather than shown empty. */
+  var AGENTS = [
+    { id: "001", href: "/agent-001", json: "/agent-001.json",
+      name: "The network reader",
+      does: "Reads the Kaspa network every hour and publishes a digest of what changed. It pays for the one thing it cannot do itself." },
+    { id: "002", href: "/agent-002", json: "/agent-002.json",
+      name: "The buyer",
+      does: "Buys agent #001's digest over HTTP 402, from a grant that may pay one address and could not pay it at all until a start time the covenant enforces." }
+  ];
+
+  var PLANNED = [
+    { id: "003", name: "Succession",
+      does: "Handing an agent's authority to its replacement without either one holding the other's key. A ceremony with transaction ids, not a running agent." },
+    { id: "004", name: "Delegation in public",
+      does: "An agent hiring a sub-agent: bounded authority it can hand out and take back. The covenant supports it and it has not been done in the open." }
+  ];
+
+  var wrap = document.getElementById("g-cards");
+
+  function card(a, d) {
+    var el = document.createElement("a");
+    el.className = "card";
+    el.href = a.href;
+
+    var no = document.createElement("p");
+    no.className = "no";
+    var dot = document.createElement("i");
+    no.appendChild(dot);
+    var lbl = document.createElement("span");
+    /* "Live" is a claim about right now. The only thing this page knows is
+       when the chain was last read for that agent, so that is what it says. */
+    lbl.textContent = "Agent #" + a.id + " · " + (d.network || "testnet");
+    no.appendChild(lbl);
+    el.appendChild(no);
+
+    var h = document.createElement("h3");
+    h.textContent = a.name;
+    el.appendChild(h);
+
+    var p = document.createElement("p");
+    p.className = "does";
+    p.textContent = a.does;
+    el.appendChild(p);
+
+    var dl = document.createElement("dl");
+    var auth = d.authority || {};
+    var rows = [
+      ["Budget", auth.budget || "—"],
+      ["Spent", auth.spent || "—"],
+      ["May pay", (auth.authorizedPayees != null ? auth.authorizedPayees : "—") +
+                 (auth.authorizedPayees === 1 ? " address" : " addresses")],
+      ["Refuses", ((d.refusals || []).length) + " things, derived"]
+    ];
+    rows.forEach(function (r) {
+      var dt = document.createElement("dt"); dt.textContent = r[0];
+      var dd = document.createElement("dd"); dd.textContent = r[1];
+      dl.appendChild(dt); dl.appendChild(dd);
+    });
+    el.appendChild(dl);
+
+    var more = document.createElement("p");
+    more.className = "more";
+    more.textContent = "Details →";
+    el.appendChild(more);
+    return el;
+  }
+
+  function soon(a) {
+    var el = document.createElement("div");
+    el.className = "card soon";
+    var no = document.createElement("p");
+    no.className = "no";
+    no.appendChild(document.createElement("i"));
+    var lbl = document.createElement("span");
+    lbl.textContent = "Agent #" + a.id + " · not built";
+    no.appendChild(lbl);
+    el.appendChild(no);
+    var h = document.createElement("h3"); h.textContent = a.name; el.appendChild(h);
+    var p = document.createElement("p"); p.className = "does"; p.textContent = a.does; el.appendChild(p);
+    var more = document.createElement("p");
+    more.className = "more";
+    more.textContent = "Nothing to look at yet";
+    el.appendChild(more);
+    return el;
+  }
+
+  Promise.all(AGENTS.map(function (a) {
+    return fetch(a.json, { cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) { return d && d.authority ? card(a, d) : null; })
+      .catch(function () { return null; });
+  })).then(function (els) {
+    els.forEach(function (el) { if (el) wrap.appendChild(el); });
+    PLANNED.forEach(function (a) { wrap.appendChild(soon(a)); });
+  });
+})();
+</script>

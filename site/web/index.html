@@ -455,7 +455,7 @@
     <p class="thesis" data-rise style="--d:80ms">Give AI agents money without giving them <span class="lit">unlimited authority</span>.</p>
     <p class="sub" data-rise style="--d:170ms">Warda creates cryptographically bounded grants for autonomous agents. The agent gets a key. The grant gets the money. Kaspa enforces the rules — so even if the agent is compromised, it cannot spend outside its authority.</p>
     <div class="cta-row" data-rise style="--d:250ms">
-      <a class="cta primary" href="/agent-001">Watch Agent #001 <span class="arw">&rarr;</span></a>
+      <a class="cta primary" href="/agents">See the agents <span class="arw">&rarr;</span></a>
       <a class="cta ghost" href="#challenge">Try the challenge</a>
       <a class="cta ghost" href="/build">Build your first agent</a>
     </div>
@@ -930,7 +930,8 @@ await wardaFetch("https://api.example/infer");</code></pre>
         <h3>Agent&nbsp;#001, running unattended</h3>
         <p>It reads the network every hour and publishes a daily digest, and it cannot change
         its own rules. Every figure it prints is the difference between two counters the network
-        keeps for its own reasons &mdash; <a href="/agent-001">watch it</a>.</p>
+        keeps for its own reasons &mdash; <a href="/agent-001">watch it</a>, or see
+        <a href="/agents">every agent</a>.</p>
       </div>
       <div class="shipped">
         <span class="tag">Shipped <em>&middot; the standing challenge</em></span>
@@ -1020,7 +1021,10 @@ await wardaFetch("https://api.example/infer");</code></pre>
       </div>
       <div>
         <p class="lab">Tests, five packages</p>
-        <p class="num" data-to="380">0</p>
+        <!-- Passing, not total: the sdk suite skips six that need a live node,
+             and a skipped test proves nothing. Recount with
+             `npm test` in each of ., sdk, x402, mcp and verify. -->
+        <p class="num" data-to="388">0</p>
         <p>Including a fixture built from the live testnet payment — anchored on the chain, not on the encoder that wrote it.</p>
       </div>
     </div>

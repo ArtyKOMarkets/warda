@@ -20,6 +20,10 @@
       "destination": "/api/inference"
     },
     {
+      "source": "/digest",
+      "destination": "/api/digest"
+    },
+    {
       "source": "/",
       "destination": "/api/index"
     }

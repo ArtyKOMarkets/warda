@@ -15,7 +15,7 @@ diffable; this fills them in. Edit src/, never the output.
 import base64, json, pathlib, re, sys
 
 here = pathlib.Path(__file__).parent
-PAGES = ["index.html", "build.html", "verify.html", "agent-001.html"]
+PAGES = ["index.html", "build.html", "verify.html", "agents.html", "agent-001.html", "agent-002.html"]
 
 # The attack page publishes a live grant's key and terms, so it can only be
 # built when there IS one. src/demo-grant.json is written by
@@ -34,6 +34,10 @@ def data_uri(p):
 # verify.html. Injected rather than duplicated: both pages exist to be checked
 # by strangers, and a second copy of a hash function is a second thing that can
 # quietly disagree with the SDK.
+# The palette and layout both agent pages share. One file, injected into
+# both, because two inline copies drift the first time a colour changes.
+AGENT_CSS = (here / "src" / "_agent.css").read_text()
+
 CRYPTO = (here / "src" / "_crypto.js").read_text()
 VERIFY_CORE = (here / "src" / "verify-core.js").read_text()
 
@@ -55,6 +59,7 @@ flavours = {
     "web": {"{{LOCKUP}}": "assets/lockup-hero.png", "{{MARK}}": "assets/mark-200.png"},
 }
 for _f in flavours.values():
+    _f["{{AGENT_CSS}}"] = AGENT_CSS
     _f["{{CRYPTO}}"] = CRYPTO
     _f["{{VERIFY_CORE}}"] = VERIFY_CORE
     _f["{{COVENANT_TEMPLATE}}"] = TEMPLATE
@@ -83,44 +88,54 @@ COPIES = [
 # missing, so a page built without a snapshot says less rather than something
 # wrong. Copied only when it exists, because a build that dies over a missing
 # optional file is a build that stops shipping the pages that were fine.
-AGENT = here / "src" / "agent-001.json"
-SRC_AGENT = here / "src" / "agent-001.html"
+AGENTS = [
+    # (data, page, the command that writes the data)
+    ("agent-001.json", "agent-001.html",
+     "cd agent && node --experimental-strip-types tools/dashboard.ts \\\n"
+     "    ../x402/demo/kaspa-x402-grant.json \\\n"
+     "    --recipients ../x402/demo/kaspa-x402-recipients.txt > ../site/src/agent-001.json"),
+    ("agent-002.json", "agent-002.html",
+     "cd agent-002 && node --experimental-strip-types tools/dashboard.ts \\\n"
+     "    > ../site/src/agent-002.json"),
+]
 
 
-def agent_publishable():
-    """Whether agent-001.json is something the agent page can render.
+def agent_publishable(data_name, page_name, how):
+    """Whether an agent's JSON is something its page can render.
 
     The page hides itself when the data is absent or incomplete, which is the
     right failure and a silent one — it ships looking finished with one link
     that leads to an empty screen. That exact shape has now bitten this site
-    twice, so the build checks the page's own requirements instead of trusting
+    twice, so the build checks each page's own requirements instead of trusting
     them: every key the renderer refuses to proceed without must be present.
 
-    Dropped, not fatal. A missing reading should cost the page one section,
-    not stop the site from shipping.
+    The requirements are read OUT OF THE PAGE rather than listed here, so a
+    renderer that starts needing a new field starts needing it in the build on
+    the same commit.
+
+    Dropped, not fatal. A missing reading should cost one page, not the site.
     """
-    if not AGENT.exists():
-        print("! src/agent-001.json missing — /agent-001 would render nothing.")
-        print("  Take a reading:  cd agent && node --experimental-strip-types \\")
-        print("                     tools/dashboard.ts ../x402/demo/kaspa-x402-grant.json \\")
-        print("                     --recipients ../x402/demo/kaspa-x402-recipients.txt \\")
-        print("                     > ../site/src/agent-001.json")
+    data = here / "src" / data_name
+    page = here / "src" / page_name
+    if not data.exists():
+        print(f"! src/{data_name} missing — /{page_name[:-5]} would render nothing.")
+        for line in how.splitlines():
+            print("  " + line)
         return False
     try:
-        d = json.loads(AGENT.read_text())
+        d = json.loads(data.read_text())
     except (ValueError, OSError) as e:
-        print(f"! src/agent-001.json unreadable ({e}); not publishing it")
+        print(f"! src/{data_name} unreadable ({e}); not publishing it")
         return False
 
-    # The renderer's own guard, read out of the page rather than restated here.
-    guard = re.search(r"if \(!d \|\| ([^)]+)\) return;", SRC_AGENT.read_text())
+    guard = re.search(r"if \(!d \|\| ([^)]+)\) return;", page.read_text())
     needed = re.findall(r"d\.(\w+)", guard.group(1)) if guard else []
     missing = [k for k in needed if not d.get(k)]
     if missing:
-        print(f"! src/agent-001.json is missing {', '.join(missing)} — the page would hide itself.")
+        print(f"! src/{data_name} is missing {', '.join(missing)} — the page would hide itself.")
         return False
     if not d.get("refusals"):
-        print("! src/agent-001.json carries no refusals, which are the point of the page.")
+        print(f"! src/{data_name} carries no refusals, which are the point of the page.")
         return False
     return True
 
@@ -130,10 +145,11 @@ SRC_INDEX = here / "src" / "index.html"
 if STATE.exists():
     COPIES.append("demo-state.json")
 
-if agent_publishable():
-    COPIES.append("agent-001.json")
-else:
-    PAGES.remove("agent-001.html")
+for _data, _page, _how in AGENTS:
+    if agent_publishable(_data, _page, _how):
+        COPIES.append(_data)
+    else:
+        PAGES.remove(_page)
 
 
 def manifest_matches(card):

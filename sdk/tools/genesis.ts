@@ -298,6 +298,12 @@ try {
         principal: authority.principalKey,
         revocation: authority.revocationKey,
         recipients_root: state.recipientsRoot,
+        /* The DAA score genesis was built at. Without it `not_before` says
+           when the grant opens and nothing says how long it was shut, so a
+           five-minute timelock and a five-day one are indistinguishable in the
+           manifest afterwards — and the length is the whole claim a timelock
+           makes. Recorded, never used to derive the address. */
+        created_at_daa: Number(dag.virtualDaaScore),
         not_before: Number(state.notBefore),
         expires_at: Number(state.expiresAt),
         budget: Number(state.budgetTotal),

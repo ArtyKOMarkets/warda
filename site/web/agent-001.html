@@ -8,7 +8,14 @@
 <meta name="description" content="A live agent on Kaspa testnet-10 with a budget the network enforces. Six things it cannot do, five of them refused by the covenant itself. Every figure derived from the chain.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap">
 <style>
-  :root {
+/* Shared by agent-001.html and agent-002.html. build.py injects it into both
+   wherever they carry the AGENT_CSS placeholder.
+
+   It was inline in agent-001.html and was lifted verbatim when the second
+   agent page appeared. Two copies of a palette is two palettes: the first
+   colour changed in one and not the other makes the pair look like two sites
+   that happen to share a logo, and nothing warns you. Edit here. */
+:root {
     --void: #06090C; --ground: #0A1014; --panel: #101A20;
     --edge: #1E2E37; --edge-bright: #2C4350;
     --chrome: #DDE0E2; --chrome-dim: #8D989E; --chrome-faint: #5D6B73;
@@ -165,8 +172,9 @@
      ordinary prose all over this page. None of them may widen the document;
      the <pre> blocks keep their own horizontal scroll, which is the right
      behaviour for a command you want to copy intact. */
-  #a-body { overflow-x: clip; }
-  #a-body p, #a-body li, #a-body td, #a-body .v { overflow-wrap: anywhere; }
+  #a-body, #b-body { overflow-x: clip; }
+  #a-body p, #a-body li, #a-body td, #a-body .v,
+  #b-body p, #b-body li, #b-body td, #b-body .v { overflow-wrap: anywhere; }
   .col { border: 1px solid var(--edge-bright); background: var(--ground); padding: 1.1rem 1.2rem; }
   .col h3 { font-family: var(--mono); font-size: 0.7rem; text-transform: uppercase;
             letter-spacing: 0.14em; margin-bottom: 0.9rem; }
@@ -187,9 +195,16 @@
   pre { background: var(--ground); border: 1px solid var(--edge); padding: 1rem 1.1rem;
         overflow-x: auto; font-family: var(--mono); font-size: 0.74rem; line-height: 1.75;
         color: var(--chrome-dim); margin: 1.2rem 0 0; }
-  .stale { font-family: var(--mono); font-size: 0.7rem; color: var(--chrome-faint); margin-top: 1.4rem; }
+  /* When the chain was last read. NOT `.stale`: that class is the red
+     staleness banner, and its border and background survived the later
+     override, so this benign line rendered as an alarm on both agent pages. */
+  .sub-h { font-family: var(--mono); font-size: 0.7rem; text-transform: uppercase;
+           letter-spacing: 0.14em; color: var(--chrome-faint); margin-top: 2rem; }
+  .readat { font-family: var(--mono); font-size: 0.7rem; color: var(--chrome-faint);
+            margin-top: 1.4rem; border: 0; background: none; padding: 0; }
   footer { padding: 3rem 0 4rem; border-top: 1px solid var(--edge); font-family: var(--mono);
            font-size: 0.72rem; color: var(--chrome-faint); }
+
 </style>
 </head>
 <body>
@@ -388,7 +403,7 @@
     <div class="row"><span class="k">Template</span><span class="v" id="a-template">&mdash;</span></div>
   </div>
   <pre id="a-verify">&mdash;</pre>
-  <p class="stale" id="a-checked">&mdash;</p>
+  <p class="readat" id="a-checked">&mdash;</p>
 </section>
 
 <footer><div class="wrap" style="padding:0">

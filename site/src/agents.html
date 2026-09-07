@@ -1,0 +1,174 @@
+<title>Agents</title>
+<meta name="description" content="The Warda agents running on Kaspa testnet-10. Each holds a grant whose limits the network enforces; every figure on these pages is derived from the chain.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+{{AGENT_CSS}}
+
+  /* ---- the index -------------------------------------------------------- */
+  .cards { display: grid; gap: 1.1rem; margin-top: 2rem; }
+  @media (min-width: 52rem) { .cards { grid-template-columns: 1fr 1fr; } }
+
+  .card { border: 1px solid var(--edge-bright); background: var(--ground);
+          padding: 1.4rem 1.4rem 1.2rem; display: flex; flex-direction: column;
+          text-decoration: none; color: inherit; transition: border-color 200ms, transform 200ms; }
+  .card:hover { border-color: var(--teal-deep); transform: translateY(-2px); }
+  .card:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
+  @media (prefers-reduced-motion: reduce) { .card { transition: none; } .card:hover { transform: none; } }
+  .card .no { font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.17em;
+              text-transform: uppercase; color: var(--teal); display: flex;
+              align-items: center; gap: 0.5rem; }
+  .card .no i { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); flex: none; }
+  .card .no.shut { color: var(--refuse); }
+  .card .no.shut i { background: var(--refuse); }
+  .card h3 { font-size: clamp(1.35rem, 3vw, 1.75rem); margin: 0.7rem 0 0.5rem; }
+  .card .does { color: var(--chrome-dim); font-size: 0.95rem; margin: 0 0 1.1rem; flex: 1; }
+  .card dl { display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem 1rem; margin: 0 0 1.1rem;
+             border-top: 1px solid var(--edge); padding-top: 1rem; }
+  .card dt { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.11em;
+             text-transform: uppercase; color: var(--chrome-faint); margin: 0; }
+  .card dd { font-family: var(--mono); font-size: 0.95rem; color: var(--chrome); margin: 0.15rem 0 0; }
+  .card .more { font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.13em;
+                text-transform: uppercase; color: var(--teal); }
+  .card:hover .more { color: var(--teal-bright); }
+
+  /* A planned agent is not a running one and must not look like one. No
+     border colour, no live dot, and it is not a link, because a card you can
+     click that goes nowhere is worse than one you cannot. */
+  .card.soon { border-style: dashed; border-color: var(--edge); cursor: default; }
+  .card.soon:hover { border-color: var(--edge); transform: none; }
+  .card.soon .no { color: var(--chrome-faint); }
+  .card.soon .no i { background: transparent; border: 1.5px solid var(--chrome-faint); }
+  .card.soon h3, .card.soon dd { color: var(--chrome-dim); }
+  .card.soon .more { color: var(--chrome-faint); }
+</style>
+
+<div class="wrap"><header>
+  <a class="home" href="/">&larr; Warda</a>
+  <h1>The agents</h1>
+  <p class="lede">
+    Each one holds a Warda grant on Kaspa testnet-10: a budget, a per-payment ceiling, and a
+    list of addresses it may pay, all fixed when the grant was created and
+    <strong>enforced by the network</strong> rather than by the process holding the key.
+    Every figure on their pages is read off the chain.
+  </p>
+</header></div>
+
+<div class="wrap">
+<section style="border-top:0;padding-top:0">
+  <div class="cards" id="g-cards"></div>
+
+  <p class="note" style="margin-top:2.4rem">
+    <strong>#002 buys from #001, and both were built here.</strong> That makes this a
+    demonstration of the rails, not of a market &mdash; and it is said on #002's page as
+    plainly as here. What is checkable is the payment: two grants, two keys, one address each
+    may pay, settled where anyone can look it up.
+  </p>
+</section>
+</div>
+
+<div class="wrap"><footer>
+  <p>Warda &middot; testnet-10 &middot; unaudited &middot; not for real money</p>
+</footer></div>
+
+<script>
+(function () {
+  /* The cards are built from each agent's published JSON, not typed here. An
+     index that restates figures maintained somewhere else is the one page on a
+     site like this guaranteed to go stale, because nothing breaks when it
+     does. A card whose JSON is missing is dropped rather than shown empty. */
+  var AGENTS = [
+    { id: "001", href: "/agent-001", json: "/agent-001.json",
+      name: "The network reader",
+      does: "Reads the Kaspa network every hour and publishes a digest of what changed. It pays for the one thing it cannot do itself." },
+    { id: "002", href: "/agent-002", json: "/agent-002.json",
+      name: "The buyer",
+      does: "Buys agent #001's digest over HTTP 402, from a grant that may pay one address and could not pay it at all until a start time the covenant enforces." }
+  ];
+
+  var PLANNED = [
+    { id: "003", name: "Succession",
+      does: "Handing an agent's authority to its replacement without either one holding the other's key. A ceremony with transaction ids, not a running agent." },
+    { id: "004", name: "Delegation in public",
+      does: "An agent hiring a sub-agent: bounded authority it can hand out and take back. The covenant supports it and it has not been done in the open." }
+  ];
+
+  var wrap = document.getElementById("g-cards");
+
+  function card(a, d) {
+    var el = document.createElement("a");
+    el.className = "card";
+    el.href = a.href;
+
+    var no = document.createElement("p");
+    no.className = "no";
+    var dot = document.createElement("i");
+    no.appendChild(dot);
+    var lbl = document.createElement("span");
+    /* "Live" is a claim about right now. The only thing this page knows is
+       when the chain was last read for that agent, so that is what it says. */
+    lbl.textContent = "Agent #" + a.id + " · " + (d.network || "testnet");
+    no.appendChild(lbl);
+    el.appendChild(no);
+
+    var h = document.createElement("h3");
+    h.textContent = a.name;
+    el.appendChild(h);
+
+    var p = document.createElement("p");
+    p.className = "does";
+    p.textContent = a.does;
+    el.appendChild(p);
+
+    var dl = document.createElement("dl");
+    var auth = d.authority || {};
+    var rows = [
+      ["Budget", auth.budget || "—"],
+      ["Spent", auth.spent || "—"],
+      ["May pay", (auth.authorizedPayees != null ? auth.authorizedPayees : "—") +
+                 (auth.authorizedPayees === 1 ? " address" : " addresses")],
+      ["Refuses", ((d.refusals || []).length) + " things, derived"]
+    ];
+    rows.forEach(function (r) {
+      var dt = document.createElement("dt"); dt.textContent = r[0];
+      var dd = document.createElement("dd"); dd.textContent = r[1];
+      dl.appendChild(dt); dl.appendChild(dd);
+    });
+    el.appendChild(dl);
+
+    var more = document.createElement("p");
+    more.className = "more";
+    more.textContent = "Details →";
+    el.appendChild(more);
+    return el;
+  }
+
+  function soon(a) {
+    var el = document.createElement("div");
+    el.className = "card soon";
+    var no = document.createElement("p");
+    no.className = "no";
+    no.appendChild(document.createElement("i"));
+    var lbl = document.createElement("span");
+    lbl.textContent = "Agent #" + a.id + " · not built";
+    no.appendChild(lbl);
+    el.appendChild(no);
+    var h = document.createElement("h3"); h.textContent = a.name; el.appendChild(h);
+    var p = document.createElement("p"); p.className = "does"; p.textContent = a.does; el.appendChild(p);
+    var more = document.createElement("p");
+    more.className = "more";
+    more.textContent = "Nothing to look at yet";
+    el.appendChild(more);
+    return el;
+  }
+
+  Promise.all(AGENTS.map(function (a) {
+    return fetch(a.json, { cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) { return d && d.authority ? card(a, d) : null; })
+      .catch(function () { return null; });
+  })).then(function (els) {
+    els.forEach(function (el) { if (el) wrap.appendChild(el); });
+    PLANNED.forEach(function (a) { wrap.appendChild(soon(a)); });
+  });
+})();
+</script>
