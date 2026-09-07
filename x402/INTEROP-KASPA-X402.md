@@ -8,8 +8,8 @@ is real, on testnet-10, and checkable.
 
 A Warda grant funded with 5 KAS, capped at 0.3 KAS per payment and 1 KAS per
 epoch, whose allowlist commits to exactly one payee: the address
-`https://demo.kaspa-x402.org/exact` quotes. Five attempts to buy from it, of
-which three were broadcast and accepted on chain.
+`https://demo.kaspa-x402.org/exact` quotes. Six attempts to buy from it, of
+which four were broadcast and accepted on chain.
 
 | # | txid | broadcast | vendor |
 |---|---|---|---|
@@ -18,6 +18,7 @@ which three were broadcast and accepted on chain.
 | 3 | `73f34306…` | yes, accepted | 402 `invalid_transaction_state` |
 | 4 | `0bbc7254…` | yes, accepted, fresh requestHash | 402 `invalid_transaction_state` |
 | 5 | `38006e77…` | yes, accepted, no `payerAddress` | 402 `invalid_transaction_state` |
+| 6 | `7821fc2a…` | yes, accepted, `payerAddress` = SUCCESSOR | 402 `invalid_transaction_state` |
 
 ## What works
 
@@ -51,6 +52,14 @@ used a different URL and therefore a different fingerprint. Same refusal.
 a funding wallet, so every payment their verifier has seen carries a
 pay-to-pubkey address there while a grant's is pay-to-script-hash. Attempt 5
 omitted the field entirely. Same refusal.
+
+Attempt 6 tried the other direction. A wallet's change returns to the address
+it paid from, so for a wallet the spent-from address and the address that
+receives are the same and nothing distinguishes them; a covenant spend
+relocates, and the address that receives is the successor. If the unseen check
+were "outputs that are not the payment return to the payer", the successor is
+the only address that could satisfy it. Same refusal. That closes the field in
+both directions: it is not about `payerAddress`.
 
 ## The open question
 

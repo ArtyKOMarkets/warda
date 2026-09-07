@@ -122,6 +122,40 @@ const state = {
  * So the key is resolved against the agent the grant actually names, before
  * anything is built.
  */
+/**
+ * The manifest, advanced to the state the payer is now in.
+ *
+ * `grant_value` is advanced too, and that is the part this file used to get
+ * wrong. It is not part of the address, so a stale one still derives the right
+ * grant and nothing fails — it just publishes a balance the chain disagrees
+ * with. That drifted 0.44 KAS across three commits before anything noticed,
+ * and the fix then was to correct the number by hand, which lasted exactly
+ * until the next purchase. Every spend costs the coin the payment AND the fee,
+ * while only the payment is charged against spentTotal, so the two diverge by
+ * exactly the fees paid.
+ */
+function advanced(
+  manifest: Record<string, unknown>,
+  after: { spentTotal: bigint; epochIndex: bigint; epochSpent: bigint },
+  paid: bigint,
+  fee: bigint,
+): string {
+  const coin = BigInt(String(manifest.grant_value ?? 0)) - paid - fee;
+  return (
+    JSON.stringify(
+      {
+        ...manifest,
+        grant_value: Number(coin > 0n ? coin : 0n),
+        spent_total: Number(after.spentTotal),
+        epoch_index: Number(after.epochIndex),
+        epoch_spent: Number(after.epochSpent),
+      },
+      null,
+      2,
+    ) + "\n"
+  );
+}
+
 const resolved = resolveSigner(fromHex(secretHex.trim()), m.agent, m.agent_key_derived);
 if (!resolved) {
   console.error(
@@ -172,16 +206,7 @@ try {
   const after = payer.state;
   writeFileSync(
     manifestPath,
-    JSON.stringify(
-      {
-        ...m,
-        spent_total: Number(after.spentTotal),
-        epoch_index: Number(after.epochIndex),
-        epoch_spent: Number(after.epochSpent),
-      },
-      null,
-      2,
-    ) + "\n",
+    advanced(m, after, after.spentTotal - BigInt(m.spent_total ?? 0), payer.fee),
   );
   console.error(`\ngrant advanced in ${manifestPath}: spent ${after.spentTotal}, epoch ${after.epochIndex}`);
 } catch (e) {
@@ -194,16 +219,7 @@ try {
     const after = payer.state;
     writeFileSync(
       manifestPath,
-      JSON.stringify(
-        {
-          ...m,
-          spent_total: Number(after.spentTotal),
-          epoch_index: Number(after.epochIndex),
-          epoch_spent: Number(after.epochSpent),
-        },
-        null,
-        2,
-      ) + "\n",
+      advanced(m, after, after.spentTotal - BigInt(m.spent_total ?? 0), payer.fee),
     );
     console.error(`\ngrant advanced anyway in ${manifestPath}: the coin moved even though the`);
     console.error(`request was refused. spent ${after.spentTotal}, epoch ${after.epochIndex}`);

@@ -249,7 +249,9 @@ export class WardaPayer {
   private readonly node: NodeClient;
   private readonly signer: Signer;
   private readonly prefix: NetworkPrefix;
-  private readonly fee: bigint;
+  /** Network fee per payment. Readable because a caller reconciling a manifest
+   *  needs it: the coin loses payment + fee, the budget only the payment. */
+  readonly fee: bigint;
   private readonly computeBudget: number;
   private readonly daaBackoff: bigint;
   /** Tail of the payment queue. See the class comment. */

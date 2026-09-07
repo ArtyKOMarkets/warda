@@ -16,10 +16,10 @@
   "epoch_limit": 100000000,
   "epoch_length": 1000,
   "delegation_depth": 2,
-  "grant_value": 434000000,
-  "spent_total": 60000000,
+  "grant_value": 412000000,
+  "spent_total": 80000000,
   "reserved": 0,
-  "epoch_index": 851,
+  "epoch_index": 3395,
   "epoch_spent": 20000000,
   "reserve_root": "803b111f3c3952f7b7c9cb2bd240759e755a85ab2c6223614d08f216dd6a3bd1"
 }
