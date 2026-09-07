@@ -41,7 +41,7 @@
  *   --dry-run         print what it would do and stop before signing
  */
 
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 
 import { scriptHashToAddress, type NetworkPrefix } from "../src/address.ts";
 import { fromHex } from "../src/bytes.ts";
@@ -364,6 +364,37 @@ if (process.argv.includes("--submit")) {
     }
     console.error(seen ? " accepted." : "\nsubmitted, but not visible yet — look again in a moment.");
     if (!seen) process.exit(1);
+
+    /**
+     * Advance the parent's manifest, which this tool did not do.
+     *
+     * build-delegation writes the parent's new state after a successful
+     * submit; its sibling did not, so a settlement left the file claiming a
+     * reserve that had just been released and a balance at an address the
+     * grant had already left. Every tool downstream then reported the parent
+     * as missing, or refused to publish a page over the disagreement — which
+     * is the right refusal aimed at the wrong culprit.
+     *
+     * The child's manifest is deliberately NOT rewritten. A settlement ends
+     * the child: there is no successor state to advance it to, and the same is
+     * true of an exit. Saying so beats leaving a file that looks current.
+     */
+    const advanced = {
+      ...pm,
+      grant_value: Number(built.tx.outputs[0]!.value),
+      spent_total: Number(successor.spentTotal),
+      reserved: Number(successor.reserved),
+      epoch_index: Number(successor.epochIndex),
+      epoch_spent: Number(successor.epochSpent),
+      reserve_root: successor.reserveRoot,
+    };
+    writeFileSync(parentPath, JSON.stringify(advanced, null, 2) + "\n");
+    console.error(
+      `\n  parent advanced : ${parentPath}\n` +
+        `    holds ${advanced.grant_value}, spent ${advanced.spent_total}, reserved ${advanced.reserved}\n` +
+        `  child ended     : ${childPath} describes a grant that no longer exists. A settlement\n` +
+        `                    has no successor for the child, so there is nothing to advance it to.`,
+    );
   } catch (e) {
     const message = (e as Error).message ?? String(e);
     const needs = /required amount of (\d+)/.exec(message);

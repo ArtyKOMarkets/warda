@@ -1,13 +1,13 @@
 {
   "_comment": "Written by agents/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, the purchase log or the chain — none is typed. Each payee's LABEL is re-derived on every run from the artefact agents/known-payees.json names, and a label that stops matching is dropped rather than published: an address with no name is honest, an address with the wrong name is not.",
-  "checkedAt": "2026-09-07T16:45:02.829Z",
+  "checkedAt": "2026-09-07T17:09:12.250Z",
   "network": "testnet-10",
   "identity": {
     "agentId": "WARDA-003",
     "agent": "bf9921d061c7dbba26fbf682b15ed30bb287cfa41be777272fff0827f55ed2a1",
     "principal": "0393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34f",
     "revocation": "0393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34f",
-    "grantAddress": "kaspatest:pq5klcqcdv88nepyt8cz94nnvexjke4c0x6jvnshzuvpg8upnwdcztxejneeh",
+    "grantAddress": "kaspatest:pp0anwr3y5kzrjvdj9yuezqnpy6fehzhsda326mcw5gyuj0z57edz44jkxzuk",
     "covenantId": "e8f9cc204f5872303dd8563b92c2b3af96327b1e1b4cee617113d12f0a743a8c",
     "template": "b3e5eeefacf2021f"
   },
@@ -44,16 +44,16 @@
   },
   "timelock": {
     "notBefore": "564404779",
-    "virtualDaaScore": "564408078",
+    "virtualDaaScore": "564422682",
     "open": true,
     "lockedFor": "5 minutes",
-    "openedAgo": "5 minutes",
+    "openedAgo": "30 minutes",
     "enforcedBy": "the covenant, on every spend: claimedDaa >= notBefore. Not a scheduler, not this process, and not revocable by whoever issued the grant."
   },
   "authority": {
     "budget": "2 KAS",
     "spent": "0.07 KAS",
-    "remaining": "1.93 KAS",
+    "remaining": "1.43 KAS",
     "maxPerPayment": "0.1 KAS",
     "epochLimit": "0.5 KAS",
     "epochLengthDaa": 1000,
@@ -63,25 +63,31 @@
       "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4"
     ],
     "delegationDepth": 2,
-    "onChain": "1.89 KAS",
+    "onChain": "1.36 KAS",
     "sompi": {
       "budget": "200000000",
       "spent": "7000000",
-      "reserved": "0",
+      "reserved": "50000000",
       "maxPerPayment": "10000000",
       "epochLimit": "50000000",
-      "onChain": "189000000"
+      "onChain": "136000000"
     }
   },
   "activity": {
-    "payments": 1,
-    "paid": "0.04 KAS",
+    "payments": 2,
+    "paid": "0.07 KAS",
     "paidOutsideTheAllowlist": "0 KAS",
     "coins": [
       {
         "amount": "0.04 KAS",
         "daaScore": "564406272",
         "txid": "f241cd7b62bc23b9170afb98cd8efb50c6fa43fb7a591d1f90a8cf4a384f4fcd",
+        "index": 1
+      },
+      {
+        "amount": "0.03 KAS",
+        "daaScore": "564406366",
+        "txid": "2a8719003e201bc9fd534e8861a2c734a9aaf42bc56a27ce06eabe6a880338f1",
         "index": 1
       }
     ]
@@ -111,16 +117,23 @@
     }
   ],
   "reconciliation": {
-    "paymentsOnChain": 1,
-    "accountedForInTheLog": 1,
-    "unaccountedFor": [],
-    "note": "Every coin at the payee is named by a purchase this agent recorded. The two halves of this page agree."
+    "spentPerTheCovenant": "0.07 KAS",
+    "namedByTheLog": "0.07 KAS",
+    "unrecorded": "0 KAS",
+    "atThePayeesWithNoReceipt": [
+      {
+        "amount": "0.04 KAS",
+        "txid": "84a5e45803ae1985c91bd837fdf2ac27c53ba2f9e1005dd264493051f7af19bd",
+        "daaScore": "564422587"
+      }
+    ],
+    "note": "Every sompi the covenant says this grant spent is named by a purchase it recorded. The two halves of this page agree."
   },
   "refusals": [
     {
       "rule": "start time (not_before)",
       "attempted": "spend before the grant opens",
-      "refusal": "this grant could not spend anything until DAA 564404779. The covenant checks the claimed DAA score against that number on every spend, so the delay was not a policy in the agent's process and could not be brought forward by whoever issued it. It opened 5 minutes ago.",
+      "refusal": "this grant could not spend anything until DAA 564404779. The covenant checks the claimed DAA score against that number on every spend, so the delay was not a policy in the agent's process and could not be brought forward by whoever issued it. It opened 30 minutes ago.",
       "derived": true
     },
     {
@@ -142,5 +155,5 @@
       "derived": true
     }
   ],
-  "mission": "Take over agent #002's buying, holding its own key, from a grant published before it could be used."
+  "mission": "Take over agent #002's buying, holding its own key, from a grant published before it could be used — and hire a sub-agent out of it."
 }

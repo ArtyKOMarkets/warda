@@ -576,14 +576,20 @@ try {
           spentPerTheCovenant: kas(state.spentTotal),
           namedByTheLog: kas(loggedSompi),
           unrecorded: kas(missingFromLog > 0n ? missingFromLog : 0n),
-          /* In range at a payee and not named by any receipt. NOT claimed as
-             this grant's: a payee address serves whoever pays it, and two
-             agents here pay the same one. */
-          atThePayeesWithNoReceipt: unattributed.map((u) => ({
-            amount: kas(u.entry.value),
-            txid: toHex(u.outpoint.transactionId),
-            daaScore: u.entry.blockDaaScore.toString(),
-          })),
+          /* Candidates for the unrecorded spending, and only when there IS
+             any. Listing every unattributed coin at a shared payee address
+             was noise: agent #002's page named three, of which at most one
+             could have been its own and the other two were #003's and #004's.
+             A list that is mostly other agents' money is not evidence, it is
+             an invitation to misread the page. */
+          couldAccountForIt:
+            missingFromLog > 0n
+              ? unattributed.map((u) => ({
+                  amount: kas(u.entry.value),
+                  txid: toHex(u.outpoint.transactionId),
+                  daaScore: u.entry.blockDaaScore.toString(),
+                }))
+              : [],
           note:
             missingFromLog <= 0n
               ? "Every sompi the covenant says this grant spent is named by a purchase it " +
@@ -616,10 +622,10 @@ try {
         `${kas(loggedSompi)}. ${kas(missingFromLog)} left this grant with no surviving receipt.`,
     );
   }
-  if (unattributed.length) {
+  if (missingFromLog > 0n && unattributed.length) {
     console.error(
-      `at the payees with no receipt from this grant (may be another agent's — a payee ` +
-        `address serves whoever pays it):`,
+      `candidates, none of them proven: coins at this grant's payees with no receipt from it. ` +
+        `A payee address serves whoever pays it, so some of these are other agents' money.`,
     );
     for (const u of unattributed) {
       console.error(`  ${kas(u.entry.value)}  ${toHex(u.outpoint.transactionId)}`);
