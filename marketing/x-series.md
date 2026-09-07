@@ -42,31 +42,47 @@ already in the repo or trivially screenshottable.
 
 ## 2 — Why the obvious fix doesn't work
 
+Under 280 characters, so it needs no premium account.
+
 > "Just add a spending cap."
 >
-> The x402 docs describe the standard one: the client "applies a $1 USD
-> spend cap unless you override `spendControls`."
+> x402's docs: a "$1 USD spend cap unless you override `spendControls`."
 >
-> Unless you override it. The code that pays is the code that sets the
-> ceiling — so the cap is bypassed by a redeploy with a different value, a
-> second instance, or anyone who can read the key out of `env`.
+> Per payment — the knob is `maxAmountPerPayment`. And it has an off switch:
+> `spendControls: false`.
 >
-> A limit enforced by the thing being limited isn't a limit. It's a
+> A limit the thing being limited can switch off isn't a limit. It's a
 > preference.
 
-*Screenshot of that line at <https://docs.x402.org/guides/mcp-server-with-x402>.
-Their words, quoted in full, and the reader can open the page themselves.*
+*Screenshot: <https://docs.x402.org/guides/mcp-server-with-x402>, the section
+headed "Using spend policies (recommended)". Frame it to include that heading
+and the whole paragraph, parenthetical included — the parenthetical is what
+carries the post. Their page in their styling, uncropped and unedited.*
 
-*Cite the protocol's own documentation, not an individual project's repo.
+*Alt text: "x402 documentation, Using spend policies: the client applies a $1
+USD spend cap unless you override spendControls — raise or disable
+maxAmountPerPayment, or set spendControls: false."*
+
+*Link in the first reply, not the post. X buries outbound links and the
+screenshot carries the claim by itself.*
+
+*Cite the protocol's own documentation, never an individual project's repo.
 Several small libraries put the same cap in an environment variable and would
 make the point more vividly, but naming one developer's work to score against
 it reads as punching down — and the standard is the stronger target anyway,
-because nobody can answer that it was just one implementation getting it
-wrong.*
+because nobody can answer that it was just one implementation getting it wrong.*
 
-*What this post does NOT claim: that the $1 cap is per-payment, per-session or
-cumulative. The documentation does not say, so neither do we. The argument
-does not need it — "unless you override" carries the whole thing.*
+*Two claims here rest on the parenthetical rather than on us: that the cap is
+per payment (their knob is named `maxAmountPerPayment`) and that it can be
+turned off (`spendControls: false`). An earlier draft of this note said not to
+claim per-payment because the docs did not say. They do say — in the override
+list, which is visible in the screenshot. Let the reader draw it from their
+words rather than asserting it in ours.*
+
+*If someone replies that a caller can simply configure it properly, agree. That
+is the post: the ceiling is set by the code that pays, so it holds exactly as
+long as that code is behaving. The argument is not that the default is badly
+chosen.*
 
 ---
 
