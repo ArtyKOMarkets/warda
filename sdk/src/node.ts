@@ -24,6 +24,7 @@
  * address, where the field must be present.
  */
 
+import { decodeAddress } from "./address.ts";
 import { fromHex, toHex } from "./bytes.ts";
 import { RpcConnection, toBigInt, type RpcOptions } from "./rpc.ts";
 import { resolveNode, resolverFrom, type ResolveOptions } from "./resolver.ts";
@@ -276,6 +277,36 @@ export async function inspect(client: NodeClient, options: OpenOptions = {}): Pr
   };
 
   if (options.grantAddress) {
+    /**
+     * Is it even an address?
+     *
+     * A malformed one reaches the node, which refuses to deserialize the
+     * request, and the resulting error was reported as a FAILED covenant
+     * check — which reads "this node would give you wrong answers rather than
+     * errors. Find another." about a node that is perfectly healthy and was
+     * never asked a question it could answer. That is the same shape as the
+     * stale-address bug fixed above, from a different direction: the caller
+     * made the mistake and the node took the blame.
+     *
+     * It happens for a mundane reason. The address is pasted from somewhere,
+     * and a placeholder, a truncated copy or a line-wrapped one all arrive
+     * here looking like an address.
+     */
+    let decodable = true;
+    try {
+      decodeAddress(options.grantAddress);
+    } catch {
+      decodable = false;
+    }
+    if (!decodable) {
+      checks.covenants = {
+        ok: true,
+        detail:
+          `UNKNOWN — "${options.grantAddress}" is not a valid Kaspa address, so nothing was ` +
+          `asked. This is about the address, not the node`,
+      };
+      return finish();
+    }
     try {
       await client.assertCovenantAware(options.grantAddress);
       checks.covenants = { ok: true, detail: "reports covenant ids" };
@@ -314,15 +345,18 @@ export async function inspect(client: NodeClient, options: OpenOptions = {}): Pr
     };
   }
 
-  const usable = Object.values(checks).every((c) => c.ok);
-  return {
-    url: client.connection.url,
-    serverVersion: info.serverVersion,
-    network: dag.network,
-    virtualDaaScore: dag.virtualDaaScore,
-    checks,
-    usable,
-  };
+  return finish();
+
+  function finish(): NodeHealth {
+    return {
+      url: client.connection.url,
+      serverVersion: info.serverVersion,
+      network: dag.network,
+      virtualDaaScore: dag.virtualDaaScore,
+      checks,
+      usable: Object.values(checks).every((c) => c.ok),
+    };
+  }
 }
 
 export function formatHealth(h: NodeHealth): string {

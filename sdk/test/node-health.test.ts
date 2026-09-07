@@ -39,7 +39,11 @@ function fakeClient(over: {
   } as any;
 }
 
-const opts = { networkId: "testnet-10", grantAddress: "kaspatest:pq" };
+/* A real, decodable address. It was "kaspatest:pq", which is not one — the
+   fake client never looked, so the tests passed while asserting behaviour the
+   probe could not reach against a live node. */
+const GRANT = "kaspatest:pqht28p6rry29l2sjyv6vfywcnsrw9fvfgfv2lp9ezy864sy2crugw8ndur3q";
+const opts = { networkId: "testnet-10", grantAddress: GRANT };
 
 test("a healthy node passes every check", async () => {
   const h: NodeHealth = await inspect(fakeClient({}), opts);
@@ -152,4 +156,17 @@ test("no resolver host is compiled in", () => {
   } finally {
     if (prev !== undefined) process.env.WARDA_RESOLVER = prev;
   }
+});
+
+test("a malformed grant address blames the address, not the node", async () => {
+  /* Pasting a placeholder produced "this node would give you wrong answers
+     rather than errors. Find another." about a healthy node that had not been
+     asked a question it could answer. */
+  const h = await inspect(fakeClient({}), {
+    networkId: "testnet-10",
+    grantAddress: "THE-NEW-ADDRESS",
+  });
+  assert.equal(h.usable, true, "an unusable address must not make the node unusable");
+  assert.match(h.checks.covenants.detail, /not a valid Kaspa address/);
+  assert.match(h.checks.covenants.detail, /about the address, not the node/);
 });
