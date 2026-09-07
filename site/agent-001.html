@@ -51,6 +51,12 @@
 
   /* ---- authority, as a statement --------------------------------------- */
   .stmt { border: 1px solid var(--edge-bright); background: var(--ground); margin-top: 1.6rem; }
+  /* Shown only when the agent has gone quiet. Red, because on this site red is
+     the colour of something that must not pass — and a two-day-old figure
+     passing as current is exactly that. */
+  .stale { border-left: 2px solid var(--refuse); background: rgba(255, 107, 90, 0.07);
+           color: var(--chrome); padding: 0.75rem 1rem; margin: 0.9rem 0 1.6rem;
+           font-size: 0.86rem; line-height: 1.55; }
   .row { display: grid; grid-template-columns: 12rem minmax(0,1fr); gap: 1rem;
          padding: 0.62rem 1.2rem; border-bottom: 1px solid var(--edge);
          font-family: var(--mono); font-size: 0.78rem; align-items: baseline; }
@@ -166,6 +172,7 @@
     <div class="row"><span class="k">Services used</span><span class="v" id="a-services">&mdash;</span></div>
     <div class="row"><span class="k">Spent on this run</span><span class="v" id="a-runspent">&mdash;</span></div>
   </div>
+  <p class="stale" id="a-stale" hidden></p>
   <pre id="a-digest">&mdash;</pre>
   <p class="note">
     Every figure there is the difference between two counters the network keeps for its own
@@ -343,7 +350,30 @@
 
         if (d.mission) set("a-mission", d.mission);
         if (d.lastRun) {
-          set("a-lastrun", d.lastRun.at.replace("T", " ").replace(/:\d\d\.\d+Z$/, " UTC"));
+          // How long ago, not just when. An agent that stopped two days ago
+          // and an agent that ran ten minutes ago print the same timestamp,
+          // and the reader cannot tell them apart without doing arithmetic in
+          // their head. The gap between those two is the entire claim this
+          // page makes, so the page says it: "ran unattended" is only true in
+          // the present tense.
+          var ranAt = new Date(d.lastRun.at);
+          var mins = Math.round((Date.now() - ranAt.getTime()) / 60000);
+          var ago;
+          if (!isFinite(mins)) { ago = ""; }
+          else if (mins < 90) { ago = mins + " min ago"; }
+          else if (mins < 2880) { ago = Math.round(mins / 60) + " h ago"; }
+          else { ago = Math.round(mins / 1440) + " days ago"; }
+          set("a-lastrun", d.lastRun.at.replace("T", " ").replace(/:\d\d\.\d+Z$/, " UTC") +
+                           (ago ? " \u00b7 " + ago : ""));
+          // Past three hours on an hourly schedule, something is wrong and the
+          // page should say so rather than let a stale figure read as current.
+          var stale = document.getElementById("a-stale");
+          if (stale && mins > 180) {
+            stale.textContent = "This agent has not reported since then. It runs hourly, " +
+              "so a gap this long means the schedule or its node is down \u2014 the figures " +
+              "below are the last ones it published, not current ones.";
+            stale.hidden = false;
+          }
           set("a-runs", d.lastRun.runs + " since " +
               d.lastRun.since.replace("T", " ").replace(/:\d\d\.\d+Z$/, " UTC"));
           set("a-services", String(d.lastRun.servicesUsed) + " \u2014 " + d.lastRun.note);
