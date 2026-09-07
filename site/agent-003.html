@@ -450,10 +450,10 @@
 
   <h3 class="sub-h">What the chain says arrived</h3>
   <p style="font-size:0.9rem;color:var(--chrome-dim);margin:0.5rem 0 0.9rem">
-    Read from agent&nbsp;#001&rsquo;s address, filtered to coins this grant could have produced.
-    The log above is the agent&rsquo;s own account of itself; this is the network&rsquo;s, and they
-    are only the same thing when the agent is telling the truth &mdash; or when nothing went
-    wrong while it was writing things down.
+    Coins at this grant&rsquo;s payees that one of the receipts above names. Attribution is by
+    <strong>transaction id, not by address</strong> &mdash; a payee&rsquo;s address serves whoever
+    pays it, and more than one agent here pays the same one, so &ldquo;it arrived after this
+    grant opened and is under its cap&rdquo; is a guess rather than a fact.
   </p>
   <div id="b-coins"></div>
   <p class="recon" id="b-recon" hidden></p>
@@ -759,10 +759,8 @@ WARDA_SK=$(cat ../covenant/deploy/agent-002.key) \
       if (rc) {
         var el = $("b-recon");
         el.hidden = false;
-        el.className = "recon" + (rc.unaccountedFor && rc.unaccountedFor.length ? " off" : "");
-        el.textContent =
-          rc.accountedForInTheLog + " of " + rc.paymentsOnChain +
-          " payment(s) on chain are named by the log above. " + rc.note;
+        el.className = "recon" + (rc.unrecorded && rc.unrecorded !== "0 KAS" ? " off" : "");
+        el.textContent = rc.note;
       }
 
       var coins = $("b-coins");

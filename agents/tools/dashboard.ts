@@ -264,12 +264,55 @@ try {
     client.getBlockDagInfo(),
   ]);
 
-  /* Only coins THIS grant could have produced: created after it opened, and no
-     larger than its per-payment cap. A payee's address serves whoever pays it,
-     and agent #001's was receiving money before this grant existed. */
-  const ours = atPayees.filter(
+  /* Every attempt, refusals included, exactly as buy.ts wrote them. */
+  const purchases = existsSync(purchasesDir)
+    ? readdirSync(purchasesDir)
+        .filter((f) => f.endsWith(".json"))
+        .sort()
+        .map((f) => {
+          const p = JSON.parse(readFileSync(`${purchasesDir}/${f}`, "utf8"));
+          return {
+            at: p.at,
+            outcome: p.outcome,
+            url: p.url,
+            reason: p.reason ?? null,
+            txid: p.txid ?? null,
+            paid: p.quoted?.amountSompi ? kas(BigInt(p.quoted.amountSompi)) : null,
+            payTo: p.quoted?.payTo ?? null,
+            refusal: p.refusal ?? p.error ?? null,
+            /* What the seller called itself. Recorded, not believed — the
+               checkable half is payTo above. */
+            sellerClaimed: p.sellerClaimed ?? null,
+          };
+        })
+    : [];
+
+  /**
+   * Which coins at the payees are THIS grant's, and the answer is: only the
+   * ones it has a receipt for.
+   *
+   * This used to be "created after this grant opened and no larger than its
+   * per-payment cap", which is a heuristic and was fine while one grant paid
+   * each address. It is not fine now. Agent #002 and agent #003 both pay agent
+   * #001, both in 0.04 KAS, and #003's grant opened after #002's — so #002's
+   * page counted #003's payment as its own and reported three payments where it
+   * had made two. Overcounting an agent's spending is a smaller sin than
+   * undercounting it and it is still a false figure on a page whose argument is
+   * that its figures can be checked.
+   *
+   * A transaction id is not a heuristic. `ours` is now the coins the purchase
+   * log names; everything else in range is reported separately as what it is —
+   * money at a shared address that cannot be attributed by looking at the
+   * address.
+   */
+  const loggedTxids = new Set(
+    purchases.map((p) => p.txid).filter(Boolean) as string[],
+  );
+  const inRange = atPayees.filter(
     (u) => u.entry.blockDaaScore >= state.notBefore && u.entry.value <= state.maxPerSpend,
   );
+  const ours = inRange.filter((u) => loggedTxids.has(toHex(u.outpoint.transactionId)));
+  const unattributed = inRange.filter((u) => !loggedTxids.has(toHex(u.outpoint.transactionId)));
 
   /* The manifest's claim about the coin, checked against the coin. Fatal: a
      page arguing that its numbers can be checked must not publish one that
@@ -315,29 +358,6 @@ try {
         `on every spend, so nobody can bring it forward, including whoever issued the grant.`,
     derived: true,
   });
-
-  /* Every attempt, refusals included, exactly as buy.ts wrote them. */
-  const purchases = existsSync(purchasesDir)
-    ? readdirSync(purchasesDir)
-        .filter((f) => f.endsWith(".json"))
-        .sort()
-        .map((f) => {
-          const p = JSON.parse(readFileSync(`${purchasesDir}/${f}`, "utf8"));
-          return {
-            at: p.at,
-            outcome: p.outcome,
-            url: p.url,
-            reason: p.reason ?? null,
-            txid: p.txid ?? null,
-            paid: p.quoted?.amountSompi ? kas(BigInt(p.quoted.amountSompi)) : null,
-            payTo: p.quoted?.payTo ?? null,
-            refusal: p.refusal ?? p.error ?? null,
-            /* What the seller called itself. Recorded, not believed — the
-               checkable half is payTo above. */
-            sellerClaimed: p.sellerClaimed ?? null,
-          };
-        })
-    : [];
 
   /**
    * The grant this one replaced, and whether it is actually gone.
@@ -437,29 +457,24 @@ try {
   }
 
   /**
-   * The agent's account of itself, checked against the chain's.
+   * The agent's account of itself, checked against the covenant's.
    *
-   * Two sections of this page report the same money from two directions, and
-   * publishing both without comparing them leaves the reader to count. The
-   * first time this ran they disagreed: two coins at the payee, one txid in the
-   * log. The missing one was a payment that settled and then got an HTML error
-   * page from a vendor whose node had gone unreachable — `res.json()` threw,
-   * the catch recorded a parser complaint, and the transaction id of money
-   * already spent went with it.
+   * The authority on what a grant has spent is `spentTotal`, and it is not an
+   * opinion: it is part of the state the grant's address is derived from, so a
+   * wrong one produces a different address and the grant simply is not there.
+   * The purchase log is the agent's own record and can be lost — it was, this
+   * morning, when a vendor answered a settled payment with an HTML error page
+   * and the parser threw before the txid was written down.
    *
-   * That is fixed, and it will happen again in some other shape. An agent that
-   * spends money can always lose the record of a spend, and the chain is the
-   * half that cannot be lost. So the gap is computed and named rather than left
-   * as an arithmetic exercise for whoever notices.
+   * So the two are compared. Coins at the payees are NOT the comparison: a
+   * payee address serves whoever pays it, and two of the agents here pay the
+   * same one.
    */
-  const logged = new Set(purchases.map((p) => p.txid).filter(Boolean) as string[]);
-  const unaccounted = ours
-    .filter((u) => !logged.has(toHex(u.outpoint.transactionId)))
-    .map((u) => ({
-      amount: kas(u.entry.value),
-      txid: toHex(u.outpoint.transactionId),
-      daaScore: u.entry.blockDaaScore.toString(),
-    }));
+  const loggedSompi = purchases.reduce((a, p) => {
+    const inLog = ours.find((u) => toHex(u.outpoint.transactionId) === p.txid);
+    return inLog ? a + inLog.entry.value : a;
+  }, 0n);
+  const missingFromLog = state.spentTotal - loggedSompi;
 
   process.stdout.write(
     JSON.stringify(
@@ -558,17 +573,27 @@ try {
         },
         purchases,
         reconciliation: {
-          paymentsOnChain: ours.length,
-          accountedForInTheLog: ours.length - unaccounted.length,
-          unaccountedFor: unaccounted,
+          spentPerTheCovenant: kas(state.spentTotal),
+          namedByTheLog: kas(loggedSompi),
+          unrecorded: kas(missingFromLog > 0n ? missingFromLog : 0n),
+          /* In range at a payee and not named by any receipt. NOT claimed as
+             this grant's: a payee address serves whoever pays it, and two
+             agents here pay the same one. */
+          atThePayeesWithNoReceipt: unattributed.map((u) => ({
+            amount: kas(u.entry.value),
+            txid: toHex(u.outpoint.transactionId),
+            daaScore: u.entry.blockDaaScore.toString(),
+          })),
           note:
-            unaccounted.length === 0
-              ? "Every coin at the payee is named by a purchase this agent recorded. The two " +
-                "halves of this page agree."
-              : `${unaccounted.length} payment(s) reached the payee that this agent's own log ` +
-                `does not name. The chain is the half that cannot be lost, so it is the one to ` +
-                `believe. Money left this grant and the record of why did not survive — which ` +
-                `is the failure this page reports rather than the one it hides.`,
+            missingFromLog <= 0n
+              ? "Every sompi the covenant says this grant spent is named by a purchase it " +
+                "recorded. The two halves of this page agree."
+              : `The covenant's own accounting says this grant spent ${kas(state.spentTotal)} ` +
+                `and its purchase log names ${kas(loggedSompi)} of that. ${kas(missingFromLog)} ` +
+                `left this grant without a surviving record of why. spentTotal is part of the ` +
+                `state the grant's address is derived from, so it cannot be quietly wrong — the ` +
+                `log can, and was. That is the failure this page reports rather than the one it ` +
+                `hides.`,
         },
         refusals,
         mission,
@@ -585,11 +610,20 @@ try {
   console.error(`timelock  : ${open ? "open" : "closed"} — notBefore ${state.notBefore}, now ${daa}`);
   console.error(`purchases : ${purchases.length} recorded, ${purchases.filter((p) => p.outcome === "bought").length} served`);
   console.error(`payments  : ${ours.length} attributable to this grant`);
-  if (unaccounted.length) {
+  if (missingFromLog > 0n) {
     console.error(
-      `UNACCOUNTED: ${unaccounted.length} payment(s) on chain that the purchase log does not name:`,
+      `UNRECORDED: the covenant says ${kas(state.spentTotal)} was spent and the log names ` +
+        `${kas(loggedSompi)}. ${kas(missingFromLog)} left this grant with no surviving receipt.`,
     );
-    for (const u of unaccounted) console.error(`  ${u.amount}  ${u.txid}`);
+  }
+  if (unattributed.length) {
+    console.error(
+      `at the payees with no receipt from this grant (may be another agent's — a payee ` +
+        `address serves whoever pays it):`,
+    );
+    for (const u of unattributed) {
+      console.error(`  ${kas(u.entry.value)}  ${toHex(u.outpoint.transactionId)}`);
+    }
   }
 } finally {
   client.close();

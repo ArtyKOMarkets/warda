@@ -1,13 +1,13 @@
 {
   "_comment": "Written by agents/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, the purchase log or the chain — none is typed. Each payee's LABEL is re-derived on every run from the artefact agents/known-payees.json names, and a label that stops matching is dropped rather than published: an address with no name is honest, an address with the wrong name is not.",
-  "checkedAt": "2026-09-07T16:35:30.659Z",
+  "checkedAt": "2026-09-07T16:45:02.829Z",
   "network": "testnet-10",
   "identity": {
     "agentId": "WARDA-003",
     "agent": "bf9921d061c7dbba26fbf682b15ed30bb287cfa41be777272fff0827f55ed2a1",
     "principal": "0393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34f",
     "revocation": "0393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34f",
-    "grantAddress": "kaspatest:pz2e2l559v923g7yz9qrur0gffy92nky5mxpwq8a0sx3asgnyy7qknn5dpz04",
+    "grantAddress": "kaspatest:pq5klcqcdv88nepyt8cz94nnvexjke4c0x6jvnshzuvpg8upnwdcztxejneeh",
     "covenantId": "e8f9cc204f5872303dd8563b92c2b3af96327b1e1b4cee617113d12f0a743a8c",
     "template": "b3e5eeefacf2021f"
   },
@@ -40,20 +40,20 @@
     "stillHoldsCoin": null,
     "ended": true,
     "endedBy": "the revocation key, which is not the agent's. A grant's terms cannot be edited, so replacing an agent's authority means ending one grant and starting another — and the one that ends does not get a say in it.",
-    "handoverGap": "right now: the old grant is ended and the new one has not opened. Neither can spend."
+    "handoverGap": "the successor was published timelocked and the predecessor revoked during the lock, so there was a window in which neither grant could spend. A handover between two authorities that never share a key is not atomic, and this page does not pretend it is."
   },
   "timelock": {
     "notBefore": "564404779",
-    "virtualDaaScore": "564402501",
-    "open": false,
+    "virtualDaaScore": "564408078",
+    "open": true,
     "lockedFor": "5 minutes",
-    "openedAgo": null,
+    "openedAgo": "5 minutes",
     "enforcedBy": "the covenant, on every spend: claimedDaa >= notBefore. Not a scheduler, not this process, and not revocable by whoever issued the grant."
   },
   "authority": {
     "budget": "2 KAS",
-    "spent": "0 KAS",
-    "remaining": "2 KAS",
+    "spent": "0.07 KAS",
+    "remaining": "1.93 KAS",
     "maxPerPayment": "0.1 KAS",
     "epochLimit": "0.5 KAS",
     "epochLengthDaa": 1000,
@@ -63,26 +63,56 @@
       "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4"
     ],
     "delegationDepth": 2,
-    "onChain": "2 KAS",
+    "onChain": "1.89 KAS",
     "sompi": {
       "budget": "200000000",
-      "spent": "0",
+      "spent": "7000000",
       "reserved": "0",
       "maxPerPayment": "10000000",
       "epochLimit": "50000000",
-      "onChain": "200000000"
+      "onChain": "189000000"
     }
   },
   "activity": {
-    "payments": 0,
-    "paid": "0 KAS",
+    "payments": 1,
+    "paid": "0.04 KAS",
     "paidOutsideTheAllowlist": "0 KAS",
-    "coins": []
+    "coins": [
+      {
+        "amount": "0.04 KAS",
+        "daaScore": "564406272",
+        "txid": "f241cd7b62bc23b9170afb98cd8efb50c6fa43fb7a591d1f90a8cf4a384f4fcd",
+        "index": 1
+      }
+    ]
   },
-  "purchases": [],
+  "purchases": [
+    {
+      "at": "2026-09-07T16:41:59.123Z",
+      "outcome": "bought",
+      "url": "https://warda-demo-api.vercel.app/digest",
+      "reason": null,
+      "txid": "f241cd7b62bc23b9170afb98cd8efb50c6fa43fb7a591d1f90a8cf4a384f4fcd",
+      "paid": "0.04 KAS",
+      "payTo": "kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e",
+      "refusal": null,
+      "sellerClaimed": "WARDA-001"
+    },
+    {
+      "at": "2026-09-07T16:42:08.527Z",
+      "outcome": "bought",
+      "url": "https://warda-demo-api.vercel.app/fact",
+      "reason": null,
+      "txid": "2a8719003e201bc9fd534e8861a2c734a9aaf42bc56a27ce06eabe6a880338f1",
+      "paid": "0.03 KAS",
+      "payTo": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
+      "refusal": null,
+      "sellerClaimed": "warda demo vendor"
+    }
+  ],
   "reconciliation": {
-    "paymentsOnChain": 0,
-    "accountedForInTheLog": 0,
+    "paymentsOnChain": 1,
+    "accountedForInTheLog": 1,
     "unaccountedFor": [],
     "note": "Every coin at the payee is named by a purchase this agent recorded. The two halves of this page agree."
   },
@@ -90,7 +120,7 @@
     {
       "rule": "start time (not_before)",
       "attempted": "spend before the grant opens",
-      "refusal": "this grant may not spend until DAA 564404779 and the network is at 564402501 — 4 minutes away. The covenant checks the claimed DAA score on every spend, so nobody can bring it forward, including whoever issued the grant.",
+      "refusal": "this grant could not spend anything until DAA 564404779. The covenant checks the claimed DAA score against that number on every spend, so the delay was not a policy in the agent's process and could not be brought forward by whoever issued it. It opened 5 minutes ago.",
       "derived": true
     },
     {
