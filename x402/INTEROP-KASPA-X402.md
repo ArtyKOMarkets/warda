@@ -8,7 +8,8 @@ is real, on testnet-10, and checkable.
 
 A Warda grant funded with 5 KAS, capped at 0.3 KAS per payment and 1 KAS per
 epoch, whose allowlist commits to exactly one payee: the address
-`https://demo.kaspa-x402.org/exact` quotes. Four attempts to buy from it.
+`https://demo.kaspa-x402.org/exact` quotes. Five attempts to buy from it, of
+which three were broadcast and accepted on chain.
 
 | # | txid | broadcast | vendor |
 |---|---|---|---|
