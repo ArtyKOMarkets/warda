@@ -251,16 +251,23 @@ const { client, health } = await NodeClient.open({
 });
 
 try {
-  const [atGrant, atPayee, dag] = await Promise.all([
+  const [atGrant, atPayees, dag] = await Promise.all([
     client.getUtxosByAddresses([address]),
-    client.getUtxosByAddresses([payee]),
+    /* EVERY payee, not the first.
+       It asked only about payees[0], which was right while every agent here had
+       a one-address allowlist and silently wrong the moment one did not: agent
+       #003 paid the demo vendor 0.03 KAS and its page reported one payment
+       instead of two. A page whose whole argument is that its figures can be
+       checked must not undercount the money it spent — and undercounting is the
+       flattering direction, which makes it the one to be careful about. */
+    client.getUtxosByAddresses(payees.map((p) => p.address)),
     client.getBlockDagInfo(),
   ]);
 
   /* Only coins THIS grant could have produced: created after it opened, and no
-     larger than its per-payment cap. #001's address serves whoever pays it,
-     and #001 was funded by other means before #002 existed. */
-  const ours = atPayee.filter(
+     larger than its per-payment cap. A payee's address serves whoever pays it,
+     and agent #001's was receiving money before this grant existed. */
+  const ours = atPayees.filter(
     (u) => u.entry.blockDaaScore >= state.notBefore && u.entry.value <= state.maxPerSpend,
   );
 
