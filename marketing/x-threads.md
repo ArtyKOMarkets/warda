@@ -36,103 +36,90 @@ selling by the fourth post. A thread that ends on a failure cannot.
 question an outside developer actually asked rather than one we invented, and
 because the answer was demonstrated on chain the same week.
 
-**1/**
+**1/**  *(223)*
 
-> Every conversation about giving an AI agent money stops at the same place.
+> Every conversation about giving an AI agent money stops in the same place.
 >
 > "Fine — but who can change the limits?"
 >
-> On almost every system the honest answer is: whoever can edit the config,
-> and it takes effect immediately.
+> On almost every system the honest answer is: whoever can edit the config. And
+> it takes effect immediately.
 
-**2/**
+**2/**  *(232)*
 
-> That means the limit isn't a constraint. It's a description of intent.
+> Then it isn't a constraint. It's a description of intent.
 >
-> A redeploy with a different number moves it. A second instance ignores it.
-> Anyone who can read the key out of `env` never meets it.
+> A redeploy moves it. A second instance ignores it. Whoever reads the key out
+> of env never meets it at all.
 >
 > The ceiling and the thing being limited live in the same process.
 
-**3/**
+**3/**  *(271)*
 
-> Put the limits in the script that unlocks the coin instead, and the question
-> changes shape.
+> Put the limits in the script that unlocks the coin and nobody can edit them.
+> Not the agent, not the operator, not the person who issued the grant.
 >
-> Now nobody can edit them. Not the agent, not the operator, not the person
-> who issued the grant, not all three together.
->
-> A grant's terms are fixed for its whole life.
-
-**4/**
-
-> Which sounds great until you need to change something.
->
-> An agent whose authority can't be edited can't be *updated* either. New
-> vendor, different budget, rotated key — none of it is an edit.
+> Which is a problem — an agent whose authority can't be edited can't be
+> updated either.
 >
 > So it isn't updated. It's replaced.
 
-**5/**
+**4/**  *(216)*
 
-> Replacement is where it gets interesting, because a new grant can be
-> published *before it is allowed to spend*.
+> And a replacement can be published before it's allowed to spend.
 >
 > Agent #003's grant was created with a start time 3,000 blocks out. Its terms
 > were readable on chain immediately. It could not move a sompi.
 >
-> `57e41ddf…`
+> 57e41ddf…
 
-*Screenshot: the genesis output, the TIMELOCKED block. It says "cannot spend
-until DAA 564404779… Until then consensus refuses every spend it attempts —
-not this tool, and not anything anyone here could choose to skip."*
+*Screenshot: the genesis output's TIMELOCKED block. Raw terminal, unedited — it
+already says "consensus refuses every spend it attempts — not this tool, and
+not anything anyone here could choose to skip", and a real terminal outperforms
+a designed panel for that claim.*
 
-**6/**
-
-> Anyone could read exactly what the replacement would be permitted to do, and
-> verify that it could not yet do it.
->
-> That is the answer to "how fast can the spend path change." Not "trust our
-> deploy process." A number, on a public chain, that nobody can bring forward.
-
-**7/**
+**5/**  *(179)*
 
 > Then we revoked the old agent's grant — while the new one was still shut.
 >
-> `858e7c54…`
+> For about four minutes, #002 was over and #003 had not started. Neither could
+> spend anything.
 >
-> For about four minutes, agent #002 was over and agent #003 had not started.
-> **Neither one could spend anything.**
+> 858e7c54…
 
-**8/**
+*Image: `marketing/img/warda-succession-gap.png`. Two authority windows and the
+hole between them. It carries one thing the text has to work hard to say —
+#003's bar exists across the whole locked stretch, hatched: published,
+verifiable, and unusable.*
 
-> We could have hidden that. Revoke after the lock opens and the handover
-> looks atomic.
->
-> It isn't. Two authorities that never share a key cannot hand over
-> instantaneously, and a system that appears to is hiding the seam somewhere
-> you can't see it.
+*Alt: "Two timelines. Agent #002's authority is a solid bar that stops at a red
+line marked revoked, 858e7c54. Agent #003's runs the full width, hatched and
+labelled published, cannot spend, turning solid only at opens, DAA 564,404,779.
+The stretch where one has ended and the other has not begun is boxed in red:
+neither can spend."*
+
+**6/**  *(238)*
+
+> We could have hidden that by revoking after the lock opened. Two authorities
+> that never share a key can't hand over instantly, and a system that looks
+> like it does is hiding the seam somewhere you can't see it.
 >
 > So the gap is on the page.
 
-*Screenshot: agent-003's page, the succession section, with "right now: the
-old grant is ended and the new one has not opened. Neither can spend."*
+**7/**  *(253)*
 
-**9/**
-
-> Neither agent ever held the other's key. The grant that ended did not get a
-> say in ending — the key that revoked it was never the agent's.
+> Neither agent ever held the other's key. The grant that ended got no say in
+> ending.
 >
-> That's the part worth stealing even if you never touch Kaspa: **an agent
-> should not be able to end its own authority on terms it chooses.**
-
-**10/**
-
-> None of this is theoretical and none of it is finished. Testnet only,
-> unaudited, and the digest one of these agents buys is published free — the
-> payment is the point, not the data.
+> Worth stealing even if you never touch Kaspa: an agent should not be able to
+> end its own authority on terms it chooses.
 >
+> Testnet, unaudited.
 > wardaprotocol.com/agent-003
+
+*Character counts are in brackets. All seven are under 280 deliberately — the
+thread should be postable from a free account, and a thread that needs premium
+to read as written is a thread most people see truncated.*
 
 ---
 
@@ -220,9 +207,112 @@ Ends at /verify, which does the derivation in the reader's own browser.
 
 ---
 
+# Thread F — "The agent economy isn't waiting on payments"
+
+The broad one: what is actually missing, and where Warda sits in it. Written
+to avoid the shape every project in this space defaults to — *machine-to-machine
+commerce is coming, and here is our rail.* That post is unfalsifiable, which is
+exactly why it persuades nobody.
+
+The opening claim is deliberately contrarian and checkable: **payments already
+work.** An agent can pay for an API today. What does not work is letting it hold
+the money. That reframes Warda from "another payment rail" — a crowded and
+boring category — into the thing that is actually blocking the category.
+
+The load-bearing post is 5, and it is the one argument here that a wallet
+cannot answer at all: **a wallet does not subdivide.** Budgets, caps and rate
+limits are all things you could bolt onto a hot wallet with enough discipline.
+Handing a sub-agent a bounded piece of your own authority, which it cannot
+widen and which settles back when it is done, is not.
+
+**1/**  *(221)*
+
+> The agent economy isn't waiting on payments.
+>
+> An agent can pay for an API today. HTTP 402, a wallet, a few lines of code.
+> It settles in seconds.
+>
+> What it's waiting on is that nobody can safely let an agent hold the money.
+
+**2/**  *(239)*
+
+> Give an agent a wallet and the balance is the limit. That's the whole
+> security model.
+>
+> A process that can be prompt-injected, that you patched last Tuesday, that
+> runs three copies of itself in staging — holding a key with no ceiling on it.
+
+**3/**  *(215)*
+
+> Every available fix lives in the same process as the key.
+>
+> x402's own docs: the client "applies a $1 USD spend cap unless you override
+> spendControls".
+>
+> A limit the thing being limited can switch off is a preference.
+
+*Screenshot: docs.x402.org/guides/mcp-server-with-x402, the "Using spend
+policies (recommended)" section, uncropped, in their styling. The parenthetical
+carries the post. Cite the standard's documentation, never an individual
+project's repo — naming one developer's work to score against it reads as
+punching down, and the standard is the stronger target anyway.*
+
+**4/**  *(230)*
+
+> Move it into the script that unlocks the coin and it stops depending on the
+> process.
+>
+> Steal the key and you inherit the limits — not because the thief is stopped
+> by software, but because the transaction they'd need does not exist.
+
+**5/**  *(249)*
+
+> Which matters more the moment agents start hiring agents.
+>
+> A wallet doesn't subdivide. You can't hand a sub-agent half of one. You give
+> it a second wallet and hope.
+>
+> Bounded authority does subdivide — and what the sub-agent doesn't spend
+> comes back.
+
+**6/**  *(212)*
+
+> So we ran it. Four agents, Kaspa testnet.
+>
+> #002 bought from #001.
+> #003 replaced #002, then hired #004.
+> #004 spent 0.04 KAS and settled the remainder home.
+>
+> Every limit enforced by consensus. Zero human approvals.
+
+*Image: the /agents graph — lineage and payments in one picture. It is the only
+asset here a project without four agents on chain cannot reproduce.*
+
+**7/**  *(242)*
+
+> None of it is a market yet. Every counterparty was ours.
+>
+> We tried to pay a vendor we don't control: eight payments settled on chain,
+> all eight refused service, for a reason inside a verifier nobody has
+> published.
+>
+> That's the actual frontier.
+
+*Post 7 is the one to resist cutting. It gives away the weakest thing about the
+project in the last post of a thread arguing for it — which is precisely why
+the six above it get believed. It is also true: the issue is filed, and two of
+our own confident diagnoses of that failure turned out wrong and were corrected
+in public.*
+
+
 ## Order, if you want one
 
-A → B → C for a build-up, or D first if you want the one that gets quoted.
+F is the natural opener for a cold audience — it is the only one that says what
+the problem is before it says what we built. Then A → B → C for the build-up.
+D is the one that gets quoted, but it needs the reader to know what the thing
+is, so it lands after F rather than cold.
+
+Previously: A → B → C for a build-up, or D first if you want the one that gets quoted.
 D is the least like anything else in the timeline and the hardest to argue
 with, but it only lands once the reader knows what the thing is — so it works
 best after A or B rather than cold.
