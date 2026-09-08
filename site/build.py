@@ -299,6 +299,13 @@ SRC_INDEX = here / "src" / "index.html"
 if STATE.exists():
     COPIES.append("demo-state.json")
 
+# Written by ops/check-vendor.sh every fifteen minutes. Optional in exactly the
+# way demo-state.json is: a build on a machine that does not run the monitor
+# should not fail, and /start renders nothing when the file is absent. Silence
+# is the honest default — "we have not checked" must not look like "it is up".
+if (here / "src" / "vendor-status.json").exists():
+    COPIES.append("vendor-status.json")
+
 def generate_agent_pages():
     """Write src/agent-00N.html from the one shell and each agent's intro.
 

@@ -740,6 +740,10 @@ node --experimental-strip-types sdk/tools/check-node.ts --rpc wss://YOUR-NODE</c
   </p>
 </section>
 
+<div class="wrap" id="vend" hidden style="padding:0">
+  <p class="needs" id="vend-msg" style="border-color:var(--refuse);color:var(--chrome)"></p>
+</div>
+
 <section class="rule">
   <p class="eyebrow">Step 4 &middot; spend it</p>
   <h2>A real 402, against an endpoint that checks the chain.</h2>
@@ -832,3 +836,35 @@ paid["txid"], paid["paidSompi"], paid["body"]</code></pre>
 <div class="wrap"><footer style="padding:3rem 0 4rem;border-top:1px solid var(--edge);font-family:var(--mono);font-size:0.72rem;color:var(--chrome-faint)">
   <p>Warda &middot; testnet-10 &middot; unaudited &middot; the coins are free and worth nothing</p>
 </footer></div>
+
+<script>
+/* The demo endpoint this page sends you to, and whether it is answering.
+ *
+ * Step 4 points a first-time reader at warda-demo-api.vercel.app. That
+ * endpoint returned 500 to every paid request for several days once, and the
+ * only thing that noticed was a payment failing. A tutorial that walks someone
+ * into a dead endpoint teaches them the protocol does not work.
+ *
+ * Absent file, unreadable file, or a reading older than an hour: say nothing.
+ * A stale green light is worse than no light, and "we have not checked" must
+ * never render as "it is up".
+ */
+(function () {
+  if (!window.fetch) return;
+  fetch("/vendor-status.json", { cache: "no-store" })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) {
+      if (!d || typeof d.ok !== "boolean" || d.ok) return;
+      var age = Date.now() - Date.parse(d.checkedAt);
+      if (!(age >= 0) || age > 3600000) return;
+      var el = document.getElementById("vend-msg");
+      el.textContent =
+        "The demo endpoint below is not answering right now — " + (d.reason || "reason unknown") +
+        ". It has been down since " + String(d.lastOk).replace("T", " ").replace("Z", " UTC") +
+        ". Everything up to this point still works; step 4 will fail until it is back, " +
+        "and that is our endpoint being broken rather than anything you did.";
+      document.getElementById("vend").hidden = false;
+    })
+    .catch(function () {});
+})();
+</script>

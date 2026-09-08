@@ -1,0 +1,8 @@
+{
+  "_comment": "Written by ops/check-vendor.sh every fifteen minutes. This is the placeholder committed to the repo: no check has run here. `ok` is null rather than true on purpose — /start renders nothing unless ok is a boolean false, so an unchecked endpoint stays silent instead of being announced as healthy. A green light nobody earned is worse than no light.",
+  "checkedAt": null,
+  "endpoint": "https://warda-demo-api.vercel.app",
+  "ok": null,
+  "lastOk": null,
+  "reason": "no check has run on this machine yet"
+}

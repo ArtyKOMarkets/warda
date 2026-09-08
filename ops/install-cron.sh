@@ -28,8 +28,19 @@ BUYLOG="$HOME/Library/Logs/warda-buy.log"
 # 09:41, not on the hour and not at midnight: the reading runs at :17, and a
 # purchase wants a digest that already exists rather than one being written.
 BUYENTRY="41 9 * * * $BUY >> $BUYLOG 2>&1"
+
+# Is the endpoint /start sends a stranger at actually answering? Not opt-in:
+# it costs nothing, it touches no key and moves no coin, and the failure it
+# watches for went unnoticed for days the last time it happened.
+VENDOR="$OPS/check-vendor.sh"
+VENDORLOG="$HOME/Library/Logs/warda-vendor.log"
+VENDORENTRY="*/15 * * * * $VENDOR --quiet >> $VENDORLOG 2>&1"
 WANT_BUY=""
-for a in "$@"; do [ "$a" = "--buy" ] && WANT_BUY=1; done
+NO_BUY=""
+for a in "$@"; do
+  [ "$a" = "--buy" ] && WANT_BUY=1
+  [ "$a" = "--no-buy" ] && NO_BUY=1
+done
 
 if [ ! -x "$SCRIPT" ]; then
   echo "not found or not executable: $SCRIPT" >&2
@@ -44,11 +55,30 @@ fi
 # schedule that fires on the hour with everything else on the machine is a
 # schedule that competes for the same disk.
 current="$(crontab -l 2>/dev/null || true)"
+
+# An installed job is not re-installed by being asked for again — it is
+# re-installed by not being FORGOTTEN. This script strips its own lines and
+# re-adds them, so an opt-in job was silently removed by any later run without
+# the flag. That is exactly what happened: #003's daily buy was installed on 7
+# September with --buy, removed by a subsequent run without it, and the absence
+# was invisible because a job that never runs writes no log to notice is empty.
+#
+# So --buy now means "add it", not "keep it", and removing takes --no-buy.
+if printf '%s\n' "$current" | grep -q -F "daily-buy.sh"; then
+  if [ -n "$NO_BUY" ]; then
+    echo "removing agent #003's daily buy, as asked."
+  else
+    WANT_BUY=1
+  fi
+fi
+
 printf '%s\n' "$current" \
   | grep -v -F "hourly-reading.sh" \
   | grep -v -F "daily-buy.sh" \
+  | grep -v -F "check-vendor.sh" \
   | grep -v '^[[:space:]]*$' > /tmp/warda-cron.$$
 printf '%s\n' "$ENTRY" >> /tmp/warda-cron.$$
+printf '%s\n' "$VENDORENTRY" >> /tmp/warda-cron.$$
 if [ -n "$WANT_BUY" ]; then printf '%s\n' "$BUYENTRY" >> /tmp/warda-cron.$$; fi
 crontab /tmp/warda-cron.$$
 rm -f /tmp/warda-cron.$$
@@ -59,6 +89,12 @@ crontab -l
 echo
 echo "next reading is at :17 past the hour. then check:"
 echo "  tail $LOG"
+echo
+echo "the demo vendor is checked every 15 minutes. It writes"
+echo "site/src/vendor-status.json, which refresh-demo.sh deploys and /start"
+echo "reads — so a stranger arriving while it is broken is told, rather than"
+echo "sent at a dead endpoint. Failures only:"
+echo "  tail $VENDORLOG"
 echo "  ls $HOME/Desktop/warda/agent/readings/"
 if [ -n "$WANT_BUY" ]; then
   echo
