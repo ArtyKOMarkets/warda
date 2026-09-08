@@ -56,7 +56,28 @@ const prefix = (flag("prefix", "kaspatest") as NetworkPrefix)!;
 const network = flag("network", "testnet-10")!;
 
 const keyFile = flag("key");
-const secretHex = (keyFile ? readFileSync(keyFile, "utf8") : process.env.WARDA_SK ?? "").trim();
+/* Read through a named helper rather than inline, so a path that is wrong —
+   almost always because the command was run from a subdirectory — reports the
+   path it tried and where it tried it from, instead of an ENOENT stack trace
+   with the relative path in it and no cwd to make sense of it. */
+const readKey = (path: string): string => {
+  try {
+    return readFileSync(path, "utf8");
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") {
+      console.error(
+        `no key file at ${path}\n` +
+          `  looked in ${process.cwd()}\n` +
+          `  Paths are relative to where you ran this. If you meant a file in the repo\n` +
+          `  root, run it from there — or give an absolute path.`,
+      );
+      process.exit(2);
+    }
+    throw e;
+  }
+};
+
+const secretHex = (keyFile ? readKey(keyFile) : process.env.WARDA_SK ?? "").trim();
 if (!secretHex) {
   console.error(
     "no key. Pass --key <file> or set WARDA_SK.\n" +

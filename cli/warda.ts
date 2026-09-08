@@ -230,6 +230,7 @@ switch (verb) {
           ...(key ? ["--key", key] : []),
           ...rpcArgs(cfg),
           ...(has("submit") ? ["--submit"] : []),
+          ...(has("force") ? ["--force"] : []),
           ...(has("json") ? ["--json"] : []),
           ...(flag("max-inputs") ? ["--max-inputs", flag("max-inputs")!] : []),
           ...(flag("fee") ? ["--fee", flag("fee")!] : []),

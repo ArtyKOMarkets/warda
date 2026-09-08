@@ -45,6 +45,7 @@
  * dominates here, and compute mass is roughly linear in the input count.
  */
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 import {
   NodeClient,
@@ -57,6 +58,7 @@ import {
   resolverFrom,
   sighash,
   signDigest,
+  toHex,
 
   toWireMulti,
   type NetworkPrefix,
@@ -101,13 +103,86 @@ const estimateFee = (inputs: number) =>
   (MASS_BASE + MASS_PER_INPUT * BigInt(inputs)) * SOMPI_PER_MASS;
 
 const keyFile = flag("key");
-const secretHex = (keyFile ? readFileSync(keyFile, "utf8") : process.env.WARDA_SK ?? "").trim();
+/* Read through a named helper rather than inline, so a path that is wrong —
+   almost always because the command was run from a subdirectory — reports the
+   path it tried and where it tried it from, instead of an ENOENT stack trace
+   with the relative path in it and no cwd to make sense of it. */
+const readKey = (path: string): string => {
+  try {
+    return readFileSync(path, "utf8");
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") {
+      console.error(
+        `no key file at ${path}\n` +
+          `  looked in ${process.cwd()}\n` +
+          `  Paths are relative to where you ran this. If you meant a file in the repo\n` +
+          `  root, run it from there — or give an absolute path.`,
+      );
+      process.exit(2);
+    }
+    throw e;
+  }
+};
+
+const secretHex = (keyFile ? readKey(keyFile) : process.env.WARDA_SK ?? "").trim();
 if (!secretHex) {
   console.error("no key. Pass --key <file> or set WARDA_SK.");
   process.exit(2);
 }
 const secret = fromHex(secretHex);
 const address = pubkeyToAddress(agentPublicKey(secret), prefix);
+
+/**
+ * Refuse to consolidate an address the site cites as evidence.
+ *
+ * This is not a hypothetical. `agents/tools/dashboard.ts` attributes a payment
+ * by finding the COIN at the payee address whose transaction id appears in the
+ * purchase log — a transaction id rather than a heuristic, which is what lets
+ * an agent page say "these five coins, this grant, check them yourself".
+ *
+ * Consolidation spends those coins. The transaction is valid, the money is
+ * fine, the totals in demo-state stay true — and every agent page silently
+ * drops to "0 payments attributable to this grant", because the evidence it
+ * cites no longer exists as separate outputs. A destructive operation whose
+ * damage appears three deploys later on a page nobody re-read is the exact
+ * failure this project keeps meeting.
+ *
+ * So it refuses, names what it would break, and takes --force. The label file
+ * is the same one the dashboard re-derives from, so this cannot drift from the
+ * thing it is protecting.
+ */
+const knownPayee = (xonlyHex: string): { label: string; derivation: string } | null => {
+  try {
+    const file = JSON.parse(
+      readFileSync(fileURLToPath(new URL("../../agents/known-payees.json", import.meta.url)), "utf8"),
+    );
+    return (
+      (file.payees as { key: string; label: string; derivation: string }[]).find(
+        (p) => p.key.toLowerCase() === xonlyHex.toLowerCase(),
+      ) ?? null
+    );
+  } catch {
+    /* No label file is not a reason to refuse — it is a reason not to claim.
+       This guard can only ever say "I recognise this"; it never says "this is
+       safe", and an absent file must not be read as the second. */
+    return null;
+  }
+};
+
+const known = knownPayee(toHex(agentPublicKey(secret)));
+if (known && !has("force")) {
+  console.error(
+    `\nthis key is ${known.label}, and the site cites its coins as evidence.\n\n` +
+      `  ${known.derivation}\n\n` +
+      `  An agent page attributes a payment by matching the COIN at this address against\n` +
+      `  a transaction id in its purchase log. Consolidating spends those coins: the\n` +
+      `  transaction is valid and the money is fine, but every page that cites them drops\n` +
+      `  to "0 payments attributable to this grant" on the next refresh, and nothing else\n` +
+      `  would report it as an error.\n\n` +
+      `  Test on a key that is not a payee, or pass --force if you meant it.\n`,
+  );
+  process.exit(3);
+}
 
 const url = flag("rpc") ?? process.env.WARDA_RPC_JSON;
 let client: NodeClient;
