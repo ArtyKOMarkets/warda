@@ -275,6 +275,19 @@ punching down, and the standard is the stronger target anyway.*
 > Bounded authority does subdivide — and what the sub-agent doesn't spend
 > comes back.
 
+*Image for post 5: `marketing/img/warda-wallet-vs-grant.png`. Two columns —
+sending a sub-agent a second wallet, against carving a bounded child out of a
+grant. The asymmetry is the whole post, and the right-hand figures are the real
+#003 → #004 delegation, not illustrative ones.*
+
+*Alt: "Two columns. Left, giving a sub-agent a wallet: a parent wallet, an
+arrow, and an unrelated child wallet, with three crosses — no relationship to
+the parent, nothing stops it paying anyone, the remainder does not come back.
+Right, delegating a grant: agent #003 with a 2 KAS budget, a 0.1 cap and 2
+payees, carving out agent #004 with 0.5 KAS, a 0.05 cap, 1 payee and a one-day
+expiry, with three ticks and a note that it spent 0.04 KAS and returned 0.46 to
+the agent's budget."*
+
 **6/**  *(212)*
 
 > So we ran it. Four agents, Kaspa testnet.
