@@ -54,6 +54,7 @@ import { claimedDaaFor, type SpendPlan } from "../src/spend.ts";
 import { scriptHashFor, templateFingerprint, type CovenantTemplate, type GrantState, templateIdFor } from "../src/template.ts";
 import { toWire } from "../src/wire.ts";
 import { resolveNetwork } from "./network.ts";
+import { requiredFeeFrom, submitCorrectingFee } from "./fee.ts";
 
 /** A lock time at or above the current DAA score is not yet final. */
 /**
@@ -372,7 +373,17 @@ process.stdout.write(JSON.stringify(wire, null, 2) + "\n");
 if (process.argv.includes("--submit")) {
   const submitter = await NodeClient.connect({ url: flag("rpc") });
   try {
-    const txid = await submitter.submitTransaction(tx);
+    /* Re-signing at the node's figure costs one call to signSpend. The fee
+       changes the successor's VALUE but not its state, so the address the
+       grant moves to is the same either way — a correction here cannot send
+       the grant somewhere the caller was not already told about. */
+    const { txid } = await submitCorrectingFee({
+      client: submitter,
+      tx,
+      fee: plan.fee,
+      what: "the spend",
+      rebuild: (corrected) => signSpend({ ...plan, fee: corrected }, secret).tx,
+    });
     console.error(`\nSUBMITTED: ${txid}`);
     if (txid !== wire.txid) {
       console.error(
@@ -386,9 +397,14 @@ if (process.argv.includes("--submit")) {
     // The node names the exact fee it wants. Turning that into the command
     // that would work beats re-deriving it from a rejection message by hand,
     // and beats a stack trace by a wider margin.
-    const needs = /required amount of (\d+)/.exec(message);
-    if (needs) {
-      const required = BigInt(needs[1]!);
+    /* One parser, in fee.ts. This block had its own copy of that regular
+       expression — three tools did — which is the same shape as members.ts and
+       the MCP version numbers: the moment a second reader of somebody else's
+       error format exists, it belongs in one file. Reaching here at all now
+       means the automatic correction was tried and did not settle it, so the
+       manual flag below is genuinely the next step rather than the first. */
+    const required = requiredFeeFrom(message);
+    if (required !== null) {
       console.error(
         `\nNOT SUBMITTED: the fee is too low.\n\n` +
           `  offered  ${plan.fee} sompi\n` +

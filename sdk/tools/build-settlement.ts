@@ -65,6 +65,7 @@ import {
 } from "../src/template.ts";
 import { toWireMulti } from "../src/wire.ts";
 import { resolveNetwork } from "./network.ts";
+import { requiredFeeFrom, submitCorrectingFee } from "./fee.ts";
 
 /**
  * A settlement has TWO covenant inputs — the parent reabsorbing and the child
@@ -353,7 +354,26 @@ process.stdout.write(
 if (process.argv.includes("--submit")) {
   const submitter = await NodeClient.connect({ url: flag("rpc") });
   try {
-    const txid = await submitter.submitTransaction(tx);
+    /* Two inputs, two keys: the parent's AGENT signs the reabsorb and the
+       child's REVOCATION signs the settle. A rebuild has to redo both, and
+       getting one right and the other stale would fail as an unverifiable
+       signature rather than as anything about a fee. */
+    const { txid } = await submitCorrectingFee({
+      client: submitter,
+      tx,
+      fee: plan.fee,
+      what: "the settlement",
+      rebuild: (corrected) => {
+        const replan = { ...plan, fee: corrected };
+        const again = buildUnsignedReabsorb(replan);
+        return attachReabsorbSignatures(
+          replan,
+          again,
+          signDigest(again.parentSighash, agentFound.secret),
+          signDigest(again.childSighash, revocationFound.secret),
+        );
+      },
+    });
     console.error(`\nSUBMITTED: ${txid}`);
     /**
      * Submitting is not accepting.
@@ -405,12 +425,16 @@ if (process.argv.includes("--submit")) {
     );
   } catch (e) {
     const message = (e as Error).message ?? String(e);
-    const needs = /required amount of (\d+)/.exec(message);
+    /* One parser, in fee.ts. Three tools each had their own copy of that
+       regular expression — the same shape as members.ts and the MCP version
+       numbers. Reaching here now means the automatic correction was tried and
+       did not settle it, so the manual flag is genuinely the next step. */
+    const needs = requiredFeeFrom(message);
     console.error(
-      needs
-        ? `\nNOT SUBMITTED: the fee is too low — offered ${plan.fee}, required ${needs[1]}.\n` +
+      needs !== null
+        ? `\nNOT SUBMITTED: the fee is too low — offered ${plan.fee}, required ${needs}.\n` +
           `A covenant spend carries the whole redeem script, so it masses far more than an\n` +
-          `ordinary payment. Re-run with --fee ${needs[1]}.`
+          `ordinary payment. Re-run with --fee ${needs}.`
         : `\nNOT SUBMITTED: ${message}`,
     );
     process.exit(1);

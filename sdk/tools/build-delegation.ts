@@ -77,6 +77,7 @@ import { agentPublicKey, signDigest, verifyDigest } from "../src/sign.ts";
 import { scriptHashFor, templateFingerprint, type CovenantTemplate, type GrantState, templateIdFor } from "../src/template.ts";
 import { toWire } from "../src/wire.ts";
 import { resolveNetwork } from "./network.ts";
+import { requiredFeeFrom, submitCorrectingFee } from "./fee.ts";
 
 /**
  * Both of these were wrong, and nothing could find out.
@@ -485,7 +486,17 @@ process.stdout.write(JSON.stringify(toWire(tx, built.entry, "@warda_protocol/kas
 if (process.argv.includes("--submit")) {
   const submitter = await NodeClient.connect({ url: flag("rpc") });
   try {
-    const txid = await submitter.submitTransaction(tx);
+    const { txid } = await submitCorrectingFee({
+      client: submitter,
+      tx,
+      fee: plan.fee,
+      what: "the delegation",
+      rebuild: (corrected) => {
+        const replan = { ...plan, fee: corrected };
+        const again = buildUnsignedDelegation(replan);
+        return attachDelegationSignature(replan, again, signDigest(again.sighash, parentSecret));
+      },
+    });
     console.error(`\nSUBMITTED: ${txid}`);
     /**
      * Submitting is not accepting.
@@ -539,12 +550,16 @@ if (process.argv.includes("--submit")) {
     console.error(`  parent advanced: ${manifestPath}`);
   } catch (e) {
     const message = (e as Error).message ?? String(e);
-    const needs = /required amount of (\d+)/.exec(message);
+    /* One parser, in fee.ts. Three tools each had their own copy of that
+       regular expression — the same shape as members.ts and the MCP version
+       numbers. Reaching here now means the automatic correction was tried and
+       did not settle it, so the manual flag is genuinely the next step. */
+    const needs = requiredFeeFrom(message);
     console.error(
-      needs
-        ? `\nNOT SUBMITTED: the fee is too low — offered ${plan.fee}, required ${needs[1]}.\n` +
+      needs !== null
+        ? `\nNOT SUBMITTED: the fee is too low — offered ${plan.fee}, required ${needs}.\n` +
           `A covenant spend carries the whole redeem script, so it masses far more than an\n` +
-          `ordinary payment. Re-run with --fee ${needs[1]}.`
+          `ordinary payment. Re-run with --fee ${needs}.`
         : `\nNOT SUBMITTED: ${message}`,
     );
     process.exit(1);

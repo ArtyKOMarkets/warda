@@ -46,6 +46,7 @@ import { agentPublicKey, signDigest, verifyDigest } from "../src/sign.ts";
 import { scriptHashFor, templateFingerprint, type CovenantTemplate, type GrantState, templateIdFor } from "../src/template.ts";
 import { toWire } from "../src/wire.ts";
 import { resolveNetwork } from "./network.ts";
+import { submitCorrectingFee } from "./fee.ts";
 
 /** How far behind the tip to set the lock time. A lock time at or above the
  *  current DAA score is not yet final, so the transaction would be rejected
@@ -282,7 +283,21 @@ if (process.argv.includes("--submit")) {
   }
   const submitter = await NodeClient.connect({ url: flag("rpc") });
   try {
-    const txid = await submitter.submitTransaction(tx);
+    /* The node prices this, not the constant at the top of this file. That
+       constant was 1,000,000 when the first real revoke needed 1,437,200, and
+       it was only wrong at broadcast — every offline check passed. */
+    const { txid } = await submitCorrectingFee({
+      client: submitter,
+      tx: tx!,
+      fee,
+      what: `the ${kind}`,
+      rebuild: (corrected) => {
+        const replan = { ...plan, fee: corrected };
+        const rebuilt = buildUnsignedExit(replan);
+        const sig = signDigest(rebuilt.sighash, fromHex(secretHex!));
+        return attachExitSignature(replan, rebuilt, sig);
+      },
+    });
     console.error(`\nSUBMITTED: ${txid}`);
     process.stderr.write("waiting for the coin to leave the grant");
     let gone = false;

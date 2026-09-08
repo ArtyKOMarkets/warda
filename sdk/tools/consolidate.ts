@@ -67,6 +67,7 @@ import {
 } from "@warda_protocol/kaspa";
 import { formatKas, kas } from "@warda_protocol/core";
 import { assertKeyNotPublished, resolveNetwork } from "./network.ts";
+import { submitCorrectingFee } from "./fee.ts";
 
 const flag = (n: string, d?: string) => {
   const i = process.argv.indexOf(`--${n}`);
@@ -331,26 +332,21 @@ try {
     process.exit(0);
   }
 
-  const submit = async () => client.submitTransaction(built.tx);
-  let txid: string;
-  try {
-    txid = await submit();
-  } catch (e) {
-    const message = (e as Error).message;
-    /* The node states the fee it wanted. Reading it back is the difference
-       between a tool that is wrong until someone edits a constant and one that
-       is wrong once, out loud, and then right. */
-    const wanted = message.match(/(\d{4,})/g)?.map(BigInt).filter((n) => n > fee).sort((a, b) => (a > b ? 1 : -1))[0];
-    if (!wanted) throw e;
-    console.error(`\nthe node refused that fee and named ${formatKas(wanted)} KAS. Rebuilding.`);
-    console.error(`  (${message.split("\n")[0]})`);
-    fee = wanted;
+  /* The shared corrector, not a copy. This file had the first version of it —
+     written here because this was the tool being run — and the moment three
+     more tools needed the same behaviour, keeping it here would have made four
+     implementations of one rule about somebody else's error messages. See
+     members.ts for the last time that lesson cost something. */
+  const { txid, fee: paid, corrected } = await submitCorrectingFee({
+    client,
+    tx: built.tx,
+    fee,
+    what: "the consolidation",
+    rebuild: (c) => build(c).tx,
+  });
+  if (corrected) {
+    fee = paid;
     built = build(fee);
-    txid = await submit();
-    console.error(
-      `\nNote: the estimate in this file was low. ${chosen.length} inputs actually cost ` +
-        `${formatKas(fee)} KAS.`,
-    );
   }
 
   console.error(
