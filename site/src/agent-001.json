@@ -1,6 +1,6 @@
 {
   "_comment": "Written by agent/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, or the chain — none is typed. The refusal sentences are produced by running the same explainRefusal the payer calls, except the one marked derived:false, which is consensus's answer quoted from a node's actual rejection.",
-  "checkedAt": "2026-09-08T07:00:02.548Z",
+  "checkedAt": "2026-09-08T07:20:01.063Z",
   "network": "testnet-10",
   "elsewhere": {
     "vendor": "kaspatest:qr50gmc7t3jp33gg68aj63s9av54yc7w9kyjpwqdjhva9tt8j0a7wz2h6cnll",
@@ -128,17 +128,17 @@
   ],
   "mission": "Monitor the Kaspa network and publish an independent daily digest, unattended. It holds a bounded Warda grant and may buy an approved service when it needs one.",
   "lastRun": {
-    "at": "2026-09-08T06:17:01.100Z",
-    "runs": 78,
+    "at": "2026-09-08T07:17:01.039Z",
+    "runs": 79,
     "since": "2026-09-03T08:18:38.642Z",
     "servicesUsed": 0,
     "spent": "0 KAS",
     "note": "reading the chain needs no vendor, so this run bought nothing"
   },
   "digest": {
-    "window": "23 h 33 m",
-    "from": "2026-09-07T06:43:36.182Z",
-    "to": "2026-09-08T06:17:01.100Z",
-    "text": "Kaspa testnet-10 · 23 h 33 m to 2026-09-08 06:17 UTC\n\n  blue score  +846,796           9.98 blue blocks/s\n  DAA score   +848,158           now 564,895,291\n  minted      +2,773,747.60 KAS  26,923,069,166 KAS in existence\n  hashrate    19.26 MH/s         node estimate over its last 1,000 blocks\n  mempool     0 tx               held, unaccepted, at the closing reading\n  DAG         1 tips             1,419,173 blocks held by this node\n\nmeasured between two readings of one node (kaspad 2.0.1)\n"
+    "window": "24 h",
+    "from": "2026-09-07T07:17:01.361Z",
+    "to": "2026-09-08T07:17:01.039Z",
+    "text": "Kaspa testnet-10 · 24 h to 2026-09-08 07:17 UTC\n\n  blue score  +862,753           9.98 blue blocks/s\n  DAA score   +864,116           now 564,931,535\n  minted      +2,825,932.19 KAS  26,923,187,686 KAS in existence\n  hashrate    21.05 MH/s         node estimate over its last 1,000 blocks\n  mempool     0 tx               held, unaccepted, at the closing reading\n  DAG         3 tips             1,455,417 blocks held by this node\n\nmeasured between two readings of one node (kaspad 2.0.1)\n"
   }
 }

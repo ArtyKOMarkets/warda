@@ -1,6 +1,6 @@
 {
   "_comment": "Written by agents/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, the purchase log or the chain — none is typed. Each payee's LABEL is re-derived on every run from the artefact agents/known-payees.json names, and a label that stops matching is dropped rather than published: an address with no name is honest, an address with the wrong name is not.",
-  "checkedAt": "2026-09-07T17:22:38.273Z",
+  "checkedAt": "2026-09-08T07:26:32.760Z",
   "network": "testnet-10",
   "identity": {
     "agentId": "WARDA-002",
@@ -35,10 +35,10 @@
   },
   "timelock": {
     "notBefore": "564258425",
-    "virtualDaaScore": "564430761",
+    "virtualDaaScore": "564937241",
     "open": true,
     "lockedFor": "5 minutes",
-    "openedAgo": "5 hours",
+    "openedAgo": "19 hours",
     "enforcedBy": "the covenant, on every spend: claimedDaa >= notBefore. Not a scheduler, not this process, and not revocable by whoever issued the grant."
   },
   "authority": {
@@ -129,11 +129,6 @@
     "couldAccountForIt": [
       {
         "amount": "0.04 KAS",
-        "txid": "f241cd7b62bc23b9170afb98cd8efb50c6fa43fb7a591d1f90a8cf4a384f4fcd",
-        "daaScore": "564406272"
-      },
-      {
-        "amount": "0.04 KAS",
         "txid": "84a5e45803ae1985c91bd837fdf2ac27c53ba2f9e1005dd264493051f7af19bd",
         "daaScore": "564422587"
       },
@@ -141,6 +136,11 @@
         "amount": "0.04 KAS",
         "txid": "4791db53737c8544a847a3c54ac8376e24bbd35dd13abf291efdc0fff821c389",
         "daaScore": "564259713"
+      },
+      {
+        "amount": "0.04 KAS",
+        "txid": "f241cd7b62bc23b9170afb98cd8efb50c6fa43fb7a591d1f90a8cf4a384f4fcd",
+        "daaScore": "564406272"
       }
     ],
     "note": "The covenant's own accounting says this grant spent 0.08 KAS and its purchase log names 0.04 KAS of that. 0.04 KAS left this grant without a surviving record of why. spentTotal is part of the state the grant's address is derived from, so it cannot be quietly wrong — the log can, and was. That is the failure this page reports rather than the one it hides."
@@ -149,7 +149,7 @@
     {
       "rule": "start time (not_before)",
       "attempted": "spend before the grant opens",
-      "refusal": "this grant could not spend anything until DAA 564258425. The covenant checks the claimed DAA score against that number on every spend, so the delay was not a policy in the agent's process and could not be brought forward by whoever issued it. It opened 5 hours ago.",
+      "refusal": "this grant could not spend anything until DAA 564258425. The covenant checks the claimed DAA score against that number on every spend, so the delay was not a policy in the agent's process and could not be brought forward by whoever issued it. It opened 19 hours ago.",
       "derived": true
     },
     {
