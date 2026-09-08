@@ -89,6 +89,28 @@ and a hardcoded fee is how `build-exit.ts` shipped a default the node refused,
 so on a rejection that names a required figure this rebuilds at that figure and
 says what it learned.
 
+### An agent that earns, in three commands
+
+Agent #001 sells a digest and is paid to an ordinary address. That money has no
+covenant on it, because nobody agreed to one. Putting it back inside a grant
+needs no transfer and no sweep — the key that received it can fund a grant
+directly:
+
+```bash
+warda wallet --key earnings.key                       # 2.46 KAS across 13 coins
+warda wallet consolidate --key earnings.key --submit  # 13 → 1, past the one-input rule
+warda grant --key earnings.key --payees payees.txt --budget 2 --max-per-spend 0.1
+```
+
+Count it, merge it, bound it. The middle step exists because genesis takes ONE
+input, so thirteen coins of 2.46 KAS reach only the largest of them until they
+are merged; without it the third command refuses with an arithmetic failure that
+reads like a balance problem.
+
+There is deliberately no `warda wallet send`. Moving money between ordinary
+addresses is what every wallet already does, and nothing here needs it: the loop
+above closes without one.
+
 ## The grant is not a wallet, and the difference is the product
 
 A wallet holds a key and asks software to check the limits before it signs.

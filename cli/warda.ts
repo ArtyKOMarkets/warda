@@ -138,6 +138,7 @@ const HELP = `warda — bounded spending authority for an agent, on Kaspa.
   warda wallet   [consolidate]  an ordinary key: what it holds, what it can fund
   warda grant    --payees <f>   create a grant. Limits in KAS.
                                 [--budget 10] [--max-per-spend 1] [--epoch-limit 2]
+                                [--key <funder.key>, or set WARDA_SK]
   warda balance                 what may this agent spend right now?
   warda pay      <url>          buy something behind an HTTP 402
   warda activity                every attempt, refusals included
@@ -260,6 +261,22 @@ switch (verb) {
     const agentOut = flag("agent-out", "agent.key")!;
     const cfg = readConfig();
 
+    /**
+     * The FUNDER's key, by path rather than only through the environment.
+     *
+     * This is what closes the loop for an agent that earns. Money arriving from
+     * a sale lands at an ordinary key — agent #001's digest income does — and
+     * that key can fund a grant directly; there is no need to move it anywhere
+     * first. `warda wallet` counts it, `warda wallet consolidate` merges it
+     * past genesis's one-input rule, and this bounds it. Requiring the key to
+     * be exported into the shell to do that last step left the loop looking
+     * open when it was not.
+     */
+    const funder = flag("key");
+    const funderEnv: NodeJS.ProcessEnv = funder
+      ? { WARDA_SK: readFileSync(funder, "utf8").trim() }
+      : {};
+
     const status = run("sdk/tools/quickstart.ts", [
       "--recipients",
       payees!,
@@ -276,7 +293,7 @@ switch (verb) {
       ...(flag("prefix") ? ["--prefix", flag("prefix")!] : []),
       ...(flag("network") ? ["--network", flag("network")!] : []),
       ...rpcArgs(cfg),
-    ]);
+    ], funderEnv);
     if (status !== 0) process.exit(status);
 
     writeConfig({
