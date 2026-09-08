@@ -54,6 +54,32 @@ fi
 # Minute 17 rather than 0: nothing else is likely to be running then, and a
 # schedule that fires on the hour with everything else on the machine is a
 # schedule that competes for the same disk.
+# Every script this installs has to be executable, checked HERE.
+#
+# `check-vendor.sh` shipped without its exec bit — created through a mount that
+# did not carry the mode, and git recorded 100644. Running it by hand said
+# "permission denied", which is at least loud. Under cron it would have said
+# nothing anyone reads: the entry fires every fifteen minutes, fails instantly,
+# and appends to a log whose whole purpose is to be empty when things are well.
+# A monitor that cannot start looks exactly like a monitor with nothing to
+# report.
+#
+# So: fix it if we can, refuse if we cannot. Installing a schedule of commands
+# that cannot run is worse than installing nothing, because the crontab then
+# says the job exists.
+for f in "$SCRIPT" "$BUY" "$VENDOR"; do
+  [ -f "$f" ] || continue
+  [ -x "$f" ] && continue
+  chmod +x "$f" 2>/dev/null || true
+  if [ ! -x "$f" ]; then
+    echo "$f is not executable and could not be made so." >&2
+    echo "  cron would fail on it every time it fired, silently. Fix it and re-run:" >&2
+    echo "    chmod +x $f" >&2
+    exit 1
+  fi
+  echo "made $f executable."
+done
+
 current="$(crontab -l 2>/dev/null || true)"
 
 # An installed job is not re-installed by being asked for again — it is
