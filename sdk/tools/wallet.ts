@@ -98,6 +98,15 @@ const address = pubkeyToAddress(agentPublicKey(fromHex(secretHex)), prefix);
  */
 const GENESIS_FEE = 1_000_000n;
 
+/**
+ * Roughly what merging `n` coins costs, only ever used to decide whether to
+ * RECOMMEND it. Kept deliberately crude and in step with consolidate.ts: this
+ * number never reaches a transaction, so being a little wrong changes a
+ * sentence rather than a fee. consolidate.ts computes its own and lets the
+ * node correct it.
+ */
+const CONSOLIDATE_FEE_GUESS = (n: number) => (1_920n + 1_118n * BigInt(n)) * 100n;
+
 /** Coinbase outputs are unspendable until they mature. Kaspa's window is 100. */
 const COINBASE_MATURITY = 100n;
 
@@ -182,12 +191,37 @@ try {
           `  One coin, so nothing to consolidate.\n`,
       );
     } else {
+      /* What consolidating would actually buy, rather than the fact that it is
+         possible. A funder holding 9760 KAS in its largest coin and 9780 in
+         total is told to consolidate by a tool that only compares two numbers
+         for inequality — and it would be right, and worthless: 0.2% more
+         reach, in exchange for one coin where there were seven.
+   
+         That exchange is not free. Each coin is an input, genesis takes ONE,
+         and a second grant cannot be created until the first one's change has
+         confirmed. Seven coins are seven grants in parallel; one coin is a
+         queue. So the advice is given when the shape is actually the problem,
+         and the trade is stated when it is not. */
+      const gain = total > fundable ? total - fundable - CONSOLIDATE_FEE_GUESS(mature.length) : 0n;
+      const worthIt = gain > 0n && gain * 10n > largest;
       console.log(
         `  You can fund a grant of up to ${formatKas(fundable)} KAS — the LARGEST coin\n` +
           `  less the fee, not the total. Genesis takes one input, so ${mature.length} coins of\n` +
-          `  ${formatKas(total)} KAS still only reach ${formatKas(fundable)} KAS.\n\n` +
-          `  To use all of it:  warda wallet consolidate\n`,
+          `  ${formatKas(total)} KAS still only reach ${formatKas(fundable)} KAS.\n`,
       );
+      if (worthIt) {
+        console.log(
+          `  Merging them would reach about ${formatKas(fundable + gain)} KAS instead.\n\n` +
+            `    warda wallet consolidate\n`,
+        );
+      } else {
+        console.log(
+          `  Merging them would add only about ${formatKas(gain > 0n ? gain : 0n)} KAS of reach,\n` +
+            `  and would leave one coin where there are ${mature.length}. Genesis takes one input\n` +
+            `  and a second grant waits for the first one's change, so coins are parallelism.\n` +
+            `  Probably not worth it here.\n`,
+        );
+      }
     }
     console.log(
       `  Nothing about this key is bounded. It is an ordinary wallet — the funder\n` +

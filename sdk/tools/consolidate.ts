@@ -89,16 +89,37 @@ const MAX_INPUTS = Number(flag("max-inputs", "50"));
 const COINBASE_MATURITY = 100n;
 const COMPUTE_BUDGET = 12;
 
-/* Empirical, from the one measurement this project has: the node required
-   1,437,200 sompi for a transaction of mass 14,372 — a hundred sompi per unit
-   of mass. Kaspa's compute mass counts each byte once, each script-pubkey byte
-   ten times, and each signature operation a thousand times, so an ordinary
-   P2PK input (about 110 bytes, one sigop) is roughly 1,110 and the single
-   output roughly 400. The node corrects all of this on rejection; these
-   numbers only have to be close enough that the first attempt usually lands. */
+/**
+ * Measured, not derived, and the measurement is written down here because it
+ * is the only one there is.
+ *
+ *   7 inputs, 1 output, ordinary P2PK, testnet-10, kaspad 2.0.1:
+ *     "transaction has 822000 fees which is under the required amount of
+ *      974600 for compute mass 9746"
+ *
+ * Two things come out of that. The fee rate is exactly **100 sompi per unit of
+ * mass** — 974,600 over 9,746 — which agrees with the only other measurement
+ * this project has, a covenant revoke the node priced at 1,437,200 for a mass
+ * of 14,372. And the real mass at n=7 is 9,746 where the first version of this
+ * file guessed 8,220, so the first attempt was refused.
+ *
+ * The per-input figure is derived: an ordinary P2PK input is about 118 bytes
+ * (36 outpoint, 74 signature script, 8 sequence) at one mass per byte, plus one
+ * signature operation at a thousand, so 1,118. The base is then whatever is
+ * left of the measurement — 1,920 — and it is **larger than the transaction
+ * envelope and one output can account for** (roughly 450 by the same
+ * accounting). That residual is unexplained. Stating it as unexplained is
+ * better than inventing a reason for it, and it is why the node stays the
+ * authority below rather than this arithmetic.
+ *
+ * Fitted to a single point, so it is exact at 7 inputs and approximate
+ * everywhere else. That is fine: a wrong estimate here costs one round trip
+ * and prints what it learned. A wrong estimate that nothing corrected is how
+ * `build-exit.ts` shipped 1,000,000 against a real 1,437,200.
+ */
 const SOMPI_PER_MASS = 100n;
-const MASS_PER_INPUT = 1_110n;
-const MASS_BASE = 450n;
+const MASS_PER_INPUT = 1_118n;
+const MASS_BASE = 1_920n;
 const estimateFee = (inputs: number) =>
   (MASS_BASE + MASS_PER_INPUT * BigInt(inputs)) * SOMPI_PER_MASS;
 
