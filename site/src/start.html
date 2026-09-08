@@ -1,0 +1,637 @@
+<title>Start</title>
+<meta name="description" content="From nothing to a real HTTP 402 payment out of a grant whose limits the network enforces. Eight steps, each with the command, what it prints, and what it costs if it goes wrong.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+  :root {
+    --void:        #06090C;
+    --ground:      #0A1014;
+    --panel:       #101A20;
+    --edge:        #1E2E37;
+    --edge-bright: #2C4350;
+
+    --chrome:      #DDE0E2;
+    --chrome-dim:  #8D989E;
+    --chrome-faint:#5D6B73;
+
+    --teal:        #14D7C1;
+    --teal-bright: #38F9E9;
+    --teal-deep:   #06BBA1;
+    --teal-ghost:  rgba(20, 215, 193, 0.10);
+    --refuse:      #FF6B5A;
+    /* Roadmap status only. Deliberately NOT --refuse: on this site red
+       already means the covenant will not allow a thing, and reusing it
+       for "we are working on it" would make the strongest signal here
+       ambiguous. */
+    --amber:       #E8B23A;
+
+    --display: "Chakra Petch", "Arial Narrow", sans-serif;
+    --body: "Barlow", "Helvetica Neue", Arial, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    --gutter: clamp(1.15rem, 4vw, 3.4rem);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0; background: var(--void); color: var(--chrome);
+    font-family: var(--body); font-size: 17px; line-height: 1.66;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  .wrap { max-width: 74rem; margin: 0 auto; padding: 0 var(--gutter); position: relative; }
+  .narrow { max-width: 58rem; }
+
+  h1, h2, h3 { font-family: var(--display); font-weight: 700; margin: 0; line-height: 1.08; letter-spacing: -0.015em; text-wrap: balance; }
+  h2 { font-size: clamp(2rem, 5.4vw, 3.9rem); }
+  h3 { font-size: 1.08rem; font-weight: 600; letter-spacing: 0; }
+  p { margin: 0 0 1.05em; }
+  a { color: var(--chrome); text-decoration-color: var(--teal-deep); text-underline-offset: 3px; }
+  a:hover { color: var(--teal-bright); }
+  :focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
+
+  code { font-family: var(--mono); font-size: 0.88em; background: var(--panel); color: var(--teal); padding: 0.12em 0.4em; }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: 0.68rem; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.19em; color: var(--teal);
+    margin: 0 0 1.1rem; display: flex; align-items: center; gap: 0.7rem;
+  }
+  .eyebrow::before { content: ""; width: 1.6rem; height: 1px; background: var(--teal-deep); flex: none; }
+
+  section { padding: clamp(3.6rem, 8vw, 6.4rem) 0; position: relative; }
+  .rule { border-top: 1px solid var(--edge); }
+
+  /* ---- the drifting shield, behind everything -------------------------- */
+  /* One shape, echoing the mark, moved by scroll. It is the only thing on   */
+  /* the page that is purely decorative, so it is also the only thing that   */
+  /* disappears entirely under prefers-reduced-motion.                       */
+  .field { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+  .field svg { position: absolute; left: 50%; top: 50%; width: min(140vh, 130vw); height: auto;
+               transform: translate(-50%, -50%) translateY(var(--drift, 0px)) rotate(var(--spin, 0deg));
+               opacity: 0.4; }
+  .field .glow { position: absolute; left: 50%; top: var(--glow-y, 30%); transform: translate(-50%,-50%);
+                 width: 90vw; height: 70vh;
+                 background: radial-gradient(ellipse 45% 42% at 50% 50%, rgba(20,215,193,0.13), transparent 70%); }
+  body > *:not(.field) { position: relative; z-index: 1; }
+
+  /* ---- the proof bar --------------------------------------------------- */
+  .bar {
+    border-bottom: 1px solid var(--edge); background: var(--ground);
+    font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  .bar .wrap { display: flex; align-items: center; gap: 0.7rem 1.4rem; flex-wrap: wrap; padding-top: 0.72rem; padding-bottom: 0.72rem; }
+  .bar .dot { width: 6px; height: 6px; background: var(--teal); flex: none; border-radius: 50%; }
+  .bar .t { color: var(--chrome); }
+  .bar .m { color: var(--chrome-faint); letter-spacing: 0.04em; text-transform: none; }
+  .bar a { margin-left: auto; color: var(--teal); text-decoration: none; white-space: nowrap;
+           padding: 0.55rem 0; display: inline-flex; align-items: center; min-height: 2.75rem; }
+  .bar a:hover { color: var(--teal-bright); }
+  @media (max-width: 640px) {
+    .bar .wrap { gap: 0.2rem 0.7rem; }
+    .bar .m { display: none; }
+    .bar .t { font-size: 0.62rem; }
+    .bar a { margin-left: auto; font-size: 0.62rem; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .bar .dot { animation: pulse 2.6s ease-in-out infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; box-shadow: 0 0 0 0 rgba(20,215,193,0.5); } 50% { opacity: 0.55; box-shadow: 0 0 0 5px rgba(20,215,193,0); } }
+  }
+
+  /* ---- hero ------------------------------------------------------------ */
+  .hero { text-align: center; padding-top: clamp(2.2rem, 5vw, 3.6rem); padding-bottom: clamp(2.6rem, 6vw, 4.4rem); }
+  .hero img { width: min(340px, 68vw); height: auto; display: block; margin: 0 auto clamp(1.3rem, 3vw, 2rem); }
+  .thesis {
+    font-family: var(--display); font-weight: 700;
+    font-size: clamp(2.2rem, 6.2vw, 4.4rem); line-height: 1.03;
+    letter-spacing: -0.028em; max-width: 15ch; margin: 0 auto 1.2rem;
+  }
+  .thesis .lit { color: var(--teal); }
+  .hero .sub { font-size: clamp(1.02rem, 1.8vw, 1.15rem); color: var(--chrome-dim); max-width: 50ch; margin: 0 auto 1.9rem; }
+
+  .cta-row { display: flex; gap: 0.8rem; justify-content: center; flex-wrap: wrap; }
+  .cta {
+    font-family: var(--mono); font-size: 0.8rem; font-weight: 500;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 0.9rem 1.6rem; text-decoration: none; border: 1px solid;
+    display: inline-flex; align-items: center; gap: 0.6rem;
+  }
+  .cta.primary { background: var(--teal); border-color: var(--teal); color: var(--void); font-weight: 700; }
+  .cta.primary:hover { background: var(--teal-bright); border-color: var(--teal-bright); color: var(--void); }
+  .cta.ghost { border-color: var(--edge-bright); color: var(--chrome-dim); }
+  .cta.ghost:hover { border-color: var(--teal); color: var(--teal-bright); }
+  .cta .arw { font-family: var(--body); transition: transform 160ms ease; }
+  .cta:hover .arw { transform: translateX(3px); }
+
+  .statline {
+    margin-top: 2.2rem; font-family: var(--mono); font-size: 0.7rem;
+    color: var(--chrome-faint); letter-spacing: 0.04em;
+    display: flex; gap: 0.55rem 1.5rem; justify-content: center; flex-wrap: wrap;
+  }
+  /* The live half. Same shape as the line above it, teal figures, so a reader
+     can tell at a glance which numbers were read off the chain a moment ago
+     and which are facts about the codebase. */
+  .statline.live { margin-top: 0.7rem; }
+  .statline.live b { color: var(--teal); }
+  .statline b { color: var(--teal-deep); font-weight: 500; }
+
+  .scroll-cue { margin-top: 2.4rem; font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--chrome-faint); }
+  .scroll-cue span { display: block; margin: 0.6rem auto 0; width: 1px; height: 2.4rem; background: linear-gradient(var(--teal-deep), transparent); }
+  @media (prefers-reduced-motion: no-preference) {
+    .scroll-cue span { animation: cue 2.4s ease-in-out infinite; transform-origin: top; }
+    @keyframes cue { 0%,100% { transform: scaleY(0.4); opacity: 0.4; } 50% { transform: scaleY(1); opacity: 1; } }
+  }
+
+  /* ---- the problem ----------------------------------------------------- */
+  .claim-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.05fr); gap: clamp(2rem, 5vw, 4.5rem); align-items: start; }
+  @media (max-width: 900px) { .claim-grid { grid-template-columns: 1fr; } }
+  .big { font-size: 1.16rem; color: var(--chrome-dim); }
+  .big strong { color: var(--chrome); font-weight: 500; }
+
+  .quote { border-left: 2px solid var(--refuse); background: var(--ground); padding: 1.15rem 1.3rem; font-size: 0.98rem; color: var(--chrome-dim); }
+  .quote q { color: var(--chrome); font-style: italic; }
+  .quote cite { display: block; margin-top: 0.7rem; font-family: var(--mono); font-size: 0.68rem; font-style: normal; color: var(--chrome-faint); text-transform: uppercase; letter-spacing: 0.11em; }
+  .answer { border-left-color: var(--teal); margin-top: 1rem; }
+  .answer q { color: var(--chrome); font-style: normal; }
+
+  /* ---- the gate: the covenant adjudicating, with the real numbers ------- */
+  .gate { border: 1px solid var(--edge-bright); background: var(--ground); margin-top: 2.6rem; }
+  .gate-tabs { display: flex; border-bottom: 1px solid var(--edge-bright); }
+  .gate-tabs button {
+    flex: 1; background: none; border: 0; border-right: 1px solid var(--edge-bright);
+    padding: 1rem 1.1rem; text-align: left; cursor: pointer; color: var(--chrome-dim);
+    font-family: var(--mono); font-size: 0.72rem; line-height: 1.5;
+  }
+  .gate-tabs button:last-child { border-right: 0; }
+  .gate-tabs button .who { display: block; text-transform: uppercase; letter-spacing: 0.13em; font-size: 0.65rem; color: var(--chrome-faint); margin-bottom: 0.3rem; }
+  .gate-tabs button .addr { color: var(--chrome-dim); overflow-wrap: anywhere; }
+  .gate-tabs button { position: relative; }
+  .gate-tabs button::before {
+    content: ""; position: absolute; inset: 0 0 auto 0; height: 2px; background: var(--teal);
+    transform: scaleX(0); transform-origin: left;
+  }
+  @media (prefers-reduced-motion: no-preference) { .gate-tabs button::before { transition: transform 240ms cubic-bezier(.2,.7,.3,1); } }
+  .gate-tabs button[aria-selected="true"]::before { transform: none; }
+  .gate-tabs button[aria-selected="true"] { background: var(--panel); color: var(--chrome); }
+  .gate-tabs button[aria-selected="true"] .who { color: var(--teal); }
+  .gate-tabs button[aria-selected="true"] .addr { color: var(--chrome); }
+  .gate-tabs button:hover { background: var(--panel); }
+
+  .gate-body { padding: 1.4rem clamp(1.1rem, 3vw, 1.8rem) 1.6rem; }
+  .gate-ask { font-family: var(--mono); font-size: 0.76rem; color: var(--chrome-faint); text-transform: uppercase; letter-spacing: 0.13em; margin: 0 0 1.1rem; }
+  .gate-ask b { color: var(--chrome); font-weight: 500; }
+
+  .check {
+    display: grid; grid-template-columns: 1.6rem minmax(0,1fr) auto; gap: 0.8rem;
+    align-items: baseline; padding: 0.6rem 0; border-bottom: 1px solid var(--edge);
+    font-family: var(--mono); font-size: 0.79rem;
+    opacity: 0; transform: translateY(4px);
+  }
+  .check.on { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: no-preference) { .check { transition: opacity 260ms ease, transform 260ms ease; } }
+  @media (prefers-reduced-motion: reduce) { .check { opacity: 1; transform: none; } }
+  .check .mk { font-size: 0.95rem; }
+  .check.pass .mk { color: var(--teal); }
+  .check.fail .mk { color: var(--refuse); }
+  .check .lbl { color: var(--chrome); }
+  .check .val { color: var(--chrome-faint); font-variant-numeric: tabular-nums; text-align: right; }
+  .check.fail .lbl { color: var(--refuse); }
+  @media (max-width: 620px) {
+    .check { grid-template-columns: 1.4rem minmax(0,1fr); }
+    .check .val { grid-column: 2; text-align: left; }
+  }
+
+  .verdict {
+    margin-top: 1.3rem; padding: 1rem 1.2rem; border: 1px solid;
+    font-family: var(--mono); font-size: 0.82rem; line-height: 1.7;
+    opacity: 0;
+  }
+  .verdict.on { opacity: 1; }
+  @media (prefers-reduced-motion: no-preference) { .verdict { transition: opacity 300ms ease; } }
+  @media (prefers-reduced-motion: reduce) { .verdict { opacity: 1; } }
+  .verdict .head { display: block; text-transform: uppercase; letter-spacing: 0.15em; font-size: 0.72rem; margin-bottom: 0.4rem; }
+  .verdict.ok { border-color: var(--teal-deep); background: var(--teal-ghost); }
+  .verdict.ok .head { color: var(--teal); }
+  .verdict.no { border-color: var(--refuse); background: rgba(255,107,90,0.07); }
+  .verdict.no .head { color: var(--refuse); }
+  .verdict .body { color: var(--chrome-dim); }
+  .verdict .body b { color: var(--chrome); font-weight: 500; }
+  .verdict .hash { color: var(--teal); overflow-wrap: anywhere; }
+
+  .budget { margin-top: 1.4rem; }
+  .budget-top { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--chrome-faint); margin-bottom: 0.5rem; }
+  .budget-top b { color: var(--chrome); font-weight: 500; letter-spacing: 0.02em; text-transform: none; font-variant-numeric: tabular-nums; }
+  .track { height: 6px; background: var(--panel); border: 1px solid var(--edge); position: relative; overflow: hidden; }
+  .track i { position: absolute; inset: 0 auto 0 0; width: var(--used, 0%); background: var(--teal); display: block; }
+  @media (prefers-reduced-motion: no-preference) { .track i { transition: width 900ms cubic-bezier(.2,.7,.3,1); } }
+  .replay { margin-top: 1.2rem; background: none; border: 1px solid var(--edge-bright); color: var(--chrome-dim); font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.8rem 1.2rem; min-height: 2.75rem; cursor: pointer; }
+  .replay:hover { border-color: var(--teal); color: var(--teal-bright); }
+
+  /* ---- the receipt ----------------------------------------------------- */
+  /* The standing challenge. Figures come from /demo-state.json when it is
+     there; the section reads correctly without it, because a page whose
+     argument is "check it yourself" cannot depend on a fetch to make sense. */
+  .chal { border: 1px solid var(--edge); background: var(--ground);
+          padding: 1.8rem 1.7rem; margin-top: 1.6rem; }
+  .chal-key { font-family: var(--mono); font-size: 0.78rem; word-break: break-all;
+              color: var(--teal); margin: 0 0 0.3rem; }
+  .chal-lbl { font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.14em;
+              text-transform: uppercase; color: var(--chrome-faint); margin: 0 0 0.5rem; }
+  .chal-figs { display: flex; flex-wrap: wrap; gap: 2.2rem; margin-top: 1.4rem; }
+  .chal-figs div { min-width: 8rem; }
+  .chal-figs .n { display: block; font-family: var(--mono); font-size: 1.35rem; color: var(--chrome); }
+  .chal-figs .n.zero { color: var(--teal); }
+  .chal-figs .l { display: block; font-size: 0.82rem; color: var(--chrome-dim); margin-top: 0.3rem; }
+
+  /* The ladder. Numbered because the order is the argument: each layer is
+     only worth anything if the one below it holds. */
+  /* Build your first agent. Code blocks scroll inside themselves rather than
+     widening the page — a horizontally scrolling body on a phone is the fastest
+     way to lose somebody mid-quickstart. */
+  /* Dashed marks cannot be drawn in: data-draw writes stroke-dasharray from
+     the path length, which overwrites the dash pattern and renders them solid
+     — losing the one distinction this figure is built on. They fade instead. */
+  [data-draw-group] [data-fade] { opacity: 0; }
+  [data-draw-group].seen [data-fade] { opacity: 1; }
+  @media (prefers-reduced-motion: no-preference) {
+    [data-draw-group] [data-fade] { transition: opacity 700ms ease var(--wait, 0ms); }
+  }
+
+  .cycle { margin-top: 1.8rem; }
+  .cycle svg { width: 100%; max-width: 100%; height: auto; display: block; }
+  .cycle text { font-family: var(--mono); }
+  .cycle figcaption { font-family: var(--mono); font-size: 0.72rem; color: var(--chrome-faint);
+                      line-height: 1.8; margin-top: 1.2rem; max-width: 66ch; }
+  .cycle figcaption b { color: var(--chrome-dim); font-weight: 500; }
+  figure { margin: 0; }
+
+  .steps3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
+            background: var(--edge); border: 1px solid var(--edge); margin-top: 1.8rem; }
+  .steps3 > div { background: var(--ground); padding: 1.5rem 1.4rem; min-width: 0; }
+  .steps3 .sn { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.12em;
+                color: var(--teal); margin: 0 0 0.5rem; }
+  .steps3 h3 { font-size: 1.02rem; margin: 0 0 0.8rem; }
+  .steps3 pre { margin: 0 0 0.8rem; padding: 0.75rem 0.8rem; background: var(--void);
+                border: 1px solid var(--edge); overflow-x: auto; }
+  .steps3 pre code { font-family: var(--mono); font-size: 0.7rem; line-height: 1.7;
+                     color: var(--teal); white-space: pre; }
+  .steps3 p { color: var(--chrome-dim); font-size: 0.88rem; margin: 0; }
+  .needs { font-family: var(--mono); font-size: 0.74rem; color: var(--chrome-faint);
+           margin-top: 1.1rem; line-height: 1.8; }
+  .needs a { color: var(--teal); }
+  @media (max-width: 860px) { .steps3 { grid-template-columns: 1fr; } }
+
+  .layers { margin-top: 1.8rem; border-top: 1px solid var(--edge); }
+  .layers > div { display: grid; grid-template-columns: 3.2rem 1fr 1fr;
+                  gap: 1.6rem; padding: 1.6rem 0; border-bottom: 1px solid var(--edge); }
+  .layers .lv { font-family: var(--mono); font-size: 0.72rem; color: var(--teal);
+                letter-spacing: 0.1em; padding-top: 0.25rem; }
+  .layers h3 { font-size: 1.06rem; margin: 0 0 0.4rem; }
+  .layers .what { color: var(--chrome-dim); font-size: 0.92rem; margin: 0; }
+  .layers .ships { font-family: var(--mono); font-size: 0.74rem; color: var(--chrome-faint);
+                   margin: 0; line-height: 1.85; }
+  .layers .ships code { color: var(--chrome-dim); }
+  @media (max-width: 760px) {
+    .layers > div { grid-template-columns: 1fr; gap: 0.7rem; }
+    .layers .lv { padding-top: 0; }
+  }
+
+  /* The roadmap carries no dates, deliberately. A date is a promise; a
+     direction is a statement of intent, and only one of those can be broken. */
+  .road { border: 1px solid var(--edge); margin-top: 1.6rem; --state: var(--chrome-faint); }
+  .road > div { background: var(--ground); padding: 1.25rem 1.4rem 1.25rem 2.7rem;
+                position: relative; border-bottom: 1px solid var(--edge); }
+  .road > div:last-child { border-bottom: 0; }
+  /* The rail and its dot. The dot is decoration: every row also says its state
+     in words, because a reader who cannot separate teal from amber must still
+     be able to read this list. */
+  .road > div::before { content: ""; position: absolute; left: 1.2rem; top: 0; bottom: 0;
+                        width: 1px; background: var(--edge); }
+  .road > div:first-child::before { top: 1.5rem; }
+  .road > div:last-child::before { bottom: auto; height: 1.5rem; }
+  .road > div::after { content: ""; position: absolute; left: 0.9rem; top: 1.32rem;
+                       width: 9px; height: 9px; border-radius: 50%;
+                       background: var(--state); box-shadow: 0 0 0 4px var(--ground); }
+  /* Shipped gets a tick rather than a dot. The list is partly an argument about
+     how much of this exists, and a tick says that at a glance where a coloured
+     dot only says it to someone who has read the key. The background masks the
+     rail passing behind it. */
+  .road .shipped::after { content: "\2713"; width: auto; height: auto; border-radius: 0;
+                          background: var(--ground); color: var(--teal); box-shadow: none;
+                          font-size: 0.82rem; line-height: 1; font-weight: 700;
+                          left: 0.68rem; top: 1.16rem; padding: 3px 4px; }
+  /* Planned is hollow: nothing has been put into it yet. */
+  .road .planned::after { background: transparent; border: 1.5px solid var(--chrome-faint);
+                          width: 7px; height: 7px; }
+  .road .shipped { --state: var(--teal); }
+  .road .next    { --state: var(--amber); }
+  .road .planned { --state: var(--chrome-faint); }
+  .road h3 { font-size: 0.98rem; margin: 0 0 0.4rem; }
+  .road p { color: var(--chrome-dim); font-size: 0.88rem; margin: 0; }
+  .road .tag { font-family: var(--mono); font-size: 0.64rem; letter-spacing: 0.13em;
+               text-transform: uppercase; color: var(--state); display: block;
+               margin-bottom: 0.45rem; }
+  .road .tag em { font-style: normal; color: var(--chrome-faint); }
+  .road a { color: var(--chrome); border-bottom: 1px solid var(--edge-bright); }
+  @media (max-width: 700px) { .road > div { padding-left: 2.4rem; } }
+
+  .receipt { border: 1px solid var(--edge-bright); background: var(--ground); margin-top: 2.4rem; text-align: left; }
+  .receipt-head {
+    display: flex; gap: 0.6rem 1.2rem; flex-wrap: wrap; align-items: baseline;
+    padding: 0.85rem 1.3rem; border-bottom: 1px solid var(--edge-bright);
+    font-family: var(--mono); font-size: 0.68rem; text-transform: uppercase;
+    letter-spacing: 0.13em; color: var(--chrome-faint);
+  }
+  .receipt-head .lit { color: var(--teal); }
+  .receipt-head .when { margin-left: auto; text-transform: none; letter-spacing: 0.02em; }
+  .receipt-body { padding: 0.4rem 1.3rem 1.1rem; }
+  .rline {
+    display: grid; grid-template-columns: 12rem minmax(0, 1fr); gap: 1rem;
+    padding: 0.45rem 0; border-bottom: 1px solid var(--edge);
+    font-family: var(--mono); font-size: 0.78rem; align-items: baseline;
+  }
+  .rline:last-child { border-bottom: 0; }
+  .rline .k { color: var(--chrome-faint); }
+  .rline .v { color: var(--chrome); overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+  .rline .v.hash { font-size: 0.73rem; color: var(--teal); }
+  .rline .v .note { color: var(--chrome-faint); }
+  @media (max-width: 620px) { .rline { grid-template-columns: 1fr; gap: 0.1rem; } }
+  .receipt-foot {
+    border-top: 1px solid var(--edge-bright); padding: 0.9rem 1.3rem;
+    font-family: var(--mono); font-size: 0.7rem; color: var(--chrome-faint); line-height: 1.7;
+  }
+  .receipt-foot code { font-size: 0.95em; background: var(--void); }
+
+  /* ---- the four limits ------------------------------------------------- */
+  .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(15.5rem,1fr)); gap: 1px; background: var(--edge); border: 1px solid var(--edge); margin-top: 2.6rem; }
+  .cols > article { background: var(--void); padding: 1.6rem 1.4rem 1.7rem; position: relative; }
+  .cols > article .n { font-family: var(--mono); font-size: 0.64rem; letter-spacing: 0.13em; text-transform: uppercase; color: var(--teal); margin-bottom: 0.9rem; }
+  .cols > article h3 { margin-bottom: 0.5rem; }
+  .cols > article p { font-size: 0.91rem; color: var(--chrome-dim); margin-bottom: 0; }
+  .cols svg { display: block; margin-bottom: 1.25rem; overflow: visible; }
+  /* --len is measured from the path itself at load: a guessed length either
+     leaves the stroke cut short or starts it already half drawn. */
+  [data-draw-group] [data-draw] { stroke-dasharray: var(--len, 120); stroke-dashoffset: var(--len, 120); }
+  [data-draw-group].seen [data-draw] { stroke-dashoffset: 0; }
+  @media (prefers-reduced-motion: no-preference) {
+    [data-draw-group] [data-draw] { transition: stroke-dashoffset 900ms cubic-bezier(.3,.7,.3,1) var(--wait, 0ms); }
+  }
+  @media (prefers-reduced-motion: reduce) { [data-draw-group] [data-draw] { stroke-dashoffset: 0; } }
+
+  /* ---- counters -------------------------------------------------------- */
+  .counts { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem,1fr)); gap: clamp(2rem, 5vw, 3.5rem); margin-top: 3rem; }
+  .counts > div { display: flex; flex-direction: column; }
+  /* A label that wraps must not drop its number below the others. */
+  .counts .lab { font-family: var(--mono); font-size: 0.65rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--chrome-faint); margin: 0 0 0.5rem; min-height: 2.2em; }
+  .counts .num { font-family: var(--display); font-weight: 700; font-size: clamp(3rem, 7vw, 4.6rem); line-height: 1; color: var(--teal); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+  .counts p { font-size: 0.9rem; color: var(--chrome-dim); margin: 0.8rem 0 0; max-width: 30ch; }
+
+  /* ---- works with ------------------------------------------------------ */
+  .with { display: flex; gap: 1px; background: var(--edge); border: 1px solid var(--edge); margin-top: 2.4rem; flex-wrap: wrap; }
+  .with > div { background: var(--void); padding: 1.2rem 1.4rem; flex: 1 1 14rem; }
+  .with .h { font-family: var(--display); font-weight: 700; font-size: 1.02rem; margin-bottom: 0.3rem; }
+  .with .d { font-size: 0.87rem; color: var(--chrome-dim); }
+  .with code { font-size: 0.8em; }
+
+  /* ---- closing --------------------------------------------------------- */
+  .close { text-align: center; }
+  .close h2 { max-width: 18ch; margin: 0 auto 1.2rem; }
+  .close p { color: var(--chrome-dim); max-width: 50ch; margin: 0 auto 2.2rem; }
+
+  footer { border-top: 1px solid var(--edge); padding: 2.6rem 0 3.4rem; }
+  footer p { font-family: var(--mono); font-size: 0.7rem; color: var(--chrome-faint); line-height: 1.75; max-width: 64ch; }
+  footer strong { color: var(--chrome-dim); }
+  footer .ln { margin-top: 0.6rem; display: flex; gap: 0.2rem 1.4rem; flex-wrap: wrap; }
+  footer .ln a { font-family: var(--mono); font-size: 0.7rem; color: var(--chrome-dim); text-decoration: none; letter-spacing: 0.06em; text-transform: uppercase;
+                 padding: 0.6rem 0; display: inline-flex; align-items: center; min-height: 2.75rem; }
+  footer .ln a:hover { color: var(--teal-bright); }
+
+  /* ---- reveal on scroll ------------------------------------------------ */
+  /* Content is visible by default and only hidden once JS confirms it can   */
+  /* un-hide it. A page whose text depends on script is a page that is blank */
+  /* when the script fails.                                                  */
+  .js [data-rise] { opacity: 0; transform: translateY(18px); }
+  .js [data-rise].seen { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: no-preference) {
+    .js [data-rise] { transition: opacity 620ms cubic-bezier(.2,.7,.3,1) var(--d, 0ms), transform 620ms cubic-bezier(.2,.7,.3,1) var(--d, 0ms); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .js [data-rise] { opacity: 1; transform: none; }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .cta, a { transition: background-color 130ms ease, border-color 130ms ease, color 130ms ease; }
+  }
+
+{{AGENT_GRAPH_CSS}}
+</style>
+<style>
+  /* This page borrows the landing page's chrome, which styles neither <pre>
+     nor a definition table — both are agent-page classes. Without the
+     overflow container a single 70-character command made the whole document
+     832px wide on a 390px phone. */
+  .wrap pre { background: var(--void); border: 1px solid var(--edge);
+              padding: 1rem 1.1rem; margin: 1.4rem 0 0; overflow-x: auto; }
+  .wrap pre, .wrap pre code { font-family: var(--mono); font-size: 0.74rem;
+                              line-height: 1.8; color: var(--teal); white-space: pre; }
+  .stmt { border: 1px solid var(--edge-bright); background: var(--ground); }
+  .stmt .row { display: grid; grid-template-columns: 13rem minmax(0,1fr); gap: 1rem;
+               padding: 0.85rem 1.2rem; border-bottom: 1px solid var(--edge); }
+  .stmt .row:last-child { border-bottom: 0; }
+  .stmt .k { font-family: var(--mono); font-size: 0.66rem; text-transform: uppercase;
+             letter-spacing: 0.1em; color: var(--teal); }
+  .stmt .v { color: var(--chrome-dim); font-size: 0.92rem; line-height: 1.6; }
+  @media (max-width: 640px) { .stmt .row { grid-template-columns: 1fr; gap: 0.35rem; } }
+  /* The landing page's h2 has no bottom margin because every use there is
+     followed by an explicitly spaced block. Here they are followed by prose. */
+  section h2 + p { margin-top: 1.1rem; }
+  section > .eyebrow { margin-bottom: 1rem; }
+  .home:hover { color: var(--teal); }
+</style>
+
+
+<div class="wrap"><header style="padding:clamp(2.4rem,6vw,4rem) 0 clamp(1.5rem,4vw,2.5rem)">
+  <a class="home" href="/" style="font-family:var(--mono);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.14em;color:var(--chrome-faint);text-decoration:none">&larr; Warda</a>
+  <h1 style="font-size:clamp(2.2rem,6vw,3.8rem);margin-top:1.4rem">From nothing to a payment the network bounded.</h1>
+  <p class="sub" style="max-width:56ch;margin-top:1.4rem">
+    Eight steps. At the end you will have made a real HTTP&nbsp;402 purchase on Kaspa
+    testnet-10, out of a grant that could not have paid anyone else or paid more, and you
+    will have the transaction id to check it with.
+  </p>
+  <p class="needs" style="margin-top:1.6rem">
+    Everything here is testnet. The coins are free and worth nothing, which is the correct
+    amount to risk on a protocol that has not been audited.
+  </p>
+</header></div>
+
+<div class="wrap">
+
+<section class="rule">
+  <p class="eyebrow">Step 0 &middot; the one prerequisite</p>
+  <h2>A node, or something that finds you one.</h2>
+  <p style="max-width:60ch;color:var(--chrome-dim)">
+    A covenant spend has to be built against live chain state, so this is the one thing that
+    cannot be faked. Two options: run <code>kaspad</code> yourself, or set
+    <code>WARDA_RESOLVER</code> to a Kaspa Resolver and let the SDK find a public node.
+  </p>
+  <pre><code>git clone https://github.com/ArtyKOMarkets/warda &amp;&amp; cd warda
+npm install
+
+node --experimental-strip-types sdk/tools/check-node.ts --rpc wss://YOUR-NODE</code></pre>
+  <p style="max-width:60ch;color:var(--chrome-dim)">
+    It does not merely connect. It asks whether the node is worth believing &mdash; synced,
+    utxo-indexed, on the network it claims &mdash; because each of those failures returns a
+    <em>plausible wrong answer</em> rather than an error. A node without a utxo index reports
+    your grant as empty, which is indistinguishable from a grant that was drained.
+  </p>
+  <p class="needs">
+    <strong style="color:var(--chrome-dim);font-weight:500">If it will not connect</strong>
+    &mdash; the JSON wRPC port is a different port from the Borsh one (testnet 18210 vs 17210),
+    and it only listens if kaspad was started with <code>--rpclisten-json=host:port</code>. Note
+    the <code>=</code>; the flag rejects a space.
+  </p>
+</section>
+
+<section class="rule">
+  <p class="eyebrow">Step 1 &middot; a wallet, and coin in it</p>
+  <h2>The funder is not the agent.</h2>
+  <p style="max-width:60ch;color:var(--chrome-dim)">
+    Three keys matter and they are deliberately separate: a <strong>funder</strong> that pays
+    for the grant, an <strong>agent</strong> that spends within it, and a
+    <strong>revocation</strong> key that can end it. The agent never holds the other two.
+  </p>
+  <pre><code>node --experimental-strip-types sdk/tools/new-key.ts --label wallet --out wallet.key</code></pre>
+  <p style="max-width:60ch;color:var(--chrome-dim)">
+    It prints the address. Fund it from a testnet-10 faucet, then carry on &mdash; the next
+    step will tell you if the balance is short before it creates anything.
+  </p>
+</section>
+
+<section class="rule">
+  <p class="eyebrow">Step 2 &middot; who the agent may pay</p>
+  <h2>The allowlist is fixed at creation and never changes.</h2>
+  <p style="max-width:60ch;color:var(--chrome-dim)">
+    Not a policy the agent consults &mdash; a commitment compiled into the script that unlocks
+    the coin. To pay someone not on it there is no valid transaction: not one the network
+    would reject, none at all. Start with the demo vendor, which is a real 402 endpoint:
+  </p>
+  <pre><code>echo kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4 &gt; payees.txt</code></pre>
+  <p class="needs">
+    That address is <code>covenant/deploy/demo-vendor.key.pub</code> as a pay-to-public-key
+    address, and it is what <code>warda-demo-api.vercel.app</code> quotes for
+    <code>/weather</code>, <code>/fact</code> and <code>/inference</code>. Keep this file: a
+    grant commits to the list's <em>root</em>, and a root cannot produce the proof a spend
+    needs. Lose it and the grant can be revoked but never spent.
+  </p>
+</section>
+
+<section class="rule">
+  <p class="eyebrow">Step 3 &middot; create the grant</p>
+  <h2>One command, and it refuses before it creates.</h2>
+  <pre><code>WARDA_SK=$(cat wallet.key) node --experimental-strip-types sdk/tools/quickstart.ts \
+  --recipients payees.txt --rpc wss://YOUR-NODE</code></pre>
+  <p style="max-width:60ch;color:var(--chrome-dim)">
+    It checks every precondition first and reports all of them at once &mdash; a quickstart
+    that fails five times, each revealing one more prerequisite, is a maze with a progress bar.
+    It creates nothing until they all pass, and it invents nothing: no default resolver, no
+    guessed faucet, no fabricated allowlist.
+  </p>
+  <p style="max-width:60ch;color:var(--chrome-dim)">
+    Out of it comes an <strong>agent key</strong>, generated fresh and independent of your
+    wallet. That key is the agent's entire authority &mdash; and its entire authority is the
+    four limits printed beside it.
+  </p>
+</section>
+
+<section class="rule">
+  <p class="eyebrow">Step 4 &middot; spend it</p>
+  <h2>A real 402, against an endpoint that checks the chain.</h2>
+  <pre><code>WARDA_SK=$(cat agent.key) node --experimental-strip-types agents/tools/buy.ts \
+  https://warda-demo-api.vercel.app/fact \
+  --id MY-AGENT --grant grant.json --recipients payees.txt --out purchases</code></pre>
+  <p style="max-width:60ch;color:var(--chrome-dim)">
+    The endpoint answers 402 with a price, your agent builds a covenant spend, broadcasts it,
+    and re-presents the same proof while it settles. The vendor does not trust the header: it
+    looks for a UTXO at its own address, from that transaction, for exactly the quoted amount.
+    A vendor that believed the header would accept a fabricated id.
+  </p>
+  <p style="max-width:60ch;color:var(--chrome-dim)">
+    <strong>You now have a transaction id.</strong> Look it up on any testnet-10 explorer. That
+    is the whole point of this page &mdash; nothing above needs to be taken on trust.
+  </p>
+</section>
+
+<section class="rule">
+  <p class="eyebrow">Step 5 &middot; from Python, or anything else</p>
+  <h2>There is no Python package. There is a contract.</h2>
+  <p style="max-width:60ch;color:var(--chrome-dim)">
+    The packages are TypeScript. The buyer is also a clean subprocess API: the result on
+    stdout, every diagnostic on stderr, and <strong>exit codes that tell you whether money
+    moved</strong>.
+  </p>
+  <pre><code>import json, os, subprocess
+
+r = subprocess.run(
+    ["node", "--experimental-strip-types", "agents/tools/buy.ts",
+     "https://warda-demo-api.vercel.app/fact", "--json",
+     "--id", "MY-AGENT", "--grant", "grant.json",
+     "--recipients", "payees.txt", "--out", "purchases"],
+    capture_output=True, text=True,
+    env={**os.environ, "WARDA_SK": open("agent.key").read().strip()},
+)
+
+if r.returncode == 3:
+    ...   # the covenant refused. NOTHING was spent — pick another action
+if r.returncode == 4:
+    ...   # paid, not served. The money is gone. Do NOT retry: that pays twice
+
+paid = json.loads(r.stdout)
+paid["txid"], paid["paidSompi"], paid["body"]</code></pre>
+  <p class="needs">
+    <strong style="color:var(--chrome-dim);font-weight:500">Exit 4 is the one to handle
+    carefully.</strong> It means the transaction settled and the vendor still did not serve.
+    Retrying spends again. The adapter never re-pays on an ambiguous failure, and neither
+    should you.
+  </p>
+</section>
+
+<section class="rule">
+  <p class="eyebrow">Step 6 &middot; the part worth doing</p>
+  <h2>Try to break it.</h2>
+  <p style="max-width:60ch;color:var(--chrome-dim)">
+    Point the same command at an address that is not on your list, or ask for more than the
+    per-payment cap. The refusal arrives <em>before</em> a key is touched, and the reason names
+    the rule. Then read it carefully: the interesting part is not that it was refused, it is
+    that no valid transaction exists to refuse.
+  </p>
+  <p style="max-width:60ch;color:var(--chrome-dim)">
+    When you are done with your own grant, there is
+    <a href="/attack">a funded one with its private key published</a>. Take it.
+  </p>
+</section>
+
+<section class="rule">
+  <p class="eyebrow">Step 7 &middot; when it goes wrong</p>
+  <h2>Three failures you will meet, and what they mean.</h2>
+  <div class="stmt" style="border:1px solid var(--edge-bright);background:var(--ground);margin-top:1.6rem">
+    <div class="row"><span class="k">no UTXO at the grant address</span><span class="v">The grant <em>moved</em>. Its address is a hash of its state, so every spend relocates it. Your manifest is stale, not your grant &mdash; <code>sdk/tools/follow-grant.ts</code> finds it from the chain.</span></div>
+    <div class="row"><span class="k">fee too low</span><span class="v">A covenant spend carries its whole redeem script, so it masses far more than an ordinary transfer. The node prints the number it wants; pass it as <code>--fee</code>.</span></div>
+    <div class="row"><span class="k">payment too small</span><span class="v">Kaspa charges storage mass on small outputs. There is a floor at roughly <strong>0.02 KAS</strong> under any payment at all, and it is consensus's rule rather than the grant's.</span></div>
+  </div>
+</section>
+
+<section class="rule">
+  <p class="eyebrow">Next</p>
+  <h2>What to read once it works.</h2>
+  <div class="cta-row" style="margin-top:1.6rem">
+    <a class="cta primary" href="/build">How it actually works <span class="arw">&rarr;</span></a>
+    <a class="cta ghost" href="/agents">Four agents doing this unattended</a>
+    <a class="cta ghost" href="/attack">Take the published key</a>
+  </div>
+</section>
+
+</div>
+
+<div class="wrap"><footer style="padding:3rem 0 4rem;border-top:1px solid var(--edge);font-family:var(--mono);font-size:0.72rem;color:var(--chrome-faint)">
+  <p>Warda &middot; testnet-10 &middot; unaudited &middot; the coins are free and worth nothing</p>
+</footer></div>

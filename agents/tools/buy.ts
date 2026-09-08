@@ -77,9 +77,17 @@ if (!agentId || !manifestPath || !recipientsPath || !outDir) {
      a loaded gun now that three agents share it: a missing flag would pay from
      the wrong grant and file the receipt under the wrong agent. */
   console.error(
-    "usage: buy.ts <url> --id WARDA-00N --grant <manifest.json> --recipients <file> --out <dir>\n\n" +
-      "Every one is required. This tool is shared by all the agents, so an omitted flag\n" +
-      "would spend a grant you did not mean to spend.",
+    "usage: buy.ts <url> --id WARDA-00N --grant <manifest.json> --recipients <file> --out <dir>\n" +
+      "       [--json]            the whole result on stdout, for a caller in another language\n" +
+      "       [--expect-refusal]  exit 0 when the covenant refuses, for a deliberate probe\n\n" +
+      "Every flag above the blank line is required. This tool is shared by all the agents,\n" +
+      "so an omitted one would spend a grant you did not mean to spend.\n\n" +
+      "Exit codes, which are the API when you call this from another language:\n" +
+      "  0  bought          the vendor served it\n" +
+      "  3  refused         the covenant said no. NOTHING was spent\n" +
+      "  4  paid, unserved  the money is gone. Do NOT retry — that pays twice\n" +
+      "  1  failed          see stderr\n" +
+      "  2  usage",
   );
   process.exit(2);
 }
@@ -268,7 +276,37 @@ try {
   writeFileSync(manifestPath, JSON.stringify(advanced, null, 1) + "\n");
   console.error(`manifest : advanced to spent_total=${advanced.spent_total}`);
 
-  process.stdout.write(JSON.stringify(body, null, 2) + "\n");
+  /**
+   * `--json`: the whole result, not just what the vendor said.
+   *
+   * stdout carried the response body, which is right for a human reading a
+   * terminal and not enough for a program. A caller in another language — and
+   * a shell script, and Python through `subprocess` — needs to know what it
+   * PAID and to whom, and those were only ever on stderr as log lines. Anyone
+   * integrating had to scrape them.
+   *
+   * The default is unchanged, because the demos and the docs print the body.
+   */
+  if (has("json")) {
+    process.stdout.write(
+      JSON.stringify(
+        {
+          agent: agentId,
+          url,
+          outcome: res.ok ? "bought" : "paid-but-refused",
+          status: res.status,
+          txid: seen.txid ?? null,
+          paidSompi: seen.amountSompi?.toString() ?? null,
+          payTo: seen.payTo ?? null,
+          body,
+        },
+        null,
+        2,
+      ) + "\n",
+    );
+  } else {
+    process.stdout.write(JSON.stringify(body, null, 2) + "\n");
+  }
   if (!res.ok) process.exit(4);
 } catch (e) {
   const why = (e as Error).message;
