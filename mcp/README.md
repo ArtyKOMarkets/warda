@@ -61,6 +61,7 @@ chain would allow it silently strands funds. One source, or none.
 
 | Tool | Answers |
 |---|---|
+| `warda_wallet` | The whole wallet view: address, limits, spending power, allowlist. |
 | `warda_grant_authority` | What may this agent spend right now? |
 | `warda_grant_address` | Where does this grant live? |
 | `warda_check_spend` | Would this payment be accepted, and if not, why? |
@@ -76,6 +77,22 @@ stating: an agent could ask what it may spend and get a spend built, and
 nothing else in a grant's life was reachable. A monitor that noticed
 misbehaviour could file a report and not act on it. A caller whose record had
 fallen behind had no way back to the grant at all.
+
+### It says "wallet", and then says what it is not
+
+`warda_wallet` uses the word a developer arrives with, and the moment a tool
+does that the obvious next field is a balance. **This server has no node.**
+Every figure it returns comes from the descriptor it was handed, so an on-chain
+balance is deliberately absent and says so in the response rather than being
+quietly omitted — a balance derived from a stale record is the failure this
+protocol keeps meeting, and it is the one that looks most like success.
+
+A test asserts the absence, so that giving this server a node later is a
+decision somebody makes rather than something autocomplete does.
+
+It composes `warda_grant_address` and `warda_grant_authority` and computes
+nothing new. Two calls that every framework was going to assemble slightly
+differently is one implementation of the accounting too many.
 
 ### Where a grant lives, and why that keeps moving
 

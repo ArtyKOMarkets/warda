@@ -4,7 +4,9 @@
     {
       "url": "https://mcp.wardaprotocol.com/mcp",
       "transport": "streamable-http",
-      "capabilities": ["tools"]
+      "capabilities": [
+        "tools"
+      ]
     }
   ]
 }

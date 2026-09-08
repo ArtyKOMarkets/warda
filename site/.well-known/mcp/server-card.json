@@ -4,8 +4,8 @@
   "protocolVersion": "2025-06-18",
   "serverInfo": {
     "name": "warda",
-    "version": "0.4.1",
-    "description": "Economic authority for autonomous agents on Kaspa L1. Report a grant's remaining authority, build unsigned spends, delegations, settlements and revocations, and recover a grant whose record has gone stale. Never holds a key; never enforces — the covenant does that on chain.",
+    "version": "0.5.0",
+    "description": "MCP server exposing a Warda grant's whole life to agent frameworks: authority, spends, delegation, settlement, revocation and recovery. Builds unsigned transactions and explains verdicts; never holds a key, never enforces \u2014 the covenant does that on-chain.",
     "homepage": "https://wardaprotocol.com"
   },
   "transport": {

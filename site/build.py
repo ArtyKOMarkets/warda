@@ -131,8 +131,6 @@ for _f in flavours.values():
 # src/ is a discovery document nobody fetches.
 COPIES = [
     "llms.txt",
-    ".well-known/mcp-manifest.json",
-    ".well-known/mcp/server-card.json",
     # Deployed from web/, so the config has to BE in web/. Left one level up it
     # is simply not found, and the rewrite that serves /.well-known/mcp and the
     # content-type headers vanish without an error.
@@ -144,6 +142,60 @@ COPIES = [
     "robots.txt",
     "sitemap.xml",
 ]
+
+# ---------------------------------------------------------------------------
+# The discovery documents, GENERATED rather than copied.
+#
+# They were four hand-maintained files claiming four different versions —
+# mcp/package.json said 0.4.3, server.json and the server itself said 0.4.2,
+# and the well-known card an agent actually fetches said 0.4.1. Nothing was
+# wrong at the time each was written; they simply do not move together, and
+# the one that fell furthest behind is the only one a stranger reads.
+#
+# The same shape as `members.ts` and `_agent.css`: the moment a second copy
+# exists, generate it. mcp/package.json is the single source for the version
+# and mcp/server.json for everything else, both of which are already the
+# things `npm publish` and the MCP registry read — so a release cannot ship
+# with a stale card without also being a release that did not happen.
+# ---------------------------------------------------------------------------
+MCP_PKG = json.loads((here.parent / "mcp" / "package.json").read_text())
+MCP_SERVER = json.loads((here.parent / "mcp" / "server.json").read_text())
+MCP_URL = "https://mcp.wardaprotocol.com/mcp"
+
+GENERATED = {
+    ".well-known/mcp-manifest.json": {
+        "mcp_version": "2025-11-25",
+        "endpoints": [
+            {"url": MCP_URL, "transport": "streamable-http", "capabilities": ["tools"]}
+        ],
+    },
+    ".well-known/mcp/server-card.json": {
+        "$schema": "https://modelcontextprotocol.io/schemas/server-card/v1.0",
+        "version": "1.0",
+        "protocolVersion": "2025-06-18",
+        "serverInfo": {
+            "name": "warda",
+            "version": MCP_PKG["version"],
+            "description": MCP_PKG["description"],
+            "homepage": "https://wardaprotocol.com",
+        },
+        "transport": {"type": "streamable-http", "url": MCP_URL},
+        "capabilities": {"tools": True, "resources": False, "prompts": False},
+    },
+}
+
+# The registry listing is a fifth copy of the version, and it is the one that
+# cannot be generated here — it is published to the MCP registry from the file
+# itself. So it is CHECKED instead: a build is the last moment this is cheap
+# to notice.
+if MCP_SERVER["version"] != MCP_PKG["version"]:
+    raise SystemExit(
+        f"mcp/server.json says version {MCP_SERVER['version']} and "
+        f"mcp/package.json says {MCP_PKG['version']}.\n"
+        "The registry listing is published from server.json and the package from "
+        "package.json, so these disagreeing means the registry will describe a "
+        "version nobody can install. Fix both, then build."
+    )
 
 # Written by sdk/tools/demo-state.ts, refreshed on a schedule. Optional by
 # design: the attack page fetches it at load and stays silent when it is
@@ -429,6 +481,11 @@ for outdir, subs in flavours.items():
         if outdir == "web":
             html = as_document(html)
         (d / name).write_text(html)
+    for name in GENERATED:
+        dst = d / name
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        dst.write_text(json.dumps(GENERATED[name], indent=2) + "\n")
+        print(f"{outdir}/{name}: generated")
     for name in COPIES:
         src = here / "src" / name
         dst = d / name

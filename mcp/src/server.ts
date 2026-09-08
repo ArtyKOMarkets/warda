@@ -23,6 +23,13 @@
  * verified against. A server carrying its own copy of the rules would be worse
  * than none: it could tell an agent it may spend when the chain will refuse.
  */
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
+const VERSION: string = JSON.parse(
+  readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"),
+).version;
+
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
@@ -123,7 +130,10 @@ const SIGN_HELP =
   "fixed-width, so nothing else moves.";
 
 export function buildServer(): McpServer {
-  const server = new McpServer({ name: "warda", version: "0.4.2" });
+  /* Read, not written. A hardcoded version here was the fourth of four
+     places claiming a different one, and the version a client sees at
+     handshake is the one that matters most for a bug report. */
+  const server = new McpServer({ name: "warda", version: VERSION });
 const json = (v: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(v, null, 2) }] });
 
   server.registerTool(
@@ -131,9 +141,12 @@ const json = (v: unknown) => ({ content: [{ type: "text" as const, text: JSON.st
   {
     title: "What may this agent spend?",
     description:
-      "Report a grant's remaining authority: budget left, epoch headroom, per-transaction cap, " +
-      "and the largest single payment permitted right now. Use this before planning a purchase. " +
-      "Advisory — the covenant enforces these limits whether or not you ask.",
+      "The agent's spending power right now: budget left, epoch headroom, per-transaction cap, " +
+      "and the largest single payment currently permitted. This is what an agent wallet's " +
+      "spending limit would tell you, except that it is not a setting — the covenant enforces " +
+      "these whether or not you ask. Use it before planning a purchase. " +
+      "NOT a chain balance: this server never reads the chain. It reports what the grant you " +
+      "passed says, so a stale descriptor gives a confident wrong number.",
     inputSchema: { grant: GrantShape, daaScore: z.string().describe("Current DAA score of the chain.") },
   },
   async ({ grant, daaScore }) =>
@@ -350,6 +363,67 @@ const json = (v: unknown) => ({ content: [{ type: "text" as const, text: JSON.st
 
 
   // ---- where is it? ------------------------------------------------------
+
+  /**
+   * One call for "show me this agent's wallet".
+   *
+   * Composes what warda_grant_address and warda_grant_authority already answer.
+   * It adds no rule and computes nothing new — that is the point: a second
+   * implementation of the accounting would drift, and this is the copy a
+   * developer would read first.
+   *
+   * It exists because "where does it live" and "what may it spend" were two
+   * calls that had to be assembled, and every agent framework was going to
+   * assemble them slightly differently. The name is the word developers arrive
+   * with; the fields are careful not to earn it dishonestly.
+   */
+  server.registerTool(
+    "warda_wallet",
+    {
+      title: "Show me this agent's wallet",
+      description:
+        "The whole wallet view in one call: the grant's current address, its spending limits, " +
+        "the largest payment permitted right now, and every address it is allowed to pay. " +
+        "This is the agent-wallet shape — address, limits, spending power — with one difference " +
+        "worth knowing: the limits are not settings this server or your code applies. They are " +
+        "in the script that unlocks the coin, so a payment outside them is not refused, it is " +
+        "a transaction that does not exist. " +
+        "NO CHAIN READ: this server never connects to a node. Every figure comes from the grant " +
+        "descriptor you passed, so an on-chain balance is deliberately absent — reporting one " +
+        "from a stale record is the failure this whole protocol keeps meeting.",
+      inputSchema: {
+        grant: GrantShape,
+        daaScore: z.string().describe("Current DAA score of the chain."),
+        prefix: PrefixShape,
+      },
+    },
+    async ({ grant, daaScore, prefix }) => {
+      const m = materialise(grant as GrantDescriptor);
+      const h = headroom(m, BigInt(daaScore));
+      return json({
+        address: addressOf(m, (prefix ?? "kaspatest") as NetworkPrefix),
+        spendingPower: {
+          largestPermittedNow: h.largestPermittedSpendKas,
+          budgetRemaining: h.availableKas,
+          epochRemaining: h.epochRemainingKas,
+          maxPerPayment: h.maxPerSpendKas,
+          currentEpoch: h.currentEpoch,
+        },
+        mayPay: h.recipients,
+        mayNotPay:
+          "anyone else — the allowlist is committed as a Merkle root at genesis and cannot " +
+          "be changed, including by whoever issued the grant. There is no proof to carry and " +
+          "so no valid transaction to build.",
+        expiresAtDaa: h.expiresAtDaa,
+        enforcement:
+          "The covenant, on every spend. Nothing here enforces anything, and an agent that " +
+          "ignores this answer and broadcasts anyway will simply be refused by the network.",
+        chainBalance:
+          "not reported — this server does not read the chain. Ask a node for the value at " +
+          "the address above, and see warda_recover_grant if it holds nothing.",
+      });
+    },
+  );
 
   server.registerTool(
     "warda_grant_address",

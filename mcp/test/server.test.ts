@@ -50,7 +50,41 @@ test("the tools a framework would discover are registered", async () => {
     "warda_grant_address",
     "warda_grant_authority",
     "warda_recover_grant",
+    "warda_wallet",
   ]);
+});
+
+/**
+ * `warda_wallet` is the one tool here named after something it is not.
+ *
+ * A developer arrives wanting an agent wallet, so the tool uses the word — and
+ * the moment it does, the obvious next field is a balance. This server has no
+ * node and never has; every figure it returns comes from the descriptor it was
+ * handed. A balance derived from a stale descriptor is the single failure this
+ * protocol keeps meeting, and it is the one that looks most like success.
+ *
+ * So the absence is asserted rather than merely intended. If someone later
+ * gives this server a node, this test should be the thing that makes them
+ * decide deliberately rather than by autocomplete.
+ */
+test("warda_wallet reports no chain balance, because it cannot have one", async () => {
+  const c = await connect();
+  const r = await c.callTool({
+    name: "warda_wallet",
+    arguments: { grant: GRANT, daaScore: DAA, prefix: "kaspatest" },
+  });
+  const body = JSON.parse((r.content as { text: string }[])[0]!.text);
+
+  assert.ok(body.address.startsWith("kaspatest:"), "it derives the address it was asked for");
+  assert.ok(body.spendingPower.largestPermittedNow, "it answers what may be spent");
+  assert.equal(body.balance, undefined, "no balance field");
+  assert.equal(body.onChain, undefined, "and no on-chain field by another name");
+  assert.match(
+    body.chainBalance,
+    /does not read the chain/,
+    "it says why the number a caller expects is missing, rather than omitting it silently",
+  );
+  assert.match(body.mayNotPay, /no valid transaction/i);
 });
 
 /**
