@@ -110,7 +110,21 @@ const SKIP = new Set([
   "node_modules", ".git", "dist", "build", ".next", ".cache", "Library",
   ".Trash", "Applications", ".npm", ".vscode", "target", "venv", ".venv",
 ]);
-const MAX_BYTES = 2_000_000;
+/**
+ * The size ceiling, and why it is a flag rather than a constant.
+ *
+ * A key that was PRINTED rather than saved does not survive in a key file; it
+ * survives in whatever recorded the terminal. Session transcripts, editor
+ * scrollback and logs are routinely tens of megabytes, so a fixed 2 MB ceiling
+ * quietly excludes the only class of file that could still hold the answer —
+ * and excludes it silently, which is the same defect as counting a path that
+ * was never read.
+ *
+ * Still a ceiling and not unlimited: this is pointed at home directories, and
+ * reading a disk image into a regex helps nobody.
+ */
+const MAX_BYTES = Number(flag("max-bytes", "2000000"));
+let skippedForSize = 0;
 const MAX_DEPTH = Number(flag("depth", "5"));
 
 const candidates = new Set<string>();
@@ -157,7 +171,11 @@ const walk = (path: string, depth: number) => {
     }
     return;
   }
-  if (!st.isFile() || st.size === 0 || st.size > MAX_BYTES) return;
+  if (!st.isFile() || st.size === 0) return;
+  if (st.size > MAX_BYTES) {
+    skippedForSize++;
+    return;
+  }
 
   let text: string;
   try {
@@ -195,6 +213,14 @@ if (missing.length) console.error();
    cause is looking in the wrong place — a shell history at a path the shell
    does not actually use, say — and "checked 0 values" reported as a clean miss
    looks exactly like a thorough search that came up empty. */
+if (skippedForSize > 0) {
+  console.error(
+    `  ${skippedForSize} file${skippedForSize === 1 ? " was" : "s were"} skipped for being over ` +
+      `${(MAX_BYTES / 1_000_000).toFixed(1)} MB.\n` +
+      `  A key that was printed rather than saved lives in something that recorded the\n` +
+      `  terminal, and those are large: --max-bytes 200000000 to include them.\n`,
+  );
+}
 if (filesRead > 0 && candidates.size === 0) {
   console.error(
     `  Nothing read contained a 64-character hex value at all, which usually means\n` +
@@ -206,7 +232,7 @@ if (matches.length === 0) {
   console.error(
     `No file here holds the secret for that address.\n\n` +
       `  That is not proof it is gone — this reads only what it was pointed at, only\n` +
-      `  files under ${MAX_BYTES / 1_000_000} MB, and only ${MAX_DEPTH} directories deep. Widen it with more\n` +
+      `  files under ${(MAX_BYTES / 1_000_000).toFixed(1)} MB, and only ${MAX_DEPTH} directories deep. Widen it with more\n` +
       `  paths or --depth, and remember a key in a password manager or an encrypted\n` +
       `  file is invisible to a search for plain hex.\n`,
   );
