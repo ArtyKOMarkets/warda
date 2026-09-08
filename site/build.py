@@ -160,7 +160,20 @@ COPIES = [
 # ---------------------------------------------------------------------------
 MCP_PKG = json.loads((here.parent / "mcp" / "package.json").read_text())
 MCP_SERVER = json.loads((here.parent / "mcp" / "server.json").read_text())
+MCP_DEPLOY = json.loads((here.parent / "mcp" / "deploy" / "package.json").read_text())
 MCP_URL = "https://mcp.wardaprotocol.com/mcp"
+
+# The version the ENDPOINT serves, which is not the version in the tree.
+#
+# `mcp/deploy` depends on the PUBLISHED package rather than on the working
+# tree, deliberately — the endpoint serves a released version by construction
+# and cannot run unreleased code. So the card, which describes that endpoint,
+# has to be generated from the dependency range and not from mcp/package.json.
+#
+# Getting this backwards is the same bug as the stale card, inverted and worse:
+# a card that runs AHEAD tells an agent about tools the endpoint does not have,
+# and the agent finds out by calling one.
+DEPLOYED = MCP_DEPLOY["dependencies"]["@warda_protocol/mcp"].lstrip("^~>=< ")
 
 GENERATED = {
     ".well-known/mcp-manifest.json": {
@@ -175,7 +188,7 @@ GENERATED = {
         "protocolVersion": "2025-06-18",
         "serverInfo": {
             "name": "warda",
-            "version": MCP_PKG["version"],
+            "version": DEPLOYED,
             "description": MCP_PKG["description"],
             "homepage": "https://wardaprotocol.com",
         },
@@ -188,6 +201,17 @@ GENERATED = {
 # cannot be generated here — it is published to the MCP registry from the file
 # itself. So it is CHECKED instead: a build is the last moment this is cheap
 # to notice.
+# A caret on a 0.x version does not cross the minor, so `^0.4.3` will never
+# install 0.5.0. That is npm working correctly and is exactly how an endpoint
+# silently stays a release behind: nothing errors, it just serves the old one.
+if DEPLOYED != MCP_PKG["version"]:
+    print(
+        f"note: the tree is at {MCP_PKG['version']} and the endpoint serves {DEPLOYED}.\n"
+        f"      The card will say {DEPLOYED}, which is true. To ship the tree:\n"
+        f"        cd mcp && npm publish\n"
+        f"        then set deploy/package.json to ^{MCP_PKG['version']} and redeploy"
+    )
+
 if MCP_SERVER["version"] != MCP_PKG["version"]:
     raise SystemExit(
         f"mcp/server.json says version {MCP_SERVER['version']} and "
