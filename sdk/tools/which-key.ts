@@ -79,11 +79,30 @@ if (!/^[0-9a-f]{64}$/.test(wanted)) {
   process.exit(2);
 }
 
-const roots = process.argv
-  .slice(2)
-  .filter((a) => !a.startsWith("--"))
-  .filter((a) => a !== address && a !== pubkeyFlag);
+/**
+ * Everything that is not a flag and not a flag's VALUE.
+ *
+ * Filtering only on a leading `--` left `--depth 3` contributing a root called
+ * "3", which does not exist, and the run then reported "searched 2 paths" — a
+ * count that included a directory it could not read. In a tool whose whole
+ * output is "I looked here and did not find it", an inflated count of where it
+ * looked is the one lie that matters.
+ */
+const argv = process.argv.slice(2);
+const consumed = new Set<number>();
+for (let i = 0; i < argv.length; i++) {
+  if (!argv[i]!.startsWith("--")) continue;
+  consumed.add(i);
+  const next = argv[i + 1];
+  if (next && !next.startsWith("--")) consumed.add(i + 1);
+}
+const roots = argv.filter((_, i) => !consumed.has(i));
 if (roots.length === 0) roots.push(".");
+
+/* Named before anything is walked, so a path that is not there is reported as
+   not there rather than as a place that held nothing. Those are different
+   findings and this tool exists to tell them apart. */
+const missing: string[] = [];
 
 /* Directories that are never the answer and are always enormous. Walking a
    node_modules is minutes of reading that cannot contain a key anyone chose. */
@@ -154,12 +173,34 @@ const walk = (path: string, depth: number) => {
   }
 };
 
-for (const r of roots) walk(expand(r), 0);
+for (const r of roots) {
+  const path = expand(r);
+  try {
+    statSync(path);
+  } catch {
+    missing.push(r);
+    continue;
+  }
+  walk(path, 0);
+}
 
+const searched = roots.length - missing.length;
 console.error(
-  `\nsearched ${roots.length} path${roots.length === 1 ? "" : "s"}, read ${filesRead} files, ` +
+  `\nsearched ${searched} path${searched === 1 ? "" : "s"}, read ${filesRead} files, ` +
     `checked ${candidates.size} distinct 64-hex values\n`,
 );
+for (const m of missing) console.error(`  ${m} — not found, so nothing was read there`);
+if (missing.length) console.error();
+/* A file that yielded no candidates at all is worth saying out loud. The usual
+   cause is looking in the wrong place — a shell history at a path the shell
+   does not actually use, say — and "checked 0 values" reported as a clean miss
+   looks exactly like a thorough search that came up empty. */
+if (filesRead > 0 && candidates.size === 0) {
+  console.error(
+    `  Nothing read contained a 64-character hex value at all, which usually means\n` +
+      `  this looked somewhere a key was never going to be.\n`,
+  );
+}
 
 if (matches.length === 0) {
   console.error(
