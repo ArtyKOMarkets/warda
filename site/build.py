@@ -48,6 +48,10 @@ GRAPH_JS = (here / "src" / "_graph.js").read_text()
 # The site nav. Injected per page so the current one can be marked in the
 # markup rather than guessed by a script at load — these are static files and
 # this loop knows exactly which one it is writing.
+WALLET_HTML = (here / "src" / "_wallet.html").read_text()
+WALLET_CSS = (here / "src" / "_wallet.css").read_text()
+WALLET_JS = (here / "src" / "_wallet.js").read_text()
+
 QS_HTML = (here / "src" / "_quickstart.html").read_text()
 QS_CSS = (here / "src" / "_quickstart.css").read_text()
 
@@ -113,6 +117,9 @@ for _f in flavours.values():
     _f["{{AGENT_GRAPH_CSS}}"] = GRAPH_CSS
     _f["{{AGENT_GRAPH_JS}}"] = GRAPH_JS
     _f["{{NAV_CSS}}"] = NAV_CSS
+    _f["{{WALLET}}"] = WALLET_HTML
+    _f["{{WALLET_CSS}}"] = WALLET_CSS
+    _f["{{WALLET_JS}}"] = WALLET_JS
     _f["{{QUICKSTART}}"] = QS_HTML
     _f["{{QUICKSTART_CSS}}"] = QS_CSS
     _f["{{CRYPTO}}"] = CRYPTO

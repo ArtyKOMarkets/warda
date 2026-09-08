@@ -74,6 +74,7 @@
   .disclose strong { color: var(--chrome); font-weight: 500; }
 
 {{NAV_CSS}}
+{{WALLET_CSS}}
 </style>
 
 {{NAV}}
@@ -86,6 +87,8 @@
 </header></div>
 
 <div class="wrap" id="b-body" hidden>
+
+{{WALLET}}
 
 <!-- ------------------------------------------------------------------ -->
 {{AGENT_INTRO}}
@@ -322,11 +325,14 @@ WARDA_SK=$(cat ../covenant/deploy/agent-002.key) \
     requestAnimationFrame(step);
   }
 
+{{WALLET_JS}}
+
   fetch("/agent-{{AGENT_N}}.json", { cache: "no-store" })
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (d) {
       if (!d || !d.identity || !d.authority || !d.timelock || !d.buysFrom) return;
       $("b-body").hidden = false;
+      renderWallet(d);
       $("b-live").hidden = false;
       set("b-net", d.network || "testnet-10");
       set("b-mission", d.mission || "");

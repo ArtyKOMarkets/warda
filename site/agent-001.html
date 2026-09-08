@@ -236,6 +236,86 @@
     .topnav .nv-brand { margin-right: 0.4rem; }
   }
 
+/* The grant rendered as a wallet panel.
+   
+   Every agent-payment product a developer has already tried shows them a
+   balance, a list of limits and a history, so that is the shape this uses. The
+   one row that cannot appear in any of them is the crossed-out one: a limit
+   that is not a setting the program consults but a commitment in the script
+   that unlocks the coin. It is rendered in the refusal colour and given a rule
+   of its own above it, because it is the only line on this panel that is
+   making an argument rather than reporting a number. */
+.wal {
+  border: 1px solid var(--edge-bright);
+  background: var(--panel);
+  border-radius: 3px;
+  padding: clamp(1.1rem, 3vw, 1.8rem);
+  margin: clamp(1.4rem, 4vw, 2.2rem) 0;
+}
+.wal-top {
+  display: flex; flex-wrap: wrap; gap: 1rem;
+  align-items: flex-start; justify-content: space-between;
+  padding-bottom: 1rem; border-bottom: 1px solid var(--edge);
+}
+.wal-id {
+  margin: 0; font-family: var(--display); font-size: 1.25rem;
+  letter-spacing: 0.06em; color: var(--chrome);
+}
+.wal-addr {
+  margin: 0.35rem 0 0; font-family: var(--mono); font-size: 0.66rem;
+  color: var(--chrome-faint); word-break: break-all; max-width: 46ch;
+}
+.wal-bal { text-align: right; flex: none; }
+.wal-amt {
+  margin: 0; font-family: var(--mono); font-size: clamp(1.3rem, 3.5vw, 1.9rem);
+  color: var(--teal); line-height: 1;
+}
+.wal-sub { margin: 0.4rem 0 0; font-size: 0.7rem; color: var(--chrome-faint); }
+.wal-amt.ended { color: var(--chrome-faint); }
+
+.wal-head {
+  margin: 1.2rem 0 0.6rem; font-size: 0.66rem; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--chrome-faint);
+}
+.wal-rules, .wal-act { list-style: none; margin: 0; padding: 0; }
+.wal-rules li {
+  display: flex; gap: 0.75rem; align-items: baseline;
+  font-family: var(--mono); font-size: 0.74rem; line-height: 2;
+}
+.wal-rules .m { flex: none; width: 1ch; color: var(--teal); }
+.wal-rules .k { flex: none; width: 15ch; color: var(--chrome-dim); }
+.wal-rules .v { color: var(--chrome); }
+/* The line no software guardrail can print. */
+.wal-rules li.no { margin-top: 0.5rem; padding-top: 0.6rem; border-top: 1px solid var(--edge); }
+.wal-rules li.no .m, .wal-rules li.no .v { color: var(--refuse); }
+
+.wal-acthead { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+.wal-count { margin: 1.2rem 0 0.6rem; font-family: var(--mono); font-size: 0.7rem; color: var(--chrome-faint); }
+.wal-act li {
+  display: flex; gap: 0.75rem; align-items: baseline;
+  font-family: var(--mono); font-size: 0.72rem; line-height: 2;
+  border-bottom: 1px solid rgba(30, 46, 55, 0.5);
+}
+.wal-act li:last-child { border-bottom: 0; }
+.wal-act .a { flex: none; width: 10ch; text-align: right; color: var(--chrome); }
+.wal-act .w { flex: 1 1 auto; color: var(--chrome-dim); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wal-act .t { flex: none; color: var(--chrome-faint); font-size: 0.66rem; }
+.wal-act .empty { color: var(--chrome-faint); border: 0; }
+
+.wal-foot {
+  margin: 1.3rem 0 0; padding-top: 1rem; border-top: 1px solid var(--edge);
+  font-size: 0.8rem; line-height: 1.6; color: var(--chrome-dim); max-width: 62ch;
+}
+@media (max-width: 560px) {
+  .wal-rules .k { width: 100%; }
+  .wal-rules li { flex-wrap: wrap; }
+  .wal-act .t { display: none; }
+}
+
+/* A retired grant's rules, shown as record rather than permission. */
+.wal-rules li.past .m { color: var(--chrome-faint); }
+.wal-rules li.past .v { color: var(--chrome-dim); }
+
 </style>
 
 <nav class="topnav" aria-label="Site">
@@ -272,6 +352,38 @@
 </header></div>
 
 <div class="wrap" id="a-body" hidden>
+
+<!-- The grant, in the shape a developer already recognises.
+     Filled by _wallet.js from the same agent-00N.json as the rest of the page;
+     nothing here is written by hand and nothing is a claim the chain has not
+     been asked about. -->
+<section class="wal" id="w-panel" hidden>
+  <div class="wal-top">
+    <div>
+      <p class="wal-id" id="w-id">—</p>
+      <p class="wal-addr" id="w-addr">—</p>
+    </div>
+    <div class="wal-bal">
+      <p class="wal-amt" id="w-bal">—</p>
+      <p class="wal-sub" id="w-balsub">—</p>
+    </div>
+  </div>
+
+  <p class="wal-head">Authority</p>
+  <ul class="wal-rules" id="w-rules"></ul>
+
+  <div class="wal-acthead">
+    <p class="wal-head">Activity</p>
+    <p class="wal-count" id="w-count">—</p>
+  </div>
+  <ul class="wal-act" id="w-act"></ul>
+
+  <p class="wal-foot">
+    These are not settings. They are in the script that unlocks the coin, and the
+    network checks them on every spend &mdash; including the one that is crossed out.
+  </p>
+</section>
+
 
 <section id="a-work" hidden>
   <p class="eyebrow">The job</p>
@@ -458,6 +570,174 @@
     var body = document.getElementById("a-body");
     if (!body || !window.fetch) return;
     var set = function (id, text) { var el = document.getElementById(id); if (el) el.textContent = text; };
+
+/* The grant, rendered as the thing a developer already knows how to read.
+ *
+ * Called with the same object the rest of the page is built from, so it can
+ * state nothing the dashboard did not derive from the chain. Every value is
+ * printed as the dashboard formatted it — no arithmetic here, because a panel
+ * that recomputed a balance would be a second implementation of the accounting
+ * and the one that drifts is the one on the marketing page.
+ *
+ * It renders for a retired agent too. A wallet UI that only knows how to show
+ * a live balance quietly implies every agent it can draw is still spending,
+ * and two of the four here are over.
+ */
+function renderWallet(d) {
+  var panel = document.getElementById("w-panel");
+  if (!panel || !d || !d.identity || !d.authority) return;
+  var a = d.authority;
+  var retired = d.retired || null;
+
+  var short = function (addr) {
+    return addr.length > 30 ? addr.slice(0, 20) + "…" + addr.slice(-6) : addr;
+  };
+  var set = function (id, text) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = text;
+  };
+
+  set("w-id", d.identity.agentId || "—");
+  set("w-addr", (retired && retired.grantAddress) || d.identity.grantAddress || "—");
+
+  var bal = document.getElementById("w-bal");
+  if (retired || !a.onChain) {
+    /* `onChain` is null for a grant that has ended, and a panel showing "0 KAS"
+       there would be true and misleading: a drained grant and an ended one are
+       different, and only one of them can be topped up. */
+    bal.textContent = retired ? "ended" : "—";
+    bal.className = "wal-amt ended";
+    set("w-balsub", retired ? "the grant holds nothing" : "no reading");
+  } else {
+    bal.textContent = a.onChain;
+    bal.className = "wal-amt";
+    set("w-balsub", "held by the covenant");
+  }
+
+  // ---- the limits, as rules rather than settings ---------------------------
+  var rules = document.getElementById("w-rules");
+  rules.innerHTML = "";
+  /* A retired grant's limits are history, not permission. Rendering them with
+     the same green tick as a live agent's says "this one may still spend
+     1.92 KAS", which is false — the grant was ended and holds nothing. So the
+     mark goes neutral and the wording moves into the past tense. The numbers
+     are unchanged and still worth showing: what an agent was allowed to do is
+     the whole record of what it could not do. */
+  var mark = function (ok) { return retired ? "·" : ok; };
+  var row = function (mark, key, value, cls) {
+    var li = document.createElement("li");
+    if (cls) li.className = cls;
+    if (retired && cls !== "no") li.className = (li.className ? li.className + " " : "") + "past";
+    var m = document.createElement("span"); m.className = "m"; m.textContent = mark;
+    var k = document.createElement("span"); k.className = "k"; k.textContent = key;
+    var v = document.createElement("span"); v.className = "v"; v.textContent = value;
+    li.appendChild(m); li.appendChild(k); li.appendChild(v);
+    rules.appendChild(li);
+  };
+
+  if (a.maxPerPayment) row(mark("✓"), "per payment", a.maxPerPayment);
+  if (a.epochLimit) {
+    row(mark("✓"), "per epoch", a.epochLimit + " every " + (a.epochLengthDaa || "?") + " blocks");
+  }
+  if (a.remaining && a.budget) {
+    row(mark("✓"), retired ? "unspent" : "budget left", a.remaining + " of " + a.budget);
+  }
+  if (a.authorizedPayees) {
+    row(
+      mark("✓"),
+      retired ? "could pay" : "may pay",
+      a.authorizedPayees + (a.authorizedPayees === 1 ? " address" : " addresses") + ", fixed at creation",
+    );
+  }
+  if (d.timelock && !d.timelock.open && !retired) {
+    row("✗", "not yet", (d.timelock.lockedFor || "—") + " until it may spend at all", "no");
+  }
+  /* How it ended, before the row about who it could never pay. A grant that
+     stopped because someone ended it and one that ran out are different
+     endings, and only the covenant's own record can tell them apart. */
+  if (retired) {
+    row(
+      "✗",
+      "ended",
+      retired.endedBy
+        ? "by the revocation key · " + String(retired.endedBy).slice(0, 10) + "…"
+        : "its authority is over",
+      "no",
+    );
+  }
+  /* Always last, always present. It is the only row here that is an argument
+     rather than a reading, and it is the one every software guardrail cannot
+     make: not "we will refuse this" but "no valid transaction exists". */
+  row("✗", "anyone else", "there is no transaction to sign", "no");
+
+  // ---- what it actually did ------------------------------------------------
+  var list = document.getElementById("w-act");
+  list.innerHTML = "";
+
+  /* Purchases carry a payee LABEL and the endpoint; the coins at the payee
+     address carry neither. Prefer the richer record and fall back, rather than
+     rendering only agents that happen to buy — #001 sells, and has no
+     purchase log at all. */
+  var items = [];
+  if (Array.isArray(d.purchases)) {
+    items = d.purchases
+      .filter(function (p) { return p.outcome === "bought"; })
+      .map(function (p) {
+        var who = p.sellerClaimed || "";
+        var what = (p.url || "").replace(/^https?:\/\/[^/]+/, "");
+        return { amount: p.paid || "—", who: who + (what ? " · " + what : ""), txid: p.txid };
+      });
+  } else if (d.activity && Array.isArray(d.activity.coins)) {
+    /* No purchase log — #001 sells rather than buys, and its spending is known
+       only as coins sitting at a payee. When the allowlist holds exactly one
+       address every one of those coins went there, so the payee can be named
+       without guessing. With more than one it cannot, and the DAA score is
+       what there is. */
+    var only = a.authorizedPayees === 1 && a.payees && a.payees[0] ? a.payees[0] : null;
+    /* A payee entry is a label when someone has identified the address and the
+       bare address when nobody has. The second is not a failure — it is the
+       honest rendering of a payee nobody has vouched for — but printing 68
+       characters of it on five consecutive rows is noise, so it is shortened
+       here and stated in full in the allowlist section below. */
+    var label = only && only.label ? only.label : typeof only === "string" ? short(only) : null;
+    items = d.activity.coins.map(function (c) {
+      return {
+        amount: c.amount,
+        who: label ? "to " + label : "paid at DAA " + c.daaScore,
+        txid: c.txid,
+      };
+    });
+  }
+  items.reverse();
+
+  var act = d.activity || {};
+  set(
+    "w-count",
+    act.payments
+      ? act.payments + (act.payments === 1 ? " payment · " : " payments · ") + (act.paid || "")
+      : "nothing yet",
+  );
+
+  if (items.length === 0) {
+    var none = document.createElement("li");
+    none.className = "empty";
+    none.textContent = "No payment has been made from this grant.";
+    list.appendChild(none);
+  } else {
+    items.slice(0, 8).forEach(function (it) {
+      var li = document.createElement("li");
+      var s1 = document.createElement("span"); s1.className = "a"; s1.textContent = it.amount;
+      var s2 = document.createElement("span"); s2.className = "w"; s2.textContent = it.who;
+      var s3 = document.createElement("span"); s3.className = "t";
+      s3.textContent = it.txid ? it.txid.slice(0, 10) + "…" : "";
+      li.appendChild(s1); li.appendChild(s2); li.appendChild(s3);
+      list.appendChild(li);
+    });
+  }
+
+  panel.hidden = false;
+}
+
 
     fetch("/agent-001.json", { cache: "no-store" })
       .then(function (r) { return r.ok ? r.json() : null; })
@@ -682,6 +962,7 @@
 
         set("a-checked", "Read from the chain at " + d.checkedAt + ". A snapshot, not a live feed.");
         document.getElementById("a-live").hidden = false;
+        renderWallet(d);
         body.hidden = false;
       })
       .catch(function () { /* no data, no dashboard */ });

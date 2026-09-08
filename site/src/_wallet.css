@@ -1,0 +1,79 @@
+/* The grant rendered as a wallet panel.
+   
+   Every agent-payment product a developer has already tried shows them a
+   balance, a list of limits and a history, so that is the shape this uses. The
+   one row that cannot appear in any of them is the crossed-out one: a limit
+   that is not a setting the program consults but a commitment in the script
+   that unlocks the coin. It is rendered in the refusal colour and given a rule
+   of its own above it, because it is the only line on this panel that is
+   making an argument rather than reporting a number. */
+.wal {
+  border: 1px solid var(--edge-bright);
+  background: var(--panel);
+  border-radius: 3px;
+  padding: clamp(1.1rem, 3vw, 1.8rem);
+  margin: clamp(1.4rem, 4vw, 2.2rem) 0;
+}
+.wal-top {
+  display: flex; flex-wrap: wrap; gap: 1rem;
+  align-items: flex-start; justify-content: space-between;
+  padding-bottom: 1rem; border-bottom: 1px solid var(--edge);
+}
+.wal-id {
+  margin: 0; font-family: var(--display); font-size: 1.25rem;
+  letter-spacing: 0.06em; color: var(--chrome);
+}
+.wal-addr {
+  margin: 0.35rem 0 0; font-family: var(--mono); font-size: 0.66rem;
+  color: var(--chrome-faint); word-break: break-all; max-width: 46ch;
+}
+.wal-bal { text-align: right; flex: none; }
+.wal-amt {
+  margin: 0; font-family: var(--mono); font-size: clamp(1.3rem, 3.5vw, 1.9rem);
+  color: var(--teal); line-height: 1;
+}
+.wal-sub { margin: 0.4rem 0 0; font-size: 0.7rem; color: var(--chrome-faint); }
+.wal-amt.ended { color: var(--chrome-faint); }
+
+.wal-head {
+  margin: 1.2rem 0 0.6rem; font-size: 0.66rem; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--chrome-faint);
+}
+.wal-rules, .wal-act { list-style: none; margin: 0; padding: 0; }
+.wal-rules li {
+  display: flex; gap: 0.75rem; align-items: baseline;
+  font-family: var(--mono); font-size: 0.74rem; line-height: 2;
+}
+.wal-rules .m { flex: none; width: 1ch; color: var(--teal); }
+.wal-rules .k { flex: none; width: 15ch; color: var(--chrome-dim); }
+.wal-rules .v { color: var(--chrome); }
+/* The line no software guardrail can print. */
+.wal-rules li.no { margin-top: 0.5rem; padding-top: 0.6rem; border-top: 1px solid var(--edge); }
+.wal-rules li.no .m, .wal-rules li.no .v { color: var(--refuse); }
+
+.wal-acthead { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+.wal-count { margin: 1.2rem 0 0.6rem; font-family: var(--mono); font-size: 0.7rem; color: var(--chrome-faint); }
+.wal-act li {
+  display: flex; gap: 0.75rem; align-items: baseline;
+  font-family: var(--mono); font-size: 0.72rem; line-height: 2;
+  border-bottom: 1px solid rgba(30, 46, 55, 0.5);
+}
+.wal-act li:last-child { border-bottom: 0; }
+.wal-act .a { flex: none; width: 10ch; text-align: right; color: var(--chrome); }
+.wal-act .w { flex: 1 1 auto; color: var(--chrome-dim); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wal-act .t { flex: none; color: var(--chrome-faint); font-size: 0.66rem; }
+.wal-act .empty { color: var(--chrome-faint); border: 0; }
+
+.wal-foot {
+  margin: 1.3rem 0 0; padding-top: 1rem; border-top: 1px solid var(--edge);
+  font-size: 0.8rem; line-height: 1.6; color: var(--chrome-dim); max-width: 62ch;
+}
+@media (max-width: 560px) {
+  .wal-rules .k { width: 100%; }
+  .wal-rules li { flex-wrap: wrap; }
+  .wal-act .t { display: none; }
+}
+
+/* A retired grant's rules, shown as record rather than permission. */
+.wal-rules li.past .m { color: var(--chrome-faint); }
+.wal-rules li.past .v { color: var(--chrome-dim); }
