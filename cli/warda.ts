@@ -143,6 +143,7 @@ const HELP = `warda — bounded spending authority for an agent, on Kaspa.
   warda pay      <url>          buy something behind an HTTP 402
   warda activity                every attempt, refusals included
   warda find                    the grant moved. Where is it now?
+  warda which-key --address <a> [paths…]   which file holds the key for it?
   warda mcp                     serve the grant over MCP (stdio)
 
 Everything after \`warda grant\` remembers the grant, the allowlist and the key
@@ -465,6 +466,15 @@ switch (verb) {
     );
     break;
   }
+
+  /* A key you cannot find is an agent that is over, and the chain cannot tell
+     you which it is: an address whose secret is lost looks exactly like one
+     whose secret is safe. Offline, and it reports a PATH — never the secret it
+     found. A tool that echoed private keys into a terminal, and from there
+     into a shell history, would be a worse problem than the one it solves. */
+  case "which-key":
+    process.exit(run("sdk/tools/which-key.ts", rest));
+    break;
 
   case "mcp":
     process.exit(run("mcp/src/server.ts", rest));
