@@ -619,6 +619,71 @@
   </div>
 </section>
 
+<!-- ------------------------------------------------------------------ -->
+<section class="rule" id="integrate">
+  <div class="wrap">
+    <div data-rise>
+      <p class="eyebrow">If you build agents</p>
+      <h2>Your agent already has a spending limit. It just lives in the wrong place.</h2>
+      <p style="max-width:62ch;color:var(--chrome-dim);margin-top:1.4rem">
+        It is a constant, an <code>if</code>, or a config value, in the same process that holds
+        the key. x402&rsquo;s own documentation describes the standard control: the client
+        <em>&ldquo;applies a $1 USD spend cap unless you override <code>spendControls</code>&rdquo;</em>
+        (<a href="https://docs.x402.org/guides/mcp-server-with-x402" rel="noopener">source</a>).
+        A default, in the code that pays &mdash; so the code that pays is the code that can raise
+        it. A redeploy with a different value moves it. A second instance ignores it. Whoever
+        reads the key out of <code>env</code> never meets it at all.
+      </p>
+      <p style="max-width:62ch;color:var(--chrome-dim)">
+        Put the same limits in the script that unlocks the coin and
+        <strong>a stolen key inherits them</strong>. Not because the thief is stopped by
+        software, but because the transaction they would need does not exist.
+      </p>
+    </div>
+
+    <div class="cols" data-rise style="--d:100ms">
+      <article>
+        <p class="n">What changes in your code</p>
+        <h3>One call</h3>
+        <p><code>@warda_protocol/x402</code> is a drop-in <code>fetch</code>. It calls a paid
+        endpoint the way you call a free one and settles the 402 out of the grant.
+        <a href="#build">The three commands are further down</a> &mdash; install, create a grant,
+        let it spend.</p>
+      </article>
+      <article>
+        <p class="n">What does not change</p>
+        <h3>Everything else</h3>
+        <p>Your framework, your prompts, your tool definitions. The 402 flow itself. Where your
+        key lives &mdash; nothing here asks for it, and no service in this project holds one. The
+        vendor sees an ordinary payment and never learns the difference.</p>
+      </article>
+      <article>
+        <p class="n">If your stack speaks MCP</p>
+        <h3>Nine tools, no key</h3>
+        <p>An MCP server that lets an agent ask what it may spend <em>before</em> it tries, and
+        hands back unsigned bytes for something else to sign. Useful for the question agents
+        actually need answered: <em>can I afford this call, and am I allowed to make it?</em></p>
+      </article>
+    </div>
+
+    <p class="needs" data-rise style="--d:200ms">
+      <strong style="color:var(--chrome-dim);font-weight:500">Four things worth knowing before
+      you start.</strong><br>
+      <strong style="color:var(--chrome-dim);font-weight:500">Language</strong> &mdash;
+      TypeScript, on npm. There is no Python package yet; a Python agent would call the CLI or
+      the MCP server.<br>
+      <strong style="color:var(--chrome-dim);font-weight:500">Network</strong> &mdash; Kaspa, a
+      proof-of-work L1 whose <em>covenants</em> let a coin carry its own spending rules. Live on
+      mainnet since 30 June 2026.<br>
+      <strong style="color:var(--chrome-dim);font-weight:500">Maturity</strong> &mdash; Warda
+      itself has run on testnet-10 only and is unaudited. Audit comes before mainnet, and that
+      order does not change.<br>
+      <strong style="color:var(--chrome-dim);font-weight:500">Prerequisite</strong> &mdash; a
+      Kaspa node you can reach, or a resolver that finds you one.
+    </p>
+  </div>
+</section>
+
 <section class="rule" id="receipt">
   <div class="wrap narrow">
     <div data-rise>
