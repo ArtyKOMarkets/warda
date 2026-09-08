@@ -761,6 +761,9 @@ WARDA_SK=$(cat ../covenant/deploy/agent-002.key) \
       if (rc) {
         var el = $("b-recon");
         el.hidden = false;
+        /* Amber only for money with no record anywhere. A parent charged for a
+           settled child's spending is fully accounted for and must not wear
+           the same colour as a lost receipt. */
         el.className = "recon" + (rc.unrecorded && rc.unrecorded !== "0 KAS" ? " off" : "");
         el.textContent = rc.note;
       }

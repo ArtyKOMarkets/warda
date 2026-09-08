@@ -1,6 +1,6 @@
 {
   "_comment": "Written by agents/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, the purchase log or the chain — none is typed. Each payee's LABEL is re-derived on every run from the artefact agents/known-payees.json names, and a label that stops matching is dropped rather than published: an address with no name is honest, an address with the wrong name is not.",
-  "checkedAt": "2026-09-08T07:26:32.865Z",
+  "checkedAt": "2026-09-08T07:28:11.246Z",
   "network": "testnet-10",
   "identity": {
     "agentId": "WARDA-003",
@@ -44,7 +44,7 @@
   },
   "timelock": {
     "notBefore": "564404779",
-    "virtualDaaScore": "564937241",
+    "virtualDaaScore": "564938205",
     "open": true,
     "lockedFor": "5 minutes",
     "openedAgo": "15 hours",
@@ -119,15 +119,10 @@
   "reconciliation": {
     "spentPerTheCovenant": "0.11 KAS",
     "namedByTheLog": "0.07 KAS",
-    "unrecorded": "0.04 KAS",
-    "couldAccountForIt": [
-      {
-        "amount": "0.04 KAS",
-        "txid": "84a5e45803ae1985c91bd837fdf2ac27c53ba2f9e1005dd264493051f7af19bd",
-        "daaScore": "564422587"
-      }
-    ],
-    "note": "The covenant's own accounting says this grant spent 0.11 KAS and its purchase log names 0.07 KAS of that. 0.04 KAS left this grant without a surviving record of why. spentTotal is part of the state the grant's address is derived from, so it cannot be quietly wrong — the log can, and was. That is the failure this page reports rather than the one it hides."
+    "chargedHomeBySettlement": "0.04 KAS",
+    "unrecorded": "0 KAS",
+    "couldAccountForIt": [],
+    "note": "Every sompi the covenant says this grant spent is accounted for: 0.07 KAS by purchases it recorded, and 0.04 KAS charged home when a sub-agent it had funded settled back. That second figure is spending this grant paid for and did not do — the receipts are the child's."
   },
   "refusals": [
     {
