@@ -67,6 +67,7 @@ if (!manifestPath || !agentId || !recipientsPath || !purchasesDir) {
       "       [--mission text]\n" +
       "       [--succeeds <manifest> --succeeds-id WARDA-00N]   the grant this one replaced\n" +
       "       [--ended <txid>]                                  this grant has been revoked\n" +
+      "       [--settled <child.json>]                          a sub-agent it funded, settled\n" +
       "       [--parent <manifest> --parent-id WARDA-00N]       the grant that delegated it\n" +
       "       [--endpoint url] [--rpc url]\n\n" +
       "Shared by every agent, so nothing defaults: a page built from the wrong grant\n" +
@@ -95,6 +96,25 @@ const parentPath = flag("parent");
  * and watch the coin leave the covenant.
  */
 const endedBy = flag("ended");
+/**
+ * Children this grant has settled, whose spending it has been charged for.
+ *
+ * A settlement adds the child's `spentTotal` to the parent's, which is the
+ * covenant's accounting working exactly as intended — the parent lent out
+ * budget and is charged what was actually used. But the parent's purchase log
+ * never names those payments, because the parent did not make them.
+ *
+ * Without this the reconciliation reads that gap as a lost receipt and the
+ * page says money "left this grant with no surviving record of why", which is
+ * false and unflattering in the wrong direction: the record exists, on the
+ * child's page, under the child's transaction ids.
+ *
+ * Repeatable: --settled a.json --settled b.json.
+ */
+const settledChildren = process.argv.reduce<string[]>((acc, a, i) => {
+  if (a === "--settled" && process.argv[i + 1]) acc.push(process.argv[i + 1]!);
+  return acc;
+}, []);
 
 const m = JSON.parse(readFileSync(manifestPath, "utf8"));
 const template: CovenantTemplate = JSON.parse(
@@ -474,7 +494,14 @@ try {
     const inLog = ours.find((u) => toHex(u.outpoint.transactionId) === p.txid);
     return inLog ? a + inLog.entry.value : a;
   }, 0n);
-  const missingFromLog = state.spentTotal - loggedSompi;
+  /* Spending this grant is charged for and did not do. Read from each settled
+     child's own manifest rather than inferred from the difference, so it
+     cannot absorb a genuinely lost receipt as well. */
+  const chargedHome = settledChildren.reduce((a, path) => {
+    const cm = JSON.parse(readFileSync(path, "utf8"));
+    return a + BigInt(cm.spent_total ?? 0);
+  }, 0n);
+  const missingFromLog = state.spentTotal - loggedSompi - chargedHome;
 
   process.stdout.write(
     JSON.stringify(
@@ -575,6 +602,7 @@ try {
         reconciliation: {
           spentPerTheCovenant: kas(state.spentTotal),
           namedByTheLog: kas(loggedSompi),
+          chargedHomeBySettlement: chargedHome > 0n ? kas(chargedHome) : null,
           unrecorded: kas(missingFromLog > 0n ? missingFromLog : 0n),
           /* Candidates for the unrecorded spending, and only when there IS
              any. Listing every unattributed coin at a shared payee address
@@ -592,8 +620,13 @@ try {
               : [],
           note:
             missingFromLog <= 0n
-              ? "Every sompi the covenant says this grant spent is named by a purchase it " +
-                "recorded. The two halves of this page agree."
+              ? chargedHome > 0n
+                ? `Every sompi the covenant says this grant spent is accounted for: ` +
+                  `${kas(loggedSompi)} by purchases it recorded, and ${kas(chargedHome)} charged ` +
+                  `home when a sub-agent it had funded settled back. That second figure is ` +
+                  `spending this grant paid for and did not do — the receipts are the child's.`
+                : "Every sompi the covenant says this grant spent is named by a purchase it " +
+                  "recorded. The two halves of this page agree."
               : `The covenant's own accounting says this grant spent ${kas(state.spentTotal)} ` +
                 `and its purchase log names ${kas(loggedSompi)} of that. ${kas(missingFromLog)} ` +
                 `left this grant without a surviving record of why. spentTotal is part of the ` +
@@ -616,6 +649,9 @@ try {
   console.error(`timelock  : ${open ? "open" : "closed"} — notBefore ${state.notBefore}, now ${daa}`);
   console.error(`purchases : ${purchases.length} recorded, ${purchases.filter((p) => p.outcome === "bought").length} served`);
   console.error(`payments  : ${ours.length} attributable to this grant`);
+  if (chargedHome > 0n) {
+    console.error(`charged home : ${kas(chargedHome)} spent by a settled sub-agent, not by this grant`);
+  }
   if (missingFromLog > 0n) {
     console.error(
       `UNRECORDED: the covenant says ${kas(state.spentTotal)} was spent and the log names ` +
