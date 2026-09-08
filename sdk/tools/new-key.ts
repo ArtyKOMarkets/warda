@@ -31,13 +31,21 @@ import { writeFileSync } from "node:fs";
 import { toHex } from "../src/bytes.ts";
 import { pubkeyToAddress, type NetworkPrefix } from "../src/address.ts";
 import { agentPublicKey } from "../src/sign.ts";
+import { resolveNetwork } from "./network.ts";
 
 function flag(name: string, fallback?: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
   return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : fallback;
 }
 
-const prefix = (flag("prefix", "kaspatest") as NetworkPrefix)!;
+/* Resolved and CHECKED together: a prefix and a network that disagree
+   derive a well-formed address on the wrong chain, which holds nothing and
+   is indistinguishable from a grant that was drained. See network.ts. */
+const { prefix, network } = resolveNetwork({
+  prefix: flag("prefix"),
+  network: flag("network"),
+  action: "make a key",
+});
 const label = flag("label", "key")!;
 
 // A secp256k1 secret is any 32 bytes below the curve order. The order is close

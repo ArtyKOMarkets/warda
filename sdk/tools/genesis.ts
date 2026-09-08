@@ -63,6 +63,7 @@ import { membersFrom } from "./members.ts";
 import { agentPublicKey, signDigest, verifyDigest } from "../src/sign.ts";
 import { templateFingerprint, type CovenantTemplate, type GrantState, templateIdFor } from "../src/template.ts";
 import { toWire } from "../src/wire.ts";
+import { resolveNetwork } from "./network.ts";
 
 /** Genesis is a plain P2PK spend that happens to pay into a covenant: one
  *  signature, no covenant logic, so 12 units covers it. */
@@ -85,7 +86,15 @@ const key = toHex(agentPublicKey(secret));
 const template: CovenantTemplate = JSON.parse(
   readFileSync(new URL("../covenant-template.json", import.meta.url), "utf8"),
 );
-const prefix = (flag("prefix", "kaspatest") as NetworkPrefix)!;
+/* Resolved and CHECKED together: a prefix and a network that disagree
+   derive a well-formed address on the wrong chain, which holds nothing and
+   is indistinguishable from a grant that was drained. See network.ts. */
+const { prefix, network } = resolveNetwork({
+  prefix: flag("prefix"),
+  network: flag("network"),
+  secret: secretHex,
+  action: "create a grant",
+});
 const outPath = flag("out", "grant.json")!;
 const fee = BigInt(flag("fee", "1000000")!);
 const budget = BigInt(flag("budget", "500000000")!);

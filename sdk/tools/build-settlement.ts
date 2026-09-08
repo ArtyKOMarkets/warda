@@ -64,6 +64,7 @@ import {
   type GrantState,
 } from "../src/template.ts";
 import { toWireMulti } from "../src/wire.ts";
+import { resolveNetwork } from "./network.ts";
 
 /**
  * A settlement has TWO covenant inputs — the parent reabsorbing and the child
@@ -119,7 +120,14 @@ function loadTemplate(): CovenantTemplate {
   return tpl;
 }
 const template = loadTemplate();
-const prefix = (flag("prefix", "kaspatest") as NetworkPrefix)!;
+/* Resolved and CHECKED together: a prefix and a network that disagree
+   derive a well-formed address on the wrong chain, which holds nothing and
+   is indistinguishable from a grant that was drained. See network.ts. */
+const { prefix, network } = resolveNetwork({
+  prefix: flag("prefix"),
+  network: flag("network"),
+  action: "settle",
+});
 
 /**
  * A child INHERITS its parent's authority — that is what makes settlement

@@ -53,6 +53,7 @@ import { agentPublicKey, signSpend } from "../src/sign.ts";
 import { claimedDaaFor, type SpendPlan } from "../src/spend.ts";
 import { scriptHashFor, templateFingerprint, type CovenantTemplate, type GrantState, templateIdFor } from "../src/template.ts";
 import { toWire } from "../src/wire.ts";
+import { resolveNetwork } from "./network.ts";
 
 /** A lock time at or above the current DAA score is not yet final. */
 /**
@@ -132,7 +133,14 @@ const template: CovenantTemplate = loadTemplate(m);
 
 const principalKey = flag("principal", m.principal ?? m.agent)!;
 const authority = { principalKey, revocationKey: flag("revocation", m.revocation ?? principalKey)! };
-const prefix = (flag("prefix", "kaspatest") as NetworkPrefix)!;
+/* Resolved and CHECKED together: a prefix and a network that disagree
+   derive a well-formed address on the wrong chain, which holds nothing and
+   is indistinguishable from a grant that was drained. See network.ts. */
+const { prefix, network } = resolveNetwork({
+  prefix: flag("prefix"),
+  network: flag("network"),
+  action: "spend",
+});
 
 const state: GrantState = {
   agentKey: m.agent,

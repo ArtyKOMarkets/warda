@@ -33,6 +33,7 @@ import { NodeClient } from "../src/node.ts";
 import { templateFingerprint, type CovenantTemplate, type Grant, templateIdFor } from "../src/template.ts";
 import { verifyGrant } from "../src/verify.ts";
 import type { NetworkPrefix } from "../src/address.ts";
+import { resolveNetwork } from "./network.ts";
 
 function flag(name: string, fallback?: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -85,7 +86,14 @@ const template: CovenantTemplate = loadTemplate(m);
 // predates the fields, where principal == revocation == agent held.
 const principalKey = flag("principal", m.principal ?? m.agent)!;
 const revocationKey = flag("revocation", m.revocation ?? principalKey)!;
-const prefix = (flag("prefix", "kaspatest") as NetworkPrefix)!;
+/* Resolved and CHECKED together: a prefix and a network that disagree
+   derive a well-formed address on the wrong chain, which holds nothing and
+   is indistinguishable from a grant that was drained. See network.ts. */
+const { prefix, network } = resolveNetwork({
+  prefix: flag("prefix"),
+  network: flag("network"),
+  action: "verify a grant",
+});
 
 const authority = { principalKey, revocationKey };
 

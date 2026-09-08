@@ -76,6 +76,7 @@ import { membersFrom } from "./members.ts";
 import { agentPublicKey, signDigest, verifyDigest } from "../src/sign.ts";
 import { scriptHashFor, templateFingerprint, type CovenantTemplate, type GrantState, templateIdFor } from "../src/template.ts";
 import { toWire } from "../src/wire.ts";
+import { resolveNetwork } from "./network.ts";
 
 /**
  * Both of these were wrong, and nothing could find out.
@@ -162,7 +163,14 @@ const template: CovenantTemplate = loadTemplate(m);
 // separated deployment separated through a delegation.
 const principalKey = flag("principal", m.principal ?? m.agent)!;
 const authority = { principalKey, revocationKey: flag("revocation", m.revocation ?? principalKey)! };
-const prefix = (flag("prefix", "kaspatest") as NetworkPrefix)!;
+/* Resolved and CHECKED together: a prefix and a network that disagree
+   derive a well-formed address on the wrong chain, which holds nothing and
+   is indistinguishable from a grant that was drained. See network.ts. */
+const { prefix, network } = resolveNetwork({
+  prefix: flag("prefix"),
+  network: flag("network"),
+  action: "delegate",
+});
 const parentDepth = BigInt(flag("parent-depth", "2")!);
 
 const state: GrantState = {

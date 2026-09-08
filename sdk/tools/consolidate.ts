@@ -66,6 +66,7 @@ import {
   type UtxoEntry,
 } from "@warda_protocol/kaspa";
 import { formatKas, kas } from "@warda_protocol/core";
+import { assertKeyNotPublished, resolveNetwork } from "./network.ts";
 
 const flag = (n: string, d?: string) => {
   const i = process.argv.indexOf(`--${n}`);
@@ -74,8 +75,14 @@ const flag = (n: string, d?: string) => {
 };
 const has = (n: string) => process.argv.includes(`--${n}`);
 
-const prefix = (flag("prefix", "kaspatest") as NetworkPrefix)!;
-const network = flag("network", "testnet-10")!;
+/* Resolved and CHECKED together: a prefix and a network that disagree
+   derive a well-formed address on the wrong chain, which holds nothing and
+   is indistinguishable from a grant that was drained. See network.ts. */
+const { prefix, network, isMainnet } = resolveNetwork({
+  prefix: flag("prefix"),
+  network: flag("network", "testnet-10"),
+  action: "consolidate",
+});
 
 /**
  * How many inputs to take at once.
@@ -146,6 +153,7 @@ const readKey = (path: string): string => {
 };
 
 const secretHex = (keyFile ? readKey(keyFile) : process.env.WARDA_SK ?? "").trim();
+assertKeyNotPublished(secretHex, isMainnet);
 if (!secretHex) {
   console.error("no key. Pass --key <file> or set WARDA_SK.");
   process.exit(2);

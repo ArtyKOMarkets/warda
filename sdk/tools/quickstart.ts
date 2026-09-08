@@ -31,14 +31,21 @@ import { resolverFrom } from "../src/resolver.ts";
 import { agentPublicKey } from "../src/sign.ts";
 
 import { membersFrom } from "./members.ts";
+import { assertKeyNotPublished, resolveNetwork } from "./network.ts";
 
 function flag(name: string, fallback?: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
   return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : fallback;
 }
 
-const prefix = (flag("prefix", "kaspatest") as NetworkPrefix)!;
-const network = flag("network", "testnet-10")!;
+/* Resolved and CHECKED together: a prefix and a network that disagree
+   derive a well-formed address on the wrong chain, which holds nothing and
+   is indistinguishable from a grant that was drained. See network.ts. */
+const { prefix, network, isMainnet } = resolveNetwork({
+  prefix: flag("prefix"),
+  network: flag("network", "testnet-10"),
+  action: "create a grant",
+});
 const budget = flag("budget", "1000000000")!;         // 10 KAS
 const maxPerSpend = flag("max-per-spend", "100000000")!; // 0.1 KAS
 const epochLimit = flag("epoch-limit", "500000000")!;    // 0.5 KAS
@@ -65,6 +72,7 @@ say("────────────────");
 
 // ---- 1. a key that funds it ----------------------------------------------
 const secretHex = process.env.WARDA_SK;
+if (secretHex) assertKeyNotPublished(secretHex, isMainnet);
 let walletAddress: string | undefined;
 if (!secretHex) {
   problems.push(

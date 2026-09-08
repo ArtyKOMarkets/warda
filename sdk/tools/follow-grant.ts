@@ -68,6 +68,7 @@ import {
   type GrantAuthority,
   type GrantState,
 } from "../src/template.ts";
+import { resolveNetwork } from "./network.ts";
 
 const has = (name: string) => process.argv.includes(`--${name}`);
 
@@ -87,7 +88,14 @@ const m = JSON.parse(readFileSync(manifestPath, "utf8"));
 const template: CovenantTemplate = JSON.parse(
   readFileSync(new URL("../covenant-template.json", import.meta.url), "utf8"),
 );
-const prefix = (flag("prefix", "kaspatest") as NetworkPrefix)!;
+/* Resolved and CHECKED together: a prefix and a network that disagree
+   derive a well-formed address on the wrong chain, which holds nothing and
+   is indistinguishable from a grant that was drained. See network.ts. */
+const { prefix, network } = resolveNetwork({
+  prefix: flag("prefix"),
+  network: flag("network"),
+  action: "look up a grant",
+});
 
 const vendor = flag("vendor");
 if (!vendor) {

@@ -46,6 +46,7 @@ import {
   type CovenantTemplate,
   type GrantState,
 } from "../src/template.ts";
+import { resolveNetwork } from "./network.ts";
 
 function flag(name: string, fallback?: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -69,7 +70,14 @@ const template: CovenantTemplate = JSON.parse(
     "utf8",
   ),
 );
-const prefix = (flag("prefix", "kaspatest") as NetworkPrefix)!;
+/* Resolved and CHECKED together: a prefix and a network that disagree
+   derive a well-formed address on the wrong chain, which holds nothing and
+   is indistinguishable from a grant that was drained. See network.ts. */
+const { prefix, network } = resolveNetwork({
+  prefix: flag("prefix"),
+  network: flag("network"),
+  action: "write a demo card",
+});
 
 // ---- the published secret must actually control this grant ---------------
 const keySpec = flag("key");

@@ -68,6 +68,7 @@ import {
   type GrantState,
 } from "../src/template.ts";
 import { GrantWatcher, type Alert, type WatchRules } from "../src/watch.ts";
+import { resolveNetwork } from "./network.ts";
 
 function flag(name: string, fallback?: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -99,7 +100,14 @@ if (m.covenant && m.covenant !== templateFingerprint(template)) {
   process.exit(1);
 }
 
-const prefix = (flag("prefix", "kaspatest") as NetworkPrefix)!;
+/* Resolved and CHECKED together: a prefix and a network that disagree
+   derive a well-formed address on the wrong chain, which holds nothing and
+   is indistinguishable from a grant that was drained. See network.ts. */
+const { prefix, network } = resolveNetwork({
+  prefix: flag("prefix"),
+  network: flag("network"),
+  action: "watch a grant",
+});
 const principalKey = flag("principal", m.principal ?? m.agent)!;
 const authority = { principalKey, revocationKey: flag("revocation", m.revocation ?? principalKey)! };
 const state: GrantState = {
