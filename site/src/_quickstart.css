@@ -1,0 +1,50 @@
+/* The whole product in nine lines.
+   Placed above every word of prose on /start and near the top of the landing
+   page, because the question a developer arrives with is "what does using this
+   look like", and ten sections of correct explanation do not answer it. The
+   last two lines are the ones that matter: a refusal no client-side check
+   produced. */
+.qs {
+  border: 1px solid var(--edge-bright);
+  background: var(--void);
+  border-radius: 3px;
+  padding: clamp(1rem, 3vw, 1.6rem) clamp(0.9rem, 3vw, 1.5rem);
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: clamp(0.66rem, 1.55vw, 0.78rem);
+  line-height: 1.95;
+  color: var(--chrome);
+  white-space: pre;
+  margin: 0;
+}
+.qs .p { color: var(--chrome-faint); }        /* the $ prompt */
+.qs .c { color: var(--chrome); }              /* what you type */
+.qs .ok { color: var(--teal); }               /* what happened */
+.qs .no { color: var(--refuse); }             /* what cannot happen */
+.qs .d  { color: var(--chrome-faint); }       /* an aside */
+.qs-note {
+  margin: 0.9rem 0 0;
+  max-width: 62ch;
+  color: var(--chrome-dim);
+  font-size: 0.92rem;
+  line-height: 1.65;
+}
+.qs-note strong { color: var(--chrome); font-weight: 500; }
+
+/* The site styles inline <code> with its own ground so it reads as code inside
+   a sentence. Inside a terminal block that ground becomes a grey box behind
+   every line, which is exactly the wrong emphasis: the block is already a
+   terminal, and the colour that should carry meaning here is the teal and the
+   red. */
+.qs code, .qs code span {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: inherit;
+  color: inherit;
+}
+.qs .p { color: var(--chrome-faint); }
+.qs .c { color: var(--chrome); }
+.qs .ok { color: var(--teal); }
+.qs .no { color: var(--refuse); }
+.qs .d { color: var(--chrome-faint); }

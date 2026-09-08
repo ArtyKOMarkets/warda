@@ -449,6 +449,7 @@
   .home:hover { color: var(--teal); }
 
 {{NAV_CSS}}
+{{QUICKSTART_CSS}}
 </style>
 
 {{NAV}}
@@ -467,6 +468,24 @@
     amount to risk on a protocol that has not been audited.
   </p>
 </header></div>
+
+<div class="wrap">
+  <section style="padding-bottom:clamp(1.6rem,4vw,2.6rem)">
+    <p class="eyebrow">The whole thing first</p>
+    {{QUICKSTART}}
+    <p class="qs-note">
+      That is the entire surface. The rest of this page is the same nine lines with the
+      reasons attached &mdash; <strong>why the funder is not the agent</strong>, why the
+      allowlist can never change, and what each failure means when you meet it.
+    </p>
+    <p class="qs-note">
+      The last line is the one worth stopping on. It is not a check the CLI performed and
+      it is not a rule the endpoint applied: the address is committed into the script that
+      unlocks the coin, so <strong>there is no valid transaction to build</strong> &mdash;
+      not one the network would reject, none at all.
+    </p>
+  </section>
+</div>
 
 <div class="wrap">
 

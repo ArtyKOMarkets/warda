@@ -1,33 +1,39 @@
 {
-  "name": "warda",
+  "name": "@warda_protocol/cli",
   "version": "0.1.0",
-  "description": "Give an AI agent a budget the network enforces. CLI for Warda grants on Kaspa.",
+  "description": "One short command for the whole life of a Warda grant: create it, see what it may spend, pay behind an HTTP 402, and read back every attempt. Adds no capability — the rules stay in @warda_protocol/core.",
   "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.6"
+  },
   "bin": {
-    "warda": "./dist/cli.js"
+    "warda": "./warda.ts"
   },
   "files": [
-    "dist",
-    "README.md",
-    "LICENSE"
+    "warda.ts",
+    "README.md"
   ],
-  "engines": {
-    "node": ">=22"
-  },
-  "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "prepublishOnly": "npm run build"
-  },
-  "dependencies": {
-    "@warda_protocol/kaspa": "^0.5.0",
-    "@warda_protocol/x402": "^0.4.0"
-  },
   "keywords": [
     "kaspa",
+    "warda",
     "agent",
     "x402",
-    "covenant",
-    "warda"
+    "cli",
+    "agent-payments",
+    "spending-limits"
   ],
-  "license": "MIT"
+  "dependencies": {
+    "@warda_protocol/core": "^0.3.1",
+    "@warda_protocol/kaspa": "^0.5.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ArtyKOMarkets/warda.git",
+    "directory": "cli"
+  },
+  "homepage": "https://wardaprotocol.com",
+  "bugs": {
+    "url": "https://github.com/ArtyKOMarkets/warda/issues"
+  }
 }

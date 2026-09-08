@@ -26,3 +26,9 @@ ops/node.env
 # diff of three expansions of one template is noise. agent-001.html is NOT
 # generated — it has sections no other agent has — so the pattern starts at 2.
 site/src/agent-00[2-9].html
+
+# Written by `warda grant`: which manifest, which allowlist and which agent key
+# belong together in THIS directory. Machine-local by design — it names a key
+# file, and a config that travelled with the repo would point a second machine
+# at a grant it does not hold the key for.
+.warda/

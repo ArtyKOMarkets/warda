@@ -1,0 +1,40 @@
+{
+  "_comment": "Written by agent-002/tools/buy.ts. One file per attempt, refusals included: a purchase log that only records successes is a sales brochure.",
+  "at": "2026-09-08T09:06:21.239Z",
+  "agent": "WARDA-003",
+  "url": "https://warda-demo-api.vercel.app/digest",
+  "outcome": "bought",
+  "status": 200,
+  "quoted": {
+    "payTo": "kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e",
+    "amountSompi": "4000000"
+  },
+  "txid": "b619f26015fb1c863028841b28d29b6f00c394bf86abd7f3e35a40e9688b564e",
+  "sellerClaimed": "WARDA-001",
+  "response": {
+    "agent": "WARDA-001",
+    "digest": {
+      "window": "24 h",
+      "from": "2026-09-07T08:17:00.430Z",
+      "to": "2026-09-08T08:17:00.964Z",
+      "text": "Kaspa testnet-10 · 24 h to 2026-09-08 08:17 UTC\n\n  blue score  +862,504           9.98 blue blocks/s\n  DAA score   +863,865           now 564,967,372\n  minted      +2,825,114.61 KAS  26,923,304,894 KAS in existence\n  hashrate    20.73 MH/s         node estimate over its last 1,000 blocks\n  mempool     0 tx               held, unaccepted, at the closing reading\n  DAG         1 tips             1,491,254 blocks held by this node\n\nmeasured between two readings of one node (kaspad 2.0.1)\n"
+    },
+    "lastRun": {
+      "at": "2026-09-08T08:17:00.964Z",
+      "runs": 80,
+      "since": "2026-09-03T08:18:38.642Z",
+      "servicesUsed": 0,
+      "spent": "0 KAS",
+      "note": "reading the chain needs no vendor, so this run bought nothing"
+    },
+    "measuredAt": "2026-09-08T09:00:01.344Z",
+    "network": "testnet-10",
+    "alsoPublishedFreeAt": "https://wardaprotocol.com/agent-001.json",
+    "note": "Every figure is a difference between two counters a Kaspa node maintains for its own reasons, and both readings are published beside it. This costs money because a payment is what is being demonstrated, not because the data is scarce — the free copy is above.",
+    "seller": "WARDA-001",
+    "paidTo": "kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e",
+    "settledBy": "b619f26015fb1c863028841b28d29b6f00c394bf86abd7f3e35a40e9688b564e",
+    "verified": "a UTXO at this endpoint's payee address, from that transaction, for exactly the quoted amount",
+    "readFrom": "this vendor's own node"
+  }
+}

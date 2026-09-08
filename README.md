@@ -50,6 +50,29 @@ break without notice.
 ## Quick start
 
 ```bash
+git clone https://github.com/ArtyKOMarkets/warda && cd warda && npm install
+
+npx warda key --out wallet.key                  # fund the address it prints
+echo kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e > payees.txt
+WARDA_SK=$(cat wallet.key) npx warda grant --payees payees.txt --budget 10 --max-per-spend 1
+npx warda pay https://warda-demo-api.vercel.app/fact
+```
+
+`warda grant` remembers the manifest, the allowlist and the agent key in
+`.warda/config.json`, so everything after it needs a URL and nothing else.
+Amounts are KAS, not sompi — `--budget 1000000000` is a number nobody can check
+by eye, and getting it wrong by a factor of ten is a grant that is silently ten
+times too permissive.
+
+A payment to an address that is not in `payees.txt` does not fail a check. The
+allowlist is compiled into the script that unlocks the coin at creation, so
+there is no valid transaction to build — not one the network would reject, none
+at all. That refusal is the whole product, and the [tutorial](https://wardaprotocol.com/start)
+walks the same commands with the reasons attached.
+
+### Checking it, rather than using it
+
+```bash
 npm run check                              # protocol semantics: typecheck + 45 tests
 cd covenant/harness && cargo test          # covenant vs. the node engine: 33 tests
 cd covenant/deploy && cargo run -- dry-run # deploy tool, no node needed
@@ -81,6 +104,8 @@ malformed script produces the same verdict as a working per-spend cap.
 
 ```
 src/            @warda_protocol/core — protocol semantics in TypeScript, no dependencies
+cli/            @warda_protocol/cli — the `warda` command. Spawns the tools below;
+                carries no rules of its own and holds no coin
 test/           45 tests: attacks, conservation, epochs, allowlists
 vectors/        test vectors any covenant implementation is checked against
 covenant/

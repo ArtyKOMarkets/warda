@@ -48,6 +48,9 @@ GRAPH_JS = (here / "src" / "_graph.js").read_text()
 # The site nav. Injected per page so the current one can be marked in the
 # markup rather than guessed by a script at load — these are static files and
 # this loop knows exactly which one it is writing.
+QS_HTML = (here / "src" / "_quickstart.html").read_text()
+QS_CSS = (here / "src" / "_quickstart.css").read_text()
+
 NAV_HTML = (here / "src" / "_nav.html").read_text()
 NAV_CSS = (here / "src" / "_nav.css").read_text()
 
@@ -110,6 +113,8 @@ for _f in flavours.values():
     _f["{{AGENT_GRAPH_CSS}}"] = GRAPH_CSS
     _f["{{AGENT_GRAPH_JS}}"] = GRAPH_JS
     _f["{{NAV_CSS}}"] = NAV_CSS
+    _f["{{QUICKSTART}}"] = QS_HTML
+    _f["{{QUICKSTART_CSS}}"] = QS_CSS
     _f["{{CRYPTO}}"] = CRYPTO
     _f["{{VERIFY_CORE}}"] = VERIFY_CORE
     _f["{{COVENANT_TEMPLATE}}"] = TEMPLATE

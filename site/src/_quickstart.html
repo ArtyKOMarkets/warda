@@ -1,0 +1,16 @@
+<pre class="qs"><code><span class="p">$</span> <span class="c">git clone https://github.com/ArtyKOMarkets/warda &amp;&amp; cd warda &amp;&amp; npm install</span>
+
+<span class="p">$</span> <span class="c">npx warda key --out wallet.key</span>
+  <span class="ok">address  kaspatest:qr7z53sv56te4ya8r378y2xwcrj3vqr3p5gzl6kkx205v7anh6u0zefx77c4m</span>
+  <span class="d">fund it from the testnet-10 faucet, then list who the agent may pay</span>
+
+<span class="p">$</span> <span class="c">echo kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e &gt; payees.txt</span>
+<span class="p">$</span> <span class="c">WARDA_SK=$(cat wallet.key) npx warda grant --payees payees.txt --budget 10 --max-per-spend 1</span>
+  <span class="ok">✔ grant.json   10 KAS budget · 1 KAS per payment · 1 payee, fixed at creation</span>
+  <span class="ok">✔ agent.key    the agent's whole authority, and it is the line above</span>
+
+<span class="p">$</span> <span class="c">npx warda pay https://warda-demo-api.vercel.app/fact</span>
+  <span class="ok">✔ 0.04 KAS · 200 · fa7ad66b6b17…</span>
+
+<span class="p">$</span> <span class="c">npx warda pay https://somewhere-else.example/thing</span>
+  <span class="no">✗ that address is not on this grant's allowlist. There is nothing to sign.</span></code></pre>

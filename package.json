@@ -35,6 +35,7 @@
   "workspaces": [
     ".",
     "sdk",
+    "cli",
     "mcp",
     "x402",
     "verify"
