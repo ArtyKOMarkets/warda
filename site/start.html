@@ -631,6 +631,39 @@
 <div class="wrap">
 
 <section class="rule">
+  <p class="eyebrow">Before step 0 &middot; the two keys</p>
+  <h2>A wallet funds a grant. A grant is what the agent gets.</h2>
+  <p style="max-width:60ch;color:var(--chrome-dim)">
+    These are different things and the difference is the whole model. Your
+    <strong>wallet</strong> is an ordinary Kaspa key: nothing bounds it, it can pay anyone,
+    and it is what pays for the grant. The <strong>grant</strong> is an address whose
+    unlocking script carries the limits &mdash; that is what the agent is given, and it is
+    all the agent is given.
+  </p>
+  <pre><code>npx warda wallet
+  address     kaspatest:qr7z53sv56te4ya8r378y2xwcrj3vqr3p5gzl6kkx205v7anh6u0zefx77c4m
+  holds       12.4 KAS across 7 coins
+  largest     3.1 KAS</code></pre>
+  <p class="needs">
+    <strong style="color:var(--chrome-dim);font-weight:500">Watch <code>largest</code>, not
+    <code>holds</code>.</strong> Creating a grant takes exactly ONE input, so the biggest
+    grant a key can fund is bounded by its biggest single coin. Seven faucet coins of 12.4
+    KAS still only reach 3.1. <code>npx warda wallet consolidate</code> merges them; it says
+    when doing so would not be worth it, because coins are also parallelism &mdash; a second
+    grant waits on the first one's change.
+  </p>
+  <p style="max-width:60ch;color:var(--chrome-dim)">
+    The same command reads the other side. An agent that <em>sells</em> is paid to an
+    ordinary address, and that money carries no covenant, because nobody agreed to one.
+    Count it, merge it, then bound it &mdash; the key that received it funds a grant directly,
+    so nothing has to be moved anywhere:
+  </p>
+  <pre><code>npx warda wallet     --key earnings.key
+npx warda wallet consolidate --key earnings.key --submit
+npx warda grant      --key earnings.key --payees payees.txt --budget 2</code></pre>
+</section>
+
+<section class="rule">
   <p class="eyebrow">Step 0 &middot; the one prerequisite</p>
   <h2>A node, or something that finds you one.</h2>
   <p style="max-width:60ch;color:var(--chrome-dim)">

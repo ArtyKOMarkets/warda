@@ -427,6 +427,7 @@
 
 {{NAV_CSS}}
 {{QUICKSTART_CSS}}
+{{WALLET_CSS}}
 </style>
 
 {{NAV}}
@@ -501,6 +502,53 @@
         <cite>Nothing to override · nothing to steal past</cite>
       </blockquote>
     </div>
+  </div>
+</section>
+
+<section class="rule" id="wallet">
+  <div class="wrap">
+    <div data-rise>
+      <p class="eyebrow">Where your agent's money lives</p>
+      <h2>It is a wallet. The limits just are not settings.</h2>
+      <p class="big" style="margin-top:1.2rem;max-width:56ch">
+        An address, a balance, spending authority, a history &mdash; the four things you
+        expect. Below is agent&nbsp;#003's, read from the chain a moment ago rather than
+        drawn.
+      </p>
+    </div>
+
+    <div data-rise style="--d:120ms">
+      {{WALLET}}
+    </div>
+
+    <div class="claim-grid" data-rise style="--d:200ms">
+      <div>
+        <h3 style="margin-top:0">The crossed-out row is the product</h3>
+        <p>Every agent wallet has a spending limit. Theirs is checked by their software
+        before it signs, which means the code that pays is the code that can raise it.
+        This one is a commitment compiled into the script that unlocks the coin: a payment
+        to anyone else has <strong>no proof to carry and no valid transaction to build</strong>.
+        Not one the network would reject &mdash; none at all. Nobody can override it,
+        including whoever issued the grant.</p>
+      </div>
+      <div>
+        <h3 style="margin-top:0">Spending is bounded. Earning is not.</h3>
+        <p>An agent that <em>sells</em> is paid to an ordinary address, and money arriving
+        carries no covenant because nobody agreed to one. So this is two objects, honestly:
+        a grant for spending and a plain key for receiving. <code>warda wallet</code> counts
+        what has come in and merges it; <code>warda grant</code> bounds it. We would rather
+        say that than pretend one object does both.</p>
+      </div>
+    </div>
+
+    <p class="needs" data-rise style="--d:260ms">
+      <strong style="color:var(--chrome-dim);font-weight:500">There is no custody here and
+      nothing to sign up for.</strong> Warda holds no key, no float and no account of yours:
+      <code>warda</code> reads a key from a file on your machine and hands it to one process.
+      The hosted MCP server never sees a key at all &mdash; a test asserts the signature slot
+      in every transaction it builds is still 65 zero bytes.
+      <a href="/start">Make one in nine lines</a>.
+    </p>
   </div>
 </section>
 
@@ -1383,6 +1431,21 @@ await wardaFetch(url);</code></pre>
    * So both files are fetched, and the section stays hidden unless both
    * answer. A missing section costs the page one argument. A wrong key costs
    * it all of them. */
+{{WALLET_JS}}
+
+  /* The wallet panel, from agent #003 — the only one of the four that is both
+     live and still buying, so the balance and the activity list are current
+     rather than a record. If the fetch fails the section simply does not
+     appear: a wallet panel with placeholder numbers on it would be the exact
+     thing this page accuses everyone else of. */
+  (function () {
+    if (!window.fetch || typeof renderWallet !== "function") return;
+    fetch("/agent-003.json", { cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) { if (d) renderWallet(d); })
+      .catch(function () {});
+  })();
+
   (function () {
     var sec = document.getElementById("challenge");
     if (!sec || !window.fetch) return;
