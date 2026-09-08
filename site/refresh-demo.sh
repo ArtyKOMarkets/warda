@@ -246,11 +246,28 @@ sig() { grep -v '"checkedAt"' "$1" 2>/dev/null || true; }
 # never fired once, and this deployed around the clock for nothing. Folded in
 # with the timestamp stripped, exactly like demo-state.json — same reason, and
 # the first file to have it was the only one anybody thought about.
+# THREE files have now carried a `checkedAt` into this signature, and each was
+# added by someone who had read the warning above and still did not think of
+# theirs: demo-state.json (handled from the start), the agent JSONs (a week of
+# deploying every twenty minutes), and now vendor-status.json — which moves
+# every FIFTEEN minutes, faster than this runs, so the guard would never once
+# have fired again.
+#
+# The pattern is not "remember to add it here". It is that any file written by
+# a periodic job carries the time it ran, and the time it ran is not a change
+# in what it describes. Both lists below have to name every such file, so they
+# are kept adjacent and a new one is two edits in one place rather than a bug
+# found a week later.
+TIMESTAMPED_SRC="src/demo-state.json src/vendor-status.json"
+
 signature() {
   {
-    sig src/demo-state.json
+    for f in $TIMESTAMPED_SRC; do sig "$f"; done
     for f in src/agent-0*.json; do sig "$f"; done
-    find web -type f ! -name demo-state.json ! -name 'agent-0*.json' \
+    find web -type f \
+      ! -name demo-state.json \
+      ! -name vendor-status.json \
+      ! -name 'agent-0*.json' \
       -exec shasum -a 256 {} + | sort
   } | shasum -a 256 | cut -d" " -f1
 }
