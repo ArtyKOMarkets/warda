@@ -205,6 +205,33 @@ else
   mv /tmp/agent-001.$$.json src/agent-001.json
 fi
 
+# Agent #003, which is the one that still moves.
+#
+# #002 and #004 are deliberately NOT refreshed. Both grants have ended — one
+# revoked, one settled — so their pages are records rather than dashboards, and
+# there is nothing on chain left to re-read. Twenty node round-trips an hour to
+# re-derive a figure that cannot change is not diligence.
+#
+# #003 buys once a day (ops/daily-buy.sh), so without this the purchase happens
+# and the site never hears about it.
+if [ -f ../x402/demo/agent-003-grant.json ]; then
+  if ! (cd .. && node --experimental-strip-types agents/tools/dashboard.ts \
+          x402/demo/agent-003-grant.json \
+          --id WARDA-003 \
+          --recipients x402/demo/agent-003-recipients.txt \
+          --purchases agent-003/purchases \
+          --succeeds x402/demo/agent-002-grant.json --succeeds-id WARDA-002 \
+          --settled x402/demo/grant-child-5a0684c6.json \
+          --mission "Take over agent #002's buying, holding its own key, from a grant published before it could be used — and hire a sub-agent out of it." \
+          ${WARDA_RPC_JSON:+--rpc "$WARDA_RPC_JSON"} \
+          > /tmp/agent-003.$$.json); then
+    echo "agent #003 dashboard refresh failed — keeping the previous one" >&2
+    rm -f /tmp/agent-003.$$.json
+  else
+    mv /tmp/agent-003.$$.json src/agent-003.json
+  fi
+fi
+
 python3 build.py >/dev/null
 
 sig() { grep -v '"checkedAt"' "$1" 2>/dev/null || true; }
@@ -213,10 +240,18 @@ sig() { grep -v '"checkedAt"' "$1" 2>/dev/null || true; }
 # have it — the pipeline then produced nothing, the signature collapsed to the
 # reading alone, and a run that had built a whole new page reported "no change".
 # Sorting the hash LINES instead needs no extension and no NUL handling.
+# Every agent JSON carries `checkedAt`, which moves on every run whether or not
+# anything about the agent did. Left in the walk it defeated the whole guard:
+# the signature changed every twenty minutes, "no change since the last deploy"
+# never fired once, and this deployed around the clock for nothing. Folded in
+# with the timestamp stripped, exactly like demo-state.json — same reason, and
+# the first file to have it was the only one anybody thought about.
 signature() {
   {
     sig src/demo-state.json
-    find web -type f ! -name demo-state.json -exec shasum -a 256 {} + | sort
+    for f in src/agent-0*.json; do sig "$f"; done
+    find web -type f ! -name demo-state.json ! -name 'agent-0*.json' \
+      -exec shasum -a 256 {} + | sort
   } | shasum -a 256 | cut -d" " -f1
 }
 now=$(signature)
