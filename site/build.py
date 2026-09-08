@@ -45,6 +45,16 @@ GRAPH_HTML = (here / "src" / "_graph.html").read_text()
 GRAPH_CSS = (here / "src" / "_graph.css").read_text()
 GRAPH_JS = (here / "src" / "_graph.js").read_text()
 
+# The site nav. Injected per page so the current one can be marked in the
+# markup rather than guessed by a script at load — these are static files and
+# this loop knows exactly which one it is writing.
+NAV_HTML = (here / "src" / "_nav.html").read_text()
+NAV_CSS = (here / "src" / "_nav.css").read_text()
+
+
+def nav_for(page_name):
+    return NAV_HTML.replace(f'data-nv="{page_name}"', f'data-nv="{page_name}" aria-current="page"')
+
 # The timelock panel. Every grant has a notBefore, so every agent page shows
 # one — but each page introduces it with its own argument, so the markup is
 # injected into the per-agent intro rather than fixed above or below it.
@@ -99,6 +109,7 @@ for _f in flavours.values():
     _f["{{AGENT_GRAPH}}"] = GRAPH_HTML
     _f["{{AGENT_GRAPH_CSS}}"] = GRAPH_CSS
     _f["{{AGENT_GRAPH_JS}}"] = GRAPH_JS
+    _f["{{NAV_CSS}}"] = NAV_CSS
     _f["{{CRYPTO}}"] = CRYPTO
     _f["{{VERIFY_CORE}}"] = VERIFY_CORE
     _f["{{COVENANT_TEMPLATE}}"] = TEMPLATE
@@ -399,6 +410,8 @@ for outdir, subs in flavours.items():
         html = (here / "src" / name).read_text()
         for k, v in subs.items():
             html = html.replace(k, v)
+        # Per page, after the shared substitutions, so the active item is right.
+        html = html.replace("{{NAV}}", nav_for(name))
         # Only the web flavour. The artifact host wraps the body itself, and a
         # second <html> inside its skeleton is a malformed document.
         if outdir == "web":

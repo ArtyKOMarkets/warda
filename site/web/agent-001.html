@@ -212,13 +212,55 @@
   footer { padding: 3rem 0 4rem; border-top: 1px solid var(--edge); font-family: var(--mono);
            font-size: 0.72rem; color: var(--chrome-faint); }
 
+
+  /* One bar, every page, injected by build.py.
+     There were seven public pages and the only way between any two of them was
+     back to the home page first. Sticky because the landing page is 14,000px
+     tall and a reader four sections down had no way out of it at all. */
+  /* `body > .topnav`, not `.topnav`. The landing page carries
+     `body > *:not(.field) { position: relative }` for its background field, and
+     that selector scores 0,1,1 against a bare class's 0,1,0 — so it won on
+     specificity wherever this bar was declared in the file, and the nav
+     silently scrolled away on the one page long enough to need it. */
+  body > .topnav { position: sticky; top: 0; z-index: 40; background: rgba(6,9,12,0.92);
+                   border-bottom: 1px solid var(--edge); backdrop-filter: blur(8px); }
+  .topnav .wrap { display: flex; align-items: center; gap: 1.1rem;
+                  padding-top: 0.62rem; padding-bottom: 0.62rem;
+                  overflow-x: auto; scrollbar-width: none; }
+  .topnav .wrap::-webkit-scrollbar { display: none; }
+  .topnav a { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.11em;
+              text-transform: uppercase; color: var(--chrome-faint); text-decoration: none;
+              white-space: nowrap; padding: 0.35rem 0; border-bottom: 1px solid transparent; }
+  .topnav a:hover { color: var(--chrome); }
+  .topnav .nv-brand { color: var(--teal); letter-spacing: 0.2em; margin-right: auto;
+                      font-weight: 700; }
+  /* The page you are on, said in the markup rather than guessed by script:
+     these are static files and build.py knows which one it is writing. */
+  .topnav a[aria-current="page"] { color: var(--chrome); border-bottom-color: var(--teal); }
+  @media (max-width: 560px) {
+    .topnav .wrap { gap: 0.85rem; }
+    .topnav .nv-brand { margin-right: 0.4rem; }
+  }
+
 </style>
 </head>
 <body>
 
 
+<nav class="topnav" aria-label="Site">
+  <div class="wrap">
+    <a class="nv-brand" href="/" data-nv="index.html">WARDA</a>
+    <a href="/start" data-nv="start.html">Start</a>
+    <a href="/agents" data-nv="agents.html">Agents</a>
+    <a href="/build" data-nv="build.html">How it works</a>
+    <a href="/verify" data-nv="verify.html">Verify</a>
+    <a href="/attack" data-nv="attack.html">Attack</a>
+  </div>
+</nav>
+
+
+
 <div class="wrap"><header>
-  <a class="home" href="/">&larr; Warda</a>
   <p class="live" id="a-live" hidden><span class="dot"></span><span id="a-net">testnet</span></p>
   <h1>Agent&nbsp;#001</h1>
   <ul class="story">
