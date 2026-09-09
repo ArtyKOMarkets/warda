@@ -1,0 +1,47 @@
+<!--
+  THE PUBLIC USAGE PAGE — WRITTEN, NOT PUBLISHED.
+
+  Decided 9 September: build it, keep it dark. A public counter reading zero on
+  our own domain for months is a different thing from publishing our failures —
+  it invites the reader to conclude nobody uses this before they have read what
+  it does. Held back so that the day a stranger's payment lands, turning this on
+  IS the announcement: "the first payment we did not make."
+
+  To publish, three edits in site/build.py — and the third is the one that will
+  be forgotten:
+
+    1. PAGES:   add "usage.html"
+    2. COPIES:  add "usage.json"   (guarded by .exists(), like demo-state.json)
+    3. refresh-demo.sh: add src/usage.json to TIMESTAMPED_SRC *and* to the
+       find-exclusions in signature(). It carries a `checkedAt` that moves every
+       run, and it would be the FOURTH file to defeat the no-change guard that
+       way. The other three each cost something.
+-->
+<div class="wrap">
+  <p class="eyebrow">Openly</p>
+  <h2 id="u-h">Has anyone who is not us used this?</h2>
+  <p class="big" id="u-n" style="margin-top:1.2rem">&mdash;</p>
+  <p class="sub" id="u-s" style="max-width:56ch"></p>
+  <p class="needs" id="u-note"></p>
+</div>
+
+<script>
+/* Deliberately silent when the reading is absent or stale. A usage page is the
+   one page where a number nobody stands behind is worse than no page. */
+(function () {
+  if (!window.fetch) return;
+  fetch("/usage.json", { cache: "no-store" })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) {
+      if (!d || typeof d.notUs !== "number" || !d.baselineTaken) return;
+      var set = function (id, t) { document.getElementById(id).textContent = t; };
+      set("u-n", String(d.notUs));
+      set("u-s", d.notUs
+        ? "Payments settled through this protocol by somebody we did not build. Every one is a coin at our demo vendor whose transaction id appears in none of our own purchase logs."
+        : "None yet, and this page says so. /start ends a stranger at a real HTTP 402 purchase against our vendor, so the first person to finish it pays us from an address we have never seen — and this number moves on its own.");
+      set("u-note", "Read from the chain at " + String(d.checkedAt).slice(0, 16).replace("T", " ") +
+        " UTC. Our own agents' payments are excluded by transaction id, not by guessing.");
+    })
+    .catch(function () {});
+})();
+</script>

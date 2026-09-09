@@ -37,3 +37,7 @@ site/src/agent-00[2-9].html
 # watched addresses, so only what ARRIVES is news. Machine-local and it changes
 # every run.
 ops/first-contact.json
+
+# The local usage dashboard, rewritten on every first-contact run.
+ops/usage.html
+site/src/usage.json

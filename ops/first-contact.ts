@@ -195,6 +195,102 @@ if (!haveBaseline) {
   }
 }
 
+/**
+ * The dashboard, written at the end of every run.
+ *
+ * Self-contained and inlined — no fetch, no server, opens from disk. A usage
+ * page that needs something running to show you a zero is a page you will not
+ * open, and the whole point of this file is that the answer arrives without
+ * anyone remembering to look.
+ *
+ * The headline is the only number that means USE. npm and GitHub are above it
+ * in the funnel and below it in truth: an install can be a mirror, a star is
+ * somebody deciding to read this later. Only a coin at the demo vendor that no
+ * purchase log accounts for is somebody actually spending through the protocol.
+ */
+const esc = (v: unknown) => String(v).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]!);
+const delta = (now: number, was: number | null) =>
+  was === null ? "" : `<span class="d ${now > was ? "up" : ""}">${now - was >= 0 ? "+" : ""}${now - was}</span>`;
+
+function writePage(path: string) {
+  const strangerRows = strangers.length
+    ? strangers.map((x) => `<tr><td class="k">${formatKas(x.value)} KAS</td>` +
+        `<td class="mono">${esc(x.txid.slice(0, 24))}…</td>` +
+        `<td class="mono dim">${esc(x.address.slice(0, 26))}…</td></tr>`).join("")
+    : "";
+
+  const npmRows = PACKAGES.map((pkg) =>
+    `<tr><td class="mono">${esc(pkg)}</td><td class="n">${npm[pkg] ?? 0}` +
+    `${delta(npm[pkg] ?? 0, prior ? prior.npm[pkg] ?? 0 : null)}</td></tr>`).join("");
+
+  const html = `<!doctype html><meta charset="utf-8"><title>Warda — is anyone using this?</title>
+<style>
+  :root{--void:#06090C;--panel:#101A20;--edge:#1E2E37;--edge-b:#2C4350;
+    --chrome:#DDE0E2;--dim:#8D989E;--faint:#5D6B73;--teal:#14D7C1;--refuse:#FF6B5A;
+    --mono:ui-monospace,Menlo,monospace;--sans:system-ui,sans-serif}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--void);color:var(--chrome);font-family:var(--sans);
+    padding:clamp(1.5rem,5vw,4rem);line-height:1.6}
+  .wrap{max-width:60rem;margin:0 auto}
+  .eyebrow{font-family:var(--mono);font-size:.72rem;letter-spacing:.22em;color:var(--teal);
+    text-transform:uppercase}
+  h1{font-size:clamp(1.6rem,4vw,2.4rem);margin:.7rem 0 0;font-weight:600;letter-spacing:-.02em}
+  .hero{border:1px solid var(--edge-b);border-radius:4px;background:var(--panel);
+    padding:clamp(1.4rem,4vw,2.2rem);margin-top:1.8rem}
+  .big{font-size:clamp(3rem,11vw,5.5rem);line-height:1;font-weight:700;
+    color:${'${strangers.length ? "var(--teal)" : "var(--faint)"}'}}
+  .heroL{font-family:var(--mono);font-size:.78rem;letter-spacing:.16em;color:var(--faint);
+    text-transform:uppercase}
+  .heroS{margin-top:1rem;color:var(--dim);max-width:58ch}
+  h2{font-family:var(--mono);font-size:.72rem;letter-spacing:.2em;color:var(--faint);
+    text-transform:uppercase;margin:2.4rem 0 .8rem;font-weight:400}
+  table{width:100%;border-collapse:collapse}
+  td{padding:.55rem 0;border-bottom:1px solid rgba(30,46,55,.6);font-size:.92rem}
+  tr:last-child td{border-bottom:0}
+  .mono{font-family:var(--mono);font-size:.8rem}
+  .dim{color:var(--faint)} .n{text-align:right;font-family:var(--mono)}
+  .k{font-family:var(--mono);color:var(--teal)}
+  .d{margin-left:.7rem;color:var(--faint);font-size:.78rem}
+  .d.up{color:var(--teal)}
+  .note{margin-top:2.6rem;padding-top:1.2rem;border-top:1px solid var(--edge);
+    color:var(--dim);font-size:.88rem;max-width:64ch}
+  .warn{color:var(--refuse)}
+</style>
+<div class="wrap">
+  <p class="eyebrow">Warda &middot; ${esc(new Date().toISOString().slice(0, 16).replace("T", " "))} UTC</p>
+  <h1>Is anyone using this?</h1>
+
+  <div class="hero">
+    <p class="heroL">Payments from someone who is not us</p>
+    <p class="big">${strangers.length}</p>
+    <p class="heroS">${strangers.length
+      ? "A coin arrived at the demo vendor that no purchase log here accounts for. Check it before celebrating — then go and find out who they are."
+      : "The only number that means <em>use</em>. /start ends a stranger at a real 402 purchase against our vendor, so the first one to finish it pays us from an address we have never seen."}</p>
+    ${strangerRows ? `<table style="margin-top:1.2rem">${strangerRows}</table>` : ""}
+  </div>
+
+  <h2>npm — last week</h2>
+  <table>${npmRows}<tr><td><strong>total</strong></td><td class="n"><strong>${npmTotal}</strong>${delta(npmTotal, npmWas)}</td></tr></table>
+
+  <h2>GitHub</h2>
+  <table>
+    <tr><td>stars</td><td class="n">${github.stars}${delta(github.stars, prior ? prior.github.stars : null)}</td></tr>
+    <tr><td>forks</td><td class="n">${github.forks}${delta(github.forks, prior ? prior.github.forks : null)}</td></tr>
+  </table>
+
+  <p class="note">
+    ${checkedChain
+      ? "Chain read with a node attached."
+      : '<span class="warn">No node this run — the signal that proves use was not read.</span>'}
+    Baseline ${haveBaseline || checkedChain ? `taken ${esc((prior?.firstRun ?? new Date().toISOString()).slice(0, 10))}` : "<span class=\"warn\">NOT TAKEN</span>"};
+    only coins arriving after it can count.
+    npm counts mirrors, caches and CI, so treat a jump of three as weather. A star
+    is attention, not use.
+  </p>
+</div>`;
+  writeFileSync(path, html);
+}
+
 mkdirSync(repo("ops"), { recursive: true });
 writeFileSync(
   STATE,
@@ -209,4 +305,28 @@ writeFileSync(
     null, 2,
   ) + "\n",
 );
+writePage(repo("ops/usage.html"));
+
+/* The data the PUBLIC page would read, written now and published by nothing.
+   See site/src/usage.html for the two lines that turn it on, and the third
+   that must go with them. */
+writeFileSync(
+  repo("site/src/usage.json"),
+  JSON.stringify(
+    {
+      _comment:
+        "Written by ops/first-contact.ts. NOT PUBLISHED — see site/src/usage.html. " +
+        "`notUs` is the only figure here that means use.",
+      checkedAt: new Date().toISOString(),
+      chainChecked: checkedChain,
+      baselineTaken: haveBaseline || checkedChain,
+      notUs: strangers.length,
+      npm: npmTotal,
+      stars: github.stars,
+    },
+    null, 2,
+  ) + "\n",
+);
+say(`  dashboard: ops/usage.html`);
+
 process.exit(alert.length && strangers.length ? 10 : 0);
