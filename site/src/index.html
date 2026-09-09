@@ -1149,17 +1149,18 @@ await wardaFetch(url);</code></pre>
         missing is somewhere it runs that is not a laptop. Until then this is honest but not
         useful to a stranger.</p>
       </div>
-      <div class="next">
-        <span class="tag">Next <em>&middot; delegation in public</em></span>
-        <h3>Agent&nbsp;#001 hiring a sub-agent</h3>
-        <p>The covenant already supports it and the SDK already builds it. What has not happened
-        is doing it in the open, with a second agent holding authority its parent can bound and
-        take back.</p>
+      <div class="shipped">
+        <span class="tag">Shipped <em>&middot; delegation in public</em></span>
+        <h3>Agent&nbsp;#003 hiring a sub-agent</h3>
+        <p>Agent&nbsp;#003 delegated agent&nbsp;#004 a bounded piece of its own grant: a smaller budget,
+        a lower cap, and <strong>one payee instead of two</strong> &mdash; a narrowing the child proves
+        with a witness on every spend. When #004 was done, #003 collapsed it back and the child's
+        spending was charged to the parent. Both transactions are on <a href="/agent-004">its page</a>.</p>
       </div>
       <div class="next">
         <span class="tag">Next <em>&middot; interoperability</em></span>
         <h3>A payment someone else's server accepts</h3>
-        <p>Five payments to a vendor we do not control settled on chain and were all refused
+        <p>Eight payments to a vendor we do not control settled on chain and were all refused
         service, for a reason inside a verifier that is not published. Until a stranger's
         endpoint takes a Warda payment, every demo here is us paying ourselves.</p>
       </div>
@@ -1186,7 +1187,7 @@ await wardaFetch(url);</code></pre>
       <div class="planned">
         <span class="tag">Planned <em>&middot; reach</em></span>
         <h3>An SDK that holds a grant itself</h3>
-        <p>The MCP server already gives any agent framework nine tools to reason about its own
+        <p>The MCP server already gives any agent framework ten tools to reason about its own
         authority, but it hands back unsigned bytes and something else does the signing. An
         agent library that carries a grant directly is a different piece of work, and none of
         it has been started.</p>

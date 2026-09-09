@@ -32,3 +32,8 @@ site/src/agent-00[2-9].html
 # file, and a config that travelled with the repo would point a second machine
 # at a grant it does not hold the key for.
 .warda/
+
+# Written by ops/first-contact.ts: the baseline of what was already at the
+# watched addresses, so only what ARRIVES is news. Machine-local and it changes
+# every run.
+ops/first-contact.json

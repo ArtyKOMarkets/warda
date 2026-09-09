@@ -32,6 +32,13 @@ BUYENTRY="41 9 * * * $BUY >> $BUYLOG 2>&1"
 # Is the endpoint /start sends a stranger at actually answering? Not opt-in:
 # it costs nothing, it touches no key and moves no coin, and the failure it
 # watches for went unnoticed for days the last time it happened.
+# Has anyone who is not us started using this? Weekly, Monday morning, because
+# the answer changes on the scale of weeks and a daily check would train you to
+# ignore it. Exit 10 means a stranger paid the demo vendor.
+CONTACT="$OPS/first-contact.sh"
+CONTACTLOG="$HOME/Library/Logs/warda-first-contact.log"
+CONTACTENTRY="7 9 * * 1 $OPS/first-contact.sh --quiet >> $CONTACTLOG 2>&1"
+
 VENDOR="$OPS/check-vendor.sh"
 VENDORLOG="$HOME/Library/Logs/warda-vendor.log"
 VENDORENTRY="*/15 * * * * $VENDOR --quiet >> $VENDORLOG 2>&1"
@@ -67,7 +74,7 @@ fi
 # So: fix it if we can, refuse if we cannot. Installing a schedule of commands
 # that cannot run is worse than installing nothing, because the crontab then
 # says the job exists.
-for f in "$SCRIPT" "$BUY" "$VENDOR"; do
+for f in "$SCRIPT" "$BUY" "$VENDOR" "$CONTACT"; do
   [ -f "$f" ] || continue
   [ -x "$f" ] && continue
   chmod +x "$f" 2>/dev/null || true
@@ -102,9 +109,11 @@ printf '%s\n' "$current" \
   | grep -v -F "hourly-reading.sh" \
   | grep -v -F "daily-buy.sh" \
   | grep -v -F "check-vendor.sh" \
+  | grep -v -F "first-contact.sh" \
   | grep -v '^[[:space:]]*$' > /tmp/warda-cron.$$
 printf '%s\n' "$ENTRY" >> /tmp/warda-cron.$$
 printf '%s\n' "$VENDORENTRY" >> /tmp/warda-cron.$$
+printf '%s\n' "$CONTACTENTRY" >> /tmp/warda-cron.$$
 if [ -n "$WANT_BUY" ]; then printf '%s\n' "$BUYENTRY" >> /tmp/warda-cron.$$; fi
 crontab /tmp/warda-cron.$$
 rm -f /tmp/warda-cron.$$
