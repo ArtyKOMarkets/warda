@@ -85,6 +85,7 @@ interface State {
   baselineComplete: boolean;
   knownTxids: string[];
   npm: Record<string, number>;
+  published?: Record<string, boolean>;
   github: { stars: number; forks: number };
 }
 const prior: State | null = existsSync(STATE) ? JSON.parse(readFileSync(STATE, "utf8")) : null;
@@ -110,14 +111,54 @@ for (const dir of readdirSync(repo(".")).filter((d) => d.startsWith("agent-"))) 
 }
 
 // ── 1. npm ──────────────────────────────────────────────────────────────────
+/**
+ * An unpublished package is not a package with no downloads.
+ *
+ * `@warda_protocol/cli` read 0 and was taken for "nobody wanted it". It has
+ * never been published — the registry answers 404 — and so did `verify`. The
+ * downloads API returns nothing for both, and the first version of this file
+ * turned that nothing into a zero and put it in a table beside real figures.
+ *
+ * Which is this project's oldest mistake in a new place: an absence rendered as
+ * a measurement. An empty grant address that might mean drained or moved; a
+ * cron log that does not exist versus one that is empty; a node that answers
+ * "no utxos" because it has no index. Same shape every time, and it is always
+ * the reading you would act on.
+ */
 const npm: Record<string, number> = {};
+const published: Record<string, boolean> = {};
 for (const pkg of PACKAGES) {
+  try {
+    const reg = await fetch(`https://registry.npmjs.org/${pkg.replace("/", "%2f")}`, {
+      method: "HEAD",
+    });
+    published[pkg] = reg.ok;
+  } catch { published[pkg] = prior?.published?.[pkg] ?? true; }
+
+  if (!published[pkg]) { npm[pkg] = 0; continue; }
   try {
     const r = await fetch(`https://api.npmjs.org/downloads/point/last-week/${pkg}`);
     npm[pkg] = r.ok ? ((await r.json()) as { downloads?: number }).downloads ?? 0 : 0;
   } catch { npm[pkg] = prior?.npm[pkg] ?? 0; }
 }
-const npmTotal = Object.values(npm).reduce((a, b) => a + b, 0);
+const npmLive = PACKAGES.filter((p) => published[p]);
+
+/**
+ * Whether these downloads could be real installs at all.
+ *
+ * `core` and `kaspa` are dependencies of `mcp`: every genuine `mcp` install
+ * pulls both. So real adoption cannot produce a `mcp` figure LARGER than
+ * either of them — and on 9 September it did, 558 against 315 and 325. That is
+ * not a close call to interpret, it is an arithmetic contradiction, and it
+ * means the numbers are mirrors and registry crawlers rather than people.
+ *
+ * Stated as a computed check rather than a caveat in prose, because a caveat
+ * under a big number is read as modesty and ignored.
+ */
+const impossible =
+  (npm["@warda_protocol/mcp"] ?? 0) >
+  Math.min(npm["@warda_protocol/core"] ?? 0, npm["@warda_protocol/kaspa"] ?? 0);
+const npmTotal = npmLive.reduce((a, p) => a + (npm[p] ?? 0), 0);
 const npmWas = prior ? Object.values(prior.npm).reduce((a, b) => a + b, 0) : null;
 
 // ── 2. GitHub ───────────────────────────────────────────────────────────────
@@ -220,8 +261,11 @@ function writePage(path: string) {
     : "";
 
   const npmRows = PACKAGES.map((pkg) =>
-    `<tr><td class="mono">${esc(pkg)}</td><td class="n">${npm[pkg] ?? 0}` +
-    `${delta(npm[pkg] ?? 0, prior ? prior.npm[pkg] ?? 0 : null)}</td></tr>`).join("");
+    published[pkg]
+      ? `<tr><td class="mono">${esc(pkg)}</td><td class="n">${npm[pkg] ?? 0}` +
+        `${delta(npm[pkg] ?? 0, prior ? prior.npm[pkg] ?? 0 : null)}</td></tr>`
+      : `<tr><td class="mono dim">${esc(pkg)}</td>` +
+        `<td class="n dim">not published</td></tr>`).join("");
 
   const html = `<!doctype html><meta charset="utf-8"><title>Warda — is anyone using this?</title>
 <style>
@@ -269,7 +313,12 @@ function writePage(path: string) {
     ${strangerRows ? `<table style="margin-top:1.2rem">${strangerRows}</table>` : ""}
   </div>
 
-  <h2>npm — last week</h2>
+  <h2>npm — last week ${impossible ? '<span class="warn">· not real installs</span>' : ""}</h2>
+  ${impossible ? `<p class="note" style="margin:0 0 .8rem;padding:0;border:0">
+    <strong>These cannot be people.</strong> core and kaspa are dependencies of mcp, so every
+    real mcp install pulls both — yet mcp reads higher than either. That is an arithmetic
+    contradiction, not a close call: the traffic is mirrors and registry crawlers.
+  </p>` : ""}
   <table>${npmRows}<tr><td><strong>total</strong></td><td class="n"><strong>${npmTotal}</strong>${delta(npmTotal, npmWas)}</td></tr></table>
 
   <h2>GitHub</h2>
@@ -300,6 +349,7 @@ writeFileSync(
       baselineComplete: haveBaseline || checkedChain,
       knownTxids: checkedChain ? [...seen] : (prior?.knownTxids ?? []),
       npm,
+      published,
       github,
     },
     null, 2,
