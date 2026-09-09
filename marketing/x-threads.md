@@ -347,12 +347,18 @@ every day, forever, without anyone writing anything.
 
 The strongest story here, and it is a failure. Post it exactly as it happened.
 
-**1/**
-One of my AI agents lost its private key.
+**1/**  *(graphic: marketing/img/warda-lost-key.png)*
+I found out one of my AI agents lost its private key.
 
-It is still running. It has 4.12 KAS it can now never spend.
+Total damage: 0.15 KAS.
 
-That is the good outcome, and it is the whole reason I built this.
+The same accident with an ordinary agent wallet costs you everything in it.
+
+*Rejected openers, and why. "It has 4.12 KAS it can never spend — and that's
+the good outcome" asks the reader to accept that being unable to spend is good
+BEFORE telling them why, and reads like spin. "It's still running, nobody can
+steal from it, I can still get the money back" is three claims deep before any
+of them is evidenced. Lead with the number; put the contrast in line three.*
 
 **2/**
 Agent #001 reads the Kaspa chain hourly and sells the digest. It was created on
@@ -394,6 +400,13 @@ That is the difference, and it is not a feature I demoed. It is an accident
 that happened to me on a Tuesday and cost 0.15 KAS instead of everything.
 
 An agent's authority should be survivable. Mine was, by construction.
+
+**Alt text for the graphic:** Two panels. An ordinary agent wallet has one key
+that both holds the money and enforces its own limit; lose it and the loss is
+everything, because the limit and the authority were the same object. A Warda
+grant has three — agent, principal, revocation — of which the agent holds only
+the first; lose that one and the loss is 0.15 KAS, with 4.12 KAS recoverable by
+a revocation key that was never on the machine.
 
 *(Reply: the grant, the address, and the expiry — it also unlocks on its own at
 DAA 586,589,431, so the money comes back either way.)*
