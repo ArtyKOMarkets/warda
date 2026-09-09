@@ -1,9 +1,9 @@
 {
   "_comment": "Written by ops/check-vendor.sh. Whether the demo endpoint /start sends people at is actually answering. Checks the 402 quote, not just the index: the index is static and stayed up through a multi-day outage of the paid path.",
-  "checkedAt": "2026-09-09T11:30:00Z",
+  "checkedAt": "2026-09-09T13:00:00Z",
   "endpoint": "https://warda-demo-api.vercel.app",
   "ok": true,
-  "lastOk": "2026-09-09T11:30:00Z",
+  "lastOk": "2026-09-09T13:00:00Z",
   "index": { "status": 200, "ok": true },
   "quote": { "status": 402, "ok": true, "amountSompi": "5000000" },
   "reason": ""
