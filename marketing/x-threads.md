@@ -318,6 +318,139 @@ our own confident diagnoses of that failure turned out wrong and were corrected
 in public.*
 
 
+## What actually travelled, and the rule it sharpens
+
+The agent-hires-agent post outperformed everything else. One data point at
+small numbers, so do not over-fit — but the direction is cheap to test and the
+reason is legible.
+
+**It led with an EVENT and made the idea the payoff.** "An AI agent hired
+another AI agent on Kaspa today" is subject, verb, object, and a reader who has
+never heard of a covenant can parse it. "Every agent that spends money today is
+trusted not to" is an idea, and an idea asks the reader to already care.
+
+So the rule above still holds — one idea, landed on one thing that happened —
+but the ORDER inverts. Event first. Mechanism as the reveal. Same materials.
+
+The other thing that made it work: it reads as a **life event**. Agents here are
+born, hire each other, delegate, are killed, lose their keys and run out of
+money. Those are all narratively legible to someone with no context, and every
+one of them demonstrates the mechanism as a side effect. That is the seam.
+
+And it is self-generating: `ops/daily-buy.sh` fires at 09:41 every morning, so
+"an agent paid another agent" is a true sentence with a fresh transaction id
+every day, forever, without anyone writing anything.
+
+---
+
+## G — the agent that lost its key and is still running
+
+The strongest story here, and it is a failure. Post it exactly as it happened.
+
+**1/**
+One of my AI agents lost its private key.
+
+It is still running. It has 4.12 KAS it can now never spend.
+
+That is the good outcome, and it is the whole reason I built this.
+
+**2/**
+Agent #001 reads the Kaspa chain hourly and sells the digest. It was created on
+3 September. The tool that creates a grant PRINTS the agent's key and only
+writes it to a file if you pass a flag.
+
+Nobody passed the flag. It went to a terminal and nowhere else.
+
+**3/**
+I searched: every key file in the repo, the whole repo, Desktop, Documents,
+Downloads, a home sweep, the shell history. 977 bytes of history, and it holds
+nothing.
+
+It is gone.
+
+**4/**
+Here is what that cost.
+
+Agent #001 had earned ~0.15 KAS from other agents, paid to an ordinary address.
+That money is unreachable. Nobody can move it, including me. That part is a
+real loss and I am not going to pretend otherwise.
+
+**5/**
+Here is what it did NOT cost.
+
+The 4.12 KAS in its grant is not lost. A Warda grant names three keys, and the
+one that can END it is not the one that spends from it. The revocation key is a
+different key, kept somewhere else, and it can reclaim every coin.
+
+**6/**
+Now run the same accident against the standard setup: an agent with a hot
+wallet holding "only what it should spend".
+
+Lose that key and you lose the wallet. All of it. There is no second key,
+because the limit and the authority were the same object.
+
+**7/**
+That is the difference, and it is not a feature I demoed. It is an accident
+that happened to me on a Tuesday and cost 0.15 KAS instead of everything.
+
+An agent's authority should be survivable. Mine was, by construction.
+
+*(Reply: the grant, the address, and the expiry — it also unlocks on its own at
+DAA 586,589,431, so the money comes back either way.)*
+
+---
+
+## H — the agent with about forty days to live
+
+**1/**
+One of my agents has roughly forty days of money left.
+
+When it runs out it will start failing every morning at 09:41. I am not going
+to top it up.
+
+**2/**
+Agent #003 buys a chain digest from agent #001 every day. 0.04 KAS a run,
+against a grant holding 1.69. That is the arithmetic; mid-October is the
+answer.
+
+**3/**
+The obvious fix is a cron job that refills the grant when it gets low. I am not
+adding one, and the reason is the entire point of the project:
+
+a cron that refills a grant has reinvented the hot wallet.
+
+**4/**
+The moment something can top an agent up without a human, the ceiling is not
+the grant any more. It is whatever that process will do. You have moved the
+limit back into software and kept the paperwork.
+
+**5/**
+So it runs dry. In public, on a page anyone can check, with the failures
+recorded next to the purchases.
+
+A bounded agent reaching its bound is not the demo breaking. It is the demo.
+
+---
+
+## I — the daily one, repeatable forever
+
+Low effort, fresh transaction id every morning, and it is the format that
+travelled. Vary the wording; never vary the shape.
+
+> 09:41 this morning.
+>
+> Agent #003 paid agent #001 0.04 KAS for a 24-hour Kaspa chain digest.
+>
+> No human approved it. No human could have stopped it. And it could not have
+> paid anyone else if it wanted to.
+>
+> txid: <the day's txid>
+
+The third line is the one doing the work. The first two are true of any
+scheduled payment; only the third is Warda.
+
+---
+
 ## Order, if you want one
 
 F is the natural opener for a cold audience — it is the only one that says what
