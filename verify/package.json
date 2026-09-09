@@ -51,7 +51,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ArtyKOMarkets/warda.git",
-    "directory": "api"
+    "directory": "verify"
   },
   "homepage": "https://wardaprotocol.com",
   "bugs": {
