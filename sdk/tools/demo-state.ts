@@ -47,6 +47,7 @@
 import { readFileSync } from "node:fs";
 
 import { NodeClient, formatHealth } from "../src/node.ts";
+import { rpcFrom } from "./network.ts";
 
 function flag(name: string, fallback?: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -94,7 +95,7 @@ const manifest = flag("manifest") ? JSON.parse(readFileSync(flag("manifest")!, "
  * exists is the answer, not a precondition.
  */
 const { client, health } = await NodeClient.open({
-  url: flag("rpc"),
+  url: rpcFrom(flag("rpc")),
   resolver: flag("resolver"),
   networkId: flag("network") ?? process.env.WARDA_NETWORK ?? "testnet-10",
   tolerate: true,

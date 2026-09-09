@@ -68,7 +68,7 @@ import {
   type GrantState,
 } from "../src/template.ts";
 import { GrantWatcher, type Alert, type WatchRules } from "../src/watch.ts";
-import { resolveNetwork } from "./network.ts";
+import { resolveNetwork, rpcFrom } from "./network.ts";
 
 function flag(name: string, fallback?: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -171,7 +171,7 @@ if (revokeOnBreach) {
 let client: NodeClient, health;
 try {
   ({ client, health } = await NodeClient.open({
-    url: flag("rpc"),
+    url: rpcFrom(flag("rpc")),
     resolver: flag("resolver"),
     networkId: flag("network") ?? process.env.WARDA_NETWORK ?? "testnet-10",
     grantAddress: scriptHashToAddress(scriptHashFor(template, grant), prefix),

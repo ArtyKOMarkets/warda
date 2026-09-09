@@ -76,7 +76,7 @@ import { membersFrom } from "./members.ts";
 import { agentPublicKey, signDigest, verifyDigest } from "../src/sign.ts";
 import { scriptHashFor, templateFingerprint, type CovenantTemplate, type GrantState, templateIdFor } from "../src/template.ts";
 import { toWire } from "../src/wire.ts";
-import { resolveNetwork } from "./network.ts";
+import { resolveNetwork, rpcFrom } from "./network.ts";
 import { requiredFeeFrom, submitCorrectingFee } from "./fee.ts";
 
 /**
@@ -248,7 +248,7 @@ if (parentMembersFlag) {
 
 const address = scriptHashToAddress(scriptHashFor(template, { authority, state }), prefix);
 
-const client = await NodeClient.connect({ url: flag("rpc") });
+const client = await NodeClient.connect({ url: rpcFrom(flag("rpc")) });
 let plan: DelegationPlan, built;
 try {
   // --window is relative to the chain's CURRENT position, which is the way
@@ -484,7 +484,7 @@ process.stdout.write(JSON.stringify(toWire(tx, built.entry, "@warda_protocol/kas
  * write fails strands coin at an address nobody can reconstruct.
  */
 if (process.argv.includes("--submit")) {
-  const submitter = await NodeClient.connect({ url: flag("rpc") });
+  const submitter = await NodeClient.connect({ url: rpcFrom(flag("rpc")) });
   try {
     const { txid } = await submitCorrectingFee({
       client: submitter,

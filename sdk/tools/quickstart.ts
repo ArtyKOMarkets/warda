@@ -31,7 +31,7 @@ import { resolverFrom } from "../src/resolver.ts";
 import { agentPublicKey } from "../src/sign.ts";
 
 import { membersFrom } from "./members.ts";
-import { assertKeyNotPublished, resolveNetwork } from "./network.ts";
+import { assertKeyNotPublished, resolveNetwork, rpcFrom } from "./network.ts";
 
 function flag(name: string, fallback?: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -106,7 +106,7 @@ if (!recipients) {
 
 // ---- 3. a node that can be believed --------------------------------------
 let client: NodeClient | undefined;
-if (!flag("rpc") && !resolverFrom({ resolver: flag("resolver") })) {
+if (!rpcFrom(flag("rpc")) && !resolverFrom({ resolver: flag("resolver") })) {
   problems.push(
     "No node. Warda builds transactions locally but must read the UTXO set to do it.\n" +
       "    Either:\n" +
@@ -122,7 +122,7 @@ if (!flag("rpc") && !resolverFrom({ resolver: flag("resolver") })) {
 } else {
   try {
     const opened = await NodeClient.open({
-      url: flag("rpc"),
+      url: rpcFrom(flag("rpc")),
       resolver: flag("resolver"),
       networkId: network,
       tolerate: true,
@@ -205,7 +205,7 @@ const genesis = spawnSync(
     "--epoch-limit", epochLimit,
     "--out", out,
     "--prefix", prefix,
-    ...(flag("rpc") ? ["--rpc", flag("rpc")!] : []),
+    ...(rpcFrom(flag("rpc")) ? ["--rpc", rpcFrom(flag("rpc"))!] : []),
     "--submit",
   ],
   { encoding: "utf8", stdio: ["inherit", "pipe", "pipe"], env: process.env },
@@ -233,7 +233,7 @@ const manifest = JSON.parse(readFileSync(out, "utf8"));
  */
 {
   const { client: watcher } = await NodeClient.open({
-    url: flag("rpc"),
+    url: rpcFrom(flag("rpc")),
     resolver: flag("resolver"),
     networkId: network,
     tolerate: true,
@@ -286,5 +286,5 @@ say();
 say(`  WARDA_SK=${agentSecret} \\`);
 say(`    node --experimental-strip-types tools/build-live-spend.ts ${out} \\`);
 say(`      --recipients ${recipients} --to ${firstPayee} \\`);
-say(`      --amount ${maxPerSpend} ${flag("rpc") ? `--rpc ${flag("rpc")} ` : ""}--submit`);
+say(`      --amount ${maxPerSpend} ${rpcFrom(flag("rpc")) ? `--rpc ${rpcFrom(flag("rpc"))} ` : ""}--submit`);
 say();

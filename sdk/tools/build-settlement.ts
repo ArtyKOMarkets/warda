@@ -64,7 +64,7 @@ import {
   type GrantState,
 } from "../src/template.ts";
 import { toWireMulti } from "../src/wire.ts";
-import { resolveNetwork } from "./network.ts";
+import { resolveNetwork, rpcFrom } from "./network.ts";
 import { requiredFeeFrom, submitCorrectingFee } from "./fee.ts";
 
 /**
@@ -249,7 +249,7 @@ if (!revocationFound) {
 const parentAddress = scriptHashToAddress(scriptHashFor(template, { authority, state: parentState }), prefix);
 const childAddress = scriptHashToAddress(scriptHashFor(template, { authority, state: childState }), prefix);
 
-const client = await NodeClient.connect({ url: flag("rpc") });
+const client = await NodeClient.connect({ url: rpcFrom(flag("rpc")) });
 let plan: ReabsorbPlan, built;
 try {
   const [parentUtxos, childUtxos] = await Promise.all([
@@ -352,7 +352,7 @@ process.stdout.write(
  * write fails strands coin at an address nobody can reconstruct.
  */
 if (process.argv.includes("--submit")) {
-  const submitter = await NodeClient.connect({ url: flag("rpc") });
+  const submitter = await NodeClient.connect({ url: rpcFrom(flag("rpc")) });
   try {
     /* Two inputs, two keys: the parent's AGENT signs the reabsorb and the
        child's REVOCATION signs the settle. A rebuild has to redo both, and

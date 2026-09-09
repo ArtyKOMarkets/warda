@@ -68,7 +68,7 @@ import {
   type GrantAuthority,
   type GrantState,
 } from "../src/template.ts";
-import { resolveNetwork } from "./network.ts";
+import { resolveNetwork, rpcFrom } from "./network.ts";
 
 const has = (name: string) => process.argv.includes(`--${name}`);
 
@@ -145,7 +145,7 @@ const toPayment = (u: { entry: { value: bigint; blockDaaScore: bigint } }): Paym
 const addressOf = (state: GrantState) =>
   scriptHashToAddress(scriptHashFor(template, { authority, state }), prefix);
 
-const client = await NodeClient.connect({ url: flag("rpc") });
+const client = await NodeClient.connect({ url: rpcFrom(flag("rpc")) });
 try {
   let state = stateFrom(m);
   let address = addressOf(state);

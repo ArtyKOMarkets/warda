@@ -46,7 +46,7 @@ import {
   type CovenantTemplate,
   type GrantState,
 } from "../src/template.ts";
-import { resolveNetwork } from "./network.ts";
+import { resolveNetwork, rpcFrom } from "./network.ts";
 
 function flag(name: string, fallback?: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -169,7 +169,7 @@ if (!offline) {
     // query with an empty list rather than an error, which here would read as
     // "the grant does not exist" and refuse a card for a perfectly good grant.
     ({ client } = await NodeClient.open({
-      url: flag("rpc"),
+      url: rpcFrom(flag("rpc")),
       resolver: flag("resolver"),
       networkId: flag("network") ?? process.env.WARDA_NETWORK ?? "testnet-10",
       grantAddress: address,

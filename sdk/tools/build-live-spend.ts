@@ -53,7 +53,7 @@ import { agentPublicKey, signSpend } from "../src/sign.ts";
 import { claimedDaaFor, type SpendPlan } from "../src/spend.ts";
 import { scriptHashFor, templateFingerprint, type CovenantTemplate, type GrantState, templateIdFor } from "../src/template.ts";
 import { toWire } from "../src/wire.ts";
-import { resolveNetwork } from "./network.ts";
+import { resolveNetwork, rpcFrom } from "./network.ts";
 import { requiredFeeFrom, submitCorrectingFee } from "./fee.ts";
 
 /** A lock time at or above the current DAA score is not yet final. */
@@ -287,7 +287,7 @@ const proof = recipients.proof(recipient);
 // ---- build ---------------------------------------------------------------
 
 const address = scriptHashToAddress(scriptHashFor(template, { authority, state }), prefix);
-const client = await NodeClient.connect({ url: flag("rpc") });
+const client = await NodeClient.connect({ url: rpcFrom(flag("rpc")) });
 let plan: SpendPlan;
 try {
   const [dag, utxos] = await Promise.all([
@@ -371,7 +371,7 @@ const wire = toWire(tx, unsigned.entry, "@warda_protocol/kaspa (live spend)");
 process.stdout.write(JSON.stringify(wire, null, 2) + "\n");
 
 if (process.argv.includes("--submit")) {
-  const submitter = await NodeClient.connect({ url: flag("rpc") });
+  const submitter = await NodeClient.connect({ url: rpcFrom(flag("rpc")) });
   try {
     /* Re-signing at the node's figure costs one call to signSpend. The fee
        changes the successor's VALUE but not its state, so the address the

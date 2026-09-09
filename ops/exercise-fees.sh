@@ -39,6 +39,11 @@ cd "$REPO" || { echo "no repo at $REPO" >&2; exit 1; }
 GO=""
 for a in "$@"; do [ "$a" = "--go" ] && GO=1; done
 
+if [ -z "${WARDA_RPC_JSON:-}" ] && [ -z "${WARDA_RESOLVER:-}" ]; then
+  echo "no node. source ops/node.env first, or set WARDA_RPC_JSON." >&2
+  exit 1
+fi
+
 RIG="$(mktemp -d "${TMPDIR:-/tmp}/warda-feerig.XXXXXX")"
 FUNDER="covenant/deploy/warda-testnet.key"
 PAYEE="kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4"
@@ -64,6 +69,7 @@ lower $LOW further.
 
 No agent is touched. Working files go to $RIG.
 Roughly 1 KAS leaves the funder and comes back at step 5, less five fees.
+Node: ${WARDA_RPC_JSON:-via resolver}
 
 Run it:  ops/exercise-fees.sh --go
 
@@ -71,7 +77,21 @@ PLAN
   exit 0
 fi
 
-fail() { echo; echo "STOPPED at $1. The rig is at $RIG — the grant may still hold coin." >&2; exit 1; }
+# Two different failures, and telling them apart matters. quickstart checks
+# every precondition BEFORE it creates anything, so a stop at genesis means no
+# grant exists and no coin moved — saying "the grant may still hold coin" there
+# sends someone looking for money that was never sent. After genesis, it might.
+fail() {
+  echo
+  if [ -f "$RIG/grant.json" ]; then
+    echo "STOPPED at $1. The rig is at $RIG and the grant MAY STILL HOLD COIN —" >&2
+    echo "  revoke it when you are done:" >&2
+    echo "    WARDA_SK=\$(cat $FUNDER) $N sdk/tools/build-exit.ts $RIG/grant.json --revoke --submit" >&2
+  else
+    echo "STOPPED at $1. Nothing was created and no coin moved." >&2
+  fi
+  exit 1
+}
 
 say "1/5  creating a throwaway grant"
 echo "$PAYEE" > "$RIG/payees.txt"

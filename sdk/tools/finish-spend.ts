@@ -34,6 +34,7 @@ import { fromHex, toHex } from "../src/bytes.ts";
 import { NodeClient } from "../src/node.ts";
 import { fromWire } from "../src/wire.ts";
 import { signDigest, verifyDigest, agentPublicKey } from "../src/sign.ts";
+import { rpcFrom } from "./network.ts";
 
 function flag(name: string, fallback?: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -159,7 +160,7 @@ if (built.successorScriptHash) {
 process.stdout.write(JSON.stringify(tx, null, 2) + "\n");
 
 if (process.argv.includes("--submit")) {
-  const client = await NodeClient.connect({ url: flag("rpc") });
+  const client = await NodeClient.connect({ url: rpcFrom(flag("rpc")) });
   try {
     // MCP returns the WIRE form; submitTransaction takes the internal one.
     const txid = await client.submitTransaction(fromWire(tx));

@@ -47,7 +47,7 @@ import {
   type CovenantTemplate,
   type Grant,
 } from "../src/template.ts";
-import { resolveNetwork } from "./network.ts";
+import { resolveNetwork, rpcFrom } from "./network.ts";
 
 function flag(name: string, fallback?: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -242,7 +242,7 @@ const targetAddress = scriptHashToAddress(scriptHashFor(template, successor), pr
 // because "I cannot reach a node" is a common reason to be recovering.
 let client: NodeClient;
 try {
-  client = await NodeClient.connect({ url: flag("rpc") });
+  client = await NodeClient.connect({ url: rpcFrom(flag("rpc")) });
 } catch (e) {
   console.log(`\nrecovered without a node. The grant is at:\n  ${targetAddress}`);
   console.log(`Could not check whether it is still unspent (${(e as Error).message}).`);

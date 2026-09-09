@@ -33,6 +33,7 @@ import { RecipientSet } from "../src/recipients.ts";
 import { scriptHashFor, templateIdFor, type CovenantTemplate } from "../src/template.ts";
 
 import { membersFrom } from "./members.ts";
+import { rpcFrom } from "./network.ts";
 
 function flag(name: string, fallback?: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -134,7 +135,7 @@ if (!call) {
    * address is a function of the state and would go stale the moment it moved.
    */
   if (needsUtxo && !flag("no-utxo")) {
-    const client = await NodeClient.connect({ url: flag("rpc") });
+    const client = await NodeClient.connect({ url: rpcFrom(flag("rpc")) });
     try {
       const address = scriptHashToAddress(
         scriptHashFor(template, { authority, state }),
@@ -179,8 +180,8 @@ if (!call) {
    * `--rpc` fetches it; `--daa` states it.
    */
   let daa = flag("daa");
-  if (!daa && flag("rpc")) {
-    const client = await NodeClient.connect({ url: flag("rpc") });
+  if (!daa && rpcFrom(flag("rpc"))) {
+    const client = await NodeClient.connect({ url: rpcFrom(flag("rpc")) });
     try {
       daa = (await client.getBlockDagInfo()).virtualDaaScore.toString();
       console.error(`daa     : ${daa} (read from the node)`);

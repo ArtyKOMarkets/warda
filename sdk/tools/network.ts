@@ -149,3 +149,22 @@ export function assertKeyNotPublished(secret: string, isMainnet: boolean): void 
       `      and only the covenant is keeping the money where it is.\n`,
   );
 }
+
+/**
+ * The node to talk to: the flag, then the environment.
+ *
+ * Twelve of these tools demanded `--rpc` and eight fell back to
+ * WARDA_RPC_JSON, which made `ops/node.env` — a file whose own header says
+ * "source this before running anything that talks to the node" — false for
+ * most of them. Nobody noticed because the tools people run by hand were in
+ * the half that worked, and the ones in scripts were given the flag.
+ *
+ * It surfaced when ops/exercise-fees.sh sourced node.env, called quickstart,
+ * and was told there was no node while a node was configured and running.
+ *
+ * One helper rather than sixteen copies of the same `??`, for the reason
+ * members.ts gives in its own header: the copy that drifts is the one nobody
+ * is looking at.
+ */
+export const rpcFrom = (flagValue?: string): string | undefined =>
+  flagValue ?? process.env.WARDA_RPC_JSON;

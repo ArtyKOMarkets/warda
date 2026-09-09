@@ -63,7 +63,7 @@ import { membersFrom } from "./members.ts";
 import { agentPublicKey, signDigest, verifyDigest } from "../src/sign.ts";
 import { templateFingerprint, type CovenantTemplate, type GrantState, templateIdFor } from "../src/template.ts";
 import { toWire } from "../src/wire.ts";
-import { resolveNetwork } from "./network.ts";
+import { resolveNetwork, rpcFrom } from "./network.ts";
 
 /** Genesis is a plain P2PK spend that happens to pay into a covenant: one
  *  signature, no covenant logic, so 12 units covers it. */
@@ -194,7 +194,7 @@ if (agentKey === principalKey) {
   );
 }
 
-const client = await NodeClient.connect({ url: flag("rpc") });
+const client = await NodeClient.connect({ url: rpcFrom(flag("rpc")) });
 let built, state: GrantState, notBefore: bigint;
 try {
   const info = await client.getInfo();
