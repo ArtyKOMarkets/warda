@@ -86,6 +86,8 @@ fail() {
   if [ -f "$RIG/grant.json" ]; then
     echo "STOPPED at $1. The rig is at $RIG and the grant MAY STILL HOLD COIN —" >&2
     echo "  revoke it when you are done:" >&2
+    echo "    # the manifest may be stale — a spend moves the grant, so find it first:" >&2
+    echo "    $N sdk/tools/follow-grant.ts $RIG/grant.json --vendor $PAYEE --write" >&2
     echo "    WARDA_SK=\$(cat $FUNDER) $N sdk/tools/build-exit.ts $RIG/grant.json --revoke --submit" >&2
   else
     echo "STOPPED at $1. Nothing was created and no coin moved." >&2
@@ -108,6 +110,16 @@ WARDA_SK="$(cat "$RIG/agent.key")" $N sdk/tools/build-live-spend.ts "$RIG/grant.
   --recipients "$RIG/payees.txt" --to "$PAYEE" \
   --amount 10000000 --fee $LOW --submit > "$RIG/spend.json" || fail "the spend"
 
+# Each of these MOVES the grant, and the next tool has to find it where it
+# landed. build-live-spend now advances the manifest, but the successor UTXO
+# still has to be accepted before anything can spend it — the first run of this
+# script hit exactly that: "output (…, 0) already spent by transaction … in the
+# mempool". Sleeping is crude and honest; the alternative is polling for the
+# successor address, which is what follow-grant exists to do if this ever needs
+# to be less patient.
+settle_wait() { printf "waiting for the network to accept it"; for _ in 1 2 3 4 5 6 7 8; do sleep 4; printf "."; done; echo; }
+
+settle_wait
 say "3/5  a delegation, same"
 # No --child-out: build-delegation writes the child manifest itself, beside the
 # parent, as grant-child-<first 8 of the child key>.json. The child key is
@@ -122,6 +134,7 @@ CHILD="$(ls -t "$RIG"/grant-child-*.json 2>/dev/null | head -1)"
 [ -n "$CHILD" ] || fail "the delegation (no child manifest was written)"
 echo "child manifest: $CHILD"
 
+settle_wait
 say "4/5  settling the child home"
 # Two inputs, two keys: the parent's AGENT signs the reabsorb and the child's
 # REVOCATION signs the settle. WARDA_SK is the agent; WARDA_REVOCATION_SK is
@@ -131,6 +144,7 @@ WARDA_REVOCATION_SK="$(cat "$FUNDER")" \
   $N sdk/tools/build-settlement.ts "$RIG/grant.json" "$CHILD" \
   --fee $LOW --submit || fail "the settlement"
 
+settle_wait
 say "5/5  revoking the grant, which returns the coin"
 # A revoke is signed by the REVOCATION key, not the agent's — that separation
 # is the whole reason a lost agent key does not strand a grant. quickstart made

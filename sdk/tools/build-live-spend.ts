@@ -37,7 +37,7 @@
  *   --prefix, --rpc, --principal, --revocation, --depth as elsewhere
  */
 
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 
 import { EMPTY_RESERVE } from "../src/keys.ts";
 
@@ -392,6 +392,37 @@ if (process.argv.includes("--submit")) {
       );
     }
     console.error(`  the grant now lives at ${successorAddress}`);
+
+    /**
+     * And the manifest is moved with it.
+     *
+     * This printed the successor address and left grant.json describing the
+     * grant as it was BEFORE the spend — so the very next command that read
+     * that file looked for a UTXO this transaction had just spent, and failed
+     * with "already spent by transaction … in the mempool". Which is the
+     * headline trap of this entire project, in its own tools: a grant's
+     * address is a hash of its state, so spending MOVES it.
+     *
+     * build-delegation and build-settlement both already advanced their
+     * manifests. The one that did not was the operation people actually
+     * perform, and it was invisible because a spend is usually the last thing
+     * anyone runs in a session.
+     *
+     * Written after the submit is accepted, never before: a file that records
+     * a spend the network refused describes a grant that does not exist, and
+     * the address derived from it holds nothing — indistinguishable from a
+     * grant that was drained. Output 0 is the successor covenant; output 1 is
+     * the payment.
+     */
+    const advanced = {
+      ...m,
+      grant_value: Number(tx.outputs[0]!.value),
+      spent_total: Number(unsigned.successorState.spentTotal),
+      epoch_index: Number(unsigned.successorState.epochIndex),
+      epoch_spent: Number(unsigned.successorState.epochSpent),
+    };
+    writeFileSync(manifestPath, JSON.stringify(advanced, null, 2) + "\n");
+    console.error(`  ${manifestPath} advanced to match`);
   } catch (e) {
     const message = (e as Error).message ?? String(e);
     // The node names the exact fee it wants. Turning that into the command
