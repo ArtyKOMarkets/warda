@@ -253,7 +253,7 @@
     <p style="max-width:56ch">
       Run your own:
     </p>
-    <pre><code>kaspad --testnet --netsuffix=10 --utxoindex \
+    <pre class="tm" data-label="BASH"><code>kaspad --testnet --netsuffix=10 --utxoindex \
       --rpclisten-json=127.0.0.1:18210</code></pre>
     <p style="max-width:56ch">
       Both flags matter. Without <code>--utxoindex</code> a node reports every grant as spent.
@@ -288,17 +288,17 @@
     <h2 style="max-width:22ch">Three packages. Nothing to compile.</h2>
     <p class="lede">Compiled JavaScript with TypeScript declarations. Node 20+, no build step, no Rust toolchain and no Silverscript compiler — address derivation splices values into a compiled covenant template that ships inside the package.</p>
 
-<pre><span class="c"># the SDK — build, sign and verify grants</span>
+<div class="tinstall"><span class="c"># the SDK — build, sign and verify grants</span>
 npm install @warda_protocol/kaspa
 
 <span class="c"># the MCP server — hand an agent framework a Warda tool</span>
 npx @warda_protocol/mcp
 
 <span class="c"># the x402 adapter — pay metered APIs from a grant</span>
-npm install @warda_protocol/x402</pre>
+npm install @warda_protocol/x402</div>
 
     <h3 style="margin:2.1rem 0 0.75rem">Create a grant</h3>
-<pre><span class="k">import</span> { buildGenesis, attachGenesisSignature, signDigest, RecipientSet } <span class="k">from</span> <span class="s">"@warda_protocol/kaspa"</span>;
+<pre class="tm" data-label="TYPESCRIPT"><span class="k">import</span> { buildGenesis, attachGenesisSignature, signDigest, RecipientSet } <span class="k">from</span> <span class="s">"@warda_protocol/kaspa"</span>;
 <span class="k">import</span> template <span class="k">from</span> <span class="s">"@warda_protocol/kaspa/covenant-template.json"</span> <span class="k">with</span> { type: <span class="s">"json"</span> };
 
 <span class="c">// Who this agent may pay, committed as a Merkle root.</span>
@@ -323,7 +323,7 @@ npm install @warda_protocol/x402</pre>
 <span class="k">const</span> tx = attachGenesisSignature(unsigned, signDigest(unsigned.sighash, principalSecret));</pre>
 
     <h3 style="margin:2.1rem 0 0.75rem">Paying a metered API</h3>
-<pre><span class="k">import</span> { WardaPayer, wardaFetch } <span class="k">from</span> <span class="s">"@warda_protocol/x402"</span>;
+<pre class="tm" data-label="TYPESCRIPT"><span class="k">import</span> { WardaPayer, wardaFetch } <span class="k">from</span> <span class="s">"@warda_protocol/x402"</span>;
 
 <span class="k">const</span> payer = <span class="k">new</span> WardaPayer({
   grant: { template, authority, state, recipients },
@@ -340,7 +340,7 @@ npm install @warda_protocol/x402</pre>
     <p style="max-width:var(--measure);margin-bottom:1.4rem">It never pays twice. A second 402 means the payment is still settling, so the same proof is re-presented rather than a new one bought — and if the server never settles, it says the money is spent instead of paying again.</p>
 
     <h3 style="margin:2.1rem 0 0.75rem">The agent spends, unattended</h3>
-<pre><span class="k">import</span> { signSpend } <span class="k">from</span> <span class="s">"@warda_protocol/kaspa"</span>;
+<pre class="tm" data-label="TYPESCRIPT"><span class="k">import</span> { signSpend } <span class="k">from</span> <span class="s">"@warda_protocol/kaspa"</span>;
 
 <span class="k">const</span> { tx } = signSpend({
   template, authority, state,
@@ -480,7 +480,7 @@ npm install @warda_protocol/x402</pre>
     <h3 style="margin:2rem 0 0.75rem">Checking it yourself</h3>
     <p style="max-width:var(--measure)">The receipt was written by the process that made the payment, which is precisely the party not to take it from. So every claim in it is re-derived from the UTXO set:</p>
 
-<pre>node --experimental-strip-types x402/demo/verify-receipt.ts
+<pre class="tm" data-label="BASH">node --experimental-strip-types x402/demo/verify-receipt.ts
 
 <span class="c">  ok   the vendor was paid 20000000 sompi by 267e1bac1270fde3…
   ok   the address the grant spent FROM is now empty

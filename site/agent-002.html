@@ -208,6 +208,122 @@
   footer { padding: 3rem 0 4rem; border-top: 1px solid var(--edge); font-family: var(--mono);
            font-size: 0.72rem; color: var(--chrome-faint); }
 
+/* The terminal window. One component, every page.
+
+   The chrome is not decoration. A framed window with a title bar reads as a
+   RECORDING of something that happened; a bare <pre> reads as text somebody
+   typed into a document. That distinction earns its keep on this site more
+   than most, because several of these blocks end in a claim about what the
+   network actually did, and we want them read as transcripts rather than as
+   illustrations of syntax.
+
+   Written as `.tw .tm` rather than `.tm` throughout. Three pages style bare
+   `pre` on their own — /start via `.wrap pre`, /build and the landing page
+   directly — and those rules are one selector deeper than a bare class, so a
+   single-class rule loses to them and the transcript quietly inherits a
+   border, a ground and a top margin: a second, smaller box floating inside
+   the window with a dead band above it, which is precisely the "snippet
+   pasted into a document" look the chrome exists to defeat.
+
+   The bar is a SIBLING of the scroller, not a pseudo-element on it. A block
+   that scrolls horizontally would carry an absolutely-positioned bar out of
+   view with the content, leaving the window topless at exactly the moment a
+   long command is being read. */
+.tw {
+  border: 1px solid var(--edge-bright);
+  border-radius: 8px;
+  background: var(--void);
+  overflow: hidden;
+  margin: 1.4rem 0 1.05rem;
+  box-shadow: 0 18px 50px -24px rgba(0, 0, 0, 0.9);
+}
+.tbar {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.62rem 0.85rem;
+  background: rgba(16, 26, 32, 0.82);
+  border-bottom: 1px solid var(--edge);
+}
+.tbar i {
+  width: 0.68rem; height: 0.68rem; border-radius: 50%;
+  flex: none; display: block;
+}
+/* Muted rather than the usual saturated traffic lights: at full strength three
+   coloured circles out-shout the single red mark further down /start, which is
+   the only glyph on that page carrying an argument. */
+.tbar i:nth-child(1) { background: #C4554A; }
+.tbar i:nth-child(2) { background: #C08B3E; }
+.tbar i:nth-child(3) { background: #4E9A63; }
+.tbar span {
+  margin-left: 0.5rem;
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.22em;
+  color: var(--chrome-faint);
+}
+
+.tw .tm {
+  padding: clamp(1rem, 3vw, 1.5rem) clamp(0.9rem, 3vw, 1.4rem);
+  margin: 0;
+  border: 0;
+  background: none;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: clamp(0.66rem, 1.55vw, 0.78rem);
+  line-height: 1.95;
+  color: var(--chrome);
+  white-space: pre;
+}
+
+/* A transcript alternates command and result, and the air between lines is
+   what separates them. Source code is continuous — the same air just makes
+   twenty-five lines scroll for fifty, so the label the author gave the block
+   picks its density. */
+.tw[data-label="TYPESCRIPT"] .tm,
+.tw[data-label="PYTHON"] .tm { line-height: 1.72; }
+
+/* One vocabulary, so a class does not mean two things on two pages. */
+.tw .tm .p   { color: var(--chrome-faint); }   /* the $ prompt */
+.tw .tm .cmd { color: var(--chrome); }         /* what you type */
+.tw .tm .c   { color: var(--chrome-faint); }   /* a comment */
+.tw .tm .d   { color: var(--chrome-faint); }   /* an aside under a result */
+.tw .tm .k   { color: var(--teal); }           /* a keyword */
+.tw .tm .s   { color: var(--chrome-dim); }     /* a string literal */
+.tw .tm .a   { color: var(--amber); }          /* an argument: a URL, a path */
+.tw .tm .v   { color: var(--teal-deep); }      /* a value: an address, an amount */
+.tw .tm .ok  { color: var(--teal); }           /* what happened */
+.tw .tm .no  { color: var(--refuse); }         /* what cannot happen */
+
+/* The site styles inline <code> with its own ground so it reads as code inside
+   a sentence. Inside a terminal that ground becomes a grey box behind every
+   line, which is exactly the wrong emphasis. The same rule has to win back
+   font-size and line-height, which `.wrap pre code` otherwise sets. */
+.tw .tm code, .tw .tm code span {
+  background: none; border: 0; padding: 0;
+  font-family: inherit; font-size: inherit; line-height: inherit; color: inherit;
+}
+
+/* An install block is not a transcript: nothing happened yet, there is no
+   output, and framing it as a recording would be a small lie. It gets the
+   same ground and the same type, without the window. */
+.tinstall {
+  border: 1px solid var(--edge);
+  border-radius: 6px;
+  background: rgba(16, 26, 32, 0.5);
+  padding: clamp(0.85rem, 2.4vw, 1.15rem) clamp(0.9rem, 3vw, 1.3rem);
+  margin: 1.4rem 0 1.05rem;
+  font-family: var(--mono);
+  font-size: clamp(0.66rem, 1.5vw, 0.76rem);
+  line-height: 1.9;
+  white-space: pre;
+  overflow-x: auto;
+  color: var(--chrome);
+}
+.tinstall .c { color: var(--chrome-faint); }
+.tinstall .a { color: var(--amber); }
+.tinstall .v { color: var(--teal-deep); }
+
 </style><style>
   /* ---- the timelock, which is this page's argument --------------------- */
 
@@ -664,11 +780,11 @@
     <div class="row"><span class="k">Buys from</span><span class="v" id="b-endpoint">&mdash;</span></div>
   </div>
   <p style="margin-top:1.6rem">Reproduce the purchase yourself:</p>
-  <pre>git clone https://github.com/ArtyKOMarkets/warda &amp;&amp; cd warda/agent-002
+  <div class="tw" data-label="BASH"><div class="tbar"><i></i><i></i><i></i><span>BASH</span></div><pre class="tm">git clone https://github.com/ArtyKOMarkets/warda &amp;&amp; cd warda/agent-002
 source ../ops/node.env
 WARDA_SK=$(cat ../covenant/deploy/agent-002.key) \
   node --experimental-strip-types tools/buy.ts \
-  https://warda-demo-api.vercel.app/digest</pre>
+  https://warda-demo-api.vercel.app/digest</pre></div>
   <p class="note">
     The key is not in the repository, so that command will pay from <em>your</em> grant, not
     ours. <a href="https://github.com/ArtyKOMarkets/warda/tree/main/agent-002">agent-002/README.md</a>

@@ -499,7 +499,7 @@
     unlocking script carries the limits &mdash; that is what the agent is given, and it is
     all the agent is given.
   </p>
-  <pre><code>npx warda wallet
+  <pre class="tm" data-label="BASH"><code>npx warda wallet
   address     kaspatest:qr7z53sv56te4ya8r378y2xwcrj3vqr3p5gzl6kkx205v7anh6u0zefx77c4m
   holds       12.4 KAS across 7 coins
   largest     3.1 KAS</code></pre>
@@ -517,7 +517,7 @@
     Count it, merge it, then bound it &mdash; the key that received it funds a grant directly,
     so nothing has to be moved anywhere:
   </p>
-  <pre><code>npx warda wallet     --key earnings.key
+  <pre class="tm" data-label="BASH"><code>npx warda wallet     --key earnings.key
 npx warda wallet consolidate --key earnings.key --submit
 npx warda grant      --key earnings.key --payees payees.txt --budget 2</code></pre>
 </section>
@@ -530,7 +530,7 @@ npx warda grant      --key earnings.key --payees payees.txt --budget 2</code></p
     cannot be faked. Two options: run <code>kaspad</code> yourself, or set
     <code>WARDA_RESOLVER</code> to a Kaspa Resolver and let the SDK find a public node.
   </p>
-  <pre><code>git clone https://github.com/ArtyKOMarkets/warda &amp;&amp; cd warda
+  <pre class="tm" data-label="BASH"><code>git clone https://github.com/ArtyKOMarkets/warda &amp;&amp; cd warda
 npm install
 
 node --experimental-strip-types sdk/tools/check-node.ts --rpc wss://YOUR-NODE</code></pre>
@@ -556,7 +556,7 @@ node --experimental-strip-types sdk/tools/check-node.ts --rpc wss://YOUR-NODE</c
     for the grant, an <strong>agent</strong> that spends within it, and a
     <strong>revocation</strong> key that can end it. The agent never holds the other two.
   </p>
-  <pre><code>node --experimental-strip-types sdk/tools/new-key.ts --label wallet --out wallet.key</code></pre>
+  <pre class="tm" data-label="BASH"><code>node --experimental-strip-types sdk/tools/new-key.ts --label wallet --out wallet.key</code></pre>
   <p style="max-width:60ch;color:var(--chrome-dim)">
     It prints the address. Fund it from a testnet-10 faucet, then carry on &mdash; the next
     step will tell you if the balance is short before it creates anything.
@@ -571,7 +571,7 @@ node --experimental-strip-types sdk/tools/check-node.ts --rpc wss://YOUR-NODE</c
     the coin. To pay someone not on it there is no valid transaction: not one the network
     would reject, none at all. Start with the demo vendor, which is a real 402 endpoint:
   </p>
-  <pre><code>echo kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4 &gt; payees.txt</code></pre>
+  <pre class="tm" data-label="BASH"><code>echo kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4 &gt; payees.txt</code></pre>
   <p class="needs">
     That address is <code>covenant/deploy/demo-vendor.key.pub</code> as a pay-to-public-key
     address, and it is what <code>warda-demo-api.vercel.app</code> quotes for
@@ -584,7 +584,7 @@ node --experimental-strip-types sdk/tools/check-node.ts --rpc wss://YOUR-NODE</c
 <section class="rule">
   <p class="eyebrow">Step 3 &middot; create the grant</p>
   <h2>One command, and it refuses before it creates.</h2>
-  <pre><code>WARDA_SK=$(cat wallet.key) node --experimental-strip-types sdk/tools/quickstart.ts \
+  <pre class="tm" data-label="BASH"><code>WARDA_SK=$(cat wallet.key) node --experimental-strip-types sdk/tools/quickstart.ts \
   --recipients payees.txt --rpc wss://YOUR-NODE</code></pre>
   <p style="max-width:60ch;color:var(--chrome-dim)">
     It checks every precondition first and reports all of them at once &mdash; a quickstart
@@ -606,7 +606,7 @@ node --experimental-strip-types sdk/tools/check-node.ts --rpc wss://YOUR-NODE</c
 <section class="rule">
   <p class="eyebrow">Step 4 &middot; spend it</p>
   <h2>A real 402, against an endpoint that checks the chain.</h2>
-  <pre><code>WARDA_SK=$(cat agent.key) node --experimental-strip-types agents/tools/buy.ts \
+  <pre class="tm" data-label="BASH"><code>WARDA_SK=$(cat agent.key) node --experimental-strip-types agents/tools/buy.ts \
   https://warda-demo-api.vercel.app/fact \
   --id MY-AGENT --grant grant.json --recipients payees.txt --out purchases</code></pre>
   <p style="max-width:60ch;color:var(--chrome-dim)">
@@ -629,7 +629,7 @@ node --experimental-strip-types sdk/tools/check-node.ts --rpc wss://YOUR-NODE</c
     stdout, every diagnostic on stderr, and <strong>exit codes that tell you whether money
     moved</strong>.
   </p>
-  <pre><code>import json, os, subprocess
+  <pre class="tm" data-label="PYTHON"><code>import json, os, subprocess
 
 r = subprocess.run(
     ["node", "--experimental-strip-types", "agents/tools/buy.ts",

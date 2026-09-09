@@ -1,82 +1,13 @@
-/* The whole product in nine lines, in a terminal that looks like a terminal.
-   
-   Placed above every word of prose on /start and in the landing page's build
-   section, because the question a developer arrives with is "what does using
-   this look like", and ten sections of correct explanation do not answer it.
-   
-   The chrome is not decoration. A framed window with a title bar reads as a
-   RECORDING of something that happened; a bare <pre> reads as a snippet
-   somebody typed into a document. The difference matters here more than most
-   places, because the last two lines are a claim about what the network did,
-   and we want them read as a transcript. */
-.qsw {
-  border: 1px solid var(--edge-bright);
-  border-radius: 8px;
-  background: var(--void);
-  overflow: hidden;
-  box-shadow: 0 18px 50px -24px rgba(0, 0, 0, 0.9);
-}
-.qsbar {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  padding: 0.62rem 0.85rem;
-  background: rgba(16, 26, 32, 0.82);
-  border-bottom: 1px solid var(--edge);
-}
-.qsbar i {
-  width: 0.68rem; height: 0.68rem; border-radius: 50%;
-  flex: none; display: block;
-}
-/* Muted rather than the usual saturated traffic lights: at full strength three
-   coloured dots out-shout the one red mark further down, which is the only
-   thing on this page carrying an argument. */
-.qsbar i:nth-child(1) { background: #C4554A; }
-.qsbar i:nth-child(2) { background: #C08B3E; }
-.qsbar i:nth-child(3) { background: #4E9A63; }
-.qsbar span {
-  margin-left: 0.5rem;
-  font-family: var(--mono);
-  font-size: 0.6rem;
-  letter-spacing: 0.22em;
-  color: var(--chrome-faint);
-}
+/* The whole product in nine lines, placed above every word of prose on /start
+   and in the landing page's build section, because the question a developer
+   arrives with is "what does using this look like", and ten sections of
+   correct explanation do not answer it.
 
-/* Every rule below is written as `.qsw .qs` rather than `.qs`. The page-wide
-   `.wrap pre` rule is two selectors deep, so a bare `.qs` loses to it on
-   specificity and the transcript inherits that rule's border, ground and
-   1.4rem top margin -- which inside a framed window renders as a second,
-   smaller box floating below the title bar with a dead band above it. The
-   window IS the box; the pre must bring nothing of its own. */
-.qsw .qs {
-  padding: clamp(1rem, 3vw, 1.5rem) clamp(0.9rem, 3vw, 1.4rem);
-  margin: 0;
-  border: 0;
-  background: none;
-  overflow-x: auto;
-  font-family: var(--mono);
-  font-size: clamp(0.66rem, 1.55vw, 0.78rem);
-  line-height: 1.95;
-  color: var(--chrome);
-  white-space: pre;
-}
-.qsw .qs .p  { color: var(--chrome-faint); }   /* the $ prompt */
-.qsw .qs .c  { color: var(--chrome); }         /* what you type */
-.qsw .qs .a  { color: var(--amber); }          /* an argument: a URL, a path */
-.qsw .qs .s  { color: var(--teal-deep); }      /* a value: an address, a flag */
-.qsw .qs .ok { color: var(--teal); }           /* what happened */
-.qsw .qs .no { color: var(--refuse); }         /* what cannot happen */
-.qsw .qs .d  { color: var(--chrome-faint); }   /* an aside */
-
-/* The site styles inline <code> with its own ground so it reads as code inside
-   a sentence. Inside a terminal that ground becomes a grey box behind every
-   line, which is exactly the wrong emphasis. The same rule also has to win
-   back font-size and line-height, which `.wrap pre code` otherwise sets. */
-.qsw .qs code, .qsw .qs code span {
-  background: none; border: 0; padding: 0;
-  font-family: inherit; font-size: inherit; line-height: inherit; color: inherit;
-}
-
+   The window itself now lives in _terminal.css and is shared with every other
+   page — this file holds only what is particular to the quickstart, which is
+   its position on the page. When the same chrome appeared on /build and the
+   landing page, keeping a second private copy of it here would have meant two
+   definitions of one component drifting apart at the first change. */
 .qs-note {
   margin: 0.9rem 0 0;
   max-width: 62ch;
@@ -85,22 +16,3 @@
   line-height: 1.65;
 }
 .qs-note strong { color: var(--chrome); font-weight: 500; }
-
-/* The install, split out above the walkthrough. Two different questions —
-   "how do I get it" and "what does using it look like" — and answering them
-   in one block makes the second one start on line four. */
-.qsi {
-  border: 1px solid var(--edge);
-  border-radius: 6px;
-  background: rgba(16, 26, 32, 0.5);
-  padding: clamp(0.85rem, 2.4vw, 1.15rem) clamp(0.9rem, 3vw, 1.3rem);
-  margin-bottom: clamp(1rem, 3vw, 1.5rem);
-  font-family: var(--mono);
-  font-size: clamp(0.66rem, 1.5vw, 0.76rem);
-  line-height: 1.9;
-  white-space: pre;
-  overflow-x: auto;
-  color: var(--chrome);
-}
-.qsi .d { color: var(--chrome-faint); }
-.qsi .a { color: var(--amber); }

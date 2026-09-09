@@ -55,6 +55,12 @@ WALLET_JS = (here / "src" / "_wallet.js").read_text()
 QS_HTML = (here / "src" / "_quickstart.html").read_text()
 QS_CSS = (here / "src" / "_quickstart.css").read_text()
 
+# The terminal window, shared by every page that shows a command. Injected
+# by frame_terminals() rather than through a placeholder, because a
+# placeholder would have to be pasted into nine <style> blocks by hand and
+# the tenth page to grow a transcript would silently render unstyled.
+TERMINAL_CSS = (here / "src" / "_terminal.css").read_text()
+
 NAV_HTML = (here / "src" / "_nav.html").read_text()
 NAV_CSS = (here / "src" / "_nav.css").read_text()
 
@@ -426,6 +432,61 @@ HEAD = """<!doctype html>
 <meta name="color-scheme" content="dark">
 """
 
+# A whole block at a time. <pre> cannot nest, so the first </pre> after an
+# opening tag is always its own — which makes a single non-greedy match both
+# correct and far safer than opening a wrapper here and counting closes later.
+TERM_RE = re.compile(
+    r'<pre class="tm"(?P<attrs>[^>]*)>(?P<body>.*?)</pre>',
+    re.DOTALL,
+)
+LABEL_RE = re.compile(r'\sdata-label="([^"]*)"')
+
+
+def frame_terminals(html: str) -> str:
+    """Wrap every <pre class="tm" data-label="X"> in its window chrome.
+
+    Done here rather than in the source files because the wrapper is four
+    tags around twenty-odd blocks, and twenty hand-written copies of the same
+    wrapper is twenty chances to close one in the wrong place. The author
+    writes the pre and names the language; the bar is generated.
+
+    A page with no transcript is returned untouched, stylesheet included, so
+    adding this changes exactly the pages it is meant to change and no others.
+    """
+    if 'class="tm"' not in html and 'class="tinstall"' not in html:
+        return html
+
+    missing = []
+
+    def wrap(m):
+        attrs = m.group("attrs")
+        label = LABEL_RE.search(attrs)
+        if not label:
+            missing.append(m.group(0)[:70])
+            return m.group(0)
+        rest = LABEL_RE.sub("", attrs).strip()
+        rest = (" " + rest) if rest else ""
+        return (
+            f'<div class="tw" data-label="{label.group(1)}">'
+            '<div class="tbar"><i></i><i></i><i></i>'
+            f"<span>{label.group(1)}</span></div>"
+            f'<pre class="tm"{rest}>{m.group("body")}</pre></div>'
+        )
+
+    html = TERM_RE.sub(wrap, html)
+    if missing:
+        # A bar with no language on it is worse than no bar: it is chrome that
+        # says nothing. Fail the build rather than ship one.
+        raise SystemExit(
+            "frame_terminals: pre.tm without data-label:\n  "
+            + "\n  ".join(missing)
+        )
+
+    if "</style>" not in html:
+        raise SystemExit("frame_terminals: a page with a terminal has no <style>")
+    return html.replace("</style>", TERMINAL_CSS + "\n</style>", 1)
+
+
 def as_document(html: str) -> str:
     """Wrap an artifact body in the document skeleton a web host does not add."""
     cut = html.rindex("</style>") + len("</style>")
@@ -507,6 +568,9 @@ for outdir, subs in flavours.items():
             html = html.replace(k, v)
         # Per page, after the shared substitutions, so the active item is right.
         html = html.replace("{{NAV}}", nav_for(name))
+        # After the substitutions, so blocks that arrive inside an injected
+        # component (the quickstart) are framed too.
+        html = frame_terminals(html)
         # Only the web flavour. The artifact host wraps the body itself, and a
         # second <html> inside its skeleton is a malformed document.
         if outdir == "web":
