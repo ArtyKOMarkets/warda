@@ -80,7 +80,22 @@ import { requiredFeeFrom, submitCorrectingFee } from "./fee.ts";
  * 1,437,200. A fee is not part of the shape a script engine verifies, so
  * `cargo run -- verify` accepts a transaction no node will relay.
  */
-const DEFAULT_FEE = 5_000_000n;
+/**
+ * Measured, not guessed: a settlement, two covenant inputs massed 29,052 and the node required
+ * 2,905,200 sompi — 100 per unit of mass, which is now six measurements
+ * across six transaction shapes and has never varied.
+ *
+ * This was 5,000,000, so every one of these overpaid by roughly double — a
+ * number chosen to be safely too big back when being refused meant a failed
+ * command rather than an automatic retry.
+ *
+ * About 20% over the measured figure rather than exactly it. Mass varies with
+ * the shape: a deeper recipients tree means a longer Merkle proof, more bytes
+ * and more mass, so a default pinned to one measurement would make the
+ * corrector fire on every slightly larger grant. The headroom covers ordinary
+ * variation; `submitCorrectingFee` covers the rest and says so out loud.
+ */
+const DEFAULT_FEE = 3_500_000n;
 const SETTLE_COMPUTE_BUDGET = 32;
 
 function flag(name: string, fallback?: string): string | undefined {

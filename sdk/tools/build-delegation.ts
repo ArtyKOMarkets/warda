@@ -102,7 +102,22 @@ import { requiredFeeFrom, submitCorrectingFee } from "./fee.ts";
  * delegation carries the machinery for two grants. 1,000,000 is an ordinary
  * transfer's fee and was never going to cover it.
  */
-const DEFAULT_FEE = 3_000_000n;
+/**
+ * Measured, not guessed: a delegation massed 15,514 and the node required
+ * 1,551,400 sompi — 100 per unit of mass, which is now six measurements
+ * across six transaction shapes and has never varied.
+ *
+ * This was 3,000,000, so every one of these overpaid by roughly double — a
+ * number chosen to be safely too big back when being refused meant a failed
+ * command rather than an automatic retry.
+ *
+ * About 20% over the measured figure rather than exactly it. Mass varies with
+ * the shape: a deeper recipients tree means a longer Merkle proof, more bytes
+ * and more mass, so a default pinned to one measurement would make the
+ * corrector fire on every slightly larger grant. The headroom covers ordinary
+ * variation; `submitCorrectingFee` covers the rest and says so out loud.
+ */
+const DEFAULT_FEE = 1_900_000n;
 const DELEGATE_COMPUTE_BUDGET = 24;
 
 function flag(name: string, fallback?: string): string | undefined {

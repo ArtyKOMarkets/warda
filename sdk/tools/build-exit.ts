@@ -67,7 +67,22 @@ const DAA_BACKOFF = 100n;
  * exit this tool ever produced. A default only wrong at broadcast survives any
  * amount of offline checking.
  */
-const DEFAULT_FEE = 3_000_000n;
+/**
+ * Measured, not guessed: a revoke massed 14,372 and the node required
+ * 1,437,200 sompi — 100 per unit of mass, which is now six measurements
+ * across six transaction shapes and has never varied.
+ *
+ * This was 3,000,000, so every one of these overpaid by roughly double — a
+ * number chosen to be safely too big back when being refused meant a failed
+ * command rather than an automatic retry.
+ *
+ * About 20% over the measured figure rather than exactly it. Mass varies with
+ * the shape: a deeper recipients tree means a longer Merkle proof, more bytes
+ * and more mass, so a default pinned to one measurement would make the
+ * corrector fire on every slightly larger grant. The headroom covers ordinary
+ * variation; `submitCorrectingFee` covers the rest and says so out loud.
+ */
+const DEFAULT_FEE = 1_750_000n;
 /** One signature verification is 100,000 script units; 12 covers this path,
  *  which does no Merkle work. Under-provisioning is rejected outright. */
 const EXIT_COMPUTE_BUDGET = 12;

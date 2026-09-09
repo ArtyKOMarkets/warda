@@ -74,7 +74,22 @@ import { requiredFeeFrom, submitCorrectingFee } from "./fee.ts";
  * node's own number into a command rather than a stack trace — that, not this
  * constant, is what makes a wrong guess survivable.
  */
-const DEFAULT_FEE = 3_000_000n;
+/**
+ * Measured, not guessed: a spend massed 14,982 and the node required
+ * 1,498,200 sompi — 100 per unit of mass, which is now six measurements
+ * across six transaction shapes and has never varied.
+ *
+ * This was 3,000,000, so every one of these overpaid by roughly double — a
+ * number chosen to be safely too big back when being refused meant a failed
+ * command rather than an automatic retry.
+ *
+ * About 20% over the measured figure rather than exactly it. Mass varies with
+ * the shape: a deeper recipients tree means a longer Merkle proof, more bytes
+ * and more mass, so a default pinned to one measurement would make the
+ * corrector fire on every slightly larger grant. The headroom covers ordinary
+ * variation; `submitCorrectingFee` covers the rest and says so out loud.
+ */
+const DEFAULT_FEE = 1_800_000n;
 
 const DAA_BACKOFF = 100n;
 /** checksig is 100,000 units on its own; 16 covers that plus a depth-4 proof. */
