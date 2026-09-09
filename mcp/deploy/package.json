@@ -1,7 +1,7 @@
 {
   "name": "warda-mcp-endpoint",
   "private": true,
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "The Warda MCP server, hosted over Streamable HTTP. Deploys the published package rather than the working tree.",
   "type": "module",
   "engines": {
@@ -9,6 +9,6 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
-    "@warda_protocol/mcp": "^0.4.3"
+    "@warda_protocol/mcp": "^0.5.0"
   }
 }
