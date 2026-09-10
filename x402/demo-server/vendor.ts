@@ -25,16 +25,27 @@
  * quoted amount. A vendor that trusted the header would pass just as happily
  * against a fabricated txid.
  *
+ * ## And it no longer implements any of that
+ *
+ * The quote signing, the on-chain check, the node fallback and the seven
+ * status codes moved into @warda_protocol/vendor. What is left here is a price
+ * list — which is all a seller should ever have had to write, and the reason
+ * for extracting it was that this file had become the only working proof that
+ * a covenant payment CAN be verified, locked inside one demo.
+ *
+ * The endpoints below are unchanged, deliberately: if this rewrite altered
+ * what a buyer sees, the extraction was not faithful and the live endpoints
+ * are where that shows.
+ *
  * ## Prices
  *
  * Every endpoint costs less than the published demo grant's per-payment cap of
  * 0.1 KAS, so the key on /attack can actually buy from here. A demo API priced
  * above what the demo grant may spend is a demo nobody can run.
  */
-import { createHmac, timingSafeEqual } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 
-import { NodeClient, resolveNode, resolverFrom, toHex } from "@warda_protocol/kaspa";
+import { openNode, replayAllowed, settle } from "@warda_protocol/vendor";
 
 interface Priced {
   sompi: bigint;
@@ -139,103 +150,22 @@ const SECRET = process.env.WARDA_QUOTE_SECRET ?? "warda-demo-quote";
 const rpc = () => process.env.WARDA_RPC_JSON;
 
 /**
- * A node, preferring the one this vendor was given.
+ * Replays are allowed here, ON PURPOSE, and this is the honest way to say so.
  *
- * ## Why there is a fallback at all
+ * @warda_protocol/vendor asks for a store of transaction ids it has already
+ * served, because a coin at your address stays there and a buyer can otherwise
+ * present the same proof forever. This demo runs as serverless functions with
+ * no database: a per-process set would warn on every cold start and protect
+ * nothing, since the next invocation is a different process.
  *
- * `WARDA_RPC_JSON` pointed at a Cloudflare *quick* tunnel, which is handed a
- * new random hostname every time it restarts. It restarted. Every paid request
- * after that failed, including one that had already been paid for, and nothing
- * anywhere said so — the second time in this repository that a public service
- * quietly went dark because it reached a laptop through a hostname that does
- * not survive a reboot.
+ * The demo is also not selling anything — /fact is free prose and /digest says
+ * in its own body where the free copy lives. What is being demonstrated is a
+ * payment, and paying twice for it demonstrates it twice.
  *
- * A published endpoint that only works while one machine is up is not
- * published. So a resolver-found public node is tried when the configured one
- * cannot be reached.
- *
- * ## What that costs, said out loud
- *
- * This vendor's entire security is "the money is visibly in the UTXO set", and
- * a node it does not control is the thing answering that question. A dishonest
- * one could report a payment that does not exist and this would hand over the
- * goods. That risk is the VENDOR's — a buyer loses nothing by it — the amounts
- * are testnet, and the alternative on offer is an endpoint that is down. It is
- * still a weaker claim than reading its own node, so which node answered is
- * reported in the response rather than left for someone to discover.
- *
- * The configured node is always tried first, and `NodeClient.open` checks a
- * resolved node is utxo-indexed, synced and on the right network before
- * anything is believed — the three ways a node returns a plausible wrong
- * answer instead of an error.
+ * `replayAllowed()` rather than leaving the option out, so that "we decided
+ * this" is visible in the source instead of looking like an oversight.
  */
-async function nodeFor(): Promise<{ client: NodeClient; readFrom: string }> {
-  const url = rpc();
-  let firstFailure: string | null = null;
-  if (url) {
-    try {
-      return { client: await NodeClient.connect({ url }), readFrom: "this vendor's own node" };
-    } catch (e) {
-      firstFailure = (e as Error).message;
-    }
-  }
-  if (resolverFrom({})) {
-    /**
-     * `resolveNode` then `open`, not `open` alone.
-     *
-     * `NodeClient.open` consults a resolver only when NO node is named, and it
-     * counts `WARDA_RPC_JSON` as naming one — correctly, for its own purposes.
-     * Here that variable holds the very url that just failed, so calling
-     * `open()` at this point re-dialled the dead host and threw the same error
-     * a second time. The fallback existed, was deployed, and did nothing.
-     *
-     * Resolving first and passing the url explicitly is what actually gets
-     * past a configured-but-unreachable node.
-     */
-    const found = await resolveNode({ networkId: "testnet-10" });
-    const { client, health } = await NodeClient.open({ url: found.url, networkId: "testnet-10" });
-    return {
-      client,
-      readFrom:
-        `a public node found by a resolver (kaspad ${health.serverVersion}), because this ` +
-        `vendor's own node could not be reached. A node this vendor does not control is ` +
-        `answering whether you paid it.`,
-    };
-  }
-  throw new Error(
-    firstFailure
-      ? `${firstFailure}\n\nNo WARDA_RESOLVER is set, so there was nothing to fall back to.`
-      : "no WARDA_RPC_JSON and no WARDA_RESOLVER: this vendor cannot read the chain",
-  );
-}
-
-/**
- * The quote, signed rather than remembered.
- *
- * The original held `issuedNonce` in a module variable. One caller at a time
- * on localhost, so it worked. Hosted, two agents overlapping means the second
- * quote overwrites the first, and the first agent's perfectly good payment is
- * rejected for a nonce mismatch it did nothing to cause — after it has already
- * spent the money.
- *
- * An HMAC over the path, the price and an expiry is verifiable with no memory
- * at all, which is also what lets this run as a serverless function where two
- * requests may not share a process.
- */
-function quote(path: string, sompi: bigint, expiresAt: number): string {
-  const mac = createHmac("sha256", SECRET).update(`${path}:${sompi}:${expiresAt}`).digest("hex");
-  return `${expiresAt}.${mac.slice(0, 32)}`;
-}
-function quoteValid(path: string, sompi: bigint, nonce: string): string | null {
-  const [expStr, mac] = String(nonce).split(".");
-  const expiresAt = Number(expStr);
-  if (!expStr || !mac || !Number.isFinite(expiresAt)) return "malformed quote";
-  if (Date.now() > expiresAt) return "the quote has expired; ask again";
-  const want = quote(path, sompi, expiresAt).split(".")[1]!;
-  const a = Buffer.from(mac), b = Buffer.from(want);
-  if (a.length !== b.length || !timingSafeEqual(a, b)) return "this quote was not issued here";
-  return null;
-}
+const SPENT = replayAllowed();
 
 export async function serve(
   path: string,
@@ -286,101 +216,27 @@ export async function serve(
   }
 
   const header = req.headers["x-payment"];
-  if (!header) {
-    const expiresAt = Date.now() + 120_000;
-    return send(402, {
-      x402Version: 1,
-      error: "payment required",
-      accepts: [
-        {
-          scheme: "exact",
-          network: "testnet-10",
-          asset: "KAS",
-          payTo,
-          amountSompi: priced.sompi.toString(),
-          nonce: quote(path, priced.sompi, expiresAt),
-          maxTimeoutSeconds: 60,
-        },
-      ],
-    });
-  }
 
-  let proof: { txid?: string; amountSompi?: string; nonce?: string };
-  try {
-    proof = JSON.parse(Buffer.from(String(header), "base64").toString("utf8"));
-  } catch {
-    return send(400, { error: "X-PAYMENT is not base64 JSON" });
-  }
-
-  const bad = quoteValid(path, priced.sompi, proof.nonce ?? "");
-  if (bad) return send(400, { error: bad });
-  if (!proof.txid) return send(400, { error: "no txid in the payment proof" });
-
-  /**
-   * INSIDE the try, not above it.
-   *
-   * This connect sat outside, so a node this function could not reach threw
-   * before any handler existed and the host answered its own generic 500 —
-   * an HTML error page, to a client holding a payment it had just broadcast.
-   * Every branch below already answers in JSON with a reason; the one failure
-   * most likely to actually happen in production was the one that did not.
-   */
-  let client: NodeClient;
-  let readFrom: string;
-  try {
-    ({ client, readFrom } = await nodeFor());
-  } catch (e) {
-    return send(503, {
-      error: `could not reach a node: ${(e as Error).message}`,
-      detail:
-        "the payment may well be on chain; this vendor cannot see it. Re-present the same " +
-        "X-PAYMENT header rather than paying again — this vendor has NOT been paid twice " +
-        "and a second payment would not help.",
-    });
-  }
-
-  try {
-    const utxos = await client.getUtxosByAddresses([payTo]);
-    const paid = utxos.find(
-      (u) => toHex(u.outpoint.transactionId) === proof.txid && u.entry.value === priced.sompi,
-    );
-    if (!paid) {
-      /* Not visible yet. Answering 402 here is what makes a well-built client
-         re-present the SAME proof rather than pay a second time, and it is the
-         case the adapter exists to handle. */
-      return send(402, { error: "payment not yet visible on chain", retry: true, readFrom });
-    }
-
-    /* The body is produced only AFTER the money is on chain, and it may fail:
-       /digest reaches out to where agent #001 publishes. A seller that has
-       taken payment and cannot deliver owes the buyer the reason, not a 500
-       with no txid in it — the buyer's money is already spent and its own
-       records need to say what it bought and from whom. */
-    let payload: unknown;
-    try {
-      payload = await priced.body();
-    } catch (e) {
-      return send(502, {
-        error: `payment settled but ${path} could not be produced: ${(e as Error).message}`,
-        settledBy: proof.txid,
-        seller: priced.seller,
-        paidTo: payTo,
-      });
-    }
-
-    return send(200, {
-      ...(payload as object),
+  /* Everything that used to live below this line — signing the quote, decoding
+     the proof, finding the coin, and choosing between 402-retry, 400, 409, 502,
+     503 and 200 — is @warda_protocol/vendor now. The seven answers matter more
+     than they look: a buyer holding a broadcast payment reads the status to
+     decide whether to wait, stop, or re-present the same proof, and the wrong
+     one there does not fail a test, it spends money twice. */
+  const result = await settle({
+    terms: {
+      resource: path,
+      payTo,
+      sompi: priced.sompi,
+      network: "testnet-10",
       seller: priced.seller,
-      paidTo: payTo,
-      settledBy: proof.txid,
-      verified: "a UTXO at this endpoint's payee address, from that transaction, for exactly the quoted amount",
-      /* WHICH node said so. The sentence above is only as good as the node
-         behind it, and this vendor does not always get to use its own. */
-      readFrom,
-    });
-  } catch (e) {
-    return send(503, { error: `could not reach a node: ${(e as Error).message}` });
-  } finally {
-    client.close();
-  }
+    },
+    paymentHeader: header === undefined ? null : String(header),
+    quote: { secret: SECRET, ttlMs: 120_000 },
+    spent: SPENT,
+    openNode: () => openNode({ rpc: rpc(), network: "testnet-10" }),
+    deliver: () => priced.body(),
+  });
+
+  return send(result.status, result.body);
 }

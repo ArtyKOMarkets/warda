@@ -1,0 +1,55 @@
+{
+  "name": "@warda_protocol/vendor",
+  "version": "0.1.0",
+  "description": "Sell an API for Kaspa over HTTP 402. Quotes a price, then verifies the payment is in the UTXO set before serving \u2014 it never trusts the payment header.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --experimental-strip-types --test test/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+  },
+  "dependencies": {
+    "@warda_protocol/kaspa": "^0.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.0"
+  },
+  "keywords": [
+    "kaspa",
+    "x402",
+    "http-402",
+    "agent-payments",
+    "paid-api",
+    "vendor"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ArtyKOMarkets/warda.git",
+    "directory": "vendor"
+  },
+  "homepage": "https://wardaprotocol.com",
+  "bugs": {
+    "url": "https://github.com/ArtyKOMarkets/warda/issues"
+  },
+  "sideEffects": false
+}

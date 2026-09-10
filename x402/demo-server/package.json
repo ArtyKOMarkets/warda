@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@warda_protocol/kaspa": "^0.4.0"
+    "@warda_protocol/kaspa": "^0.5.0",
+    "@warda_protocol/vendor": "^0.1.0"
   },
   "description": "A real HTTP 402 endpoint agents can be pointed at. One function; the covenant decides what may be paid, this only checks the money arrived.",
   "engines": {

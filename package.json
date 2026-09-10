@@ -38,7 +38,8 @@
     "cli",
     "mcp",
     "x402",
-    "verify"
+    "verify",
+    "vendor"
   ],
   "repository": {
     "type": "git",
