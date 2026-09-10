@@ -112,6 +112,74 @@ export function dialect(body: unknown): "v1" | "v2" | { unsupported: number } {
 }
 
 /**
+ * Why a body that announced v2 is not v2.
+ *
+ * `result.error.message` is "value failed <schema url>" — true, and useless to
+ * the person holding the terminal. Underneath it is a `details` array; against
+ * one real gateway it held FIFTY-THREE entries, every one of them a property
+ * missing from `extra`, because v2's profiles carry a whole channel head in
+ * there (templateId, headId, expectedHeadOutpoint, headRedeemScript…) and this
+ * server had sent `{nonce, facilitator}`.
+ *
+ * `{nonce, facilitator}` is exactly a v1 quote. So the interesting case is not
+ * "malformed" at all — it is a v1 server that stamped x402Version: 2 on a v1
+ * body, and every field needed to pay it is sitting right there.
+ *
+ * This function SAYS that and stops. It deliberately does not fall back to the
+ * v1 path on its own: v1 and v2 bind a payment differently — v2 over
+ * {method, url, body} — so a client that guesses the server "probably meant v1"
+ * is a client that can broadcast a real payment the server then refuses to
+ * honour. That failure costs money and is unrecoverable; a refusal costs a
+ * round trip. Whoever reads this can pass the version they mean explicitly.
+ */
+function describeInvalidV2(body: unknown, error: { message: string; details?: unknown }): string {
+  const details = Array.isArray((error as { details?: unknown }).details)
+    ? ((error as { details: { instancePath?: string; params?: { missingProperty?: string } }[] }).details)
+    : [];
+
+  const missingFromExtra = [
+    ...new Set(
+      details
+        .filter((d) => (d.instancePath ?? "").endsWith("/extra") && d.params?.missingProperty)
+        .map((d) => d.params!.missingProperty!),
+    ),
+  ];
+
+  const accepts = (body as { accepts?: unknown[] } | null)?.accepts;
+  const first = Array.isArray(accepts) ? (accepts[0] as Record<string, unknown> | undefined) : undefined;
+  const extra = (first?.extra ?? {}) as Record<string, unknown>;
+  const extraKeys = Object.keys(extra);
+
+  /* A v1 quote wearing a v2 version number: the v2-only machinery is entirely
+     absent, and the v1 essentials are all present. Both halves are checked —
+     "extra is small" alone would also describe a genuinely broken v2 server. */
+  const looksV1 =
+    missingFromExtra.length > 0 &&
+    extraKeys.length > 0 &&
+    extraKeys.every((k) => k === "nonce" || k === "facilitator") &&
+    typeof first?.payTo === "string" &&
+    (typeof first?.amountSompi === "string" || typeof first?.amount === "string");
+
+  if (looksV1) {
+    return (
+      `this server announced x402Version 2, but sent a v1 quote: its \`extra\` carries ` +
+      `${extraKeys.join(" and ")}, and none of the ${missingFromExtra.length} fields a v2 ` +
+      `profile requires (${missingFromExtra.slice(0, 4).join(", ")}…). ` +
+      `Nothing here is malformed — it is a v1 body with a 2 on it. This client will not ` +
+      `assume v1 and pay anyway: the two versions bind a payment differently, so a guess ` +
+      `that is wrong broadcasts real money the server will not honour. Ask the operator ` +
+      `which version they mean.`
+    );
+  }
+
+  const where = [...new Set(details.map((d) => d.instancePath).filter(Boolean))].slice(0, 6);
+  return (
+    `this 402 body is not valid kaspa-x402 v2: ${error.message}` +
+    (where.length ? ` — the schema objected at ${where.join(", ")}` : "")
+  );
+}
+
+/**
  * Read a v2 402 body and pick the one requirement a Warda grant can satisfy.
  *
  * Their validator runs first, so a malformed body fails with their error and
@@ -123,7 +191,7 @@ export function dialect(body: unknown): "v1" | "v2" | { unsupported: number } {
 export function selectRequirement(body: unknown): ExactPaymentRequirements {
   const result = validatePaymentRequired(body);
   if (!result.ok) {
-    throw new X402Error(`this 402 body is not valid kaspa-x402 v2: ${result.error.message}`, 402);
+    throw new X402Error(describeInvalidV2(body, result.error), 402);
   }
   const required: PaymentRequired = result.value;
 
