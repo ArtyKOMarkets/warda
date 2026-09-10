@@ -235,6 +235,14 @@ switch (verb) {
         "--label",
         flag("label", "wallet")!,
         ...(out ? ["--out", out] : []),
+        /* new-key resolves a prefix and a network together and refuses the
+           pair when they disagree. Not forwarding these meant `warda key
+           --prefix kaspa` silently produced a TESTNET address — the one
+           failure that guard exists to prevent, reintroduced by the wrapper
+           that was supposed to expose it. Funding that address is money sent
+           to a chain nobody is watching. */
+        ...(flag("prefix") ? ["--prefix", flag("prefix")!] : []),
+        ...(flag("network") ? ["--network", flag("network")!] : []),
       ]),
     );
     break;
