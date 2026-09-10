@@ -43,6 +43,13 @@ CONTACTLOG="$HOME/Library/Logs/warda-first-contact.log"
 # it was built for. The run costs two API calls and one node query.
 CONTACTENTRY="7 9 * * * $OPS/first-contact.sh --quiet >> $CONTACTLOG 2>&1"
 
+# The public node proxy, checked every five minutes rather than supervised.
+# Cron cannot keep a daemon alive, but the failure being guarded against is a
+# laptop that slept — and noticing that within five minutes is the requirement.
+PROXY="$OPS/proxy-up.sh"
+PROXYLOG="$HOME/Library/Logs/warda-proxy.log"
+PROXYENTRY="*/5 * * * * $OPS/proxy-up.sh >> $PROXYLOG 2>&1"
+
 VENDOR="$OPS/check-vendor.sh"
 VENDORLOG="$HOME/Library/Logs/warda-vendor.log"
 VENDORENTRY="*/15 * * * * $VENDOR --quiet >> $VENDORLOG 2>&1"
@@ -78,7 +85,7 @@ fi
 # So: fix it if we can, refuse if we cannot. Installing a schedule of commands
 # that cannot run is worse than installing nothing, because the crontab then
 # says the job exists.
-for f in "$SCRIPT" "$BUY" "$VENDOR" "$CONTACT"; do
+for f in "$SCRIPT" "$BUY" "$VENDOR" "$CONTACT" "$PROXY"; do
   [ -f "$f" ] || continue
   [ -x "$f" ] && continue
   chmod +x "$f" 2>/dev/null || true
@@ -114,10 +121,12 @@ printf '%s\n' "$current" \
   | grep -v -F "daily-buy.sh" \
   | grep -v -F "check-vendor.sh" \
   | grep -v -F "first-contact.sh" \
+  | grep -v -F "proxy-up.sh" \
   | grep -v '^[[:space:]]*$' > /tmp/warda-cron.$$
 printf '%s\n' "$ENTRY" >> /tmp/warda-cron.$$
 printf '%s\n' "$VENDORENTRY" >> /tmp/warda-cron.$$
 printf '%s\n' "$CONTACTENTRY" >> /tmp/warda-cron.$$
+printf '%s\n' "$PROXYENTRY" >> /tmp/warda-cron.$$
 if [ -n "$WANT_BUY" ]; then printf '%s\n' "$BUYENTRY" >> /tmp/warda-cron.$$; fi
 crontab /tmp/warda-cron.$$
 rm -f /tmp/warda-cron.$$
