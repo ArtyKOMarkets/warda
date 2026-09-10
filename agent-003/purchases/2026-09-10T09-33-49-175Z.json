@@ -1,0 +1,25 @@
+{
+  "_comment": "Written by agent-002/tools/buy.ts. One file per attempt, refusals included: a purchase log that only records successes is a sales brochure.",
+  "at": "2026-09-10T09:33:49.175Z",
+  "agent": "WARDA-003",
+  "url": "https://warda-demo-api.vercel.app/weather",
+  "outcome": "bought",
+  "status": 200,
+  "quoted": {
+    "payTo": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
+    "amountSompi": "5000000"
+  },
+  "txid": "18225e2f241dc98ab6163b77f3914d4d93b4d19a918c4858fa96ac3675f229a5",
+  "sellerClaimed": "warda demo vendor",
+  "response": {
+    "city": "Athens",
+    "temperature": 27,
+    "unit": "celsius",
+    "source": "demo",
+    "seller": "warda demo vendor",
+    "paidTo": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
+    "settledBy": "18225e2f241dc98ab6163b77f3914d4d93b4d19a918c4858fa96ac3675f229a5",
+    "verified": "a UTXO at this endpoint's payee address, from that transaction, for exactly the quoted amount",
+    "readFrom": "this vendor's own node"
+  }
+}
