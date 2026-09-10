@@ -112,3 +112,23 @@ test("health reports what it is willing to do", async () => {
     "getBlockDagInfo", "getInfo", "getUtxosByAddresses", "submitTransaction",
   ]);
 });
+
+test("health asks the node rather than reporting it was configured", async () => {
+  const res = await fetch(`http://127.0.0.1:${PROXY_PORT}/health`);
+  const body = (await res.json()) as { ok: boolean; detail: string };
+  assert.equal(res.status, 200);
+  assert.equal(body.ok, true);
+  assert.match(body.detail, /answered getInfo/, "health must prove it spoke to the node");
+});
+
+test("and reports 503 when the node is gone — the case that matters", async () => {
+  // The whole point: a health check that cannot fail tells a stranger to go
+  // ahead and pay while the node behind it is dead.
+  fake.close();
+  await wait(6200); // outlive the health cache
+  const res = await fetch(`http://127.0.0.1:${PROXY_PORT}/health`);
+  const body = (await res.json()) as { ok: boolean; detail: string };
+  assert.equal(res.status, 503);
+  assert.equal(body.ok, false);
+  assert.ok(body.detail.length > 0, "a failure with no reason is not a report");
+});

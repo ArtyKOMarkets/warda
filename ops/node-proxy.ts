@@ -60,11 +60,59 @@ let served = 0;
 let refused = 0;
 let sockets = 0;
 
-const server = createServer((req, res) => {
+/**
+ * Health has to ASK the node, not report that it was configured.
+ *
+ * The first version of this answered `ok: true` unconditionally, which is the
+ * exact shape of every monitoring bug this project has already hit: a check
+ * that cannot fail is a check that reports health while the thing is dead, and
+ * something downstream then tells a stranger to go ahead and pay.
+ *
+ * So it dials upstream and calls getInfo. Cached for a few seconds because a
+ * public /health that opens a socket per request is a way to attack the node
+ * through the endpoint that exists to watch it.
+ */
+const HEALTH_CACHE_MS = 5_000;
+let cached: { at: number; ok: boolean; detail: string } | null = null;
+
+function probeUpstream(): Promise<{ ok: boolean; detail: string }> {
+  return new Promise((resolve) => {
+    const started = Date.now();
+    let settled = false;
+    const finish = (ok: boolean, detail: string) => {
+      if (settled) return;
+      settled = true;
+      try { socket.close(); } catch { /* already gone */ }
+      resolve({ ok, detail });
+    };
+    const socket = new WebSocket(UPSTREAM);
+    const timer = setTimeout(() => finish(false, "kaspad did not answer within 4s"), 4_000);
+    socket.on("open", () => socket.send(JSON.stringify({ id: 1, method: "getInfo", params: {} })));
+    socket.on("message", (data) => {
+      clearTimeout(timer);
+      try {
+        const reply = JSON.parse(String(data));
+        if (reply.error) return finish(false, `kaspad said: ${String(reply.error).slice(0, 120)}`);
+        finish(true, `kaspad answered getInfo in ${Date.now() - started}ms`);
+      } catch {
+        finish(false, "kaspad sent something that is not JSON");
+      }
+    });
+    socket.on("error", (e) => { clearTimeout(timer); finish(false, `cannot reach kaspad: ${e.message}`); });
+    socket.on("close", () => { clearTimeout(timer); finish(false, "kaspad closed the connection"); });
+  });
+}
+
+const server = createServer(async (req, res) => {
   if (req.url === "/health") {
-    res.writeHead(200, { "content-type": "application/json" });
+    if (!cached || Date.now() - cached.at > HEALTH_CACHE_MS) {
+      const probed = await probeUpstream();
+      cached = { at: Date.now(), ...probed };
+    }
+    res.writeHead(cached.ok ? 200 : 503, { "content-type": "application/json" });
     res.end(JSON.stringify({
-      ok: true,
+      ok: cached.ok,
+      detail: cached.detail,
       upstream: UPSTREAM.replace(/\/\/.*@/, "//"),
       allowed: [...ALLOWED],
       served,
