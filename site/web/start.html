@@ -765,15 +765,36 @@ warda grant      --key earnings.key --payees payees.txt --budget 2</code></pre><
 
 <section class="rule">
   <p class="eyebrow">Step 0 &middot; the one prerequisite</p>
-  <h2>A node, or something that finds you one.</h2>
+  <h2>A node. Ours, to try it — yours, to rely on it.</h2>
   <p style="max-width:60ch;color:var(--chrome-dim)">
     A covenant spend has to be built against live chain state, so this is the one thing that
-    cannot be faked. <strong>You have to run <code>kaspad</code>.</strong> This page used to
-    offer a second option &mdash; point <code>WARDA_RESOLVER</code> at a Kaspa Resolver and let
-    it find you a public node &mdash; and that option does not work, so it is gone.
+    cannot be faked. Until today the only answer here was "run <code>kaspad</code> yourself",
+    which is a fair ask of an operator and an unreasonable one of somebody trying this for
+    ten minutes. So there is a testnet-10 node you can point at:
+  </p>
+  <div class="tinstall"><span class="c"># enough to finish this page. Not enough to build on.</span>
+export WARDA_RPC_JSON=<span class="a">wss://warda-node.tailc0c0ec.ts.net</span></div>
+  <p class="needs" id="qnode-msg" hidden style="border-color:var(--refuse);color:var(--chrome)"></p>
+  <p style="max-width:60ch;color:var(--chrome-dim)">
+    Read what that is before you trust it. It is <strong>a laptop</strong> behind a tunnel,
+    running testnet-10, and it will be down sometimes &mdash; this page says so when it is,
+    from a check that runs every fifteen minutes and asks the node rather than the door. It
+    forwards exactly four methods: <code>getInfo</code>, <code>getBlockDagInfo</code>,
+    <code>getUtxosByAddresses</code> and <code>submitTransaction</code>. Everything else,
+    including <code>shutdown</code> and <code>ban</code>, is refused by name, because kaspad's
+    RPC has no authentication and publishing it raw would hand every reader of this page the
+    ability to stop it.
   </p>
   <p class="needs">
-    <strong style="color:var(--chrome-dim);font-weight:500">Why, precisely.</strong> The public
+    <strong style="color:var(--chrome-dim);font-weight:500">A node you do not run is a node
+    you are trusting.</strong> It answers "what is in the UTXO set" and receives what you
+    broadcast, so a dishonest one could deny you service or misreport whether something
+    settled. What it <em>cannot</em> do is make a grant exceed its limits: the budget, the
+    per-payment cap and the allowlist are compiled into the script that unlocks the coin, and
+    no node is asked. On testnet none of this costs anything. For anything real, run your own.
+  </p>
+  <p class="needs">
+    <strong style="color:var(--chrome-dim);font-weight:500">Why there is no public one to fall back on.</strong> The public
     resolvers are real and there are sixteen of them, listed in rusty-kaspa's own
     <code>Resolvers.toml</code>. They serve <strong>borsh</strong>. This SDK speaks the JSON
     wRPC encoding, and kaspad only listens for it when started with
@@ -996,6 +1017,31 @@ paid["txid"], paid["paidSompi"], paid["body"]</code></pre></div>
  */
 (function () {
   if (!window.fetch) return;
+  /* The quickstart node, same shape and the same reason. This page now tells a
+     stranger where to send a payment, and the one thing it must never do is
+     stay quiet while that node is dead — they would read the silence as "it
+     works" and conclude the protocol is broken when the laptop is simply shut.
+
+     Absent file renders nothing: "we have not checked" is not "it is up". A
+     stale one renders nothing either, because a warning from an hour ago is a
+     claim about an hour ago. */
+  fetch("/node-status.json", { cache: "no-store" })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) {
+      if (!d || typeof d.ok !== "boolean" || d.ok) return;
+      var age = Date.now() - Date.parse(d.checkedAt);
+      if (!(age >= 0) || age > 3600000) return;
+      var el = document.getElementById("qnode-msg");
+      if (!el) return;
+      el.textContent =
+        "The node above is not answering right now — " + (d.detail || "reason unknown") +
+        ". It is a laptop, and this is the expected kind of outage. Run your own kaspad " +
+        "with --rpclisten-json= and --utxoindex and point WARDA_RPC_JSON at it, or come " +
+        "back later; nothing you did caused this.";
+      el.hidden = false;
+    })
+    .catch(function () {});
+
   fetch("/vendor-status.json", { cache: "no-store" })
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (d) {

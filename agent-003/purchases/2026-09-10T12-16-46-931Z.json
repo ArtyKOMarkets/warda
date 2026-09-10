@@ -1,0 +1,18 @@
+{
+  "_comment": "Written by agent-002/tools/buy.ts. One file per attempt, refusals included: a purchase log that only records successes is a sales brochure.",
+  "at": "2026-09-10T12:16:46.931Z",
+  "agent": "WARDA-003",
+  "url": "https://warda-demo-api.vercel.app/fact",
+  "outcome": "paid-but-refused",
+  "status": 503,
+  "quoted": {
+    "payTo": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
+    "amountSompi": "3000000"
+  },
+  "txid": "f73d65da5a7696e5641951dad243d24d96b1e745195d1cb500854dc5a029736c",
+  "sellerClaimed": null,
+  "response": {
+    "error": "could not reach a node: resolver https://resolver.kaspa.stream/v2/kaspa/testnet-10/any/wrpc/json did not answer: fetch failed",
+    "detail": "the payment may well be on chain; this vendor cannot see it. Re-present the same X-PAYMENT header rather than paying again — this vendor has NOT been paid twice and a second payment would not help."
+  }
+}
