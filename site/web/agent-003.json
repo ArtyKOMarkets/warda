@@ -1,13 +1,13 @@
 {
   "_comment": "Written by agents/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, the purchase log or the chain — none is typed. Each payee's LABEL is re-derived on every run from the artefact agents/known-payees.json names, and a label that stops matching is dropped rather than published: an address with no name is honest, an address with the wrong name is not.",
-  "checkedAt": "2026-09-10T08:40:02.141Z",
+  "checkedAt": "2026-09-10T09:34:55.580Z",
   "network": "testnet-10",
   "identity": {
     "agentId": "WARDA-003",
     "agent": "bf9921d061c7dbba26fbf682b15ed30bb287cfa41be777272fff0827f55ed2a1",
     "principal": "0393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34f",
     "revocation": "0393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34f",
-    "grantAddress": "kaspatest:pqfm0wzjlmfd6yyrv63j9pe7u6a7dhqwjycpmqzkrckngdnc9r3zv6m8ldq8j",
+    "grantAddress": "kaspatest:ppkrg5hd5eh2x0n0566q6m2paztrrjtdecsmyjqn5gdmwt00ra6q2wpgfsksj",
     "covenantId": "e8f9cc204f5872303dd8563b92c2b3af96327b1e1b4cee617113d12f0a743a8c",
     "template": "b3e5eeefacf2021f"
   },
@@ -44,7 +44,7 @@
   },
   "timelock": {
     "notBefore": "564404779",
-    "virtualDaaScore": "566708875",
+    "virtualDaaScore": "566740758",
     "open": true,
     "lockedFor": "5 minutes",
     "openedAgo": "3 days",
@@ -52,8 +52,8 @@
   },
   "authority": {
     "budget": "2 KAS",
-    "spent": "0.33 KAS",
-    "remaining": "1.67 KAS",
+    "spent": "0.71 KAS",
+    "remaining": "1.29 KAS",
     "maxPerPayment": "0.1 KAS",
     "epochLimit": "0.5 KAS",
     "epochLengthDaa": 1000,
@@ -63,19 +63,19 @@
       "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4"
     ],
     "delegationDepth": 2,
-    "onChain": "1.45 KAS",
+    "onChain": "0.97 KAS",
     "sompi": {
       "budget": "200000000",
-      "spent": "33000000",
+      "spent": "71000000",
       "reserved": "0",
       "maxPerPayment": "10000000",
       "epochLimit": "50000000",
-      "onChain": "145000000"
+      "onChain": "97000000"
     }
   },
   "activity": {
-    "payments": 6,
-    "paid": "0.29 KAS",
+    "payments": 11,
+    "paid": "0.67 KAS",
     "paidOutsideTheAllowlist": "0 KAS",
     "coins": [
       {
@@ -112,6 +112,36 @@
         "amount": "0.1 KAS",
         "daaScore": "566705767",
         "txid": "738f9dc654f2481a83653b7a574e384251bd4193856cc599f6e1b2b3c8e9408f",
+        "index": 1
+      },
+      {
+        "amount": "0.1 KAS",
+        "daaScore": "566710007",
+        "txid": "ccfb2bcbd62b165dbf2a181325570c377e445e788a4b9d088c71042bd5747821",
+        "index": 1
+      },
+      {
+        "amount": "0.1 KAS",
+        "daaScore": "566714140",
+        "txid": "93feeb5817feb37d428109ea318efe33e9d5a883a6d9584b0d054a17f1f3b41d",
+        "index": 1
+      },
+      {
+        "amount": "0.1 KAS",
+        "daaScore": "566714953",
+        "txid": "039251ece4696a9a2f2a7d2cb31e70ae5406a39a4f5ab34bc14c2429d53af71d",
+        "index": 1
+      },
+      {
+        "amount": "0.03 KAS",
+        "daaScore": "566731164",
+        "txid": "23c5a693a55eec89243bc8b612911fbcc61f6280f7bb652724252d8a94e1735f",
+        "index": 1
+      },
+      {
+        "amount": "0.05 KAS",
+        "daaScore": "566740006",
+        "txid": "18225e2f241dc98ab6163b77f3914d4d93b4d19a918c4858fa96ac3675f229a5",
         "index": 1
       }
     ]
@@ -182,15 +212,70 @@
       "payTo": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
       "refusal": null,
       "sellerClaimed": "warda demo vendor"
+    },
+    {
+      "at": "2026-09-10T08:41:52.878Z",
+      "outcome": "bought",
+      "url": "https://warda-demo-api.vercel.app/inference",
+      "reason": null,
+      "txid": "ccfb2bcbd62b165dbf2a181325570c377e445e788a4b9d088c71042bd5747821",
+      "paid": "0.1 KAS",
+      "payTo": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
+      "refusal": null,
+      "sellerClaimed": "warda demo vendor"
+    },
+    {
+      "at": "2026-09-10T08:48:39.558Z",
+      "outcome": "bought",
+      "url": "https://warda-demo-api.vercel.app/inference",
+      "reason": null,
+      "txid": "93feeb5817feb37d428109ea318efe33e9d5a883a6d9584b0d054a17f1f3b41d",
+      "paid": "0.1 KAS",
+      "payTo": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
+      "refusal": null,
+      "sellerClaimed": "warda demo vendor"
+    },
+    {
+      "at": "2026-09-10T08:49:55.816Z",
+      "outcome": "bought",
+      "url": "https://warda-demo-api.vercel.app/inference",
+      "reason": null,
+      "txid": "039251ece4696a9a2f2a7d2cb31e70ae5406a39a4f5ab34bc14c2429d53af71d",
+      "paid": "0.1 KAS",
+      "payTo": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
+      "refusal": null,
+      "sellerClaimed": "warda demo vendor"
+    },
+    {
+      "at": "2026-09-10T09:19:03.436Z",
+      "outcome": "bought",
+      "url": "https://warda-demo-api.vercel.app/fact",
+      "reason": null,
+      "txid": "23c5a693a55eec89243bc8b612911fbcc61f6280f7bb652724252d8a94e1735f",
+      "paid": "0.03 KAS",
+      "payTo": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
+      "refusal": null,
+      "sellerClaimed": "warda demo vendor"
+    },
+    {
+      "at": "2026-09-10T09:33:49.175Z",
+      "outcome": "bought",
+      "url": "https://warda-demo-api.vercel.app/weather",
+      "reason": null,
+      "txid": "18225e2f241dc98ab6163b77f3914d4d93b4d19a918c4858fa96ac3675f229a5",
+      "paid": "0.05 KAS",
+      "payTo": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
+      "refusal": null,
+      "sellerClaimed": "warda demo vendor"
     }
   ],
   "reconciliation": {
-    "spentPerTheCovenant": "0.33 KAS",
-    "namedByTheLog": "0.29 KAS",
+    "spentPerTheCovenant": "0.71 KAS",
+    "namedByTheLog": "0.67 KAS",
     "chargedHomeBySettlement": "0.04 KAS",
     "unrecorded": "0 KAS",
     "couldAccountForIt": [],
-    "note": "Every sompi the covenant says this grant spent is accounted for: 0.29 KAS by purchases it recorded, and 0.04 KAS charged home when a sub-agent it had funded settled back. That second figure is spending this grant paid for and did not do — the receipts are the child's."
+    "note": "Every sompi the covenant says this grant spent is accounted for: 0.67 KAS by purchases it recorded, and 0.04 KAS charged home when a sub-agent it had funded settled back. That second figure is spending this grant paid for and did not do — the receipts are the child's."
   },
   "refusals": [
     {

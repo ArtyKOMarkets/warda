@@ -475,3 +475,93 @@ Previously: A → B → C for a build-up, or D first if you want the one that ge
 D is the least like anything else in the timeline and the hardest to argue
 with, but it only lands once the reader knows what the thing is — so it works
 best after A or B rather than cold.
+
+---
+
+## J — the first time an agent tried to buy from a stranger
+
+Event first, per the rule the agent-hires-agent post sharpened. The event is
+first contact with someone outside this repo; the mechanism is the payoff; and
+it ends on a failure, which is what stops it drifting into a sell.
+
+Everything below is checkable. The quote is in `x402/test/fixtures/
+kaspai-win-402.json`, captured by `ops/interop-kaspai.ts`, and the claim about
+it is pinned by four tests in `x402/test/kaspai-interop.test.ts`.
+
+**1/**  *(graphic: marketing/img/warda-first-contact.png)*
+Today one of my agents asked a stranger's API what it costs.
+
+Not one of mine. A gateway run by people I have never spoken to, selling AI
+compute for Kaspa, on mainnet, for real money.
+
+It cost 0 KAS to find out we could not pay them.
+
+**2/**
+An HTTP 402 quote is free. No key, no transaction, nothing signed.
+
+You ask, and the server tells you the price, the address, the chain and the
+protocol version. Everything you need to decide is in the refusal.
+
+Almost nobody reads it before paying.
+
+**3/**
+Theirs said: 0.2 KAS, mainnet, and one fixed address.
+
+That last part matters more than it looks. A Warda grant commits to its payees
+when it is created and can never add one. A vendor that rotated its address
+would be unpayable by any grant, forever — no matter how well everything else
+matched.
+
+Theirs is fixed. So it could work.
+
+**4/**
+Then the version. Their quote announces `x402Version: 2`.
+
+The body is v1.
+
+Their `extra` carries `{nonce, facilitator}`. A v2 quote carries `binding`,
+`finality`, `profile`, `transactionEncoding` — twenty fields, and theirs has
+none of them. Their own published client still declares version 1 in its types.
+
+**5/**
+So we did not pay.
+
+v1 and v2 bind a payment to a request differently. A client that decides the
+server "probably meant v1" and pays anyway can broadcast real money the server
+then refuses to honour. That money does not come back.
+
+Refusing costs a round trip. Guessing costs 0.2 KAS and a support email.
+
+**6/**
+I checked this three ways before saying it out loud.
+
+That our copy of their schema is current — it is, alpha.10, latest on npm. That
+it is not simply a mainnet thing — a real v2 quote from their own reference
+server validates on mainnet fine. And that moving their body to testnet fixes
+it — it removes one error out of fifty-three.
+
+**7/**
+Nobody has paid a third-party x402 vendor from a covenant yet. Including me.
+
+Two other deployments of that standard refuse every payment I send them —
+including one from an ordinary wallet with no covenant in it at all, which is
+the control that removes my code from the question.
+
+The buyer's half works. The seller's half, out there, does not.
+
+**8/**
+So I published mine.
+
+`@warda_protocol/vendor` — quote a price, then look in the UTXO set for a coin
+at your address, from the transaction the buyer named, for exactly the amount
+you quoted. Never trust the payment header: it is written by the party who
+benefits from lying.
+
+It has been settling real payments all day.
+
+*Notes for re-running this. The numbers age: check the version claim still
+holds before reposting, because the whole thread is void if they fix it — and
+if they do, that is a better post than this one. Do NOT lead with the vendor
+package; post 8 works because seven posts of failure earned it. Rejected
+opener: "Most agent payment systems trust the client" is an idea, and an idea
+asks the reader to already care.*
