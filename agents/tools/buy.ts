@@ -205,6 +205,30 @@ const record = (result: Record<string, unknown>) => {
    the catch block needs the txid as much as the success path does. */
 const seen: { payTo?: string; amountSompi?: bigint; txid?: string } = {};
 
+/* Two chains, and nothing was checking they were the same one.
+   
+   A quote names the network it settles on — kaspa-x402 writes "kaspa:mainnet",
+   kaspad reports "kaspa-mainnet" — and this tool spends on whatever chain its
+   node is on. Those were never compared, so both mismatches were reachable and
+   neither announces itself:
+   
+   A mainnet vendor paid from a testnet node broadcasts a transaction they will
+   never see. The money is worthless, so this direction only wastes the call.
+   
+   A TESTNET vendor paid from a mainnet node spends real money to satisfy a
+   quote priced in coins that are not. Nothing rejects it: the payee script is
+   the same bytes either way — the prefix lives only in the address text — so
+   it broadcasts, confirms, and the vendor never sees it because they are not
+   watching that chain. Exit 4, unrecoverable, and it is the cheap direction of
+   a mistake that is not cheap.
+   
+   Compared on the tail after the separator, because the two sides disagree on
+   punctuation and neither spelling is wrong. */
+const sameChain = (quoted: string, node: string): boolean => {
+  const tail = (s: string) => s.trim().toLowerCase().replace(/^kaspa[:-]/, "");
+  return tail(quoted) === tail(node);
+};
+
 const node = await NodeClient.connect({ url: flag("rpc") ?? process.env.WARDA_RPC_JSON });
 try {
   /**
@@ -250,6 +274,17 @@ try {
         seen.payTo = e.requirement.payTo;
         seen.amountSompi = e.requirement.amountSompi;
         console.error(`  quoted : ${e.requirement.amountSompi} sompi to ${e.requirement.payTo}`);
+        /* Thrown from the quote handler, which wardaFetch emits before it
+           builds anything — so this refuses while the money is still ours. */
+        if (e.requirement.network && !sameChain(e.requirement.network, dag.network)) {
+          throw new Error(
+            `this vendor settles on "${e.requirement.network}" and this node is on ` +
+              `"${dag.network}". Nothing was paid.\n` +
+              `  A payment built here would be a valid transaction on the wrong chain: the ` +
+              `payee script is\n  identical either way, so it would broadcast and confirm, ` +
+              `and they would never see it.`,
+          );
+        }
       }
       if (e.type === "paid") {
         seen.txid = e.result.txid;
