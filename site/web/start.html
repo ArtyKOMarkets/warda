@@ -768,8 +768,20 @@ warda grant      --key earnings.key --payees payees.txt --budget 2</code></pre><
   <h2>A node, or something that finds you one.</h2>
   <p style="max-width:60ch;color:var(--chrome-dim)">
     A covenant spend has to be built against live chain state, so this is the one thing that
-    cannot be faked. Two options: run <code>kaspad</code> yourself, or set
-    <code>WARDA_RESOLVER</code> to a Kaspa Resolver and let the SDK find a public node.
+    cannot be faked. <strong>You have to run <code>kaspad</code>.</strong> This page used to
+    offer a second option &mdash; point <code>WARDA_RESOLVER</code> at a Kaspa Resolver and let
+    it find you a public node &mdash; and that option does not work, so it is gone.
+  </p>
+  <p class="needs">
+    <strong style="color:var(--chrome-dim);font-weight:500">Why, precisely.</strong> The public
+    resolvers are real and there are sixteen of them, listed in rusty-kaspa's own
+    <code>Resolvers.toml</code>. They serve <strong>borsh</strong>. This SDK speaks the JSON
+    wRPC encoding, and kaspad only listens for it when started with
+    <code>--rpclisten-json=</code> &mdash; borsh is the default, so that is what public
+    operators run. Asked for a JSON node on 10 September 2026,
+    <code>eric.kaspa.stream</code> answered <code>404</code> for <code>json</code> and
+    <code>200</code> for <code>borsh</code>, on mainnet and testnet alike. The resolver is up,
+    its pool is full, and it holds nothing we can talk to.
   </p>
   <div class="tw" data-label="BASH"><div class="tbar"><i></i><i></i><i></i><span>BASH</span></div><pre class="tm"><code>git clone https://github.com/ArtyKOMarkets/warda &amp;&amp; cd warda
 npm install

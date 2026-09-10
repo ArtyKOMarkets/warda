@@ -97,10 +97,29 @@ export async function resolveNode(options: ResolveOptions = {}): Promise<NodeDes
     throw new Error(`resolver ${url} did not answer: ${(e as Error).message}`);
   }
   if (!response.ok) {
-    throw new Error(
-      `resolver ${url} answered ${response.status}. A 404 here usually means no ` +
-        `node in its pool serves ${networkId} over the JSON encoding.`,
-    );
+    /* Measured, not guessed. On 2026-09-10 eric.kaspa.stream answered 404 for
+       .../wrpc/json and 200 for .../wrpc/borsh, on mainnet and testnet-10
+       alike — so the resolver was up, its pool was populated, and it held
+       nothing this SDK can talk to.
+       
+       That is the general case rather than one host's configuration. kaspad's
+       JSON wRPC port only listens when it is started with --rpclisten-json=,
+       borsh is the default, and the public node network is run by people
+       running the default. A 404 here is therefore the expected answer from a
+       healthy public resolver, which makes it the worst possible thing to
+       report as "not found". */
+    if (response.status === 404) {
+      throw new Error(
+        `resolver ${url} answered 404 — it has no ${networkId} node speaking the JSON\n` +
+          `wRPC encoding. This is normal: kaspad serves JSON only when started with\n` +
+          `--rpclisten-json=, borsh is the default, and public operators run the default.\n` +
+          `Every public resolver we have tested answers 404 for json and 200 for borsh.\n\n` +
+          `This SDK speaks JSON only, so a public resolver cannot currently find you a\n` +
+          `node. Run kaspad with --rpclisten-json= and --utxoindex, and set\n` +
+          `WARDA_RPC_JSON to it.`,
+      );
+    }
+    throw new Error(`resolver ${url} answered ${response.status}.`);
   }
   const body = (await response.json()) as Partial<NodeDescriptor>;
   if (typeof body?.url !== "string" || !body.url) {

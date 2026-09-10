@@ -424,11 +424,17 @@
       when that flag is given &mdash; note the <code>=</code>, which the flag requires.
     </p>
     <p style="max-width:56ch">
-      <code>WARDA_RESOLVER</code> is the alternative, and an honest note about it: a Kaspa
-      Resolver picks a public node for you, and <strong>we know of no published public
-      instance</strong>. The SDK supports it and compiles no host in, because naming one is a
-      decision about who you trust to answer "which node", and that belongs to you. Until a
-      public one exists, this means running a node.
+      <code>WARDA_RESOLVER</code> is supported, and here is the honest note it needs. A Kaspa
+      Resolver picks a public node for you, and there are sixteen public instances &mdash;
+      named hosts under <code>kaspa.stream</code>, <code>.red</code>, <code>.green</code> and
+      <code>.blue</code>, listed in rusty-kaspa's <code>Resolvers.toml</code>. This page
+      previously said none existed; that was wrong. What is true is narrower and worse:
+      <strong>they serve borsh, and this SDK speaks JSON</strong>. Measured on 10 September
+      2026 &mdash; <code>404</code> for <code>/wrpc/json</code>, <code>200</code> for
+      <code>/wrpc/borsh</code>, on mainnet and testnet both. So the resolver path finds you
+      nothing today, and running a node is not one option of two: it is the option. The SDK
+      still compiles no resolver host in, because naming one is a decision about who you trust
+      to answer "which node", and that belongs to you.
     </p>
     <p style="max-width:56ch">
       There is also a floor under how <em>small</em> a payment can be. Kaspa charges storage
