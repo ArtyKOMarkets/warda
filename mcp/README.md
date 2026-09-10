@@ -150,8 +150,8 @@ rather than a payee that is not on the list.
 {
   "mcpServers": {
     "warda": {
-      "command": "node",
-      "args": ["--experimental-strip-types", "/path/to/warda/mcp/src/server.ts"]
+      "command": "npx",
+      "args": ["-y", "@warda_protocol/mcp"]
     }
   }
 }

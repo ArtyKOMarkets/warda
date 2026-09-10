@@ -875,6 +875,39 @@ node --experimental-strip-types sdk/tools/check-node.ts --rpc wss://YOUR-NODE</c
 </section>
 
 <section class="rule">
+  <p class="eyebrow">No node required &middot; the fastest way in</p>
+  <h2>Give Claude or Cursor a Warda tool, in one config block.</h2>
+  <p style="max-width:62ch;color:var(--chrome-dim)">
+    Everything above needs a node, because a covenant spend has to be built against live
+    chain state. The MCP server does not. It never reads the chain and never sees a key
+    &mdash; you hand it a grant and it tells you what the covenant would allow, or hands
+    back the exact bytes to sign. That makes it the one part of this you can try in a
+    minute, with nothing installed and nothing synced.
+  </p>
+  <div class="tw" data-label="JSON"><div class="tbar"><i></i><i></i><i></i><span>JSON</span></div><pre class="tm"><code>{
+  <span class="s">"mcpServers"</span>: {
+    <span class="s">"warda"</span>: {
+      <span class="s">"command"</span>: <span class="a">"npx"</span>,
+      <span class="s">"args"</span>: [<span class="a">"-y"</span>, <span class="a">"@warda_protocol/mcp"</span>]
+    }
+  }
+}</code></pre></div>
+  <p style="max-width:62ch;color:var(--chrome-dim)">
+    Claude Desktop reads <code>claude_desktop_config.json</code>; Cursor reads
+    <code>.cursor/mcp.json</code>. Restart the client and the agent has ten tools &mdash;
+    among them <strong>what may this agent spend right now</strong>, and
+    <strong>would this payment be accepted, and if not, which limit stopped it</strong>.
+  </p>
+  <p class="needs">
+    <strong style="color:var(--chrome-dim);font-weight:500">It answers about a grant, not
+    about a chain.</strong> Ask it what an agent may spend and it reports what the grant
+    document says, which is the covenant's own accounting rather than a balance. That is a
+    feature for planning a purchase and a trap if you expect it to notice money arriving:
+    for that you need <code>warda balance</code>, and a node.
+  </p>
+</section>
+
+<section class="rule">
   <p class="eyebrow">Step 5 &middot; from Python, or anything else</p>
   <h2>There is no Python package. There is a contract.</h2>
   <p style="max-width:60ch;color:var(--chrome-dim)">

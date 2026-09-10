@@ -23,8 +23,8 @@
  * verified against. A server carrying its own copy of the rules would be worse
  * than none: it could tell an agent it may spend when the chain will refuse.
  */
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { readFileSync, realpathSync } from "node:fs";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const VERSION: string = JSON.parse(
   readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"),
@@ -651,7 +651,41 @@ const json = (v: unknown) => ({ content: [{ type: "text" as const, text: JSON.st
   return server;
 }
 
-// Only start stdio when run as a binary; tests drive buildServer() directly.
-if (import.meta.url === `file://${process.argv[1]}`) {
+/**
+ * Start stdio only when this file IS the program; tests drive buildServer()
+ * directly and must not get a transport bolted onto them.
+ *
+ * The obvious spelling of that check —
+ *
+ *     import.meta.url === `file://${process.argv[1]}`
+ *
+ * — was wrong in the one case that matters most, and wrong silently. npm
+ * installs a bin as a SYMLINK: node_modules/.bin/warda-mcp points at
+ * dist/server.js. Node resolves that to its real path for import.meta.url
+ * while argv[1] keeps the symlink it was invoked by, so the two never match
+ * and this server started, connected nothing, and exited 0 with no output.
+ *
+ * Which means `npx @warda_protocol/mcp` and `warda-mcp` — the entry point the
+ * README documents and the one every MCP client config uses — did nothing at
+ * all. The only path that worked was the CLI's, because `warda mcp` resolves
+ * the package and spawns dist/server.js by its real path.
+ *
+ * Two smaller bugs in the same line: string interpolation produces
+ * `file:///C:\...` on Windows and leaves spaces and non-ASCII unescaped, so a
+ * checkout under "My Documents" failed the comparison too. pathToFileURL
+ * handles both.
+ */
+const startedDirectly = (): boolean => {
+  const invoked = process.argv[1];
+  if (!invoked) return false;
+  try {
+    return import.meta.url === pathToFileURL(realpathSync(invoked)).href;
+  } catch {
+    /* argv[1] naming something unreadable is not this program being run. */
+    return false;
+  }
+};
+
+if (startedDirectly()) {
   await buildServer().connect(new StdioServerTransport());
 }
