@@ -1,20 +1,23 @@
-<div class="tinstall"><span class="c"># the CLI and every package, from the repo</span>
-git clone <span class="a">https://github.com/ArtyKOMarkets/warda</span> &amp;&amp; cd warda &amp;&amp; npm install
+<div class="tinstall"><span class="c"># the command — this is all the walkthrough below needs</span>
+npm install -g <span class="a">@warda_protocol/cli</span>
 
-<span class="c"># or just the library, in a project of your own</span>
-npm install <span class="a">@warda_protocol/kaspa @warda_protocol/x402</span></div>
+<span class="c"># or the libraries, to build your own</span>
+npm install <span class="a">@warda_protocol/kaspa @warda_protocol/x402</span>
 
-<pre class="tm" data-label="BASH"><code><span class="p">$</span> <span class="cmd">npx warda key --out <span class="v">wallet.key</span></span>
+<span class="c"># or the whole repo, to read it and run the tools directly (then: npx warda)</span>
+git clone <span class="a">https://github.com/ArtyKOMarkets/warda</span> &amp;&amp; cd warda &amp;&amp; npm install</div>
+
+<pre class="tm" data-label="BASH"><code><span class="p">$</span> <span class="cmd">warda key --out <span class="v">wallet.key</span></span>
   <span class="ok">address  kaspatest:qr7z53sv56te4ya8r378y2xwcrj3vqr3p5gzl6kkx205v7anh6u0zefx77c4m</span>
   <span class="d">fund it from the testnet-10 faucet, then list who the agent may pay</span>
 
 <span class="p">$</span> <span class="cmd">echo <span class="v">kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e</span> &gt; <span class="a">payees.txt</span></span>
-<span class="p">$</span> <span class="cmd">WARDA_SK=$(cat wallet.key) npx warda grant --payees <span class="a">payees.txt</span> --budget <span class="v">10</span> --max-per-spend <span class="v">1</span></span>
+<span class="p">$</span> <span class="cmd">WARDA_SK=$(cat wallet.key) warda grant --payees <span class="a">payees.txt</span> --budget <span class="v">10</span> --max-per-spend <span class="v">1</span></span>
   <span class="ok">✔ grant.json   10 KAS budget · 1 KAS per payment · 1 payee, fixed at creation</span>
   <span class="ok">✔ agent.key    the agent's whole authority, and it is the line above</span>
 
-<span class="p">$</span> <span class="cmd">npx warda pay <span class="a">https://warda-demo-api.vercel.app/fact</span></span>
+<span class="p">$</span> <span class="cmd">warda pay <span class="a">https://warda-demo-api.vercel.app/fact</span></span>
   <span class="ok">✔ 0.04 KAS · 200 · fa7ad66b6b17…</span>
 
-<span class="p">$</span> <span class="cmd">npx warda pay <span class="a">https://somewhere-else.example/thing</span></span>
+<span class="p">$</span> <span class="cmd">warda pay <span class="a">https://somewhere-else.example/thing</span></span>
   <span class="no">✗ that address is not on this grant's allowlist. There is nothing to sign.</span></code></pre>

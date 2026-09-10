@@ -285,10 +285,13 @@
 <section>
   <div class="wrap">
     <p class="eyebrow">Install</p>
-    <h2 style="max-width:22ch">Three packages. Nothing to compile.</h2>
+    <h2 style="max-width:22ch">Four packages. Nothing to compile.</h2>
     <p class="lede">Compiled JavaScript with TypeScript declarations. Node 20+, no build step, no Rust toolchain and no Silverscript compiler — address derivation splices values into a compiled covenant template that ships inside the package.</p>
 
-<div class="tinstall"><span class="c"># the SDK — build, sign and verify grants</span>
+<div class="tinstall"><span class="c"># the command — the whole lifecycle, without writing code</span>
+npm install -g @warda_protocol/cli
+
+<span class="c"># the SDK — build, sign and verify grants</span>
 npm install @warda_protocol/kaspa
 
 <span class="c"># the MCP server — hand an agent framework a Warda tool</span>

@@ -1363,25 +1363,28 @@
     </div>
 
     <div data-rise style="--d:100ms;margin-top:clamp(1.4rem,4vw,2.2rem)">
-      <div class="tinstall"><span class="c"># the CLI and every package, from the repo</span>
-git clone <span class="a">https://github.com/ArtyKOMarkets/warda</span> &amp;&amp; cd warda &amp;&amp; npm install
+      <div class="tinstall"><span class="c"># the command — this is all the walkthrough below needs</span>
+npm install -g <span class="a">@warda_protocol/cli</span>
 
-<span class="c"># or just the library, in a project of your own</span>
-npm install <span class="a">@warda_protocol/kaspa @warda_protocol/x402</span></div>
+<span class="c"># or the libraries, to build your own</span>
+npm install <span class="a">@warda_protocol/kaspa @warda_protocol/x402</span>
 
-<div class="tw" data-label="BASH"><div class="tbar"><i></i><i></i><i></i><span>BASH</span></div><pre class="tm"><code><span class="p">$</span> <span class="cmd">npx warda key --out <span class="v">wallet.key</span></span>
+<span class="c"># or the whole repo, to read it and run the tools directly (then: npx warda)</span>
+git clone <span class="a">https://github.com/ArtyKOMarkets/warda</span> &amp;&amp; cd warda &amp;&amp; npm install</div>
+
+<div class="tw" data-label="BASH"><div class="tbar"><i></i><i></i><i></i><span>BASH</span></div><pre class="tm"><code><span class="p">$</span> <span class="cmd">warda key --out <span class="v">wallet.key</span></span>
   <span class="ok">address  kaspatest:qr7z53sv56te4ya8r378y2xwcrj3vqr3p5gzl6kkx205v7anh6u0zefx77c4m</span>
   <span class="d">fund it from the testnet-10 faucet, then list who the agent may pay</span>
 
 <span class="p">$</span> <span class="cmd">echo <span class="v">kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e</span> &gt; <span class="a">payees.txt</span></span>
-<span class="p">$</span> <span class="cmd">WARDA_SK=$(cat wallet.key) npx warda grant --payees <span class="a">payees.txt</span> --budget <span class="v">10</span> --max-per-spend <span class="v">1</span></span>
+<span class="p">$</span> <span class="cmd">WARDA_SK=$(cat wallet.key) warda grant --payees <span class="a">payees.txt</span> --budget <span class="v">10</span> --max-per-spend <span class="v">1</span></span>
   <span class="ok">✔ grant.json   10 KAS budget · 1 KAS per payment · 1 payee, fixed at creation</span>
   <span class="ok">✔ agent.key    the agent's whole authority, and it is the line above</span>
 
-<span class="p">$</span> <span class="cmd">npx warda pay <span class="a">https://warda-demo-api.vercel.app/fact</span></span>
+<span class="p">$</span> <span class="cmd">warda pay <span class="a">https://warda-demo-api.vercel.app/fact</span></span>
   <span class="ok">✔ 0.04 KAS · 200 · fa7ad66b6b17…</span>
 
-<span class="p">$</span> <span class="cmd">npx warda pay <span class="a">https://somewhere-else.example/thing</span></span>
+<span class="p">$</span> <span class="cmd">warda pay <span class="a">https://somewhere-else.example/thing</span></span>
   <span class="no">✗ that address is not on this grant's allowlist. There is nothing to sign.</span></code></pre></div>
 
       <p class="qs-note">
@@ -1410,7 +1413,7 @@ await wardaFetch(url);</code></pre>
       <div>
         <p class="sn">02</p>
         <h3>Or from your agent framework</h3>
-        <pre><code>npx warda mcp   # stdio</code></pre>
+        <pre><code>warda mcp   # stdio</code></pre>
         <p>Nine MCP tools: what may this agent spend right now, would this payment be
         accepted and why not, and the bytes to sign for a spend, a delegation, a settlement
         or a revocation. <strong>The server never sees a key</strong> &mdash; a test asserts
@@ -1433,7 +1436,7 @@ await wardaFetch(url);</code></pre>
       the UTXO set to do it. Run <code>kaspad</code> with <code>--utxoindex</code> and
       <code>--rpclisten-json=</code>, or point <code>WARDA_RESOLVER</code> at a Kaspa Resolver
       if you have one &mdash; no public resolver instance is published anywhere we can find, so
-      in practice this means a node. <code>npx warda node</code> checks yours is worth
+      in practice this means a node. <code>warda node</code> checks yours is worth
       believing before you build anything against it. Full walkthrough in
       <a href="/start">the tutorial</a>.
     </p>
@@ -1463,9 +1466,10 @@ await wardaFetch(url);</code></pre>
       </div>
       <div class="shipped">
         <span class="tag">Shipped <em>&middot; the libraries</em></span>
-        <h3>Four packages on npm</h3>
-        <p>The rules, the transaction builder, an HTTP&nbsp;402 client, and an MCP server that
-        never holds a key. Installable now &mdash;
+        <h3>Six packages on npm</h3>
+        <p>The rules, the transaction builder, an HTTP&nbsp;402 client, an MCP server that never
+        holds a key, one command that needs no clone, and a verifier a counterparty can point at
+        your grant without asking you anything. Installable now &mdash;
         <a href="https://github.com/ArtyKOMarkets/warda" rel="noopener">source</a>.</p>
       </div>
       <div class="shipped">

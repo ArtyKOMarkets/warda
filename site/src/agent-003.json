@@ -1,13 +1,13 @@
 {
   "_comment": "Written by agents/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, the purchase log or the chain — none is typed. Each payee's LABEL is re-derived on every run from the artefact agents/known-payees.json names, and a label that stops matching is dropped rather than published: an address with no name is honest, an address with the wrong name is not.",
-  "checkedAt": "2026-09-09T13:20:01.299Z",
+  "checkedAt": "2026-09-10T08:00:01.628Z",
   "network": "testnet-10",
   "identity": {
     "agentId": "WARDA-003",
     "agent": "bf9921d061c7dbba26fbf682b15ed30bb287cfa41be777272fff0827f55ed2a1",
     "principal": "0393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34f",
     "revocation": "0393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34f",
-    "grantAddress": "kaspatest:pplc97mnp9hzgtrjdzxwd4760dhrufhqv9u89ewkvlen5fvf6rqd2j47ufvle",
+    "grantAddress": "kaspatest:pq9p93v3j0j0yt22046x4kcpmmp4vxc8gf49wumchctdha9dpt0ugdd5qhw6l",
     "covenantId": "e8f9cc204f5872303dd8563b92c2b3af96327b1e1b4cee617113d12f0a743a8c",
     "template": "b3e5eeefacf2021f"
   },
@@ -44,16 +44,16 @@
   },
   "timelock": {
     "notBefore": "564404779",
-    "virtualDaaScore": "566012993",
+    "virtualDaaScore": "566684826",
     "open": true,
     "lockedFor": "5 minutes",
-    "openedAgo": "45 hours",
+    "openedAgo": "3 days",
     "enforcedBy": "the covenant, on every spend: claimedDaa >= notBefore. Not a scheduler, not this process, and not revocable by whoever issued the grant."
   },
   "authority": {
     "budget": "2 KAS",
-    "spent": "0.19 KAS",
-    "remaining": "1.81 KAS",
+    "spent": "0.23 KAS",
+    "remaining": "1.77 KAS",
     "maxPerPayment": "0.1 KAS",
     "epochLimit": "0.5 KAS",
     "epochLengthDaa": 1000,
@@ -63,19 +63,19 @@
       "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4"
     ],
     "delegationDepth": 2,
-    "onChain": "1.63 KAS",
+    "onChain": "1.57 KAS",
     "sompi": {
       "budget": "200000000",
-      "spent": "19000000",
+      "spent": "23000000",
       "reserved": "0",
       "maxPerPayment": "10000000",
       "epochLimit": "50000000",
-      "onChain": "163000000"
+      "onChain": "157000000"
     }
   },
   "activity": {
-    "payments": 4,
-    "paid": "0.15 KAS",
+    "payments": 5,
+    "paid": "0.19 KAS",
     "paidOutsideTheAllowlist": "0 KAS",
     "coins": [
       {
@@ -100,6 +100,12 @@
         "amount": "0.04 KAS",
         "daaScore": "565773421",
         "txid": "f93ca337a9e8496f9a1e7425fd48471885ac478e2c68c806cfa191e93ae44c83",
+        "index": 1
+      },
+      {
+        "amount": "0.04 KAS",
+        "daaScore": "566637311",
+        "txid": "7817e056c9917f0930e204b42d60696411e2afc7c435878b766f9a0fb23bedd6",
         "index": 1
       }
     ]
@@ -148,21 +154,32 @@
       "payTo": "kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e",
       "refusal": null,
       "sellerClaimed": "WARDA-001"
+    },
+    {
+      "at": "2026-09-10T06:41:00.498Z",
+      "outcome": "bought",
+      "url": "https://warda-demo-api.vercel.app/digest",
+      "reason": null,
+      "txid": "7817e056c9917f0930e204b42d60696411e2afc7c435878b766f9a0fb23bedd6",
+      "paid": "0.04 KAS",
+      "payTo": "kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e",
+      "refusal": null,
+      "sellerClaimed": "WARDA-001"
     }
   ],
   "reconciliation": {
-    "spentPerTheCovenant": "0.19 KAS",
-    "namedByTheLog": "0.15 KAS",
+    "spentPerTheCovenant": "0.23 KAS",
+    "namedByTheLog": "0.19 KAS",
     "chargedHomeBySettlement": "0.04 KAS",
     "unrecorded": "0 KAS",
     "couldAccountForIt": [],
-    "note": "Every sompi the covenant says this grant spent is accounted for: 0.15 KAS by purchases it recorded, and 0.04 KAS charged home when a sub-agent it had funded settled back. That second figure is spending this grant paid for and did not do — the receipts are the child's."
+    "note": "Every sompi the covenant says this grant spent is accounted for: 0.19 KAS by purchases it recorded, and 0.04 KAS charged home when a sub-agent it had funded settled back. That second figure is spending this grant paid for and did not do — the receipts are the child's."
   },
   "refusals": [
     {
       "rule": "start time (not_before)",
       "attempted": "spend before the grant opens",
-      "refusal": "this grant could not spend anything until DAA 564404779. The covenant checks the claimed DAA score against that number on every spend, so the delay was not a policy in the agent's process and could not be brought forward by whoever issued it. It opened 45 hours ago.",
+      "refusal": "this grant could not spend anything until DAA 564404779. The covenant checks the claimed DAA score against that number on every spend, so the delay was not a policy in the agent's process and could not be brought forward by whoever issued it. It opened 3 days ago.",
       "derived": true
     },
     {

@@ -681,25 +681,28 @@
 <div class="wrap">
   <section style="padding-bottom:clamp(1.6rem,4vw,2.6rem)">
     <p class="eyebrow">The whole thing first</p>
-    <div class="tinstall"><span class="c"># the CLI and every package, from the repo</span>
-git clone <span class="a">https://github.com/ArtyKOMarkets/warda</span> &amp;&amp; cd warda &amp;&amp; npm install
+    <div class="tinstall"><span class="c"># the command — this is all the walkthrough below needs</span>
+npm install -g <span class="a">@warda_protocol/cli</span>
 
-<span class="c"># or just the library, in a project of your own</span>
-npm install <span class="a">@warda_protocol/kaspa @warda_protocol/x402</span></div>
+<span class="c"># or the libraries, to build your own</span>
+npm install <span class="a">@warda_protocol/kaspa @warda_protocol/x402</span>
 
-<div class="tw" data-label="BASH"><div class="tbar"><i></i><i></i><i></i><span>BASH</span></div><pre class="tm"><code><span class="p">$</span> <span class="cmd">npx warda key --out <span class="v">wallet.key</span></span>
+<span class="c"># or the whole repo, to read it and run the tools directly (then: npx warda)</span>
+git clone <span class="a">https://github.com/ArtyKOMarkets/warda</span> &amp;&amp; cd warda &amp;&amp; npm install</div>
+
+<div class="tw" data-label="BASH"><div class="tbar"><i></i><i></i><i></i><span>BASH</span></div><pre class="tm"><code><span class="p">$</span> <span class="cmd">warda key --out <span class="v">wallet.key</span></span>
   <span class="ok">address  kaspatest:qr7z53sv56te4ya8r378y2xwcrj3vqr3p5gzl6kkx205v7anh6u0zefx77c4m</span>
   <span class="d">fund it from the testnet-10 faucet, then list who the agent may pay</span>
 
 <span class="p">$</span> <span class="cmd">echo <span class="v">kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e</span> &gt; <span class="a">payees.txt</span></span>
-<span class="p">$</span> <span class="cmd">WARDA_SK=$(cat wallet.key) npx warda grant --payees <span class="a">payees.txt</span> --budget <span class="v">10</span> --max-per-spend <span class="v">1</span></span>
+<span class="p">$</span> <span class="cmd">WARDA_SK=$(cat wallet.key) warda grant --payees <span class="a">payees.txt</span> --budget <span class="v">10</span> --max-per-spend <span class="v">1</span></span>
   <span class="ok">✔ grant.json   10 KAS budget · 1 KAS per payment · 1 payee, fixed at creation</span>
   <span class="ok">✔ agent.key    the agent's whole authority, and it is the line above</span>
 
-<span class="p">$</span> <span class="cmd">npx warda pay <span class="a">https://warda-demo-api.vercel.app/fact</span></span>
+<span class="p">$</span> <span class="cmd">warda pay <span class="a">https://warda-demo-api.vercel.app/fact</span></span>
   <span class="ok">✔ 0.04 KAS · 200 · fa7ad66b6b17…</span>
 
-<span class="p">$</span> <span class="cmd">npx warda pay <span class="a">https://somewhere-else.example/thing</span></span>
+<span class="p">$</span> <span class="cmd">warda pay <span class="a">https://somewhere-else.example/thing</span></span>
   <span class="no">✗ that address is not on this grant's allowlist. There is nothing to sign.</span></code></pre></div>
 
     <p class="qs-note">
@@ -728,7 +731,7 @@ npm install <span class="a">@warda_protocol/kaspa @warda_protocol/x402</span></d
     unlocking script carries the limits &mdash; that is what the agent is given, and it is
     all the agent is given.
   </p>
-  <div class="tw" data-label="BASH"><div class="tbar"><i></i><i></i><i></i><span>BASH</span></div><pre class="tm"><code>npx warda wallet
+  <div class="tw" data-label="BASH"><div class="tbar"><i></i><i></i><i></i><span>BASH</span></div><pre class="tm"><code>warda wallet
   address     kaspatest:qr7z53sv56te4ya8r378y2xwcrj3vqr3p5gzl6kkx205v7anh6u0zefx77c4m
   holds       12.4 KAS across 7 coins
   largest     3.1 KAS</code></pre></div>
@@ -736,7 +739,7 @@ npm install <span class="a">@warda_protocol/kaspa @warda_protocol/x402</span></d
     <strong style="color:var(--chrome-dim);font-weight:500">Watch <code>largest</code>, not
     <code>holds</code>.</strong> Creating a grant takes exactly ONE input, so the biggest
     grant a key can fund is bounded by its biggest single coin. Seven faucet coins of 12.4
-    KAS still only reach 3.1. <code>npx warda wallet consolidate</code> merges them; it says
+    KAS still only reach 3.1. <code>warda wallet consolidate</code> merges them; it says
     when doing so would not be worth it, because coins are also parallelism &mdash; a second
     grant waits on the first one's change.
   </p>
@@ -746,9 +749,9 @@ npm install <span class="a">@warda_protocol/kaspa @warda_protocol/x402</span></d
     Count it, merge it, then bound it &mdash; the key that received it funds a grant directly,
     so nothing has to be moved anywhere:
   </p>
-  <div class="tw" data-label="BASH"><div class="tbar"><i></i><i></i><i></i><span>BASH</span></div><pre class="tm"><code>npx warda wallet     --key earnings.key
-npx warda wallet consolidate --key earnings.key --submit
-npx warda grant      --key earnings.key --payees payees.txt --budget 2</code></pre></div>
+  <div class="tw" data-label="BASH"><div class="tbar"><i></i><i></i><i></i><span>BASH</span></div><pre class="tm"><code>warda wallet     --key earnings.key
+warda wallet consolidate --key earnings.key --submit
+warda grant      --key earnings.key --payees payees.txt --budget 2</code></pre></div>
 </section>
 
 <section class="rule">

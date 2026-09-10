@@ -1047,7 +1047,7 @@ await wardaFetch(url);</code></pre>
       <div>
         <p class="sn">02</p>
         <h3>Or from your agent framework</h3>
-        <pre><code>npx warda mcp   # stdio</code></pre>
+        <pre><code>warda mcp   # stdio</code></pre>
         <p>Nine MCP tools: what may this agent spend right now, would this payment be
         accepted and why not, and the bytes to sign for a spend, a delegation, a settlement
         or a revocation. <strong>The server never sees a key</strong> &mdash; a test asserts
@@ -1070,7 +1070,7 @@ await wardaFetch(url);</code></pre>
       the UTXO set to do it. Run <code>kaspad</code> with <code>--utxoindex</code> and
       <code>--rpclisten-json=</code>, or point <code>WARDA_RESOLVER</code> at a Kaspa Resolver
       if you have one &mdash; no public resolver instance is published anywhere we can find, so
-      in practice this means a node. <code>npx warda node</code> checks yours is worth
+      in practice this means a node. <code>warda node</code> checks yours is worth
       believing before you build anything against it. Full walkthrough in
       <a href="/start">the tutorial</a>.
     </p>
@@ -1100,9 +1100,10 @@ await wardaFetch(url);</code></pre>
       </div>
       <div class="shipped">
         <span class="tag">Shipped <em>&middot; the libraries</em></span>
-        <h3>Four packages on npm</h3>
-        <p>The rules, the transaction builder, an HTTP&nbsp;402 client, and an MCP server that
-        never holds a key. Installable now &mdash;
+        <h3>Six packages on npm</h3>
+        <p>The rules, the transaction builder, an HTTP&nbsp;402 client, an MCP server that never
+        holds a key, one command that needs no clone, and a verifier a counterparty can point at
+        your grant without asking you anything. Installable now &mdash;
         <a href="https://github.com/ArtyKOMarkets/warda" rel="noopener">source</a>.</p>
       </div>
       <div class="shipped">

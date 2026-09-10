@@ -499,7 +499,7 @@
     unlocking script carries the limits &mdash; that is what the agent is given, and it is
     all the agent is given.
   </p>
-  <pre class="tm" data-label="BASH"><code>npx warda wallet
+  <pre class="tm" data-label="BASH"><code>warda wallet
   address     kaspatest:qr7z53sv56te4ya8r378y2xwcrj3vqr3p5gzl6kkx205v7anh6u0zefx77c4m
   holds       12.4 KAS across 7 coins
   largest     3.1 KAS</code></pre>
@@ -507,7 +507,7 @@
     <strong style="color:var(--chrome-dim);font-weight:500">Watch <code>largest</code>, not
     <code>holds</code>.</strong> Creating a grant takes exactly ONE input, so the biggest
     grant a key can fund is bounded by its biggest single coin. Seven faucet coins of 12.4
-    KAS still only reach 3.1. <code>npx warda wallet consolidate</code> merges them; it says
+    KAS still only reach 3.1. <code>warda wallet consolidate</code> merges them; it says
     when doing so would not be worth it, because coins are also parallelism &mdash; a second
     grant waits on the first one's change.
   </p>
@@ -517,9 +517,9 @@
     Count it, merge it, then bound it &mdash; the key that received it funds a grant directly,
     so nothing has to be moved anywhere:
   </p>
-  <pre class="tm" data-label="BASH"><code>npx warda wallet     --key earnings.key
-npx warda wallet consolidate --key earnings.key --submit
-npx warda grant      --key earnings.key --payees payees.txt --budget 2</code></pre>
+  <pre class="tm" data-label="BASH"><code>warda wallet     --key earnings.key
+warda wallet consolidate --key earnings.key --submit
+warda grant      --key earnings.key --payees payees.txt --budget 2</code></pre>
 </section>
 
 <section class="rule">
