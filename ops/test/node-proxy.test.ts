@@ -132,3 +132,10 @@ test("and reports 503 when the node is gone — the case that matters", async ()
   assert.equal(body.ok, false);
   assert.ok(body.detail.length > 0, "a failure with no reason is not a report");
 });
+
+test("robots.txt tells crawlers to leave the node alone", async () => {
+  const res = await fetch(`http://127.0.0.1:${PROXY_PORT}/robots.txt`);
+  assert.equal(res.status, 200);
+  const body = await res.text();
+  assert.match(body, /Disallow: \//);
+});

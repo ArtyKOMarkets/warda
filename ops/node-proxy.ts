@@ -121,6 +121,16 @@ const server = createServer(async (req, res) => {
     }, null, 2));
     return;
   }
+  /* Published URLs get crawled. A node endpoint has nothing to index and
+     every crawl is a request the laptop behind this has to answer, so say so
+     properly rather than returning a 404 that some fetchers read as "could
+     not determine, assume disallowed" and others as "no rules, crawl away". */
+  if (req.url === "/robots.txt") {
+    res.writeHead(200, { "content-type": "text/plain" });
+    res.end("User-agent: *\nDisallow: /\n");
+    return;
+  }
+
   res.writeHead(404, { "content-type": "application/json" });
   res.end(JSON.stringify({
     error: "this is a Warda quickstart node, not a web server",
