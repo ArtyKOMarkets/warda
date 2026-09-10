@@ -16,7 +16,18 @@
 # in `crontab -e`, not in a shell:
 #
 #     PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin
-#     */20 * * * * cd $HOME/Desktop/warda/site && ./refresh-demo.sh
+#     35 * * * * cd $HOME/Desktop/warda/site && ./refresh-demo.sh
+#
+# Hourly, at :35. It was */20, which is up to 72 deploys a day before anyone
+# types anything — and on 10 September that plus a day of --force runs hit
+# Vercel's free ceiling of 100, which locks deploying for twenty-four hours.
+# The site was mid-correction at the time: /start had been updated to offer a
+# node and /build still said you had to run one, and there was no way to ship
+# the fix. A deploy budget spent on unchanged content is a deploy you cannot
+# make when a page is wrong.
+#
+# :35 rather than :00 because the hourly reading lands at :17 — this runs after
+# it, so a reading and its deploy are one cycle rather than two.
 #
 # The PATH line is not optional. cron runs with /usr/bin:/bin and nothing else,
 # so node, python3 and vercel — installed by homebrew or nvm — are simply not
