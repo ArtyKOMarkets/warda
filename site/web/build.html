@@ -454,11 +454,14 @@
 <section>
   <div class="wrap">
     <p class="eyebrow">Install</p>
-    <h2 style="max-width:22ch">Four packages. Nothing to compile.</h2>
+    <h2 style="max-width:26ch">Five packages. Nothing to compile.</h2>
     <p class="lede">Compiled JavaScript with TypeScript declarations. Node 20+, no build step, no Rust toolchain and no Silverscript compiler — address derivation splices values into a compiled covenant template that ships inside the package.</p>
 
 <div class="tinstall"><span class="c"># the command — the whole lifecycle, without writing code</span>
 npm install -g @warda_protocol/cli
+
+<span class="c"># the seller's half — take an agent's money, verified on chain</span>
+npm install @warda_protocol/vendor
 
 <span class="c"># the SDK — build, sign and verify grants</span>
 npm install @warda_protocol/kaspa
