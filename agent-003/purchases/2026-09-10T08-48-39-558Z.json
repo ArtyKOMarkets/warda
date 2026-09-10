@@ -1,0 +1,23 @@
+{
+  "_comment": "Written by agent-002/tools/buy.ts. One file per attempt, refusals included: a purchase log that only records successes is a sales brochure.",
+  "at": "2026-09-10T08:48:39.558Z",
+  "agent": "WARDA-003",
+  "url": "https://warda-demo-api.vercel.app/inference",
+  "outcome": "bought",
+  "status": 200,
+  "quoted": {
+    "payTo": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
+    "amountSompi": "10000000"
+  },
+  "txid": "93feeb5817feb37d428109ea318efe33e9d5a883a6d9584b0d054a17f1f3b41d",
+  "sellerClaimed": "warda demo vendor",
+  "response": {
+    "model": "demo-1",
+    "completion": "An agent that cannot pay for an API is not autonomous; it is waiting.",
+    "seller": "warda demo vendor",
+    "paidTo": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
+    "settledBy": "93feeb5817feb37d428109ea318efe33e9d5a883a6d9584b0d054a17f1f3b41d",
+    "verified": "a UTXO at this endpoint's payee address, from that transaction, for exactly the quoted amount",
+    "readFrom": "this vendor's own node"
+  }
+}

@@ -197,7 +197,25 @@ if (agentKey === principalKey) {
   );
 }
 
-const client = await NodeClient.connect({ url: rpcFrom(flag("rpc")) });
+/* `open`, not `connect`, and the difference is the resolver.
+   
+   `connect` takes an explicit url, then WARDA_RPC_JSON, then localhost. It
+   never asks a resolver — so WARDA_RESOLVER, which the README and /start both
+   offer as the way to work without running kaspad, silently did nothing here
+   and this fell through to a node on 127.0.0.1 that is not there. "You do not
+   have to run a node" was true for looking and false for spending, which is
+   the wrong way round: reading a wrong answer costs a refresh, and building a grant against one costs the grant.
+   
+   `open` also interrogates whatever it reaches — synced, utxo-indexed, right
+   network, covenants understood — before handing it back. Every one of those
+   failures returns a plausible answer rather than an error: a node without a
+   utxo index reports a grant as empty, which is indistinguishable from
+   drained. That check matters more with real money, not less. */
+const { client } = await NodeClient.open({
+  url: rpcFrom(flag("rpc")),
+  resolver: flag("resolver"),
+  networkId: network,
+});
 let built, state: GrantState, notBefore: bigint;
 try {
   const info = await client.getInfo();

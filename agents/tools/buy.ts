@@ -229,7 +229,25 @@ const sameChain = (quoted: string, node: string): boolean => {
   return tail(quoted) === tail(node);
 };
 
-const node = await NodeClient.connect({ url: flag("rpc") ?? process.env.WARDA_RPC_JSON });
+/* `open`, not `connect`, and the difference is the resolver.
+   
+   `connect` takes an explicit url, then WARDA_RPC_JSON, then localhost. It
+   never asks a resolver — so WARDA_RESOLVER, which the README and /start both
+   offer as the way to work without running kaspad, silently did nothing here
+   and this fell through to a node on 127.0.0.1 that is not there. "You do not
+   have to run a node" was true for looking and false for spending, which is
+   the wrong way round: reading a wrong answer costs a refresh, and paying from one spends the money.
+   
+   `open` also interrogates whatever it reaches — synced, utxo-indexed, right
+   network, covenants understood — before handing it back. Every one of those
+   failures returns a plausible answer rather than an error: a node without a
+   utxo index reports a grant as empty, which is indistinguishable from
+   drained. That check matters more with real money, not less. */
+const { client: node } = await NodeClient.open({
+  url: flag("rpc") ?? process.env.WARDA_RPC_JSON,
+  resolver: flag("resolver"),
+  networkId: process.env.WARDA_NETWORK,
+});
 try {
   /**
    * The timelock, checked before anything is built.
