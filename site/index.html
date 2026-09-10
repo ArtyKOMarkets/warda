@@ -1412,12 +1412,13 @@ await wardaFetch(url);</code></pre>
       </div>
       <div>
         <p class="sn">02</p>
-        <h3>Or from your agent framework</h3>
-        <pre><code>warda mcp   # stdio</code></pre>
-        <p>Nine MCP tools: what may this agent spend right now, would this payment be
+        <h3>Or from Claude, or Cursor</h3>
+        <pre><code>npx @warda_protocol/mcp</code></pre>
+        <p>Ten MCP tools: what may this agent spend right now, would this payment be
         accepted and why not, and the bytes to sign for a spend, a delegation, a settlement
-        or a revocation. <strong>The server never sees a key</strong> &mdash; a test asserts
-        the signature slot in every built transaction is still 65 zero bytes.</p>
+        or a revocation. <strong>No node and no key</strong> &mdash; it reads a grant, never
+        the chain, and a test asserts the signature slot in every built transaction is still
+        65 zero bytes. <a href="/start">The config block</a>.</p>
       </div>
       <div>
         <p class="sn">03</p>
