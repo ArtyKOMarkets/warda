@@ -68,6 +68,40 @@ const has = (n: string) => process.argv.includes(`--${n}`);
 const here = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
 const url = process.argv.slice(2).find((a) => a.startsWith("http")) ?? "https://warda-demo-api.vercel.app/digest";
+
+/* A GET was enough for every vendor this was written against, whose price is a
+   property of the URL. It is not enough in general: a compute endpoint prices
+   the WORK, so the request that gets quoted has to carry the prompt, and a
+   gateway that expects a POST answers a GET with 404 or 405 rather than a 402 —
+   which looks exactly like a vendor that is down.
+
+   `--data @file` because a prompt is not a thing to fight a shell over.
+
+   The body is sent on BOTH requests, unchanged. The 402 flow asks twice — once
+   to learn the price, once with proof — and a vendor prices what it was asked;
+   a second request carrying different work is a different job than the one that
+   was paid for. wardaFetch already buffers it for exactly this reason. */
+const dataFlag = flag("data");
+const requestBody =
+  dataFlag === undefined
+    ? undefined
+    : dataFlag.startsWith("@")
+      ? readFileSync(dataFlag.slice(1), "utf8")
+      : dataFlag;
+const contentType = flag("content-type") ?? "application/json";
+if (requestBody !== undefined && contentType.includes("json")) {
+  try {
+    JSON.parse(requestBody);
+  } catch (e) {
+    console.error(
+      `--data is not valid JSON (${(e as Error).message}).\n` +
+        `  Pass --content-type if it is meant to be something else; a vendor that is sent\n` +
+        `  a malformed body prices nothing and this would spend the round trip to find out.`,
+    );
+    process.exit(2);
+  }
+}
+
 const agentId = flag("id");
 const manifestPath = flag("grant");
 const recipientsPath = flag("recipients");
@@ -80,7 +114,9 @@ if (!agentId || !manifestPath || !recipientsPath || !outDir) {
   console.error(
     "usage: buy.ts <url> --id WARDA-00N --grant <manifest.json> --recipients <file> --out <dir>\n" +
       "       [--json]            the whole result on stdout, for a caller in another language\n" +
-      "       [--expect-refusal]  exit 0 when the covenant refuses, for a deliberate probe\n\n" +
+      "       [--expect-refusal]  exit 0 when the covenant refuses, for a deliberate probe\n" +
+      "       [--data <json|@f>]  POST this body instead of GET. @file reads a file\n" +
+      "       [--content-type t]  default application/json, with --data\n\n" +
       "Every flag above the blank line is required. This tool is shared by all the agents,\n" +
       "so an omitted one would spend a grant you did not mean to spend.\n\n" +
       "Exit codes, which are the API when you call this from another language:\n" +
@@ -203,7 +239,11 @@ try {
 
   console.error(`buying   : ${url}`);
 
-  const res = await wardaFetch(url, undefined, {
+  const res = await wardaFetch(url, requestBody === undefined ? undefined : {
+    method: "POST",
+    headers: { "Content-Type": contentType },
+    body: requestBody,
+  }, {
     payer,
     onEvent: (e) => {
       if (e.type === "quote") {

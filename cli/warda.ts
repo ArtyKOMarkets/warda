@@ -167,6 +167,8 @@ const HELP = `warda — bounded spending authority for an agent, on Kaspa.
                                 [--key <funder.key>, or set WARDA_SK]
   warda balance                 what may this agent spend right now?
   warda pay      <url>          buy something behind an HTTP 402
+                                [--data <json|@file>] POST it, when the price
+                                is of the work rather than of the URL
   warda activity                every attempt, refusals included
   warda find                    the grant moved. Where is it now?
   warda which-key --address <a> [paths…]   which file holds the key for it?
@@ -446,6 +448,11 @@ switch (verb) {
           out,
           ...(has("json") ? ["--json"] : []),
           ...(has("expect-refusal") ? ["--expect-refusal"] : []),
+          /* A compute endpoint prices the work, so the quote request has to
+             carry it. Without this the CLI can only ask vendors whose price is
+             a property of the URL. */
+          ...(flag("data") ? ["--data", flag("data")!] : []),
+          ...(flag("content-type") ? ["--content-type", flag("content-type")!] : []),
           ...rpcArgs(cfg),
         ],
         { WARDA_SK: agentSecret(cfg) },
