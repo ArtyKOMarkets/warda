@@ -57,6 +57,7 @@ import {
   type GrantState,
 } from "@warda_protocol/kaspa";
 import { WardaPayer, wardaFetch } from "@warda_protocol/x402";
+import covenantTemplate from "@warda_protocol/kaspa/covenant-template.json" with { type: "json" };
 
 const flag = (n: string, d?: string) => {
   const i = process.argv.indexOf(`--${n}`);
@@ -99,9 +100,11 @@ if (!secretHex) {
 }
 
 const m = JSON.parse(readFileSync(manifestPath, "utf8"));
-const template: CovenantTemplate = JSON.parse(
-  readFileSync(here("../../sdk/covenant-template.json"), "utf8"),
-);
+/* The template comes from the package, not from a path beside this file:
+   the published CLI carries this tool as bundled JS with no sdk/ directory
+   above it, and a template read from a guessed path is how a tool derives a
+   plausible address for a covenant nobody deployed. */
+const template = covenantTemplate as CovenantTemplate;
 
 const members = readFileSync(recipientsPath, "utf8")
   .split(/\r?\n/)

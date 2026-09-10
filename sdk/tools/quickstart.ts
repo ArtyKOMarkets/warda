@@ -32,6 +32,7 @@ import { agentPublicKey } from "../src/sign.ts";
 
 import { membersFrom } from "./members.ts";
 import { assertKeyNotPublished, resolveNetwork, rpcFrom } from "./network.ts";
+import { fileURLToPath } from "node:url";
 
 function flag(name: string, fallback?: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -170,9 +171,21 @@ say("Generating the agent's key. It is independent of your wallet key: the agent
 say("holds this and nothing else, and losing control of it costs you at most the");
 say("grant's limits.");
 
+/* This tool runs two of its siblings as child processes, and where it runs
+   decides how. In the repo it is TypeScript beside TypeScript, so the child
+   needs --experimental-strip-types. Bundled into the published CLI it is
+   plain JS beside plain JS, where that flag is unnecessary and, from Node 24,
+   deprecated. The extension of THIS module is the only honest tell — a build
+   constant would be a second thing to keep in step with the truth. */
+const sibling = (name: string): string[] => {
+  const bundled = import.meta.url.endsWith(".js");
+  const path = fileURLToPath(new URL(name + (bundled ? ".js" : ".ts"), import.meta.url));
+  return bundled ? [path] : ["--experimental-strip-types", path];
+};
+
 const keygen = spawnSync(
   process.execPath,
-  ["--experimental-strip-types", new URL("new-key.ts", import.meta.url).pathname, "--label", "agent"],
+  [...sibling("new-key"), "--label", "agent"],
   { encoding: "utf8" },
 );
 if (keygen.status !== 0) {
@@ -196,8 +209,7 @@ say("Creating the grant on chain…");
 const genesis = spawnSync(
   process.execPath,
   [
-    "--experimental-strip-types",
-    new URL("genesis.ts", import.meta.url).pathname,
+    ...sibling("genesis"),
     "--agent", agentPublic,
     "--recipients", recipients!,
     "--budget", budget,

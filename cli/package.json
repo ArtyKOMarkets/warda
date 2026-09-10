@@ -1,18 +1,19 @@
 {
   "name": "@warda_protocol/cli",
   "version": "0.1.0",
-  "description": "One short command for the whole life of a Warda grant: create it, see what it may spend, pay behind an HTTP 402, and read back every attempt. Adds no capability — the rules stay in @warda_protocol/core.",
+  "description": "One short command for the whole life of a Warda grant: create it, see what it may spend, pay behind an HTTP 402, and read back every attempt. Adds no capability \u2014 the rules stay in @warda_protocol/core.",
   "type": "module",
   "license": "MIT",
   "engines": {
-    "node": ">=22.6"
+    "node": ">=20"
   },
   "bin": {
-    "warda": "./warda.ts"
+    "warda": "./dist/warda.js"
   },
   "files": [
-    "warda.ts",
-    "README.md"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "keywords": [
     "kaspa",
@@ -24,8 +25,7 @@
     "spending-limits"
   ],
   "dependencies": {
-    "@warda_protocol/core": "^0.3.1",
-    "@warda_protocol/kaspa": "^0.5.0"
+    "@warda_protocol/mcp": "^0.5.0"
   },
   "repository": {
     "type": "git",
@@ -35,5 +35,12 @@
   "homepage": "https://wardaprotocol.com",
   "bugs": {
     "url": "https://github.com/ArtyKOMarkets/warda/issues"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "prepublishOnly": "node build.mjs && node dist/warda.js --version"
   }
 }

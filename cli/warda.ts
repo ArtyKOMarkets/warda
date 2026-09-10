@@ -40,11 +40,37 @@
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { createRequire } from "node:module";
 import { kas, formatKas } from "@warda_protocol/core";
 
+/* Where this file is decides where its tools are, and there are exactly two
+   places it is ever run from.
+   
+   In the repo it is TypeScript at cli/warda.ts and the tools are TypeScript at
+   ../sdk/tools and ../agents/tools — nothing is built, so a stale dist can
+   never quietly serve yesterday's covenant rules.
+   
+   Installed from npm there is no repo above it: `files` cannot reach outside a
+   package directory, so the published artifact is cli/build.mjs's bundle —
+   dist/warda.js beside dist/tools/*.js, each carrying the SDK source it uses.
+   Published without this seam, every subcommand would have gone looking for
+   node_modules/@warda_protocol/sdk/tools/*.ts and failed with ENOENT.
+   
+   The extension of THIS module is the tell, for the same reason it is in
+   quickstart: a build-time constant would be a second thing to keep true. */
+const BUNDLED = import.meta.url.endsWith(".js");
 const repo = (p: string) => fileURLToPath(new URL("../" + p, import.meta.url));
 const STRIP = "--experimental-strip-types";
+
+/** The script to run for a repo-relative tool path, wherever we are. */
+const toolPath = (script: string): string =>
+  BUNDLED
+    ? fileURLToPath(
+        new URL("tools/" + script.slice(script.lastIndexOf("/") + 1).replace(/\.ts$/, ".js"),
+                import.meta.url),
+      )
+    : repo(script);
 
 const argv = process.argv.slice(2);
 const verb = argv[0];
@@ -104,7 +130,7 @@ const sompi = (v: string, what: string): string => {
 };
 
 const run = (script: string, args: string[], env: NodeJS.ProcessEnv = {}) => {
-  const r = spawnSync(process.execPath, [STRIP, repo(script), ...args], {
+  const r = spawnSync(process.execPath, [...(BUNDLED ? [] : [STRIP]), toolPath(script), ...args], {
     stdio: "inherit",
     env: { ...process.env, ...env },
   });
@@ -174,7 +200,17 @@ switch (verb) {
 
   case "version":
   case "--version":
-    console.log(JSON.parse(readFileSync(repo("cli/package.json"), "utf8")).version);
+    /* Beside this file in the repo (cli/package.json), one level up from the
+       bundle (dist/warda.js -> the package root). Reported wrong, this is the
+       number somebody quotes in a bug report. */
+    console.log(
+      JSON.parse(
+        readFileSync(
+          fileURLToPath(new URL(BUNDLED ? "../package.json" : "package.json", import.meta.url)),
+          "utf8",
+        ),
+      ).version,
+    );
     break;
 
   case "node": {
@@ -476,9 +512,32 @@ switch (verb) {
     process.exit(run("sdk/tools/which-key.ts", rest));
     break;
 
-  case "mcp":
-    process.exit(run("mcp/src/server.ts", rest));
-    break;
+  /* Not bundled with the tools above. The MCP server is its own published
+     package with its own protocol surface and its own version, and an agent
+     framework that asks for `warda mcp` should get the server it would have
+     got from @warda_protocol/mcp directly — not a copy frozen into whichever
+     CLI happens to be installed. So: the repo runs it from source, and the
+     package resolves the real dependency and runs its bin. */
+  case "mcp": {
+    if (!BUNDLED) process.exit(run("mcp/src/server.ts", rest));
+    let bin: string;
+    try {
+      bin = fileURLToPath(
+        new URL("dist/server.js", pathToFileURL(
+          createRequire(import.meta.url).resolve("@warda_protocol/mcp/package.json"),
+        )),
+      );
+    } catch {
+      die(
+        "the MCP server is not installed.\n" +
+          "  It ships separately, because it versions separately:\n" +
+          "    npm install @warda_protocol/mcp",
+        2,
+      );
+    }
+    const r = spawnSync(process.execPath, [bin, ...rest], { stdio: "inherit" });
+    process.exit(r.status ?? 1);
+  }
 
   default:
     die(`unknown command: ${verb}\n\n${HELP}`, 2);

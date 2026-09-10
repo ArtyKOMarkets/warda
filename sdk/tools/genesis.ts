@@ -64,6 +64,7 @@ import { agentPublicKey, signDigest, verifyDigest } from "../src/sign.ts";
 import { templateFingerprint, type CovenantTemplate, type GrantState, templateIdFor } from "../src/template.ts";
 import { toWire } from "../src/wire.ts";
 import { resolveNetwork, rpcFrom } from "./network.ts";
+import covenantTemplate from "@warda_protocol/kaspa/covenant-template.json" with { type: "json" };
 
 /** Genesis is a plain P2PK spend that happens to pay into a covenant: one
  *  signature, no covenant logic, so 12 units covers it. */
@@ -83,9 +84,11 @@ if (!secretHex) {
 const secret = fromHex(secretHex.trim());
 const key = toHex(agentPublicKey(secret));
 
-const template: CovenantTemplate = JSON.parse(
-  readFileSync(new URL("../covenant-template.json", import.meta.url), "utf8"),
-);
+/* The template comes from the package, not from a path beside this file:
+   the published CLI carries this tool as bundled JS with no sdk/ directory
+   above it, and a template read from a guessed path is how a tool derives a
+   plausible address for a covenant nobody deployed. */
+const template = covenantTemplate as CovenantTemplate;
 /* Resolved and CHECKED together: a prefix and a network that disagree
    derive a well-formed address on the wrong chain, which holds nothing and
    is indistinguishable from a grant that was drained. See network.ts. */
