@@ -244,14 +244,21 @@
 <section>
   <div class="wrap">
     <p class="eyebrow">Before you start</p>
-    <h2>One prerequisite, and it is not optional.</h2>
+    <h2>One prerequisite, and there is now a way round it.</h2>
     <p style="max-width:56ch">
       <strong>You need a Kaspa testnet-10 node you can reach.</strong> Everything in this SDK
       builds and signs transactions locally &mdash; no server sees a key &mdash; but building one
       means reading the UTXO set, and reading the UTXO set means talking to a node.
     </p>
     <p style="max-width:56ch">
-      Run your own:
+      To try it, borrow ours. It is a laptop behind a tunnel, forwarding four methods and
+      refusing the rest by name; <a href="/start">/start</a> says exactly what it is and when
+      it is down.
+    </p>
+    <div class="tinstall"><span class="c"># enough to finish the quickstart. Not enough to build on.</span>
+export WARDA_RPC_JSON=<span class="a">wss://warda-node.tailc0c0ec.ts.net</span></div>
+    <p style="max-width:56ch">
+      To rely on it, run your own &mdash; and if you are building anything real, do:
     </p>
     <pre class="tm" data-label="BASH"><code>kaspad --testnet --netsuffix=10 --utxoindex \
       --rpclisten-json=127.0.0.1:18210</code></pre>

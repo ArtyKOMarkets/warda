@@ -1,0 +1,7 @@
+{
+  "_comment": "Written by ops/check-node.sh. Read by /start so a stranger arriving while the quickstart node is down is told, rather than sent at a socket that will never answer. This node is a laptop behind a tunnel: best effort, and the page says so.",
+  "checkedAt": "2026-09-10T12:27:55Z",
+  "url": "https://warda-node.tailc0c0ec.ts.net",
+  "ok": true,
+  "detail": "kaspad answered getInfo in 3ms"
+}
