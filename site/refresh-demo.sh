@@ -258,7 +258,7 @@ sig() { grep -v '"checkedAt"' "$1" 2>/dev/null || true; }
 # in what it describes. Both lists below have to name every such file, so they
 # are kept adjacent and a new one is two edits in one place rather than a bug
 # found a week later.
-TIMESTAMPED_SRC="src/demo-state.json src/vendor-status.json"
+TIMESTAMPED_SRC="src/demo-state.json src/vendor-status.json src/node-status.json"
 
 signature() {
   {
@@ -267,6 +267,7 @@ signature() {
     find web -type f \
       ! -name demo-state.json \
       ! -name vendor-status.json \
+      ! -name node-status.json \
       ! -name 'agent-0*.json' \
       -exec shasum -a 256 {} + | sort
   } | shasum -a 256 | cut -d" " -f1

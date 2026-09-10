@@ -50,6 +50,13 @@ PROXY="$OPS/proxy-up.sh"
 PROXYLOG="$HOME/Library/Logs/warda-proxy.log"
 PROXYENTRY="*/5 * * * * $OPS/proxy-up.sh >> $PROXYLOG 2>&1"
 
+# The public quickstart node, checked every fifteen minutes like the vendor.
+# Same reasoning: /start is about to point a stranger at it, and the failure
+# to avoid is a page that stays quiet while the endpoint behind it is dead.
+NODECHK="$OPS/check-node.sh"
+NODELOG="$HOME/Library/Logs/warda-node.log"
+NODEENTRY="*/15 * * * * $OPS/check-node.sh --quiet >> $NODELOG 2>&1"
+
 VENDOR="$OPS/check-vendor.sh"
 VENDORLOG="$HOME/Library/Logs/warda-vendor.log"
 VENDORENTRY="*/15 * * * * $VENDOR --quiet >> $VENDORLOG 2>&1"
@@ -85,7 +92,7 @@ fi
 # So: fix it if we can, refuse if we cannot. Installing a schedule of commands
 # that cannot run is worse than installing nothing, because the crontab then
 # says the job exists.
-for f in "$SCRIPT" "$BUY" "$VENDOR" "$CONTACT" "$PROXY"; do
+for f in "$SCRIPT" "$BUY" "$VENDOR" "$CONTACT" "$PROXY" "$NODECHK"; do
   [ -f "$f" ] || continue
   [ -x "$f" ] && continue
   chmod +x "$f" 2>/dev/null || true
@@ -122,11 +129,13 @@ printf '%s\n' "$current" \
   | grep -v -F "check-vendor.sh" \
   | grep -v -F "first-contact.sh" \
   | grep -v -F "proxy-up.sh" \
+  | grep -v -F "check-node.sh" \
   | grep -v '^[[:space:]]*$' > /tmp/warda-cron.$$
 printf '%s\n' "$ENTRY" >> /tmp/warda-cron.$$
 printf '%s\n' "$VENDORENTRY" >> /tmp/warda-cron.$$
 printf '%s\n' "$CONTACTENTRY" >> /tmp/warda-cron.$$
 printf '%s\n' "$PROXYENTRY" >> /tmp/warda-cron.$$
+printf '%s\n' "$NODEENTRY" >> /tmp/warda-cron.$$
 if [ -n "$WANT_BUY" ]; then printf '%s\n' "$BUYENTRY" >> /tmp/warda-cron.$$; fi
 crontab /tmp/warda-cron.$$
 rm -f /tmp/warda-cron.$$

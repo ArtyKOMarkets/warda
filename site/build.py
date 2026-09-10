@@ -312,6 +312,12 @@ if STATE.exists():
 if (here / "src" / "vendor-status.json").exists():
     COPIES.append("vendor-status.json")
 
+# Written by ops/check-node.sh, and optional for the same reason: silence is
+# the honest default, because "we have not checked" must never render as "it
+# is up" on a page that is about to tell somebody where to send a payment.
+if (here / "src" / "node-status.json").exists():
+    COPIES.append("node-status.json")
+
 def generate_agent_pages():
     """Write src/agent-00N.html from the one shell and each agent's intro.
 
