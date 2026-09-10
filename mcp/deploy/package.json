@@ -9,6 +9,6 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
-    "@warda_protocol/mcp": "^0.5.0"
+    "@warda_protocol/mcp": "^0.5.1"
   }
 }
