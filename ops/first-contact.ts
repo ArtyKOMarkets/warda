@@ -60,6 +60,13 @@ const PACKAGES = [
   "@warda_protocol/mcp",
   "@warda_protocol/x402",
   "@warda_protocol/cli",
+  "@warda_protocol/verify",
+  /* The seller's half, and the one a reader is most likely to install
+     WITHOUT ever appearing in any of the other signals here: somebody
+     who takes payments does not clone this repo, does not create a
+     grant, and never sends us a coin. Missing from this list, they are
+     invisible. */
+  "@warda_protocol/vendor",
 ];
 
 /** Where a stranger's money would land: the demo vendor, and agent #001. */
@@ -155,9 +162,14 @@ const npmLive = PACKAGES.filter((p) => published[p]);
  * Stated as a computed check rather than a caveat in prose, because a caveat
  * under a big number is read as modesty and ignored.
  */
+const dl = (p: string) => npm[p] ?? 0;
+/* Both dependants, checked the same way: mcp needs core AND kaspa, vendor
+   needs kaspa. Either exceeding what it depends on is the same arithmetic
+   contradiction, and vendor is the one being posted about — so it is the one
+   most likely to show a number worth misreading. */
 const impossible =
-  (npm["@warda_protocol/mcp"] ?? 0) >
-  Math.min(npm["@warda_protocol/core"] ?? 0, npm["@warda_protocol/kaspa"] ?? 0);
+  dl("@warda_protocol/mcp") > Math.min(dl("@warda_protocol/core"), dl("@warda_protocol/kaspa")) ||
+  dl("@warda_protocol/vendor") > dl("@warda_protocol/kaspa");
 const npmTotal = npmLive.reduce((a, p) => a + (npm[p] ?? 0), 0);
 const npmWas = prior ? Object.values(prior.npm).reduce((a, b) => a + b, 0) : null;
 

@@ -37,7 +37,11 @@ BUYENTRY="41 9 * * * $BUY >> $BUYLOG 2>&1"
 # ignore it. Exit 10 means a stranger paid the demo vendor.
 CONTACT="$OPS/first-contact.sh"
 CONTACTLOG="$HOME/Library/Logs/warda-first-contact.log"
-CONTACTENTRY="7 9 * * 1 $OPS/first-contact.sh --quiet >> $CONTACTLOG 2>&1"
+# Daily, not Mondays. Weekly was right while nothing was happening; the first
+# post that could actually bring somebody went out on a Thursday, and a
+# detector that next looks in five days is a detector that misses the arrival
+# it was built for. The run costs two API calls and one node query.
+CONTACTENTRY="7 9 * * * $OPS/first-contact.sh --quiet >> $CONTACTLOG 2>&1"
 
 VENDOR="$OPS/check-vendor.sh"
 VENDORLOG="$HOME/Library/Logs/warda-vendor.log"
