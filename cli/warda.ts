@@ -469,6 +469,7 @@ switch (verb) {
              this opts out of that and buys again. It has to be forwarded or
              the escape hatch is unreachable from the CLI. */
           ...(has("no-resume") ? ["--no-resume"] : []),
+          ...(flag("settle-attempts") ? ["--settle-attempts", flag("settle-attempts")!] : []),
           /* A compute endpoint prices the work, so the quote request has to
              carry it. Without this the CLI can only ask vendors whose price is
              a property of the URL. */

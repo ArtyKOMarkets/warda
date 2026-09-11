@@ -1,6 +1,6 @@
 {
   "name": "@warda_protocol/cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "One short command for the whole life of a Warda grant: create it, see what it may spend, pay behind an HTTP 402, and read back every attempt. Adds no capability \u2014 the rules stay in @warda_protocol/core.",
   "type": "module",
   "license": "MIT",

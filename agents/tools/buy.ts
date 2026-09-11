@@ -119,7 +119,9 @@ if (!agentId || !manifestPath || !recipientsPath || !outDir) {
       "       [--expect-refusal]  exit 0 when the covenant refuses, for a deliberate probe\n" +
       "       [--data <json|@f>]  POST this body instead of GET. @file reads a file\n" +
       "       [--content-type t]  default application/json, with --data\n" +
-      "       [--no-resume]       buy again instead of redeeming an unfinished purchase\n\n" +
+      "       [--no-resume]       buy again instead of redeeming an unfinished purchase\n" +
+      "       [--settle-attempts n]  give up after n presentations. 1 makes exit 4 on\n" +
+      "                     purpose, which is how the resume path gets tested\n\n" +
       "Every flag above the blank line is required. This tool is shared by all the agents,\n" +
       "so an omitted one would spend a grant you did not mean to spend.\n\n" +
       "Exit codes, which are the API when you call this from another language:\n" +
@@ -301,6 +303,21 @@ try {
     body: requestBody,
   }, {
     payer,
+    /**
+     * How many times to re-present the proof before giving up.
+     *
+     * Exposed for one reason: it is the only way to produce a genuine
+     * paid-and-undelivered purchase on purpose. Settlement takes a few
+     * seconds, so `--settle-attempts 1` presents the proof once, gets the
+     * vendor's "still broadcasting" 402, and exits 4 with a real txid and a
+     * real header — which is exactly the state the resume path exists to
+     * recover, and otherwise can only be reached by killing the process at
+     * the right moment or by a vendor going down mid-purchase.
+     *
+     * Testing recovery by arranging the failure beats testing it by waiting
+     * for one.
+     */
+    ...(flag("settle-attempts") ? { maxSettleAttempts: Number(flag("settle-attempts")) } : {}),
     /* Present the old proof instead of buying. `wardaFetch` cannot reach its
        payer down this path at all, which is the property that makes an
        automatic resume safe to do without asking. */
