@@ -510,6 +510,29 @@ try {
   /* `seen` may hold a txid even here: everything after `payer.pay` can throw
      with the money already on chain. A failure record without it is a payment
      nothing in this repository remembers making. */
+  /**
+   * A payment that landed and then failed leaves the manifest behind.
+   *
+   * The advance happens after delivery, so anything that throws between the
+   * two — a vendor that never serves, a killed process, `--settle-attempts 1`
+   * — leaves the chain one spend ahead of the file. The grant has moved to its
+   * successor and the manifest still names the address that payment consumed,
+   * so the NEXT attempt to build anything reports "no UTXO at …" and reads as
+   * a grant that vanished.
+   *
+   * Resuming does not care: it builds no transaction and reads no UTXO. Every
+   * other action does, and the reconcile is a tool rather than an edit,
+   * because the successor address is derived from state this process no longer
+   * has.
+   */
+  if (seen.txid) {
+    console.error(
+      `\n  The manifest is now BEHIND the chain by this payment. Re-running this same\n` +
+        `  command re-presents the proof and needs no manifest. Anything else — another\n` +
+        `  purchase, a balance — needs it reconciled first:\n\n` +
+        `    warda find --write\n`,
+    );
+  }
   record({
     outcome: seen.txid ? "paid-then-failed" : "failed",
     txid: seen.txid ?? null,
