@@ -1443,13 +1443,13 @@ await wardaFetch(url);</code></pre>
     </div>
 
     <p class="needs" data-rise style="--d:300ms">
-      <strong style="color:var(--chrome-dim);font-weight:500">You need a Kaspa testnet-10 node
-      you can reach.</strong> Warda builds and signs transactions locally, but it has to read
-      the UTXO set to do it. Run <code>kaspad</code> with <code>--utxoindex</code> and
-      <code>--rpclisten-json=</code>, or point <code>WARDA_RESOLVER</code> at a Kaspa Resolver
-      if you have one &mdash; no public resolver instance is published anywhere we can find, so
-      in practice this means a node. <code>warda node</code> checks yours is worth
-      believing before you build anything against it. Full walkthrough in
+      <strong style="color:var(--chrome-dim);font-weight:500">Warda reads the chain through a
+      node.</strong> It builds and signs locally, but it has to see the UTXO set to do it. To try
+      it, borrow ours &mdash; <code>export WARDA_RPC_JSON=wss://warda-node.tailc0c0ec.ts.net</code>,
+      testnet-10, four methods forwarded and the rest refused by name. To rely on it, run your own:
+      <code>kaspad</code> with <code>--utxoindex</code> and <code>--rpclisten-json=</code>, because
+      a node you do not run is a node you are trusting. <code>warda node</code> checks whichever one
+      you pointed at is worth believing before you build anything against it. Full walkthrough in
       <a href="/start">the tutorial</a>.
     </p>
   </div>
