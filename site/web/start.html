@@ -720,7 +720,7 @@ git clone <span class="a">https://github.com/ArtyKOMarkets/warda</span> &amp;&am
   <span class="d">fund it from the testnet-10 faucet, then list who the agent may pay</span>
 
 <span class="p">$</span> <span class="cmd">echo <span class="v">kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e</span> &gt; <span class="a">payees.txt</span></span>
-<span class="p">$</span> <span class="cmd">WARDA_SK=$(cat wallet.key) warda grant --payees <span class="a">payees.txt</span> --budget <span class="v">10</span> --max-per-spend <span class="v">1</span></span>
+<span class="p">$</span> <span class="cmd">warda grant --key <span class="v">wallet.key</span> --payees <span class="a">payees.txt</span> --budget <span class="v">10</span> --max-per-spend <span class="v">1</span></span>
   <span class="ok">✔ grant.json   10 KAS budget · 1 KAS per payment · 1 payee, fixed at creation</span>
   <span class="ok">✔ agent.key    the agent's whole authority, and it is the line above</span>
 
