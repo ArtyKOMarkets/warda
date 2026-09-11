@@ -70,4 +70,8 @@ export {
   wardaFetch,
   type WardaFetchOptions,
   type WardaFetchEvent,
+  // Everything needed to present a settled payment again. Record it when the
+  // `paid` event fires; a purchase that paid and did not arrive is recoverable
+  // only if someone kept this.
+  type ResumableProof,
 } from "./fetch.ts";

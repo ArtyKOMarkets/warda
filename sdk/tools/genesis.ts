@@ -364,7 +364,17 @@ try {
   console.error(`  funded by   : ${walletAddress}`);
   console.error(`  agent       : ${agentKey}${agentSupplied ? " (supplied)" : " (derived, index 0)"}`);
   console.error(`  principal   : ${principalKey}${principalKey === key ? " (the funder)" : ""}`);
-  console.error(`  revocation  : ${revocationKey}${revocationKey === principalKey ? " (= principal)" : " (separate)"}`);
+  /* "(= principal)" told the reader what was true without telling them what it
+     meant. The two keys do different jobs — reclaim at expiry, revoke at any
+     time — and sharing one means a compromised funder key takes the emergency
+     stop with it, at the moment it is most needed. That is a fine trade for a
+     first grant and a bad one for anything left running. */
+  console.error(
+    `  revocation  : ${revocationKey}` +
+      (revocationKey === principalKey
+        ? " (= principal — one key to keep, and one key to lose)"
+        : " (separate — the stop survives the funder)"),
+  );
   console.error(`  budget      : ${budget} sompi, cap ${state.maxPerSpend}, epoch ${state.epochLimit}`);
   if (startsIn > 0n) {
     // 10 blocks/second, so 864,000 DAA is a day and 36,000 is an hour. Printed

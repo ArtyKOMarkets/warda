@@ -45,6 +45,8 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
+import { findResumable, type Pending } from "./resume.ts";
+
 import {
   NodeClient,
   RecipientSet,
@@ -116,13 +118,15 @@ if (!agentId || !manifestPath || !recipientsPath || !outDir) {
       "       [--json]            the whole result on stdout, for a caller in another language\n" +
       "       [--expect-refusal]  exit 0 when the covenant refuses, for a deliberate probe\n" +
       "       [--data <json|@f>]  POST this body instead of GET. @file reads a file\n" +
-      "       [--content-type t]  default application/json, with --data\n\n" +
+      "       [--content-type t]  default application/json, with --data\n" +
+      "       [--no-resume]       buy again instead of redeeming an unfinished purchase\n\n" +
       "Every flag above the blank line is required. This tool is shared by all the agents,\n" +
       "so an omitted one would spend a grant you did not mean to spend.\n\n" +
       "Exit codes, which are the API when you call this from another language:\n" +
       "  0  bought          the vendor served it\n" +
       "  3  refused         the covenant said no. NOTHING was spent\n" +
-      "  4  paid, unserved  the money is gone. Do NOT retry — that pays twice\n" +
+      "  4  paid, unserved  the money settled and the vendor did not serve. Run the SAME\n" +
+      "                     command again: it re-presents the proof and pays nothing\n" +
       "  1  failed          see stderr\n" +
       "  2  usage",
   );
@@ -199,11 +203,21 @@ const record = (result: Record<string, unknown>) => {
   console.error(`recorded : ${path}`);
 };
 
+const pending = has("no-resume") ? null : findResumable(outDir, url);
+if (pending) {
+  console.error(
+    `resuming : ${pending.txid} — this URL was paid for and never delivered.\n` +
+      `           Re-presenting that proof. NOTHING will be paid; if the vendor still\n` +
+      `           refuses, this exits non-zero rather than buying it again.\n` +
+      `           Pass --no-resume to make a fresh purchase instead.`,
+  );
+}
+
 /* One mutable object rather than three `let`s: assignments made inside a
    callback are invisible to the compiler's narrowing, so plain locals read
    back as `null` no matter what the callback did. Declared out here because
    the catch block needs the txid as much as the success path does. */
-const seen: { payTo?: string; amountSompi?: bigint; txid?: string } = {};
+const seen: { payTo?: string; amountSompi?: bigint; txid?: string; proof?: Pending } = {};
 
 /* Two chains, and nothing was checking they were the same one.
    
@@ -287,6 +301,10 @@ try {
     body: requestBody,
   }, {
     payer,
+    /* Present the old proof instead of buying. `wardaFetch` cannot reach its
+       payer down this path at all, which is the property that makes an
+       automatic resume safe to do without asking. */
+    ...(pending ? { resume: { header: pending.header, txid: pending.txid, amountSompi: pending.amountSompi, payTo: pending.payTo } } : {}),
     onEvent: (e) => {
       if (e.type === "quote") {
         seen.payTo = e.requirement.payTo;
@@ -306,8 +324,36 @@ try {
       }
       if (e.type === "paid") {
         seen.txid = e.result.txid;
+        seen.proof = {
+          file: "",
+          header: e.header,
+          txid: e.result.txid,
+          amountSompi: e.result.amountSompi.toString(),
+          payTo: seen.payTo,
+        };
         console.error(`  paid   : ${e.result.txid}`);
+        /**
+         * Written here, not after delivery.
+         *
+         * Everything between this line and the record at the bottom of the
+         * file can fail — the vendor can hang, the process can be killed, the
+         * host can go away — and until now all of it discarded the header,
+         * which exists only inside wardaFetch and only for the length of the
+         * call. That window was the whole bug: the money was on chain and the
+         * one artefact that could still redeem it was in nobody's hands.
+         *
+         * The final record overwrites this one at the same path, so a run that
+         * completes leaves a single file, as before.
+         */
+        record({
+          outcome: "paid-pending",
+          quoted: seen.payTo ? { payTo: seen.payTo, amountSompi: seen.amountSompi?.toString() ?? null } : null,
+          txid: e.result.txid,
+          proof: { header: e.header, txid: e.result.txid, amountSompi: e.result.amountSompi.toString(), payTo: seen.payTo ?? null },
+          note: "Paid; delivery not yet confirmed. Re-run the same command to re-present this proof.",
+        });
       }
+      if (e.type === "resuming") console.error(`  proof  : re-presenting, nothing will be paid`);
       if (e.type === "settling") console.error(`  settling, retrying in ${e.delayMs}ms with the SAME proof`);
       if (e.type === "done") console.error(`  status : ${e.status}`);
     },
@@ -347,8 +393,46 @@ try {
        checkable fact is which address the money reached, and that is `quoted`
        above, matched against this grant's allowlist by the covenant itself. */
     sellerClaimed: (body as Record<string, unknown>)?.seller ?? null,
+    proof: seen.proof
+      ? { header: seen.proof.header, txid: seen.proof.txid, amountSompi: seen.proof.amountSompi, payTo: seen.proof.payTo ?? null }
+      : null,
+    resumedFrom: pending?.txid ?? null,
     response: body,
   });
+
+  /* Close the old debt, so a third run does not try to redeem it again. The
+     record stays on disk — it is the evidence that the money moved — and gains
+     a line saying which run finally collected. */
+  if (pending) {
+    try {
+      const old = JSON.parse(readFileSync(pending.file, "utf8")) as Record<string, unknown>;
+      old.resolvedBy = { at: new Date().toISOString(), status: res.status, record: `${stamp}.json` };
+      writeFileSync(pending.file, JSON.stringify(old, null, 2) + "\n");
+    } catch {
+      /* Best effort. A failure here costs a duplicate resume attempt on the
+         next run, which re-presents a proof and pays nothing — annoying, and
+         not in the same class as the problem this whole path exists to fix. */
+    }
+  }
+
+  /**
+   * A resume advances nothing, because a resume spent nothing.
+   *
+   * `payer.state` here is whatever was loaded from the manifest — no payment
+   * was built, so nothing moved it — and the arithmetic below would subtract a
+   * fee for a transaction this run did not make. The manifest was already
+   * advanced by the run that paid, IF that run got far enough; if it did not,
+   * the manifest is behind the chain and no amount of guessing here fixes
+   * that. `warda find --write` reconciles it against the grant's actual
+   * successor, which is the tool that exists for this and knows the answer
+   * rather than assuming it.
+   */
+  if (pending) {
+    console.error(
+      `manifest : untouched — this run paid nothing. If the grant's state is behind,\n` +
+        `           reconcile it with \`warda find --write\` rather than by hand.`,
+    );
+  } else {
 
   /* The grant has MOVED — its address is a hash of its state. Write the new
      state back or the next run looks for it where it used to be, which every
@@ -371,6 +455,7 @@ try {
   };
   writeFileSync(manifestPath, JSON.stringify(advanced, null, 1) + "\n");
   console.error(`manifest : advanced to spent_total=${advanced.spent_total}`);
+  }
 
   /**
    * `--json`: the whole result, not just what the vendor said.

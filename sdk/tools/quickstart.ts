@@ -217,6 +217,12 @@ const genesis = spawnSync(
     "--epoch-limit", epochLimit,
     "--out", out,
     "--prefix", prefix,
+    /* The emergency stop, separable from the funder. Defaulting it to the
+       principal is right for a first grant — one key to keep, and an
+       emergency stop you cannot lose separately from the money — but it
+       means a compromised funder key loses the stop at the same moment it is
+       most needed. Anything left running unattended wants its own. */
+    ...(flag("revocation") ? ["--revocation", flag("revocation")!] : []),
     ...(rpcFrom(flag("rpc")) ? ["--rpc", rpcFrom(flag("rpc"))!] : []),
     "--submit",
   ],

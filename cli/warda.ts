@@ -344,6 +344,10 @@ switch (verb) {
       "warda",
       ...(flag("prefix") ? ["--prefix", flag("prefix")!] : []),
       ...(flag("network") ? ["--network", flag("network")!] : []),
+      /* Without this the revocation key can only ever equal the principal
+         from the CLI, and the separation exists precisely for the case where
+         the principal key is the thing that went wrong. */
+      ...(flag("revocation") ? ["--revocation", flag("revocation")!] : []),
       ...rpcArgs(cfg),
     ], funderEnv);
     if (status !== 0) process.exit(status);
@@ -461,6 +465,10 @@ switch (verb) {
           out,
           ...(has("json") ? ["--json"] : []),
           ...(has("expect-refusal") ? ["--expect-refusal"] : []),
+          /* An unfinished purchase is redeemed by re-running the same command;
+             this opts out of that and buys again. It has to be forwarded or
+             the escape hatch is unreachable from the CLI. */
+          ...(has("no-resume") ? ["--no-resume"] : []),
           /* A compute endpoint prices the work, so the quote request has to
              carry it. Without this the CLI can only ask vendors whose price is
              a property of the URL. */

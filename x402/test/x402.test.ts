@@ -485,3 +485,106 @@ test("an unrecognised submission failure is passed through unchanged", () => {
   });
   return assert.rejects(payer.pay(parsePaymentRequired(requirement())), /orphan transaction/);
 });
+
+/**
+ * Resuming a purchase that was paid and never delivered.
+ *
+ * This is the one failure in the whole adapter that costs money, and until now
+ * it was also the one with no way out: the X-PAYMENT header was built inside
+ * `wardaFetch` and discarded there, so a caller who lost the process between
+ * settlement and delivery could only pay again. The error thrown at the end of
+ * the settle loop has told people to "re-present the same X-PAYMENT header"
+ * since the day it was written, while giving them nothing to re-present.
+ */
+
+test("the paid event carries the header, which is the only way to keep it", async () => {
+  const payer = fakePayer();
+  let captured: string | undefined;
+  let call = 0;
+  await wardaFetch("https://vendor/compute", {}, {
+    payer,
+    fetchImpl: async () => (++call === 1 ? jsonResponse(402, requirement()) : jsonResponse(200, { ok: 1 })),
+    onEvent: (e) => {
+      if (e.type === "paid") captured = e.header;
+    },
+  });
+  assert.ok(captured, "the paid event carried no header");
+  const proof = decodeProof(captured!);
+  assert.equal(proof.txid, "cafe".repeat(16));
+  assert.equal(proof.nonce, requirement().accepts[0]!.nonce);
+});
+
+test("a resume presents the proof and never reaches the payer", async () => {
+  const payer = fakePayer();
+  const header = encodeProof({
+    scheme: "exact",
+    network: "kaspa-testnet-10",
+    payer: "kaspatest:qqpayer",
+    txid: "beef".repeat(16),
+    amountSompi: "3000000",
+    nonce: "n-1",
+  });
+  const seen: (string | undefined)[] = [];
+  const res = await wardaFetch("https://vendor/compute", {}, {
+    payer,
+    resume: { header, txid: "beef".repeat(16), amountSompi: "3000000" },
+    fetchImpl: async (_u, init) => {
+      seen.push((init?.headers as Record<string, string> | undefined)?.[PAYMENT_HEADER]);
+      return jsonResponse(200, { delivered: true });
+    },
+  });
+  assert.equal(res.status, 200);
+  // The important assertion in this file. A resume that pays is not a resume.
+  assert.equal(payer.paid.length, 0);
+  // And it did not ask for a quote first: one request, carrying the proof.
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0], header);
+});
+
+test("a resume that keeps getting 402 gives up rather than buying again", async () => {
+  const payer = fakePayer();
+  const header = encodeProof({
+    scheme: "exact",
+    network: "kaspa-testnet-10",
+    payer: "kaspatest:qqpayer",
+    txid: "beef".repeat(16),
+    amountSompi: "3000000",
+    nonce: "n-1",
+  });
+  await assert.rejects(
+    () =>
+      wardaFetch("https://vendor/compute", {}, {
+        payer,
+        resume: { header, txid: "beef".repeat(16), amountSompi: "3000000" },
+        maxSettleAttempts: 2,
+        fetchImpl: async () => jsonResponse(402, requirement()),
+      }),
+    (e: Error) => {
+      assert.ok(e instanceof X402Error);
+      assert.match(e.message, /did NOT pay again/);
+      assert.match(e.message, /beef/);
+      return true;
+    },
+  );
+  assert.equal(payer.paid.length, 0);
+});
+
+test("a resume emits `resuming` and never `quote` or `paid`", async () => {
+  const payer = fakePayer();
+  const header = encodeProof({
+    scheme: "exact",
+    network: "kaspa-testnet-10",
+    payer: "kaspatest:qqpayer",
+    txid: "beef".repeat(16),
+    amountSompi: "3000000",
+    nonce: "n-1",
+  });
+  const types: string[] = [];
+  await wardaFetch("https://vendor/compute", {}, {
+    payer,
+    resume: { header, txid: "beef".repeat(16), amountSompi: "3000000" },
+    fetchImpl: async () => jsonResponse(200, { delivered: true }),
+    onEvent: (e) => types.push(e.type),
+  });
+  assert.deepEqual(types, ["resuming", "done"]);
+});

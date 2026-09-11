@@ -40,6 +40,20 @@ export interface WardaFetchOptions {
   /** Called at each step. Mirrors the reference client's `onEvent`. */
   onEvent?: (e: WardaFetchEvent) => void;
   /**
+   * A proof from an EARLIER call that was paid and never delivered.
+   *
+   * The money is already on chain. This skips the quote and the payment
+   * entirely and re-presents the header, which is the only correct response to
+   * a purchase that settled and did not arrive — and what the error thrown at
+   * the bottom of this file has always told callers to do without giving them
+   * any way to do it, because the header was built here and discarded here.
+   *
+   * It cannot pay. If the vendor still refuses, this throws; it does not fall
+   * back to buying again. A fallback would turn the one failure that costs
+   * money into the one failure that costs money twice.
+   */
+  resume?: ResumableProof;
+  /**
    * Refuse to pay more than this for a single call, regardless of what the
    * grant would permit. A belt-and-braces limit that lives in the process —
    * useful, but note that it is exactly the kind of limit Warda exists to
@@ -48,9 +62,30 @@ export interface WardaFetchOptions {
   maxAmountSompi?: bigint;
 }
 
+/**
+ * Everything needed to present a payment again, and nothing else.
+ *
+ * `header` is the wire value; the rest is here so that a caller writing this
+ * to disk can tell later WHAT was bought and for how much without decoding
+ * base64. A record that holds only an opaque blob is a record nobody reads.
+ */
+export interface ResumableProof {
+  header: string;
+  txid: string;
+  amountSompi: string;
+  payTo?: string;
+}
+
 export type WardaFetchEvent =
   | { type: "quote"; requirement: PaymentRequirement }
-  | { type: "paid"; result: PaymentResult }
+  /**
+   * `header` rides along with the result, because this is the only moment it
+   * exists and a caller that does not capture it here cannot ever re-present
+   * it. Every purchase that settled and was not delivered used to be
+   * unrecoverable for exactly this reason.
+   */
+  | { type: "paid"; result: PaymentResult; header: string; proof: PaymentProof }
+  | { type: "resuming"; proof: ResumableProof }
   | { type: "settling"; attempt: number; delayMs: number }
   | { type: "done"; status: number };
 
@@ -82,6 +117,19 @@ export async function wardaFetch(
   const base = replayable(init);
   const emit = opts.onEvent ?? (() => {});
 
+  /**
+   * Resuming happens BEFORE the first request.
+   *
+   * Not after a 402, and not as a fallback: the whole point is that no path
+   * through this branch can reach `payer.pay`. A resume that quietly became a
+   * purchase when the proof looked stale would be worse than no resume at all,
+   * because the caller reaching for it has already paid once.
+   */
+  if (opts.resume) {
+    emit({ type: "resuming", proof: opts.resume });
+    return await present(opts.resume.header, opts.resume.txid);
+  }
+
   const first = await doFetch(input as never, base as never);
   if (first.status !== 402) {
     emit({ type: "done", status: first.status });
@@ -111,8 +159,12 @@ export async function wardaFetch(
   if (refusal) throw new X402Error(refusal, 402);
 
   const result = await opts.payer.pay(requirement);
-  emit({ type: "paid", result });
 
+  /* The `paid` event is emitted BELOW, once the header exists, rather than
+     here where the result does. A caller told "paid" without the header it
+     would need to re-present cannot record a recoverable purchase, and the
+     window between those two lines is precisely where an unrecoverable one
+     used to be created. */
   const proof: PaymentProof = {
     scheme: requirement.scheme,
     network: requirement.network,
@@ -122,34 +174,54 @@ export async function wardaFetch(
     nonce: requirement.nonce,
   };
   const header = encodeProof(proof);
+  emit({ type: "paid", result, header, proof });
 
-  const attempts = opts.maxSettleAttempts ?? DEFAULT_SETTLE_ATTEMPTS;
-  let last: Response | undefined;
-  for (let attempt = 0; attempt < attempts; attempt++) {
-    const withProof: RequestInit = {
-      ...base,
-      headers: { ...(base.headers as Record<string, string> | undefined), [PAYMENT_HEADER]: header },
-    };
-    const res = await doFetch(input as never, withProof as never);
-    if (res.status !== 402) {
-      emit({ type: "done", status: res.status });
-      return res;
+  return await present(header, proof.txid);
+
+  /**
+   * Present a proof until the vendor delivers, or give up saying what is owed.
+   *
+   * One function for both entrances — the purchase that just paid and the one
+   * resuming an older payment — because they are the same act. A vendor cannot
+   * tell them apart and neither should this: the retry cadence, the refusal to
+   * pay again, and the final error all have to be identical, and two copies of
+   * that would be two places to get the second one wrong.
+   *
+   * A function DECLARATION, so it can be called from the resume branch at the
+   * top of this function. Everything it closes over is initialised by then.
+   */
+  async function present(paymentHeader: string, txid: string): Promise<Response> {
+    const attempts = opts.maxSettleAttempts ?? DEFAULT_SETTLE_ATTEMPTS;
+    let last: Response | undefined;
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      const withProof: RequestInit = {
+        ...base,
+        headers: {
+          ...(base.headers as Record<string, string> | undefined),
+          [PAYMENT_HEADER]: paymentHeader,
+        },
+      };
+      const res = await doFetch(input as never, withProof as never);
+      if (res.status !== 402) {
+        emit({ type: "done", status: res.status });
+        return res;
+      }
+      last = res;
+      // 402 again means "broadcasting, come back" — the same proof, unchanged.
+      // Paying a second time here is the one thing that must never happen.
+      if (attempt < attempts - 1) {
+        const delayMs = settleDelayMs(attempt);
+        emit({ type: "settling", attempt, delayMs });
+        await new Promise((r) => setTimeout(r, delayMs));
+      }
     }
-    last = res;
-    // 402 again means "broadcasting, come back" — the same proof, unchanged.
-    // Paying a second time here is the one thing that must never happen.
-    if (attempt < attempts - 1) {
-      const delayMs = settleDelayMs(attempt);
-      emit({ type: "settling", attempt, delayMs });
-      await new Promise((r) => setTimeout(r, delayMs));
-    }
+
+    throw new X402Error(
+      `payment ${txid} was broadcast and accepted by the network, but the server still ` +
+        `reported 402 after ${attempts} attempts. The money is spent; this did NOT pay again. ` +
+        `Re-present the same X-PAYMENT header rather than repeating the call, or the nonce is ` +
+        `stale and the vendor should be asked about the payment by txid.`,
+      last?.status ?? 402,
+    );
   }
-
-  throw new X402Error(
-    `payment ${proof.txid} was broadcast and accepted by the network, but the server still ` +
-      `reported 402 after ${attempts} attempts. The money is spent; this did NOT pay again. ` +
-      `Re-present the same X-PAYMENT header rather than repeating the call, or the nonce is ` +
-      `stale and the vendor should be asked about the payment by txid.`,
-    last?.status ?? 402,
-  );
 }
