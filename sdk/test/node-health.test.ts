@@ -83,9 +83,44 @@ test("with no grant address the covenant check is loud about not running", async
 });
 
 test("a network nobody asked about is reported, not judged", async () => {
-  const h = await inspect(fakeClient({ network: "mainnet" }), { grantAddress: "x" });
-  assert.equal(h.checks.network.ok, true);
-  assert.match(h.checks.network.detail, /nothing was asked/);
+  /**
+   * "Nobody asked" has to mean the environment too.
+   *
+   * `inspect` falls back to WARDA_NETWORK when no network is passed, which is
+   * correct and is why this test cannot simply omit the option: ops/node.env
+   * exports that variable, so on any machine set up to talk to a node, somebody
+   * HAS asked, the mainnet client below is judged against testnet-10, and this
+   * fails. It passed on a clean shell and failed on a working one — backwards,
+   * and it failed during `npm publish`, which is the worst moment to learn that
+   * a test depends on whoever is running it.
+   */
+  const prev = process.env.WARDA_NETWORK;
+  delete process.env.WARDA_NETWORK;
+  try {
+    const h = await inspect(fakeClient({ network: "mainnet" }), { grantAddress: "x" });
+    assert.equal(h.checks.network.ok, true);
+    assert.match(h.checks.network.detail, /nothing was asked/);
+  } finally {
+    if (prev === undefined) delete process.env.WARDA_NETWORK;
+    else process.env.WARDA_NETWORK = prev;
+  }
+});
+
+test("WARDA_NETWORK is an answer, so a node that disagrees with it is judged", async () => {
+  /* The other half, which nothing covered: the fallback is a feature — an
+     operator who has said which chain they are on should not have to repeat it
+     to every call — and a test that only pins the null case would let it be
+     deleted as dead code. */
+  const prev = process.env.WARDA_NETWORK;
+  process.env.WARDA_NETWORK = "testnet-10";
+  try {
+    const h = await inspect(fakeClient({ network: "mainnet" }), { grantAddress: "x" });
+    assert.equal(h.checks.network.ok, false);
+    assert.match(h.checks.network.detail, /well-formed and absent/);
+  } finally {
+    if (prev === undefined) delete process.env.WARDA_NETWORK;
+    else process.env.WARDA_NETWORK = prev;
+  }
 });
 
 test("the report names the failing check, not just the verdict", async () => {

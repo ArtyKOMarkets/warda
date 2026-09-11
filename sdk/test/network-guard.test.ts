@@ -21,7 +21,16 @@ const tool = (name: string) => fileURLToPath(new URL(`../tools/${name}`, import.
 const run = (name: string, args: string[], env: NodeJS.ProcessEnv = {}) =>
   spawnSync(process.execPath, ["--experimental-strip-types", tool(name), ...args], {
     encoding: "utf8",
-    env: { ...process.env, WARDA_MAINNET: "", WARDA_SK: "", ...env },
+    /* Every variable that can decide a chain is cleared, not just the two that
+       were known about when this was written. WARDA_NETWORK was missed, and
+       ops/node.env exports it — so on a machine configured to talk to a node,
+       "testnet needs no ceremony" derived a MAINNET key, the guard correctly
+       refused, and the test read that refusal as a bug in the guard.
+
+       A test that sanitizes its environment has to sanitize all of it. The
+       ones below that care about a network pass it as a flag, which is the
+       only way a test should say so. */
+    env: { ...process.env, WARDA_MAINNET: "", WARDA_SK: "", WARDA_NETWORK: "", WARDA_PREFIX: "", ...env },
   });
 
 test("testnet is unchanged: no flags, no ceremony", () => {
