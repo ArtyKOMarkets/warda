@@ -73,3 +73,33 @@ export function findResumable(dir: string, forUrl: string): Pending | null {
   }
   return null;
 }
+
+/**
+ * The body of a purchase record, with the proof attached whatever happened.
+ *
+ * Pure, and separate from the file write, because the bug this exists to
+ * prevent was not in the writing. Every record for one run shares a path, so
+ * the last write wins — and on a failed purchase the last write is the catch
+ * block, which did not carry the proof. The paid-pending record that existed
+ * to survive a failure was therefore destroyed BY the failure, and the header
+ * with it. Exit 4 left a txid and nothing to redeem it with: the same
+ * unrecoverable purchase as before, now wearing a recovery's clothes.
+ *
+ * Attaching it here rather than at each call site means no future outcome can
+ * forget. A record that names a payment must carry the means to finish it.
+ */
+export function withProof(
+  base: Record<string, unknown>,
+  proof: Pick<Pending, "header" | "txid" | "amountSompi" | "payTo"> | undefined,
+): Record<string, unknown> {
+  if (!proof) return { ...base };
+  return {
+    proof: {
+      header: proof.header,
+      txid: proof.txid,
+      amountSompi: proof.amountSompi,
+      payTo: proof.payTo ?? null,
+    },
+    ...base,
+  };
+}

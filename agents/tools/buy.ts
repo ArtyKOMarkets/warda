@@ -45,7 +45,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { findResumable, type Pending } from "./resume.ts";
+import { findResumable, withProof, type Pending } from "./resume.ts";
 
 import {
   NodeClient,
@@ -196,7 +196,9 @@ const record = (result: Record<string, unknown>) => {
         at: startedAt.toISOString(),
         agent: agentId,
         url,
-        ...result,
+        /* The proof rides on every record that has one — see withProof, and
+           the failure it exists to prevent. */
+        ...withProof(result, seen.proof),
       },
       null,
       2,
@@ -366,7 +368,6 @@ try {
           outcome: "paid-pending",
           quoted: seen.payTo ? { payTo: seen.payTo, amountSompi: seen.amountSompi?.toString() ?? null } : null,
           txid: e.result.txid,
-          proof: { header: e.header, txid: e.result.txid, amountSompi: e.result.amountSompi.toString(), payTo: seen.payTo ?? null },
           note: "Paid; delivery not yet confirmed. Re-run the same command to re-present this proof.",
         });
       }
@@ -410,9 +411,6 @@ try {
        checkable fact is which address the money reached, and that is `quoted`
        above, matched against this grant's allowlist by the covenant itself. */
     sellerClaimed: (body as Record<string, unknown>)?.seller ?? null,
-    proof: seen.proof
-      ? { header: seen.proof.header, txid: seen.proof.txid, amountSompi: seen.proof.amountSompi, payTo: seen.proof.payTo ?? null }
-      : null,
     resumedFrom: pending?.txid ?? null,
     response: body,
   });

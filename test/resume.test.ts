@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
-import { findResumable, UNFINISHED } from "../agents/tools/resume.ts";
+import { findResumable, withProof, UNFINISHED } from "../agents/tools/resume.ts";
 
 const URL_A = "https://vendor.example/fact";
 const URL_B = "https://vendor.example/other";
@@ -96,4 +96,53 @@ test("a directory of unrelated files is ignored", () => {
   mkdirSync(join(dir, "notes"));
   writeFileSync(join(dir, "README.txt"), "not a record");
   assert.equal(findResumable(dir, URL_A)?.txid, "ff");
+});
+
+/**
+ * The hole the live test found.
+ *
+ * The resume path was written, tested and shipped, and then failed on the
+ * first real purchase — because the record carrying the proof was overwritten
+ * by the error record, which did not carry it. Every branch of findResumable
+ * was correct and there was never anything for it to find.
+ *
+ * These pin the other half: whatever happened, if a payment was made, the
+ * record says how to finish it.
+ */
+
+const proof = { header: "hdr-xyz", txid: "xyz", amountSompi: "3000000", payTo: "kaspatest:qqvendor" };
+
+test("a failure record still carries the proof", () => {
+  const rec = withProof({ outcome: "paid-then-failed", txid: "xyz", error: "vendor said 402 forever" }, proof);
+  assert.equal((rec.proof as Record<string, unknown>).header, "hdr-xyz");
+  assert.equal(rec.outcome, "paid-then-failed");
+});
+
+test("so does a paid-but-refused record, and a bought one", () => {
+  for (const outcome of ["paid-but-refused", "bought", "paid-pending"]) {
+    const rec = withProof({ outcome }, proof);
+    assert.ok(rec.proof, `${outcome} lost the proof`);
+  }
+});
+
+test("the caller cannot overwrite the proof by accident", () => {
+  // `result` spreads AFTER the proof, so an outcome that sets `proof: null`
+  // wins deliberately — but nothing that simply forgets it can clear it.
+  const rec = withProof({ outcome: "paid-then-failed", error: "x" }, proof);
+  assert.ok(rec.proof);
+});
+
+test("a run that never paid records no proof, rather than an empty one", () => {
+  const rec = withProof({ outcome: "refused", reason: "timelock" }, undefined);
+  assert.equal("proof" in rec, false);
+});
+
+test("a record built by withProof is readable by findResumable", () => {
+  // The round trip, which is the thing that was actually broken: what the
+  // writer produces must be what the reader accepts.
+  const dir = dirWith([{ url: URL_A, ...withProof({ outcome: "paid-then-failed", txid: "xyz" }, proof) }]);
+  const found = findResumable(dir, URL_A);
+  assert.equal(found?.header, "hdr-xyz");
+  assert.equal(found?.txid, "xyz");
+  assert.equal(found?.payTo, "kaspatest:qqvendor");
 });
