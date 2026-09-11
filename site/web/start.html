@@ -863,11 +863,21 @@ export WARDA_RPC_JSON=<span class="a">wss://warda-node.tailc0c0ec.ts.net</span><
 
 export WARDA_RPC_JSON=wss://warda-node.tailc0c0ec.ts.net
 
-warda node</code></pre></div>
+warda node --grant kaspatest:prw9hklems02v8apxlx5m6y0d90e0j6657ztr3c3cjqf0wsnwsxz2fs9n0jxr</code></pre></div>
   <p style="max-width:60ch;color:var(--chrome-dim)">
     That endpoint is ours, and it is a laptop behind a tunnel &mdash; fine for this page,
     not something to build a business on. To use your own instead, put its URL in
     <code>WARDA_RPC_JSON</code> and run the same command.
+  </p>
+  <p class="needs">
+    <strong style="color:var(--chrome-dim);font-weight:500">The <code>--grant</code> is not
+    decoration.</strong> Three of the four checks a node can fail need nothing but the node.
+    The fourth &mdash; does it report covenant ids &mdash; can only be answered against an
+    address where one must be present, and it is the only failure that hands you a signed
+    transaction instead of an error. Without it that line reads <code>UNCHECKED</code>, which
+    is honest and not the same as passing. The address above is
+    <a href="/attack">the published demo grant</a>; a spend moves a grant, so if it reports
+    nothing there, take a current one from that page.
   </p>
   <p style="max-width:60ch;color:var(--chrome-dim)">
     It does not merely connect. It asks whether the node is worth believing &mdash; synced,
