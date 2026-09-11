@@ -337,6 +337,11 @@ switch (verb) {
       out,
       "--agent-out",
       agentOut,
+      /* Tells quickstart which of its two closing forms to print. Without it
+         the last line of a successful run names a repository path that a
+         global install does not have. */
+      "--via",
+      "warda",
       ...(flag("prefix") ? ["--prefix", flag("prefix")!] : []),
       ...(flag("network") ? ["--network", flag("network")!] : []),
       ...rpcArgs(cfg),

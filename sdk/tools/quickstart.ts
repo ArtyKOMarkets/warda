@@ -295,8 +295,35 @@ const firstPayee = membersFrom(recipients!)[0]!;
 
 say("Spend from it:");
 say();
-say(`  WARDA_SK=${agentSecret} \\`);
-say(`    node --experimental-strip-types tools/build-live-spend.ts ${out} \\`);
-say(`      --recipients ${recipients} --to ${firstPayee} \\`);
-say(`      --amount ${maxPerSpend} ${rpcFrom(flag("rpc")) ? `--rpc ${rpcFrom(flag("rpc"))} ` : ""}--submit`);
+/**
+ * Two forms, because there are two ways to be standing here and the wrong one
+ * is unusable.
+ *
+ * This printed `node --experimental-strip-types tools/build-live-spend.ts`
+ * unconditionally. That path resolves only with `sdk/` as the working
+ * directory — not from the repository root, and not at all for the majority of
+ * people who now arrive through `npm install -g @warda_protocol/cli` and have
+ * no clone. The last thing this tool prints is the line most likely to be
+ * pasted, and for a CLI user it named a file that does not exist on their
+ * disk.
+ *
+ * `--via` says which. The CLI passes it; a direct invocation does not.
+ */
+if (flag("via") === "warda") {
+  say(`  warda pay <url>`);
+  say(`                 ^ any endpoint that answers 402. It settles out of this grant,`);
+  say(`                   and needs no flags — the config below remembers all of them.`);
+  say();
+  say(`  There is no CLI verb for a raw payment to a bare address; that is a repository`);
+  say(`  tool. From a clone, with the agent key above:`);
+  say();
+  say(`    node --experimental-strip-types sdk/tools/build-live-spend.ts ${out} \\`);
+  say(`      --recipients ${recipients} --to ${firstPayee} \\`);
+  say(`      --amount ${maxPerSpend} ${rpcFrom(flag("rpc")) ? `--rpc ${rpcFrom(flag("rpc"))} ` : ""}--submit`);
+} else {
+  say(`  WARDA_SK=${agentSecret} \\`);
+  say(`    node --experimental-strip-types sdk/tools/build-live-spend.ts ${out} \\`);
+  say(`      --recipients ${recipients} --to ${firstPayee} \\`);
+  say(`      --amount ${maxPerSpend} ${rpcFrom(flag("rpc")) ? `--rpc ${rpcFrom(flag("rpc"))} ` : ""}--submit`);
+}
 say();

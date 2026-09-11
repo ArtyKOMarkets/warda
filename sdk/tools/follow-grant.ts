@@ -90,7 +90,15 @@ const m = JSON.parse(readFileSync(manifestPath, "utf8"));
    the published CLI carries this tool as bundled JS with no sdk/ directory
    above it, and a template read from a guessed path is how a tool derives a
    plausible address for a covenant nobody deployed. */
-const template = covenantTemplate as CovenantTemplate;
+/* `as unknown as`, not a plain assertion. TypeScript infers the JSON import's
+   literal shape, where every number is `number` — and CovenantTemplate's state
+   fields are `bigint`, because sompi are u64 and a double is not. The two
+   types therefore do not overlap and the direct assertion is an error, which
+   is how this stopped typechecking (and, since prepublishOnly runs typecheck,
+   stopped being publishable) when the template became a real JSON import.
+   The values are parsed into bigints downstream; only the static type is being
+   corrected here. */
+const template = covenantTemplate as unknown as CovenantTemplate;
 /* Resolved and CHECKED together: a prefix and a network that disagree
    derive a well-formed address on the wrong chain, which holds nothing and
    is indistinguishable from a grant that was drained. See network.ts. */
