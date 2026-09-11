@@ -459,9 +459,10 @@
 <div class="wrap"><header style="padding:clamp(2.4rem,6vw,4rem) 0 clamp(1.5rem,4vw,2.5rem)">
   <h1 style="font-size:clamp(2.2rem,6vw,3.8rem);margin-top:1.4rem">From nothing to a payment the network bounded.</h1>
   <p class="sub" style="max-width:56ch;margin-top:1.4rem">
-    Eight steps. At the end you will have made a real HTTP&nbsp;402 purchase on Kaspa
-    testnet-10, out of a grant that could not have paid anyone else or paid more, and you
-    will have the transaction id to check it with.
+    Eight steps, about ten minutes, and <strong>no prior knowledge of Kaspa</strong>. At the
+    end you will have made a real HTTP&nbsp;402 purchase on Kaspa testnet-10, out of a grant
+    that could not have paid anyone else or paid more, and you will have the transaction id
+    to check it with.
   </p>
   <p class="needs" style="margin-top:1.6rem">
     Everything here is testnet. The coins are free and worth nothing, which is the correct
@@ -488,6 +489,45 @@
 </div>
 
 <div class="wrap">
+
+<!-- Written for the reader who followed a link here and has never touched a
+     blockchain. Everything below assumes a wallet, a UTXO and a covenant are
+     familiar words, and for most of the people we want on this page they are
+     not. Three sentences is the whole prerequisite; anything longer and it
+     becomes a chain tutorial, which is not what this page is for. -->
+<section class="rule">
+  <p class="eyebrow">Do you need to know Kaspa?</p>
+  <h2>No. Three ideas carry all of it.</h2>
+  <div class="steps3" style="margin-top:2rem">
+    <div>
+      <p class="sn">01</p>
+      <h3>A wallet can pay anyone</h3>
+      <p>An ordinary key holding ordinary money. Nothing bounds it, which is exactly the
+      problem with handing one to a program. This is what <em>funds</em> a grant, and it is
+      the one thing the agent never sees.</p>
+    </div>
+    <div>
+      <p class="sn">02</p>
+      <h3>A grant is an address with rules</h3>
+      <p>Money sitting at an address whose rules &mdash; a budget, a cap per payment, a fixed
+      list of who may be paid &mdash; are part of what the <em>network</em> counts as a valid
+      transaction. Not a setting. Not a server check. A condition of the money moving at all.</p>
+    </div>
+    <div>
+      <p class="sn">03</p>
+      <h3>The agent holds only the limited key</h3>
+      <p>It can spend inside the rules and it cannot edit them, and neither can you once the
+      grant exists. That is why publishing an agent's key, as we do on
+      <a href="/attack">/attack</a>, is not a stunt.</p>
+    </div>
+  </div>
+  <p class="needs" style="margin-top:1.8rem">
+    Two words you will meet below and can safely skim past. A <strong>UTXO</strong> is a coin
+    &mdash; a discrete lump of money with its own rules, rather than a balance in a ledger. A
+    <strong>covenant</strong> is rules attached to that coin that every node enforces. Kaspa
+    activated covenants in June 2026, which is the only reason any of this can exist.
+  </p>
+</section>
 
 <section class="rule">
   <p class="eyebrow">Before step 0 &middot; the two keys</p>
@@ -563,10 +603,16 @@ export WARDA_RPC_JSON=<span class="a">wss://warda-node.tailc0c0ec.ts.net</span><
     <code>200</code> for <code>borsh</code>, on mainnet and testnet alike. The resolver is up,
     its pool is full, and it holds nothing we can talk to.
   </p>
-  <pre class="tm" data-label="BASH"><code>git clone https://github.com/ArtyKOMarkets/warda &amp;&amp; cd warda
-npm install
+  <pre class="tm" data-label="BASH"><code>npm install -g @warda_protocol/cli
 
-node --experimental-strip-types sdk/tools/check-node.ts --rpc wss://YOUR-NODE</code></pre>
+export WARDA_RPC_JSON=wss://warda-node.tailc0c0ec.ts.net
+
+warda node</code></pre>
+  <p style="max-width:60ch;color:var(--chrome-dim)">
+    That endpoint is ours, and it is a laptop behind a tunnel &mdash; fine for this page,
+    not something to build a business on. To use your own instead, put its URL in
+    <code>WARDA_RPC_JSON</code> and run the same command.
+  </p>
   <p style="max-width:60ch;color:var(--chrome-dim)">
     It does not merely connect. It asks whether the node is worth believing &mdash; synced,
     utxo-indexed, on the network it claims &mdash; because each of those failures returns a
@@ -589,7 +635,7 @@ node --experimental-strip-types sdk/tools/check-node.ts --rpc wss://YOUR-NODE</c
     for the grant, an <strong>agent</strong> that spends within it, and a
     <strong>revocation</strong> key that can end it. The agent never holds the other two.
   </p>
-  <pre class="tm" data-label="BASH"><code>node --experimental-strip-types sdk/tools/new-key.ts --label wallet --out wallet.key</code></pre>
+  <pre class="tm" data-label="BASH"><code>warda key --out wallet.key</code></pre>
   <p style="max-width:60ch;color:var(--chrome-dim)">
     It prints the address. Fund it from a testnet-10 faucet, then carry on &mdash; the next
     step will tell you if the balance is short before it creates anything.
@@ -617,8 +663,8 @@ node --experimental-strip-types sdk/tools/check-node.ts --rpc wss://YOUR-NODE</c
 <section class="rule">
   <p class="eyebrow">Step 3 &middot; create the grant</p>
   <h2>One command, and it refuses before it creates.</h2>
-  <pre class="tm" data-label="BASH"><code>WARDA_SK=$(cat wallet.key) node --experimental-strip-types sdk/tools/quickstart.ts \
-  --recipients payees.txt --rpc wss://YOUR-NODE</code></pre>
+  <pre class="tm" data-label="BASH"><code>warda grant --key wallet.key --payees payees.txt \
+  --budget 5 --max-per-spend 0.2</code></pre>
   <p style="max-width:60ch;color:var(--chrome-dim)">
     It checks every precondition first and reports all of them at once &mdash; a quickstart
     that fails five times, each revealing one more prerequisite, is a maze with a progress bar.
@@ -639,9 +685,11 @@ node --experimental-strip-types sdk/tools/check-node.ts --rpc wss://YOUR-NODE</c
 <section class="rule">
   <p class="eyebrow">Step 4 &middot; spend it</p>
   <h2>A real 402, against an endpoint that checks the chain.</h2>
-  <pre class="tm" data-label="BASH"><code>WARDA_SK=$(cat agent.key) node --experimental-strip-types agents/tools/buy.ts \
-  https://warda-demo-api.vercel.app/fact \
-  --id MY-AGENT --grant grant.json --recipients payees.txt --out purchases</code></pre>
+  <pre class="tm" data-label="BASH"><code>warda pay https://warda-demo-api.vercel.app/fact</code></pre>
+  <p style="max-width:60ch;color:var(--chrome-dim)">
+    No flags. Step 3 wrote the grant, the allowlist and the agent key into a config beside
+    them, so the agent it pays as is the one it just made.
+  </p>
   <p style="max-width:60ch;color:var(--chrome-dim)">
     The endpoint answers 402 with a price, your agent builds a covenant spend, broadcasts it,
     and re-presents the same proof while it settles. The vendor does not trust the header: it
@@ -651,6 +699,15 @@ node --experimental-strip-types sdk/tools/check-node.ts --rpc wss://YOUR-NODE</c
   <p style="max-width:60ch;color:var(--chrome-dim)">
     <strong>You now have a transaction id.</strong> Look it up on any testnet-10 explorer. That
     is the whole point of this page &mdash; nothing above needs to be taken on trust.
+  </p>
+  <p class="needs" style="margin-top:1.6rem">
+    <strong style="color:var(--chrome-dim);font-weight:500">What just happened, in plain
+    words.</strong> You locked some money at an address with rules. You handed a program a
+    key that opens that address and nothing else. The program bought something, and the
+    payment went through because it obeyed the rules &mdash; not because anything checked
+    afterwards, but because a payment breaking them is not a transaction the network has a
+    way to accept. The rules are now unchangeable, by the program, by you, and by us.
+    <a href="/attack">Someone is welcome to try</a>.
   </p>
 </section>
 
