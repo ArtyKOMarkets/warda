@@ -13,7 +13,9 @@
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck && npm test",
     "build": "tsc -p tsconfig.build.json",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "check:dist": "node ops/check-dist.mjs",
+    "pretest": "node ops/check-dist.mjs"
   },
   "keywords": [
     "kaspa",
