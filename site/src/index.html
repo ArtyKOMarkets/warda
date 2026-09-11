@@ -458,11 +458,11 @@
   <div class="wrap">
     <img src="{{LOCKUP}}" alt="Warda Protocol — economic infrastructure for autonomous agents" data-rise>
     <p class="thesis" data-rise style="--d:80ms">Give AI agents money without giving them <span class="lit">unlimited authority</span>.</p>
-    <p class="sub" data-rise style="--d:170ms">Warda creates cryptographically bounded grants for autonomous agents. The agent gets a key. The grant gets the money. Kaspa enforces the rules — so even if the agent is compromised, it cannot spend outside its authority.</p>
+    <p class="sub" data-rise style="--d:170ms">Lock money with hard rules &mdash; a budget, a cap per payment, a list of who may be paid &mdash; and hand your agent a key that can only spend inside them. The rules are enforced by the Kaspa blockchain itself, not by your code. <b>Steal the agent's key and the limits still hold</b>: a payment that breaks them is not refused, it is an invalid transaction that no node will relay and no miner can include.</p>
     <div class="cta-row" data-rise style="--d:250ms">
-      <a class="cta primary" href="/agents">See the agents <span class="arw">&rarr;</span></a>
-      <a class="cta ghost" href="#challenge">Try the challenge</a>
-      <a class="cta ghost" href="/build">Build your first agent</a>
+      <a class="cta primary" href="/start">Build your first agent <span class="arw">&rarr;</span></a>
+      <a class="cta ghost" href="/attack">Take the published key</a>
+      <a class="cta ghost" href="/agents">Watch the live ones</a>
     </div>
     <div class="statline" data-rise style="--d:340ms">
       <span>Kaspa L1 covenants</span>
@@ -482,6 +482,72 @@
       <span><b>0</b> human approvals</span>
     </div>
     <p class="scroll-cue" data-rise style="--d:430ms">Scroll<span></span></p>
+  </div>
+</section>
+
+<!-- Above the argument on purpose.
+     Everything below this section explains why the limit belongs in the coin
+     rather than in the code, and all of it is true, and none of it is what a
+     person who just arrived wants first. They want to know what they type.
+     So: three ways in, the shortest one first, before a single claim is made. -->
+<section class="rule" id="startnow">
+  <div class="wrap">
+    <div data-rise>
+      <p class="eyebrow">Start here</p>
+      <h2>Three ways in. The first one needs nothing installed but an editor.</h2>
+      <p class="big" style="margin-top:1.2rem;max-width:58ch">
+        You do not need to know anything about Kaspa to follow any of them. Three ideas
+        carry the whole protocol: <b>an ordinary wallet can pay anyone</b> &mdash; <b>a grant
+        is an address whose spending rules the network itself enforces</b> &mdash; and <b>the
+        agent only ever holds the limited key</b>, so it can spend, and it cannot change what
+        it is allowed to spend.
+      </p>
+    </div>
+
+    <div class="cols" data-rise style="--d:100ms">
+      <article>
+        <p class="n">A minute &middot; no node, no key, no money</p>
+        <h3>Ask from Claude or Cursor</h3>
+        <pre><code>{
+ "mcpServers": {
+  "warda": {
+   "command": "npx",
+   "args": ["-y",
+     "@warda_protocol/mcp"]
+  }
+ }
+}</code></pre>
+        <p>Restart the app, and the agent can ask what a grant allows it to spend right now,
+        and why a payment would be refused. It reads a grant and never the chain, so there is
+        nothing to fund and nothing to lose. <a href="/start">The config block</a>.</p>
+      </article>
+
+      <article>
+        <p class="n">Ten minutes &middot; a real payment on testnet</p>
+        <h3>Pay for something</h3>
+        <pre><code>npm i -g @warda_protocol/cli
+
+export WARDA_RPC_JSON=wss://warda-node.tailc0c0ec.ts.net
+
+warda key --out agent.key</code></pre>
+        <p>Then a grant with a budget and an allowlist, and one paid API call the chain
+        settles. Coins are free and worth nothing, which is the right amount of risk for a
+        protocol nobody has audited yet. <a href="/start">The walkthrough</a>.</p>
+      </article>
+
+      <article>
+        <p class="n">Now &middot; nothing to install</p>
+        <h3>Try to steal from it</h3>
+        <pre><code>A funded agent's complete
+private key is published.
+
+Not a hash of it.
+Anyone can sign with it.</code></pre>
+        <p>The most anyone has managed is to pay the one vendor it was allowed to pay, under
+        the per-payment cap. Not because a server said no &mdash; because the transaction they
+        would need cannot be built. <a href="/attack">Take the key</a>.</p>
+      </article>
+    </div>
   </div>
 </section>
 
