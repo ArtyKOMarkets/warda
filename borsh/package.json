@@ -1,0 +1,63 @@
+{
+  "name": "@warda_protocol/borsh",
+  "version": "0.1.0",
+  "description": "Read the Kaspa UTXO set over borsh wRPC — the encoding the public resolvers actually serve — so accepting Warda payments needs no node. Read-only by design: spending stays on JSON.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --experimental-strip-types --test test/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+  },
+  "dependencies": {
+    "@warda_protocol/kaspa": "^0.5.0"
+  },
+  "peerDependencies": {
+    "kaspa-wasm32-sdk": "*"
+  },
+  "peerDependenciesMeta": {
+    "kaspa-wasm32-sdk": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.0"
+  },
+  "keywords": [
+    "kaspa",
+    "borsh",
+    "wrpc",
+    "resolver",
+    "utxo",
+    "agent-payments"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ArtyKOMarkets/warda.git",
+    "directory": "borsh"
+  },
+  "homepage": "https://wardaprotocol.com",
+  "bugs": {
+    "url": "https://github.com/ArtyKOMarkets/warda/issues"
+  },
+  "sideEffects": false
+}

@@ -161,6 +161,9 @@ export {
   transactionToWire,
   type AddressUtxo,
   type DagInfo,
+  // What `inspect` needs, which is less than a node — so a borsh reader or a
+  // recorded capture gets the same checks rather than a copy of them.
+  type Inspectable,
   type NodeCheck,
   type NodeHealth,
   type NodeInfo,

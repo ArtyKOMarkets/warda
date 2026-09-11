@@ -224,6 +224,24 @@ export interface OpenOptions extends RpcOptions, ResolveOptions {
 }
 
 /**
+ * What `inspect` needs, which is less than a node.
+ *
+ * This is an interface rather than `NodeClient` because the checks below are
+ * the most valuable thing this package does for a reader it did not open, and
+ * a reader it did not open is exactly the case that cannot use `NodeClient`:
+ * a borsh transport, a recorded capture, a proxy. Narrowing costs nothing —
+ * `NodeClient` satisfies it structurally — and refusing to narrow would have
+ * meant every alternative transport either skipped the checks or copied them,
+ * and a copied check is a check that drifts.
+ */
+export interface Inspectable {
+  readonly url: string;
+  getInfo(): Promise<NodeInfo>;
+  getBlockDagInfo(): Promise<DagInfo>;
+  assertCovenantAware(grantAddress: string): Promise<void>;
+}
+
+/**
  * A node lying by omission is worse than a node that is down.
  *
  * Every check here exists because failing it produces a plausible WRONG ANSWER
@@ -245,7 +263,7 @@ export interface OpenOptions extends RpcOptions, ResolveOptions {
  * On your own node these are assumptions worth making. On somebody else's they
  * are questions worth asking, and asking costs two round trips.
  */
-export async function inspect(client: NodeClient, options: OpenOptions = {}): Promise<NodeHealth> {
+export async function inspect(client: Inspectable, options: OpenOptions = {}): Promise<NodeHealth> {
   const info = await client.getInfo();
   const dag = await client.getBlockDagInfo();
   const wanted = options.networkId ?? process.env.WARDA_NETWORK ?? null;
@@ -349,7 +367,7 @@ export async function inspect(client: NodeClient, options: OpenOptions = {}): Pr
 
   function finish(): NodeHealth {
     return {
-      url: client.connection.url,
+      url: client.url,
       serverVersion: info.serverVersion,
       network: dag.network,
       virtualDaaScore: dag.virtualDaaScore,
@@ -424,6 +442,11 @@ export class NodeClient {
   /** The underlying connection, for calls this class does not wrap. */
   get connection(): RpcConnection {
     return this.rpc;
+  }
+
+  /** Where this client is reading from. Named in every health report. */
+  get url(): string {
+    return this.rpc.url;
   }
 
   close(): void {
