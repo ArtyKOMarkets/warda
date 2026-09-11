@@ -695,24 +695,32 @@ node --experimental-strip-types sdk/tools/check-node.ts --rpc wss://YOUR-NODE</c
     stdout, every diagnostic on stderr, and <strong>exit codes that tell you whether money
     moved</strong>.
   </p>
-  <pre class="tm" data-label="PYTHON"><code>import json, os, subprocess
+  <pre class="tm" data-label="PYTHON"><code>import json, subprocess
 
-r = subprocess.run(
-    ["node", "--experimental-strip-types", "agents/tools/buy.ts",
-     "https://warda-demo-api.vercel.app/fact", "--json",
-     "--id", "MY-AGENT", "--grant", "grant.json",
-     "--recipients", "payees.txt", "--out", "purchases"],
-    capture_output=True, text=True,
-    env={**os.environ, "WARDA_SK": open("agent.key").read().strip()},
-)
+r = subprocess.run(["warda", "pay", URL, "--json"],
+                   capture_output=True, text=True)
 
 if r.returncode == 3:
     ...   # the covenant refused. NOTHING was spent — pick another action
 if r.returncode == 4:
     ...   # paid, not served. The money is gone. Do NOT retry: that pays twice
+if r.returncode != 0:
+    raise RuntimeError(r.stderr)
 
 paid = json.loads(r.stdout)
 paid["txid"], paid["paidSompi"], paid["body"]</code></pre>
+  <p style="max-width:60ch;color:var(--chrome-dim);margin-top:1.1rem">
+    No flags, because <code>warda grant</code> in step 3 wrote the grant, the allowlist and
+    the agent key into a config file beside them. If you would rather be explicit &mdash; or
+    you are running several agents from one process &mdash; every one of those is also a
+    flag: <code>--grant</code>, <code>--payees</code>, <code>--id</code>, <code>--out</code>.
+  </p>
+  <p style="max-width:60ch;color:var(--chrome-dim)">
+    Four codes, and they are the whole API. <b>0</b> bought &middot; <b>3</b> refused, nothing
+    spent &middot; <b>4</b> paid and unserved &middot; <b>1</b> failed, see stderr. They are
+    what a Python, Go or Ruby agent needs, and they are why there is no second implementation
+    of the covenant rules to keep in step with this one.
+  </p>
   <p class="needs">
     <strong style="color:var(--chrome-dim);font-weight:500">Exit 4 is the one to handle
     carefully.</strong> It means the transaction settled and the vendor still did not serve.

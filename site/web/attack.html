@@ -46,6 +46,13 @@
   .home:hover { color: var(--teal-bright); }
   .lede { font-size: clamp(1.05rem, 2vw, 1.25rem); color: var(--chrome-dim); max-width: 46ch; margin-top: 1.2rem; }
   .lede strong { color: var(--chrome); font-weight: 500; }
+  /* Wider and quieter than the ledes above it: it is a longer sentence doing a
+     different job, and it should read as an aside to the two claims rather
+     than a third claim of equal weight. */
+  .lede.plain { font-size: clamp(0.95rem, 1.6vw, 1.04rem); max-width: 58ch; opacity: 0.86;
+                border-left: 1px solid var(--edge); padding-left: 1.1rem; }
+  .lede.plain em { color: var(--chrome); font-style: normal; font-family: var(--mono);
+                   font-size: 0.92em; }
 
   /* ---- the key, presented as the provocation it is ---------------------- */
   .key {
@@ -169,9 +176,19 @@
   /* The page you are on, said in the markup rather than guessed by script:
      these are static files and build.py knows which one it is writing. */
   .topnav a[aria-current="page"] { color: var(--chrome); border-bottom-color: var(--teal); }
+  /* Not a link, so it must not read as one: no hover, no underline, and dimmer
+     than the nav items it follows. It is the one thing on this bar a reader
+     should be able to ignore until it matters. */
+  .topnav .nv-status { font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.09em;
+                       text-transform: uppercase; color: var(--chrome-faint); opacity: 0.72;
+                       white-space: nowrap; padding-left: 0.4rem; }
+  .topnav .nv-status b { color: var(--amber, var(--teal)); font-weight: 600; }
   @media (max-width: 560px) {
     .topnav .wrap { gap: 0.85rem; }
     .topnav .nv-brand { margin-right: 0.4rem; }
+    /* Six nav items already scroll sideways at this width. A seventh that is
+       not a destination is the one to drop. */
+    .topnav .nv-status { display: none; }
   }
 
 </style>
@@ -187,6 +204,11 @@
     <a href="/build" data-nv="build.html">How it works</a>
     <a href="/verify" data-nv="verify.html">Verify</a>
     <a href="/attack" data-nv="attack.html" aria-current="page">Attack</a>
+    <!-- Last, and not a link. The honest status of the whole thing, on every
+         page, so that nobody has to reach the bottom of one to learn it. It
+         is stated calmly and once: a warning repeated in six places reads as
+         either panic or decoration, and this is neither. -->
+    <span class="nv-status" aria-label="Protocol status">testnet-10 &middot; unaudited &middot; <b>no real money</b></span>
   </div>
 </nav>
 
@@ -203,6 +225,23 @@
     </p>
     <p class="lede" style="margin-top:-0.4rem">
       The most you can do is <strong>give the vendor money</strong>.
+    </p>
+
+    <!-- For the reader who arrived here from a link and has never heard of
+         Kaspa. The page below explains this precisely and in the protocol's
+         own vocabulary, which is the right way to explain it to someone who
+         already knows the vocabulary. This is the same claim in words that
+         assume nothing, and it goes first because a person who cannot follow
+         the first screen does not reach the third. -->
+    <p class="lede plain" style="margin-top:-0.2rem">
+      If none of that means anything to you yet: this key is a password that spends real
+      money on a test network. Normally, publishing one would be the end of the money. Here
+      the money sits behind rules &mdash; <em>pay only this one address, never more than this
+      much at a time, never more than this in total</em> &mdash; and those rules are not
+      checked by our server or by the software you would run. They are part of what the
+      network counts as a valid transaction at all. A payment that breaks them is not
+      rejected; <strong>it cannot be built</strong>. So anyone in the world can take this key
+      and the worst they can do with it is buy the vendor's API a few more times.
     </p>
 
     <div class="key">

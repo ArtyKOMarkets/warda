@@ -492,9 +492,19 @@
   /* The page you are on, said in the markup rather than guessed by script:
      these are static files and build.py knows which one it is writing. */
   .topnav a[aria-current="page"] { color: var(--chrome); border-bottom-color: var(--teal); }
+  /* Not a link, so it must not read as one: no hover, no underline, and dimmer
+     than the nav items it follows. It is the one thing on this bar a reader
+     should be able to ignore until it matters. */
+  .topnav .nv-status { font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.09em;
+                       text-transform: uppercase; color: var(--chrome-faint); opacity: 0.72;
+                       white-space: nowrap; padding-left: 0.4rem; }
+  .topnav .nv-status b { color: var(--amber, var(--teal)); font-weight: 600; }
   @media (max-width: 560px) {
     .topnav .wrap { gap: 0.85rem; }
     .topnav .nv-brand { margin-right: 0.4rem; }
+    /* Six nav items already scroll sideways at this width. A seventh that is
+       not a destination is the one to drop. */
+    .topnav .nv-status { display: none; }
   }
 
 /* The whole product in nine lines, placed above every word of prose on /start
@@ -725,6 +735,11 @@
     <a href="/build" data-nv="build.html">How it works</a>
     <a href="/verify" data-nv="verify.html">Verify</a>
     <a href="/attack" data-nv="attack.html">Attack</a>
+    <!-- Last, and not a link. The honest status of the whole thing, on every
+         page, so that nobody has to reach the bottom of one to learn it. It
+         is stated calmly and once: a warning repeated in six places reads as
+         either panic or decoration, and this is neither. -->
+    <span class="nv-status" aria-label="Protocol status">testnet-10 &middot; unaudited &middot; <b>no real money</b></span>
   </div>
 </nav>
 
