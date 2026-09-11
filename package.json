@@ -43,7 +43,8 @@
     "mcp",
     "x402",
     "verify",
-    "vendor"
+    "vendor",
+    "borsh"
   ],
   "repository": {
     "type": "git",
