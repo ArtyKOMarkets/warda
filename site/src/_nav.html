@@ -1,15 +1,42 @@
 <nav class="topnav" aria-label="Site">
   <div class="wrap">
-    <a class="nv-brand" href="/" data-nv="index.html">WARDA</a>
-    <a href="/start" data-nv="start.html">Start</a>
-    <a href="/agents" data-nv="agents.html">Agents</a>
-    <a href="/build" data-nv="build.html">How it works</a>
-    <a href="/verify" data-nv="verify.html">Verify</a>
-    <a href="/attack" data-nv="attack.html">Attack</a>
+    <a class="nv-brand" href="/" data-nv="index.html">Warda</a>
+    <div class="nv-links" id="nv-links">
+      <a href="/start" data-nv="start.html">Start</a>
+      <a href="/build" data-nv="build.html">How it works</a>
+      <a href="/agents" data-nv="agents.html">Agents</a>
+      <a href="/verify" data-nv="verify.html">Verify</a>
+      <a href="/attack" data-nv="attack.html">Attack</a>
+    </div>
     <!-- Last, and not a link. The honest status of the whole thing, on every
-         page, so that nobody has to reach the bottom of one to learn it. It
-         is stated calmly and once: a warning repeated in six places reads as
-         either panic or decoration, and this is neither. -->
-    <span class="nv-status" aria-label="Protocol status">testnet-10 &middot; unaudited &middot; <b>no real money</b></span>
+         page, so nobody has to reach a footer to learn it. Stated once and
+         calmly: a warning repeated in six places reads as either panic or
+         decoration, and this is neither. -->
+    <span class="nv-status">testnet-10 &middot; unaudited &middot; <b>no real money</b></span>
+    <a class="nv-go" href="/start">Get started &rarr;</a>
+    <button class="nv-burger" id="nv-burger" aria-expanded="false" aria-controls="nv-links" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
   </div>
 </nav>
+<script>
+/* The menu, on every page. A link that scrolls or navigates also closes it —
+   leaving the panel covering the thing you just asked to see is the classic
+   mobile-nav bug. */
+(function () {
+  var b = document.getElementById("nv-burger");
+  var l = document.getElementById("nv-links");
+  if (!b || !l) return;
+  b.addEventListener("click", function () {
+    var open = b.getAttribute("aria-expanded") !== "true";
+    b.setAttribute("aria-expanded", String(open));
+    l.setAttribute("data-open", open ? "1" : "");
+  });
+  Array.prototype.forEach.call(l.querySelectorAll("a"), function (a) {
+    a.addEventListener("click", function () {
+      b.setAttribute("aria-expanded", "false");
+      l.setAttribute("data-open", "");
+    });
+  });
+})();
+</script>

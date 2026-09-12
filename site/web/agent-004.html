@@ -401,42 +401,58 @@
   .disclose strong { color: var(--chrome); font-weight: 500; }
 
   /* One bar, every page, injected by build.py.
-     There were seven public pages and the only way between any two of them was
-     back to the home page first. Sticky because the landing page is 14,000px
-     tall and a reader four sections down had no way out of it at all. */
+     There were seven public pages and the only way between any two of them
+     was back to the home page first. Sticky because the landing page is very
+     tall and a reader six sections down had no way out of it at all. */
   /* `body > .topnav`, not `.topnav`. The landing page carries
-     `body > *:not(.field) { position: relative }` for its background field, and
-     that selector scores 0,1,1 against a bare class's 0,1,0 — so it won on
-     specificity wherever this bar was declared in the file, and the nav
-     silently scrolled away on the one page long enough to need it. */
-  body > .topnav { position: sticky; top: 0; z-index: 40; background: rgba(6,9,12,0.92);
-                   border-bottom: 1px solid var(--edge); backdrop-filter: blur(8px); }
-  .topnav .wrap { display: flex; align-items: center; gap: 1.1rem;
-                  padding-top: 0.62rem; padding-bottom: 0.62rem;
-                  overflow-x: auto; scrollbar-width: none; }
-  .topnav .wrap::-webkit-scrollbar { display: none; }
-  .topnav a { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.11em;
-              text-transform: uppercase; color: var(--chrome-faint); text-decoration: none;
-              white-space: nowrap; padding: 0.35rem 0; border-bottom: 1px solid transparent; }
-  .topnav a:hover { color: var(--chrome); }
-  .topnav .nv-brand { color: var(--teal); letter-spacing: 0.2em; margin-right: auto;
-                      font-weight: 700; }
+     `body > *:not(.field) { position: relative }` for its background field,
+     and that selector scores 0,1,1 against a bare class's 0,1,0 — so it won
+     on specificity wherever this bar was declared, and the nav silently
+     scrolled away on the one page long enough to need it. */
+  body > .topnav { position: sticky; top: 0; z-index: 60; background: rgba(6,9,12,0.86);
+                   border-bottom: 1px solid var(--edge); backdrop-filter: blur(12px); }
+  .topnav .wrap { display: flex; align-items: center; gap: 1.6rem;
+                  padding-top: 0; padding-bottom: 0; height: 3.7rem; }
+  .topnav a { text-decoration: none; white-space: nowrap; }
+  .nv-brand { font-family: var(--display); font-weight: 700; font-size: 1.12rem;
+              letter-spacing: 0.01em; color: var(--chrome); margin-right: 0.4rem; }
+  .nv-brand:hover { color: var(--teal); }
+  .nv-links { display: flex; align-items: center; gap: 1.5rem; margin-right: auto; }
+  .nv-links a { font-family: var(--body); font-size: 0.88rem; color: var(--chrome-dim);
+                transition: color 140ms ease; }
+  .nv-links a:hover { color: var(--chrome); }
   /* The page you are on, said in the markup rather than guessed by script:
      these are static files and build.py knows which one it is writing. */
-  .topnav a[aria-current="page"] { color: var(--chrome); border-bottom-color: var(--teal); }
-  /* Not a link, so it must not read as one: no hover, no underline, and dimmer
-     than the nav items it follows. It is the one thing on this bar a reader
-     should be able to ignore until it matters. */
-  .topnav .nv-status { font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.09em;
-                       text-transform: uppercase; color: var(--chrome-faint); opacity: 0.72;
-                       white-space: nowrap; padding-left: 0.4rem; }
-  .topnav .nv-status b { color: var(--amber, var(--teal)); font-weight: 600; }
-  @media (max-width: 560px) {
-    .topnav .wrap { gap: 0.85rem; }
-    .topnav .nv-brand { margin-right: 0.4rem; }
-    /* Six nav items already scroll sideways at this width. A seventh that is
-       not a destination is the one to drop. */
-    .topnav .nv-status { display: none; }
+  .nv-links a[aria-current="page"] { color: var(--chrome); }
+  .nv-status { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.09em;
+               text-transform: uppercase; color: var(--chrome-faint); opacity: 0.8;
+               white-space: nowrap; }
+  .nv-status b { color: var(--amber); font-weight: 600; }
+  .nv-go { font-family: var(--body); font-size: 0.85rem; font-weight: 600;
+           background: var(--teal); color: var(--void); padding: 0.5rem 1.05rem;
+           border-radius: 999px; transition: background 140ms ease; }
+  .nv-go:hover { background: var(--teal-bright); }
+  .topnav a:focus-visible, .nv-burger:focus-visible { outline: 2px solid var(--teal-bright); outline-offset: 3px; }
+
+  .nv-burger { display: none; background: none; border: 1px solid var(--edge-bright);
+               border-radius: 7px; width: 2.4rem; height: 2.1rem; cursor: pointer;
+               flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+  .nv-burger span { width: 14px; height: 1.5px; background: var(--chrome); transition: 200ms ease; }
+  .nv-burger[aria-expanded="true"] span:nth-child(1) { transform: translateY(5.5px) rotate(45deg); }
+  .nv-burger[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+  .nv-burger[aria-expanded="true"] span:nth-child(3) { transform: translateY(-5.5px) rotate(-45deg); }
+
+  @media (max-width: 900px) {
+    .nv-burger { display: flex; }
+    .nv-status { display: none; }
+    .nv-links { position: absolute; left: 0; right: 0; top: 100%; display: none;
+                flex-direction: column; align-items: stretch; gap: 0; margin: 0;
+                background: var(--ground); border-bottom: 1px solid var(--edge);
+                padding: 0.3rem var(--gutter) 1rem; }
+    .nv-links[data-open="1"] { display: flex; }
+    .nv-links a { padding: 0.85rem 0; border-bottom: 1px solid var(--edge); font-size: 0.95rem; }
+    .topnav .wrap { gap: 0.9rem; }
+    .nv-go { margin-left: auto; }
   }
 
 /* The grant rendered as a wallet panel.
@@ -526,19 +542,46 @@
 
 <nav class="topnav" aria-label="Site">
   <div class="wrap">
-    <a class="nv-brand" href="/" data-nv="index.html">WARDA</a>
-    <a href="/start" data-nv="start.html">Start</a>
-    <a href="/agents" data-nv="agents.html">Agents</a>
-    <a href="/build" data-nv="build.html">How it works</a>
-    <a href="/verify" data-nv="verify.html">Verify</a>
-    <a href="/attack" data-nv="attack.html">Attack</a>
+    <a class="nv-brand" href="/" data-nv="index.html">Warda</a>
+    <div class="nv-links" id="nv-links">
+      <a href="/start" data-nv="start.html">Start</a>
+      <a href="/build" data-nv="build.html">How it works</a>
+      <a href="/agents" data-nv="agents.html">Agents</a>
+      <a href="/verify" data-nv="verify.html">Verify</a>
+      <a href="/attack" data-nv="attack.html">Attack</a>
+    </div>
     <!-- Last, and not a link. The honest status of the whole thing, on every
-         page, so that nobody has to reach the bottom of one to learn it. It
-         is stated calmly and once: a warning repeated in six places reads as
-         either panic or decoration, and this is neither. -->
-    <span class="nv-status" aria-label="Protocol status">testnet-10 &middot; unaudited &middot; <b>no real money</b></span>
+         page, so nobody has to reach a footer to learn it. Stated once and
+         calmly: a warning repeated in six places reads as either panic or
+         decoration, and this is neither. -->
+    <span class="nv-status">testnet-10 &middot; unaudited &middot; <b>no real money</b></span>
+    <a class="nv-go" href="/start">Get started &rarr;</a>
+    <button class="nv-burger" id="nv-burger" aria-expanded="false" aria-controls="nv-links" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
   </div>
 </nav>
+<script>
+/* The menu, on every page. A link that scrolls or navigates also closes it —
+   leaving the panel covering the thing you just asked to see is the classic
+   mobile-nav bug. */
+(function () {
+  var b = document.getElementById("nv-burger");
+  var l = document.getElementById("nv-links");
+  if (!b || !l) return;
+  b.addEventListener("click", function () {
+    var open = b.getAttribute("aria-expanded") !== "true";
+    b.setAttribute("aria-expanded", String(open));
+    l.setAttribute("data-open", open ? "1" : "");
+  });
+  Array.prototype.forEach.call(l.querySelectorAll("a"), function (a) {
+    a.addEventListener("click", function () {
+      b.setAttribute("aria-expanded", "false");
+      l.setAttribute("data-open", "");
+    });
+  });
+})();
+</script>
 
 
 
