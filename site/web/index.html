@@ -107,6 +107,9 @@
   /* ---- hero ------------------------------------------------------------ */
   .hero { text-align: center; padding-top: clamp(2.2rem, 5vw, 3.6rem); padding-bottom: clamp(2.6rem, 6vw, 4.4rem); }
   .hero img { width: min(340px, 68vw); height: auto; display: block; margin: 0 auto clamp(1.3rem, 3vw, 2rem); }
+  .bigline { font-size: clamp(3rem, 11.5vw, 8.2rem); letter-spacing: -0.035em; line-height: 0.98;
+             margin: clamp(0.6rem, 2vw, 1.2rem) 0 0; }
+  .bigline span { display: block; color: var(--chrome-faint); }
   .thesis {
     font-family: var(--display); font-weight: 700;
     font-size: clamp(2.2rem, 6.2vw, 4.4rem); line-height: 1.03;
@@ -606,6 +609,210 @@
 .wal-rules li.past .m { color: var(--chrome-faint); }
 .wal-rules li.past .v { color: var(--chrome-dim); }
 
+
+  /* ---- the aperture -----------------------------------------------------
+     The hero's centrepiece, and the one thing on this page that has to land
+     before a word is read.
+
+     A stepper narrating agent -> policy -> chain -> settled describes the
+     sequence, and the sequence is the boring part: anyone can guess it. The
+     claim worth making is that the refusal is not a refusal. A payment
+     outside the limits is not turned away by something; it is a shape that
+     does not exist.
+
+     So the cap is drawn as a machined slot of a fixed width, and a payment
+     is a block whose width IS its amount. One drops through. One does not
+     fit, and stops dead on the jaws -- dead, with no bounce and no shake,
+     because a bounce reads as "rejected" and a dead stop reads as
+     "impossible", and impossible is the actual claim. */
+  .rig { --gap: 26%; --hue: var(--teal); position: relative; isolation: isolate;
+         max-width: 44rem; margin: clamp(2.6rem, 6vw, 4rem) auto 0; text-align: left; }
+  .rig[data-run="deny"] { --hue: var(--refuse); }
+
+  /* One soft source behind the slot, so the rig sits in a room rather than
+     on a flat panel. It takes the run's colour: the only place on this page
+     that changes temperature. */
+  .rig::before { content: ""; position: absolute; left: 50%; top: 48%; width: 34rem; height: 22rem;
+                 transform: translate(-50%, -50%); z-index: -1; pointer-events: none;
+                 background: radial-gradient(ellipse at center, color-mix(in srgb, var(--hue) 13%, transparent), transparent 68%);
+                 transition: background 600ms ease; }
+
+  .vault { border: 1px solid var(--edge); background: linear-gradient(180deg, var(--panel), var(--ground));
+           padding: 0.9rem 1.1rem; }
+  .vault .vk { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem;
+               font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.13em;
+               text-transform: uppercase; color: var(--chrome-faint); }
+  .vault .vk b { color: var(--teal); font-weight: 500; font-variant-numeric: tabular-nums; }
+  .rmeter { height: 3px; background: #0C1418; margin-top: 0.75rem; overflow: hidden; }
+  .rmeter i { display: block; height: 100%; width: 100%;
+              background: linear-gradient(90deg, var(--teal-deep), var(--teal));
+              box-shadow: 0 0 10px rgba(20,215,193,0.5);
+              transition: width 700ms cubic-bezier(.45,0,.25,1); }
+
+  /* No side walls: the fall should feel like open space with one
+     obstruction in it, not a chute. */
+  .dropz { position: relative; height: clamp(13rem, 32vw, 16.5rem); margin-top: 1.4rem; }
+
+  /* A column of light exactly as wide as the aperture, running the whole
+     drop -- so the opening is visible as a path before anything travels it. */
+  .beam { position: absolute; left: 50%; top: 0; bottom: 0; width: var(--gap);
+          transform: translateX(-50%); pointer-events: none;
+          background: linear-gradient(180deg,
+            color-mix(in srgb, var(--hue) 7%, transparent) 0%,
+            color-mix(in srgb, var(--hue) 3%, transparent) 55%, transparent 100%);
+          transition: background 600ms ease; }
+  .beam::before, .beam::after { content: ""; position: absolute; top: 0; bottom: 0; width: 1px;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--hue) 34%, transparent), transparent 72%); }
+  .beam::before { left: 0; }
+  .beam::after { right: 0; }
+
+  /* Machined, lit from above, with its own shadow: a solid object falling,
+     not a coloured div translating. */
+  .slug { position: absolute; left: 50%; top: 0; height: 2.3rem;
+          background: linear-gradient(180deg,
+            color-mix(in srgb, var(--hue) 78%, white) 0%, var(--hue) 34%,
+            color-mix(in srgb, var(--hue) 74%, black) 100%);
+          box-shadow: 0 0 22px color-mix(in srgb, var(--hue) 42%, transparent),
+                      inset 0 1px 0 rgba(255,255,255,0.42);
+          transform: translate(-50%, 0); will-change: transform;
+          transition: transform 1150ms cubic-bezier(.45,0,.62,1); }
+
+  /* Engineering dimension brackets. The comparison this whole hero rests on
+     is one width against another, so it is drawn the way a machinist would
+     draw it rather than described in a caption. */
+  .dim { position: absolute; left: 50%; transform: translate(-50%, 0); height: 7px;
+         border-left: 1px solid currentColor; border-right: 1px solid currentColor; }
+  .dim::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: currentColor; }
+  .dim b { position: absolute; left: 50%; top: -0.35rem; transform: translate(-50%, -100%);
+           font-family: var(--mono); font-size: 0.7rem; font-weight: 500; white-space: nowrap; }
+  #slug-dim { top: 0; color: var(--hue); transition: transform 1150ms cubic-bezier(.45,0,.62,1); }
+  #slot-dim { color: var(--teal-deep); opacity: 0.85; }
+  #slot-dim b { top: auto; bottom: -0.4rem; transform: translate(-50%, 100%); font-size: 0.62rem;
+                letter-spacing: 0.08em; }
+
+  /* Ground steel with a bright edge facing the gap. The jaws never move and
+     never react: they are a dimension, not a bouncer, and the moment they
+     animate they become one. */
+  .slot { position: absolute; left: 0; right: 0; top: 58%; display: grid;
+          grid-template-columns: 1fr var(--gap) 1fr; align-items: center; }
+  .jaw { height: 13px; position: relative;
+         background: linear-gradient(180deg, #16323A 0%, #0D1E24 55%, #091419 100%);
+         box-shadow: inset 0 1px 0 rgba(56,249,233,0.22), 0 6px 16px rgba(0,0,0,0.45); }
+  .jaw::after { content: ""; position: absolute; top: 0; bottom: 0; width: 2px;
+                background: var(--teal); box-shadow: 0 0 12px var(--teal); }
+  .jaw.l::after { right: 0; }
+  .jaw.r::after { left: 0; }
+  .gapcol { height: 13px; }
+
+  /* Light scattering off a contact, not an error badge. */
+  .spark { position: absolute; left: 50%; top: 58%; transform: translate(-50%, -50%);
+           width: var(--gap); height: 13px; pointer-events: none; opacity: 0;
+           background: radial-gradient(ellipse at center, color-mix(in srgb, var(--hue) 85%, white), transparent 70%);
+           filter: blur(3px); }
+  .spark.flash { animation: wbloom 620ms ease-out; }
+  @keyframes wbloom {
+    0% { opacity: 0; transform: translate(-50%, -50%) scaleX(0.35) scaleY(1); }
+    18% { opacity: 1; }
+    100% { opacity: 0; transform: translate(-50%, -50%) scaleX(1.7) scaleY(2.6); }
+  }
+
+  .catcher { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%);
+             border: 1px solid var(--edge); background: var(--ground);
+             padding: 0.62rem 1.25rem; min-width: 12rem; text-align: center;
+             font-family: var(--mono); font-size: 0.68rem; color: var(--chrome-faint);
+             transition: 380ms ease; }
+  .catcher.hit { border-color: var(--teal); color: var(--teal);
+                 background: linear-gradient(180deg, var(--teal-ghost), var(--ground));
+                 box-shadow: 0 0 26px rgba(20,215,193,0.22); }
+
+  .vline { font-family: var(--mono); font-size: 0.76rem; margin-top: 1.5rem; min-height: 3.6em;
+           line-height: 1.7; color: var(--chrome-dim); transition: opacity 300ms ease; text-align: left; }
+  .vline b { color: var(--chrome); font-weight: 500; }
+  .rig[data-run="deny"] .vline b { color: var(--refuse); }
+
+  .rswitch { display: flex; border: 1px solid var(--edge); margin-top: 1.2rem; max-width: 26rem; }
+  .rswitch button { flex: 1; background: none; border: none; cursor: pointer; color: var(--chrome-faint);
+                    font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.12em;
+                    text-transform: uppercase; padding: 0.7rem 0.5rem; transition: 150ms ease; }
+  .rswitch button + button { border-left: 1px solid var(--edge); }
+  .rswitch button[aria-pressed="true"] { background: var(--panel); color: var(--chrome); }
+  .rswitch button:focus-visible { outline: 2px solid var(--teal-bright); outline-offset: -2px; }
+
+  /* ---- the pipeline ----------------------------------------------------
+     Four stages, animated as a signal travelling a rail. The interesting
+     part is not the order -- it is that only one of the four can say no,
+     and it says so before a key is touched. */
+  .pipe { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: clamp(2.4rem, 5vw, 3.4rem); }
+  @media (max-width: 820px) { .pipe { grid-template-columns: 1fr; } }
+  .stn { border: 1px solid var(--edge); background: var(--ground); padding: 1.2rem 1.2rem 1.4rem;
+         position: relative; transition: border-color 340ms ease, background 340ms ease; }
+  .stn + .stn { border-left: none; }
+  @media (max-width: 820px) { .stn + .stn { border-left: 1px solid var(--edge); border-top: none; } }
+  .stn.lit { border-color: var(--edge-bright); background: var(--panel); }
+  .stn.lit.gate { border-color: var(--teal-deep); }
+  .stn .prail { position: absolute; left: -1px; right: -1px; top: -1px; height: 1px;
+                background: var(--edge); overflow: hidden; }
+  .stn .prail i { display: block; height: 100%; width: 0; background: var(--teal);
+                  transition: width 520ms cubic-bezier(.45,0,.25,1); }
+  .stn.flow .prail i { width: 100%; }
+  .stn.gate.flow .prail i { background: var(--teal-bright); }
+  .stn .sk { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.15em;
+             text-transform: uppercase; color: var(--chrome-faint); transition: color 340ms ease; }
+  .stn.lit .sk { color: var(--teal-deep); }
+  .stn .sv { font-family: var(--display); font-weight: 600; font-size: 1.05rem; margin-top: 0.5rem; }
+  .stn .sd { font-family: var(--mono); font-size: 0.67rem; color: var(--chrome-dim);
+             margin-top: 0.5rem; line-height: 1.6; }
+  .stn .vl { font-family: var(--mono); font-size: 0.67rem; margin-top: 0.5rem; color: var(--teal);
+             opacity: 0; transition: opacity 300ms ease; }
+  .stn.lit .vl { opacity: 1; }
+
+  /* ---- delegation -------------------------------------------------------
+     The number that moves is the parent's UNCOMMITTED balance, because that
+     is the actual mechanic: a child is not given money, it is RESERVED out
+     of what the parent has not committed, and settling releases the reserve
+     and charges the parent what the child really spent. A tree with static
+     budgets on it would show none of that. */
+  .dele { margin-top: clamp(2.4rem, 5vw, 3.4rem); display: grid; justify-items: center; }
+  .dbox { border: 1px solid var(--edge); background: var(--ground); padding: 1rem 1.5rem;
+          text-align: center; min-width: 13rem; transition: border-color 340ms ease, opacity 340ms ease; }
+  .dbox.dim2 { opacity: 0.25; }
+  .dbox.lit { border-color: var(--teal-deep); }
+  .dbox .nm { font-family: var(--display); font-weight: 600; font-size: 1.02rem; }
+  .dbox .fig { font-family: var(--mono); font-size: 0.74rem; color: var(--teal); margin-top: 0.3rem;
+               font-variant-numeric: tabular-nums; }
+  .dbox .sb { font-family: var(--mono); font-size: 0.63rem; color: var(--chrome-faint); margin-top: 0.2rem; }
+  .brn { width: 1px; background: var(--edge); overflow: hidden; position: relative; height: 2.4rem; }
+  .brn i { position: absolute; inset: 0; background: var(--teal); transform: scaleY(0);
+           transform-origin: top; transition: transform 460ms cubic-bezier(.45,0,.25,1); }
+  .brn.flow i { transform: scaleY(1); }
+  .brn.back i { background: var(--amber); transform-origin: bottom; }
+  .xbar { height: 1px; background: var(--edge); width: min(26rem, 76vw); }
+  .legs { display: grid; grid-template-columns: 1fr 1fr; width: min(26rem, 76vw); }
+  .legs > * { justify-self: center; }
+  .kids { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(0.8rem, 3vw, 2rem); width: min(30rem, 86vw); }
+  @media (max-width: 560px) { .kids, .legs { grid-template-columns: 1fr; } .xbar { display: none; } }
+  .dledger { font-family: var(--mono); font-size: 0.7rem; color: var(--chrome-dim);
+             margin-top: 1.8rem; text-align: center; min-height: 3em; line-height: 1.7; max-width: 46rem; }
+  .dledger b { color: var(--chrome); font-weight: 500; }
+  .dledger .rel { color: var(--amber); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .slug, #slug-dim, .brn i, .stn .prail i, .dbox { transition: none; }
+    .stn .prail i { width: 100%; }
+    .brn i { transform: scaleY(1); }
+    .dbox { opacity: 1; }
+    .spark.flash { animation: none; }
+  }
+
+  /* The five limits. A set, not a sequence -- numbering them would imply an
+     order the covenant does not have. */
+  .limits { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+            gap: 1px; background: var(--edge); border: 1px solid var(--edge);
+            margin: clamp(2.2rem, 5vw, 3.2rem) 0 0; }
+  .limits div { background: var(--void); padding: 1.3rem 1.25rem 1.5rem; }
+  .limits dt { font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.13em;
+               text-transform: uppercase; color: var(--teal-deep); margin-bottom: 0.7rem; }
+  .limits dd { margin: 0; font-size: 0.9rem; color: var(--chrome-dim); }
 /* The terminal window. One component, every page.
 
    The chrome is not decoration. A framed window with a title bar reads as a
@@ -768,20 +975,50 @@
 
 <section class="hero">
   <div class="wrap">
-    <img src="assets/lockup-hero.png" alt="Warda Protocol — economic infrastructure for autonomous agents" data-rise>
-    <p class="thesis" data-rise style="--d:80ms">Give AI agents money without giving them <span class="lit">unlimited authority</span>.</p>
-    <p class="sub" data-rise style="--d:170ms">Lock money with hard rules &mdash; a budget, a cap per payment, a list of who may be paid &mdash; and hand your agent a key that can only spend inside them. The rules are enforced by the Kaspa blockchain itself, not by your code. <b>Steal the agent's key and the limits still hold</b>: a payment that breaks them is not refused, it is an invalid transaction that no node will relay and no miner can include.</p>
+    <img src="assets/lockup-hero.png" alt="Warda Protocol — authorization infrastructure for autonomous money" data-rise>
+    <h1 class="bigline" data-rise style="--d:80ms">Money,<span>for machines.</span></h1>
+    <p class="sub" data-rise style="--d:170ms">Authorization infrastructure for autonomous money.
+      <b>Give an agent money without giving it unlimited authority.</b></p>
     <div class="cta-row" data-rise style="--d:250ms">
       <a class="cta primary" href="/start">Build your first agent <span class="arw">&rarr;</span></a>
       <a class="cta ghost" href="/attack">Take the published key</a>
       <a class="cta ghost" href="/agents">Watch the live ones</a>
     </div>
+
+    <!-- Authority drawn as a dimension. The slug's width is the amount; the
+         gap's width is the cap. Nothing here judges anything: one shape fits
+         through and one does not, which is what the covenant actually is. -->
+    <div class="rig" id="rig" data-run="allow" data-rise style="--d:320ms">
+      <div class="vault">
+        <p class="vk"><span>Grant &middot; agent key</span><b><span id="v-left">5.00</span> / 5.00 KAS</b></p>
+        <div class="rmeter"><i id="v-meter"></i></div>
+      </div>
+
+      <div class="dropz">
+        <span class="beam" aria-hidden="true"></span>
+        <span class="dim" id="slug-dim" style="width:4%"><b id="slug-label">0.03 KAS</b></span>
+        <span class="slug" id="slug" style="width:4%"></span>
+        <div class="slot" aria-hidden="true">
+          <span class="jaw l"></span><span class="gapcol"></span><span class="jaw r"></span>
+        </div>
+        <span class="dim" id="slot-dim" style="width:26%;top:58%"><b>0.20 KAS &mdash; the cap, cut into the coin</b></span>
+        <span class="spark" id="spark" aria-hidden="true"></span>
+        <p class="catcher" id="catcher">the one address on the list</p>
+      </div>
+
+      <p class="vline" id="vline"><b>Settled.</b> It fit, and it was addressed to the only payee this grant has.</p>
+      <div class="rswitch" role="group" aria-label="Which payment to run">
+        <button id="b-allow" aria-pressed="true">Inside the limits</button>
+        <button id="b-deny" aria-pressed="false">Outside them</button>
+      </div>
+    </div>
+
     <div class="statline" data-rise style="--d:340ms">
       <span>Kaspa L1 covenants</span>
       <span><b>14</b> adversarial probes, all behaving</span>
       <span><b>6</b> vulnerabilities found and fixed</span>
       <span>testnet-10</span>
-      <span><b>7</b> packages on npm</span>
+      <span><b>8</b> packages on npm</span>
     </div>
     <!-- Read from the agents' own published JSON at load, so it cannot claim a
          payment that did not happen or miss one that did. Hidden until the
@@ -794,6 +1031,94 @@
       <span><b>0</b> human approvals</span>
     </div>
     <p class="scroll-cue" data-rise style="--d:430ms">Scroll<span></span></p>
+  </div>
+</section>
+
+
+<section class="rule">
+  <div class="wrap narrow" style="max-width:52rem">
+    <div data-rise>
+      <p class="eyebrow">The whole idea</p>
+      <h2 class="big" style="font-size:clamp(2.2rem,6.6vw,4.6rem);letter-spacing:-0.03em;line-height:1.02">The agent has the key.<span style="display:block;color:var(--chrome-faint)">The money still has rules.</span></h2>
+      <p style="margin-top:1.8rem;max-width:46ch;color:var(--chrome-dim)">Hand a program a private key and you have handed it everything that key can reach. Warda puts the boundary in the money instead of in the program &mdash; so the boundary survives the program being wrong, being replaced, or being stolen.</p>
+    </div>
+    <dl class="limits" data-rise style="--d:120ms">
+      <div><dt>Budget</dt><dd>A total it can never exceed, for the life of the grant.</dd></div>
+      <div><dt>Per payment</dt><dd>A ceiling on any single spend.</dd></div>
+      <div><dt>Recipients</dt><dd>A fixed list, set once. Nobody else is payable.</dd></div>
+      <div><dt>Rate</dt><dd>A cap per window, so a compromise cannot drain it quickly.</dd></div>
+      <div><dt>Expiry &amp; revocation</dt><dd>An end date, and a key that can stop it at any moment.</dd></div>
+    </dl>
+  </div>
+</section>
+
+<section class="rule">
+  <div class="wrap">
+    <div data-rise>
+      <p class="eyebrow">Where the boundary lives</p>
+      <h2 style="font-size:clamp(2rem,5.6vw,3.8rem);letter-spacing:-0.03em;line-height:1.04">Not a check.<span style="display:block;color:var(--chrome-faint)">A condition of the money moving.</span></h2>
+      <p style="margin-top:1.6rem;max-width:52ch;color:var(--chrome-dim)">A payment outside the limits is not refused by a server, and not blocked by a library you could edit. It is an invalid transaction: no node will relay it, and no miner can include it. There is nothing to override, because there is nothing to ask.</p>
+    </div>
+    <div class="pipe" id="pipe" data-rise style="--d:120ms">
+      <div class="stn">
+        <span class="prail"><i></i></span>
+        <p class="sk">Agent</p><p class="sv">Asks</p>
+        <p class="sd">Calls an endpoint that costs money. It holds a key and no other authority.</p>
+      </div>
+      <div class="stn gate">
+        <span class="prail"><i></i></span>
+        <p class="sk">Warda policy</p><p class="sv">Decides</p>
+        <p class="sd">The only stage that can say no &mdash; and it says so before a key is touched.</p>
+        <p class="vl">0.03 &le; 0.2 cap &middot; payee on list</p>
+      </div>
+      <div class="stn">
+        <span class="prail"><i></i></span>
+        <p class="sk">HTTP 402</p><p class="sv">Quotes</p>
+        <p class="sd">The vendor names a price, then checks the chain itself rather than trusting the header.</p>
+      </div>
+      <div class="stn">
+        <span class="prail"><i></i></span>
+        <p class="sk">Kaspa L1</p><p class="sv">Settles</p>
+        <p class="sd">The limits are in the script that unlocks the coin, so a spend outside them is not a transaction.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="rule">
+  <div class="wrap">
+    <div data-rise>
+      <p class="eyebrow">Where this goes</p>
+      <h2 style="font-size:clamp(2rem,5.6vw,3.8rem);letter-spacing:-0.03em;line-height:1.04">Agents will hire<span style="display:block;color:var(--chrome-faint)">other agents.</span></h2>
+      <p style="margin-top:1.6rem;max-width:52ch;color:var(--chrome-dim)">Autonomous software will not only buy from APIs. It will pay other autonomous software &mdash; and a sub-agent needs its own boundary, narrower than its parent's, that its parent cannot be tricked into widening.</p>
+    </div>
+
+    <div class="dele" id="dele" data-rise style="--d:120ms">
+      <div class="dbox lit" id="d-parent">
+        <div class="nm">Research agent</div>
+        <div class="fig"><span id="d-unc">5.00</span> KAS uncommitted</div>
+        <div class="sb">of a 5 KAS budget</div>
+      </div>
+      <div class="brn" id="d-trunk"><i></i></div>
+      <div class="xbar"></div>
+      <div class="legs">
+        <div class="brn" id="d-leg-a"><i></i></div>
+        <div class="brn" id="d-leg-b"><i></i></div>
+      </div>
+      <div class="kids">
+        <div class="dbox dim2" id="d-kid-a">
+          <div class="nm">Data agent</div>
+          <div class="fig" id="d-a-fig">1 KAS</div>
+          <div class="sb" id="d-a-sub">2 payees, of its parent's list</div>
+        </div>
+        <div class="dbox dim2" id="d-kid-b">
+          <div class="nm">Analysis agent</div>
+          <div class="fig" id="d-b-fig">2 KAS</div>
+          <div class="sb" id="d-b-sub">1 payee, of its parent's list</div>
+        </div>
+      </div>
+      <p class="dledger" id="d-ledger">A child is not handed money. It is <b>reserved</b> out of what the parent has not committed &mdash; so the parent cannot lend what it has already spent, and a child can never be wider than its parent.</p>
+    </div>
   </div>
 </section>
 
@@ -2293,6 +2618,216 @@ function drawGraph(loaded) {
   });
 })();
 
+</script>
+
+<script>
+/* ---- the aperture ------------------------------------------------------
+   Two runs of the same physical event. The cap is a fixed gap; the payment
+   is a slug as wide as its amount. Both widths come from ONE scale, so the
+   blocked slug is genuinely two and a half times too wide rather than drawn
+   that way -- the picture is not exaggerating, which matters on a page whose
+   whole argument is that the numbers are checkable. */
+(function () {
+  const rig = document.getElementById("rig");
+  if (!rig) return;
+
+  const CAP = 0.2;                // KAS, the per-payment ceiling
+  const GAP_PCT = 26;             // the slot's width as a % of the rig
+  const perKas = GAP_PCT / CAP;   // one scale, both runs
+
+  const slug = document.getElementById("slug");
+  const slugDim = document.getElementById("slug-dim");
+  const slugLabel = document.getElementById("slug-label");
+  const spark = document.getElementById("spark");
+  const catcher = document.getElementById("catcher");
+  const line = document.getElementById("vline");
+  const meter = document.getElementById("v-meter");
+  const left = document.getElementById("v-left");
+  const bAllow = document.getElementById("b-allow");
+  const bDeny = document.getElementById("b-deny");
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const RUNS = {
+    allow: {
+      amount: 0.03, label: "0.03 KAS", stopAt: "through", caught: true,
+      left: "4.97", meterPct: 99.4, landed: "paid · 45f6fa40…648d",
+      line: "<b>Settled.</b> It fit, and it was addressed to the only payee this grant has.",
+    },
+    deny: {
+      amount: 0.5, label: "0.5 KAS", stopAt: "jaws", caught: false,
+      left: "5.00", meterPct: 100, landed: "nothing arrived",
+      line: "<b>It does not fit.</b> Nothing refused this &mdash; 0.5 KAS through a 0.2 cap is not a " +
+            "transaction the network has a shape for. The key worked perfectly and produced nothing.",
+    },
+  };
+
+  let timers = [];
+  const clear = () => { timers.forEach(clearTimeout); timers = []; };
+  const at = (ms, fn) => timers.push(setTimeout(fn, ms));
+
+  /* Measured from the slot's real position rather than a magic number, so
+     the blocked slug rests exactly on the jaw line at any width. */
+  function restingOffset(r) {
+    const zone = slug.parentElement.getBoundingClientRect();
+    const h = slug.getBoundingClientRect().height || 37;
+    if (r.stopAt === "jaws") return zone.height * 0.58 - 7 - h;
+    return zone.height - h - catcher.getBoundingClientRect().height - 10;
+  }
+
+  const place = (y) => {
+    slug.style.transform = "translate(-50%, " + y + "px)";
+    slugDim.style.transform = "translate(-50%, " + (y - 13) + "px)";
+  };
+  const instant = (fn) => {
+    slug.style.transition = "none"; slugDim.style.transition = "none";
+    fn();
+    void slug.offsetHeight;       // force a reflow, or the next move does not animate
+    slug.style.transition = ""; slugDim.style.transition = "";
+  };
+
+  function run(mode) {
+    clear();
+    const r = RUNS[mode];
+    rig.dataset.run = mode;
+    bAllow.setAttribute("aria-pressed", String(mode === "allow"));
+    bDeny.setAttribute("aria-pressed", String(mode === "deny"));
+
+    const w = Math.max(r.amount * perKas, 3) + "%";
+    slug.style.width = w; slugDim.style.width = w;
+    slugLabel.textContent = r.label;
+    catcher.classList.remove("hit");
+    catcher.textContent = "the one address on the list";
+    meter.style.width = "100%";
+    left.textContent = "5.00";
+    line.innerHTML = r.line;
+    spark.classList.remove("flash");
+
+    const land = restingOffset(r);
+    if (reduced) { instant(() => place(land)); if (r.caught) catcher.classList.add("hit"); return; }
+
+    instant(() => place(0));
+    line.style.opacity = "0.3";
+    requestAnimationFrame(() => requestAnimationFrame(() => place(land)));
+
+    /* The bloom fires on BOTH runs. Passing through, it is light following
+       the payment out; stopping, it is the impact. A flash that appears only
+       when something goes wrong is an error badge, and the entire claim here
+       is that nothing went wrong. */
+    at(760, () => spark.classList.add("flash"));
+    at(1400, () => spark.classList.remove("flash"));
+    at(1250, () => {
+      line.style.opacity = "1";
+      catcher.textContent = r.landed;
+      if (r.caught) { catcher.classList.add("hit"); meter.style.width = r.meterPct + "%"; left.textContent = r.left; }
+    });
+    at(4400, () => run(mode === "allow" ? "deny" : "allow"));
+  }
+
+  bAllow.addEventListener("click", () => run("allow"));
+  bDeny.addEventListener("click", () => run("deny"));
+  // Re-measure rather than re-run: a resize should not restart a story the
+  // reader is halfway through.
+  window.addEventListener("resize", () => instant(() => place(restingOffset(RUNS[rig.dataset.run]))));
+
+  run("allow");
+})();
+
+/* ---- diagrams that replay when you reach them ---------------------------
+   Both start FULLY DRAWN. A diagram parked at zero opacity waiting for an
+   observer is invisible in a preview, in a shared link, and to anyone whose
+   scroll never fires the callback -- so the resting state is the finished
+   state, and arriving replays it. */
+(function () {
+  const seq = (steps) => {
+    let ts = [];
+    return {
+      stop: () => { ts.forEach(clearTimeout); ts = []; },
+      play() { this.stop(); steps.forEach(([t, fn]) => ts.push(setTimeout(fn, t))); },
+    };
+  };
+  const whenSeen = (el, enter, leave) => {
+    if (!el) return;
+    if (!("IntersectionObserver" in window)) { enter(); return; }
+    new IntersectionObserver(
+      (es) => es.forEach((e) => (e.isIntersecting ? enter() : leave && leave())),
+      { threshold: 0.3 },
+    ).observe(el);
+  };
+
+  const pipe = document.getElementById("pipe");
+  if (pipe) {
+    const stns = [].slice.call(pipe.querySelectorAll(".stn"));
+    const all = () => stns.forEach((s) => s.classList.add("lit", "flow"));
+    all();
+    const s = seq([
+      [0, () => stns.forEach((n) => n.classList.remove("lit", "flow"))],
+      [220, () => stns[0].classList.add("lit", "flow")],
+      [820, () => stns[1].classList.add("lit", "flow")],
+      // The gate holds. Everything after it is a consequence of it.
+      [1900, () => stns[2].classList.add("lit", "flow")],
+      [2500, () => stns[3].classList.add("lit", "flow")],
+      [5200, () => s.play()],
+    ]);
+    whenSeen(pipe, () => s.play(), () => { s.stop(); all(); });
+  }
+
+  const dele = document.getElementById("dele");
+  if (dele) {
+    const g = (id) => document.getElementById(id);
+    const trunk = g("d-trunk"), legA = g("d-leg-a"), legB = g("d-leg-b");
+    const kidA = g("d-kid-a"), kidB = g("d-kid-b");
+    const unc = g("d-unc"), led = g("d-ledger");
+    const aF = g("d-a-fig"), bF = g("d-b-fig"), aS = g("d-a-sub"), bS = g("d-b-sub");
+    const REST = "A child is not handed money. It is <b>reserved</b> out of what the parent has not " +
+      "committed &mdash; so the parent cannot lend what it has already spent, and a child can never " +
+      "be wider than its parent.";
+
+    const settled = () => {
+      [trunk, legA, legB].forEach((b) => { b.classList.add("flow"); b.classList.remove("back"); });
+      [kidA, kidB].forEach((k) => { k.classList.remove("dim2"); k.classList.add("lit"); });
+      unc.textContent = "2.00";
+      aF.textContent = "1 KAS"; bF.textContent = "2 KAS";
+      aS.textContent = "2 payees, of its parent's list";
+      bS.textContent = "1 payee, of its parent's list";
+      led.innerHTML = REST;
+    };
+    settled();
+
+    const s = seq([
+      [0, () => {
+        [trunk, legA, legB].forEach((b) => b.classList.remove("flow", "back"));
+        [kidA, kidB].forEach((k) => { k.classList.add("dim2"); k.classList.remove("lit"); });
+        unc.textContent = "5.00";
+        aF.textContent = "1 KAS"; bF.textContent = "2 KAS";
+        aS.textContent = "not yet created"; bS.textContent = "not yet created";
+        led.innerHTML = "The parent holds <b>5 KAS</b>, none of it committed.";
+      }],
+      [500, () => trunk.classList.add("flow")],
+      [1000, () => {
+        legA.classList.add("flow"); kidA.classList.remove("dim2"); kidA.classList.add("lit");
+        unc.textContent = "4.00"; aS.textContent = "2 payees, of its parent's list";
+        led.innerHTML = "<b>1 KAS</b> reserved for the data agent. The parent's uncommitted balance falls to <b>4 KAS</b>.";
+      }],
+      [2000, () => {
+        legB.classList.add("flow"); kidB.classList.remove("dim2"); kidB.classList.add("lit");
+        unc.textContent = "2.00"; bS.textContent = "1 payee, of its parent's list";
+        led.innerHTML = "<b>2 KAS</b> reserved for the analysis agent. Neither child can pay anyone its parent could not.";
+      }],
+      [3200, () => {
+        aF.textContent = "0.2 spent"; bF.textContent = "0.4 spent";
+        led.innerHTML = "Both children spend, inside their own limits. The parent is not asked and cannot be asked.";
+      }],
+      [4600, () => {
+        legA.classList.add("back"); legB.classList.add("back");
+        unc.textContent = "4.40"; aF.textContent = "settled"; bF.textContent = "settled";
+        led.innerHTML = "<span class='rel'>Settled.</span> The reserves are released and the parent is charged what " +
+          "the children actually spent &mdash; <b>0.6 KAS</b>, not the <b>3 KAS</b> it lent. Uncommitted returns to <b>4.4 KAS</b>.";
+      }],
+      [7600, () => s.play()],
+    ]);
+    whenSeen(dele, () => s.play(), () => { s.stop(); settled(); });
+  }
+})();
 </script>
 
 </body>
