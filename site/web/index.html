@@ -919,18 +919,74 @@
      diagram with five states and a number to follow across them, and a reader
      who wants to sit on "settled" and work out where 4.40 came from cannot do
      that against a clock. */
-  .pin-track { position: relative; }
-  .pin-stage { position: sticky; top: 3.7rem; min-height: calc(100vh - 3.7rem);
-               display: grid; align-content: center; padding-block: 2rem; }
-  .pin-rail { height: 2px; background: var(--edge); max-width: 22rem; border-radius: 2px;
-              overflow: hidden; margin-top: 1.5rem; }
-  .pin-rail i { display: block; height: 100%; width: 0%; background: var(--teal);
-                box-shadow: 0 0 10px rgba(20,215,193,0.5); }
-  @media (max-width: 700px) { .pin-stage { min-height: auto; padding-block: 1rem 2rem; } }
 
   @media (prefers-reduced-motion: reduce) {
     .js [data-rise] { opacity: 1 !important; transform: none !important; transition: none; }
   }
+
+  /* ---- nothing scrolls sideways -----------------------------------------
+     Two faults, one symptom. Seven bare <pre> blocks had no scroller, so a
+     504px code line escaped a 390px screen; and `overflow-x: hidden` on body
+     alone does not stop the drag on iOS, which is why the page could be
+     pushed around with a thumb. Code gets its own scroller, and the document
+     is clipped at the root as well as the body. */
+  html { overflow-x: clip; }
+  pre { max-width: 100%; overflow-x: auto; }
+  pre code { display: block; min-width: 0; }
+  img, svg { max-width: 100%; }
+
+  /* The chain, labelled onto the geometry that already expressed it.
+     Above the jaws is the agent and its request; the jaws are Warda; below
+     them is the service getting paid. Naming the zones costs nothing and
+     saves a paragraph. */
+  .lanes { position: absolute; left: 0; top: 0; bottom: 0; width: 100%;
+           pointer-events: none; display: grid; grid-template-rows: 56% auto 1fr; }
+  .lane { position: relative; }
+  .lane b em { font-style: normal; color: var(--chrome-faint); display: none; }
+  @media (min-width: 760px) { .lane b em { display: inline; } }
+  .lane b { position: absolute; left: 0; font-family: var(--mono); font-size: 0.55rem;
+            letter-spacing: 0.16em; text-transform: uppercase; font-weight: 500;
+            color: var(--chrome-faint); white-space: nowrap; }
+  .lane.a b { top: 0.1rem; }
+  .lane.w b { top: calc(100% + 1.55rem); color: var(--teal); }
+  .lane.s b { bottom: 0.1rem; }
+  .rig[data-run="deny"] .lane.w b { color: var(--refuse); }
+  .rig[data-run="deny"] .lane.s b { opacity: 0.35; }
+  @media (max-width: 420px) { .lane b { font-size: 0.5rem; letter-spacing: 0.1em; } }
+
+  /* ---- one card system, all the way down --------------------------------
+     The top of this page was rebuilt on panels with edges and radius, and the
+     middle kept the older idiom: hairline-separated cells sharing one slab.
+     Both are defensible; having both on one page is not, and the seam landed
+     exactly where a reader is deciding whether this is a real product.
+
+     Rather than rewrite six sections of markup, the legacy containers are
+     restyled into the new idiom. `.cols` and `.steps3` keep their markup and
+     become card grids. */
+  .cols, .steps3 {
+    display: grid; gap: 0.85rem; background: none; border: 0;
+    margin-top: clamp(1.6rem, 3.5vw, 2.4rem);
+  }
+  .cols { grid-template-columns: repeat(auto-fit, minmax(13.5rem, 1fr)); }
+  .steps3 { grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
+  .cols > article, .steps3 > div {
+    background: var(--panel); border: 1px solid var(--edge); border-radius: 10px;
+    padding: 1.25rem 1.2rem 1.4rem; transition: border-color 200ms ease;
+  }
+  .cols > article:hover, .steps3 > div:hover { border-color: var(--edge-bright); }
+  .cols > article .n, .steps3 .sn {
+    font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.13em;
+    text-transform: uppercase; color: var(--teal-deep); margin-bottom: 0.8rem;
+  }
+  .cols > article h3, .steps3 h3 { font-size: 1rem; margin-bottom: 0.5rem; }
+  .cols > article p, .steps3 p { font-size: 0.87rem; color: var(--chrome-dim); }
+  .steps3 pre { background: #070C10; border: 1px solid var(--edge); border-radius: 8px;
+                padding: 0.85rem 0.9rem; margin: 0 0 0.85rem; }
+
+  /* Alternating grounds, so the page has a rhythm instead of one flat slab
+     with rules ruled across it. */
+  #wallet, #integrate, #stack, #build { background: var(--ground); }
+  #graph, #receipt { background: linear-gradient(180deg, #070B0F, #050709); }
 /* The terminal window. One component, every page.
 
    The chrome is not decoration. A framed window with a title bar reads as a
@@ -1144,6 +1200,11 @@
         </div>
         <div class="dropz">
           <span class="beam" aria-hidden="true"></span>
+          <div class="lanes" aria-hidden="true">
+            <span class="lane a"><b>Agent<em> &middot; asks to pay</em></b></span>
+            <span class="lane w"><b>Warda<em> &middot; the limit, in the coin</em></b></span>
+            <span class="lane s"><b>Service<em> &middot; paid, on Kaspa</em></b></span>
+          </div>
           <span class="dim" id="slug-dim" style="width:4%"><b id="slug-label">0.03 KAS</b></span>
           <span class="slug" id="slug" style="width:4%"></span>
           <div class="slot" aria-hidden="true"><span class="jaw l"></span><span class="gapcol"></span><span class="jaw r"></span></div>
@@ -1228,14 +1289,12 @@
   </div>
 </section>
 
-<section class="rule pin-track" id="pintrack">
-  <div class="pin-stage">
+<section class="rule" id="pintrack">
   <div class="wrap">
     <div data-rise>
       <p class="eyebrow">Where this goes</p>
       <h2 style="font-size:clamp(2rem,5.6vw,3.8rem);letter-spacing:-0.03em;line-height:1.04">Agents will hire<span style="display:block;color:var(--chrome-faint)">other agents.</span></h2>
       <p style="margin-top:1.6rem;max-width:52ch;color:var(--chrome-dim)">Autonomous software will not only buy from APIs. It will pay other autonomous software &mdash; and a sub-agent needs its own boundary, narrower than its parent's, that its parent cannot be tricked into widening.</p>
-      <div class="pin-rail"><i id="pin-fill"></i></div>
     </div>
 
     <div class="dele" id="dele" data-rise style="--d:120ms">
@@ -1264,7 +1323,6 @@
       </div>
       <p class="dledger" id="d-ledger">A child is not handed money. It is <b>reserved</b> out of what the parent has not committed &mdash; so the parent cannot lend what it has already spent, and a child can never be wider than its parent.</p>
     </div>
-  </div>
   </div>
 </section>
 
@@ -3053,7 +3111,7 @@ function drawGraph(loaded) {
   var trunk = g("d-trunk"), legA = g("d-leg-a"), legB = g("d-leg-b");
   var kidA = g("d-kid-a"), kidB = g("d-kid-b"), unc = g("d-unc"), led = g("d-ledger");
   var aF = g("d-a-fig"), bF = g("d-b-fig"), aS = g("d-a-sub"), bS = g("d-b-sub");
-  var fill = g("pin-fill");
+
   if (!trunk || !unc || !led) return;
 
   function flow(el, on, back) {
@@ -3094,22 +3152,30 @@ function drawGraph(loaded) {
     },
   ];
 
-  // Enough room for five stages to feel like five, and not so much that
-  // scrolling past feels like a hostage situation.
-  track.style.minHeight = "300vh";
-
-  var shown = -1;
-  function draw() {
-    var r = track.getBoundingClientRect();
-    var span = r.height - window.innerHeight;
-    var p = span <= 0 ? 0 : Math.max(0, Math.min(1, -r.top / span));
-    if (fill) fill.style.width = (p * 100).toFixed(1) + "%";
-    var i = Math.min(STAGES.length - 1, Math.floor(p * STAGES.length));
-    if (i !== shown) { shown = i; STAGES[i](); }
+  /* Back on a timer, and unpinned.
+     Driving this by scroll meant the reader met it one state at a time and
+     had to work for the whole picture — the diagram became a chore, and the
+     shape of the thing (a parent, two children, money going out and coming
+     back) was never on screen at once. It plays itself now, and replays each
+     time you arrive, with the finished state at rest so it is never blank. */
+  var timers = [];
+  function stop() { timers.forEach(clearTimeout); timers = []; }
+  function play() {
+    stop();
+    [0, 900, 1900, 3000, 4300].forEach(function (t, i) {
+      timers.push(setTimeout(function () { STAGES[i](); }, t));
+    });
+    timers.push(setTimeout(play, 7600));
   }
-  draw();
-  window.addEventListener("scroll", draw, { passive: true });
-  window.addEventListener("resize", draw);
+  STAGES[STAGES.length - 1]();     // resting state: the whole story, finished
+  if ("IntersectionObserver" in window) {
+    new IntersectionObserver(function (es) {
+      es.forEach(function (e) {
+        if (e.isIntersecting) play();
+        else { stop(); STAGES[STAGES.length - 1](); }
+      });
+    }, { threshold: 0.25 }).observe(dele);
+  } else { play(); }
 })();
 </script>
 
