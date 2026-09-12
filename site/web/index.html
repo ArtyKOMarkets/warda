@@ -651,7 +651,7 @@
 
   /* No side walls: the fall should feel like open space with one
      obstruction in it, not a chute. */
-  .dropz { position: relative; height: clamp(13rem, 32vw, 16.5rem); margin-top: 1.4rem; }
+  .dropz { position: relative; height: clamp(15rem, 34vw, 17rem); margin-top: 1.4rem; }
 
   /* A column of light exactly as wide as the aperture, running the whole
      drop -- so the opening is visible as a path before anything travels it. */
@@ -695,18 +695,18 @@
      animate they become one. */
   .slot { position: absolute; left: 0; right: 0; top: 58%; display: grid;
           grid-template-columns: 1fr var(--gap) 1fr; align-items: center; }
-  .jaw { height: 13px; position: relative;
-         background: linear-gradient(180deg, #16323A 0%, #0D1E24 55%, #091419 100%);
-         box-shadow: inset 0 1px 0 rgba(56,249,233,0.22), 0 6px 16px rgba(0,0,0,0.45); }
-  .jaw::after { content: ""; position: absolute; top: 0; bottom: 0; width: 2px;
-                background: var(--teal); box-shadow: 0 0 12px var(--teal); }
+  .jaw { height: 17px; position: relative;
+         background: linear-gradient(180deg, #274A55 0%, #16323A 46%, #0A181D 100%);
+         box-shadow: inset 0 1px 0 rgba(56,249,233,0.40), 0 8px 20px rgba(0,0,0,0.55); }
+  .jaw::after { content: ""; position: absolute; top: 0; bottom: 0; width: 3px;
+                background: var(--teal-bright); box-shadow: 0 0 16px var(--teal); }
   .jaw.l::after { right: 0; }
   .jaw.r::after { left: 0; }
-  .gapcol { height: 13px; }
+  .gapcol { height: 17px; }
 
   /* Light scattering off a contact, not an error badge. */
   .spark { position: absolute; left: 50%; top: 58%; transform: translate(-50%, -50%);
-           width: var(--gap); height: 13px; pointer-events: none; opacity: 0;
+           width: var(--gap); height: 17px; pointer-events: none; opacity: 0;
            background: radial-gradient(ellipse at center, color-mix(in srgb, var(--hue) 85%, white), transparent 70%);
            filter: blur(3px); }
   .spark.flash { animation: wbloom 620ms ease-out; }
@@ -716,9 +716,9 @@
     100% { opacity: 0; transform: translate(-50%, -50%) scaleX(1.7) scaleY(2.6); }
   }
 
-  .catcher { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%);
+  .catcher { display: block; margin: 0.9rem auto 0; width: max-content; max-width: 100%;
              border: 1px solid var(--edge); background: var(--ground);
-             padding: 0.62rem 1.25rem; min-width: 12rem; text-align: center;
+             padding: 0.62rem 1.25rem; text-align: center;
              font-family: var(--mono); font-size: 0.68rem; color: var(--chrome-faint);
              transition: 380ms ease; }
   .catcher.hit { border-color: var(--teal); color: var(--teal);
@@ -749,13 +749,13 @@
   .stn + .stn { border-left: none; }
   @media (max-width: 820px) { .stn + .stn { border-left: 1px solid var(--edge); border-top: none; } }
   .stn.lit { border-color: var(--edge-bright); background: var(--panel); }
-  .stn.lit.gate { border-color: var(--teal-deep); }
+  .stn.lit.wgate { border-color: var(--teal-deep); }
   .stn .prail { position: absolute; left: -1px; right: -1px; top: -1px; height: 1px;
                 background: var(--edge); overflow: hidden; }
   .stn .prail i { display: block; height: 100%; width: 0; background: var(--teal);
                   transition: width 520ms cubic-bezier(.45,0,.25,1); }
   .stn.flow .prail i { width: 100%; }
-  .stn.gate.flow .prail i { background: var(--teal-bright); }
+  .stn.wgate.flow .prail i { background: var(--teal-bright); }
   .stn .sk { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.15em;
              text-transform: uppercase; color: var(--chrome-faint); transition: color 340ms ease; }
   .stn.lit .sk { color: var(--teal-deep); }
@@ -1001,10 +1001,11 @@
         <div class="slot" aria-hidden="true">
           <span class="jaw l"></span><span class="gapcol"></span><span class="jaw r"></span>
         </div>
-        <span class="dim" id="slot-dim" style="width:26%;top:58%"><b>0.20 KAS &mdash; the cap, cut into the coin</b></span>
+        <span class="dim" id="slot-dim" style="width:26%;top:58%"><b>0.20 KAS max</b></span>
         <span class="spark" id="spark" aria-hidden="true"></span>
-        <p class="catcher" id="catcher">the one address on the list</p>
       </div>
+
+      <p class="catcher" id="catcher">the one address on the list</p>
 
       <p class="vline" id="vline"><b>Settled.</b> It fit, and it was addressed to the only payee this grant has.</p>
       <div class="rswitch" role="group" aria-label="Which payment to run">
@@ -1039,7 +1040,7 @@
   <div class="wrap narrow" style="max-width:52rem">
     <div data-rise>
       <p class="eyebrow">The whole idea</p>
-      <h2 class="big" style="font-size:clamp(2.2rem,6.6vw,4.6rem);letter-spacing:-0.03em;line-height:1.02">The agent has the key.<span style="display:block;color:var(--chrome-faint)">The money still has rules.</span></h2>
+      <h2 style="font-size:clamp(2.2rem,6.6vw,4.6rem);letter-spacing:-0.03em;line-height:1.02">The agent has the key.<span style="display:block;color:var(--chrome-faint)">The money still has rules.</span></h2>
       <p style="margin-top:1.8rem;max-width:46ch;color:var(--chrome-dim)">Hand a program a private key and you have handed it everything that key can reach. Warda puts the boundary in the money instead of in the program &mdash; so the boundary survives the program being wrong, being replaced, or being stolen.</p>
     </div>
     <dl class="limits" data-rise style="--d:120ms">
@@ -1065,7 +1066,7 @@
         <p class="sk">Agent</p><p class="sv">Asks</p>
         <p class="sd">Calls an endpoint that costs money. It holds a key and no other authority.</p>
       </div>
-      <div class="stn gate">
+      <div class="stn wgate">
         <span class="prail"><i></i></span>
         <p class="sk">Warda policy</p><p class="sv">Decides</p>
         <p class="sd">The only stage that can say no &mdash; and it says so before a key is touched.</p>
@@ -2670,8 +2671,11 @@ function drawGraph(loaded) {
   function restingOffset(r) {
     const zone = slug.parentElement.getBoundingClientRect();
     const h = slug.getBoundingClientRect().height || 37;
-    if (r.stopAt === "jaws") return zone.height * 0.58 - 7 - h;
-    return zone.height - h - catcher.getBoundingClientRect().height - 10;
+    if (r.stopAt === "jaws") return zone.height * 0.58 - 9 - h;
+    // Through: all the way to the floor of the zone. The catcher lives below
+    // it now, so there is nothing to leave room for and the two endings are
+    // far enough apart to read as different endings.
+    return zone.height - h;
   }
 
   const place = (y) => {
