@@ -131,8 +131,9 @@ if (!agentId || !manifestPath || !recipientsPath || !outDir) {
       "Exit codes, which are the API when you call this from another language:\n" +
       "  0  bought          the vendor served it\n" +
       "  3  refused         the covenant said no. NOTHING was spent\n" +
-      "  4  paid, unserved  the money settled and the vendor did not serve. Run the SAME\n" +
-      "                     command again: it re-presents the proof and pays nothing\n" +
+      "  4  paid, unserved  the money settled and the vendor did not serve — including\n" +
+      "                     when it never answered at all. Run the SAME command again:\n" +
+      "                     it re-presents the proof and pays nothing\n" +
       "  1  failed          see stderr\n" +
       "  2  usage",
   );
@@ -573,7 +574,20 @@ try {
     quoted: seen.payTo ? { payTo: seen.payTo, amountSompi: seen.amountSompi?.toString() ?? null } : null,
     error: why,
   });
-  process.exit(1);
+  /**
+   * Money moved, so this is a 4 and not a 1.
+   *
+   * Exit 4 means "paid, unserved": do not retry blindly, the debt is
+   * recoverable. Exit 1 means "failed, see stderr", which a caller reasonably
+   * reads as "nothing happened". Settlement exhausting THROWS — the vendor
+   * answered 402 until the attempts ran out — and that landed here, reporting
+   * a spent payment with the code for a generic failure.
+   *
+   * Found by the offline harness on its first full run, against a vendor told
+   * to accept payment and never deliver. The same shape cost 0.03 KAS to find
+   * in production a week earlier, by a different route.
+   */
+  process.exit(seen.txid ? 4 : 1);
 } finally {
   node.close();
 }
