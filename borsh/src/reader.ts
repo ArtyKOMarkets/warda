@@ -238,10 +238,24 @@ function nest(raw: unknown): unknown {
    * Property ACCESS goes through a getter; destructuring and spread do not.
    * That distinction is the whole bug.
    */
-  const inner = (e.utxoEntry ?? e) as Record<string, unknown>;
-  const amount = inner.amount ?? inner.value;
-  const spk = inner.scriptPublicKey ?? inner.script_public_key;
-  const outpoint = (e.outpoint ?? {}) as Record<string, unknown>;
+  let inner = (e.utxoEntry ?? e) as Record<string, unknown>;
+  let amount = inner.amount ?? inner.value;
+  let spk = inner.scriptPublicKey ?? inner.script_public_key;
+
+  /* One step down, and only after the flat read came back empty.
+     `UtxoEntryReference` carries BOTH — `amount` at the top and a nested
+     `entry` holding the same values — so today this never runs. It is here
+     because the flattening is a convenience of the current wasm-bindgen
+     output, not part of kaspad's reply, and a version that stops repeating
+     the fields would otherwise take a vendor down with "expected a number,
+     got undefined" for the second time. The capture proves the shape exists;
+     the test below reads through it. */
+  if (amount === undefined && e.entry && typeof e.entry === "object") {
+    inner = e.entry as Record<string, unknown>;
+    amount = inner.amount ?? inner.value;
+    spk = inner.scriptPublicKey ?? inner.script_public_key;
+  }
+  const outpoint = (e.outpoint ?? inner.outpoint ?? {}) as Record<string, unknown>;
 
   if (amount === undefined || spk === undefined) {
     /* Object.keys is useless here for the same reason the spread was — a
@@ -261,7 +275,7 @@ function nest(raw: unknown): unknown {
   }
 
   return {
-    address: addressOf(e.address),
+    address: addressOf(e.address ?? inner.address),
     outpoint: {
       transactionId: outpoint.transactionId ?? outpoint.transaction_id,
       index: outpoint.index ?? 0,

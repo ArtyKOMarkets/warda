@@ -123,3 +123,25 @@ function stringify(d: Described): string {
 export function capturedEntry(): object {
   return rebuild(CAPTURE.entry) as object;
 }
+
+/**
+ * The same recorded entry with the flattened accessors removed.
+ *
+ * `UtxoEntryReference` repeats its fields twice: `amount` at the top and a
+ * nested `entry` holding the same values. The repetition is a convenience of
+ * the current wasm-bindgen output, not something kaspad sends, so a build that
+ * stops repeating them is a change the reader should survive rather than
+ * discover in a vendor. This is that object.
+ */
+export function capturedEntryNestedOnly(): object {
+  const d = CAPTURE.entry;
+  const keep = new Set(["entry", "outpoint", "address"]);
+  const values = Object.fromEntries(
+    Object.entries(d.values ?? {}).filter(([k]) => keep.has(k)),
+  );
+  return rebuild({
+    ...d,
+    prototypeKeys: (d.prototypeKeys ?? []).filter((k) => !["amount", "isCoinbase", "blockDaaScore", "scriptPublicKey"].includes(k)),
+    values,
+  }) as object;
+}

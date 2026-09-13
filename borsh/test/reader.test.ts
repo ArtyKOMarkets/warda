@@ -257,7 +257,7 @@ test("the diagnosis lists what was probed, since a wasm object reports no keys",
 //
 // It found a second bug the hand-written fakes could not: `.address` is an
 // `Address` object, not a string.
-import { capture, capturedEntry } from "../../test/harness/borsh-fixture.ts";
+import { capture, capturedEntry, capturedEntryNestedOnly } from "../../test/harness/borsh-fixture.ts";
 
 test("the recorded resolver reply is shaped the way the bug required", () => {
   // If these ever stop holding, the fixture has been re-captured against
@@ -299,4 +299,15 @@ test("an Address object becomes the address string, not an object", async () => 
   assert.equal(u!.address, capture.address);
   // The failure this replaces: JSON.stringify of an Address is "{}".
   assert.equal(JSON.parse(JSON.stringify({ a: u!.address })).a, capture.address);
+});
+
+test("the same entry read through its nested `entry`, if the flattening ever goes", async () => {
+  const entry = capturedEntryNestedOnly() as Record<string, unknown>;
+  assert.equal(entry.amount, undefined, "precondition: nothing is flattened here");
+  const r = await BorshReader.open({ client: fake({}, { entries: [entry] }) });
+  const [u] = await r.getUtxosByAddresses([capture.address]);
+  assert.equal(u!.entry.value, 3_000_000n);
+  assert.equal(u!.entry.blockDaaScore, 567_634_976n);
+  assert.equal(u!.outpoint.index, 1);
+  assert.equal(u!.address, capture.address);
 });
