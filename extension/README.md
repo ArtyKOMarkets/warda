@@ -70,12 +70,27 @@ Vite is installed. `ops/check-builder.mjs` runs before every build and says
 the true thing instead, naming the package this platform needs:
 
 ```
-npm i --no-save "@rolldown/binding-darwin-$(node -p process.arch)@$(node -p "require('rolldown/package.json').version")"
+npm run bindings
 ```
 
-Run installs from the machine that builds. If the two ever diverge badly,
-remove `node_modules` and `package-lock.json` at the repo root and install
-again from there.
+Installing one platform's binding with npm EVICTS the other's — two machines,
+one directory, one winner, and the loser's build fails with a message about
+vite. That is a loop, not a fix. `ops/bindings.mjs` fetches the tarballs and
+unpacks them directly instead, so both platforms sit in the same tree and
+neither machine disturbs the other. A full `npm install` prunes them again;
+running it again takes a few seconds.
+
+It covers `rolldown`, `lightningcss` and `esbuild`, and chooses each variant by
+matching platform, architecture and libc tokens against that package's own
+`optionalDependencies` — so a new bundler dependency with the same habit needs
+one name in a list, not a new naming rule. The second package only surfaced
+after the first was fixed, which is how a list of packages turned out to be the
+wrong model to begin with.
+
+`WARDA_OUT` moves the build output elsewhere. A build CLEANS its output
+directory, and a filesystem that allows writes but not deletes turns that into
+`EPERM: operation not permitted, unlink background.js` — a message about the
+bundler that is really a message about the mount.
 
 ## Loading it
 

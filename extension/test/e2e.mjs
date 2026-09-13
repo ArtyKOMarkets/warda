@@ -37,7 +37,9 @@ const PRINCIPAL = "11".repeat(32);
 const PASSPHRASE = "a passphrase nobody uses";
 const PAYEE = "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4";
 
-const EXT = fileURLToPath(new URL("../.output/chrome-mv3", import.meta.url));
+const EXT = process.env.WARDA_OUT
+  ? `${process.env.WARDA_OUT}/chrome-mv3`
+  : fileURLToPath(new URL("../.output/chrome-mv3", import.meta.url));
 const ok = (m) => console.log(`  ok  ${m}`);
 
 /** The browser to drive, preferring the one whose defaults actually matter. */
@@ -75,14 +77,37 @@ const context = await chromium.launchPersistentContext("", {
 let failure = null;
 try {
   // The worker starts on demand; the extension id is in its url.
-  let [worker] = context.serviceWorkers();
-  if (!worker) worker = await context.waitForEvent("serviceworker", { timeout: 15_000 });
-  const id = new URL(worker.url()).host;
+  let first = context.serviceWorkers()[0];
+  if (!first) first = await context.waitForEvent("serviceworker", { timeout: 15_000 });
+  const id = new URL(first.url()).host;
   ok(`the service worker started (${id.slice(0, 12)}…)`);
+
+  /* An MV3 worker is terminated when idle, and Playwright's handle to a dead
+     one evaluates against nothing — `chrome` comes back undefined, which reads
+     like the extension APIs are missing rather than like the worker is gone.
+     So: take a fresh handle each time, and wake it if it has stopped. */
+  async function inWorker(fn, arg) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const w = context.serviceWorkers().find((s) => s.url().includes(id));
+      if (w) {
+        try {
+          return await w.evaluate(fn, arg);
+        } catch (e) {
+          if (attempt === 2) throw e;
+        }
+      }
+      // Opening an extension page starts the worker again.
+      const waker = await context.newPage();
+      await waker.goto(`chrome-extension://${id}/popup.html`);
+      await waker.close();
+      await new Promise((r) => setTimeout(r, 300));
+    }
+    throw new Error("the service worker never came back");
+  }
 
   // Point it at the fake chain. There is no settings screen yet, and writing
   // storage directly is setup rather than the thing under test.
-  await worker.evaluate(
+  await inWorker(
     async (url) => chrome.storage.local.set({ settings: { nodeUrl: url, network: "testnet-10", lockMinutes: 15 } }),
     node.url,
   );
@@ -108,7 +133,7 @@ try {
   await page.getByText("synced, indexed, right network").waitFor({ timeout: 15_000 });
   ok("the worker reached the node over a WebSocket and inspect passed it");
 
-  const stored = await worker.evaluate(async () => {
+  const stored = await inWorker(async () => {
     const local = await chrome.storage.local.get(null);
     const session = await chrome.storage.session.get(null);
     return { local: JSON.stringify(local), session: JSON.stringify(session) };
@@ -140,7 +165,7 @@ try {
   /* The key must not be anywhere but the screen. Checked against the raw
      stores rather than through the console's own accessors, because the
      accessors are part of what is being checked. */
-  const after = await worker.evaluate(async () => JSON.stringify(await chrome.storage.local.get(null)));
+  const after = await inWorker(async () => JSON.stringify(await chrome.storage.local.get(null)));
   assert.ok(!after.includes(agentKey), "the agent key was written to storage");
   ok("the agent key is stored nowhere");
 
@@ -156,7 +181,7 @@ try {
 
   await page.getByRole("button", { name: "Lock now" }).click();
   await page.getByRole("heading", { name: "Locked" }).waitFor({ timeout: 5_000 });
-  const locked = await worker.evaluate(async () => JSON.stringify(await chrome.storage.session.get(null)));
+  const locked = await inWorker(async () => JSON.stringify(await chrome.storage.session.get(null)));
   assert.ok(!locked.includes(PRINCIPAL), "locking should drop the key from session storage");
   ok("locking drops the key");
 

@@ -37,7 +37,12 @@ try {
     const version = require("rolldown/package.json").version;
     const platform = { darwin: "darwin", linux: "linux", win32: "win32" }[process.platform] ?? process.platform;
     const suffix = platform === "linux" ? `${process.arch}-gnu` : platform === "win32" ? `${process.arch}-msvc` : process.arch;
-    fix = `npm i --no-save @rolldown/binding-${platform}-${suffix}@${version}`;
+    /* `npm run bindings`, not an npm install: installing one platform's
+       binding is what EVICTED the other machine's, which is how this became a
+       loop rather than a fix. The script unpacks the tarball directly so both
+       can sit there at once. */
+    void `@rolldown/binding-${platform}-${suffix}@${version}`;
+    fix = "npm run bindings";
   } catch { /* rolldown is not the cause; the generic advice stands */ }
 
   console.error(
