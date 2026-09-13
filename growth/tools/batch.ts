@@ -270,6 +270,26 @@ async function main() {
       });
       save(BATCH, batch);
       console.error(`\nhired ${name}: ${toKas(terms.budgetTotal)} KAS, one payee, depth ${terms.delegationDepth}`);
+      /* `build-delegation` will have said "payees: inherited" here, and that is
+         not a narrowing that failed. A subset witness over a set of ONE is the
+         whole set, so `subtree` returns the root with an empty proof — the
+         "inherit everything" case, by construction. The child may still pay
+         only that address; the bound is the parent's own allowlist rather than
+         a path through it. Said out loud because "inherited" reads like a
+         security property that did not take. */
+      if (members.members.length === 1) {
+        console.error(
+          `  the parent's allowlist has one member, so narrowing is a no-op — ` +
+            `"inherited" and "narrowed" describe the same single address here.`,
+        );
+      }
+      if (job.epochLimitSompi === undefined) {
+        console.error(
+          `  no --epoch-limit given, so it inherited the parent's ` +
+            `(${toKas(terms.epochLimit)} KAS). With a child budget of ` +
+            `${toKas(terms.budgetTotal)} KAS that is no rate limit at all.`,
+        );
+      }
       if (!has("submit")) console.error(`not broadcast. Re-run with --submit when the transaction looks right.`);
       return;
     }

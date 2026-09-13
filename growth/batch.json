@@ -4,13 +4,29 @@
   "manifest": "/Users/artautasjasinskas/Desktop/warda/growth/batch-grant.json",
   "openedAt": "2026-09-13T15:46:36.348Z",
   "closedAt": null,
-  "outstanding": [],
+  "outstanding": [
+    {
+      "name": "scout",
+      "agentKey": "6476d3dc5c61b0d75ecaf1f5d0e84878c9c11ba4f145bba1568dd904875c4c4f",
+      "manifest": "/Users/artautasjasinskas/Desktop/warda/growth/grant-child-6476d3dc.json",
+      "reservedSompi": "50000000",
+      "hiredAt": "2026-09-13T15:50:52.813Z"
+    }
+  ],
   "log": [
     {
       "at": "2026-09-13T15:46:36.351Z",
       "what": "open",
       "who": "first-loop",
       "detail": "/Users/artautasjasinskas/Desktop/warda/growth/batch-grant.json"
+    },
+    {
+      "at": "2026-09-13T15:50:52.814Z",
+      "what": "hire",
+      "who": "scout",
+      "sompi": "50000000",
+      "txid": "6476d3dc5c61b0d75ecaf1f5d0e84878c9c11ba4f145bba1568dd904875c4c4f",
+      "detail": "may pay 254385aa03abefa1… and nothing else"
     }
   ]
 }
