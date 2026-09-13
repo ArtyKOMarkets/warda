@@ -15,6 +15,10 @@
  * protocol — so it is safe in a way the principal key is not.
  */
 
+import type { IssueTerms } from "./grants.ts";
+
+export type { GrantRecord, IssueTerms, Issued, LiveGrant } from "./grants.ts";
+
 export interface Settings {
   /** JSON wRPC. Default is the project's public four-method proxy. */
   nodeUrl: string;
@@ -47,6 +51,9 @@ export interface NodeStatus {
 
 export type Request =
   | { kind: "status" }
+  | { kind: "grants" }
+  | { kind: "issue"; terms: IssueTerms }
+  | { kind: "revoke"; id: string; feeSompi: string }
   | { kind: "create"; passphrase: string; importSecretHex?: string }
   | { kind: "unlock"; passphrase: string }
   | { kind: "lock" }
