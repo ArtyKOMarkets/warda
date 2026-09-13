@@ -45,6 +45,7 @@
     "verify",
     "vendor",
     "borsh",
+    "growth",
     "extension"
   ],
   "repository": {

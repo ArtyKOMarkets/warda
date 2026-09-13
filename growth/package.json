@@ -1,0 +1,19 @@
+{
+  "name": "@warda_protocol/growth",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Agents hiring agents on Kaspa, under authority the network enforces. The first product built on Warda.",
+  "type": "module",
+  "scripts": {
+    "test": "node --experimental-strip-types --test test/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@warda_protocol/core": "^0.3.1",
+    "@warda_protocol/kaspa": "^0.5.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.0",
+    "typescript": "^5.9.3"
+  }
+}
