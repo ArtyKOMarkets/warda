@@ -565,3 +565,93 @@ if they do, that is a better post than this one. Do NOT lead with the vendor
 package; post 8 works because seven posts of failure earned it. Rejected
 opener: "Most agent payment systems trust the client" is an idea, and an idea
 asks the reader to already care.*
+
+---
+
+## K — the console, and why an approval prompt is not a limit
+
+**The launch post for the browser extension.** Event first, mechanism as the
+reveal, same shape as the one that travelled: "I gave an AI agent a budget from
+a browser extension today" is subject, verb, object, and parses for someone who
+has never heard of a covenant.
+
+The idea underneath is the strongest inversion this project has: **every wallet
+anyone has used protects them by asking before it signs, and that protection
+does not exist for an agent** — the entire point of one is that it runs when
+nobody is there. An approval prompt nobody sees is not a limit, it is a
+description of intent. Do NOT name a wallet. The comparison is structural and
+naming one reads as punching at it.
+
+**Graphic:** `extension/ops/store/1-grants.png` — the popup with a grant that
+has spent, captioned "Money it can spend. Limits it cannot."
+
+### As one post *(270)*
+
+> I gave an AI agent a budget from a browser extension today. Then I took it back.
+> 
+> The limit isn't a setting the extension enforces. It's in the address the coin sits at.
+> 
+> So when it spends and nobody is watching, a payment over the limit isn't rejected. There isn't one.
+
+### As a thread
+
+**1/** *(139)*
+
+> I gave an AI agent a budget from a browser extension today. Then I took it back.
+>
+> Kaspa testnet. The whole thing took about four minutes.
+
+**2/** *(269)*
+
+> Every wallet you have used keeps you safe the same way: it asks before it signs.
+>
+> That protection does not exist for an agent. The entire point of one is that it runs when you are not there.
+>
+> An approval prompt nobody sees is not a limit. It is a description of intent.
+
+**3/** *(274)*
+
+> So the limits are not in the extension at all.
+>
+> The budget, the most it may spend at once, and who it may pay are compiled into a Kaspa L1 covenant — and the grant's address is a hash of those terms.
+>
+> Exceed one and there is no transaction to sign. Not a rejected one. None.
+
+**4/** *(275)*
+
+> What the extension holds is the other key: the one that issues a grant and ends it.
+>
+> The agent's key is generated once, shown once, and stored nowhere — it runs on a different machine.
+>
+> Two permissions. No host permissions. No content script. It cannot read a page you visit.
+
+**5/** *(267)*
+
+> Testnet only. It refuses mainnet, and the covenant has never been audited — nobody has audited a Kaspa covenant.
+>
+> It is not on a web store yet either, so installing means loading an unpacked zip, which you should normally refuse.
+>
+> The page says so above the download.
+
+**First reply** *(140)* — links go here, never in the post.
+
+> wardaprotocol.com/console — download, checksum, and the three commands to build it yourself instead.
+>
+> Source: github.com/ArtyKOMarkets/warda
+
+### Rejected openers, and why
+
+*"Warda Console is live."* A product announcement is an idea asking to be cared
+about. Nothing happened in that sentence.
+
+*"The first Kaspa covenant signed inside a browser extension."* Probably true
+and not checkable, and this file's own rule forbids a claim with nothing behind
+it. The version above says what happened instead, which is stronger anyway.
+
+*"MetaMask for agents."* Borrows someone else's traction to describe a thing
+that works the opposite way — MetaMask's whole safety model is the approval
+prompt, and post 2 exists to say why that model cannot apply here.
+
+**5/ is not optional.** A launch post that omits "unaudited, testnet, load an
+unpacked zip" is the kind of post this project's failure posts exist to
+outweigh.
