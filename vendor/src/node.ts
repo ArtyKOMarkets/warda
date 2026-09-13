@@ -27,10 +27,23 @@ export interface NodeSource {
   resolver?: string;
   /** Which chain, as kaspad names it: `mainnet`, `testnet-10`. */
   network: string;
+  /**
+   * Whether to fall back to a node this vendor does not control.
+   *
+   * `auto` (the default) tries a resolver, then borsh if it is installed.
+   * `none` refuses, and the refusal is a legitimate position rather than a
+   * test seam: the doc above names the trade honestly — a dishonest node
+   * could report a payment that does not exist, and the loss is the
+   * SELLER's — so a seller who would rather answer 503 than hand goods over
+   * on a stranger's word should be able to say so.
+   */
+  fallback?: "auto" | "none";
 }
 
 export interface OpenedNode {
-  client: NodeClient;
+  /* Narrowed from NodeClient: the fallback reader is not one, and the two
+     calls this package makes are all either of them needs to provide. */
+  client: Pick<NodeClient, "getUtxosByAddresses" | "close">;
   /** Sentence for the receipt: which node's word this is. */
   readFrom: string;
 }
@@ -49,7 +62,9 @@ export async function openNode(source: NodeSource): Promise<OpenedNode> {
     }
   }
 
-  const resolver = source.resolver ?? resolverFrom({});
+  const allowFallback = (source.fallback ?? "auto") === "auto";
+
+  const resolver = allowFallback ? source.resolver ?? resolverFrom({}) : null;
   if (resolver) {
     /**
      * `resolveNode` then `open`, not `open` alone.
@@ -76,9 +91,46 @@ export async function openNode(source: NodeSource): Promise<OpenedNode> {
     };
   }
 
+  /**
+   * Borsh, last, and only if it is installed.
+   *
+   * Optional rather than a dependency: it pulls a wasm binary, and a vendor
+   * running its own JSON node should not have to download one to decline it.
+   * The import is lazy for the same reason.
+   */
+  const borsh = allowFallback ? await loadBorsh() : null;
+  if (borsh) {
+    const client = await borsh.BorshReader.open({ networkId: source.network });
+    return {
+      client,
+      readFrom:
+        `a public node found by a resolver, over borsh, because this vendor's own node ` +
+        `could not be reached. A node this vendor does not control is answering whether ` +
+        `you paid it.`,
+    };
+  }
+
   throw new Error(
-    firstFailure
-      ? `${firstFailure}\n\nNo resolver was configured, so there was nothing to fall back to.`
-      : "no rpc url and no resolver: this vendor cannot read the chain",
+    (firstFailure ? `${firstFailure}\n\n` : "") +
+      `This vendor has no node it can read.\n\n` +
+      `  A seller never submits a transaction — it only asks whether a coin is at its own\n` +
+      `  address — so it does not need a JSON node. Installing @warda_protocol/borsh lets\n` +
+      `  this fall back to the public resolvers, which serve borsh and not JSON.\n\n` +
+      `    npm install @warda_protocol/borsh kaspa-wasm32-sdk`,
   );
+}
+
+/**
+ * `@warda_protocol/borsh` if it is there, and nothing if it is not.
+ *
+ * A missing optional dependency is a configuration fact, not an error: the
+ * caller gets a message naming the install, rather than a module-resolution
+ * stack trace from inside a payment.
+ */
+async function loadBorsh(): Promise<{ BorshReader: { open(o: { networkId: string }): Promise<Pick<NodeClient, "getUtxosByAddresses" | "close"> & { url: string }> } } | null> {
+  try {
+    return (await import("@warda_protocol/borsh")) as never;
+  } catch {
+    return null;
+  }
 }

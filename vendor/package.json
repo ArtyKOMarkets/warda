@@ -1,6 +1,6 @@
 {
   "name": "@warda_protocol/vendor",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Sell an API for Kaspa over HTTP 402. Quotes a price, then verifies the payment is in the UTXO set before serving \u2014 it never trusts the payment header.",
   "type": "module",
   "license": "MIT",
@@ -51,5 +51,13 @@
   "bugs": {
     "url": "https://github.com/ArtyKOMarkets/warda/issues"
   },
-  "sideEffects": false
+  "sideEffects": false,
+  "peerDependencies": {
+    "@warda_protocol/borsh": "^0.1.0"
+  },
+  "peerDependenciesMeta": {
+    "@warda_protocol/borsh": {
+      "optional": true
+    }
+  }
 }

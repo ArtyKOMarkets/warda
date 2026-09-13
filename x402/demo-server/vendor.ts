@@ -234,6 +234,10 @@ export async function serve(
     paymentHeader: header === undefined ? null : String(header),
     quote: { secret: SECRET, ttlMs: 120_000 },
     spent: SPENT,
+    /* No `fallback: "none"` here on purpose. This vendor sells facts for a
+       fiftieth of a KAS on a test network; reading a stranger's node is a
+       trade it can afford, and the receipt says which node answered. A vendor
+       selling something that matters should decide the other way. */
     openNode: () => openNode({ rpc: rpc(), network: "testnet-10" }),
     deliver: () => priced.body(),
   });
