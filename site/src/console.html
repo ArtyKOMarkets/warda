@@ -1,0 +1,179 @@
+<title>Warda Console — a browser extension for the principal</title>
+<style>
+  :root {
+    --void: #06090C; --ground: #0A1014; --panel: #101A20;
+    --edge: #1E2E37; --edge-bright: #2C4350;
+    --chrome: #DDE0E2; --chrome-dim: #8D989E; --chrome-faint: #5D6B73;
+    --teal: #14D7C1; --teal-deep: #06BBA1; --teal-ghost: rgba(20,215,193,0.10);
+    --refuse: #FF6B5A; --refuse-ghost: rgba(255,107,90,0.08);
+    --amber: #E8B23A;
+    --display: "Chakra Petch", "Arial Narrow", sans-serif;
+    --body: "Barlow", "Helvetica Neue", Arial, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    --gutter: clamp(1.15rem, 4vw, 3.4rem);
+  }
+  * { box-sizing: border-box; }
+  html { overflow-x: clip; }
+  body { margin: 0; background: var(--void); color: var(--chrome);
+         font-family: var(--body); line-height: 1.6; overflow-x: hidden; }
+  .wrap { max-width: 62rem; margin: 0 auto; padding: 0 var(--gutter); }
+  header { border-bottom: 1px solid var(--edge); padding: 2.6rem 0 2.4rem; }
+  h1 { font-family: var(--display); font-size: clamp(1.9rem, 5vw, 3rem); line-height: 1.06;
+       margin: 1.3rem 0 0; font-weight: 600; letter-spacing: -0.01em; }
+  .lede { color: var(--chrome-dim); max-width: 58ch; margin-top: 1.1rem; }
+  .eyebrow { font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.18em;
+             text-transform: uppercase; color: var(--teal); margin: 0; }
+  section { border-bottom: 1px solid var(--edge); padding: 2.4rem 0; }
+  h2 { font-family: var(--display); font-size: clamp(1.25rem, 3vw, 1.7rem); margin: 0 0 0.9rem;
+       font-weight: 600; }
+  p { max-width: 62ch; }
+  ol, ul { max-width: 62ch; color: var(--chrome-dim); padding-left: 1.15rem; }
+  li { margin: 0.45rem 0; }
+  li strong { color: var(--chrome); font-weight: 600; }
+  code { font-family: var(--mono); font-size: 0.82em; color: var(--chrome); }
+  pre { max-width: 100%; overflow-x: auto; }
+
+  .get { display: flex; flex-wrap: wrap; gap: 1.1rem; align-items: center;
+         background: var(--panel); border: 1px solid var(--edge); border-radius: 10px;
+         padding: 1.3rem 1.4rem; margin-top: 1.4rem; }
+  .dl { font-family: var(--mono); font-size: 0.82rem; letter-spacing: 0.04em;
+        background: var(--teal); color: #04201D; text-decoration: none; font-weight: 600;
+        padding: 0.85rem 1.4rem; border-radius: 6px; white-space: nowrap; }
+  .dl:hover { background: #38F9E9; }
+  .meta { font-family: var(--mono); font-size: 0.7rem; color: var(--chrome-faint);
+          line-height: 1.9; }
+  .meta b { color: var(--chrome-dim); font-weight: 500; }
+  .sha { word-break: break-all; }
+
+  .warn { border-left: 2px solid var(--amber); padding-left: 1rem; margin-top: 1.6rem;
+          color: var(--chrome-dim); }
+  .warn b { color: var(--amber); font-weight: 600; }
+  .shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+           gap: 1rem; margin-top: 1.4rem; }
+  .shots figure { margin: 0; }
+  .shots img { width: 100%; border: 1px solid var(--edge); border-radius: 8px; display: block; }
+  .shots figcaption { font-family: var(--mono); font-size: 0.68rem; color: var(--chrome-faint);
+                      margin-top: 0.5rem; }
+  footer { padding: 2.4rem 0 3.4rem; color: var(--chrome-faint); font-size: 0.82rem; }
+  a { color: var(--teal); }
+
+{{NAV_CSS}}
+</style>
+
+{{NAV}}
+
+<header>
+  <div class="wrap">
+    <p class="eyebrow" style="margin-top:1.4rem">Browser extension &middot; testnet</p>
+    <h1>The console for whoever<br>gives the agent money.</h1>
+    <p class="lede">
+      Issue a grant, watch what it spends, end it. The key that can do those three things lives
+      here, behind a passphrase. The agent's key does not &mdash; it is handed over once and kept
+      nowhere.
+    </p>
+
+    <div class="get">
+      <a class="dl" href="/{{CONSOLE_FILE}}" download>Download {{CONSOLE_VERSION}}</a>
+      <div class="meta">
+        <b>{{CONSOLE_FILE}}</b> &middot; {{CONSOLE_SIZE}} &middot; Chrome, Brave, Edge<br>
+        <b>sha256</b> <span class="sha">{{CONSOLE_SHA}}</span>
+      </div>
+    </div>
+
+    <div class="warn">
+      <p style="margin:0">
+        <b>This is not from a web store yet, and you should mind that.</b>
+        Unpacking a zip and loading it as an unpacked extension is exactly the shape of a
+        thing you should normally refuse. So: check the hash below against the one above,
+        or skip the download and
+        <a href="https://github.com/ArtyKOMarkets/warda/tree/main/extension">build it yourself</a>
+        &mdash; the source is the same three commands either way.
+      </p>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <h2>Install it</h2>
+    <ol>
+      <li><strong>Check what you downloaded.</strong> The hash above is generated from the file
+        itself when this page is built, so the two cannot disagree.
+<pre><code>shasum -a 256 {{CONSOLE_FILE}}</code></pre>
+      </li>
+      <li><strong>Unzip it</strong> somewhere you will not delete by accident. Loading an unpacked
+        extension points the browser at that folder and keeps pointing at it.</li>
+      <li><strong>Open the extensions page</strong> &mdash; <code>brave://extensions</code>, or
+        <code>chrome://extensions</code> &mdash; and turn on <strong>Developer mode</strong>.</li>
+      <li><strong>Load unpacked</strong>, and choose the unzipped folder &mdash; the one with
+        <code>manifest.json</code> in it.</li>
+    </ol>
+    <p style="color:var(--chrome-dim)">
+      Your browser will remind you on every launch that a developer-mode extension is installed.
+      That warning is correct and will go away when this is on the store.
+      It does not auto-update, so a new version means doing this again.
+    </p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Or build it</h2>
+    <p style="color:var(--chrome-dim)">
+      Same result, nothing to trust.
+    </p>
+<pre><code>git clone https://github.com/ArtyKOMarkets/warda
+cd warda &amp;&amp; npm install
+npm run build --workspace @warda_protocol/console
+# load extension/build/chrome-mv3</code></pre>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>The first five minutes</h2>
+    <ol>
+      <li><strong>Make or import a key.</strong> A passphrase encrypts it; there is no way to skip
+        that, because this key can end every grant it ever issues.</li>
+      <li><strong>Fund it.</strong> The console shows the address and waits. Send it testnet KAS
+        from a testnet-10 faucet &mdash; a grant is funded out of that coin, so nothing can be
+        issued until something arrives.</li>
+      <li><strong>Issue a grant.</strong> A budget, the most it may spend at once, and who it may
+        pay. One click adds the demo API, which is a real endpoint that sells something.</li>
+      <li><strong>Take the agent key.</strong> Shown once. Move it to wherever the agent runs.
+        Without it the grant can still be revoked, but never spent.</li>
+      <li><strong>Watch, and end it.</strong> A grant's address moves every time it pays someone;
+        the console follows it. Revoking returns what is left.</li>
+    </ol>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>What it asks for, which is almost nothing</h2>
+    <ul>
+      <li><strong>Two permissions.</strong> <code>storage</code>, to hold your encrypted key and
+        your grant records. <code>alarms</code>, to lock itself when you walk away.</li>
+      <li><strong>No host permissions, and no content script.</strong> It cannot read a page you
+        visit, because it never runs on one.</li>
+      <li><strong>No remote code.</strong> Nothing is fetched at run time &mdash; no scripts, no
+        fonts, no analytics. There is no server.</li>
+      <li><strong>One connection out:</strong> a WebSocket to the Kaspa node you point it at,
+        carrying four methods. Change the node and that changes with it.</li>
+      <li><strong>Testnet only.</strong> Mainnet is refused rather than defaulted, and will stay
+        that way until the covenant has had a review it has not yet had.</li>
+    </ul>
+    <p style="color:var(--chrome-dim)">
+      The whole policy is in
+      <a href="https://github.com/ArtyKOMarkets/warda/blob/main/extension/PRIVACY.md">PRIVACY.md</a>,
+      and it is short because there is nothing to disclose.
+    </p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    Found something wrong? <a href="https://github.com/ArtyKOMarkets/warda/issues">Open an issue</a>
+    &mdash; that is the most useful thing anyone can do with this right now.
+  </div>
+</footer>

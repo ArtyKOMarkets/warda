@@ -1,6 +1,6 @@
 {
   "_comment": "Written by agents/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, the purchase log or the chain — none is typed. Each payee's LABEL is re-derived on every run from the artefact agents/known-payees.json names, and a label that stops matching is dropped rather than published: an address with no name is honest, an address with the wrong name is not.",
-  "checkedAt": "2026-09-12T14:35:01.835Z",
+  "checkedAt": "2026-09-13T14:35:02.023Z",
   "network": "testnet-10",
   "identity": {
     "agentId": "WARDA-003",
@@ -44,10 +44,10 @@
   },
   "timelock": {
     "notBefore": "564404779",
-    "virtualDaaScore": "568649991",
+    "virtualDaaScore": "569513997",
     "open": true,
     "lockedFor": "5 minutes",
-    "openedAgo": "5 days",
+    "openedAgo": "6 days",
     "enforcedBy": "the covenant, on every spend: claimedDaa >= notBefore. Not a scheduler, not this process, and not revocable by whoever issued the grant."
   },
   "authority": {
@@ -352,6 +352,17 @@
       "payTo": "kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e",
       "refusal": null,
       "sellerClaimed": null
+    },
+    {
+      "at": "2026-09-13T06:41:01.136Z",
+      "outcome": "paid-but-refused",
+      "url": "https://warda-demo-api.vercel.app/digest",
+      "reason": null,
+      "txid": null,
+      "paid": null,
+      "payTo": null,
+      "refusal": null,
+      "sellerClaimed": null
     }
   ],
   "reconciliation": {
@@ -366,7 +377,7 @@
     {
       "rule": "start time (not_before)",
       "attempted": "spend before the grant opens",
-      "refusal": "this grant could not spend anything until DAA 564404779. The covenant checks the claimed DAA score against that number on every spend, so the delay was not a policy in the agent's process and could not be brought forward by whoever issued it. It opened 5 days ago.",
+      "refusal": "this grant could not spend anything until DAA 564404779. The covenant checks the claimed DAA score against that number on every spend, so the delay was not a policy in the agent's process and could not be brought forward by whoever issued it. It opened 6 days ago.",
       "derived": true
     },
     {

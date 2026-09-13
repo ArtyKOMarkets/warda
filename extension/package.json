@@ -1,6 +1,6 @@
 {
   "name": "@warda_protocol/console",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "description": "Warda Console \u2014 a browser extension for the principal: issue a grant, watch it spend, end it.",
   "type": "module",

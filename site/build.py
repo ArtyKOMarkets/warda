@@ -27,6 +27,19 @@ DEMO = here / "src" / "demo-grant.json"
 if DEMO.exists():
     PAGES.append("attack.html")
 
+# The console page offers a build for download, so it can only exist when there
+# IS one. Same rule as the attack page: without the artefact the page is
+# skipped rather than published with placeholders, because a page telling a
+# stranger to verify {{CONSOLE_SHA}} is worse than no page. The version, size
+# and checksum are all read FROM the file — a checksum typed beside a download
+# is a checksum that will one day be the previous build's.
+CONSOLE_ZIP = sorted((here.parent / "extension" / "build").glob("*.zip"))[-1:] or [None]
+CONSOLE_ZIP = CONSOLE_ZIP[0]
+if CONSOLE_ZIP:
+    PAGES.append("console.html")
+else:
+    print("! extension/build/*.zip missing — /console not published. `npm run zip` in extension/.")
+
 def data_uri(p):
     return "data:image/png;base64," + base64.b64encode(p.read_bytes()).decode()
 
@@ -117,7 +130,21 @@ flavours = {
     # file-referencing, for a real host
     "web": {"{{LOCKUP}}": "assets/lockup-hero.png", "{{MARK}}": "assets/mark-200.png"},
 }
+if CONSOLE_ZIP:
+    import hashlib
+    _bytes = CONSOLE_ZIP.read_bytes()
+    _console = {
+        "{{CONSOLE_FILE}}": CONSOLE_ZIP.name,
+        "{{CONSOLE_VERSION}}": CONSOLE_ZIP.stem.split("-")[-2],
+        "{{CONSOLE_SIZE}}": f"{len(_bytes)/1024:.0f} KB",
+        "{{CONSOLE_SHA}}": hashlib.sha256(_bytes).hexdigest(),
+    }
+    for _k, _v in _console.items():
+        print(f"console: {_k} = {_v}")
+
 for _f in flavours.values():
+    if CONSOLE_ZIP:
+        _f.update(_console)
     _f["{{AGENT_CSS}}"] = AGENT_CSS
     _f["{{AGENT_GRAPH}}"] = GRAPH_HTML
     _f["{{AGENT_GRAPH_CSS}}"] = GRAPH_CSS
@@ -593,6 +620,13 @@ for outdir, subs in flavours.items():
         dst.parent.mkdir(parents=True, exist_ok=True)
         dst.write_bytes(src.read_bytes())
         print(f"{outdir}/{name}: {dst.stat().st_size/1024:>6.1f} KB")
+
+# The download itself, into the web flavour only: the artifact flavour is a
+# self-contained page with no host to serve a file from.
+if CONSOLE_ZIP:
+    _dst = here / "web" / CONSOLE_ZIP.name
+    _dst.write_bytes(CONSOLE_ZIP.read_bytes())
+    print(f"web/{CONSOLE_ZIP.name}: {_dst.stat().st_size/1024:>6.1f} KB")
 
 # the web flavour needs the images beside it
 web_assets = here / "web" / "assets"

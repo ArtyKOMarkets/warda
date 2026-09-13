@@ -31,7 +31,7 @@ export default defineConfig({
   manifest: {
     name: "Warda Console",
     description: "Give an agent a budget the network enforces. Watch it spend. End it.",
-    version: "0.0.1",
+    version: "0.1.0",
     permissions: ["storage", "alarms"],
     /* WXT fills `icons` from public/icon automatically, but not the toolbar
        button's own icon. Chrome falls back to `icons` and Brave does too —
