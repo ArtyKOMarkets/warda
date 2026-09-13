@@ -59,6 +59,14 @@ index, or the wrong network, where every address is well formed and empty. The
 SDK already knows how to ask, so this asks the same way rather than inventing a
 lighter check that misses the case that matters.
 
+## Loading it
+
+Brave: `brave://extensions` → Developer mode → Load unpacked →
+`extension/.output/chrome-mv3`. Chrome is the same with `chrome://`. Brave's
+Shields apply to web pages and not to extension contexts, so they are not in
+the way — but the extension injects nothing into any page and requests no host
+permissions, so there is nothing for them to be in the way of.
+
 ## Testnet only
 
 Mainnet is refused, and refused loudly rather than by omission. The CLI makes

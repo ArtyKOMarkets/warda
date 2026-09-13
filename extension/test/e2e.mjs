@@ -15,10 +15,15 @@
  *
  *   npm run build && npm run e2e
  *
- * Needs a Chromium. `npx playwright install chromium` provides one; set
- * WARDA_CHROME to use another.
+ * Needs a Chromium-family browser, and prefers the one you actually use:
+ * WARDA_CHROME if set, else Brave where it is installed, else whatever
+ * Playwright has. Running it against your own browser is the point — Brave and
+ * Chrome share an engine but not their defaults, and the difference between
+ * "Chromium allows this" and "my browser allows this" is exactly the class of
+ * thing this file exists to stop me from assuming.
  */
 import { fileURLToPath } from "node:url";
+import { existsSync } from "node:fs";
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
 import { startFakeNode } from "../../test/harness/fake-node.ts";
@@ -35,6 +40,18 @@ const PAYEE = "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5u
 const EXT = fileURLToPath(new URL("../.output/chrome-mv3", import.meta.url));
 const ok = (m) => console.log(`  ok  ${m}`);
 
+/** The browser to drive, preferring the one whose defaults actually matter. */
+function browserPath() {
+  if (process.env.WARDA_CHROME) return process.env.WARDA_CHROME;
+  const candidates = [
+    "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
+    "/Applications/Brave Browser Beta.app/Contents/MacOS/Brave Browser Beta",
+    "/usr/bin/brave-browser",
+    "/usr/bin/brave",
+  ];
+  return candidates.find((c) => existsSync(c));
+}
+
 const node = await startFakeNode();
 const secret = fromHex(PRINCIPAL);
 const address = pubkeyToAddress(agentPublicKey(secret), "kaspatest");
@@ -47,9 +64,11 @@ node.utxos = [{
   blockDaaScore: 1n,
 }];
 
+const browser = browserPath();
+console.log(`  ->  ${browser ?? "playwright's chromium"}\n`);
 const context = await chromium.launchPersistentContext("", {
-  channel: process.env.WARDA_CHROME ? undefined : "chromium",
-  executablePath: process.env.WARDA_CHROME,
+  channel: browser ? undefined : "chromium",
+  executablePath: browser,
   args: [`--disable-extensions-except=${EXT}`, `--load-extension=${EXT}`],
 });
 
