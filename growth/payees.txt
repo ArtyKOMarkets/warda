@@ -1,0 +1,4 @@
+# The batch grant's allowlist. One address: Researcher, the only agent
+# anything in this tree may pay. Fixed at genesis and unchangeable — keep
+# this file, or the grant can be revoked and never spent.
+254385aa03abefa14e997d01ad5e6b8c13ca4aba7b030d675ca5922c39f8af48
