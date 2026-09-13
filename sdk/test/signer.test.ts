@@ -93,3 +93,31 @@ test("a public key of the wrong size is refused at construction, not at signing"
     /x-only public key \(32 bytes\); got 33/,
   );
 });
+
+/**
+ * A signer that never reads stdin.
+ *
+ * Found by pointing --signer at `echo`, which is the first thing anybody
+ * debugging this will try. The child closes its stdin, writing to the closed
+ * pipe raises EPIPE on the STREAM rather than on the promise, and unhandled
+ * it took the whole process down — so the one error message written to
+ * explain a misconfigured signer arrived as a stack trace instead.
+ */
+test("a command that ignores stdin is reported, not a crash", async () => {
+  const sign = externalSigner({ command: "echo could-not-assume-role", publicKey: PUB });
+  await assert.rejects(() => sign(DIGEST), (e: Error) => {
+    assert.match(e.message, /did not return a signature/);
+    assert.match(e.message, /could-not-assume-role/);
+    return true;
+  });
+});
+
+test("a command that exits non-zero says so, with its exit code", async () => {
+  const sign = externalSigner({ command: "false", publicKey: PUB });
+  await assert.rejects(() => sign(DIGEST), /exited 1/);
+});
+
+test("a command that does not exist is a clear failure, not a hang", async () => {
+  const sign = externalSigner({ command: "warda-no-such-signer-binary", publicKey: PUB });
+  await assert.rejects(() => sign(DIGEST), /could not run the signer/);
+});

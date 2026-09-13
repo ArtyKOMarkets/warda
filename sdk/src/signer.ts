@@ -119,6 +119,15 @@ function spawnRunner(command: string, timeoutMs: number): (input: string) => Pro
         if (code !== 0) reject(new Error(`the signer exited ${code}: ${command}`));
         else resolve(out);
       });
+      /* A signer that never reads stdin — because it takes the digest another
+         way, or because it is not a signer at all — closes the pipe, and
+         writing to a closed pipe raises EPIPE on the stream rather than on
+         this promise. Unhandled, it takes the whole process down, which
+         turned the one error message written to explain a misconfigured
+         signer into a stack trace. Ignored on purpose: whether the command
+         produced a signature is decided by its OUTPUT, not by whether it
+         bothered to listen. */
+      child.stdin.on("error", () => {});
       child.stdin.end(input + "\n");
     });
   };
