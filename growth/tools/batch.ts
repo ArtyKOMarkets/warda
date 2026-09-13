@@ -57,6 +57,8 @@ const flag = (name: string, fallback?: string) => {
 const has = (name: string) => argv.includes(`--${name}`);
 
 const BATCH = resolve(flag("batch", "batch.json")!);
+/** The parent's member list, as given: a path or an inline list. */
+const PAYEES = flag("payees") ?? "";
 const SDK = resolve(flag("sdk", "../sdk")!);
 const TOOLS = `${SDK}/tools`;
 
@@ -105,7 +107,7 @@ function parentState(batch: BatchRecord): { state: GrantState; members: Recipien
      file and why losing it leaves a grant that can be revoked and never
      delegated. So the file is an argument, and it is checked against the root
      before anything is built. */
-  const spec = flag("payees") ?? die(
+  const spec = PAYEES || die(
     "hire needs --payees <file|csv>: the parent's full member list.\n\n" +
       "A manifest records the allowlist's ROOT, not its members, and a child's narrowed " +
       "list is proved by a path through the parent's tree — which a root alone cannot " +
@@ -203,10 +205,39 @@ async function main() {
         "--max-per-spend", String(terms.maxPerSpend),
         "--epoch-limit", String(terms.epochLimit),
         "--depth", String(terms.delegationDepth),
+        /* BOTH lists, and the second is not redundant. The child commits to a
+           NODE of the parent's tree, and the delegation carries the path from
+           that node up to the parent's root — which only the parent's full
+           member set can produce. Passing the subset alone was the first thing
+           this orchestrator got wrong against a live grant, and the tool
+           refused it, which is the only reason it cost nothing. */
         "--child-recipients", terms.recipients.join(","),
+        "--recipients", PAYEES,
       ];
       if (job.windowDaa !== undefined) args.push("--window", String(job.windowDaa));
       if (has("submit")) args.push("--submit");
+
+      /* What would be run, for a person who would rather read it than trust
+         it. Exists because the missing flag above was invisible until a live
+         grant said so. */
+      if (has("dry-run")) {
+        /* Flag and value on ONE line. Splitting them is what a naive join
+           does, and it makes the thing you are trying to read — which value
+           went with which flag — the one thing the output does not show. */
+        const lines: string[] = [];
+        for (let i = 0; i < args.length; i++) {
+          const a = args[i]!;
+          const next = args[i + 1];
+          if (a.startsWith("--") && next !== undefined && !next.startsWith("--")) {
+            lines.push(`${a} ${next}`);
+            i += 1;
+          } else {
+            lines.push(a);
+          }
+        }
+        console.error(["node --experimental-strip-types", ...lines].join(" \\\n  "));
+        return;
+      }
 
       const result = await runTool(args[0]!, args.slice(1), SDK);
       if (result.code !== 0) die(`\nbuild-delegation refused this delegation; nothing was recorded.`, result.code);

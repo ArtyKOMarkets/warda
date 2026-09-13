@@ -136,3 +136,28 @@ test("a KAS amount with nine decimals is refused rather than truncated", async (
   assert.equal(r.code, 1);
   assert.match(r.stderr, /eight decimal places/);
 });
+
+/**
+ * The flag that was missing, against a live grant, on the first delegation.
+ *
+ * `build-delegation` needs BOTH lists: the child commits to a node of the
+ * parent's tree, and the delegation carries the path from that node up to the
+ * parent's root — which only the parent's full member set can produce. Passing
+ * the subset alone looked complete and was refused by the tool, which is the
+ * only reason it cost nothing.
+ *
+ * A dry run exists so this is readable rather than inferred, and so this test
+ * can check the invocation instead of checking that a chain said no.
+ */
+test("the delegation carries the child's subset AND the parent's whole list", async () => {
+  const f = fixture();
+  await cli(["open", "--manifest", f.manifest, "--batch", f.batch, "--payees", f.payees]);
+  const r = await cli(["hire", "scout", "--batch", f.batch, "--payees", f.payees, "--dry-run",
+    "--agent-key", key("scout"), "--payee", SEARCH, "--budget", "0.5", "--max-per-spend", "0.05"]);
+  assert.equal(r.code, 0, r.stderr);
+  assert.match(r.stderr, new RegExp(`--child-recipients ${SEARCH}`));
+  assert.match(r.stderr, new RegExp(`--recipients ${f.payees.replace(/[/\\.]/g, "\\$&")}`));
+  // And the attenuation, so a refactor cannot quietly widen a child.
+  assert.match(r.stderr, /--depth 1/);
+  assert.match(r.stderr, /--budget 50000000/);
+});
