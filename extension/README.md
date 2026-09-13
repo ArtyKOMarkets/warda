@@ -6,7 +6,7 @@ and can take it back.
 ```
 npm install          # from the repo root; this is a workspace
 npm run dev          # loads into a dev Chrome profile
-npm run build        # .output/chrome-mv3, load unpacked
+npm run build        # build/chrome-mv3, load unpacked
 npm test
 ```
 
@@ -87,7 +87,12 @@ one name in a list, not a new naming rule. The second package only surfaced
 after the first was fixed, which is how a list of packages turned out to be the
 wrong model to begin with.
 
-`WARDA_OUT` moves the build output elsewhere. A build CLEANS its output
+The output is `build/` rather than WXT's `.output/` for one reason: loading an
+unpacked extension means picking the folder in a native file dialog, and macOS
+hides dot-folders there. The default cost a forgettable keystroke every time,
+on the one step a person has to do by hand.
+
+`WARDA_OUT` moves it elsewhere again. A build CLEANS its output
 directory, and a filesystem that allows writes but not deletes turns that into
 `EPERM: operation not permitted, unlink background.js` — a message about the
 bundler that is really a message about the mount.
@@ -95,7 +100,7 @@ bundler that is really a message about the mount.
 ## Loading it
 
 Brave: `brave://extensions` → Developer mode → Load unpacked →
-`extension/.output/chrome-mv3`. Chrome is the same with `chrome://`. Brave's
+`extension/build/chrome-mv3`. Chrome is the same with `chrome://`. Brave's
 Shields apply to web pages and not to extension contexts, so they are not in
 the way — but the extension injects nothing into any page and requests no host
 permissions, so there is nothing for them to be in the way of.

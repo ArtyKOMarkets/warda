@@ -16,7 +16,7 @@ import { mkdirSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
 import { chromium } from "playwright";
 
-const ROOT = new URL("../.output/chrome-mv3/", import.meta.url).pathname;
+const ROOT = new URL("../build/chrome-mv3/", import.meta.url).pathname;
 const OUT = new URL("./preview/", import.meta.url).pathname;
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json" };
 

@@ -19,12 +19,15 @@ import { defineConfig } from "wxt";
  */
 export default defineConfig({
   modules: ["@wxt-dev/module-react"],
-  /* Where the build writes. `.output` by default, which is what anyone
-     checking this out wants. WARDA_OUT exists because a build CLEANS its
-     output directory, and a filesystem that allows writes but not deletes
-     turns that into "EPERM: operation not permitted, unlink background.js" —
-     a message about the bundler that is really a message about the mount. */
-  outDir: process.env.WARDA_OUT || ".output",
+  /* `build/`, not WXT's `.output/`. Loading an unpacked extension means
+     picking the folder in a native file dialog, and macOS hides dot-folders
+     there — so the default costs a keystroke nobody remembers (cmd-shift-.)
+     every single time, on the one step a person has to do by hand.
+     WARDA_OUT overrides it, and exists because a build CLEANS its output
+     directory: a filesystem that allows writes but not deletes turns that
+     into "EPERM: operation not permitted, unlink background.js", a message
+     about the bundler that is really a message about the mount. */
+  outDir: process.env.WARDA_OUT || "build",
   manifest: {
     name: "Warda Console",
     description: "Give an agent a budget the network enforces. Watch it spend. End it.",

@@ -39,7 +39,7 @@ const PAYEE = "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5u
 
 const EXT = process.env.WARDA_OUT
   ? `${process.env.WARDA_OUT}/chrome-mv3`
-  : fileURLToPath(new URL("../.output/chrome-mv3", import.meta.url));
+  : fileURLToPath(new URL("../build/chrome-mv3", import.meta.url));
 const ok = (m) => console.log(`  ok  ${m}`);
 
 /** The browser to drive, preferring the one whose defaults actually matter. */
