@@ -34,23 +34,24 @@ const GRANTS = [
     record: {
       id: "aa".repeat(32), label: "research agent", covenant: "b3e5eeefacf2021f", network: "testnet-10",
       authority: { principalKey: PUB, revocationKey: PUB },
-      state: { budgetTotal: "200000000", maxPerSpend: "10000000" },
+      state: { budgetTotal: "200000000", maxPerSpend: "10000000", spentTotal: "21600000" },
       recipients: ["x", "y"], grantValue: "200000000",
       createdAt: "2026-09-13T09:00:00Z", genesisTxid: "bb".repeat(32), endedBy: null,
     },
-    address: GRANT, balanceSompi: "173400000", detail: "funded, at the address this state derives",
+    address: GRANT, balanceSompi: "173400000", spentSompi: "21600000", caughtUp: 2,
+    detail: "followed 2 payments",
   },
   {
     record: {
       id: "cc".repeat(32), label: "digest buyer", covenant: "b3e5eeefacf2021f", network: "testnet-10",
       authority: { principalKey: PUB, revocationKey: PUB },
-      state: { budgetTotal: "50000000", maxPerSpend: "4000000" },
+      state: { budgetTotal: "50000000", maxPerSpend: "4000000", spentTotal: "0" },
       recipients: ["z"], grantValue: "50000000",
       createdAt: "2026-09-11T09:00:00Z", genesisTxid: "dd".repeat(32), endedBy: null,
     },
-    address: GRANT, balanceSompi: null,
-    detail: "nothing at this address — it has spent and moved, or it was drained, revoked or never " +
-            "funded. This console cannot yet tell those apart.",
+    address: GRANT, balanceSompi: null, spentSompi: "0", caughtUp: 0,
+    detail: "nothing here, and the coins at its payees do not place it either. It was drained, " +
+            "revoked, never funded — or it paid someone this record does not list.",
   },
 ];
 

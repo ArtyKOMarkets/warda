@@ -254,10 +254,14 @@ function GrantCard({ grant, onChange }: { grant: LiveGrant; onChange: () => void
     }
   }
 
-  /* Held against granted, which is the only spend figure that is OBSERVED
-     rather than inferred. A "spent so far" number would have to subtract fees
-     this console never saw, and a ledger it does not keep. */
+  /* Two numbers, and they are not the same thing. `held` is the coin sitting
+     at the grant's address right now. `spent` is what the COVENANT has counted
+     against the budget — which only becomes real once the grant has been
+     placed, because it lives in the state that derives the address. Before
+     that it is zero because nothing has been observed, not because nothing has
+     happened, and the bar says which by being hatched. */
   const granted = BigInt(record.grantValue);
+  const spent = BigInt(grant.spentSompi);
   const held = grant.balanceSompi === null ? null : BigInt(grant.balanceSompi);
   const pct = held === null || granted === 0n ? 0 : Number((held * 1000n) / granted) / 10;
 
@@ -275,12 +279,17 @@ function GrantCard({ grant, onChange }: { grant: LiveGrant; onChange: () => void
       </div>
 
       <div className="row"><span className="k">Granted</span><span className="v">{toKas(granted, 3)} KAS</span></div>
+      {spent > 0n ? (
+        <div className="row"><span className="k">Spent</span><span className="v">{toKas(spent, 3)} KAS</span></div>
+      ) : null}
       <div className="row"><span className="k">Per spend</span><span className="v">max {toKas(record.state.maxPerSpend, 3)} KAS</span></div>
       <div className="row"><span className="k">May pay</span><span className="v">{record.recipients.length} address{record.recipients.length === 1 ? "" : "es"}, fixed</span></div>
       <div className="row"><span className="k">At</span><span className="v">{grant.address.slice(0, 20)}…</span></div>
 
       {held === null && !ended ? (
         <p className="tight" style={{ marginTop: 8 }}>{grant.detail}</p>
+      ) : grant.caughtUp > 0 ? (
+        <p className="note">{grant.detail}</p>
       ) : null}
 
       {error ? <p className="error" style={{ marginTop: 8 }}>{error}</p> : null}

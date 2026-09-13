@@ -97,6 +97,31 @@ directory, and a filesystem that allows writes but not deletes turns that into
 `EPERM: operation not permitted, unlink background.js` — a message about the
 bundler that is really a message about the mount.
 
+## Following a grant that moved
+
+A grant's address is a hash of its state, so every spend RELOCATES it, and a
+record one payment stale points at an empty address — which is also what
+drained, revoked and never-funded look like. Kaspa's node RPC answers "what is
+unspent here" and never "what spent this", so catching up means guessing states
+and asking.
+
+The guessing is `candidateStates` in the SDK, and the reason it is cheap is
+worth knowing before touching this: a spend moves exactly three fields —
+`spentTotal`, `epochIndex`, `epochSpent` — so where a grant LANDS after any
+number of payments depends on three numbers and not at all on the order they
+happened in. A combinatorial walk becomes an enumeration of endpoints, and an
+endpoint is the one thing actually observable.
+
+The evidence is the coins at the PAYEES: one UTXO per payment, each carrying
+the DAA score of the block that accepted it. That is why the recipients are
+kept in the record — a lost payee list leaves a grant that can still be revoked
+but never followed. When the suffix search finds nothing and the list is short,
+it escalates to subsets, which is the case where a payee is shared with another
+grant.
+
+Finding nothing still means finding nothing. The card says the grant could not
+be placed and lists what that could mean, rather than printing a zero.
+
 ## The icon is drawn, not exported
 
 `ops/icon.py` writes `public/icon/{16,32,48,96,128}.png`. The real mark —

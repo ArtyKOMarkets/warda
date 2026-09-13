@@ -27,8 +27,9 @@ import { existsSync } from "node:fs";
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
 import { startFakeNode } from "../../test/harness/fake-node.ts";
-import { payToPubkeyScript, pubkeyToAddress, agentPublicKey, fromHex, toHex, scriptPublicKeyToWire }
-  from "@warda_protocol/kaspa";
+import { payToPubkeyScript, pubkeyToAddress, agentPublicKey, fromHex, toHex, scriptPublicKeyToWire,
+  successorState, scriptHashFor, scriptHashToAddress } from "@warda_protocol/kaspa";
+import template from "@warda_protocol/kaspa/covenant-template.json" with { type: "json" };
 
 /* A throwaway principal. Imported rather than generated so the test knows the
    address to fund — and so the import path is exercised, which is the one
@@ -175,9 +176,64 @@ try {
   ok("the grant appears in the list");
 
   /* The fake node still holds only the funding coin, so the grant's address is
-     empty — which is exactly the case this console refuses to call a zero. */
-  await page.getByText(/nothing at this address/).waitFor({ timeout: 10_000 });
-  ok("an empty grant address is reported as empty, not as a balance of zero");
+     empty AND its payee holds nothing that could place it — which is exactly
+     the case this console refuses to call a zero. */
+  await page.getByText(/do not place it either/).waitFor({ timeout: 20_000 });
+  ok("an unplaceable grant is reported as unplaceable, not as a balance of zero");
+
+  /* ---------------------------------------------------------------------
+     The agent spends, and the grant MOVES.
+
+     This is the case the console used to admit it could not read: a grant's
+     address is a hash of its state, so one payment makes the recorded address
+     empty, and empty is also what drained, revoked and never-funded look like.
+     Simulated here the way the chain does it — the grant coin appears at the
+     SUCCESSOR address and a coin appears at the payee — so the console has to
+     find it from three numbers rather than be told. */
+  {
+    const rec = await inWorker(async () => {
+      const got = await chrome.storage.local.get("grants");
+      return JSON.stringify(got.grants[0]);
+    });
+    const record = JSON.parse(rec);
+    const big = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) =>
+      [k, /^\d+$/.test(String(v)) && k !== "agentKey" ? BigInt(v) : v]));
+    const state = big(record.state);
+    /* Under the grant's per-spend cap, which the form defaulted to 0.1 KAS. A
+       larger payment is one the covenant would have refused, so `follow` drops
+       it as not-this-grant's and finds nothing — correctly, and confusingly if
+       you wrote the test. */
+    const paid = 5_000_000n;                        // 0.05 KAS
+    const claimedDaa = state.notBefore + 10n;
+    const next = successorState(state, paid, claimedDaa);
+    /* `scriptHashFor` already returns hex — wrapping it in toHex double-encodes
+       and fails with "a script hash is 32 bytes, got 64". */
+    const grantAddress = scriptHashToAddress(
+      scriptHashFor(template, { authority: record.authority, state: next }), "kaspatest");
+
+    node.utxos = [
+      { address: grantAddress, transactionId: "bb".repeat(32), index: 0,
+        amount: 200_000_000n - paid, scriptPublicKey: "0000", blockDaaScore: claimedDaa,
+        covenantId: "cc".repeat(32) },
+      { address: PAYEE, transactionId: "dd".repeat(32), index: 0, amount: paid,
+        scriptPublicKey: scriptPublicKeyToWire(payToPubkeyScript(fromHex(record.recipients[0]))),
+        blockDaaScore: claimedDaa + 5n },
+    ];
+
+    await page.reload();
+    await page.getByText("followed 1 payment").waitFor({ timeout: 20_000 });
+    ok("the grant moved, and the console followed it from the coins at its payee");
+
+    await page.getByText("0.05 KAS").first().waitFor({ timeout: 5_000 });
+    ok("and now says what the covenant has counted as spent");
+
+    const advanced = JSON.parse(await inWorker(async () => {
+      const got = await chrome.storage.local.get("grants");
+      return JSON.stringify(got.grants[0]);
+    }));
+    assert.equal(advanced.state.spentTotal, paid.toString(), "the record should have advanced");
+    ok("the record moved with it, so the next read starts from where it is");
+  }
 
   await page.getByRole("button", { name: "Lock now" }).click();
   await page.getByRole("heading", { name: "Locked" }).waitFor({ timeout: 5_000 });

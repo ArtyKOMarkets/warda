@@ -35,6 +35,7 @@ import {
   pubkeyToAddress,
   RecipientSet,
   assertRecipientsFitTemplate,
+  candidateStates,
   scriptHashFor,
   scriptHashToAddress,
   signDigest,
@@ -47,6 +48,8 @@ import {
   type GrantAuthority,
   type GrantState,
   type NetworkPrefix,
+  type NodeClient,
+  type Payment,
 } from "@warda_protocol/kaspa";
 import { schnorr } from "@noble/curves/secp256k1.js";
 import rawTemplate from "@warda_protocol/kaspa/covenant-template.json";
@@ -116,7 +119,11 @@ export interface LiveGrant {
   address: string;
   /** null when nothing is at the current address — see `detail`. */
   balanceSompi: string | null;
+  /** What the covenant has counted as spent. Real only once a grant is placed. */
+  spentSompi: string;
   detail: string;
+  /** Payments folded in to place it this read, if it had moved. */
+  caughtUp: number;
 }
 
 function toState(s: StoredState): GrantState {
@@ -229,29 +236,62 @@ export async function live(): Promise<LiveGrant[]> {
   const records = await all();
   if (records.length === 0) return [];
   const mine = records.filter((r) => r.network === s.network);
-  const addresses = mine.map((r) => addressOf(r, s.network));
 
   return withNode(async (client) => {
+    const addresses = mine.map((r) => addressOf(r, s.network));
     const utxos = await client.getUtxosByAddresses(addresses);
-    return mine.map((record, i) => {
+    const out: LiveGrant[] = [];
+
+    for (let i = 0; i < mine.length; i++) {
+      let record = mine[i]!;
       const address = addresses[i]!;
-      const here = utxos.filter((u) => u.address === address);
-      const total = here.reduce((acc, u) => acc + u.entry.value, 0n);
+      const spent = () => record.state.spentTotal;
+
       if (record.endedBy) {
-        return { record, address, balanceSompi: null, detail: `ended by ${record.endedBy.slice(0, 12)}…` };
+        out.push({
+          record, address, balanceSompi: null, spentSompi: spent(), caughtUp: 0,
+          detail: `ended by ${record.endedBy.slice(0, 12)}…`,
+        });
+        continue;
       }
-      if (here.length === 0) {
-        return {
+
+      const here = utxos.filter((u) => u.address === address);
+      if (here.length > 0) {
+        out.push({
+          record, address, caughtUp: 0, spentSompi: spent(),
+          balanceSompi: here.reduce((acc, u) => acc + u.entry.value, 0n).toString(),
+          detail: "at the address this state derives",
+        });
+        continue;
+      }
+
+      /* Nothing here, which is where this console used to stop and say it
+         could not tell. It can now look: the coins at the PAYEES are one UTXO
+         per payment, and three numbers decide where a grant lands. */
+      const found = await follow(record, client, s.network).catch(() => null);
+      if (found) {
+        record = await advance(record, found);
+        out.push({
           record,
-          address,
-          balanceSompi: null,
+          address: found.address,
+          balanceSompi: found.balanceSompi.toString(),
+          spentSompi: record.state.spentTotal,
+          caughtUp: found.applied,
           detail:
-            "nothing at this address — it has spent and moved, or it was drained, revoked or never funded. " +
-            "This console cannot yet tell those apart.",
-        };
+            `followed ${found.applied} payment${found.applied === 1 ? "" : "s"}` +
+            (found.viaSubsets ? ", through a payee shared with another grant" : ""),
+        });
+        continue;
       }
-      return { record, address, balanceSompi: total.toString(), detail: "funded, at the address this state derives" };
-    });
+
+      out.push({
+        record, address, balanceSompi: null, spentSompi: spent(), caughtUp: 0,
+        detail:
+          "nothing here, and the coins at its payees do not place it either. It was drained, " +
+          "revoked, never funded — or it paid someone this record does not list.",
+      });
+    }
+    return out;
   });
 }
 
@@ -440,4 +480,101 @@ export async function revoke(id: string, feeSompi: string): Promise<{ txid: stri
     await put(record);
     return { txid, returned: (utxo.entry.value - fee).toString() };
   });
+}
+
+// ---- following a grant that moved -----------------------------------------
+//
+// A grant's address is a hash of its state, so every spend RELOCATES it and a
+// record one payment stale points at an empty address. Kaspa's node RPC
+// answers "what is unspent here" and never "what spent this", so catching up
+// means guessing states and asking.
+//
+// `candidateStates` in the SDK does the guessing, and the reason it is cheap
+// is worth knowing before changing anything here: a spend moves exactly three
+// fields — spentTotal, epochIndex, epochSpent — so where a grant LANDS after
+// any number of payments depends on three numbers and not at all on the order
+// they happened in. That turns a combinatorial walk into an enumeration of
+// endpoints, and an endpoint is the one thing actually observable.
+//
+// The evidence is the coins at the PAYEES: one UTXO per payment, each carrying
+// the DAA score of the block that accepted it. Which is why the recipients are
+// kept in the record — a lost payee list is a grant that can still be revoked
+// but never followed.
+
+/** How many addresses to ask about in one call. */
+const PROBE_BATCH = 40;
+
+/**
+ * Escalate to subsets when the suffix search finds nothing and the list is
+ * short. Suffixes assume the payee serves this grant alone; a SHARED payee
+ * interleaves two grants' payments and no suffix describes them. Subsets are
+ * 2^n, so this is a small number on purpose.
+ */
+const SUBSET_CEILING = 12;
+
+export interface Followed {
+  state: GrantState;
+  address: string;
+  balanceSompi: bigint;
+  /** How many payments had to be folded in to get here. */
+  applied: number;
+  /** True when the suffix search failed and subsets found it. */
+  viaSubsets: boolean;
+}
+
+/**
+ * Find where a grant went, or return null and say nothing false.
+ *
+ * Null does not mean "gone". It means this console could not place it from the
+ * coins it can see — which is also what an ended, drained or never-funded
+ * grant looks like, and the caller must keep saying so rather than picking one.
+ */
+export async function follow(record: GrantRecord, client: NodeClient, network: string): Promise<Followed | null> {
+  const prefix = prefixFor(network);
+  const state = toState(record.state);
+  const payees = record.recipients.map((k) => pubkeyToAddress(fromHex(k), prefix));
+  const coins = await client.getUtxosByAddresses(payees);
+
+  const payments: Payment[] = coins.map((u) => ({
+    value: u.entry.value,
+    blockDaaScore: u.entry.blockDaaScore,
+    id: `${toHex(u.outpoint.transactionId)}:${u.outpoint.index}`,
+  }));
+  if (payments.length === 0) return null;
+
+  for (const subsets of [false, true]) {
+    if (subsets && payments.length > SUBSET_CEILING) break;
+    const candidates = candidateStates(state, payments, { subsets });
+    // Fewest payments first, so a manifest stale by one spend costs one round
+    // trip rather than a full sweep.
+    for (let i = 0; i < candidates.length; i += PROBE_BATCH) {
+      const batch = candidates.slice(i, i + PROBE_BATCH);
+      const addresses = batch.map((c) =>
+        scriptHashToAddress(scriptHashFor(TEMPLATE, { authority: record.authority, state: c.state }), prefix),
+      );
+      const found = await client.getUtxosByAddresses(addresses);
+      if (found.length === 0) continue;
+      /* Match by ADDRESS rather than taking found[0]: one call asks about
+         forty, and the node's reply is not ordered by the question. */
+      for (let j = 0; j < batch.length; j++) {
+        const here = found.filter((u) => u.address === addresses[j]);
+        if (here.length === 0) continue;
+        return {
+          state: batch[j]!.state,
+          address: addresses[j]!,
+          balanceSompi: here.reduce((acc, u) => acc + u.entry.value, 0n),
+          applied: batch[j]!.applied.length,
+          viaSubsets: subsets,
+        };
+      }
+    }
+  }
+  return null;
+}
+
+/** Write a followed state back, so the next read starts from where it is. */
+export async function advance(record: GrantRecord, found: Followed): Promise<GrantRecord> {
+  const next = { ...record, state: fromState(found.state) };
+  await put(next);
+  return next;
 }
