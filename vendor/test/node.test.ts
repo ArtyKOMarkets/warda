@@ -49,3 +49,60 @@ test("an unreachable named node is reported before the advice", async () => {
     },
   );
 });
+
+/**
+ * Every step must fail INTO the next one.
+ *
+ * This is the behaviour a fallback chain actually has, and it was the one
+ * behaviour nothing tested. The borsh fallback was added, deployed, and never
+ * ran: a resolver that cannot be reached THROWS, and the unguarded throw left
+ * the function before the last step was consulted. The vendor kept answering
+ * with the failure of a middle step nobody could do anything about.
+ *
+ * Which is, word for word, what the comment at the top of node.ts says went
+ * wrong the first time. It happened again because the fix was written the same
+ * way the original was: by reading the code rather than by making it fail.
+ */
+const reader = () => ({
+  BorshReader: {
+    open: async () => ({ getUtxosByAddresses: async () => [], close: () => {} }),
+  },
+});
+
+test("a dead node falls through to the resolver, and a dead resolver to borsh", async () => {
+  const opened = await openNode({
+    network: "testnet-10",
+    rpc: "ws://127.0.0.1:9",          // refused
+    resolver: "http://127.0.0.1:9",   // refused
+    loadFallbackReader: async () => reader(),
+  });
+  assert.match(opened.readFrom, /over borsh/);
+  assert.match(opened.readFrom, /does not control/, "the trade is still named in the receipt");
+});
+
+test("with no node configured at all, borsh still answers", async () => {
+  const opened = await openNode({ network: "testnet-10", loadFallbackReader: async () => reader() });
+  assert.match(opened.readFrom, /over borsh/);
+});
+
+test("fallback:none refuses rather than reaching borsh, even when it is installed", async () => {
+  await assert.rejects(
+    () => openNode({ network: "testnet-10", fallback: "none", loadFallbackReader: async () => reader() }),
+    /no node it can read/,
+  );
+});
+
+test("when borsh is absent the failure names the install, not the resolver", async () => {
+  await assert.rejects(
+    () => openNode({
+      network: "testnet-10",
+      rpc: "ws://127.0.0.1:9",
+      resolver: "http://127.0.0.1:9",
+      loadFallbackReader: async () => null,
+    }),
+    (e: Error) => {
+      assert.match(e.message, /@warda_protocol\/borsh/);
+      return true;
+    },
+  );
+});

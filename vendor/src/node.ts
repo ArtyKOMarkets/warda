@@ -38,6 +38,15 @@ export interface NodeSource {
    * on a stranger's word should be able to say so.
    */
   fallback?: "auto" | "none";
+  /**
+   * The reader of last resort, injected.
+   *
+   * This exists because the fall-through it guards shipped broken: every test
+   * covered a single step of the chain and none covered a step FAILING INTO
+   * the next, which is the only behaviour a fallback has. A chain you cannot
+   * make fail on purpose is a chain you have not tested.
+   */
+  loadFallbackReader?: () => Promise<FallbackReader | null>;
 }
 
 export interface OpenedNode {
@@ -73,22 +82,38 @@ export async function openNode(source: NodeSource): Promise<OpenedNode> {
      * counts WARDA_RPC_JSON as naming one — correctly, for its own purposes.
      * At this point that variable holds the url that just failed, so calling
      * `open()` here re-dials the dead host and throws the same error twice.
-     * The fallback existed, was deployed, and did nothing. Resolving first and
-     * passing the url explicitly is what actually gets past a
-     * configured-but-unreachable node.
+     * Resolving first and passing the url explicitly is what actually gets
+     * past a configured-but-unreachable node.
+     *
+     * And WRAPPED, which it was not.
+     *
+     * A resolver that cannot be reached throws, and an unguarded throw here
+     * left the whole function before the borsh fallback below was ever
+     * consulted. So the fallback to the fallback was deployed and did
+     * nothing — which is word for word what the comment at the top of this
+     * file says went wrong the first time, reproduced one level down by the
+     * change that was meant to fix it. Every step in a fallback chain has to
+     * fail INTO the next one, or it is not a chain.
      */
-    const found = await resolveNode({ resolver, networkId: source.network });
-    const { client, health } = await NodeClient.open({
-      url: found.url,
-      networkId: source.network,
-    });
-    return {
-      client,
-      readFrom:
-        `a public node found by a resolver (kaspad ${health.serverVersion}), because this ` +
-        `vendor's own node could not be reached. A node this vendor does not control is ` +
-        `answering whether you paid it.`,
-    };
+    try {
+      const found = await resolveNode({ resolver, networkId: source.network });
+      const { client, health } = await NodeClient.open({
+        url: found.url,
+        networkId: source.network,
+      });
+      return {
+        client,
+        readFrom:
+          `a public node found by a resolver (kaspad ${health.serverVersion}), because this ` +
+          `vendor's own node could not be reached. A node this vendor does not control is ` +
+          `answering whether you paid it.`,
+      };
+    } catch (e) {
+      /* Kept for the final message, and only if nothing later succeeds. The
+         JSON resolver failing is EXPECTED now — the public resolvers serve
+         borsh — so it is not worth reporting on its own. */
+      firstFailure = firstFailure ?? (e as Error).message;
+    }
   }
 
   /**
@@ -98,7 +123,8 @@ export async function openNode(source: NodeSource): Promise<OpenedNode> {
    * running its own JSON node should not have to download one to decline it.
    * The import is lazy for the same reason.
    */
-  const borsh = allowFallback ? await loadBorsh() : null;
+  const load = source.loadFallbackReader ?? loadBorsh;
+  const borsh = allowFallback ? await load() : null;
   if (borsh) {
     const client = await borsh.BorshReader.open({ networkId: source.network });
     return {
@@ -127,7 +153,11 @@ export async function openNode(source: NodeSource): Promise<OpenedNode> {
  * caller gets a message naming the install, rather than a module-resolution
  * stack trace from inside a payment.
  */
-async function loadBorsh(): Promise<{ BorshReader: { open(o: { networkId: string }): Promise<Pick<NodeClient, "getUtxosByAddresses" | "close"> & { url: string }> } } | null> {
+export interface FallbackReader {
+  BorshReader: { open(o: { networkId: string }): Promise<Pick<NodeClient, "getUtxosByAddresses" | "close">> };
+}
+
+async function loadBorsh(): Promise<FallbackReader | null> {
   try {
     return (await import("@warda_protocol/borsh")) as never;
   } catch {
