@@ -139,3 +139,53 @@ test("the wrong network is caught, where every address is well-formed and absent
   assert.equal(h.checks.network.ok, false);
   assert.equal(h.usable, false);
 });
+
+/**
+ * The shape the real thing actually sends.
+ *
+ * Every test above this line used a fake built from kaspad's JSON shape —
+ * `{address, outpoint, utxoEntry:{amount}}` — which is what the shared parser
+ * reads. The WASM client flattens it: `amount` sits at the top of the entry.
+ * So the fakes checked an assumption against itself, and the first live
+ * resolver answered with `entry[0].amount: expected a number, got undefined`
+ * in the middle of a vendor trying to confirm a payment.
+ *
+ * The spike written before this package hedged on exactly this. The hedge was
+ * the evidence and it was not read.
+ */
+const FLAT = {
+  address: ENTRY.address,
+  outpoint: { transactionId: "cc".repeat(32), index: 0 },
+  amount: 2_000_000n,
+  scriptPublicKey: { version: 0, script: "20" + "dd".repeat(32) + "ac" },
+  blockDaaScore: 91_234_567n,
+  isCoinbase: false,
+};
+
+test("the WASM client's FLATTENED entry parses to the same shape", async () => {
+  const r = await BorshReader.open({ client: fake({}, { entries: [FLAT] }) });
+  const utxos = await r.getUtxosByAddresses([ENTRY.address]);
+  assert.equal(utxos.length, 1);
+  assert.equal(utxos[0]!.entry.value, 2_000_000n);
+  assert.equal(utxos[0]!.entry.blockDaaScore, 91_234_567n);
+  assert.equal(utxos[0]!.outpoint.index, 0);
+  assert.equal(utxos[0]!.address, ENTRY.address);
+});
+
+test("both shapes land on identical output, which is the whole point", async () => {
+  const nested = await (await BorshReader.open({ client: fake() })).getUtxosByAddresses(["x"]);
+  const flat = await (await BorshReader.open({
+    client: fake({}, { entries: [{ ...FLAT, outpoint: ENTRY.outpoint, scriptPublicKey: ENTRY.utxoEntry.scriptPublicKey }] }),
+  })).getUtxosByAddresses(["x"]);
+  assert.equal(flat[0]!.entry.value, nested[0]!.entry.value);
+  assert.deepEqual(flat[0]!.outpoint.transactionId, nested[0]!.outpoint.transactionId);
+});
+
+test("an unknown shape names the keys it saw, instead of a missing field", async () => {
+  const r = await BorshReader.open({ client: fake({}, { entries: [{ nonsense: 1, other: 2 }] }) });
+  await assert.rejects(() => r.getUtxosByAddresses(["x"]), (e: Error) => {
+    assert.match(e.message, /shape this reader does not know/);
+    assert.match(e.message, /keys : nonsense, other/);
+    return true;
+  });
+});

@@ -183,10 +183,8 @@ export class BorshReader implements Inspectable {
     const reply = (await this.rpc.getUtxosByAddresses({ addresses })) as
       | { entries?: unknown[] }
       | unknown[];
-    // The WASM client has returned both a bare array and {entries}, depending
-    // on version. Normalising here keeps the shared parser honest about the
-    // one shape it documents.
-    return parseUtxos(Array.isArray(reply) ? { entries: reply } : reply);
+    const raw = Array.isArray(reply) ? reply : (reply?.entries ?? []);
+    return parseUtxos({ entries: raw.map(nest) });
   }
 
   /** Always throws. See `CovenantUnanswerable` for why that is the answer. */
@@ -198,6 +196,40 @@ export class BorshReader implements Inspectable {
   async submitTransaction(): Promise<never> {
     throw new WriteNotSupported();
   }
+}
+
+/**
+ * The WASM client flattens a UTXO entry; the JSON transport nests it.
+ *
+ * kaspad answers `getUtxosByAddresses` with `{address, outpoint, utxoEntry:
+ * {amount, ...}}`, and the shared parser reads that shape. The WASM client
+ * hands back the same fields with no `utxoEntry` wrapper — `amount` sits at
+ * the top of the entry beside `address`.
+ *
+ * The spike written before this package hedged on exactly that
+ * (`entries[0].amount ?? entries[0].utxoEntry?.amount`) and the reader was
+ * then built assuming the nested one, because the tests used a fake built
+ * from the JSON shape. A fake made from an assumption checks the assumption
+ * against itself. The first real resolver answered and the parser said
+ * `entry[0].amount: expected a number, got undefined`.
+ *
+ * Both shapes are accepted now, and a third one fails with the keys it
+ * actually saw rather than with a missing field — so the next surprise
+ * describes itself instead of requiring a guess.
+ */
+function nest(raw: unknown): unknown {
+  const e = raw as Record<string, unknown>;
+  if (e && typeof e === "object" && e.utxoEntry) return e;
+  if (e && typeof e === "object" && ("amount" in e || "scriptPublicKey" in e)) {
+    const { address, outpoint, ...entry } = e;
+    return { address, outpoint, utxoEntry: entry };
+  }
+  throw new Error(
+    `a UTXO entry from the borsh client is in a shape this reader does not know.\n\n` +
+      `  keys : ${e && typeof e === "object" ? Object.keys(e).join(", ") : typeof e}\n\n` +
+      `Expected either kaspad's {address, outpoint, utxoEntry:{amount,…}} or the WASM ` +
+      `client's flattened {address, outpoint, amount,…}.`,
+  );
 }
 
 /**
