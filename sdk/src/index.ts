@@ -147,6 +147,10 @@ export {
   type RpcReply,
 } from "./rpc.ts";
 
+// Sign without ever holding the key: name a command, and the vendor's own CLI
+// does the authentication it already knows how to do.
+export { externalSigner, type ExternalSignerOptions } from "./signer.ts";
+
 export {
   NodeClient,
   // Ask a node whether it can be believed before believing it. Every check

@@ -169,8 +169,14 @@ const HELP = `warda — bounded spending authority for an agent, on Kaspa.
   warda pay      <url>          buy something behind an HTTP 402
                                 [--data <json|@file>] POST it, when the price
                                 is of the work rather than of the URL
+                                [--signer "<cmd>"] sign in another process, so
+                                no secret is ever in a file this reads
   warda activity                every attempt, refusals included
   warda find                    the grant moved. Where is it now?
+  warda revoke   [grant.json]   STOP IT NOW. Signed by the revocation key,
+                                available at any moment. [--key <revocation.key>]
+  warda reclaim  [grant.json]   the term is over, bring the remainder home.
+                                Signed by the principal, after expiry.
   warda which-key --address <a> [paths…]   which file holds the key for it?
   warda mcp                     serve the grant over MCP (stdio)
 
@@ -470,6 +476,9 @@ switch (verb) {
              the escape hatch is unreachable from the CLI. */
           ...(has("no-resume") ? ["--no-resume"] : []),
           ...(flag("settle-attempts") ? ["--settle-attempts", flag("settle-attempts")!] : []),
+          /* Sign without holding the key: name a command and the vendor's own
+             CLI does the authentication it already knows how to do. */
+          ...(flag("signer") ? ["--signer", flag("signer")!] : []),
           /* A compute endpoint prices the work, so the quote request has to
              carry it. Without this the CLI can only ask vendors whose price is
              a property of the URL. */
@@ -537,6 +546,66 @@ switch (verb) {
      whose secret is safe. Offline, and it reports a PATH — never the secret it
      found. A tool that echoed private keys into a terminal, and from there
      into a shell history, would be a worse problem than the one it solves. */
+  /**
+   * The two ways a grant ends, and the reason they are here.
+   *
+   * Revoke is the emergency stop: available at any moment, signed by the
+   * revocation key, for an agent that has been compromised or is behaving in
+   * a way the rules permit and the principal does not like. It has lived in
+   * `sdk/tools/build-exit.ts` since it was written — which means that until
+   * now, stopping a running agent required a git clone and npm install. That
+   * is the one thing on this protocol that must be reachable in a hurry, and
+   * it was the only thing that needed the most setup.
+   *
+   * Reclaim is the scheduled end: available once the chain has passed
+   * `expiresAt`, signed by the principal, bringing the remainder home.
+   *
+   * Neither races an in-flight spend. Both make the remaining balance
+   * unreachable from the next block on; a payment already in the mempool may
+   * still land first. That is a property of a UTXO covenant rather than a gap
+   * here — there is no way to express "and cancel anything outstanding".
+   */
+  case "revoke":
+  case "reclaim": {
+    const cfg = readConfig();
+    const grant = rest.find((a) => a.endsWith(".json")) ?? cfg.grant;
+    if (!grant) {
+      die(
+        `warda ${verb} <grant.json>   — or run it where \`warda grant\` remembered one.\n\n` +
+          (verb === "revoke"
+            ? "  The emergency stop. Signed by the REVOCATION key, available at any moment.\n" +
+              "  The remaining balance goes back to the principal."
+            : "  The scheduled end. Signed by the PRINCIPAL key, available only once the\n" +
+              "  chain has passed the grant's expiry."),
+        2,
+      );
+    }
+    /* The key by path, like `warda grant --key`, because the key that ends a
+       grant is deliberately not the one the agent holds and is deliberately
+       not in this directory's config. Asking for it in the environment is how
+       an emergency stop gets typed wrong at the worst moment. */
+    const keyPath = flag("key");
+    const env: NodeJS.ProcessEnv = keyPath
+      ? { WARDA_SK: readFileSync(keyPath, "utf8").trim() }
+      : {};
+    process.exit(
+      run(
+        "sdk/tools/build-exit.ts",
+        [
+          grant!,
+          verb === "revoke" ? "--revoke" : "--reclaim",
+          ...(has("submit") ? ["--submit"] : []),
+          ...(flag("fee") ? ["--fee", flag("fee")!] : []),
+          ...(flag("prefix") ? ["--prefix", flag("prefix")!] : []),
+          ...(flag("network") ? ["--network", flag("network")!] : []),
+          ...rpcArgs(cfg),
+        ],
+        env,
+      ),
+    );
+    break;
+  }
+
   case "which-key":
     process.exit(run("sdk/tools/which-key.ts", rest));
     break;

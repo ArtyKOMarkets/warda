@@ -55,6 +55,7 @@ import {
   fromHex,
   toHex,
   templateIdFor,
+  externalSigner,
   type CovenantTemplate,
   type GrantState,
 } from "@warda_protocol/kaspa";
@@ -121,7 +122,10 @@ if (!agentId || !manifestPath || !recipientsPath || !outDir) {
       "       [--content-type t]  default application/json, with --data\n" +
       "       [--no-resume]       buy again instead of redeeming an unfinished purchase\n" +
       "       [--settle-attempts n]  give up after n presentations. 1 makes exit 4 on\n" +
-      "                     purpose, which is how the resume path gets tested\n\n" +
+      "                     purpose, which is how the resume path gets tested\n" +
+      "       [--signer <cmd>]    sign with another process instead of WARDA_SK. The\n" +
+      "                     digest arrives as hex on its stdin; it answers with 64\n" +
+      "                     bytes of BIP340 hex on stdout. No secret reaches this tool\n\n" +
       "Every flag above the blank line is required. This tool is shared by all the agents,\n" +
       "so an omitted one would spend a grant you did not mean to spend.\n\n" +
       "Exit codes, which are the API when you call this from another language:\n" +
@@ -135,8 +139,16 @@ if (!agentId || !manifestPath || !recipientsPath || !outDir) {
   process.exit(2);
 }
 
-const secretHex = process.env.WARDA_SK;
-if (!secretHex) {
+/**
+ * The key, or something that holds it.
+ *
+ * `--signer "<command>"` hands the digest to another process and never sees a
+ * secret — which is the only way anybody runs this for real. WARDA_SK stays
+ * the default because a tutorial should not need an HSM.
+ */
+const signerCmd = flag("signer");
+const secretHex = signerCmd ? "" : process.env.WARDA_SK;
+if (!signerCmd && !secretHex) {
   console.error(`WARDA_SK must be ${agentId}'s own key — the one its grant names, not the funder's.`);
   process.exit(1);
 }
@@ -294,7 +306,9 @@ try {
   const payer = new WardaPayer({
     grant: { template, authority, state, recipients },
     node,
-    sign: fromHex(secretHex.trim()),
+    sign: signerCmd
+      ? externalSigner({ command: signerCmd, publicKey: m.agent })
+      : fromHex(secretHex.trim()),
   });
 
   console.error(`buying   : ${url}`);
