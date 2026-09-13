@@ -81,7 +81,7 @@ function fundNode(node: FakeNode, m: Record<string, unknown>) {
     transactionId: "aa".repeat(32),
     index: 0,
     amount: BigInt(m.grant_value as number),
-    scriptPublicKey: scriptPublicKeyToWire({ version: 0, script: payToScriptHashScript(fromHex(hash)) }),
+    scriptPublicKey: scriptPublicKeyToWire(payToScriptHashScript(fromHex(hash))),
     blockDaaScore: 1n,
     covenantId: m.covenant_id as string,
   }];

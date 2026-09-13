@@ -1,7 +1,7 @@
 {
   "name": "@warda_protocol/borsh",
-  "version": "0.2.1",
-  "description": "Read the Kaspa UTXO set over borsh wRPC \u2014 the encoding the public resolvers actually serve \u2014 so accepting Warda payments needs no node. Read-only by design: spending stays on JSON.",
+  "version": "0.2.2",
+  "description": "Read the Kaspa UTXO set over borsh wRPC — the encoding the public resolvers actually serve — so accepting Warda payments needs no node. Read-only by design: spending stays on JSON.",
   "type": "module",
   "license": "MIT",
   "engines": {

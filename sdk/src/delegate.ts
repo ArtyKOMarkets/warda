@@ -139,11 +139,16 @@ export function childId(child: GrantState): Uint8Array {
   const n = (v: bigint) => {
     const out = new Uint8Array(8);
     let x = v < 0n ? -v : v;
+    let top = 0;
     for (let i = 0; i < 8; i++) {
-      out[i] = Number(x & 0xffn);
+      top = Number(x & 0xffn);
+      out[i] = top;
       x >>= 8n;
     }
-    if (v < 0n) out[7] |= 0x80;
+    // The sign rides in the high bit of the last byte written, which `top`
+    // already holds — indexing back into it would only reintroduce a lookup
+    // the compiler cannot prove is in range.
+    if (v < 0n) out[7] = top | 0x80;
     return out;
   };
   const preimage = concat(

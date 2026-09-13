@@ -261,7 +261,7 @@ function nest(raw: unknown): unknown {
   }
 
   return {
-    address: e.address ?? null,
+    address: addressOf(e.address),
     outpoint: {
       transactionId: outpoint.transactionId ?? outpoint.transaction_id,
       index: outpoint.index ?? 0,
@@ -273,6 +273,40 @@ function nest(raw: unknown): unknown {
       isCoinbase: inner.isCoinbase ?? inner.is_coinbase ?? false,
     },
   };
+}
+
+/**
+ * The address, as a string, whatever the transport called an address.
+ *
+ * `AddressUtxo.address` is typed `string | null` and the JSON transport sends
+ * a string. The WASM client sends an `Address` INSTANCE — `{prefix, payload}`
+ * behind getters, with a working `toString`. The first version of this reader
+ * passed it through untouched, so the field held an object while claiming to
+ * hold a string.
+ *
+ * Nothing broke, which is the reason it survived: a vendor matches a payment
+ * by amount and transaction id and never reads this. It would have broken the
+ * first time someone compared it to an address they had, or serialized it —
+ * `JSON.stringify` of an Address is `{}`, so a report would have recorded a
+ * payment to nowhere and looked fine doing it.
+ *
+ * Found by `test/fixtures/borsh-utxo.json`, a reply recorded from a live
+ * resolver. No hand-written fake had produced it, because writing one means
+ * already knowing.
+ */
+function addressOf(v: unknown): string | null {
+  if (v === undefined || v === null) return null;
+  if (typeof v === "string") return v;
+  if (typeof v !== "object") return null;
+  const a = v as { prefix?: unknown; payload?: unknown };
+  // Read prefix and payload FIRST. toString() is the canonical form on the
+  // real Address, but a stub or a proxy can leave the inherited one in place,
+  // and "[object Object]" in an address field is worse than a null.
+  if (typeof a.prefix === "string" && typeof a.payload === "string") {
+    return `${a.prefix}:${a.payload}`;
+  }
+  const s = String(v);
+  return s.startsWith("[object ") ? null : s;
 }
 
 /**

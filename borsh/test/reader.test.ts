@@ -240,3 +240,63 @@ test("the diagnosis lists what was probed, since a wasm object reports no keys",
     return true;
   });
 });
+
+// ---- the recorded thing --------------------------------------------------
+//
+// Everything above is a fake, and every fake above was written by the same
+// hand that wrote the reader — which is how a normaliser built on object
+// spread passed eleven tests and then failed on the first live resolver. The
+// fake agreed with the assumption because it was made from it.
+//
+// `test/fixtures/borsh-utxo.json` was captured from
+// wss://electron-10.kaspa.blue/kaspa/testnet-10/wrpc/borsh, and it records the
+// SHAPE, not just the values: constructor names, own keys, prototype keys, and
+// what a spread of the object actually yields. `capturedEntry()` rebuilds it
+// with that same own/prototype split, so this is the one test here that is not
+// a paraphrase of what the reader already believes.
+//
+// It found a second bug the hand-written fakes could not: `.address` is an
+// `Address` object, not a string.
+import { capture, capturedEntry } from "../../test/harness/borsh-fixture.ts";
+
+test("the recorded resolver reply is shaped the way the bug required", () => {
+  // If these ever stop holding, the fixture has been re-captured against
+  // something that is no longer wasm-bindgen, and the tests below are then
+  // checking a different question than the one they were written for.
+  assert.equal(capture.entry.constructor, "UtxoEntryReference");
+  assert.deepEqual(capture.entry.spreadYields, ["__wbg_ptr"]);
+  assert.deepEqual(Object.keys({ ...capturedEntry() }), ["__wbg_ptr"]);
+  assert.match(capture.resolver, /wrpc\/borsh$/);
+});
+
+test("a UTXO recorded from a live resolver parses", async () => {
+  const r = await BorshReader.open({ client: fake({}, { entries: [capturedEntry()] }) });
+  const utxos = await r.getUtxosByAddresses([capture.address]);
+  assert.equal(utxos.length, 1);
+  assert.equal(utxos[0]!.entry.value, 3_000_000n);
+  assert.equal(utxos[0]!.entry.blockDaaScore, 567_634_976n);
+  assert.equal(utxos[0]!.entry.isCoinbase, false);
+  assert.equal(utxos[0]!.outpoint.index, 1);
+  assert.equal(utxos[0]!.entry.scriptPublicKey.version, 0);
+  assert.equal(utxos[0]!.entry.scriptPublicKey.script.length, 34); // OP_DATA_32 <key> OP_CHECKSIG
+});
+
+/**
+ * The bug the capture found.
+ *
+ * `AddressUtxo.address` is typed `string | null`, and the JSON transport sends
+ * a string there. The WASM client sends an `Address` instance — an object with
+ * `prefix` and `payload` getters — and the reader passed it straight through.
+ * Nothing broke, because a vendor matches a payment on amount and transaction
+ * id and never looks at this field. It would have broken the first time
+ * someone compared it to an address, or serialized it into a report, where it
+ * writes itself as `{}`.
+ */
+test("an Address object becomes the address string, not an object", async () => {
+  const r = await BorshReader.open({ client: fake({}, { entries: [capturedEntry()] }) });
+  const [u] = await r.getUtxosByAddresses([capture.address]);
+  assert.equal(typeof u!.address, "string");
+  assert.equal(u!.address, capture.address);
+  // The failure this replaces: JSON.stringify of an Address is "{}".
+  assert.equal(JSON.parse(JSON.stringify({ a: u!.address })).a, capture.address);
+});

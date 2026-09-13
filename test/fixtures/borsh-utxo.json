@@ -1,0 +1,209 @@
+{
+  "_comment": "Captured from a live Kaspa resolver over borsh by test/harness/capture-borsh.mjs. Records SHAPE as well as values: wasm-bindgen objects carry their fields as prototype getters, and a fixture that loses that distinction agrees with the bug it should catch. `spreadYields` is the evidence — if it is empty, spreading this object produces nothing.",
+  "capturedAt": "2026-09-13T09:36:39.917Z",
+  "resolver": "wss://electron-10.kaspa.blue/kaspa/testnet-10/wrpc/borsh",
+  "network": "testnet-10",
+  "address": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
+  "replyIsArray": false,
+  "replyKeys": [
+    "entries"
+  ],
+  "entryCount": 30,
+  "entry": {
+    "kind": "object",
+    "constructor": "UtxoEntryReference",
+    "ownKeys": [
+      "__wbg_ptr"
+    ],
+    "prototypeKeys": [
+      "toJSON",
+      "toString",
+      "__destroy_into_raw",
+      "free",
+      "entry",
+      "outpoint",
+      "address",
+      "amount",
+      "isCoinbase",
+      "blockDaaScore",
+      "scriptPublicKey"
+    ],
+    "spreadYields": [
+      "__wbg_ptr"
+    ],
+    "values": {
+      "entry": {
+        "kind": "object",
+        "constructor": "UtxoEntry",
+        "ownKeys": [
+          "__wbg_ptr"
+        ],
+        "prototypeKeys": [
+          "toJSON",
+          "toString",
+          "__destroy_into_raw",
+          "free",
+          "address",
+          "outpoint",
+          "amount",
+          "scriptPublicKey",
+          "blockDaaScore",
+          "isCoinbase"
+        ],
+        "spreadYields": [
+          "__wbg_ptr"
+        ],
+        "values": {
+          "address": {
+            "kind": "object",
+            "constructor": "Address",
+            "ownKeys": [
+              "__wbg_ptr"
+            ],
+            "prototypeKeys": [
+              "toJSON",
+              "toString",
+              "__destroy_into_raw",
+              "free",
+              "version",
+              "prefix",
+              "setPrefix",
+              "payload",
+              "short"
+            ],
+            "spreadYields": [
+              "__wbg_ptr"
+            ],
+            "values": {
+              "version": "PubKey",
+              "prefix": "kaspatest",
+              "payload": "qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4"
+            }
+          },
+          "outpoint": {
+            "kind": "object",
+            "constructor": "TransactionOutpoint",
+            "ownKeys": [
+              "__wbg_ptr"
+            ],
+            "prototypeKeys": [
+              "toJSON",
+              "toString",
+              "__destroy_into_raw",
+              "free",
+              "getId",
+              "transactionId",
+              "index"
+            ],
+            "spreadYields": [
+              "__wbg_ptr"
+            ],
+            "values": {
+              "transactionId": "45f6fa40ba52f3c09091d63146fc4679221dc53f63948208ae973c5c1f76648d",
+              "index": 1
+            }
+          },
+          "amount": "3000000",
+          "scriptPublicKey": {
+            "kind": "object",
+            "constructor": "ScriptPublicKey",
+            "ownKeys": [
+              "__wbg_ptr"
+            ],
+            "prototypeKeys": [
+              "toJSON",
+              "toString",
+              "__destroy_into_raw",
+              "free",
+              "version",
+              "script"
+            ],
+            "spreadYields": [
+              "__wbg_ptr"
+            ],
+            "values": {
+              "version": 0,
+              "script": "2016e6af2030f7e4510d1a417391a7ff7ccad21864f17eef7ee035f0453e21a033ac"
+            }
+          },
+          "blockDaaScore": "567634976",
+          "isCoinbase": false
+        }
+      },
+      "outpoint": {
+        "kind": "object",
+        "constructor": "TransactionOutpoint",
+        "ownKeys": [
+          "__wbg_ptr"
+        ],
+        "prototypeKeys": [
+          "toJSON",
+          "toString",
+          "__destroy_into_raw",
+          "free",
+          "getId",
+          "transactionId",
+          "index"
+        ],
+        "spreadYields": [
+          "__wbg_ptr"
+        ],
+        "values": {
+          "transactionId": "45f6fa40ba52f3c09091d63146fc4679221dc53f63948208ae973c5c1f76648d",
+          "index": 1
+        }
+      },
+      "address": {
+        "kind": "object",
+        "constructor": "Address",
+        "ownKeys": [
+          "__wbg_ptr"
+        ],
+        "prototypeKeys": [
+          "toJSON",
+          "toString",
+          "__destroy_into_raw",
+          "free",
+          "version",
+          "prefix",
+          "setPrefix",
+          "payload",
+          "short"
+        ],
+        "spreadYields": [
+          "__wbg_ptr"
+        ],
+        "values": {
+          "version": "PubKey",
+          "prefix": "kaspatest",
+          "payload": "qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4"
+        }
+      },
+      "amount": "3000000",
+      "isCoinbase": false,
+      "blockDaaScore": "567634976",
+      "scriptPublicKey": {
+        "kind": "object",
+        "constructor": "ScriptPublicKey",
+        "ownKeys": [
+          "__wbg_ptr"
+        ],
+        "prototypeKeys": [
+          "toJSON",
+          "toString",
+          "__destroy_into_raw",
+          "free",
+          "version",
+          "script"
+        ],
+        "spreadYields": [
+          "__wbg_ptr"
+        ],
+        "values": {
+          "version": 0,
+          "script": "2016e6af2030f7e4510d1a417391a7ff7ccad21864f17eef7ee035f0453e21a033ac"
+        }
+      }
+    }
+  }
+}

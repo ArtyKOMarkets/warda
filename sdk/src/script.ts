@@ -48,9 +48,12 @@ export class ScriptBuilder {
     if (data.length > MAX_SCRIPT_ELEMENT_SIZE_COVENANTS) {
       throw new Error(`push of ${data.length} bytes exceeds the maximum script element size`);
     }
-    if (data.length === 1 && data[0] === OP_1_NEGATE_VAL) return this.addOp(OP_1NEGATE);
-    if (data.length === 1 && data[0] >= OP_SMALL_INT_MIN && data[0] <= OP_SMALL_INT_MAX) {
-      return this.addOp(OP_1 - 1 + data[0]);
+    // Read the byte once rather than indexing three times behind a length
+    // check the compiler does not follow.
+    const only = data.length === 1 ? data[0] : undefined;
+    if (only === OP_1_NEGATE_VAL) return this.addOp(OP_1NEGATE);
+    if (only !== undefined && only >= OP_SMALL_INT_MIN && only <= OP_SMALL_INT_MAX) {
+      return this.addOp(OP_1 - 1 + only);
     }
     return this.addDataWithPushOpcode(data);
   }
@@ -115,7 +118,10 @@ export function serializeI64(value: bigint): Uint8Array {
     magnitude >>= 8n;
   }
   if (lastSaturated) out.push(0);
-  if (negative && out.length > 0) out[out.length - 1] |= 0x80;
+  if (negative) {
+    const last = out.pop();
+    if (last !== undefined) out.push(last | 0x80);
+  }
 
   return Uint8Array.from(out);
 }

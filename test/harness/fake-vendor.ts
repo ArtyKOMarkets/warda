@@ -56,7 +56,11 @@ export async function startFakeVendor(): Promise<FakeVendor> {
       res.end(text);
     };
 
-    const header = req.headers["x-payment"];
+    // Node gives a repeated header as an array. One string is the only form
+    // this vendor accepts; anything else is treated as absent rather than
+    // silently joined into a proof nobody sent.
+    const raw = req.headers["x-payment"];
+    const header = typeof raw === "string" ? raw : undefined;
     if (typeof header === "string") state.seen.push(header);
 
     if (state.mode === "down") {
