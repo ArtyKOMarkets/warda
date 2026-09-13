@@ -59,6 +59,24 @@ index, or the wrong network, where every address is well formed and empty. The
 SDK already knows how to ask, so this asks the same way rather than inventing a
 lighter check that misses the case that matters.
 
+## node_modules is shared between two machines, and npm is not
+
+`npm` unpacks only the native binding of the platform that ran the install and
+leaves EMPTY directories for the other fourteen — which it then treats as
+already installed (npm/cli#4828). In this repo the folder is shared, so an
+install run on Linux leaves a macOS build with a `rolldown` that cannot load,
+and WXT reports that as `Builder not found. Make sure vite is installed.`
+Vite is installed. `ops/check-builder.mjs` runs before every build and says
+the true thing instead, naming the package this platform needs:
+
+```
+npm i --no-save "@rolldown/binding-darwin-$(node -p process.arch)@$(node -p "require('rolldown/package.json').version")"
+```
+
+Run installs from the machine that builds. If the two ever diverge badly,
+remove `node_modules` and `package-lock.json` at the repo root and install
+again from there.
+
 ## Loading it
 
 Brave: `brave://extensions` → Developer mode → Load unpacked →
