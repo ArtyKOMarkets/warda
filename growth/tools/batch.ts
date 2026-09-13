@@ -59,6 +59,16 @@ const has = (name: string) => argv.includes(`--${name}`);
 const BATCH = resolve(flag("batch", "batch.json")!);
 /** The parent's member list, as given: a path or an inline list. */
 const PAYEES = flag("payees") ?? "";
+/**
+ * The same list, in a form the SPAWNED tool can read.
+ *
+ * `runTool` runs with the SDK as its working directory, so a relative path
+ * that resolves here resolves somewhere else there — and the failure is
+ * `no such file: payees.txt` from a tool that is looking in a directory the
+ * person never typed. Absolute when it is a file; untouched when it is an
+ * inline list, which has no directory to be relative to.
+ */
+const PAYEES_ARG = PAYEES && existsSync(PAYEES) ? resolve(PAYEES) : PAYEES;
 const SDK = resolve(flag("sdk", "../sdk")!);
 const TOOLS = `${SDK}/tools`;
 
@@ -212,7 +222,7 @@ async function main() {
            this orchestrator got wrong against a live grant, and the tool
            refused it, which is the only reason it cost nothing. */
         "--child-recipients", terms.recipients.join(","),
-        "--recipients", PAYEES,
+        "--recipients", PAYEES_ARG,
       ];
       if (job.windowDaa !== undefined) args.push("--window", String(job.windowDaa));
       if (has("submit")) args.push("--submit");

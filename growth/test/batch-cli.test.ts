@@ -156,7 +156,10 @@ test("the delegation carries the child's subset AND the parent's whole list", as
     "--agent-key", key("scout"), "--payee", SEARCH, "--budget", "0.5", "--max-per-spend", "0.05"]);
   assert.equal(r.code, 0, r.stderr);
   assert.match(r.stderr, new RegExp(`--child-recipients ${SEARCH}`));
+  // ABSOLUTE, because the spawned tool runs with the SDK as its working
+  // directory and a relative path resolves against the wrong one there.
   assert.match(r.stderr, new RegExp(`--recipients ${f.payees.replace(/[/\\.]/g, "\\$&")}`));
+  assert.ok(/--recipients \//.test(r.stderr), "the member list must be passed as an absolute path");
   // And the attenuation, so a refactor cannot quietly widen a child.
   assert.match(r.stderr, /--depth 1/);
   assert.match(r.stderr, /--budget 50000000/);
