@@ -24,6 +24,7 @@
  * address, where the field must be present.
  */
 
+import { env } from "./env.ts";
 import { decodeAddress } from "./address.ts";
 import { fromHex, toHex } from "./bytes.ts";
 import { RpcConnection, toBigInt, type RpcOptions } from "./rpc.ts";
@@ -266,7 +267,7 @@ export interface Inspectable {
 export async function inspect(client: Inspectable, options: OpenOptions = {}): Promise<NodeHealth> {
   const info = await client.getInfo();
   const dag = await client.getBlockDagInfo();
-  const wanted = options.networkId ?? process.env.WARDA_NETWORK ?? null;
+  const wanted = options.networkId ?? env("WARDA_NETWORK") ?? null;
 
   const checks: NodeHealth["checks"] = {
     synced: {
@@ -411,7 +412,7 @@ export class NodeClient {
    * the mistake one line down. Pass `tolerate` if you want the report instead.
    */
   static async open(options: OpenOptions = {}): Promise<{ client: NodeClient; health: NodeHealth }> {
-    const named = options.url || options.urls?.length || process.env.WARDA_RPC_JSON;
+    const named = options.url || options.urls?.length || env("WARDA_RPC_JSON");
     let client: NodeClient;
     if (!named && resolverFrom(options)) {
       const node = await resolveNode(options);

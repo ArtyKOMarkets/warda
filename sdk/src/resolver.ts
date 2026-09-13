@@ -30,6 +30,8 @@
  * `NodeClient.open` interrogates it before believing a word it says.
  */
 
+import { env } from "./env.ts";
+
 /** What the resolver returns. `uid` identifies the node; `url` is a wRPC socket. */
 export interface NodeDescriptor {
   uid: string;
@@ -56,7 +58,7 @@ export interface ResolveOptions {
  * the agent — so it comes from `WARDA_RESOLVER` or from the caller.
  */
 export function resolverFrom(options: ResolveOptions = {}): string | undefined {
-  return options.resolver ?? process.env.WARDA_RESOLVER ?? undefined;
+  return options.resolver ?? env("WARDA_RESOLVER") ?? undefined;
 }
 
 /** The path the resolver expects, version 2 of its API. */
@@ -86,7 +88,7 @@ export async function resolveNode(options: ResolveOptions = {}): Promise<NodeDes
         `dependency.`,
     );
   }
-  const networkId = options.networkId ?? process.env.WARDA_NETWORK ?? "testnet-10";
+  const networkId = options.networkId ?? env("WARDA_NETWORK") ?? "testnet-10";
   const url = resolverUrl(base, networkId, options.tls ?? "any");
 
   const signal = AbortSignal.timeout(options.timeoutMs ?? 8_000);

@@ -19,6 +19,8 @@
  * socket rather than replying — so a bad request looks like a network fault.
  */
 
+import { env } from "./env.ts";
+
 /** What the server sends. `error` and `params` are mutually exclusive. */
 export interface RpcReply {
   id?: number;
@@ -64,8 +66,8 @@ const DEFAULT_URL = "ws://127.0.0.1:18210";
 export function candidateUrls(options: RpcOptions = {}): string[] {
   if (options.url) return [options.url];
   if (options.urls?.length) return options.urls;
-  const env = process.env.WARDA_RPC_JSON;
-  if (env) return env.split(",").map((u) => u.trim()).filter(Boolean);
+  const configured = env("WARDA_RPC_JSON");
+  if (configured) return configured.split(",").map((u) => u.trim()).filter(Boolean);
   return [DEFAULT_URL];
 }
 

@@ -1,0 +1,91 @@
+/* The site's palette, and the site's fonts only where a system stack can
+   stand in for them. A wallet that pulls a webfont from a CDN has a remote
+   resource in it, which is a thing extension reviewers ask about and a thing
+   that leaks when the popup opens. Not worth two typefaces. */
+:root {
+  --void: #06090c;
+  --ground: #0a1014;
+  --panel: #101a20;
+  --edge: #1e2e37;
+  --edge-bright: #2c4350;
+  --chrome: #dde0e2;
+  --chrome-dim: #8d989e;
+  --chrome-faint: #5d6b73;
+  --teal: #14d7c1;
+  --teal-bright: #38f9e9;
+  --teal-ghost: rgba(20, 215, 193, 0.1);
+  --refuse: #ff6b5a;
+  --amber: #e8b23a;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --body: system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  width: 380px;
+  min-height: 480px;
+  background: var(--ground);
+  color: var(--chrome);
+  font-family: var(--body);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+#root { display: flex; flex-direction: column; min-height: 480px; }
+
+.top {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; padding: 12px 14px;
+  border-bottom: 1px solid var(--edge);
+  background: var(--void);
+}
+.wordmark { font-weight: 650; letter-spacing: 0.14em; text-transform: uppercase; font-size: 11px; color: var(--teal); }
+.net { font-family: var(--mono); font-size: 10px; color: var(--chrome-faint); border: 1px solid var(--edge); border-radius: 999px; padding: 2px 8px; }
+
+.body { padding: 14px; display: flex; flex-direction: column; gap: 14px; flex: 1; }
+
+h1 { font-size: 16px; margin: 0 0 4px; font-weight: 600; letter-spacing: -0.01em; }
+p  { margin: 0; color: var(--chrome-dim); }
+p.tight { font-size: 12px; }
+
+label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--chrome-faint); margin-bottom: 5px; }
+
+input {
+  width: 100%; padding: 9px 10px;
+  background: var(--void); color: var(--chrome);
+  border: 1px solid var(--edge); border-radius: 6px;
+  font-family: var(--mono); font-size: 12px;
+}
+input:focus { outline: none; border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-ghost); }
+input::placeholder { color: var(--chrome-faint); }
+
+button {
+  width: 100%; padding: 10px 12px; border-radius: 6px; cursor: pointer;
+  font-family: var(--body); font-size: 13px; font-weight: 600;
+  background: var(--teal); color: #04201d; border: 1px solid var(--teal);
+}
+button:hover:not(:disabled) { background: var(--teal-bright); }
+button:disabled { opacity: 0.45; cursor: default; }
+button.ghost { background: transparent; color: var(--chrome-dim); border-color: var(--edge); font-weight: 500; }
+button.ghost:hover:not(:disabled) { background: var(--panel); color: var(--chrome); border-color: var(--edge-bright); }
+button.link { width: auto; background: none; border: none; padding: 0; color: var(--chrome-faint); font-size: 11px; font-weight: 500; text-decoration: underline; }
+button.link:hover { color: var(--teal); }
+
+.card { background: var(--panel); border: 1px solid var(--edge); border-radius: 8px; padding: 12px; }
+.row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.row + .row { margin-top: 7px; }
+.k { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--chrome-faint); }
+.v { font-family: var(--mono); font-size: 11px; color: var(--chrome); word-break: break-all; text-align: right; }
+
+.addr { font-family: var(--mono); font-size: 11px; color: var(--chrome-dim); word-break: break-all; }
+
+.dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 6px; vertical-align: middle; }
+.dot.up { background: var(--teal); }
+.dot.down { background: var(--refuse); }
+.dot.wait { background: var(--amber); }
+
+.error { color: var(--refuse); font-size: 12px; border-left: 2px solid var(--refuse); padding-left: 9px; }
+.stack { display: flex; flex-direction: column; gap: 9px; }
+.foot { margin-top: auto; padding-top: 6px; display: flex; justify-content: space-between; align-items: center; }
