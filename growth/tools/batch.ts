@@ -249,6 +249,43 @@ async function main() {
         return;
       }
 
+      /* A manifest already here for this child, and nothing in the stack.
+         Almost always the same story: somebody ran this once WITHOUT --submit
+         to look at it, `build-delegation` wrote the manifest anyway, and the
+         window — measured from the live DAA — has moved since, so the submit
+         derives a different address and the tool refuses to overwrite.
+
+         The refusal is right: it cannot tell an un-broadcast manifest from a
+         real one, and overwriting a real one erases the only record of where a
+         coin went. This can tell them apart, because growth records a child in
+         `outstanding` only when the delegation succeeded. So it says which
+         case this is instead of leaving somebody to guess. It does NOT move
+         the file: a delegation that broadcast and then failed to record would
+         look exactly like this, and that is the case where being wrong is
+         expensive. */
+      const childPath = childManifestPath(batch.manifest, terms.agentKey);
+      if (existsSync(childPath) && !batch.outstanding.some((c) => c.agentKey === terms.agentKey)) {
+        console.error(
+          `\n${childPath} exists, and this batch has no outstanding child with that key.\n\n` +
+            `That is what a previous run WITHOUT --submit leaves behind: a manifest for a grant ` +
+            `that was never created. The address will not match this time either, because the ` +
+            `child's window is measured from the live DAA and the chain has moved.\n\n` +
+            `  mv ${childPath} ${childPath}.unsubmitted\n\n` +
+            `Then re-run with --submit. If you believe that delegation DID broadcast, do not ` +
+            `move it — find the transaction first, because the file is the only record of where ` +
+            `its coin went.\n`,
+        );
+        process.exit(2);
+      }
+
+      if (!has("submit")) {
+        console.error(
+          `\nnote: without --submit, build-delegation still WRITES the child manifest, and the ` +
+            `child's window moves with the chain — so a later submit derives a different address ` +
+            `and refuses to overwrite. Use --dry-run to look without writing anything.\n`,
+        );
+      }
+
       const result = await runTool(args[0]!, args.slice(1), SDK);
       if (result.code !== 0) die(`\nbuild-delegation refused this delegation; nothing was recorded.`, result.code);
 
