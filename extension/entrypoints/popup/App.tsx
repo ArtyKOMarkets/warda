@@ -38,7 +38,11 @@ function Shell({ children, network }: { children: React.ReactNode; network?: str
   return (
     <>
       <div className="top">
-        <span className="wordmark">Warda Console</span>
+        <span className="lockup">
+          {/* Served from public/, so it is a local file rather than a request. */}
+          <img src="/icon/48.png" width={18} height={18} alt="" />
+          <span className="wordmark">Warda Console</span>
+        </span>
         {network ? <span className="net">{network}</span> : null}
       </div>
       <div className="body">{children}</div>

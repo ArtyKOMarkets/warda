@@ -97,6 +97,23 @@ directory, and a filesystem that allows writes but not deletes turns that into
 `EPERM: operation not permitted, unlink background.js` — a message about the
 bundler that is really a message about the mount.
 
+## The icon is drawn, not exported
+
+`ops/icon.py` writes `public/icon/{16,32,48,96,128}.png`. The real mark —
+`site/assets/warda-mark.png` — is a silver W in a teal shield, and shrinking it
+was the first attempt: at 128px it is beautiful, at 16 the strokes are one grey
+pixel, and because the artwork is white-on-transparent it very nearly
+disappears on Brave's LIGHT toolbar, which is where the icon actually lives.
+
+So the icon is the same mark simplified on a filled dark tile, and the tile is
+the point: it makes the contrast independent of whatever is behind it. 16px
+gets its own art with the W left out — two strokes landing on the same three
+grey pixels read as a smudge across the shield, and different art for a
+different size is what an icon set is for.
+
+It lives in code rather than as five PNGs somebody exported once, so the next
+person who wants the star a little bigger can have it.
+
 ## Loading it
 
 Brave: `brave://extensions` → Developer mode → Load unpacked →

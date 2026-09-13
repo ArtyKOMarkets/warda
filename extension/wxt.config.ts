@@ -33,6 +33,14 @@ export default defineConfig({
     description: "Give an agent a budget the network enforces. Watch it spend. End it.",
     version: "0.0.1",
     permissions: ["storage", "alarms"],
+    /* WXT fills `icons` from public/icon automatically, but not the toolbar
+       button's own icon. Chrome falls back to `icons` and Brave does too —
+       stating it means not relying on a fallback for the one image a user
+       looks at every day. */
+    action: {
+      default_title: "Warda Console",
+      default_icon: { 16: "icon/16.png", 32: "icon/32.png", 48: "icon/48.png", 128: "icon/128.png" },
+    },
     // MV3's default CSP already forbids remote code. Stated anyway, because a
     // wallet's reviewers should not have to infer it, and because the day
     // someone adds a CDN font this line is what refuses.
