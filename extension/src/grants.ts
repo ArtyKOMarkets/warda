@@ -578,3 +578,39 @@ export async function advance(record: GrantRecord, found: Followed): Promise<Gra
   await put(next);
   return next;
 }
+
+// ---- the principal's own coin ---------------------------------------------
+
+export interface Wallet {
+  address: string;
+  totalSompi: string;
+  /** The biggest single coin, which is what actually bounds a grant. */
+  largestSompi: string;
+  coins: number;
+}
+
+/**
+ * What the principal key can spend, and the number that really matters.
+ *
+ * `largest` is not a detail. Genesis takes ONE input, so the biggest grant a
+ * key can create is bounded by its largest single coin and not by its total —
+ * and nothing in this project printed that number until it turned up inside a
+ * failure. Two coins of one KAS cannot make a grant of one and a half.
+ */
+export async function wallet(): Promise<Wallet> {
+  const s = await settings();
+  const secret = await vault.secret();
+  if (!secret) throw new Error("the console is locked");
+  const address = pubkeyToAddress(agentPublicKey(secret), prefixFor(s.network));
+
+  return withNode(async (client) => {
+    const utxos = (await client.getUtxosByAddresses([address])).filter((u) => !u.entry.covenantId);
+    const values = utxos.map((u) => u.entry.value);
+    return {
+      address,
+      totalSompi: values.reduce((a, b) => a + b, 0n).toString(),
+      largestSompi: (values.length ? values.reduce((a, b) => (b > a ? b : a)) : 0n).toString(),
+      coins: values.length,
+    };
+  });
+}

@@ -17,7 +17,7 @@
 
 import type { IssueTerms } from "./grants.ts";
 
-export type { GrantRecord, IssueTerms, Issued, LiveGrant } from "./grants.ts";
+export type { GrantRecord, IssueTerms, Issued, LiveGrant, Wallet } from "./grants.ts";
 
 export interface Settings {
   /** JSON wRPC. Default is the project's public four-method proxy. */
@@ -52,6 +52,7 @@ export interface NodeStatus {
 export type Request =
   | { kind: "status" }
   | { kind: "grants" }
+  | { kind: "wallet" }
   | { kind: "issue"; terms: IssueTerms }
   | { kind: "revoke"; id: string; feeSompi: string }
   | { kind: "create"; passphrase: string; importSecretHex?: string }

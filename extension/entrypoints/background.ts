@@ -11,7 +11,7 @@ import { schnorr } from "@noble/curves/secp256k1.js";
 import * as vault from "../src/vault.ts";
 import { settings, setSettings } from "../src/store.ts";
 import { status as nodeStatus } from "../src/chain.ts";
-import { issue, live, revoke } from "../src/grants.ts";
+import { issue, live, revoke, wallet } from "../src/grants.ts";
 import type { Request, Response, Settings, Status } from "../src/messages.ts";
 
 export default defineBackground(() => {
@@ -103,6 +103,9 @@ async function handle(request: Request): Promise<unknown> {
 
     case "grants":
       return live();
+
+    case "wallet":
+      return wallet();
 
     /* The one message whose answer carries a secret: the agent key, once, on
        its way to whoever runs the agent. It is generated here and stored

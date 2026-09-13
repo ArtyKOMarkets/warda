@@ -30,6 +30,7 @@ import { startFakeNode } from "../../test/harness/fake-node.ts";
 import { payToPubkeyScript, pubkeyToAddress, agentPublicKey, fromHex, toHex, scriptPublicKeyToWire,
   successorState, scriptHashFor, scriptHashToAddress } from "@warda_protocol/kaspa";
 import template from "@warda_protocol/kaspa/covenant-template.json" with { type: "json" };
+import { DEMO_VENDOR } from "../src/demo.ts";
 
 /* A throwaway principal. Imported rather than generated so the test knows the
    address to fund — and so the import path is exercised, which is the one
@@ -58,14 +59,18 @@ function browserPath() {
 const node = await startFakeNode();
 const secret = fromHex(PRINCIPAL);
 const address = pubkeyToAddress(agentPublicKey(secret), "kaspatest");
-node.utxos = [{
+/* Deliberately EMPTY to start. A tester's first minute is a key with no coin,
+   and that path used to end at "no spendable coin at kaspatest:…" after they
+   had filled in a form. It is now the first screen, so it is the first thing
+   this drives. */
+const FUNDING = {
   address,
   transactionId: "aa".repeat(32),
   index: 0,
   amount: 500_000_000n,
   scriptPublicKey: scriptPublicKeyToWire(payToPubkeyScript(agentPublicKey(secret))),
   blockDaaScore: 1n,
-}];
+};
 
 const browser = browserPath();
 console.log(`  ->  ${browser ?? "playwright's chromium"}\n`);
@@ -125,7 +130,7 @@ try {
   await page.getByRole("button", { name: "Import this key" }).click();
 
   await page.getByRole("heading", { name: "Principal" }).waitFor({ timeout: 10_000 });
-  await page.getByText(address).waitFor({ timeout: 5_000 });
+  await page.getByText(address).first().waitFor({ timeout: 5_000 });
   ok("the key is in, and the address it derives is the one it should be");
 
   /* THE POINT OF THIS TEST. A WebSocket from an MV3 service worker to kaspad,
@@ -143,8 +148,31 @@ try {
   assert.ok(stored.session.includes(PRINCIPAL), "the unlocked key should be in storage.session");
   ok("in a real browser too: ciphertext on disk, the key only in session memory");
 
+  /* A brand new key, with nothing in it. */
+  await page.getByText("No coin yet").waitFor({ timeout: 15_000 });
+  assert.equal(await page.getByText(address).count(), 1,
+    "the address should appear once on a screen that asks someone to paste it");
+  assert.equal(await page.getByRole("button", { name: "Issue a grant" }).count(), 0,
+    "there should be nothing to press until there is something to give");
+  ok("an empty key is told where to send coin, not offered a form that will fail");
+
+  node.utxos = [FUNDING];
+  await page.getByRole("button", { name: "Check again" }).click();
+
+  /* The console must see the coin before it will offer to give any away. */
+  await page.getByText("Yours to give").waitFor({ timeout: 15_000 });
+  await page.getByText("5 KAS").first().waitFor({ timeout: 5_000 });
+  ok("the principal's own balance is shown before anything can be granted");
+
   await page.getByRole("button", { name: "Issue a grant" }).click();
   await page.getByLabel("Name it").fill("e2e agent");
+  /* The one-click payee, which is the other thing a new tester does not have.
+     Clicked rather than typed, so the address the button inserts is the one
+     under test. */
+  await page.getByRole("button", { name: /add the Warda demo API/ }).click();
+  assert.equal(await page.getByLabel(/May pay/).inputValue(), DEMO_VENDOR.address,
+    "the demo payee button should insert the published demo vendor address");
+  ok("the demo vendor can be added without knowing an address");
   await page.getByLabel(/May pay/).fill(PAYEE);
   await page.getByRole("button", { name: "Create it" }).click();
 

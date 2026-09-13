@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { ask, type Issued, type LiveGrant, type NodeStatus, type Status } from "../../src/messages.ts";
+import { ask, type Issued, type LiveGrant, type NodeStatus, type Status, type Wallet } from "../../src/messages.ts";
+import { DEMO_VENDOR } from "../../src/demo.ts";
 import { toKas, toSompi } from "../../src/kas.ts";
 
 export function App() {
@@ -183,10 +184,12 @@ function Grants({ status, onChange, onIssue }:
   { status: Status; onChange: () => void; onIssue: () => void }) {
   const [node, setNode] = useState<NodeStatus | null>(null);
   const [grants, setGrants] = useState<LiveGrant[] | null>(null);
+  const [purse, setPurse] = useState<Wallet | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(() => {
     ask<NodeStatus>({ kind: "nodeStatus" }).then(setNode).catch(() => setNode(null));
+    ask<Wallet>({ kind: "wallet" }).then(setPurse).catch(() => setPurse(null));
     ask<LiveGrant[]>({ kind: "grants" })
       .then((g) => { setGrants(g); setError(null); })
       .catch((e) => { setGrants([]); setError((e as Error).message); });
@@ -198,7 +201,10 @@ function Grants({ status, onChange, onIssue }:
     <div className="stack">
       <div>
         <h1>Principal</h1>
-        <p className="addr">{status.address}</p>
+        {/* Not when the funding card is about to show the same string six
+            lines down: one screen showing one address twice reads as two
+            addresses to anyone who is about to paste one into a faucet. */}
+        {purse && BigInt(purse.totalSompi) === 0n ? null : <p className="addr">{status.address}</p>}
       </div>
 
       <div className="card">
@@ -211,7 +217,30 @@ function Grants({ status, onChange, onIssue }:
         </div>
       </div>
 
-      <button onClick={onIssue}>Issue a grant</button>
+      {purse && BigInt(purse.totalSompi) === 0n ? (
+        <Fund address={purse.address} onRecheck={load} />
+      ) : (
+        <>
+          {purse ? (
+            <div className="card">
+              <div className="row">
+                <span className="k">Yours to give</span>
+                <span className="v">{toKas(purse.totalSompi, 3)} KAS</span>
+              </div>
+              {/* The number that actually bounds a grant. Genesis takes ONE
+                  input, so two coins of 1 KAS cannot make a grant of 1.5 —
+                  and nothing printed that until it appeared inside a failure. */}
+              {purse.coins > 1 ? (
+                <div className="row">
+                  <span className="k">Biggest coin</span>
+                  <span className="v">{toKas(purse.largestSompi, 3)} KAS of {purse.coins}</span>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+          <button disabled={!purse} onClick={onIssue}>Issue a grant</button>
+        </>
+      )}
 
       {error ? <p className="error">{error}</p> : null}
 
@@ -229,6 +258,39 @@ function Grants({ status, onChange, onIssue }:
       <div className="foot">
         <button className="link" onClick={() => { void ask({ kind: "lock" }).then(onChange); }}>Lock now</button>
         <span className="k">auto-locks in {status.settings.lockMinutes}m</span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Nothing to give yet.
+ *
+ * A tester installs this, generates a key, presses "Issue a grant" and is told
+ * there is no spendable coin at an address they have never seen. The install
+ * was never the hard part; this was. So the address comes first, big, with the
+ * one instruction that follows it.
+ *
+ * No faucet LINK, deliberately. The project's own quickstart says "a testnet-10
+ * faucet" and names none, because a link to a faucet that has moved or died
+ * sends a stranger somewhere wrong with our name on it. Naming one here would
+ * be the same guess in a smaller font.
+ */
+function Fund({ address, onRecheck }: { address: string; onRecheck: () => void }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="card">
+      <div className="row"><span className="k">No coin yet</span></div>
+      <p className="tight" style={{ margin: "8px 0 10px" }}>
+        Send testnet KAS to this address from a testnet-10 faucet. A grant is funded out of it,
+        so nothing can be issued until something arrives.
+      </p>
+      <p className="addr">{address}</p>
+      <div className="stack" style={{ marginTop: 10 }}>
+        <button className="ghost" onClick={() => {
+          void navigator.clipboard.writeText(address).then(() => setCopied(true));
+        }}>{copied ? "Copied" : "Copy the address"}</button>
+        <button className="ghost" onClick={onRecheck}>Check again</button>
       </div>
     </div>
   );
@@ -379,6 +441,13 @@ function Issue({ onCancel, onIssued }: { onCancel: () => void; onIssued: (i: Iss
         <label htmlFor="r">May pay — addresses or x-only keys</label>
         <input id="r" value={recipients} onChange={(e) => setRecipients(e.target.value)}
                placeholder="kaspatest:qq… , kaspatest:qr…" spellCheck={false} />
+        {/* The other thing a new tester does not have: an address they are
+            willing to commit to forever. This one is real and sells something. */}
+        <button className="link" style={{ marginTop: 6 }}
+                onClick={() => setRecipients(
+                  recipients.trim() ? `${recipients.trim()}, ${DEMO_VENDOR.address}` : DEMO_VENDOR.address)}>
+          add {DEMO_VENDOR.label} — {DEMO_VENDOR.detail}
+        </button>
       </div>
       <div>
         <label htmlFor="b">Budget (KAS)</label>
