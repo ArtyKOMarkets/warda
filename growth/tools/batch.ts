@@ -175,7 +175,17 @@ async function main() {
       };
 
       /* Before anything is built. Each of these is a refusal the chain would
-         also make, in a script error, after a fee. */
+         also make, in a script error, after a fee.
+
+         `now` is the grant's OWN notBefore rather than the chain's tip, because
+         this verb opens no node — the tool it spawns does. That makes the
+         window check OPTIMISTIC: a term measured from the grant's opening can
+         fit inside the parent when the same term measured from the tip would
+         not, and this would wave it through. `build-delegation` makes the
+         authoritative check against the live DAA and refuses, so the cost is a
+         second error rather than a bad grant — but the error arrives later and
+         from further away, which is the thing this module exists to avoid.
+         Worth reading the tip here once there is a reason to open a node. */
       const now = state.notBefore;
       const refusals = checkHire(state, members, job, now);
       if (refusals.length) {

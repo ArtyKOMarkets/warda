@@ -1,0 +1,16 @@
+{
+  "name": "first-loop",
+  "network": "testnet-10",
+  "manifest": "/Users/artautasjasinskas/Desktop/warda/growth/batch-grant.json",
+  "openedAt": "2026-09-13T15:46:36.348Z",
+  "closedAt": null,
+  "outstanding": [],
+  "log": [
+    {
+      "at": "2026-09-13T15:46:36.351Z",
+      "what": "open",
+      "who": "first-loop",
+      "detail": "/Users/artautasjasinskas/Desktop/warda/growth/batch-grant.json"
+    }
+  ]
+}
