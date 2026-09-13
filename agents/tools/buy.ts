@@ -45,7 +45,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { findResumable, withProof, type Pending } from "./resume.ts";
+import { closeDebt, findResumable, withProof, type Pending } from "./resume.ts";
 
 import {
   NodeClient,
@@ -451,15 +451,17 @@ try {
    * A debt is closed by delivery. Nothing else closes it.
    */
   if (pending && res.ok) {
-    try {
-      const old = JSON.parse(readFileSync(pending.file, "utf8")) as Record<string, unknown>;
-      old.resolvedBy = { at: new Date().toISOString(), status: res.status, record: `${stamp}.json` };
-      writeFileSync(pending.file, JSON.stringify(old, null, 2) + "\n");
-    } catch {
-      /* Best effort. A failure here costs a duplicate resume attempt on the
-         next run, which re-presents a proof and pays nothing — annoying, and
-         not in the same class as the problem this whole path exists to fix. */
-    }
+    /* By TXID, across every file. A debt can have several records — the
+       purchase, plus one per failed resume, each carrying the proof forward so
+       losing a single file does not lose the debt. Stamping only the file that
+       was read left the other copies open, and the next run offered a payment
+       that had already been collected. */
+    const closed = closeDebt(outDir, pending.txid, {
+      at: new Date().toISOString(),
+      status: res.status,
+      record: `${stamp}.json`,
+    });
+    if (closed > 1) console.error(`closed    : ${closed} records of this one payment`);
   }
 
   /**

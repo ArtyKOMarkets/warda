@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
-import { findResumable, withProof, UNFINISHED } from "../agents/tools/resume.ts";
+import { closeDebt, findResumable, withProof, UNFINISHED } from "../agents/tools/resume.ts";
 
 const URL_A = "https://vendor.example/fact";
 const URL_B = "https://vendor.example/other";
@@ -186,4 +186,47 @@ test("two failed resumes do not become two debts", () => {
       proof: { header: "hdr-once", txid: "once", amountSompi: "3000000" } },
   ]);
   assert.equal(findResumable(dir, URL_A)?.txid, "once");
+});
+
+/**
+ * One payment, several records, one debt.
+ *
+ * Carrying the proof onto each failed resume's own record makes a debt
+ * survive losing any single file. It also makes N copies of it — and
+ * collecting stamped only the file that `findResumable` happened to return,
+ * so the rest stayed open. The next run found one of them and redeemed a
+ * payment that had already been collected, while an older debt behind it
+ * never got a turn. Seen live: the same txid served twice in a row.
+ */
+const withTx = (url: string, txid: string, outcome = "paid-but-refused") => ({
+  url, outcome,
+  proof: { header: `hdr-${txid}`, txid, amountSompi: "3000000", payTo: "kaspatest:qqvendor" },
+});
+
+test("collecting closes every record carrying that transaction", () => {
+  const dir = dirWith([
+    withTx(URL_A, "same", "paid-pending"),
+    withTx(URL_A, "same"),
+    withTx(URL_A, "same"),
+  ]);
+  const closed = closeDebt(dir, "same", { at: "now", status: 200, record: "r.json" });
+  assert.equal(closed, 3, "all three records of the one payment");
+  assert.equal(findResumable(dir, URL_A), null, "and nothing is left to redeem");
+});
+
+test("closing one debt does not touch another", () => {
+  const dir = dirWith([withTx(URL_A, "older"), withTx(URL_A, "newer")]);
+  assert.equal(closeDebt(dir, "newer", { at: "now", status: 200, record: "r.json" }), 1);
+  const left = findResumable(dir, URL_A);
+  assert.equal(left?.txid, "older", "the older debt finally gets its turn");
+});
+
+test("an already-closed record is not closed twice", () => {
+  const dir = dirWith([{ ...withTx(URL_A, "t"), resolvedBy: { at: "before", status: 200 } }]);
+  assert.equal(closeDebt(dir, "t", { at: "now", status: 200, record: "r.json" }), 0);
+});
+
+test("a debt with no matching transaction closes nothing", () => {
+  const dir = dirWith([withTx(URL_A, "a"), withTx(URL_B, "b")]);
+  assert.equal(closeDebt(dir, "nothing-like-this", { at: "now", status: 200, record: "r.json" }), 0);
 });

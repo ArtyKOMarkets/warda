@@ -1,0 +1,13 @@
+{
+  "_comment": "Written by agent-002/tools/buy.ts. One file per attempt, refusals included: a purchase log that only records successes is a sales brochure.",
+  "at": "2026-09-11T10:15:14.095Z",
+  "agent": "MY-AGENT",
+  "url": "https://warda-demo-api.vercel.app/fact",
+  "outcome": "paid-then-failed",
+  "txid": "061badccb300502b57d390edb035d5d5f35bfffffc5386aa006f4ba3e7eb4dfc",
+  "quoted": {
+    "payTo": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
+    "amountSompi": "3000000"
+  },
+  "error": "payment 061badccb300502b57d390edb035d5d5f35bfffffc5386aa006f4ba3e7eb4dfc was broadcast and accepted by the network, but the server still reported 402 after 1 attempts. The money is spent; this did NOT pay again. Re-present the same X-PAYMENT header rather than repeating the call, or the nonce is stale and the vendor should be asked about the payment by txid."
+}

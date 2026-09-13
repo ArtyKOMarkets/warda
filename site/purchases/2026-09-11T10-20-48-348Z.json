@@ -1,0 +1,13 @@
+{
+  "_comment": "Written by agent-002/tools/buy.ts. One file per attempt, refusals included: a purchase log that only records successes is a sales brochure.",
+  "at": "2026-09-11T10:20:48.348Z",
+  "agent": "MY-AGENT",
+  "url": "https://warda-demo-api.vercel.app/fact",
+  "outcome": "failed",
+  "txid": null,
+  "quoted": {
+    "payTo": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
+    "amountSompi": "3000000"
+  },
+  "error": "no UTXO at kaspatest:pqyjp4wvdayu40tlhgaxeu4rn0y0wvvzm42kyfk3yytf7j7yj37y7ecsxxvjv.\nA grant's address is derived from its state, and spending changes that state — so an empty result usually means the grant has moved to its successor address, not that it is gone.\nIf the transaction that created it was submitted moments ago, this is a race rather than a mistake: acceptance is not instant, and the address is empty until it happens."
+}

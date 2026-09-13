@@ -1,0 +1,24 @@
+{
+  "_comment": "Written by agent-002/tools/buy.ts. One file per attempt, refusals included: a purchase log that only records successes is a sales brochure.",
+  "at": "2026-09-11T10:22:03.518Z",
+  "agent": "MY-AGENT",
+  "url": "https://warda-demo-api.vercel.app/fact",
+  "proof": {
+    "header": "eyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJ0ZXN0bmV0LTEwIiwicGF5ZXIiOiJrYXNwYXRlc3Q6cHByNGNsMGpzcjNybW0wYW5qMzQ0ZzIyMGR3dmw0a2tnMjB3cHRmdDBjOXRhbmMwdTNrdHgycGZ6OWR4ZyIsInR4aWQiOiI0NWY2ZmE0MGJhNTJmM2MwOTA5MWQ2MzE0NmZjNDY3OTIyMWRjNTNmNjM5NDgyMDhhZTk3M2M1YzFmNzY2NDhkIiwiYW1vdW50U29tcGkiOiIzMDAwMDAwIiwibm9uY2UiOiIxNzg5MTIyMjQ0MTM1LjI5YzkzYWJiZDQzODhmMGU4NDRiMDkwOGU5MTk3YmUzIn0=",
+    "txid": "45f6fa40ba52f3c09091d63146fc4679221dc53f63948208ae973c5c1f76648d",
+    "amountSompi": "3000000",
+    "payTo": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4"
+  },
+  "outcome": "paid-then-failed",
+  "txid": "45f6fa40ba52f3c09091d63146fc4679221dc53f63948208ae973c5c1f76648d",
+  "quoted": {
+    "payTo": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
+    "amountSompi": "3000000"
+  },
+  "error": "payment 45f6fa40ba52f3c09091d63146fc4679221dc53f63948208ae973c5c1f76648d was broadcast and accepted by the network, but the server still reported 402 after 1 attempts. The money is spent; this did NOT pay again. Re-present the same X-PAYMENT header rather than repeating the call, or the nonce is stale and the vendor should be asked about the payment by txid.",
+  "resolvedBy": {
+    "at": "2026-09-11T10:22:10.078Z",
+    "status": 200,
+    "record": "2026-09-11T10-22-08-936Z.json"
+  }
+}

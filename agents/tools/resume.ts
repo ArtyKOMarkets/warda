@@ -15,7 +15,7 @@
  * Separate from buy.ts because this is the part with branches worth testing,
  * and buy.ts cannot be imported without a node, a grant and a key.
  */
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 
 export interface Pending {
   /** The record this came from, so a successful redemption can close it. */
@@ -102,4 +102,47 @@ export function withProof(
     },
     ...base,
   };
+}
+
+/**
+ * Close every record of one debt, not just the file that was read.
+ *
+ * A debt can have several records: the purchase that paid, plus one for each
+ * resume attempt that failed, because each of those carries the proof forward
+ * so the debt survives losing any single file. That redundancy is deliberate
+ * and it has a consequence nobody thought through — collecting stamped only
+ * the one file `findResumable` happened to return, and the remaining copies
+ * went on being found. A payment redeemed once was offered up again on the
+ * next run, and older debts behind it never got a turn.
+ *
+ * The transaction id is what identifies a debt. Everything carrying it is the
+ * same debt and closes together.
+ */
+export function closeDebt(
+  dir: string,
+  txid: string,
+  resolvedBy: { at: string; status: number; record: string },
+): number {
+  let closed = 0;
+  let files: string[];
+  try {
+    files = readdirSync(dir).filter((f) => f.endsWith(".json"));
+  } catch {
+    return 0;
+  }
+  for (const f of files) {
+    const path = `${dir}/${f}`;
+    try {
+      const rec = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+      const proof = rec.proof as Record<string, unknown> | undefined;
+      if (rec.resolvedBy || proof?.txid !== txid) continue;
+      rec.resolvedBy = resolvedBy;
+      writeFileSync(path, JSON.stringify(rec, null, 2) + "\n");
+      closed += 1;
+    } catch {
+      /* Best effort, per file. One unreadable record must not stop the rest
+         of a debt from closing — the alternative is the bug this replaced. */
+    }
+  }
+  return closed;
 }

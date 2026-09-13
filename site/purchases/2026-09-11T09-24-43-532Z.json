@@ -1,0 +1,22 @@
+{
+  "_comment": "Written by agent-002/tools/buy.ts. One file per attempt, refusals included: a purchase log that only records successes is a sales brochure.",
+  "at": "2026-09-11T09:24:43.532Z",
+  "agent": "MY-AGENT",
+  "url": "https://warda-demo-api.vercel.app/fact",
+  "outcome": "bought",
+  "status": 200,
+  "quoted": {
+    "payTo": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
+    "amountSompi": "3000000"
+  },
+  "txid": "a537f7ff4307420a39b5efd96d742ce59645171ce6db165f6c564af60628eaa4",
+  "sellerClaimed": "warda demo vendor",
+  "response": {
+    "fact": "GHOSTDAG orders blocks by how much work references them, so honest blocks converge on one order without discarding competing ones.",
+    "seller": "warda demo vendor",
+    "paidTo": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
+    "settledBy": "a537f7ff4307420a39b5efd96d742ce59645171ce6db165f6c564af60628eaa4",
+    "verified": "a UTXO at this endpoint's payee address, from that transaction, for exactly the quoted amount",
+    "readFrom": "this vendor's own node"
+  }
+}

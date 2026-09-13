@@ -1,0 +1,29 @@
+{
+  "_comment": "Written by agent-002/tools/buy.ts. One file per attempt, refusals included: a purchase log that only records successes is a sales brochure.",
+  "at": "2026-09-13T07:53:17.869Z",
+  "agent": "MY-AGENT",
+  "url": "https://warda-demo-api.vercel.app/fact",
+  "proof": {
+    "header": "eyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJ0ZXN0bmV0LTEwIiwicGF5ZXIiOiJrYXNwYXRlc3Q6cHpkajI1a2RsZ2dsZGYzOHA2dnAwNGQzZWw1ejAyMmZrNmQ2dzRlZnNkNXhuczhrdTJ5cWp4bnRxcjZ3OCIsInR4aWQiOiJmZjIwYmMyZGFiNWQ2MjZiZGY3ZTg4MjljNzc4MGRkZWY1ZTExNGQyZTI3N2U3MzE0YzQ3OTBjZTZlNGU4ZGU0IiwiYW1vdW50U29tcGkiOiIzMDAwMDAwIiwibm9uY2UiOiIxNzg5Mjg2MTE4MzM0Ljc1ZTQyN2U5ZDNlN2Y3MjkyZmRiNTU0Mzc2NGNjZTAyIn0=",
+    "txid": "ff20bc2dab5d626bdf7e8829c7780ddef5e114d2e277e7314c4790ce6e4e8de4",
+    "amountSompi": "3000000",
+    "payTo": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4"
+  },
+  "outcome": "paid-but-refused",
+  "status": 503,
+  "quoted": {
+    "payTo": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
+    "amountSompi": "3000000"
+  },
+  "txid": "ff20bc2dab5d626bdf7e8829c7780ddef5e114d2e277e7314c4790ce6e4e8de4",
+  "sellerClaimed": null,
+  "resumedFrom": null,
+  "response": {
+    "error": "could not reach a node: resolver https://resolver.kaspa.stream/v2/kaspa/testnet-10/any/wrpc/json did not answer: fetch failed",
+    "detail": "the payment may well be on chain; this vendor cannot see it. Re-present the same X-PAYMENT header rather than paying again \u2014 this vendor has NOT been paid twice and a second payment would not help."
+  },
+  "reopened": {
+    "at": "2026-09-13",
+    "why": "closed by a failed resume (503). The vendor never delivered, so the debt stands."
+  }
+}
