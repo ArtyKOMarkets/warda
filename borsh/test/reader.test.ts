@@ -181,11 +181,62 @@ test("both shapes land on identical output, which is the whole point", async () 
   assert.deepEqual(flat[0]!.outpoint.transactionId, nested[0]!.outpoint.transactionId);
 });
 
-test("an unknown shape names the keys it saw, instead of a missing field", async () => {
+test("an unknown shape reports what was probed, not what was missing", async () => {
   const r = await BorshReader.open({ client: fake({}, { entries: [{ nonsense: 1, other: 2 }] }) });
   await assert.rejects(() => r.getUtxosByAddresses(["x"]), (e: Error) => {
     assert.match(e.message, /shape this reader does not know/);
-    assert.match(e.message, /keys : nonsense, other/);
+    // Listing Object.keys was the first instinct and is useless here: the
+    // objects that actually break this report none.
+    assert.match(e.message, /amount=undefined/);
+    assert.match(e.message, /scriptPublicKey=undefined/);
+    return true;
+  });
+});
+
+/**
+ * A wasm-bindgen object, which is what the real client actually returns.
+ *
+ * Its fields are getters on the PROTOTYPE, not own enumerable properties. The
+ * first normaliser used object spread — which copies own enumerable
+ * properties only — so it produced `{}` and every field came back undefined.
+ * All eleven tests above passed, because they used object literals, which do
+ * have own properties. The bug reached a live vendor and cost a redeploy
+ * cycle to see.
+ *
+ * This fake is the shape that matters: nothing is an own property.
+ */
+function wasmLike(fields: Record<string, unknown>): object {
+  const proto = {};
+  for (const [k, v] of Object.entries(fields)) {
+    Object.defineProperty(proto, k, { get: () => v, enumerable: false, configurable: true });
+  }
+  return Object.create(proto);
+}
+
+test("an entry whose fields are prototype getters still parses", async () => {
+  const entry = wasmLike({
+    address: ENTRY.address,
+    outpoint: wasmLike({ transactionId: "ee".repeat(32), index: 3 }),
+    amount: 2_000_000n,
+    scriptPublicKey: { version: 0, script: "20" + "ff".repeat(32) + "ac" },
+    blockDaaScore: 91_234_567n,
+    isCoinbase: false,
+  });
+  // The property the old code lost: spreading this gives {}.
+  assert.deepEqual({ ...(entry as object) }, {}, "precondition: nothing is an own property");
+
+  const r = await BorshReader.open({ client: fake({}, { entries: [entry] }) });
+  const utxos = await r.getUtxosByAddresses([ENTRY.address]);
+  assert.equal(utxos[0]!.entry.value, 2_000_000n);
+  assert.equal(utxos[0]!.entry.blockDaaScore, 91_234_567n);
+  assert.equal(utxos[0]!.outpoint.index, 3);
+});
+
+test("the diagnosis lists what was probed, since a wasm object reports no keys", async () => {
+  const r = await BorshReader.open({ client: fake({}, { entries: [wasmLike({ nothing: 1 })] }) });
+  await assert.rejects(() => r.getUtxosByAddresses(["x"]), (e: Error) => {
+    assert.match(e.message, /amount=undefined/);
+    assert.match(e.message, /prototype getters/);
     return true;
   });
 });

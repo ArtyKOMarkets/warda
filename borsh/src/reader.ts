@@ -219,17 +219,60 @@ export class BorshReader implements Inspectable {
  */
 function nest(raw: unknown): unknown {
   const e = raw as Record<string, unknown>;
-  if (e && typeof e === "object" && e.utxoEntry) return e;
-  if (e && typeof e === "object" && ("amount" in e || "scriptPublicKey" in e)) {
-    const { address, outpoint, ...entry } = e;
-    return { address, outpoint, utxoEntry: entry };
+  if (!e || typeof e !== "object") {
+    throw new Error(`a UTXO entry from the borsh client is ${typeof e}, not an object`);
   }
-  throw new Error(
-    `a UTXO entry from the borsh client is in a shape this reader does not know.\n\n` +
-      `  keys : ${e && typeof e === "object" ? Object.keys(e).join(", ") : typeof e}\n\n` +
-      `Expected either kaspad's {address, outpoint, utxoEntry:{amount,…}} or the WASM ` +
-      `client's flattened {address, outpoint, amount,…}.`,
-  );
+
+  /**
+   * Read by NAME. Never spread, never Object.keys.
+   *
+   * The WASM client hands back wasm-bindgen class instances, whose fields are
+   * getters on the PROTOTYPE rather than own enumerable properties. Object
+   * spread copies own enumerable properties only — so `{...entry}` on one of
+   * these produces `{}`, and the first version of this function did exactly
+   * that. It passed every test, because the tests used object literals, which
+   * do have own properties. The live resolver answered and the shared parser
+   * said `entry[0].amount: expected a number, got undefined`, which is what an
+   * empty object looks like from one field down.
+   *
+   * Property ACCESS goes through a getter; destructuring and spread do not.
+   * That distinction is the whole bug.
+   */
+  const inner = (e.utxoEntry ?? e) as Record<string, unknown>;
+  const amount = inner.amount ?? inner.value;
+  const spk = inner.scriptPublicKey ?? inner.script_public_key;
+  const outpoint = (e.outpoint ?? {}) as Record<string, unknown>;
+
+  if (amount === undefined || spk === undefined) {
+    /* Object.keys is useless here for the same reason the spread was — a
+       wasm object reports none. So the diagnosis lists what was PROBED and
+       what each probe found, which is the information that was missing when
+       this failed in production. */
+    const probe = (name: string, v: unknown) => `${name}=${v === undefined ? "undefined" : typeof v}`;
+    throw new Error(
+      `a UTXO entry from the borsh client is in a shape this reader does not know.\n\n` +
+        `  ${probe("utxoEntry", e.utxoEntry)} ${probe("amount", inner.amount)} ` +
+        `${probe("value", inner.value)} ${probe("scriptPublicKey", inner.scriptPublicKey)} ` +
+        `${probe("outpoint", e.outpoint)}\n\n` +
+        `Expected kaspad's {address, outpoint, utxoEntry:{amount, scriptPublicKey,…}} or the ` +
+        `WASM client's flattened equivalent. Note that its objects carry their fields as ` +
+        `prototype getters, so they must be read by name.`,
+    );
+  }
+
+  return {
+    address: e.address ?? null,
+    outpoint: {
+      transactionId: outpoint.transactionId ?? outpoint.transaction_id,
+      index: outpoint.index ?? 0,
+    },
+    utxoEntry: {
+      amount,
+      scriptPublicKey: spk,
+      blockDaaScore: inner.blockDaaScore ?? inner.block_daa_score ?? 0n,
+      isCoinbase: inner.isCoinbase ?? inner.is_coinbase ?? false,
+    },
+  };
 }
 
 /**
