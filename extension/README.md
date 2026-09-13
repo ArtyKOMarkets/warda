@@ -139,6 +139,14 @@ different size is what an icon set is for.
 It lives in code rather than as five PNGs somebody exported once, so the next
 person who wants the star a little bigger can have it.
 
+## Letting other people test it
+
+`STORE.md` has the submission package: the listing copy, the answers to every
+question the dashboard asks, and the screenshots in `ops/store/`. `PRIVACY.md`
+is the privacy policy, and it is short because there is nothing to disclose —
+two permissions, no host permissions, no content script, no remote code, no
+server.
+
 ## Loading it
 
 Brave: `brave://extensions` → Developer mode → Load unpacked →

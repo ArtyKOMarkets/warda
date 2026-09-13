@@ -28,6 +28,8 @@ const PUB = "3c693f61" + "7a".repeat(28);
 const HAS_KEY = { hasVault: true, publicKey: PUB, address: ADDRESS, settings: SETTINGS };
 const NODE = { url: SETTINGS.nodeUrl, reachable: true, detail: "synced, indexed, right network",
                network: "kaspa-testnet-10", daaScore: "567634976" };
+const WALLET = { address: ADDRESS, totalSompi: "412000000", largestSompi: "240000000", coins: 3 };
+const EMPTY_WALLET = { address: ADDRESS, totalSompi: "0", largestSompi: "0", coins: 0 };
 
 const GRANTS = [
   {
@@ -70,6 +72,7 @@ const SHOTS = {
   "4-revoke": { status: { ...HAS_KEY, unlocked: true }, grants: GRANTS, height: 820, click: "Revoke" },
   "5-issue": { status: { ...HAS_KEY, unlocked: true }, grants: [], height: 700, click: "Issue a grant" },
   "6-handoff": { status: { ...HAS_KEY, unlocked: true }, grants: [], height: 700, handoff: true },
+  "7-fund": { status: { ...HAS_KEY, unlocked: true }, grants: [], height: 560, wallet: EMPTY_WALLET },
 };
 
 const server = createServer(async (req, res) => {
@@ -94,19 +97,20 @@ for (const [name, shot] of Object.entries(SHOTS)) {
     deviceScaleFactor: 2,
   });
   await page.addInitScript(
-    ([status, node, grants, issued]) => {
+    ([status, node, grants, issued, wallet]) => {
       globalThis.chrome = {
         runtime: {
           sendMessage: async (m) => {
             if (m.kind === "nodeStatus") return { ok: true, value: node };
             if (m.kind === "grants") return { ok: true, value: grants };
             if (m.kind === "issue") return { ok: true, value: issued };
+            if (m.kind === "wallet") return { ok: true, value: wallet };
             return { ok: true, value: status };
           },
         },
       };
     },
-    [shot.status, NODE, shot.grants ?? [], ISSUED],
+    [shot.status, NODE, shot.grants ?? [], ISSUED, shot.wallet ?? WALLET],
   );
   await page.goto(`http://127.0.0.1:${port}/popup.html`);
   await page.waitForSelector("h1", { timeout: 5000 });
