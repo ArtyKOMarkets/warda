@@ -234,6 +234,10 @@ if (pending) {
    back as `null` no matter what the callback did. Declared out here because
    the catch block needs the txid as much as the success path does. */
 const seen: { payTo?: string; amountSompi?: bigint; txid?: string; proof?: Pending } = {};
+/* A resume emits no `paid` event, because nothing is paid — so seed the proof
+   from the debt being redeemed, or the record this run writes would carry no
+   way to redeem it and the only copy would be the older file. */
+if (pending) { seen.proof = pending; seen.txid = pending.txid; }
 
 /* Two chains, and nothing was checking they were the same one.
    
@@ -338,6 +342,11 @@ try {
        payer down this path at all, which is the property that makes an
        automatic resume safe to do without asking. */
     ...(pending ? { resume: { header: pending.header, txid: pending.txid, amountSompi: pending.amountSompi, payTo: pending.payTo } } : {}),
+    /* Carry the proof onto THIS run's record too. A resume emits no `paid`
+       event — nothing was paid — so without this the record it writes has no
+       proof on it, and the debt would survive only in the older file. Two
+       copies of one debt is better than nought, and `resolvedBy` keeps the
+       chain of custody readable either way. */
     onEvent: (e) => {
       if (e.type === "quote") {
         seen.payTo = e.requirement.payTo;
@@ -429,10 +438,19 @@ try {
     response: body,
   });
 
-  /* Close the old debt, so a third run does not try to redeem it again. The
-     record stays on disk — it is the evidence that the money moved — and gains
-     a line saying which run finally collected. */
-  if (pending) {
+  /**
+   * Close the old debt ONLY if it was actually collected.
+   *
+   * This ran on every delivery attempt, `res.ok` or not. So a resume that
+   * re-presented a proof and got another 503 — a vendor still down, which is
+   * the whole reason the debt existed — stamped the record as resolved, the
+   * proof stopped being findable, and the NEXT run bought the thing again.
+   * A recoverable debt turned into a lost one by the machinery built to
+   * recover it, and it cost a real 0.03 KAS to find.
+   *
+   * A debt is closed by delivery. Nothing else closes it.
+   */
+  if (pending && res.ok) {
     try {
       const old = JSON.parse(readFileSync(pending.file, "utf8")) as Record<string, unknown>;
       old.resolvedBy = { at: new Date().toISOString(), status: res.status, record: `${stamp}.json` };

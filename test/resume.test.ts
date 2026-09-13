@@ -146,3 +146,44 @@ test("a record built by withProof is readable by findResumable", () => {
   assert.equal(found?.txid, "xyz");
   assert.equal(found?.payTo, "kaspatest:qqvendor");
 });
+
+/**
+ * The debt that closed itself.
+ *
+ * `resolvedBy` was written on every delivery attempt rather than on delivery.
+ * So a resume that re-presented a proof and got another 503 — a vendor still
+ * down, which is the entire reason the debt existed — stamped the record as
+ * collected. The proof stopped being findable and the next run bought the
+ * thing again: a recoverable debt turned into a lost one by the machinery
+ * built to recover it. It cost 0.03 KAS on a live vendor to find.
+ */
+test("a record stamped resolvedBy is closed, whatever else it says", () => {
+  const dir = dirWith([{ ...paid(URL_A, "aa"), resolvedBy: { at: "x", status: 200 } }]);
+  assert.equal(findResumable(dir, URL_A), null);
+});
+
+test("a debt survives a resume attempt that did not deliver", () => {
+  // What the failed-resume run leaves behind: same url, proof carried
+  // forward, no resolvedBy, because nothing was delivered.
+  const dir = dirWith([
+    paid(URL_A, "first"),
+    { url: URL_A, outcome: "paid-but-refused", status: 503, resumedFrom: "first",
+      proof: { header: "hdr-first", txid: "first", amountSompi: "3000000", payTo: "kaspatest:qqvendor" } },
+  ]);
+  const found = findResumable(dir, URL_A);
+  assert.ok(found, "the debt must still be findable after a failed resume");
+  assert.equal(found!.txid, "first", "and it is still the same debt, not a new one");
+});
+
+test("two failed resumes do not become two debts", () => {
+  // Both records carry the same proof, so whichever is found redeems the same
+  // payment. The newest wins and it names the original transaction.
+  const dir = dirWith([
+    paid(URL_A, "once"),
+    { url: URL_A, outcome: "paid-but-refused", resumedFrom: "once",
+      proof: { header: "hdr-once", txid: "once", amountSompi: "3000000" } },
+    { url: URL_A, outcome: "paid-but-refused", resumedFrom: "once",
+      proof: { header: "hdr-once", txid: "once", amountSompi: "3000000" } },
+  ]);
+  assert.equal(findResumable(dir, URL_A)?.txid, "once");
+});
