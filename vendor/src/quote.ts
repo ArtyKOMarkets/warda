@@ -57,17 +57,51 @@ export function issueQuote(terms: QuoteTerms, options: QuoteOptions): string {
  * because the three ways this fails are three different conversations with the
  * buyer: a malformed nonce is a client bug, an expired one means ask again,
  * and a mismatch means the quote came from somewhere else.
+ *
+ * `graceMs` exists because a quote and a payment expire differently, and
+ * conflating them cost a real buyer real money. See the note below.
+ */
+/**
+ * A quote expires. A payment does not.
+ *
+ * The TTL on a quote protects the SELLER from honouring a stale price. It is
+ * not what stops fraud — the HMAC does that, and it keeps working forever,
+ * because it proves these exact terms were issued here whatever the clock
+ * says.
+ *
+ * So expiry belongs to one of the two moments this function serves, not both:
+ *
+ *   no payment yet    the buyer is asking what it costs. An old quote must be
+ *                     refused; the price may have moved. Ask again.
+ *   payment presented the money may already be on chain. Refusing now does not
+ *                     protect anybody — it keeps a stranger's coin and hands
+ *                     back nothing, and the buyer cannot fix it by asking
+ *                     again, because asking again would mean paying twice.
+ *
+ * Found by a buyer redeeming a thirty-minute-old proof against a two-minute
+ * quote, after the vendor it had paid came back up. The payment was on chain,
+ * verifiable, unserved — and refused for being late.
+ *
+ * The grace is bounded rather than infinite, because expiry does protect
+ * something real in the other direction: without a limit, somebody could sit
+ * on a cheap quote for a year, pay the old price, and redeem it against a
+ * price that has moved. Days, not minutes, and not forever.
  */
 export function checkQuote(
   nonce: string,
   terms: Omit<QuoteTerms, "expiresAt">,
   options: QuoteOptions,
   now: number = Date.now(),
+  graceMs = 0,
 ): string | null {
   const [expiryText, presented] = String(nonce).split(".");
   const expiresAt = Number(expiryText);
   if (!expiryText || !presented || !Number.isFinite(expiresAt)) return "malformed quote";
-  if (now > expiresAt) return "the quote has expired; ask again";
+  if (now > expiresAt + graceMs) {
+    return graceMs > 0
+      ? "this payment is too old to redeem here; ask the seller about it by transaction id"
+      : "the quote has expired; ask again";
+  }
 
   const expected = mac(options.secret, { ...terms, expiresAt });
   const a = Buffer.from(presented);

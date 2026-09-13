@@ -70,12 +70,49 @@ test("a quote this seller never issued is refused", async () => {
   assert.match(String(r.body.error), /not issued here/);
 });
 
-test("an expired quote is refused, and says to ask again", async () => {
+/**
+ * A quote expires. A payment does not.
+ *
+ * This test used to assert the opposite, and the opposite cost a real buyer a
+ * real payment: a vendor went down, the buyer's proof aged past a two-minute
+ * TTL while it waited, and when the vendor came back it refused the money it
+ * already had. Telling someone who has paid to "ask again" is telling them to
+ * pay twice.
+ *
+ * A quote's TTL protects the seller's PRICE. The HMAC is what stops a forged
+ * quote, and it does not age.
+ */
+test("a paid proof is still redeemable after its quote lapses", async () => {
   const stale = issueQuote(
-    { resource: TERMS.resource, sompi: TERMS.sompi, expiresAt: Date.now() - 1 },
+    { resource: TERMS.resource, sompi: TERMS.sompi, expiresAt: Date.now() - 30 * 60 * 1000 },
     { secret: SECRET },
   );
   const r = await run({ paymentHeader: header(TXID, stale) });
+  // Past the quote, into the chain check — which is where it belongs.
+  assert.notEqual(r.status, 400, "an expired quote must not refuse money already paid");
+  assert.equal(r.status, 200);
+});
+
+test("the redemption window is bounded, not infinite", async () => {
+  // Without a limit, a cheap quote could be sat on for a year and redeemed
+  // against a price that has moved.
+  const ancient = issueQuote(
+    { resource: TERMS.resource, sompi: TERMS.sompi, expiresAt: Date.now() - 400 * 24 * 60 * 60 * 1000 },
+    { secret: SECRET },
+  );
+  const r = await run({ paymentHeader: header(TXID, ancient) });
+  assert.equal(r.status, 400);
+  assert.match(String(r.body.error), /too old to redeem/);
+  // And it says what to do instead of leaving them with nothing.
+  assert.match(String(r.body.error), /by transaction id/);
+});
+
+test("a seller may still refuse the moment the quote lapses", async () => {
+  const stale = issueQuote(
+    { resource: TERMS.resource, sompi: TERMS.sompi, expiresAt: Date.now() - 1000 },
+    { secret: SECRET },
+  );
+  const r = await run({ paymentHeader: header(TXID, stale), redeemWindowMs: 0 });
   assert.equal(r.status, 400);
   assert.match(String(r.body.error), /expired/);
 });

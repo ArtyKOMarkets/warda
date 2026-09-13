@@ -46,11 +46,26 @@ export interface SaleTerms {
   seller?: string;
 }
 
+/**
+ * How long after a quote expires a PAID proof may still be redeemed.
+ *
+ * Seven days rather than seven minutes: the buyer in the case that prompted
+ * this had a vendor down for half an hour, and an outage is not the buyer's
+ * fault. Short enough that a stale price cannot be sat on indefinitely.
+ */
+export const DEFAULT_REDEEM_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
 export interface SettleInput {
   terms: SaleTerms;
   /** The raw `X-PAYMENT` header, or null when there was none. */
   paymentHeader: string | null;
   quote: QuoteOptions;
+  /**
+   * How long after its quote expires a PAID proof may still be redeemed.
+   * Defaults to DEFAULT_REDEEM_WINDOW_MS. Set 0 to refuse the moment the
+   * quote lapses, which is what this did before it cost a buyer a payment.
+   */
+  redeemWindowMs?: number;
   spent: SpentStore;
   /** Opens a node and says which one. Called only once a proof is presented. */
   openNode: () => Promise<{ client: Pick<NodeClient, "getUtxosByAddresses" | "close">; readFrom: string }>;
@@ -100,11 +115,26 @@ export async function settle(input: SettleInput): Promise<SettleResult> {
     return { status: 400, body: { error: "X-PAYMENT is not base64 JSON" } };
   }
 
+  /**
+   * Expiry is NOT checked here, and that is the fix rather than an oversight.
+   *
+   * At this point a payment is being presented, which means the money may
+   * already be on chain. The HMAC below still proves these exact terms were
+   * issued by this seller — that is what stops a forged quote, and it does not
+   * age. What a TTL protects is the PRICE, and a price cannot be renegotiated
+   * with someone who has already paid: telling them to ask again means telling
+   * them to pay twice.
+   *
+   * The window is bounded, not infinite: see checkQuote. The chain decides
+   * from here. If the money is not there, the next check
+   * refuses; if it is there and was already served, the one after that does.
+   */
   const badQuote = checkQuote(
     String(proof.nonce ?? ""),
     { resource: terms.resource, sompi: terms.sompi },
     quoteOptions,
     now(),
+    input.redeemWindowMs ?? DEFAULT_REDEEM_WINDOW_MS,
   );
   if (badQuote) return { status: 400, body: { error: badQuote } };
 
