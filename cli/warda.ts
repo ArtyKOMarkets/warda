@@ -206,6 +206,9 @@ const HELP = `warda — bounded spending authority for an agent, on Kaspa.
                                 available at any moment. [--key <revocation.key>]
   warda reclaim  [grant.json]   the term is over, bring the remainder home.
                                 Signed by the principal, after expiry.
+  warda fee      relay          what the network charges for a relayed payment.
+                                Measured, not estimated — it is the one fee here
+                                that cannot be corrected after the fact.
   warda which-key --address <a> [paths…]   which file holds the key for it?
   warda mcp                     serve the grant over MCP (stdio)
 
@@ -564,6 +567,7 @@ switch (verb) {
              allowlist for that hop, which is why it is typed rather than
              inferred from the vendor. */
           ...(has("relay") ? ["--relay"] : []),
+          ...(flag("relay-fee") ? ["--relay-fee", flag("relay-fee")!] : []),
           ...(flag("settle-attempts") ? ["--settle-attempts", flag("settle-attempts")!] : []),
           /* Sign without holding the key: name a command and the vendor's own
              CLI does the authentication it already knows how to do. */
@@ -691,6 +695,23 @@ switch (verb) {
         ],
         env,
       ),
+    );
+    break;
+  }
+
+  case "fee": {
+    /* Only one thing to measure so far, and it is named rather than default:
+       "warda fee" with no argument should not quietly measure something. */
+    if (rest[0] !== "relay") {
+      die("warda fee relay   — what the network charges for a relayed payment.", 2);
+    }
+    const cfg = readConfig();
+    process.exit(
+      run("sdk/tools/measure-relay-fee.ts", [
+        ...rpcArgs(cfg),
+        ...(flag("fee") ? ["--fee", flag("fee")!] : []),
+        ...(flag("network") ? ["--network", flag("network")!] : []),
+      ], { WARDA_SK: agentSecret(cfg) }),
     );
     break;
   }

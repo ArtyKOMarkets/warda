@@ -339,6 +339,11 @@ try {
      * genesis, rather than being inferred from the vendor speaking v2.
      */
     relay: has("relay"),
+    /* Overridable because it is the one fee in this protocol that cannot be
+       corrected after the fact: it is fixed by the funding transaction, which
+       is already broadcast by the time a node could price this one. Measure it
+       with sdk/tools/measure-relay-fee.ts rather than guessing. */
+    ...(flag("relay-fee") ? { relayFeeSompi: BigInt(flag("relay-fee")!) } : {}),
     /**
      * How many times to re-present the proof before giving up.
      *
