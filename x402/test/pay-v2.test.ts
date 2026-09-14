@@ -255,7 +255,7 @@ test("settling or abandoning nothing is an error, not a silent no-op", async () 
 
 // ---- the fetch loop ------------------------------------------------------
 
-import { DEFAULT_RELAY_FEE_SOMPI, bodyForBinding, wardaFetchV2 } from "../src/index.ts";
+import { bodyForBinding, relayFeeFor, wardaFetchV2 } from "../src/index.ts";
 import { requestHash } from "../src/v2.ts";
 
 function res(status: number, body: unknown) {
@@ -302,7 +302,7 @@ test("the happy path pays once, settles, and moves the grant", async () => {
   /* The invoice plus the relayed transaction's fee. Not 20,000,000: the fee is
      part of what buying the thing costs, and a budget that did not count it
      would mean less than it says. */
-  assert.equal(p.state.spentTotal, 20_000_000n + DEFAULT_RELAY_FEE_SOMPI);
+  assert.equal(p.state.spentTotal, 20_000_000n + relayFeeFor(20_000_000n, fromHex(agentKey), VENDOR));
 
   // the binding covers the request that was actually sent
   const decoded = JSON.parse(Buffer.from(sentHeader!, "base64").toString("utf8"));
@@ -339,7 +339,7 @@ test("a spend the chain accepted is banked even when the vendor refuses to serve
 
   assert.deepEqual(events, ["quote", "signed", "broadcast", "settled", "unresolved"]);
   assert.equal(p.outstanding.status, "none", "not stuck: we watched it land");
-  assert.equal(p.state.spentTotal, 20_000_000n + DEFAULT_RELAY_FEE_SOMPI, "and the grant moved, because it did");
+  assert.equal(p.state.spentTotal, 20_000_000n + relayFeeFor(20_000_000n, fromHex(agentKey), VENDOR), "and the grant moved, because it did");
 });
 
 test("a spend that never reached the chain still stops the payer", async () => {

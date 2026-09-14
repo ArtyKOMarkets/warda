@@ -16,7 +16,15 @@ import assert from "node:assert/strict";
 import { calculateKaspaStorageMass, exactV0TransactionId } from "@kaspa-x402/covenant";
 import { schnorr } from "@noble/curves/secp256k1.js";
 import { fromHex, pubkeyToAddress, toHex } from "@warda_protocol/kaspa";
-import { buildRelayPayment, relayFunding, relayPayee, SAFE_JSON_ENCODING } from "../src/relay.ts";
+import {
+  RELAY_COMPUTE_MASS,
+  SOMPI_PER_MASS,
+  buildRelayPayment,
+  relayFeeFor,
+  relayFunding,
+  relayPayee,
+  SAFE_JSON_ENCODING,
+} from "../src/relay.ts";
 
 const AGENT = fromHex("11".repeat(32));
 const RELAY_KEY = schnorr.getPublicKey(AGENT);
@@ -175,4 +183,71 @@ test("funding that cannot cover the invoice is refused before anything is signed
     /cannot cover the amount/,
   );
   assert.throws(() => relayFunding(AMOUNT, 0n), /positive fee/);
+});
+
+// ---- what the fee has to be, and when there is no such fee ----------------
+
+/**
+ * The most useful thing the live measurement produced was not the number.
+ *
+ * `warda fee relay` on testnet-10 said 162,400 sompi, against a default of
+ * 365,000 derived from this repo's fitted mass model — 2.25x too high. And it
+ * reported storage mass ZERO, which is what sent us looking: the fee is
+ * compute-driven for a large payment and storage-driven for a small one,
+ * because KIP-9 prices the GAP between input and output, and the gap is the
+ * fee. A constant is wrong in both directions.
+ */
+test("the fee is computed from the amount, because it depends on it", () => {
+  const fee = (amount: bigint) => relayFeeFor(amount, RELAY_KEY, MERCHANT);
+  const floor = RELAY_COMPUTE_MASS * SOMPI_PER_MASS * 120n / 100n;
+
+  /* Large payments sit on the compute floor: the gap is negligible beside the
+     amount, so storage mass is nothing. */
+  assert.equal(fee(200_000_000n), floor);
+  assert.equal(fee(20_000_000n), floor);
+
+  /* And it rises as the amount falls, before it stops being possible. */
+  assert.ok(fee(12_000_000n) >= floor);
+});
+
+test("below about 0.1 KAS the fee exceeds the payment, and it says why", () => {
+  /* Not a limit of this design, and not a failure to converge either: at a
+     small enough amount the arithmetic settles perfectly well, on an enormous
+     figure — 0.001 KAS converges at about 12 KAS of fee. A stable answer to
+     the wrong question. The test is whether the transport costs more than the
+     thing being bought, which is the one line that needs no argument.
+
+     Refused before anything is built, rather than returning a figure the node
+     rejects once the covenant spend is already broadcast — the one failure
+     this path cannot undo. */
+  for (const tooSmall of [5_000_000n, 2_000_000n, 100_000n]) {
+    assert.throws(
+      () => relayFeeFor(tooSmall, RELAY_KEY, MERCHANT),
+      (e: Error) => {
+        assert.match(e.message, /more than the payment itself/);
+        assert.match(e.message, /the gap is the fee|The gap is the fee/i);
+        assert.match(e.message, /Nothing has been built/);
+        return true;
+      },
+      `${tooSmall} should have no settling fee`,
+    );
+  }
+});
+
+test("a relayed payment funds itself with exactly the computed fee", async () => {
+  const amount = 20_000_000n;
+  const fee = relayFeeFor(amount, RELAY_KEY, MERCHANT);
+  const built = await buildRelayPayment(
+    {
+      source: { ...source, value: relayFunding(amount, fee) },
+      accepted: accepted({ amount: amount.toString() }),
+    },
+    sign,
+  );
+  assert.equal(built.signed.fee, fee, "the funding overage IS the fee, exactly");
+  const tx = JSON.parse(built.safeJson) as { outputs: { value: string }[]; storageMass: string };
+  assert.equal(tx.outputs.length, 1, "and there is nowhere else for it to go");
+  assert.equal(BigInt(tx.outputs[0]!.value), amount);
+  /* Under the compute floor at this size, which is why the floor is the fee. */
+  assert.ok(BigInt(tx.storageMass) < RELAY_COMPUTE_MASS);
 });

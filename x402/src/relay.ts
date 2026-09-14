@@ -96,6 +96,107 @@ export function relayFunding(amount: bigint, fee: bigint): bigint {
   return amount + fee;
 }
 
+/**
+ * The compute mass of a relayed payment, measured rather than fitted.
+ *
+ * `warda fee relay` on testnet-10, kaspad 2.0.1: the node refused 1,000 sompi
+ * on exactly this shape and named 162,400, at the 100 sompi per unit of mass
+ * this repository has now measured seven times without variation. So 1,624.
+ *
+ * This repo's fitted model — 1,920 base plus 1,118 an input — would have said
+ * 3,038, and the default derived from it was 2.25x too high. That model was
+ * fitted to version-1 transactions carrying a compute budget; a version-0
+ * input carries a sig-op count instead and masses differently. A number
+ * measured on the shape it describes beat a number derived from a shape it
+ * does not.
+ */
+export const RELAY_COMPUTE_MASS = 1_624n;
+
+/** Measured six times across six shapes, and it has never varied. */
+export const SOMPI_PER_MASS = 100n;
+
+/** The repo's convention: measured, then a fifth over, because mass varies. */
+const MARGIN_NUMERATOR = 120n;
+
+/**
+ * What this payment must carry, which depends on how much it is paying.
+ *
+ * NOT a constant, and finding out why is the most useful thing the
+ * measurement produced. Kaspa charges the greater of compute mass and KIP-9
+ * storage mass, and storage mass on a one-in-one-out payment is
+ * `C/output - C/input` — which is to say it grows with the GAP between them.
+ * The gap is the fee. So a fee large relative to the amount is itself what
+ * makes the fee large:
+ *
+ *     amount     storage mass at a 162,400 fee
+ *     2.0 KAS                                5
+ *     0.2 KAS                              403
+ *     0.1 KAS                            1,599   ← still under compute mass
+ *     0.05 KAS                           6,292   → needs 629,200, which needs more
+ *
+ * Below about 0.1 KAS the requirement feeds itself and there is no fee that
+ * settles. That is not a limit of this design; it is KIP-9 pricing a payment
+ * that leaves a small coin behind, and it is the same wall that puts a floor
+ * of roughly 0.02 KAS under any Kaspa payment at all. A relayed one sits
+ * higher because the fee cannot be taken out of a change output — there is no
+ * change output, and adding one costs far more than it saves.
+ *
+ * So this iterates to a fixed point and refuses out loud if there is not one,
+ * rather than returning a number that will be rejected after the covenant
+ * spend is already broadcast.
+ */
+export function relayFeeFor(amount: bigint, relayKey: Uint8Array, payee: Uint8Array): bigint {
+  const withMargin = (mass: bigint) =>
+    ((mass > RELAY_COMPUTE_MASS ? mass : RELAY_COMPUTE_MASS) * SOMPI_PER_MASS * MARGIN_NUMERATOR) /
+    100n;
+
+  let fee = withMargin(0n);
+  let settled = false;
+  /* Four is generous: storage mass rises monotonically with the fee, so this
+     converges on the first or second pass whenever it converges at all. */
+  for (let i = 0; i < 4 && !settled; i++) {
+    const needed = withMargin(
+      storageMass(
+        [{ value: amount + fee, scriptPublicKey: payToPubkeyScript(relayKey) }],
+        [{ value: amount, scriptPublicKey: payToPubkeyScript(payee) }],
+      ),
+    );
+    if (needed <= fee) settled = true;
+    else fee = needed;
+  }
+
+  /**
+   * Converging is not the same as being worth doing.
+   *
+   * At a small enough amount `C/(amount + fee)` goes to nothing and the
+   * requirement settles — on an enormous figure. A 0.001 KAS payment converges
+   * at about 12 KAS of fee, which is a perfectly stable answer to the wrong
+   * question. So the test is not whether arithmetic terminates; it is whether
+   * the transport costs more than the thing being bought.
+   *
+   * That line is where it is because it is the only one that needs no
+   * argument. Below it somebody may still want to pay — a fee is not
+   * necessarily wasted if the thing is worth having — so it is a refusal with
+   * an override rather than a hard stop.
+   */
+  if (!settled || fee > amount) {
+    throw new X402Error(
+      `paying ${amount} sompi through a relay would cost ${settled ? `${fee} sompi in fees` : "more in fees than any settling figure"} ` +
+        `— more than the payment itself.\n\n` +
+        `Kaspa charges the greater of compute mass and KIP-9 storage mass, and storage mass on ` +
+        `a payment with no change output grows with the GAP between what goes in and what ` +
+        `comes out. The gap is the fee. So below roughly 0.1 KAS a fee large enough to cover ` +
+        `the transaction is itself what makes the transaction expensive.\n\n` +
+        `This is the same wall that puts a floor of about 0.02 KAS under any Kaspa payment. A ` +
+        `relayed one sits higher, because the fee cannot come out of change: there is no ` +
+        `change output, and adding one costs far more than it saves.\n\n` +
+        `Nothing has been built. Buy something that costs more, pay this vendor from a wallet ` +
+        `rather than a grant, or pass --relay-fee to say you meant it.`,
+    );
+  }
+  return fee;
+}
+
 export interface RelayInput {
   /** The coin the covenant spend created, at a key the agent holds. */
   source: {

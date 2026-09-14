@@ -24,7 +24,7 @@ import {
 
 import { schnorr } from "@noble/curves/secp256k1.js";
 
-import { DEFAULT_RELAY_FEE_SOMPI } from "../src/pay-v2.ts";
+import { relayFeeFor } from "../src/relay.ts";
 import { wardaFetch } from "../src/fetch.ts";
 import { buildRelayPayment } from "../src/relay.ts";
 import { dialect, readPaymentRequired, selectRequirement } from "../src/v2.ts";

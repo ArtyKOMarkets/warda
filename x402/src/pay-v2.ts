@@ -128,21 +128,24 @@ export interface BuildV2Input {
    */
   relay?: boolean;
   /**
-   * The fee for the relayed transaction, in sompi.
+   * The fee for the relayed transaction, in sompi. Normally computed.
    *
    * It is not a setting so much as a consequence: the relay coin is spent
-   * WHOLE — a change output costs four orders of magnitude more storage mass
-   * than none — so whatever the grant sends above the invoice is the fee, and
-   * anything left over is not recoverable. The default is measured, not
-   * guessed: a one-input one-output payment masses ~1,108 for storage and
-   * ~3,038 for compute, priced at 100 sompi per unit, with the same ~20%
-   * margin the rest of this repo's fee defaults carry.
+   * WHOLE — a change output costs far more storage mass than it saves — so
+   * whatever the grant sends above the invoice IS the fee, and anything left
+   * over is not recoverable.
+   *
+   * Left unset, `relayFeeFor` works it out from the amount, because the right
+   * figure depends on it: Kaspa charges the greater of compute mass and KIP-9
+   * storage mass, and storage mass on a payment with no change grows with the
+   * gap between input and output — which is the fee. See `relay.ts`.
+   *
+   * Set it only to override a computation that is measured. There is no
+   * correcting it afterwards: by the time a node can price this transaction,
+   * the covenant spend that funds it is already broadcast.
    */
   relayFeeSompi?: bigint;
 }
-
-/** See `BuildV2Input.relayFeeSompi`. 3,038 mass × 100 sompi, +20%. */
-export const DEFAULT_RELAY_FEE_SOMPI = 365_000n;
 
 /**
  * The amount, as a bigint, or a refusal naming what arrived.

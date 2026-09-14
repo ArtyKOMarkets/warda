@@ -135,10 +135,20 @@ try {
     say(`  measured        ${wanted}`);
     say(`  +20% margin     ${suggested}`);
     say(`  storage mass    ${mass}`);
-    say(`  implied rate    ${Number(wanted) / Number(mass) === 0 ? "?" : (Number(wanted) / Number(mass)).toFixed(1)} sompi per unit of storage mass`);
+    /* Storage mass on this shape is usually ZERO — the output is barely
+       smaller than the input, and KIP-9 prices the gap — so the fee is
+       compute-driven and dividing by storage mass says Infinity. The useful
+       figure is the compute mass the node implied, at the 100 sompi per unit
+       this repository has now measured seven times without variation. */
+    say(`  implied compute mass  ${wanted / 100n}  (at 100 sompi per unit)`);
+    if (mass === 0n) {
+      say(`  storage mass is 0 here: the output is barely smaller than the input, and`);
+      say(`  KIP-9 prices the GAP between them. It only bites on small payments.`);
+    }
     say();
-    say(`Set DEFAULT_RELAY_FEE_SOMPI in x402/src/pay-v2.ts to ${suggested}, or pass`);
-    say(`--relay-fee to warda pay. Nothing was spent: the transaction was never accepted.`);
+    say(`Set RELAY_COMPUTE_MASS in x402/src/relay.ts to ${wanted / 100n} if this differs from`);
+    say(`what is there. The fee itself is computed per payment — it depends on the amount —`);
+    say(`so there is no constant to update. Nothing was spent: this was never accepted.`);
   }
 } finally {
   client.close();

@@ -44,11 +44,10 @@ export type ChainAccess = Pick<
 >;
 
 import { X402Error, type PaymentRequirement } from "./protocol.ts";
-import { buildRelayPayment, relayFunding, type RelayPayment } from "./relay.ts";
+import { buildRelayPayment, relayFeeFor, relayFunding, type RelayPayment } from "./relay.ts";
 import {
   amountOf,
   assertPayeeScriptMatches,
-  DEFAULT_RELAY_FEE_SOMPI,
   GRANT_INPUT_INDEX,
   PAYEE_OUTPUT_INDEX,
   type BuildV2Input,
@@ -431,7 +430,14 @@ export class WardaPayer {
      * than unfortunate: the fee is part of what buying the thing costs, and a
      * budget that did not count it would mean less than it says.
      */
-    const relayFee = input.relayFeeSompi ?? DEFAULT_RELAY_FEE_SOMPI;
+    /* Computed from the amount unless overridden, because the right figure
+       depends on it — and refused out loud when there is no figure that
+       settles, which is what a small invoice produces. Either way this happens
+       BEFORE the covenant spend is built: the fee cannot be corrected once
+       that is broadcast. */
+    const relayFee = input.relay
+      ? (input.relayFeeSompi ?? relayFeeFor(amountSompi, fromHex(this.grant.state.agentKey), payee))
+      : 0n;
     const key = input.relay ? fromHex(this.grant.state.agentKey) : payee;
     const spendAmount = input.relay ? relayFunding(amountSompi, relayFee) : amountSompi;
 
