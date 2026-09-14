@@ -184,9 +184,27 @@ export function signOrdinaryPayment(
 ): SignedOrdinaryPayment {
   const fee = ordinaryPaymentFee(p);
   const sighash = ordinaryPaymentSighash(p);
-  const signature = sign(sighash);
-  if (signature.length !== 64) {
-    throw new Error(`a Schnorr signature is 64 bytes, got ${signature.length}`);
+  const raw = sign(sighash);
+  /**
+   * 64 or 65, because this SDK's own signer returns 65.
+   *
+   * A Kaspa TRANSACTION signature is 64 bytes of Schnorr plus a trailing
+   * sighash-type byte, and `signDigest` appends it — so bytes 0..64 are not a
+   * truncation of anything, they are the signature. This demanded exactly 64
+   * and therefore rejected the signer every other tool in this repo uses,
+   * which is a trap laid for every future caller rather than a check.
+   *
+   * The byte is appended below from the same constant the verifier checks, so
+   * passing 65 straight through would produce a 67-byte signature script and
+   * an instant refusal. Anything that is neither length is a signer doing
+   * something else entirely, and is still refused.
+   */
+  const signature =
+    raw.length === 65 ? raw.subarray(0, 64) : raw.length === 64 ? raw : undefined;
+  if (!signature) {
+    throw new Error(
+      `a Schnorr signature is 64 bytes, or 65 with Kaspa's sighash-type byte. Got ${raw.length}.`,
+    );
   }
   /* 0x41 is a push of 65 bytes: the signature, then the sighash type. The
      verifier checks this length and these two bytes exactly, so anything

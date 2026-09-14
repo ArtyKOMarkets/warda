@@ -131,3 +131,41 @@ test("a payment that cannot cover itself is refused before anything is signed", 
   assert.throws(() => ordinaryPaymentFee(payment({ amount: 4_000_000n })), /cannot cover the amount/);
   assert.throws(() => ordinaryPaymentFee(payment({ amount: 0n })), /must be positive/);
 });
+
+test("the SDK's own signer is accepted, which it was not", () => {
+  /* `signDigest` returns 65 bytes — 64 of Schnorr plus Kaspa's sighash-type
+     byte — and this demanded exactly 64. So the one signer every tool in this
+     repo uses was rejected, and the only reason it went unnoticed is that the
+     first caller happened to trim before calling. That made the trim look like
+     the caller's job, which is a trap laid for the next one. It hit on the
+     first real use. */
+  const p = payment();
+  const sixtyFive = signOrdinaryPayment(p, (d) => {
+    const s = new Uint8Array(65);
+    s.set(schnorr.sign(d, SECRET), 0);
+    s[64] = 0x01;
+    return s;
+  });
+  const sixtyFour = signOrdinaryPayment(p, (d) => schnorr.sign(d, SECRET));
+
+  /* Not compared byte for byte: BIP-340 signing takes auxiliary randomness, so
+     two signatures over the same digest differ and always will. What must
+     match is the SHAPE and the fact that both verify. */
+  for (const signed of [sixtyFive, sixtyFour]) {
+    assert.equal(signed.signatureScript.length, 66, "65-byte push plus the type byte");
+    assert.equal(signed.signatureScript[0], 0x41);
+    assert.equal(signed.signatureScript[65], 0x01, "one sighash byte, not two");
+    assert.equal(
+      schnorr.verify(signed.signatureScript.subarray(1, 65), signed.sighash, MINE),
+      true,
+      "and the 64 bytes in the middle are a signature over the digest",
+    );
+  }
+});
+
+test("a signature that is neither length is still refused", () => {
+  assert.throws(
+    () => signOrdinaryPayment(payment(), () => new Uint8Array(32)),
+    /64 bytes, or 65 with Kaspa's sighash-type byte. Got 32/,
+  );
+});

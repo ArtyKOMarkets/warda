@@ -160,11 +160,11 @@ export async function buildRelayPayment(
   ordinaryPaymentFee(payment); // refuses before signing if the coin cannot cover it
   /* Signed up front rather than inside, so the async signer is awaited once
      and `signOrdinaryPayment` stays synchronous — it is also used where there
-     is no event loop to wait on. */
+     is no event loop to wait on. The 65-byte form this SDK's signer returns is
+     trimmed there, not here: it was trimmed in both places until a tool that
+     called `signOrdinaryPayment` directly hit the check this duplicated. */
   const signature = await sign(ordinaryPaymentSighash(payment));
-  const signed = signOrdinaryPayment(payment, () =>
-    signature.length === 65 ? signature.subarray(0, 64) : signature,
-  );
+  const signed = signOrdinaryPayment(payment, () => signature);
 
   const mass = storageMass(
     [{ value: input.source.value, scriptPublicKey: payToPubkeyScript(input.source.publicKey) }],
