@@ -184,6 +184,29 @@ export function spendSignatureScript(plan: SpendPlan, signature: Uint8Array): Ui
  * that no longer matches its own state and is unspendable forever.
  */
 export function buildUnsignedSpend(plan: SpendPlan): UnsignedSpend {
+  /**
+   * Checked FIRST, and by name, because the alternative is unreadable.
+   *
+   * The covenant id ends up inside a hash, so a missing one does not fail
+   * here — it fails several frames down in @noble/hashes as
+   * `expected Uint8Array, got type=undefined`, which names neither the field
+   * nor the transport nor the grant. A reader that dropped the field cost an
+   * afternoon of looking at the wrong layer for exactly that reason.
+   *
+   * It cannot be defaulted. An all-zero id is a valid-looking binding to the
+   * wrong covenant, which is the one failure this protocol must never produce
+   * quietly.
+   */
+  if (!(plan.utxo.covenantId instanceof Uint8Array) || plan.utxo.covenantId.length !== 32) {
+    throw new Error(
+      `this UTXO carries no covenant id, so there is no binding to spend it with.\n\n` +
+        `A grant's coin always has one. An absent field means it was dropped between the ` +
+        `node and here — by a pre-covenant node, or by a client that does not deserialize ` +
+        `it — and not that the grant is unbound.\n\n` +
+        `Check the node with the grant's address before building anything else: that is ` +
+        `the one check whose failure produces a signed transaction rather than an error.`,
+    );
+  }
   if (plan.amount <= 0n) throw new Error("amount must be positive");
   if (plan.claimedDaa < plan.state.notBefore) {
     throw new Error(

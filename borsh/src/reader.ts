@@ -470,6 +470,11 @@ function nest(raw: unknown): unknown {
   let inner = (e.utxoEntry ?? e) as Record<string, unknown>;
   let amount = inner.amount ?? inner.value;
   let spk = inner.scriptPublicKey ?? inner.script_public_key;
+  /* The nested UtxoEntry, which is NOT the same set of fields as the reference
+     above it. See `covenantId` below — it is the one thing that lives only
+     down here, and reading it from the wrong level is invisible until a spend
+     is built. */
+  let deep = (e.entry ?? {}) as Record<string, unknown>;
 
   /* One step down, and only after the flat read came back empty.
      `UtxoEntryReference` carries BOTH — `amount` at the top and a nested
@@ -481,6 +486,7 @@ function nest(raw: unknown): unknown {
      the test below reads through it. */
   if (amount === undefined && e.entry && typeof e.entry === "object") {
     inner = e.entry as Record<string, unknown>;
+    deep = inner;
     amount = inner.amount ?? inner.value;
     spk = inner.scriptPublicKey ?? inner.script_public_key;
   }
@@ -514,14 +520,26 @@ function nest(raw: unknown): unknown {
       scriptPublicKey: spk,
       blockDaaScore: inner.blockDaaScore ?? inner.block_daa_score ?? 0n,
       isCoinbase: inner.isCoinbase ?? inner.is_coinbase ?? false,
-      /* The field that separates a grant from an ordinary coin, and the one
-         this reader could not carry at all until there was a module that
-         deserializes it. `parseUtxos` hex-decodes it through `String()`,
-         which is what a wasm `Hash` answers with, so it is passed along as
-         the object rather than stringified here. Undefined stays undefined:
-         that is the ambiguity `assertCovenantAware` exists to resolve, and
-         resolving it here would be a guess. */
-      covenantId: inner.covenantId ?? inner.covenant_id,
+      /* The field that separates a grant from an ordinary coin — and the one
+         that is NOT on the object every other field comes from.
+         `UtxoEntryReference` flattens isCoinbase, blockDaaScore,
+         scriptPublicKey, amount, address and outpoint up to the top, and stops
+         there: `covenantId` exists only on the nested `entry`. So the read
+         above, which takes the reference whenever it carries an `amount` —
+         always — found nothing, every time.
+         
+         Nothing complained. A vendor is paid at an ordinary P2PK address and
+         never reads this, the health check reports an absent covenant id as
+         the node's fault, and it only becomes visible when a spend is BUILT:
+         the binding it needs is undefined, and the failure surfaces from a
+         hash function as `expected Uint8Array, got type=undefined`, which
+         names neither the field nor the transport.
+         
+         `parseUtxos` hex-decodes through `String()`, which is what a wasm
+         `Hash` answers with, so it passes along as the object. Undefined stays
+         undefined: that is the ambiguity `assertCovenantAware` exists to
+         resolve, and resolving it here would be a guess. */
+      covenantId: inner.covenantId ?? deep.covenantId ?? inner.covenant_id ?? deep.covenant_id,
     },
   };
 }

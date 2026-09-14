@@ -679,3 +679,37 @@ test("close never rejects, and is safe to call twice", async () => {
   again.close();
   await new Promise((r) => setTimeout(r, 10));
 });
+
+test("the covenant id is found on the nested entry, where it actually lives", async () => {
+  /* `UtxoEntryReference` flattens isCoinbase, blockDaaScore, scriptPublicKey,
+     amount, address and outpoint up to the top — and stops there. covenantId
+     exists ONLY on the nested `entry`. Every other field being present at the
+     top is what made this invisible: the reader took the reference, found
+     everything it looked for, and never went down.
+
+     Nothing complained. A vendor never reads it, and the health check blames
+     the node for an absent one. It surfaced only when a spend was built, out
+     of a hash function, as `expected Uint8Array, got type=undefined`. */
+  const id = "cc".repeat(32);
+  const reference = {
+    address: ENTRY.address,
+    outpoint: ENTRY.outpoint,
+    amount: ENTRY.utxoEntry.amount,
+    scriptPublicKey: ENTRY.utxoEntry.scriptPublicKey,
+    blockDaaScore: ENTRY.utxoEntry.blockDaaScore,
+    isCoinbase: false,
+    /* No covenantId here. That is the whole point of this test. */
+    entry: {
+      amount: ENTRY.utxoEntry.amount,
+      scriptPublicKey: ENTRY.utxoEntry.scriptPublicKey,
+      blockDaaScore: ENTRY.utxoEntry.blockDaaScore,
+      isCoinbase: false,
+      covenantId: { toString: () => id },
+    },
+  };
+  const r = await BorshReader.open({ client: fake({}, { entries: [reference] }), wasm: fakeWasm() });
+  const utxos = await r.getUtxosByAddresses([GRANT]);
+  assert.equal(utxos[0]!.entry.value, ENTRY.utxoEntry.amount, "the flat fields still come from the top");
+  assert.equal(toHex(utxos[0]!.entry.covenantId!), id, "and the covenant id from one level down");
+  await r.assertCovenantAware(GRANT);
+});
