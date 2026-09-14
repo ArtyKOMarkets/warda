@@ -63,6 +63,19 @@ export {
   type UtxoEntry,
 } from "./tx.ts";
 
+/**
+ * Ordinary version-0 payments. The exception to everything else here, and
+ * `v0.ts` explains why it has to exist.
+ */
+export {
+  ordinaryPaymentFee,
+  ordinaryPaymentId,
+  ordinaryPaymentSighash,
+  signOrdinaryPayment,
+  type OrdinaryPayment,
+  type SignedOrdinaryPayment,
+} from "./v0.ts";
+
 export {
   attachSignature,
   buildUnsignedSpend,
