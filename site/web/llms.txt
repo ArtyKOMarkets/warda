@@ -37,6 +37,36 @@ should not hold real money yet.
 - [@warda_protocol/x402](https://www.npmjs.com/package/@warda_protocol/x402): a
   drop-in `fetch` that pays an HTTP 402 out of a grant, and never pays twice for
   one resource.
+- [@warda_protocol/vendor](https://www.npmjs.com/package/@warda_protocol/vendor):
+  the seller's half. Quote a price, then look in the UTXO set for the coin you
+  were promised. Never trust the payment header: it is written by the party who
+  benefits from lying.
+- [@warda_protocol/verify](https://www.npmjs.com/package/@warda_protocol/verify):
+  a stateless verification API a counterparty can point at a grant without
+  asking its holder anything. Holds no key and decides nothing.
+- [@warda_protocol/borsh](https://www.npmjs.com/package/@warda_protocol/borsh):
+  read and submit over borsh, which is what the public Kaspa resolvers actually
+  serve. This is why neither buying nor selling needs you to run a node.
+- [@warda_protocol/cli](https://www.npmjs.com/package/@warda_protocol/cli): the
+  `warda` command, for anything that is not JavaScript. JSON on stdout and exit
+  codes that mean something, so a payment loop can be a subprocess rather than a
+  second implementation of the covenant rules.
+
+## Hosted endpoints
+
+`https://mcp.wardaprotocol.com/mcp` — the MCP server above, over Streamable
+HTTP, so an agent framework needs one line of config instead of an install.
+
+`https://verify.wardaprotocol.com` — the verification API. `GET /health` says
+which Kaspa node it is reading and whether that node passed four checks;
+`GET /v1/grant/{address}` says what a node alone can tell you about an address,
+including what it cannot tell you at all; `POST /v1/verify` checks whether terms
+someone handed you describe the grant they claim. It runs no node of its own —
+it reads a resolver-chosen public one over borsh — and it refuses to answer
+from a node that fails any check rather than returning a plausible number.
+
+Both are conveniences, not authorities. Every package above runs the identical
+logic locally, and a verifier you have to trust is not a verifier.
 
 ## MCP tools
 
