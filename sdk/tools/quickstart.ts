@@ -22,7 +22,7 @@
  * value: no default resolver, no guessed faucet, no fabricated allowlist.
  */
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 
 import { pubkeyToAddress, type NetworkPrefix } from "../src/address.ts";
 import { fromHex } from "../src/bytes.ts";
@@ -52,6 +52,25 @@ const budget = flag("budget", "1000000000")!;         // 10 KAS
 const maxPerSpend = flag("max-per-spend", "100000000")!; // 0.1 KAS
 const epochLimit = flag("epoch-limit", "500000000")!;    // 0.5 KAS
 const recipients = flag("recipients");
+/**
+ * `--relay`: let this agent pay ITSELF, so it can reach an x402 `exact` vendor.
+ *
+ * x402's `exact` scheme requires the payer's input to be a bare P2PK unlocked
+ * by one signature, which a covenant spend can never be. So a bounded payer
+ * reaches such a vendor in two transactions — the grant pays a key the agent
+ * holds, and an ordinary payment goes from there to the merchant. That key has
+ * to be on the allowlist, or the covenant refuses to build the first half.
+ *
+ * The cost is real and is the allowlist, for that hop: once a coin sits at a
+ * key the agent holds, the agent chooses where it goes. Budget, per-payment
+ * cap, epoch limit and window all still bind, so the exposure is one invoice
+ * rather than the grant — but the sentence "may pay only the addresses you
+ * listed" stops being true, and this flag is the only way to make it stop.
+ *
+ * Which is why it is a flag, why it writes the agent's own address into the
+ * allowlist file in plain sight, and why `x402/RELAY.md` spells out the trade.
+ */
+const relay = process.argv.includes("--relay");
 const out = flag("out", "grant.json")!;
 /**
  * Where to write the agent's secret.
@@ -209,6 +228,59 @@ if (!agentSecret || !agentPublic) {
 if (agentOut) {
   writeFileSync(agentOut, agentSecret + "\n", { mode: 0o600 });
   say(`Agent key written to ${agentOut} (0600).`);
+}
+
+/**
+ * The relay key goes into the allowlist FILE, not just into this run.
+ *
+ * A grant commits to the Merkle root of its payees, and every tool that spends
+ * rebuilds that list from the file to produce an inclusion proof. An extra
+ * member known only to this process would commit a root nothing downstream can
+ * reproduce — the grant would be spendable by nobody, which is the worst
+ * failure this list has.
+ *
+ * So the file gains a line, and the line says what it is. Anyone reading the
+ * allowlist later sees the agent's own address in it, which is the honest
+ * record of what was enabled.
+ */
+if (relay) {
+  const relayAddress = pubkeyToAddress(fromHex(agentPublic), prefix);
+  /* A FILE, or nothing. An inline list would work for this one run and strand
+     the grant afterwards: the relay key would be in the committed root and in
+     nobody's records, so the next spend rebuilds the list from what the caller
+     kept, gets a different root, and the covenant refuses a proof of membership
+     in a set it never committed to. There is no warning that fixes that, so it
+     is refused here instead. */
+  if (!existsSync(recipients!)) {
+    console.error(
+      `--relay needs --recipients to be a FILE, and ${recipients} is an inline list.\n\n` +
+        `The relay key becomes part of the allowlist the grant commits to, and every spend\n` +
+        `rebuilds that list to prove a payee is in it. Written only into this command line,\n` +
+        `it would be committed and then lost — leaving a grant that can be revoked and\n` +
+        `never spent.\n\n` +
+        `  printf '%s\\n' ${recipients} > payees.txt\n` +
+        `  ... --recipients payees.txt --relay\n\n` +
+        `Nothing has been created.`,
+    );
+    process.exit(1);
+  }
+  try {
+    appendFileSync(recipients!, `\n# --relay: this agent may pay itself, to reach x402 exact vendors\n${relayAddress}\n`);
+  } catch (e) {
+    console.error(
+      `--relay could not write to ${recipients}: ${(e as Error).message}\n\n` +
+        `The allowlist file has to carry the relay key, because every spend rebuilds the\n` +
+        `member list from it to prove inclusion. Nothing has been created.`,
+    );
+    process.exit(1);
+  }
+  say();
+  say(`--relay  the agent's own address is now on the allowlist:`);
+  say(`         ${relayAddress}`);
+  say(`         written into ${recipients}`);
+  say(`         This agent can move up to its per-payment cap to a key it holds, and`);
+  say(`         then send it anywhere. The budget, cap, epoch limit and window still`);
+  say(`         bind; the allowlist does not, for that hop. See x402/RELAY.md.`);
 }
 
 say();

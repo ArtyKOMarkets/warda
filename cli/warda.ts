@@ -188,6 +188,8 @@ const HELP = `warda — bounded spending authority for an agent, on Kaspa.
   warda key      [--out f.key]  a new keypair, and its address
   warda wallet   [consolidate]  an ordinary key: what it holds, what it can fund
   warda grant    --payees <f>   create a grant. Limits in KAS.
+                 [--relay]      also allow the agent to pay itself, which is
+                                what buying from an x402 exact vendor needs
                                 [--budget 10] [--max-per-spend 1] [--epoch-limit 2]
                                 [--key <funder.key>, or set WARDA_SK]
   warda balance                 what may this agent spend right now?
@@ -412,6 +414,10 @@ switch (verb) {
          from the CLI, and the separation exists precisely for the case where
          the principal key is the thing that went wrong. */
       ...(flag("revocation") ? ["--revocation", flag("revocation")!] : []),
+      /* Puts the agent's own address on the allowlist, so it can reach an
+         x402 `exact` vendor through a relay hop. It costs the allowlist for
+         that hop and nothing else; quickstart says so at the point of use. */
+      ...(has("relay") ? ["--relay"] : []),
       ...rpcArgs(cfg),
     ], funderEnv);
     if (status !== 0) process.exit(status);
