@@ -451,6 +451,39 @@ export class WardaPayer {
     /* Checked against the SPEND amount, not the invoice: a relayed payment
        charges the grant the fee too, and a cap or epoch limit that only saw
        the invoice would approve a spend the covenant then refuses. */
+    /**
+     * On a relay, the allowlist refusal has to say something different — and
+     * the difference is not cosmetic.
+     *
+     * `explainRefusal` says "there is no valid transaction that pays them —
+     * not one the network would reject, none at all". That is exactly true of
+     * a direct spend and FALSE of a relayed one: the covenant pays the agent,
+     * and the agent can pay anybody. This client refuses anyway, because a
+     * payee nobody committed to is far more often a typo or a swapped vendor
+     * than an intention — but it must not claim the covenant is doing it.
+     *
+     * The honest version says which it is. Telling somebody the chain forbids
+     * what only this process forbids is the kind of claim that gets believed
+     * and then discovered, and this protocol's whole value is that its
+     * refusals are the first kind.
+     */
+    if (input.relay && !this.grant.recipients.has(toHex(payee))) {
+      throw new X402Error(
+        `${req.payTo} is not on this grant's allowlist, and this client will not relay to a ` +
+          `payee that is not on it.\n\n` +
+          `That refusal is THIS CLIENT's, not the covenant's. A relayed payment pays the ` +
+          `agent's own key and the agent pays the vendor, so the chain does not constrain who ` +
+          `ultimately receives it — which is the price of reaching an x402 exact vendor at ` +
+          `all, and why --relay is typed rather than inferred.\n\n` +
+          `What the covenant still enforces, here and always: the budget, the per-payment ` +
+          `cap, the epoch limit and the window.\n\n` +
+          `To buy from this vendor, commit to them when the grant is created — an allowlist ` +
+          `is fixed at genesis:\n\n` +
+          `  echo ${req.payTo} >> payees.txt\n` +
+          `  warda grant --payees payees.txt --relay`,
+      );
+    }
+
     const refusal = explainRefusal(
       { ...req, amountSompi: spendAmount },
       this.grant,

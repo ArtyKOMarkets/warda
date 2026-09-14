@@ -410,9 +410,41 @@ test("COST: this client guards the payee, and the guard is a client-side one", a
         relay: true,
         fetchImpl: (async () => theirResponse()) as never,
       }),
-    /not on this grant's allowlist/,
+    (e: Error) => {
+      assert.match(e.message, /this client will not relay to a payee that is not on it/);
+      /* The sentence that has to be there. The direct-spend refusal says "there
+         is no valid transaction that pays them — none at all", which is true of
+         a covenant spend and FALSE here: the agent can pay anybody. Telling
+         somebody the chain forbids what only this process forbids is the kind
+         of claim that gets believed and then discovered. */
+      assert.match(e.message, /THIS CLIENT's, not the covenant's/);
+      assert.match(e.message, /the chain does not constrain who ultimately receives it/);
+      /* And what IS still enforced, named in the same breath. */
+      assert.match(e.message, /budget, the per-payment cap, the epoch limit and the window/);
+      return true;
+    },
   );
   assert.equal(payer.state.spentTotal, 0n);
+});
+
+test("COST: and a DIRECT spend still says the chain forbids it, because it does", async () => {
+  /* The same refusal at the layer where the strong claim is true. Kept beside
+     the relay one so the two readings cannot drift into each other. */
+  const stranger = new RecipientSet([fromHex("cc".repeat(32))]);
+  const other: Grant = {
+    ...grant,
+    recipients: stranger,
+    state: { ...grant.state, recipientsRoot: stranger.rootHex },
+  };
+  const payer = new WardaPayer({ grant: other, node, sign: AGENT });
+  await assert.rejects(
+    () =>
+      payer.buildPaymentV2({
+        accepted: selectRequirement(readPaymentRequired(HEADER, BODY)),
+        request: { method: "GET", url: "https://demo.kaspa-x402.org/exact" },
+      }),
+    /no valid transaction that pays them/,
+  );
 });
 
 test("COST: the quantitative limits are untouched, and those ARE enforced", async () => {
