@@ -329,18 +329,34 @@ export async function wardaFetchV2(
      * finding. Anything undecodable is reported raw, because a header we
      * cannot parse is still evidence.
      */
-    const responseHeader = paid.headers.get(PAYMENT_RESPONSE_HEADER);
-    let settlement = "";
-    if (responseHeader) {
+    const decodeHeader = (name: string): string => {
+      const raw = paid.headers.get(name);
+      if (!raw) return "";
       try {
-        settlement = JSON.stringify(
-          JSON.parse(Buffer.from(responseHeader, "base64").toString("utf8")),
-        );
+        return `${name}: ${JSON.stringify(JSON.parse(Buffer.from(raw, "base64").toString("utf8")))}`;
       } catch {
-        settlement = responseHeader.slice(0, 2_000);
+        /* A header we cannot parse is still evidence. */
+        return `${name}: ${raw.slice(0, 2_000)}`;
       }
-    }
-    const vendorSaid = [body, settlement && `${PAYMENT_RESPONSE_HEADER}: ${settlement}`]
+    };
+
+    /**
+     * BOTH headers, because a refusal arrives as one or the other.
+     *
+     * `PAYMENT-RESPONSE` carries a settlement response — the vendor ran its
+     * verifier and is telling you which check failed. `PAYMENT-REQUIRED`
+     * carries a fresh quote, which means the vendor did NOT consider a payment
+     * present at all and is asking again; its `error` field says why.
+     *
+     * The first live relayed payment came back with neither read: a body of
+     * `{"ok":false,"error":"payment_required"}`, which is the reference
+     * gateway's DEFAULT body for a 402 with nothing in it, and therefore says
+     * nothing whatsoever. The two possibilities above are completely different
+     * problems — one is our payload, one is our payment — and the body cannot
+     * tell them apart. Reading only it left "it did not work" as the entire
+     * finding from a payment that cost a real signature, twice.
+     */
+    const vendorSaid = [body, decodeHeader(PAYMENT_RESPONSE_HEADER), decodeHeader(PAYMENT_REQUIRED_HEADER)]
       .filter(Boolean)
       .join("\n");
 

@@ -692,3 +692,32 @@ test("and with no such header, the body alone is still reported", async () => {
   assert.match(said, /payment_required/);
   assert.doesNotMatch(said, /PAYMENT-RESPONSE/);
 });
+
+/**
+ * A re-quote is a different failure from a refusal, and only the headers
+ * distinguish them.
+ *
+ * `PAYMENT-RESPONSE` means the vendor ran its verifier and is naming the check
+ * that failed. `PAYMENT-REQUIRED` on the PAID response means the vendor did
+ * not consider a payment present at all and is quoting again — a completely
+ * different problem, with `error` saying why.
+ *
+ * The body cannot tell them apart: the reference gateway's 402 body is
+ * `{"ok":false,"error":"payment_required"}` whenever it has nothing else to
+ * say, which is both cases. Two live payments produced exactly that and
+ * therefore produced no finding at all.
+ */
+test("a re-quote on the paid response is reported, with its reason", async () => {
+  const requote = {
+    x402Version: 2,
+    resource: "https://demo.kaspa-x402.org/exact",
+    accepts: [],
+    error: "invalid_payload",
+  };
+  const said = await vendorSaidWhenRefused({
+    "PAYMENT-REQUIRED": Buffer.from(JSON.stringify(requote)).toString("base64"),
+  });
+
+  assert.match(said, /PAYMENT-REQUIRED/, "the vendor asked again rather than refusing");
+  assert.match(said, /invalid_payload/, "and said why");
+});
