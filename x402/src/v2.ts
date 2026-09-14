@@ -39,6 +39,7 @@ import {
   X402_VERSION,
   exactAuthorizationExpiresAt,
   exactRequestAuthorizationDigest,
+  paymentIdentifierExtension,
   encodePaymentSignatureHeader,
   sha256Hex,
   stableStringify,
@@ -409,6 +410,36 @@ export interface PaymentInput extends AuthorizeInput {
  */
 export type ExactPayment = PaymentPayload & { payload: ExactTransactionPayload };
 
+/**
+ * The idempotency key their server requires, and silently re-quotes without.
+ *
+ * `handlePaidRequest`, for scheme `exact`:
+ *
+ *     if ((config.requirePaymentIdentifier || accepted.scheme === "exact")
+ *         && !paymentIdentifier)
+ *       return this.#paymentRequiredResponse({ ... });
+ *
+ * A bare re-quote. No error field, no settlement response, and the reference
+ * gateway then fills in its default 402 body — which is the
+ * `{"ok":false,"error":"payment_required"}` that two live relayed payments
+ * came back with, on chain, accepted, and unserved. A required field whose
+ * absence produces a fresh quote rather than a complaint is the hardest kind
+ * of protocol mismatch to find from outside, and it is why this is a comment
+ * and not one line of code.
+ *
+ * The TRANSACTION ID is the identifier. It has the two properties the field
+ * needs and nothing else does: stable across re-presentations of the same
+ * payment, so their idempotency cache recognises a retry as the same purchase
+ * rather than a second one; and unique per payment, because it is a hash of
+ * it. Their pattern allows `[A-Za-z0-9_-]{16,128}`, and 64 hex characters sit
+ * inside that.
+ */
+function paymentIdentifierFor(transactionId: string) {
+  return {
+    "payment-identifier": paymentIdentifierExtension({ required: true, id: transactionId }),
+  };
+}
+
 export async function buildPayment(
   input: PaymentInput,
   signDigest: AuthorizationSigner,
@@ -417,6 +448,7 @@ export async function buildPayment(
   return {
     x402Version: X402_VERSION,
     accepted: input.accepted,
+    extensions: paymentIdentifierFor(input.transactionId),
     payload: {
       type: "exact-transaction",
       profile: "standard-native",

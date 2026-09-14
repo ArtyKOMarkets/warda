@@ -23,6 +23,8 @@ import { test } from "node:test";
 import {
   X402_VERSION,
   bindRequestHashToTrustedContext,
+  validatePaymentIdentifierInfo,
+  validatePaymentPayload,
   sha256Hex,
   stableStringify,
 } from "@kaspa-x402/core";
@@ -349,4 +351,53 @@ test("a payment this client assembles wrongly fails here, not after broadcast", 
   // a payment output index their schema will not accept
   const broken = { ...payment, payload: { ...payment.payload, paymentOutputIndex: -1 } };
   assert.throws(() => paymentSignatureHeader(broken as never));
+});
+
+// ---- the identifier their server requires and never asks for --------------
+
+/**
+ * A required field whose absence produces a fresh QUOTE rather than a
+ * complaint, which is the hardest kind of mismatch to find from outside.
+ *
+ * `handlePaidRequest`, for scheme `exact`:
+ *
+ *     if ((config.requirePaymentIdentifier || accepted.scheme === "exact")
+ *         && !paymentIdentifier)
+ *       return this.#paymentRequiredResponse({ ... });
+ *
+ * No error field, no settlement response — and the reference gateway then
+ * fills in its default 402 body, `{"ok":false,"error":"payment_required"}`.
+ * Two live relayed payments came back with exactly that: on chain, accepted,
+ * and unserved, with nothing in the response naming which of a dozen checks
+ * had refused them.
+ *
+ * Read here exactly the way `readPaymentIdentifier` reads it — extensions,
+ * then the key, then info, then id — because any undefined on that path is a
+ * silent re-quote, and asserting our own shape back at ourselves is what let
+ * this through in the first place.
+ */
+test("every exact payment carries the payment identifier their server demands", async () => {
+  const payment = await buildPayment({ ...AUTH, transaction: "{}" }, sign);
+
+  const info = (payment.extensions as Record<string, { info?: { id?: unknown } }> | undefined)?.[
+    "payment-identifier"
+  ]?.info;
+  assert.equal(typeof info?.id, "string", "their server re-quotes without this, saying nothing");
+  assert.ok(validatePaymentIdentifierInfo(info).ok, "and their validator must accept it");
+
+  /* The transaction id, because it is the only value with both properties the
+     field needs: stable across re-presentations of one payment, so their
+     idempotency cache sees a retry rather than a second purchase; and unique
+     per payment, because it is a hash of it. */
+  assert.equal(info!.id, AUTH.transactionId);
+  assert.match(String(info!.id), /^[A-Za-z0-9_-]{16,128}$/, "their pattern");
+});
+
+test("and the payload still passes their whole-payload validator with it", async () => {
+  const payment = await buildPayment({ ...AUTH, transaction: "{}" }, sign);
+  assert.ok(validatePaymentPayload(payment).ok);
+  /* Their encoder runs the validator too, so this is the same check from the
+     other side — a payload that assembles wrongly fails here rather than at
+     their facilitator with a transaction already broadcast. */
+  assert.ok(paymentSignatureHeader(payment).length > 0);
 });
