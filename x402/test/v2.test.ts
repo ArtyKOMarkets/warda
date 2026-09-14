@@ -20,7 +20,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
-import { X402_VERSION, sha256Hex, stableStringify } from "@kaspa-x402/core";
+import {
+  X402_VERSION,
+  bindRequestHashToTrustedContext,
+  sha256Hex,
+  stableStringify,
+} from "@kaspa-x402/core";
 
 import {
   authorize,
@@ -102,13 +107,20 @@ test("a batch-settlement server is refused with what paying it would actually ta
     asset: "KAS",
     payTo: "kaspatest:qq0d6h0prjm5mpdld5pncst3adu0yam6xch4tr69k2",
     maxTimeoutSeconds: 120,
+    /* A VALID v1.0.0-rc.1 batch quote, not a malformed one — every field here
+       is one their schema demands. `binding` and `templateId` are `const` in
+       it, so the escrow generation is pinned: this fixture said
+       `kaspa-escrow-v2` until rc.1 moved to v3/v4 and their validator started
+       rejecting it before our refusal could speak. A stale fixture turns this
+       into a test of their schema catching nonsense. */
     extra: {
-      binding: "kaspa-escrow-v2",
-      templateId: "kaspa-x402-escrow-v2",
+      binding: "kaspa-escrow-v3",
+      templateId: "kaspa-x402-escrow-v4",
       serverPublicKey: "ab".repeat(32),
       minDepositSompi: "100000000",
       claimReserveSompi: "10000000",
       refundTimeoutDaa: "86400",
+      securityContextHash: "cd".repeat(32),
     },
   };
   assert.throws(() => selectRequirement(required([batch])), /channel opened from the grant/);
@@ -189,22 +201,81 @@ test("GOLDEN: the reproduced rules still produce these exact values", () => {
   );
 });
 
-test("DRIFT: the reference server still computes these the way v2.ts says it does", () => {
+/**
+ * DRIFT: are we still computing what the reference server computes?
+ *
+ * This grepped their bundled server source for the exact expressions `v2.ts`
+ * mirrors. It caught the rc.1 upgrade, which is the job — and then failed for
+ * two reasons at once, only one of which mattered: their bundler had renamed
+ * `stableStringify` to `stableStringify3`, and `fingerprintRequest` had grown
+ * a step. A check that cannot tell a rename from a behaviour change costs an
+ * investigation every time they run a different bundler.
+ *
+ * So it asserts BEHAVIOUR now, against the primitives their `core` package
+ * actually exports, and keeps a source check only for the one function that is
+ * server-internal — narrowed to the shape rather than the identifiers.
+ */
+test("DRIFT: our request fingerprint is the one their primitives produce", () => {
+  const accepted = exact() as never;
+
+  /* Reassembled from THEIR exported pieces, in the order their
+     `fingerprintRequest` composes them. If any of the three changes, this
+     stops matching `requestHash` and the client is wrong before it pays. */
+  const theirs = bindRequestHashToTrustedContext(
+    sha256Hex(
+      stableStringify({
+        method: REQUEST.method ?? "GET",
+        url: REQUEST.url,
+        body: REQUEST.body ?? null,
+        paymentRequirementsHash: sha256Hex(stableStringify(accepted)),
+      }),
+    ),
+    undefined,
+  );
+  assert.equal(requestHash(REQUEST, accepted), theirs);
+  assert.equal(paymentRequirementsHash(accepted), sha256Hex(stableStringify(accepted)));
+});
+
+/**
+ * A capability of theirs this client does not implement, pinned so it stays
+ * visible.
+ *
+ * rc.1 added a "trusted security context" that a vendor can bind its request
+ * fingerprint to. With no context the fingerprint is the plain hash, which is
+ * why every ordinary vendor still works — but a vendor that configures one
+ * computes a different fingerprint than we do, and the failure would arrive as
+ * `invalid_payload` with nothing pointing here.
+ *
+ * Asserted rather than commented, so the day it stops being an unused branch
+ * this test says so.
+ */
+test("DRIFT: a trusted security context would change the fingerprint, and we send none", () => {
+  const plain = "ab".repeat(32);
+  assert.equal(bindRequestHashToTrustedContext(plain, undefined), plain);
+  assert.notEqual(
+    /* `principal` is the only required field: an opaque identifier for whoever
+       the vendor thinks is asking. That is the shape of the capability — the
+       fingerprint stops being a function of the request alone and becomes one
+       of the request AND who the server believes you are. */
+    bindRequestHashToTrustedContext(plain, { principal: "tenant-a" } as never),
+    plain,
+    "a bound fingerprint must differ from an unbound one, or the binding does nothing",
+  );
+});
+
+test("DRIFT: the reference server still composes the fingerprint the way v2.ts mirrors", () => {
   const source = readFileSync(
     new URL("../../node_modules/@kaspa-x402/server/dist/index.js", import.meta.url),
     "utf8",
   );
-
+  /* Identifiers are allowed to carry a bundler suffix — `stableStringify3` is
+     the same function — but the SHAPE is what we mirror, so that is what is
+     matched: method, url, body, then the requirement hash, in that order. */
   assert.match(
     source,
-    /paymentRequirementsHash: sha256Hex\(stableStringify\(accepted\)\)/,
-    "the reference server no longer hashes the accepted requirement this way — re-read " +
-      "`paymentRequirementsHash` in src/v2.ts before trusting any payment this client builds",
-  );
-  assert.match(
-    source,
-    /function fingerprintRequest\(request, accepted\) \{\s*return sha256Hex\(\s*stableStringify\(\{\s*method: request\.method \?\? "GET",\s*url: request\.url,\s*body: request\.body \?\? null,\s*paymentRequirementsHash: sha256Hex\(stableStringify\(accepted\)\)/,
-    "the reference server's request fingerprint has changed — re-read `requestHash` in src/v2.ts",
+    /function fingerprintRequest\(request, accepted\) \{[\s\S]{0,400}?method: request\.method \?\? "GET",\s*url: request\.url,\s*body: request\.body \?\? null,\s*paymentRequirementsHash: sha256Hex\d*\(stableStringify\d*\(accepted\)\)/,
+    "the reference server's request fingerprint has changed shape — re-read `requestHash` in src/v2.ts " +
+      "before trusting any payment this client builds",
   );
 });
 
