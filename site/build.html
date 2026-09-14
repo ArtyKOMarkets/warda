@@ -195,32 +195,58 @@
   }
 
   /* One bar, every page, injected by build.py.
-     There were seven public pages and the only way between any two of them was
-     back to the home page first. Sticky because the landing page is 14,000px
-     tall and a reader four sections down had no way out of it at all. */
+     There were seven public pages and the only way between any two of them
+     was back to the home page first. Sticky because the landing page is very
+     tall and a reader six sections down had no way out of it at all. */
   /* `body > .topnav`, not `.topnav`. The landing page carries
-     `body > *:not(.field) { position: relative }` for its background field, and
-     that selector scores 0,1,1 against a bare class's 0,1,0 — so it won on
-     specificity wherever this bar was declared in the file, and the nav
-     silently scrolled away on the one page long enough to need it. */
-  body > .topnav { position: sticky; top: 0; z-index: 40; background: rgba(6,9,12,0.92);
-                   border-bottom: 1px solid var(--edge); backdrop-filter: blur(8px); }
-  .topnav .wrap { display: flex; align-items: center; gap: 1.1rem;
-                  padding-top: 0.62rem; padding-bottom: 0.62rem;
-                  overflow-x: auto; scrollbar-width: none; }
-  .topnav .wrap::-webkit-scrollbar { display: none; }
-  .topnav a { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.11em;
-              text-transform: uppercase; color: var(--chrome-faint); text-decoration: none;
-              white-space: nowrap; padding: 0.35rem 0; border-bottom: 1px solid transparent; }
-  .topnav a:hover { color: var(--chrome); }
-  .topnav .nv-brand { color: var(--teal); letter-spacing: 0.2em; margin-right: auto;
-                      font-weight: 700; }
+     `body > *:not(.field) { position: relative }` for its background field,
+     and that selector scores 0,1,1 against a bare class's 0,1,0 — so it won
+     on specificity wherever this bar was declared, and the nav silently
+     scrolled away on the one page long enough to need it. */
+  body > .topnav { position: sticky; top: 0; z-index: 60; background: rgba(6,9,12,0.86);
+                   border-bottom: 1px solid var(--edge); backdrop-filter: blur(12px); }
+  .topnav .wrap { display: flex; align-items: center; gap: 1.6rem;
+                  padding-top: 0; padding-bottom: 0; height: 3.7rem; }
+  .topnav a { text-decoration: none; white-space: nowrap; }
+  .nv-brand { font-family: var(--display); font-weight: 700; font-size: 1.12rem;
+              letter-spacing: 0.01em; color: var(--chrome); margin-right: 0.4rem; }
+  .nv-brand:hover { color: var(--teal); }
+  .nv-links { display: flex; align-items: center; gap: 1.5rem; margin-right: auto; }
+  .nv-links a { font-family: var(--body); font-size: 0.88rem; color: var(--chrome-dim);
+                transition: color 140ms ease; }
+  .nv-links a:hover { color: var(--chrome); }
   /* The page you are on, said in the markup rather than guessed by script:
      these are static files and build.py knows which one it is writing. */
-  .topnav a[aria-current="page"] { color: var(--chrome); border-bottom-color: var(--teal); }
-  @media (max-width: 560px) {
-    .topnav .wrap { gap: 0.85rem; }
-    .topnav .nv-brand { margin-right: 0.4rem; }
+  .nv-links a[aria-current="page"] { color: var(--chrome); }
+  .nv-status { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.09em;
+               text-transform: uppercase; color: var(--chrome-faint); opacity: 0.8;
+               white-space: nowrap; }
+  .nv-status b { color: var(--amber); font-weight: 600; }
+  .nv-go { font-family: var(--body); font-size: 0.85rem; font-weight: 600;
+           background: var(--teal); color: var(--void); padding: 0.5rem 1.05rem;
+           border-radius: 999px; transition: background 140ms ease; }
+  .nv-go:hover { background: var(--teal-bright); }
+  .topnav a:focus-visible, .nv-burger:focus-visible { outline: 2px solid var(--teal-bright); outline-offset: 3px; }
+
+  .nv-burger { display: none; background: none; border: 1px solid var(--edge-bright);
+               border-radius: 7px; width: 2.4rem; height: 2.1rem; cursor: pointer;
+               flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+  .nv-burger span { width: 14px; height: 1.5px; background: var(--chrome); transition: 200ms ease; }
+  .nv-burger[aria-expanded="true"] span:nth-child(1) { transform: translateY(5.5px) rotate(45deg); }
+  .nv-burger[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+  .nv-burger[aria-expanded="true"] span:nth-child(3) { transform: translateY(-5.5px) rotate(-45deg); }
+
+  @media (max-width: 900px) {
+    .nv-burger { display: flex; }
+    .nv-status { display: none; }
+    .nv-links { position: absolute; left: 0; right: 0; top: 100%; display: none;
+                flex-direction: column; align-items: stretch; gap: 0; margin: 0;
+                background: var(--ground); border-bottom: 1px solid var(--edge);
+                padding: 0.3rem var(--gutter) 1rem; }
+    .nv-links[data-open="1"] { display: flex; }
+    .nv-links a { padding: 0.85rem 0; border-bottom: 1px solid var(--edge); font-size: 0.95rem; }
+    .topnav .wrap { gap: 0.9rem; }
+    .nv-go { margin-left: auto; }
   }
 
 /* The terminal window. One component, every page.
@@ -343,14 +369,47 @@
 
 <nav class="topnav" aria-label="Site">
   <div class="wrap">
-    <a class="nv-brand" href="/" data-nv="index.html">WARDA</a>
-    <a href="/start" data-nv="start.html">Start</a>
-    <a href="/agents" data-nv="agents.html">Agents</a>
-    <a href="/build" data-nv="build.html" aria-current="page">How it works</a>
-    <a href="/verify" data-nv="verify.html">Verify</a>
-    <a href="/attack" data-nv="attack.html">Attack</a>
+    <a class="nv-brand" href="/" data-nv="index.html">Warda</a>
+    <div class="nv-links" id="nv-links">
+      <a href="/start" data-nv="start.html">Start</a>
+      <a href="/build" data-nv="build.html" aria-current="page">How it works</a>
+      <a href="/agents" data-nv="agents.html">Agents</a>
+      <a href="/verify" data-nv="verify.html">Verify</a>
+      <a href="/console" data-nv="console.html">Console</a>
+      <a href="/attack" data-nv="attack.html">Attack</a>
+    </div>
+    <!-- Last, and not a link. The honest status of the whole thing, on every
+         page, so nobody has to reach a footer to learn it. Stated once and
+         calmly: a warning repeated in six places reads as either panic or
+         decoration, and this is neither. -->
+    <span class="nv-status">testnet-10 &middot; unaudited &middot; <b>no real money</b></span>
+    <a class="nv-go" href="/start">Get started &rarr;</a>
+    <button class="nv-burger" id="nv-burger" aria-expanded="false" aria-controls="nv-links" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
   </div>
 </nav>
+<script>
+/* The menu, on every page. A link that scrolls or navigates also closes it —
+   leaving the panel covering the thing you just asked to see is the classic
+   mobile-nav bug. */
+(function () {
+  var b = document.getElementById("nv-burger");
+  var l = document.getElementById("nv-links");
+  if (!b || !l) return;
+  b.addEventListener("click", function () {
+    var open = b.getAttribute("aria-expanded") !== "true";
+    b.setAttribute("aria-expanded", String(open));
+    l.setAttribute("data-open", open ? "1" : "");
+  });
+  Array.prototype.forEach.call(l.querySelectorAll("a"), function (a) {
+    a.addEventListener("click", function () {
+      b.setAttribute("aria-expanded", "false");
+      l.setAttribute("data-open", "");
+    });
+  });
+})();
+</script>
 
 
 
@@ -400,39 +459,55 @@
     <p class="eyebrow">Before you start</p>
     <h2>One prerequisite, and there is now a way round it.</h2>
     <p style="max-width:56ch">
-      <strong>You need a Kaspa testnet-10 node you can reach.</strong> Everything in this SDK
-      builds and signs transactions locally &mdash; no server sees a key &mdash; but building one
-      means reading the UTXO set, and reading the UTXO set means talking to a node.
+      <strong>You need to read the UTXO set. You do not need to run a node.</strong>
+      Everything in this SDK builds and signs transactions locally &mdash; no server sees a
+      key &mdash; but building one means reading live chain state, and that has to come from
+      somewhere.
+    </p>
+    <div class="tinstall"><span class="c"># the public resolvers, over the encoding they serve</span>
+npm i <span class="a">@warda_protocol/borsh @kluster/kaspa-wasm</span>
+warda node <span class="a">--borsh</span></div>
+    <p style="max-width:56ch">
+      This page used to say the resolver path found you nothing, and that running a node was
+      not one option of two but <em>the</em> option. Here is what was actually going on, since
+      it is the more useful fact.
     </p>
     <p style="max-width:56ch">
-      To try it, borrow ours. It is a laptop behind a tunnel, forwarding four methods and
-      refusing the rest by name; <a href="/start">/start</a> says exactly what it is and when
-      it is down.
+      There are sixteen public resolvers &mdash; named hosts under <code>kaspa.stream</code>,
+      <code>.red</code>, <code>.green</code> and <code>.blue</code>, listed in rusty-kaspa's
+      <code>Resolvers.toml</code>. <strong>They serve borsh.</strong> Measured 10 September
+      2026: <code>404</code> for <code>/wrpc/json</code>, <code>200</code> for
+      <code>/wrpc/borsh</code>, mainnet and testnet both. The nodes were never missing; we
+      were asking in a language they do not answer in.
     </p>
-    <div class="tinstall"><span class="c"># enough to finish the quickstart. Not enough to build on.</span>
-export WARDA_RPC_JSON=<span class="a">wss://warda-node.tailc0c0ec.ts.net</span></div>
     <p style="max-width:56ch">
-      To rely on it, run your own &mdash; and if you are building anything real, do:
+      And reading over borsh was not enough to <em>spend</em>. Borsh is positional: no field
+      names on the wire, so a struct the encoder does not know about is not an unknown field
+      but an <em>absent</em> one, and absence shifts everything after it. The published WASM
+      SDK predates covenants, so a grant spend through it would have been well-formed,
+      correctly signed, and bound to <strong>nothing</strong>. rusty-kaspa's own bindings have
+      carried covenants since Toccata and builds from those revisions are published &mdash;
+      so the barrier turned out to be packaging, not protocol.
+    </p>
+    <p style="max-width:56ch">
+      <strong>Nor does that mean trusting a stranger's binary.</strong> The covenant binding is
+      part of the sighash, so any difference between what was signed and what the encoder
+      produced changes the transaction id. Every submit computes it both ways and refuses to
+      broadcast unless they match byte for byte. <code>borsh/tools/agree.ts</code> runs the
+      same check against whatever build you installed, before you fund anything.
+    </p>
+    <p style="max-width:56ch">
+      To rely on it rather than try it, run your own &mdash; a node you do not run is a node
+      you are trusting:
     </p>
     <div class="tw" data-label="BASH"><div class="tbar"><i></i><i></i><i></i><span>BASH</span></div><pre class="tm"><code>kaspad --testnet --netsuffix=10 --utxoindex \
       --rpclisten-json=127.0.0.1:18210</code></pre></div>
     <p style="max-width:56ch">
       Both flags matter. Without <code>--utxoindex</code> a node reports every grant as spent.
       The JSON wRPC port is separate from the Borsh one (18210 versus 17210) and only listens
-      when that flag is given &mdash; note the <code>=</code>, which the flag requires.
-    </p>
-    <p style="max-width:56ch">
-      <code>WARDA_RESOLVER</code> is supported, and here is the honest note it needs. A Kaspa
-      Resolver picks a public node for you, and there are sixteen public instances &mdash;
-      named hosts under <code>kaspa.stream</code>, <code>.red</code>, <code>.green</code> and
-      <code>.blue</code>, listed in rusty-kaspa's <code>Resolvers.toml</code>. This page
-      previously said none existed; that was wrong. What is true is narrower and worse:
-      <strong>they serve borsh, and this SDK speaks JSON</strong>. Measured on 10 September
-      2026 &mdash; <code>404</code> for <code>/wrpc/json</code>, <code>200</code> for
-      <code>/wrpc/borsh</code>, on mainnet and testnet both. So the resolver path finds you
-      nothing today, and running a node is not one option of two: it is the option. The SDK
-      still compiles no resolver host in, because naming one is a decision about who you trust
-      to answer "which node", and that belongs to you.
+      when that flag is given &mdash; note the <code>=</code>, which the flag requires. The SDK
+      compiles no resolver host in and no node URL in, because naming one is a decision about
+      who you trust to answer "which node", and that belongs to you.
     </p>
     <p style="max-width:56ch">
       There is also a floor under how <em>small</em> a payment can be. Kaspa charges storage

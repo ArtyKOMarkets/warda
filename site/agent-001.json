@@ -1,6 +1,6 @@
 {
   "_comment": "Written by agent/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, or the chain — none is typed. The refusal sentences are produced by running the same explainRefusal the payer calls, except the one marked derived:false, which is consensus's answer quoted from a node's actual rejection.",
-  "checkedAt": "2026-09-10T12:22:58.155Z",
+  "checkedAt": "2026-09-14T09:35:01.614Z",
   "network": "testnet-10",
   "elsewhere": {
     "vendor": "kaspatest:qr50gmc7t3jp33gg68aj63s9av54yc7w9kyjpwqdjhva9tt8j0a7wz2h6cnll",
@@ -52,8 +52,8 @@
     }
   },
   "activity": {
-    "payments": 5,
-    "paid": "1 KAS",
+    "payments": 9,
+    "paid": "1.8 KAS",
     "paidOutsideTheAllowlist": "0 KAS",
     "coins": [
       {
@@ -84,6 +84,30 @@
         "amount": "0.2 KAS",
         "daaScore": "564094891",
         "txid": "29726ba017ba1880709c6ea6214edfb19d662f8ef745b1c91c04cad1a8cd7e74",
+        "index": 0
+      },
+      {
+        "amount": "0.2 KAS",
+        "daaScore": "569462566",
+        "txid": "48e32e98cc3d6271708733f09c19b02d6fc4afcba8ae953548c90e752d923e19",
+        "index": 0
+      },
+      {
+        "amount": "0.2 KAS",
+        "daaScore": "569515487",
+        "txid": "a502fc42046dd18b8ac7712e9b13ebe90f70c9d5094a86a73c4300e625943575",
+        "index": 0
+      },
+      {
+        "amount": "0.2 KAS",
+        "daaScore": "569618662",
+        "txid": "fda25802fc504037be6856b3296050799179fbfac74c8089e5fbc0041e3cce0e",
+        "index": 0
+      },
+      {
+        "amount": "0.2 KAS",
+        "daaScore": "570114757",
+        "txid": "f64debd2f0aedec654b939422de82f880f4514c78bf3465b318a5481a2542ee6",
         "index": 0
       }
     ]
@@ -128,8 +152,8 @@
   ],
   "mission": "Monitor the Kaspa network and publish an independent daily digest, unattended. It holds a bounded Warda grant and may buy an approved service when it needs one.",
   "lastRun": {
-    "at": "2026-09-10T12:17:01.197Z",
-    "runs": 132,
+    "at": "2026-09-14T09:17:09.058Z",
+    "runs": 224,
     "since": "2026-09-03T08:18:38.642Z",
     "servicesUsed": 0,
     "spent": "0 KAS",
@@ -137,8 +161,8 @@
   },
   "digest": {
     "window": "24 h",
-    "from": "2026-09-09T12:17:01.613Z",
-    "to": "2026-09-10T12:17:01.197Z",
-    "text": "Kaspa testnet-10 · 24 h to 2026-09-10 12:17 UTC\n\n  blue score  +863,658           9.99 blue blocks/s\n  DAA score   +863,962           now 566,839,060\n  minted      +2,825,425.31 KAS  26,929,425,905 KAS in existence\n  hashrate    19.65 MH/s         node estimate over its last 1,000 blocks\n  mempool     0 tx               held, unaccepted, at the closing reading\n  DAG         3 tips             1,201,051 blocks held by this node\n\nmeasured between two readings of one node (kaspad 2.0.1)\n"
+    "from": "2026-09-13T09:17:05.423Z",
+    "to": "2026-09-14T09:17:09.058Z",
+    "text": "Kaspa testnet-10 · 24 h to 2026-09-14 09:17 UTC\n\n  blue score  +863,050           9.98 blue blocks/s\n  DAA score   +863,891           now 570,185,967\n  minted      +2,666,633.50 KAS  26,939,784,933 KAS in existence\n  hashrate    17.94 MH/s         node estimate over its last 1,000 blocks\n  mempool     879 tx             held, unaccepted, at the closing reading\n  DAG         2 tips             1,088,190 blocks held by this node\n\nmeasured between two readings of one node (kaspad 2.0.1)\n"
   }
 }

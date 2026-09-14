@@ -468,39 +468,55 @@
     <p class="eyebrow">Before you start</p>
     <h2>One prerequisite, and there is now a way round it.</h2>
     <p style="max-width:56ch">
-      <strong>You need a Kaspa testnet-10 node you can reach.</strong> Everything in this SDK
-      builds and signs transactions locally &mdash; no server sees a key &mdash; but building one
-      means reading the UTXO set, and reading the UTXO set means talking to a node.
+      <strong>You need to read the UTXO set. You do not need to run a node.</strong>
+      Everything in this SDK builds and signs transactions locally &mdash; no server sees a
+      key &mdash; but building one means reading live chain state, and that has to come from
+      somewhere.
+    </p>
+    <div class="tinstall"><span class="c"># the public resolvers, over the encoding they serve</span>
+npm i <span class="a">@warda_protocol/borsh @kluster/kaspa-wasm</span>
+warda node <span class="a">--borsh</span></div>
+    <p style="max-width:56ch">
+      This page used to say the resolver path found you nothing, and that running a node was
+      not one option of two but <em>the</em> option. Here is what was actually going on, since
+      it is the more useful fact.
     </p>
     <p style="max-width:56ch">
-      To try it, borrow ours. It is a laptop behind a tunnel, forwarding four methods and
-      refusing the rest by name; <a href="/start">/start</a> says exactly what it is and when
-      it is down.
+      There are sixteen public resolvers &mdash; named hosts under <code>kaspa.stream</code>,
+      <code>.red</code>, <code>.green</code> and <code>.blue</code>, listed in rusty-kaspa's
+      <code>Resolvers.toml</code>. <strong>They serve borsh.</strong> Measured 10 September
+      2026: <code>404</code> for <code>/wrpc/json</code>, <code>200</code> for
+      <code>/wrpc/borsh</code>, mainnet and testnet both. The nodes were never missing; we
+      were asking in a language they do not answer in.
     </p>
-    <div class="tinstall"><span class="c"># enough to finish the quickstart. Not enough to build on.</span>
-export WARDA_RPC_JSON=<span class="a">wss://warda-node.tailc0c0ec.ts.net</span></div>
     <p style="max-width:56ch">
-      To rely on it, run your own &mdash; and if you are building anything real, do:
+      And reading over borsh was not enough to <em>spend</em>. Borsh is positional: no field
+      names on the wire, so a struct the encoder does not know about is not an unknown field
+      but an <em>absent</em> one, and absence shifts everything after it. The published WASM
+      SDK predates covenants, so a grant spend through it would have been well-formed,
+      correctly signed, and bound to <strong>nothing</strong>. rusty-kaspa's own bindings have
+      carried covenants since Toccata and builds from those revisions are published &mdash;
+      so the barrier turned out to be packaging, not protocol.
+    </p>
+    <p style="max-width:56ch">
+      <strong>Nor does that mean trusting a stranger's binary.</strong> The covenant binding is
+      part of the sighash, so any difference between what was signed and what the encoder
+      produced changes the transaction id. Every submit computes it both ways and refuses to
+      broadcast unless they match byte for byte. <code>borsh/tools/agree.ts</code> runs the
+      same check against whatever build you installed, before you fund anything.
+    </p>
+    <p style="max-width:56ch">
+      To rely on it rather than try it, run your own &mdash; a node you do not run is a node
+      you are trusting:
     </p>
     <div class="tw" data-label="BASH"><div class="tbar"><i></i><i></i><i></i><span>BASH</span></div><pre class="tm"><code>kaspad --testnet --netsuffix=10 --utxoindex \
       --rpclisten-json=127.0.0.1:18210</code></pre></div>
     <p style="max-width:56ch">
       Both flags matter. Without <code>--utxoindex</code> a node reports every grant as spent.
       The JSON wRPC port is separate from the Borsh one (18210 versus 17210) and only listens
-      when that flag is given &mdash; note the <code>=</code>, which the flag requires.
-    </p>
-    <p style="max-width:56ch">
-      <code>WARDA_RESOLVER</code> is supported, and here is the honest note it needs. A Kaspa
-      Resolver picks a public node for you, and there are sixteen public instances &mdash;
-      named hosts under <code>kaspa.stream</code>, <code>.red</code>, <code>.green</code> and
-      <code>.blue</code>, listed in rusty-kaspa's <code>Resolvers.toml</code>. This page
-      previously said none existed; that was wrong. What is true is narrower and worse:
-      <strong>they serve borsh, and this SDK speaks JSON</strong>. Measured on 10 September
-      2026 &mdash; <code>404</code> for <code>/wrpc/json</code>, <code>200</code> for
-      <code>/wrpc/borsh</code>, on mainnet and testnet both. So the resolver path finds you
-      nothing today, and running a node is not one option of two: it is the option. The SDK
-      still compiles no resolver host in, because naming one is a decision about who you trust
-      to answer "which node", and that belongs to you.
+      when that flag is given &mdash; note the <code>=</code>, which the flag requires. The SDK
+      compiles no resolver host in and no node URL in, because naming one is a decision about
+      who you trust to answer "which node", and that belongs to you.
     </p>
     <p style="max-width:56ch">
       There is also a floor under how <em>small</em> a payment can be. Kaspa charges storage

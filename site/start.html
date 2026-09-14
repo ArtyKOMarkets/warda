@@ -602,32 +602,58 @@
   .home:hover { color: var(--teal); }
 
   /* One bar, every page, injected by build.py.
-     There were seven public pages and the only way between any two of them was
-     back to the home page first. Sticky because the landing page is 14,000px
-     tall and a reader four sections down had no way out of it at all. */
+     There were seven public pages and the only way between any two of them
+     was back to the home page first. Sticky because the landing page is very
+     tall and a reader six sections down had no way out of it at all. */
   /* `body > .topnav`, not `.topnav`. The landing page carries
-     `body > *:not(.field) { position: relative }` for its background field, and
-     that selector scores 0,1,1 against a bare class's 0,1,0 — so it won on
-     specificity wherever this bar was declared in the file, and the nav
-     silently scrolled away on the one page long enough to need it. */
-  body > .topnav { position: sticky; top: 0; z-index: 40; background: rgba(6,9,12,0.92);
-                   border-bottom: 1px solid var(--edge); backdrop-filter: blur(8px); }
-  .topnav .wrap { display: flex; align-items: center; gap: 1.1rem;
-                  padding-top: 0.62rem; padding-bottom: 0.62rem;
-                  overflow-x: auto; scrollbar-width: none; }
-  .topnav .wrap::-webkit-scrollbar { display: none; }
-  .topnav a { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.11em;
-              text-transform: uppercase; color: var(--chrome-faint); text-decoration: none;
-              white-space: nowrap; padding: 0.35rem 0; border-bottom: 1px solid transparent; }
-  .topnav a:hover { color: var(--chrome); }
-  .topnav .nv-brand { color: var(--teal); letter-spacing: 0.2em; margin-right: auto;
-                      font-weight: 700; }
+     `body > *:not(.field) { position: relative }` for its background field,
+     and that selector scores 0,1,1 against a bare class's 0,1,0 — so it won
+     on specificity wherever this bar was declared, and the nav silently
+     scrolled away on the one page long enough to need it. */
+  body > .topnav { position: sticky; top: 0; z-index: 60; background: rgba(6,9,12,0.86);
+                   border-bottom: 1px solid var(--edge); backdrop-filter: blur(12px); }
+  .topnav .wrap { display: flex; align-items: center; gap: 1.6rem;
+                  padding-top: 0; padding-bottom: 0; height: 3.7rem; }
+  .topnav a { text-decoration: none; white-space: nowrap; }
+  .nv-brand { font-family: var(--display); font-weight: 700; font-size: 1.12rem;
+              letter-spacing: 0.01em; color: var(--chrome); margin-right: 0.4rem; }
+  .nv-brand:hover { color: var(--teal); }
+  .nv-links { display: flex; align-items: center; gap: 1.5rem; margin-right: auto; }
+  .nv-links a { font-family: var(--body); font-size: 0.88rem; color: var(--chrome-dim);
+                transition: color 140ms ease; }
+  .nv-links a:hover { color: var(--chrome); }
   /* The page you are on, said in the markup rather than guessed by script:
      these are static files and build.py knows which one it is writing. */
-  .topnav a[aria-current="page"] { color: var(--chrome); border-bottom-color: var(--teal); }
-  @media (max-width: 560px) {
-    .topnav .wrap { gap: 0.85rem; }
-    .topnav .nv-brand { margin-right: 0.4rem; }
+  .nv-links a[aria-current="page"] { color: var(--chrome); }
+  .nv-status { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.09em;
+               text-transform: uppercase; color: var(--chrome-faint); opacity: 0.8;
+               white-space: nowrap; }
+  .nv-status b { color: var(--amber); font-weight: 600; }
+  .nv-go { font-family: var(--body); font-size: 0.85rem; font-weight: 600;
+           background: var(--teal); color: var(--void); padding: 0.5rem 1.05rem;
+           border-radius: 999px; transition: background 140ms ease; }
+  .nv-go:hover { background: var(--teal-bright); }
+  .topnav a:focus-visible, .nv-burger:focus-visible { outline: 2px solid var(--teal-bright); outline-offset: 3px; }
+
+  .nv-burger { display: none; background: none; border: 1px solid var(--edge-bright);
+               border-radius: 7px; width: 2.4rem; height: 2.1rem; cursor: pointer;
+               flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+  .nv-burger span { width: 14px; height: 1.5px; background: var(--chrome); transition: 200ms ease; }
+  .nv-burger[aria-expanded="true"] span:nth-child(1) { transform: translateY(5.5px) rotate(45deg); }
+  .nv-burger[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+  .nv-burger[aria-expanded="true"] span:nth-child(3) { transform: translateY(-5.5px) rotate(-45deg); }
+
+  @media (max-width: 900px) {
+    .nv-burger { display: flex; }
+    .nv-status { display: none; }
+    .nv-links { position: absolute; left: 0; right: 0; top: 100%; display: none;
+                flex-direction: column; align-items: stretch; gap: 0; margin: 0;
+                background: var(--ground); border-bottom: 1px solid var(--edge);
+                padding: 0.3rem var(--gutter) 1rem; }
+    .nv-links[data-open="1"] { display: flex; }
+    .nv-links a { padding: 0.85rem 0; border-bottom: 1px solid var(--edge); font-size: 0.95rem; }
+    .topnav .wrap { gap: 0.9rem; }
+    .nv-go { margin-left: auto; }
   }
 
 /* The whole product in nine lines, placed above every word of prose on /start
@@ -653,14 +679,47 @@
 
 <nav class="topnav" aria-label="Site">
   <div class="wrap">
-    <a class="nv-brand" href="/" data-nv="index.html">WARDA</a>
-    <a href="/start" data-nv="start.html" aria-current="page">Start</a>
-    <a href="/agents" data-nv="agents.html">Agents</a>
-    <a href="/build" data-nv="build.html">How it works</a>
-    <a href="/verify" data-nv="verify.html">Verify</a>
-    <a href="/attack" data-nv="attack.html">Attack</a>
+    <a class="nv-brand" href="/" data-nv="index.html">Warda</a>
+    <div class="nv-links" id="nv-links">
+      <a href="/start" data-nv="start.html" aria-current="page">Start</a>
+      <a href="/build" data-nv="build.html">How it works</a>
+      <a href="/agents" data-nv="agents.html">Agents</a>
+      <a href="/verify" data-nv="verify.html">Verify</a>
+      <a href="/console" data-nv="console.html">Console</a>
+      <a href="/attack" data-nv="attack.html">Attack</a>
+    </div>
+    <!-- Last, and not a link. The honest status of the whole thing, on every
+         page, so nobody has to reach a footer to learn it. Stated once and
+         calmly: a warning repeated in six places reads as either panic or
+         decoration, and this is neither. -->
+    <span class="nv-status">testnet-10 &middot; unaudited &middot; <b>no real money</b></span>
+    <a class="nv-go" href="/start">Get started &rarr;</a>
+    <button class="nv-burger" id="nv-burger" aria-expanded="false" aria-controls="nv-links" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
   </div>
 </nav>
+<script>
+/* The menu, on every page. A link that scrolls or navigates also closes it —
+   leaving the panel covering the thing you just asked to see is the classic
+   mobile-nav bug. */
+(function () {
+  var b = document.getElementById("nv-burger");
+  var l = document.getElementById("nv-links");
+  if (!b || !l) return;
+  b.addEventListener("click", function () {
+    var open = b.getAttribute("aria-expanded") !== "true";
+    b.setAttribute("aria-expanded", String(open));
+    l.setAttribute("data-open", open ? "1" : "");
+  });
+  Array.prototype.forEach.call(l.querySelectorAll("a"), function (a) {
+    a.addEventListener("click", function () {
+      b.setAttribute("aria-expanded", "false");
+      l.setAttribute("data-open", "");
+    });
+  });
+})();
+</script>
 
 
 
@@ -668,9 +727,10 @@
 <div class="wrap"><header style="padding:clamp(2.4rem,6vw,4rem) 0 clamp(1.5rem,4vw,2.5rem)">
   <h1 style="font-size:clamp(2.2rem,6vw,3.8rem);margin-top:1.4rem">From nothing to a payment the network bounded.</h1>
   <p class="sub" style="max-width:56ch;margin-top:1.4rem">
-    Eight steps. At the end you will have made a real HTTP&nbsp;402 purchase on Kaspa
-    testnet-10, out of a grant that could not have paid anyone else or paid more, and you
-    will have the transaction id to check it with.
+    Eight steps, about ten minutes, and <strong>no prior knowledge of Kaspa</strong>. At the
+    end you will have made a real HTTP&nbsp;402 purchase on Kaspa testnet-10, out of a grant
+    that could not have paid anyone else or paid more, and you will have the transaction id
+    to check it with.
   </p>
   <p class="needs" style="margin-top:1.6rem">
     Everything here is testnet. The coins are free and worth nothing, which is the correct
@@ -695,7 +755,7 @@ git clone <span class="a">https://github.com/ArtyKOMarkets/warda</span> &amp;&am
   <span class="d">fund it from the testnet-10 faucet, then list who the agent may pay</span>
 
 <span class="p">$</span> <span class="cmd">echo <span class="v">kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e</span> &gt; <span class="a">payees.txt</span></span>
-<span class="p">$</span> <span class="cmd">WARDA_SK=$(cat wallet.key) warda grant --payees <span class="a">payees.txt</span> --budget <span class="v">10</span> --max-per-spend <span class="v">1</span></span>
+<span class="p">$</span> <span class="cmd">warda grant --key <span class="v">wallet.key</span> --payees <span class="a">payees.txt</span> --budget <span class="v">10</span> --max-per-spend <span class="v">1</span></span>
   <span class="ok">✔ grant.json   10 KAS budget · 1 KAS per payment · 1 payee, fixed at creation</span>
   <span class="ok">✔ agent.key    the agent's whole authority, and it is the line above</span>
 
@@ -720,6 +780,45 @@ git clone <span class="a">https://github.com/ArtyKOMarkets/warda</span> &amp;&am
 </div>
 
 <div class="wrap">
+
+<!-- Written for the reader who followed a link here and has never touched a
+     blockchain. Everything below assumes a wallet, a UTXO and a covenant are
+     familiar words, and for most of the people we want on this page they are
+     not. Three sentences is the whole prerequisite; anything longer and it
+     becomes a chain tutorial, which is not what this page is for. -->
+<section class="rule">
+  <p class="eyebrow">Do you need to know Kaspa?</p>
+  <h2>No. Three ideas carry all of it.</h2>
+  <div class="steps3" style="margin-top:2rem">
+    <div>
+      <p class="sn">01</p>
+      <h3>A wallet can pay anyone</h3>
+      <p>An ordinary key holding ordinary money. Nothing bounds it, which is exactly the
+      problem with handing one to a program. This is what <em>funds</em> a grant, and it is
+      the one thing the agent never sees.</p>
+    </div>
+    <div>
+      <p class="sn">02</p>
+      <h3>A grant is an address with rules</h3>
+      <p>Money sitting at an address whose rules &mdash; a budget, a cap per payment, a fixed
+      list of who may be paid &mdash; are part of what the <em>network</em> counts as a valid
+      transaction. Not a setting. Not a server check. A condition of the money moving at all.</p>
+    </div>
+    <div>
+      <p class="sn">03</p>
+      <h3>The agent holds only the limited key</h3>
+      <p>It can spend inside the rules and it cannot edit them, and neither can you once the
+      grant exists. That is why publishing an agent's key, as we do on
+      <a href="/attack">/attack</a>, is not a stunt.</p>
+    </div>
+  </div>
+  <p class="needs" style="margin-top:1.8rem">
+    Two words you will meet below and can safely skim past. A <strong>UTXO</strong> is a coin
+    &mdash; a discrete lump of money with its own rules, rather than a balance in a ledger. A
+    <strong>covenant</strong> is rules attached to that coin that every node enforces. Kaspa
+    activated covenants in June 2026, which is the only reason any of this can exist.
+  </p>
+</section>
 
 <section class="rule">
   <p class="eyebrow">Before step 0 &middot; the two keys</p>
@@ -755,61 +854,88 @@ warda grant      --key earnings.key --payees payees.txt --budget 2</code></pre><
 </section>
 
 <section class="rule">
-  <p class="eyebrow">Step 0 &middot; the one prerequisite</p>
-  <h2>A node. Ours, to try it — yours, to rely on it.</h2>
+  <p class="eyebrow">Step 0 &middot; the prerequisite that went away</p>
+  <h2>You do not need to run a node.</h2>
   <p style="max-width:60ch;color:var(--chrome-dim)">
-    A covenant spend has to be built against live chain state, so this is the one thing that
-    cannot be faked. Until today the only answer here was "run <code>kaspad</code> yourself",
-    which is a fair ask of an operator and an unreasonable one of somebody trying this for
-    ten minutes. So there is a testnet-10 node you can point at:
-  </p>
-  <div class="tinstall"><span class="c"># enough to finish this page. Not enough to build on.</span>
-export WARDA_RPC_JSON=<span class="a">wss://warda-node.tailc0c0ec.ts.net</span></div>
-  <p class="needs" id="qnode-msg" hidden style="border-color:var(--refuse);color:var(--chrome)"></p>
-  <p style="max-width:60ch;color:var(--chrome-dim)">
-    Read what that is before you trust it. It is <strong>a laptop</strong> behind a tunnel,
-    running testnet-10, and it will be down sometimes &mdash; this page says so when it is,
-    from a check that runs every fifteen minutes and asks the node rather than the door. It
-    forwards exactly four methods: <code>getInfo</code>, <code>getBlockDagInfo</code>,
-    <code>getUtxosByAddresses</code> and <code>submitTransaction</code>. Everything else,
-    including <code>shutdown</code> and <code>ban</code>, is refused by name, because kaspad's
-    RPC has no authentication and publishing it raw would hand every reader of this page the
-    ability to stop it.
+    This page used to open with "run <code>kaspad</code> yourself" &mdash; a fair ask of an
+    operator and an unreasonable one of somebody trying this for ten minutes. It was also
+    wrong, and the reason it was wrong is worth one paragraph, because it is the most useful
+    thing on this page.
   </p>
   <p class="needs">
-    <strong style="color:var(--chrome-dim);font-weight:500">A node you do not run is a node
-    you are trusting.</strong> It answers "what is in the UTXO set" and receives what you
-    broadcast, so a dishonest one could deny you service or misreport whether something
-    settled. What it <em>cannot</em> do is make a grant exceed its limits: the budget, the
-    per-payment cap and the allowlist are compiled into the script that unlocks the coin, and
-    no node is asked. On testnet none of this costs anything. For anything real, run your own.
+    <strong style="color:var(--chrome-dim);font-weight:500">kaspad speaks two encodings, and
+    almost nobody serves the one we spoke.</strong> <code>borsh</code> is the default. JSON
+    listens only when an operator passes <code>--rpclisten-json=</code>, which is why all
+    sixteen public resolvers in rusty-kaspa's <code>Resolvers.toml</code> answer
+    <code>404</code> for <code>json</code> and <code>200</code> for <code>borsh</code>. So
+    "use a public node" had never worked &mdash; not because the nodes were missing, but
+    because we were asking in a language they do not answer in.
   </p>
   <p class="needs">
-    <strong style="color:var(--chrome-dim);font-weight:500">Why there is no public one to fall back on.</strong> The public
-    resolvers are real and there are sixteen of them, listed in rusty-kaspa's own
-    <code>Resolvers.toml</code>. They serve <strong>borsh</strong>. This SDK speaks the JSON
-    wRPC encoding, and kaspad only listens for it when started with
-    <code>--rpclisten-json=</code> &mdash; borsh is the default, so that is what public
-    operators run. Asked for a JSON node on 10 September 2026,
-    <code>eric.kaspa.stream</code> answered <code>404</code> for <code>json</code> and
-    <code>200</code> for <code>borsh</code>, on mainnet and testnet alike. The resolver is up,
-    its pool is full, and it holds nothing we can talk to.
+    <strong style="color:var(--chrome-dim);font-weight:500">And reading over borsh was not
+    enough to spend.</strong> Borsh is <em>positional</em>: there are no field names on the
+    wire, so a struct the encoder does not know about is not an unknown field, it is an
+    <em>absent</em> one, and absence shifts everything after it. The published WASM SDK
+    predates covenants, so a grant spend through it would have been well-formed, correctly
+    signed, and bound to <strong>nothing</strong> &mdash; accepted by the encoder, meaningless
+    on chain. Refusing to submit was the only honest option.
+    <br><br>
+    What changed is the premise, not the argument. rusty-kaspa's own bindings have carried
+    covenants since Toccata and builds from those revisions are published. <strong>The node
+    requirement was never in the protocol. It was in the packaging.</strong>
   </p>
-  <div class="tw" data-label="BASH"><div class="tbar"><i></i><i></i><i></i><span>BASH</span></div><pre class="tm"><code>git clone https://github.com/ArtyKOMarkets/warda &amp;&amp; cd warda
-npm install
+  <div class="tw" data-label="BASH"><div class="tbar"><i></i><i></i><i></i><span>BASH</span></div><pre class="tm"><code>npm install -g @warda_protocol/cli \
+  @warda_protocol/borsh @kluster/kaspa-wasm
 
-node --experimental-strip-types sdk/tools/check-node.ts --rpc wss://YOUR-NODE</code></pre></div>
+warda node --borsh --grant kaspatest:prw9hklems02v8apxlx5m6y0d90e0j6657ztr3c3cjqf0wsnwsxz2fs9n0jxr</code></pre></div>
+  <p class="needs">
+    <strong style="color:var(--chrome-dim);font-weight:500">You are not being asked to trust
+    that binary.</strong> The covenant binding is part of the <em>sighash</em> &mdash; which is
+    exactly why a covenant-blind wallet cannot sign a Warda spend &mdash; so any difference
+    between what was signed and what the encoder produced shows up in the transaction id.
+    Every submit computes it both ways and refuses to broadcast unless they match byte for
+    byte. A tampered build, a stale one, one from a revision where a field moved: caught
+    before the network sees anything. The dependency can break this path. It cannot redirect
+    money through it.
+  </p>
+  <p class="needs">
+    <strong style="color:var(--chrome-dim);font-weight:500">It is a flag, not a
+    default.</strong> Reaching for a stranger's node because yours is not configured would
+    make the most consequential choice in this tool the one nobody made. A resolver does not
+    remove the question of whose node you believe &mdash; it answers it on your behalf, and
+    you should have typed something to allow that.
+  </p>
   <p style="max-width:60ch;color:var(--chrome-dim)">
-    It does not merely connect. It asks whether the node is worth believing &mdash; synced,
-    utxo-indexed, on the network it claims &mdash; because each of those failures returns a
+    So <code>warda node</code> does not merely connect. It asks that stranger the same four
+    questions it would ask yours &mdash; synced, utxo-indexed, on the network it claims,
+    reports covenant ids &mdash; because three of those four failures return a
     <em>plausible wrong answer</em> rather than an error. A node without a utxo index reports
     your grant as empty, which is indistinguishable from a grant that was drained.
   </p>
   <p class="needs">
-    <strong style="color:var(--chrome-dim);font-weight:500">If it will not connect</strong>
-    &mdash; the JSON wRPC port is a different port from the Borsh one (testnet 18210 vs 17210),
-    and it only listens if kaspad was started with <code>--rpclisten-json=host:port</code>. Note
-    the <code>=</code>; the flag rejects a space.
+    <strong style="color:var(--chrome-dim);font-weight:500">The <code>--grant</code> is not
+    decoration.</strong> Three of the four checks need nothing but the node. The fourth
+    &mdash; does it report covenant ids &mdash; can only be answered against an address where
+    one must be present, and it is the only failure that hands you a signed transaction
+    instead of an error. Without it that line reads <code>UNCHECKED</code>, which is honest
+    and not the same as passing. The address above is
+    <a href="/attack">the published demo grant</a>; a spend moves a grant, so if it reports
+    nothing there, take a current one from that page.
+  </p>
+  <p class="needs">
+    <strong style="color:var(--chrome-dim);font-weight:500">If you would rather run your
+    own</strong> &mdash; and for anything real you should, because a node you do not run is a
+    node you are trusting &mdash; pass <code>--rpc</code> and skip the resolvers. Note that
+    JSON and borsh are different <em>ports</em> on a kaspad, not different spellings (testnet
+    18210 vs 17210), and the JSON one listens only with
+    <code>--rpclisten-json=host:port</code> &mdash; the <code>=</code> is required, a space is
+    rejected. <code>WARDA_RPC_JSON</code> is a JSON url by name, so <code>--borsh</code>
+    ignores it; point <code>--borsh --rpc</code> at a borsh endpoint instead.
+    <br><br>
+    What a node you borrow <em>cannot</em> do is make a grant exceed its limits: the budget,
+    the per-payment cap and the allowlist are compiled into the script that unlocks the coin,
+    and no node is asked. It can deny you service or misreport whether something settled. On
+    testnet none of that costs anything.
   </p>
 </section>
 
@@ -821,7 +947,7 @@ node --experimental-strip-types sdk/tools/check-node.ts --rpc wss://YOUR-NODE</c
     for the grant, an <strong>agent</strong> that spends within it, and a
     <strong>revocation</strong> key that can end it. The agent never holds the other two.
   </p>
-  <div class="tw" data-label="BASH"><div class="tbar"><i></i><i></i><i></i><span>BASH</span></div><pre class="tm"><code>node --experimental-strip-types sdk/tools/new-key.ts --label wallet --out wallet.key</code></pre></div>
+  <div class="tw" data-label="BASH"><div class="tbar"><i></i><i></i><i></i><span>BASH</span></div><pre class="tm"><code>warda key --out wallet.key</code></pre></div>
   <p style="max-width:60ch;color:var(--chrome-dim)">
     It prints the address. Fund it from a testnet-10 faucet, then carry on &mdash; the next
     step will tell you if the balance is short before it creates anything.
@@ -849,8 +975,8 @@ node --experimental-strip-types sdk/tools/check-node.ts --rpc wss://YOUR-NODE</c
 <section class="rule">
   <p class="eyebrow">Step 3 &middot; create the grant</p>
   <h2>One command, and it refuses before it creates.</h2>
-  <div class="tw" data-label="BASH"><div class="tbar"><i></i><i></i><i></i><span>BASH</span></div><pre class="tm"><code>WARDA_SK=$(cat wallet.key) node --experimental-strip-types sdk/tools/quickstart.ts \
-  --recipients payees.txt --rpc wss://YOUR-NODE</code></pre></div>
+  <div class="tw" data-label="BASH"><div class="tbar"><i></i><i></i><i></i><span>BASH</span></div><pre class="tm"><code>warda grant --key wallet.key --payees payees.txt \
+  --budget 5 --max-per-spend 0.2</code></pre></div>
   <p style="max-width:60ch;color:var(--chrome-dim)">
     It checks every precondition first and reports all of them at once &mdash; a quickstart
     that fails five times, each revealing one more prerequisite, is a maze with a progress bar.
@@ -871,9 +997,11 @@ node --experimental-strip-types sdk/tools/check-node.ts --rpc wss://YOUR-NODE</c
 <section class="rule">
   <p class="eyebrow">Step 4 &middot; spend it</p>
   <h2>A real 402, against an endpoint that checks the chain.</h2>
-  <div class="tw" data-label="BASH"><div class="tbar"><i></i><i></i><i></i><span>BASH</span></div><pre class="tm"><code>WARDA_SK=$(cat agent.key) node --experimental-strip-types agents/tools/buy.ts \
-  https://warda-demo-api.vercel.app/fact \
-  --id MY-AGENT --grant grant.json --recipients payees.txt --out purchases</code></pre></div>
+  <div class="tw" data-label="BASH"><div class="tbar"><i></i><i></i><i></i><span>BASH</span></div><pre class="tm"><code>warda pay https://warda-demo-api.vercel.app/fact</code></pre></div>
+  <p style="max-width:60ch;color:var(--chrome-dim)">
+    No flags. Step 3 wrote the grant, the allowlist and the agent key into a config beside
+    them, so the agent it pays as is the one it just made.
+  </p>
   <p style="max-width:60ch;color:var(--chrome-dim)">
     The endpoint answers 402 with a price, your agent builds a covenant spend, broadcasts it,
     and re-presents the same proof while it settles. The vendor does not trust the header: it
@@ -884,14 +1012,24 @@ node --experimental-strip-types sdk/tools/check-node.ts --rpc wss://YOUR-NODE</c
     <strong>You now have a transaction id.</strong> Look it up on any testnet-10 explorer. That
     is the whole point of this page &mdash; nothing above needs to be taken on trust.
   </p>
+  <p class="needs" style="margin-top:1.6rem">
+    <strong style="color:var(--chrome-dim);font-weight:500">What just happened, in plain
+    words.</strong> You locked some money at an address with rules. You handed a program a
+    key that opens that address and nothing else. The program bought something, and the
+    payment went through because it obeyed the rules &mdash; not because anything checked
+    afterwards, but because a payment breaking them is not a transaction the network has a
+    way to accept. The rules are now unchangeable, by the program, by you, and by us.
+    <a href="/attack">Someone is welcome to try</a>.
+  </p>
 </section>
 
 <section class="rule">
   <p class="eyebrow">No node required &middot; the fastest way in</p>
   <h2>Give Claude or Cursor a Warda tool, in one config block.</h2>
   <p style="max-width:62ch;color:var(--chrome-dim)">
-    Everything above needs a node, because a covenant spend has to be built against live
-    chain state. The MCP server does not. It never reads the chain and never sees a key
+    Everything above reads the chain, because a covenant spend has to be built against live
+    state &mdash; through a resolver or through your own node, but read it must. The MCP
+    server does not. It never reads the chain and never sees a key
     &mdash; you hand it a grant and it tells you what the covenant would allow, or hands
     back the exact bytes to sign. That makes it the one part of this you can try in a
     minute, with nothing installed and nothing synced.
@@ -927,24 +1065,32 @@ node --experimental-strip-types sdk/tools/check-node.ts --rpc wss://YOUR-NODE</c
     stdout, every diagnostic on stderr, and <strong>exit codes that tell you whether money
     moved</strong>.
   </p>
-  <div class="tw" data-label="PYTHON"><div class="tbar"><i></i><i></i><i></i><span>PYTHON</span></div><pre class="tm"><code>import json, os, subprocess
+  <div class="tw" data-label="PYTHON"><div class="tbar"><i></i><i></i><i></i><span>PYTHON</span></div><pre class="tm"><code>import json, subprocess
 
-r = subprocess.run(
-    ["node", "--experimental-strip-types", "agents/tools/buy.ts",
-     "https://warda-demo-api.vercel.app/fact", "--json",
-     "--id", "MY-AGENT", "--grant", "grant.json",
-     "--recipients", "payees.txt", "--out", "purchases"],
-    capture_output=True, text=True,
-    env={**os.environ, "WARDA_SK": open("agent.key").read().strip()},
-)
+r = subprocess.run(["warda", "pay", URL, "--json"],
+                   capture_output=True, text=True)
 
 if r.returncode == 3:
     ...   # the covenant refused. NOTHING was spent — pick another action
 if r.returncode == 4:
     ...   # paid, not served. The money is gone. Do NOT retry: that pays twice
+if r.returncode != 0:
+    raise RuntimeError(r.stderr)
 
 paid = json.loads(r.stdout)
 paid["txid"], paid["paidSompi"], paid["body"]</code></pre></div>
+  <p style="max-width:60ch;color:var(--chrome-dim);margin-top:1.1rem">
+    No flags, because <code>warda grant</code> in step 3 wrote the grant, the allowlist and
+    the agent key into a config file beside them. If you would rather be explicit &mdash; or
+    you are running several agents from one process &mdash; every one of those is also a
+    flag: <code>--grant</code>, <code>--payees</code>, <code>--id</code>, <code>--out</code>.
+  </p>
+  <p style="max-width:60ch;color:var(--chrome-dim)">
+    Four codes, and they are the whole API. <b>0</b> bought &middot; <b>3</b> refused, nothing
+    spent &middot; <b>4</b> paid and unserved &middot; <b>1</b> failed, see stderr. They are
+    what a Python, Go or Ruby agent needs, and they are why there is no second implementation
+    of the covenant rules to keep in step with this one.
+  </p>
   <p class="needs">
     <strong style="color:var(--chrome-dim);font-weight:500">Exit 4 is the one to handle
     carefully.</strong> It means the transaction settled and the vendor still did not serve.
@@ -1008,30 +1154,21 @@ paid["txid"], paid["paidSompi"], paid["body"]</code></pre></div>
  */
 (function () {
   if (!window.fetch) return;
-  /* The quickstart node, same shape and the same reason. This page now tells a
-     stranger where to send a payment, and the one thing it must never do is
-     stay quiet while that node is dead — they would read the silence as "it
-     works" and conclude the protocol is broken when the laptop is simply shut.
+  /* The quickstart node banner used to live here, warning that our laptop was
+     not answering. It is gone because this page no longer sends anyone at that
+     laptop: --borsh reaches sixteen public resolvers, and a resolver that is
+     down costs nothing because all sixteen are asked at once.
 
-     Absent file renders nothing: "we have not checked" is not "it is up". A
-     stale one renders nothing either, because a warning from an hour ago is a
-     claim about an hour ago. */
-  fetch("/node-status.json", { cache: "no-store" })
-    .then(function (r) { return r.ok ? r.json() : null; })
-    .then(function (d) {
-      if (!d || typeof d.ok !== "boolean" || d.ok) return;
-      var age = Date.now() - Date.parse(d.checkedAt);
-      if (!(age >= 0) || age > 3600000) return;
-      var el = document.getElementById("qnode-msg");
-      if (!el) return;
-      el.textContent =
-        "The node above is not answering right now — " + (d.detail || "reason unknown") +
-        ". It is a laptop, and this is the expected kind of outage. Run your own kaspad " +
-        "with --rpclisten-json= and --utxoindex and point WARDA_RPC_JSON at it, or come " +
-        "back later; nothing you did caused this.";
-      el.hidden = false;
-    })
-    .catch(function () {});
+     Deleted rather than left in place. Its element went with the section it
+     belonged to, so it could never have fired again — and a monitor that
+     cannot fire looks exactly like a monitor with nothing to report, which is
+     a lesson this repo has paid for more than once. ops/check-node.sh still
+     writes node-status.json; that is for us, not for a stranger reading this.
+
+     The vendor check below stays, and matters more: this page tells a stranger
+     where to send a payment, and the one thing it must never do is stay quiet
+     while that endpoint is dead. They would read the silence as "it works" and
+     conclude the protocol is broken. */
 
   fetch("/vendor-status.json", { cache: "no-store" })
     .then(function (r) { return r.ok ? r.json() : null; })

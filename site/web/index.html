@@ -1367,9 +1367,10 @@
       <article>
         <p class="n">Ten minutes &middot; a real payment on testnet</p>
         <h3>Pay for something</h3>
-        <pre><code>npm i -g @warda_protocol/cli
+        <pre><code>npm i -g @warda_protocol/cli \
+  @warda_protocol/borsh @kluster/kaspa-wasm
 
-export WARDA_RPC_JSON=wss://warda-node.tailc0c0ec.ts.net
+warda node --borsh
 
 warda key --out agent.key</code></pre>
         <p>Then a grant with a budget and an allowlist, and one paid API call the chain
@@ -2092,14 +2093,20 @@ await wardaFetch(url);</code></pre>
     </div>
 
     <p class="needs" data-rise style="--d:300ms">
-      <strong style="color:var(--chrome-dim);font-weight:500">Warda reads the chain through a
-      node.</strong> It builds and signs locally, but it has to see the UTXO set to do it. To try
-      it, borrow ours &mdash; <code>export WARDA_RPC_JSON=wss://warda-node.tailc0c0ec.ts.net</code>,
-      testnet-10, four methods forwarded and the rest refused by name. To rely on it, run your own:
-      <code>kaspad</code> with <code>--utxoindex</code> and <code>--rpclisten-json=</code>, because
-      a node you do not run is a node you are trusting. <code>warda node</code> checks whichever one
-      you pointed at is worth believing before you build anything against it. Full walkthrough in
-      <a href="/start">the tutorial</a>.
+      <strong style="color:var(--chrome-dim);font-weight:500">You do not need to run a
+      node.</strong> Warda builds and signs locally, but it has to see the UTXO set to do it &mdash;
+      and <code>--borsh</code> reads it from the public resolvers, over the encoding they actually
+      serve. That covers both halves now: selling never needed a node, and since
+      <code>@warda_protocol/borsh</code> 0.3 neither does buying. Proven on testnet-10 with no
+      <code>kaspad</code> anywhere &mdash; a grant created and spent through two different
+      strangers' nodes.
+      <br><br>
+      It is a flag you type, not a default, because a resolver does not remove the question of
+      whose node you believe &mdash; it answers it for you. So <code>warda node --borsh</code>
+      asks that stranger the same four questions it would ask yours: synced, utxo-indexed, right
+      network, reports covenant ids. Three of the four ways a node is wrong return a plausible
+      answer rather than an error. To rely on it rather than try it, run your own and pass
+      <code>--rpc</code>. Full walkthrough in <a href="/start">the tutorial</a>.
     </p>
   </div>
 </section>

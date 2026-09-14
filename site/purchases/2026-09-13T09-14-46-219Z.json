@@ -1,6 +1,6 @@
 {
   "_comment": "Written by agent-002/tools/buy.ts. One file per attempt, refusals included: a purchase log that only records successes is a sales brochure.",
-  "at": "2026-09-13T07:53:17.869Z",
+  "at": "2026-09-13T09:14:46.219Z",
   "agent": "MY-AGENT",
   "url": "https://warda-demo-api.vercel.app/fact",
   "proof": {
@@ -9,26 +9,18 @@
     "amountSompi": "3000000",
     "payTo": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4"
   },
-  "outcome": "paid-but-refused",
-  "status": 503,
-  "quoted": {
-    "payTo": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
-    "amountSompi": "3000000"
-  },
+  "outcome": "bought",
+  "status": 200,
+  "quoted": null,
   "txid": "ff20bc2dab5d626bdf7e8829c7780ddef5e114d2e277e7314c4790ce6e4e8de4",
-  "sellerClaimed": null,
-  "resumedFrom": null,
+  "sellerClaimed": "warda demo vendor",
+  "resumedFrom": "ff20bc2dab5d626bdf7e8829c7780ddef5e114d2e277e7314c4790ce6e4e8de4",
   "response": {
-    "error": "could not reach a node: resolver https://resolver.kaspa.stream/v2/kaspa/testnet-10/any/wrpc/json did not answer: fetch failed",
-    "detail": "the payment may well be on chain; this vendor cannot see it. Re-present the same X-PAYMENT header rather than paying again — this vendor has NOT been paid twice and a second payment would not help."
-  },
-  "reopened": {
-    "at": "2026-09-13",
-    "why": "closed by a failed resume (503). The vendor never delivered, so the debt stands."
-  },
-  "resolvedBy": {
-    "at": "2026-09-13T09:15:07.045Z",
-    "status": 200,
-    "record": "2026-09-13T09-14-46-219Z.json"
+    "fact": "GHOSTDAG orders blocks by how much work references them, so honest blocks converge on one order without discarding competing ones.",
+    "seller": "warda demo vendor",
+    "paidTo": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
+    "settledBy": "ff20bc2dab5d626bdf7e8829c7780ddef5e114d2e277e7314c4790ce6e4e8de4",
+    "verified": "a UTXO at this endpoint's payee address, from that transaction, for exactly the quoted amount",
+    "readFrom": "a public node found by a resolver, over borsh, because this vendor's own node could not be reached. A node this vendor does not control is answering whether you paid it."
   }
 }
