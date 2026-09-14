@@ -136,48 +136,92 @@ were "outputs that are not the payment return to the payer", the successor is
 the only address that could satisfy it. Same refusal. That closes the field in
 both directions: it is not about `payerAddress`.
 
-## The open question
+## Answered, 14 September 2026
 
-`invalid_transaction_state` is the public reason their `toX402ErrorReason` maps
-**eight** internal codes onto: `invalid_kaspa_settlement_response`,
-`invalid_kaspa_transaction`, `invalid_kaspa_outpoint`,
-`invalid_kaspa_channel_id`, `kaspa_payment_identifier_conflict`,
-`payment_identifier_conflict`, `exact_payment_replay`,
-`invalid_kaspa_exact_replay`.
+`kaspa-x402` v1.0.0-rc.1 (13 September) publishes four packages to npm under
+the `rc` tag and the whole repository is public, **including the
+`exactTransactionVerifier` that was previously injected and unreadable**. The
+rule is in `packages/demo-gateway/src/adapters.ts`,
+`assertStandardNativeTransactionEnvelope`:
 
-From outside, those eight are one message. The check that fails lives in the
-`exactTransactionVerifier` adapter, which is injected rather than published, so
-it cannot be read from the packages on npm.
+```ts
+if (transaction.version !== 0)
+  throw invalidTransaction("standard-native transaction version must be 0");
+...
+if (input.computeBudget !== undefined && input.computeBudget !== 0)
+  throw invalidTransaction(`standard-native input ${index} cannot carry a non-zero compute budget`);
+if (input.sigOpCount !== 1)
+  throw invalidTransaction(`standard-native input ${index} sigOpCount must be 1`);
+...
+if (output.covenant !== null)
+  throw invalidTransaction(`standard-native output ${index} cannot carry a covenant`);
+```
 
-## The hypothesis worth testing
+Three of those exclude a Warda spend before anything about the payment is
+examined. It is **version 1**; its inputs carry a `computeBudget` where a v0
+input carries a `sigOpCount`; and its output 0 is the successor grant, which is
+a covenant output. `invalid_kaspa_transaction` is the code all three raise, and
+it is one of the eight that collapse to the public `invalid_transaction_state`.
 
-**A covenant spend is not wallet-shaped.**
+**And the same rule explains the wallet control.** Attempt 8 paid from an
+ordinary key with no covenant anywhere in it — and it was still built by this
+SDK, which emits version-1 transactions with `computeBudget` on every input.
+It failed on the very first line, for a reason that has nothing to do with
+covenants. That is why removing Warda from the question did not narrow
+anything: the control shared the disqualifying property with the thing it was
+controlling for.
 
-x402's `exact` scheme assumes the payer is a wallet: one output pays the payee,
-the rest is change back to an address the payer controls as a key. A Warda
-spend is not that. Its outputs are:
+The other profile does not help. `additive` requires version 1 — and rejects
+covenant outputs identically, computing storage mass with `hasCovenant: false`
+hardcoded. So **both profiles of the `exact` scheme exclude covenant-carrying
+transactions**, consistently rather than by oversight.
 
-    output 0   the SUCCESSOR GRANT — a P2SH covenant address, carrying the
-               remaining budget and the covenant binding
-    output 1   the payee, P2PK, for exactly the invoiced amount
+## The retraction above was the mistake
 
-We declare `paymentOutputIndex: 1` and their protocol carries it faithfully.
-But any verifier check shaped like *"every other output returns to the payer"*
-fails on an output that belongs to a script rather than to a person — and
-`payerAddress`, which their own client fills from a funding wallet's identity,
-is here a pay-to-script-hash address.
+Worth keeping, because the shape of the error is more useful than the fact.
 
-If that is the cause, it is not a bug on either side. It is a real boundary:
-**x402 exact was specified for wallets, and a bounded payer is not a wallet.**
-The fix is not in either implementation but in the spec's assumptions about
-what a payment transaction may look like.
+This document measured that the scheme's encoding cannot represent a covenant
+binding, that a recomputed id therefore comes out wrong, and pinned it in a
+test. Then it retracted the conclusion, on the grounds that safe-JSON carries
+its own `id` field and the reference parser returns it verbatim — so nothing
+established that this receiver recomputes.
 
-## What would settle it
+Both halves of that are true, and the conclusion still did not follow. The
+verifier trusts the document's id *and* recomputes, in order to compare them:
 
-One line from whoever runs that verifier, naming which of the eight codes
-attempt 5 raised. Failing that: whether the verifier constrains outputs other
-than `paymentOutputIndex`, and whether it decodes `payerAddress` expecting a
-pay-to-pubkey address.
+```ts
+const transactionId = exactV0TransactionId(reference);
+if (transaction.id !== transactionId)
+  throw invalidTransaction("standard-native transaction id does not match canonical fields");
+```
+
+"It returns the id verbatim" was evidence about the parser and was read as
+evidence about the verifier. **The measurement was right; the reasoning
+correction was the error** — which inverts the note this file used to carry
+about it.
+
+## What is actually blocked, and what is not
+
+Not a bug on either side, and not something one line from an operator would
+have fixed. **x402 `exact` is specified for version-0 wallet transactions
+whose outputs belong to keys.** A bounded payer is not a wallet: the coin that
+funds the next payment is the same coin, moved, and the thing that moves it is
+a covenant output. There is no way to satisfy `exact` from a grant without
+ceasing to be a grant.
+
+Three doors, in order of how open they are:
+
+1. **Their `batch-settlement` binding already uses covenants** —
+   `@kaspa-x402/covenant`, `kaspa-x402-escrow-v4`, a stateful KIP-20 template
+   compiled with SilverScript v1.0.0. Covenant-shaped payment is not foreign to
+   this protocol; it is foreign to `exact`. Whether a Warda grant can act as a
+   payer there is the question worth reading next.
+2. **Propose a profile.** They have shipped two (`standard-native`,
+   `additive`), so the extension point exists, and the ask is now a spec
+   question with a citable line rather than a request for debugging help.
+3. **Accept the boundary.** `@warda_protocol/vendor` sells fine and a Warda
+   buyer pays it fine. That keeps the money real and the market ours, which is
+   the state this document was written to escape.
 
 ## Why this is worth publishing either way
 
