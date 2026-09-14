@@ -186,9 +186,15 @@ so an unresponsive child can never lock its parent's budget.
 
 ```
 WARDA_SK=$(cat keys/orchestrator.key) \
-WARDA_REVOCATION=$(cat ../covenant/deploy/warda-testnet.key) \
+WARDA_REVOCATION_SK=$(cat ../covenant/deploy/warda-testnet.key) \
 node --experimental-strip-types tools/batch.ts settle scout --submit
 ```
+
+`WARDA_SK` is the parent's AGENT — only it may reabsorb. `WARDA_REVOCATION_SK`
+is the principal, because collapsing a grant is a revocation of it and a
+sub-agent must not be able to end its own grant on terms it chooses. Leave the
+second unset and it falls back to the first, which is a different key here and
+the tool will say so.
 
 The reserve is released and the parent is charged what Scout actually spent.
 Settlement is **LIFO** — with more than one child outstanding, the newest goes

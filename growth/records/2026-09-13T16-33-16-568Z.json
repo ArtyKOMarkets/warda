@@ -1,0 +1,56 @@
+{
+  "_comment": "Written by agent-002/tools/buy.ts. One file per attempt, refusals included: a purchase log that only records successes is a sales brochure.",
+  "at": "2026-09-13T16:33:16.568Z",
+  "agent": "SCOUT",
+  "url": "http://127.0.0.1:8790/verify?url=https://github.com/kaspanet/rusty-kaspa",
+  "proof": {
+    "header": "eyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJ0ZXN0bmV0LTEwIiwicGF5ZXIiOiJrYXNwYXRlc3Q6cHFkZGtkbmQ3eDNwNDlzeWxsaDc2ZWVyZDB5ZHFldmdhcnpha3I4bnYzNms1cWEyYTd4ODVsaHJjd3JyMCIsInR4aWQiOiJiZDNjNzE4YWVhZTU0YjBjZWM0YmIyZmJlNmM1YTI2MGUxNzZjMDdmOTg2ODdkNGU0MDI0ZDI1MjlkN2JkN2Y4IiwiYW1vdW50U29tcGkiOiI1MDAwMDAwIiwibm9uY2UiOiIxNzg5MzE3MzE2NTg2LjY1MmE0YTQ0ZWQyODNiYzdmYjA4MzI2OGJhNzAxNDg2In0=",
+    "txid": "bd3c718aeae54b0cec4bb2fbe6c5a260e176c07f98687d4e4024d2529d7bd7f8",
+    "amountSompi": "5000000",
+    "payTo": "kaspatest:qqj58pd2qw47lg2wn97srt27dwxp8jj2hfasxrt8tjjeytpelzh5sa2mpucwy"
+  },
+  "outcome": "bought",
+  "status": 200,
+  "quoted": {
+    "payTo": "kaspatest:qqj58pd2qw47lg2wn97srt27dwxp8jj2hfasxrt8tjjeytpelzh5sa2mpucwy",
+    "amountSompi": "5000000"
+  },
+  "txid": "bd3c718aeae54b0cec4bb2fbe6c5a260e176c07f98687d4e4024d2529d7bd7f8",
+  "sellerClaimed": null,
+  "resumedFrom": null,
+  "response": {
+    "project": "https://github.com/kaspanet/rusty-kaspa",
+    "checkedAt": "2026-09-13T16:33:17.834Z",
+    "findings": [
+      {
+        "fact": "the repository kaspanet/rusty-kaspa is public",
+        "source": "https://api.github.com/repos/kaspanet/rusty-kaspa"
+      },
+      {
+        "fact": "it describes itself as \"Kaspa full-node reference implementation and related libraries in the Rust programming language\"",
+        "source": "https://api.github.com/repos/kaspanet/rusty-kaspa"
+      },
+      {
+        "fact": "its main language is Rust",
+        "source": "https://api.github.com/repos/kaspanet/rusty-kaspa"
+      },
+      {
+        "fact": "846 stars",
+        "source": "https://api.github.com/repos/kaspanet/rusty-kaspa"
+      },
+      {
+        "fact": "last pushed 2026-09-08, which is 5 days ago",
+        "source": "https://api.github.com/repos/kaspanet/rusty-kaspa"
+      }
+    ],
+    "unverified": [
+      "whether anyone there wants to pay for anything, which only they can say",
+      "who to contact, and whether they welcome being contacted"
+    ],
+    "signals": [],
+    "paidTo": "kaspatest:qqj58pd2qw47lg2wn97srt27dwxp8jj2hfasxrt8tjjeytpelzh5sa2mpucwy",
+    "settledBy": "bd3c718aeae54b0cec4bb2fbe6c5a260e176c07f98687d4e4024d2529d7bd7f8",
+    "verified": "a UTXO at this endpoint's payee address, from that transaction, for exactly the quoted amount",
+    "readFrom": "this vendor's own node"
+  }
+}
