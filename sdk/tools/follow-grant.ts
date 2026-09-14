@@ -60,6 +60,7 @@ import {
 import { fromHex } from "../src/bytes.ts";
 import { EMPTY_RESERVE } from "../src/keys.ts";
 import { NodeClient } from "../src/node.ts";
+import { borshRequested, openChain, type Chain } from "./chain.ts";
 import { candidateStates, partitionPayments, type Payment } from "../src/follow.ts";
 import {
   scriptHashFor,
@@ -156,7 +157,9 @@ const toPayment = (u: { entry: { value: bigint; blockDaaScore: bigint } }): Paym
 const addressOf = (state: GrantState) =>
   scriptHashToAddress(scriptHashFor(template, { authority, state }), prefix);
 
-const client = await NodeClient.connect({ url: rpcFrom(flag("rpc")) });
+const client: Chain = borshRequested()
+  ? (await openChain({ borsh: true, networkId: flag("network") ?? process.env.WARDA_NETWORK, tolerate: true })).client
+  : await NodeClient.connect({ url: rpcFrom(flag("rpc")) });
 try {
   let state = stateFrom(m);
   let address = addressOf(state);

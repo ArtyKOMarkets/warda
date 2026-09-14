@@ -70,6 +70,32 @@ export function borshRequested(argv: string[] = process.argv.slice(2)): boolean 
   return argv.includes("--borsh") || process.env.WARDA_BORSH === "1";
 }
 
+/**
+ * How long to wait for a resolver-chosen node, and why there is a limit at all.
+ *
+ * `RpcClient.connect` does not time out. It retries, forever, in silence — so
+ * a blocked outbound wss (a proxy, a container egress policy, a firewall that
+ * drops rather than refuses) looks exactly like a slow network, and the tool
+ * simply never returns. "Nothing happened" is the single worst failure a
+ * first-run transport can have, because there is nothing to search for.
+ */
+const CONNECT_TIMEOUT_MS = 20_000;
+
+async function withDeadline<T>(work: Promise<T>, ms: number, message: string): Promise<T> {
+  let timer: NodeJS.Timeout;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), ms);
+    /* The timer must not be what keeps the process alive: on the happy path
+       this loses the race and its only remaining job is to stop existing. */
+    timer.unref?.();
+  });
+  try {
+    return await Promise.race([work, deadline]);
+  } finally {
+    clearTimeout(timer!);
+  }
+}
+
 export interface OpenedChain {
   client: Chain;
   health: NodeHealth;
@@ -93,13 +119,24 @@ export async function openChain(options: ChainOptions = {}): Promise<OpenedChain
     );
   }
 
-  const client = await mod.BorshReader.open({
-    networkId: options.networkId ?? process.env.WARDA_NETWORK ?? "testnet-10",
-    /* A url here is still a borsh url — someone pointing this at their OWN
-       node over the default encoding, which is a reasonable thing to want and
-       costs nothing to allow. It is not the JSON url from --rpc. */
-    url: options.url,
-  });
+  const networkId = options.networkId ?? process.env.WARDA_NETWORK ?? "testnet-10";
+  const client = await withDeadline(
+    mod.BorshReader.open({
+      networkId,
+      /* A url here is still a borsh url — someone pointing this at their OWN
+         node over the default encoding, which is a reasonable thing to want and
+         costs nothing to allow. It is not the JSON url from --rpc. */
+      url: options.url,
+    }),
+    CONNECT_TIMEOUT_MS,
+    `no answer from a ${networkId} node over borsh within ${CONNECT_TIMEOUT_MS / 1000}s.\n\n` +
+      `The resolver hands out public nodes, and reaching one is a plain outbound wss\n` +
+      `connection — which a corporate proxy, a container egress policy or a firewall\n` +
+      `will block silently rather than refuse. It looks identical to a slow network.\n\n` +
+      `  curl -sS https://beacon.kaspa-ng.org/v2/kaspa/${networkId}/wrpc/borsh\n\n` +
+      `If that does not answer either, the problem is between you and the internet\n` +
+      `rather than in the transport. A node of your own over --rpc needs no egress.`,
+  );
 
   /* Checked before anything is signed, because a build that cannot carry a
      covenant fails in the one direction that produces a transaction rather

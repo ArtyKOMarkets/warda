@@ -29,11 +29,12 @@
     "@noble/hashes": "^2.3.0"
   },
   "devDependencies": {
+    "@kluster/kaspa-wasm": "^2.0.1",
     "@types/node": "^26.3.0",
+    "@types/ws": "^8.5.12",
     "playwright": "^1.62.1",
     "typescript": "^5.9.3",
-    "ws": "^8.18.0",
-    "@types/ws": "^8.5.12"
+    "ws": "^8.18.0"
   },
   "private": false,
   "workspaces": [

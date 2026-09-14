@@ -26,7 +26,8 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 
 import { pubkeyToAddress, type NetworkPrefix } from "../src/address.ts";
 import { fromHex } from "../src/bytes.ts";
-import { NodeClient, formatHealth } from "../src/node.ts";
+import { formatHealth } from "../src/node.ts";
+import { borshRequested, openChain, type Chain } from "./chain.ts";
 import { resolverFrom } from "../src/resolver.ts";
 import { agentPublicKey } from "../src/sign.ts";
 
@@ -106,8 +107,9 @@ if (!recipients) {
 }
 
 // ---- 3. a node that can be believed --------------------------------------
-let client: NodeClient | undefined;
-if (!rpcFrom(flag("rpc")) && !resolverFrom({ resolver: flag("resolver") })) {
+const borsh = borshRequested();
+let client: Chain | undefined;
+if (!borsh && !rpcFrom(flag("rpc")) && !resolverFrom({ resolver: flag("resolver") })) {
   problems.push(
     "No node. Warda builds transactions locally but must read the UTXO set to do it.\n" +
       "    Either:\n" +
@@ -118,12 +120,17 @@ if (!rpcFrom(flag("rpc")) && !resolverFrom({ resolver: flag("resolver") })) {
       "      --resolver <url>             a Kaspa Resolver, which picks a public node for\n" +
       "                                   you. No host is compiled in: naming one is a\n" +
       "                                   decision about who you trust to answer 'which\n" +
-      "                                   node', and it belongs to you.",
+      "                                   node', and it belongs to you.\n" +
+      "      --borsh                      the public resolvers, over the encoding they\n" +
+      "                                   actually serve. Needs no node of your own —\n" +
+      "                                   and still asks that one a resolver picks the\n" +
+      "                                   same four questions.",
   );
 } else {
   try {
-    const opened = await NodeClient.open({
-      url: rpcFrom(flag("rpc")),
+    const opened = await openChain({
+      borsh,
+      url: borsh ? undefined : rpcFrom(flag("rpc")),
       resolver: flag("resolver"),
       networkId: network,
       tolerate: true,
@@ -250,8 +257,9 @@ const manifest = JSON.parse(readFileSync(out, "utf8"));
  * claiming success it cannot see.
  */
 {
-  const { client: watcher } = await NodeClient.open({
-    url: rpcFrom(flag("rpc")),
+  const { client: watcher } = await openChain({
+    borsh,
+    url: borsh ? undefined : rpcFrom(flag("rpc")),
     resolver: flag("resolver"),
     networkId: network,
     tolerate: true,

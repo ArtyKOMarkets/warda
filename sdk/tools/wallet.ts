@@ -33,6 +33,7 @@
  */
 import { readFileSync } from "node:fs";
 
+import { borshRequested, openChain, type Chain } from "./chain.ts";
 import {
   NodeClient,
   agentPublicKey,
@@ -119,8 +120,13 @@ const CONSOLIDATE_FEE_GUESS = (n: number) => (1_920n + 1_118n * BigInt(n)) * 100
 const COINBASE_MATURITY = 100n;
 
 const url = flag("rpc") ?? process.env.WARDA_RPC_JSON;
-let client: NodeClient;
-if (url) {
+let client: Chain;
+if (borshRequested()) {
+  /* Counting coins is a read, so this needs no covenant-carrying build — but
+     it goes through the same seam anyway, because a wallet that could only be
+     counted with a node would put the node back in the way one step earlier. */
+  ({ client } = await openChain({ borsh: true, networkId: network, tolerate: true }));
+} else if (url) {
   client = await NodeClient.connect({ url });
 } else if (resolverFrom({ resolver: flag("resolver") })) {
   const found = await resolveNode({ networkId: network });

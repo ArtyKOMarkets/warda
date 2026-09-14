@@ -174,7 +174,9 @@ const agentSecret = (cfg: Config): string => {
 
 const HELP = `warda — bounded spending authority for an agent, on Kaspa.
 
-  warda node                    is a node worth believing? (run this first)
+  warda node     [--borsh]      is a node worth believing? (run this first)
+                                --borsh reaches a public resolver instead, so
+                                nothing here needs a kaspad of your own
   warda key      [--out f.key]  a new keypair, and its address
   warda wallet   [consolidate]  an ordinary key: what it holds, what it can fund
   warda grant    --payees <f>   create a grant. Limits in KAS.
@@ -197,9 +199,19 @@ const HELP = `warda — bounded spending authority for an agent, on Kaspa.
 
 Everything after \`warda grant\` remembers the grant, the allowlist and the key
 in .warda/config.json, so it needs no flags. Override any of them per command.
+\`warda node --borsh\` is remembered the same way, once it has worked.
+
+--borsh needs two optional packages and no node:
+
+  npm install @warda_protocol/borsh @kluster/kaspa-wasm
+
+It does not remove the question of whose node you believe — it answers it on
+your behalf, which is why it is a flag you type rather than what happens when
+you say nothing. The same four health checks run either way.
 
 The whole thing, from nothing:
 
+  $ warda node --borsh                    # or --rpc ws://127.0.0.1:18210
   $ warda key --out wallet.key            # fund this address from a faucet
   $ echo kaspatest:qqtw…twam4 > payees.txt
   $ WARDA_SK=$(cat wallet.key) warda grant --payees payees.txt --budget 10 --max-per-spend 1
@@ -386,6 +398,7 @@ switch (verb) {
       agentKey: agentOut,
       purchases: flag("purchases", cfg.purchases ?? "purchases")!,
       rpc: flag("rpc") ?? cfg.rpc,
+      transport: has("borsh") ? "borsh" : cfg.transport,
     });
     console.error(`Remembered in ${CONFIG}. \`warda pay <url>\` now needs no flags.`);
     break;
@@ -406,7 +419,24 @@ switch (verb) {
        looks right. */
     let daa: bigint | null = null;
     const url = flag("rpc") ?? cfg.rpc ?? process.env.WARDA_RPC_JSON;
-    if (url) {
+    const viaBorsh = has("borsh") || cfg.transport === "borsh";
+    if (viaBorsh) {
+      /* A read, so no covenant-carrying build is needed here — but going
+         through the same transport the rest of the CLI uses is what keeps
+         "what may I spend right now" answerable without a node. */
+      try {
+        const { BorshReader } = await import("@warda_protocol/borsh");
+        const reader = await BorshReader.open({ networkId: flag("network") ?? "testnet-10" });
+        try {
+          daa = (await reader.getBlockDagInfo()).virtualDaaScore;
+        } finally {
+          await reader.close();
+        }
+      } catch {
+        /* Same silence as the JSON path below: a balance that cannot reach the
+           chain reports the limits and says the headroom is unknown. */
+      }
+    } else if (url) {
       const { NodeClient } = await import("@warda_protocol/kaspa");
       try {
         const client = await NodeClient.connect({ url });
