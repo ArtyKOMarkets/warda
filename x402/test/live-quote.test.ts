@@ -18,9 +18,14 @@ import { test } from "node:test";
 import {
   decodeAddress,
   payToPubkeyScript,
+  pubkeyToAddress,
   serializedScriptPublicKey,
 } from "@warda_protocol/kaspa";
 
+import { schnorr } from "@noble/curves/secp256k1.js";
+
+import { DEFAULT_RELAY_FEE_SOMPI } from "../src/pay-v2.ts";
+import { buildRelayPayment } from "../src/relay.ts";
 import { dialect, readPaymentRequired, selectRequirement } from "../src/v2.ts";
 import { amountOf, assertPayeeScriptMatches } from "../src/pay-v2.ts";
 
@@ -161,45 +166,54 @@ function theirResponse() {
   });
 }
 
-test("a grant that commits to their payee pays their real quote, start to finish", async () => {
+/**
+ * Their real quote, without a relay: refused here rather than on chain.
+ *
+ * This test used to end in a 200. It was wrong, and it was wrong in the way
+ * that cost the most: everything this client could check passed — their schema
+ * validator accepted the payload, the payee script matched, the amount was
+ * right — and the payment still settled on chain and came back
+ * `invalid_transaction_state`, eight times.
+ *
+ * Their envelope check refuses a covenant spend on three counts before it
+ * looks at the payment at all. Now that the rule is readable, building one is
+ * not an attempt; it is a payment we know will be refused after it has been
+ * made. So the refusal moved to before the signature.
+ */
+test("their real quote cannot be paid by a covenant spend, and says so before signing", async () => {
   const payer = new WardaPayer({ grant, node, sign: AGENT });
-  const events: string[] = [];
-  let sent: string | undefined;
+  let broadcast = false;
 
-  const fetchImpl = (async (_url: string, init: RequestInit) => {
-    const header = (init?.headers as Record<string, string> | undefined)?.["PAYMENT-SIGNATURE"];
-    if (!header) return theirResponse();
-    sent = header;
-    return new Response(JSON.stringify({ ok: true, data: "…" }), {
-      status: 200,
-      headers: { "content-type": "application/json" },
-    });
-  }) as never;
-
-  const res = await wardaFetchV2(
-    "https://demo.kaspa-x402.org/exact",
-    { method: "GET" },
-    { payer, fetchImpl, onEvent: (e) => events.push(e.type) },
+  await assert.rejects(
+    () =>
+      wardaFetchV2("https://demo.kaspa-x402.org/exact", { method: "GET" }, {
+        payer,
+        fetchImpl: (async () => {
+          broadcast = true;
+          return theirResponse();
+        }) as never,
+      }),
+    (e: Error) => {
+      assert.match(e.message, /cannot accept a covenant spend/);
+      assert.match(e.message, /output 0 IS the successor grant/);
+      assert.match(e.message, /warda pay <url> --relay/);
+      return true;
+    },
   );
-
-  assert.equal(res.status, 200);
-  assert.deepEqual(events, ["quote", "signed", "broadcast", "settled", "done"]);
-  assert.equal(payer.state.spentTotal, 20_000_000n, "0.2 KAS charged against the budget");
-
-  const payment = JSON.parse(Buffer.from(sent!, "base64").toString("utf8"));
-  assert.ok(validatePaymentPayload(payment).ok, "their validator accepts what we would send");
-  assert.equal(payment.accepted.payTo, BODY_PAY_TO);
-
-  // the transaction pays THEM, in their encoding, at the index we declared
-  const tx = JSON.parse(payment.payload.transaction);
-  assert.equal(tx.outputs[payment.payload.paymentOutputIndex].value, "20000000");
-  assert.equal(
-    tx.outputs[payment.payload.paymentOutputIndex].scriptPublicKey,
-    serializedScriptPublicKey(payToPubkeyScript(THEIR_PAYEE)),
-  );
+  assert.equal(payer.state.spentTotal, 0n, "nothing was signed, so nothing was spent");
+  assert.equal(payer.outstanding.status, "none", "and the payer is not holding anything");
+  assert.ok(broadcast, "the quote was fetched — the refusal is about the payment, not the quote");
 });
 
-test("the same quote against a grant that never committed to them is refused, in words", async () => {
+/**
+ * The allowlist still refuses a stranger, at the layer that still enforces it.
+ *
+ * Moved down from the fetch flow to `buildPaymentV2`, because the fetch flow
+ * now refuses a covenant spend first and this test would be measuring that
+ * instead. The refusal it checks is the one that is this protocol's product,
+ * and it is worth keeping pointed at the thing that produces it.
+ */
+test("a grant that never committed to their payee refuses the spend, in words", async () => {
   const stranger = new RecipientSet([fromHex("cc".repeat(32))]);
   const other: Grant = {
     ...grant,
@@ -210,13 +224,12 @@ test("the same quote against a grant that never committed to them is refused, in
 
   await assert.rejects(
     () =>
-      wardaFetchV2("https://demo.kaspa-x402.org/exact", {}, {
-        payer,
-        fetchImpl: (async () => theirResponse()) as never,
+      payer.buildPaymentV2({
+        accepted: selectRequirement(readPaymentRequired(HEADER, BODY)),
+        request: { method: "GET", url: "https://demo.kaspa-x402.org/exact" },
       }),
     /not on this grant's allowlist/,
   );
-  assert.equal(payer.outstanding.status, "none", "and nothing was signed");
 });
 
 // ---- the relay, against the same real quote -------------------------------
@@ -362,4 +375,105 @@ test("a funding broadcast that lands before a refused relay says where the money
       return true;
     },
   );
+});
+
+/**
+ * The price of the relay, stated as tests rather than as a paragraph.
+ *
+ * A relayed payment does not pay the vendor from the grant. It pays the AGENT
+ * from the grant, and the agent pays the vendor — so the allowlist, which
+ * constrains who the GRANT may pay, says nothing on chain about who ultimately
+ * receives the money.
+ *
+ * This client still refuses a payee outside the allowlist, and that refusal is
+ * worth having: it catches a typo'd URL or a vendor swapped under a running
+ * agent. But it is a GUARD, not a guarantee, and the difference is the whole
+ * point of this protocol — "not blocked by a library you could edit" stops
+ * being true for this one hop. The third test below is what that means, done
+ * rather than described.
+ */
+test("COST: this client guards the payee, and the guard is a client-side one", async () => {
+  const strangers = new RecipientSet([fromHex("cc".repeat(32)), fromHex(agentKey)]);
+  const neverCommitted: Grant = {
+    ...grant,
+    recipients: strangers,
+    state: { ...grant.state, recipientsRoot: strangers.rootHex },
+  };
+  const { node: n } = relayNode();
+  const payer = new WardaPayer({ grant: neverCommitted, node: n, sign: AGENT });
+
+  await assert.rejects(
+    () =>
+      wardaFetchV2("https://demo.kaspa-x402.org/exact", {}, {
+        payer,
+        relay: true,
+        fetchImpl: (async () => theirResponse()) as never,
+      }),
+    /not on this grant's allowlist/,
+  );
+  assert.equal(payer.state.spentTotal, 0n);
+});
+
+test("COST: the quantitative limits are untouched, and those ARE enforced", async () => {
+  const committed = new RecipientSet([THEIR_PAYEE, fromHex(agentKey)]);
+  const tight: Grant = {
+    ...grant,
+    recipients: committed,
+    /* Under the invoice plus the relay fee. The covenant does not care who is
+       being paid — it cares how much, and that it still decides. */
+    state: { ...grant.state, recipientsRoot: committed.rootHex, maxPerSpend: 20_100_000n },
+  };
+  const { node: n } = relayNode();
+  const payer = new WardaPayer({ grant: tight, node: n, sign: AGENT });
+
+  await assert.rejects(
+    () =>
+      wardaFetchV2("https://demo.kaspa-x402.org/exact", {}, {
+        payer,
+        relay: true,
+        fetchImpl: (async () => theirResponse()) as never,
+      }),
+    /per payment|max-per-spend|exceeds|cap/i,
+  );
+  assert.equal(payer.state.spentTotal, 0n);
+});
+
+/**
+ * What an agent running different code can do, which is the actual cost.
+ *
+ * Once the covenant has paid the relay key, the coin is an ordinary one at an
+ * ordinary address, and the second transaction is an ordinary payment. Nothing
+ * on chain says where it goes. This builds one to a payee no grant ever
+ * committed to, and it succeeds — not because of a bug, but because there is
+ * nothing left to stop it.
+ *
+ * Kept as a test so the claim cannot quietly stop being true in either
+ * direction: if a future design DID constrain this hop, this would fail and
+ * somebody would come and read why.
+ */
+test("COST: nothing on chain constrains the second hop, and here it is", async () => {
+  const nobodysPayee = schnorr.getPublicKey(fromHex("77".repeat(32)));
+  const built = await buildRelayPayment(
+    {
+      source: {
+        outpoint: { transactionId: fromHex("ab".repeat(32)), index: 1 },
+        value: 20_365_000n,
+        publicKey: fromHex(agentKey),
+      },
+      accepted: {
+        ...selectRequirement(readPaymentRequired(HEADER, BODY)),
+        payTo: pubkeyToAddress(nobodysPayee, "kaspatest"),
+        payToScriptPublicKey: serializedScriptPublicKey(payToPubkeyScript(nobodysPayee)),
+      } as never,
+    },
+    (d) => schnorr.sign(d, AGENT),
+  );
+
+  const tx = JSON.parse(built.safeJson);
+  assert.equal(
+    tx.outputs[0].scriptPublicKey,
+    serializedScriptPublicKey(payToPubkeyScript(nobodysPayee)),
+    "a valid, signed, broadcastable payment to someone no allowlist mentions",
+  );
+  assert.equal(tx.outputs[0].value, "20000000");
 });

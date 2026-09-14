@@ -39,7 +39,11 @@ const agentKey = toHex(agentPublicKey(AGENT));
 const authority = { principalKey: agentKey, revocationKey: agentKey };
 
 const VENDOR = fromHex("a2".repeat(32));
-const recipients = new RecipientSet([VENDOR]);
+/* The agent's own key is on the allowlist, which is what `--relay` does at
+   genesis. Every v2 payment goes through a relay hop now — their `exact`
+   scheme cannot take a covenant spend — so a fixture without it would be a
+   fixture that cannot pay anyone. */
+const recipients = new RecipientSet([VENDOR, fromHex(agentKey)]);
 const vendorAddress = pubkeyToAddress(VENDOR, "kaspatest");
 const vendorScript = serializedScriptPublicKey(payToPubkeyScript(VENDOR));
 
@@ -80,6 +84,10 @@ const node = {
   // payment to have reached the finality the quote names, which nothing can
   // require of a transaction it is about to submit itself.
   submitTransaction: async () => "cafe".repeat(16),
+  /* The relayed payment: an ordinary version-0 transaction, broadcast right
+     after the covenant spend that funds it. Its id is known before signing,
+     which is why it can name an outpoint the network has not seen yet. */
+  submitOrdinaryPayment: async (signed: { id: Uint8Array }) => toHex(signed.id),
   // Non-empty: acceptance is observed as a coin at the successor address.
   getUtxosByAddresses: async () => [{ entry: { value: 1n } }],
 } as never;
@@ -247,7 +255,7 @@ test("settling or abandoning nothing is an error, not a silent no-op", async () 
 
 // ---- the fetch loop ------------------------------------------------------
 
-import { bodyForBinding, wardaFetchV2 } from "../src/index.ts";
+import { DEFAULT_RELAY_FEE_SOMPI, bodyForBinding, wardaFetchV2 } from "../src/index.ts";
 import { requestHash } from "../src/v2.ts";
 
 function res(status: number, body: unknown) {
@@ -284,14 +292,17 @@ test("the happy path pays once, settles, and moves the grant", async () => {
   const out = await wardaFetchV2(
     "https://vendor.example/infer",
     { method: "POST", body: JSON.stringify({ prompt: "hi" }) },
-    { payer: p, fetchImpl, onEvent: (e) => events.push(e.type) },
+    { payer: p, relay: true, fetchImpl, onEvent: (e) => events.push(e.type) },
   );
 
   assert.equal(out.status, 200);
   assert.deepEqual(await out.json(), { answer: "42" });
   assert.deepEqual(events, ["quote", "signed", "broadcast", "settled", "done"]);
   assert.equal(p.outstanding.status, "none");
-  assert.equal(p.state.spentTotal, 20_000_000n);
+  /* The invoice plus the relayed transaction's fee. Not 20,000,000: the fee is
+     part of what buying the thing costs, and a budget that did not count it
+     would mean less than it says. */
+  assert.equal(p.state.spentTotal, 20_000_000n + DEFAULT_RELAY_FEE_SOMPI);
 
   // the binding covers the request that was actually sent
   const decoded = JSON.parse(Buffer.from(sentHeader!, "base64").toString("utf8"));
@@ -319,6 +330,7 @@ test("a spend the chain accepted is banked even when the vendor refuses to serve
     () =>
       wardaFetchV2("https://vendor.example/infer", { method: "POST" }, {
         payer: p,
+        relay: true,
         fetchImpl,
         onEvent: (e) => events.push(e.type),
       }),
@@ -327,7 +339,7 @@ test("a spend the chain accepted is banked even when the vendor refuses to serve
 
   assert.deepEqual(events, ["quote", "signed", "broadcast", "settled", "unresolved"]);
   assert.equal(p.outstanding.status, "none", "not stuck: we watched it land");
-  assert.equal(p.state.spentTotal, 20_000_000n, "and the grant moved, because it did");
+  assert.equal(p.state.spentTotal, 20_000_000n + DEFAULT_RELAY_FEE_SOMPI, "and the grant moved, because it did");
 });
 
 test("a spend that never reached the chain still stops the payer", async () => {
@@ -341,6 +353,7 @@ test("a spend that never reached the chain still stops the payer", async () => {
     () =>
       wardaFetchV2("https://vendor.example/infer", {}, {
         payer: p,
+        relay: true,
         fetchImpl,
         broadcast: false,
       }),
@@ -354,7 +367,7 @@ test("a v1 server on the v2 path is told which function to use", async () => {
   const fetchImpl = (async () =>
     res(402, { accepts: [{ scheme: "exact", amountSompi: "20000000" }] })) as never;
   await assert.rejects(
-    () => wardaFetchV2("https://v/x", {}, { payer: payer(), fetchImpl }),
+    () => wardaFetchV2("https://v/x", {}, { payer: payer(), relay: true, fetchImpl }),
     /speaks x402 v1, not v2. Use wardaFetch/,
   );
 });
@@ -366,6 +379,7 @@ test("a per-call ceiling refuses before anything is signed", async () => {
     () =>
       wardaFetchV2("https://vendor.example/infer", {}, {
         payer: p,
+        relay: true,
         fetchImpl,
         maxAmountSompi: 1_000_000n,
       }),
@@ -377,7 +391,7 @@ test("a per-call ceiling refuses before anything is signed", async () => {
 test("a free endpoint is not paid for", async () => {
   const p = payer();
   const fetchImpl = (async () => res(200, { free: true })) as never;
-  const out = await wardaFetchV2("https://vendor.example/free", {}, { payer: p, fetchImpl });
+  const out = await wardaFetchV2("https://vendor.example/free", {}, { payer: p, relay: true, fetchImpl });
   assert.equal(out.status, 200);
   assert.equal(p.state.spentTotal, 0n);
 });

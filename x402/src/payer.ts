@@ -405,6 +405,7 @@ export class WardaPayer {
   async buildPaymentV2(input: BuildV2Input): Promise<PendingPayment> {
     this.assertFree();
 
+
     const amountSompi = amountOf(input.accepted);
     const req: PaymentRequirement = {
       scheme: "exact",

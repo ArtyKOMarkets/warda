@@ -194,6 +194,43 @@ export async function wardaFetchV2(
     );
   }
 
+  /**
+   * Refused BEFORE anything is signed, because we now know the answer.
+   *
+   * This flow used to build the payment, broadcast it, present it, and be told
+   * `invalid_transaction_state`. Eight times, across two independently hosted
+   * vendors, for money that was really spent. The cause was not knowable from
+   * outside until kaspa-x402 v1.0.0-rc.1 published the verifier, and it is
+   * three lines of their envelope check: version must be 0, an input may not
+   * carry a compute budget, and no output may carry a covenant. A grant spend
+   * fails all three before anything about the payment is examined, and the
+   * `additive` profile rejects covenants identically.
+   *
+   * So there is no covenant spend that satisfies this scheme. Building one is
+   * not an attempt; it is a payment we know will be refused after it settles.
+   * Refusing here costs nothing — refusing there cost 0.2 KAS a go.
+   *
+   * The check lives in THIS function and not in `buildPaymentV2`, because that
+   * is the general v2 builder and this is the flow that says "pay this
+   * vendor". A caller probing whether the rule still holds can assemble the
+   * payload through `buildPayment` directly, which is the right layer for it.
+   */
+  if (!opts.relay) {
+    throw new X402Error(
+      `x402 exact cannot accept a covenant spend, so this payment would settle on chain ` +
+        `and be refused off it.\n\n` +
+        `Their verifier requires the payer's input to be a bare pay-to-pubkey coin unlocked ` +
+        `by one signature, and no output to carry a covenant. A grant spend is neither, under ` +
+        `any version — output 0 IS the successor grant, and it is a covenant output.\n\n` +
+        `The way through is a relay hop: the grant pays the agent's own key, and an ordinary ` +
+        `transaction goes from there to the vendor. It costs the allowlist for that one hop ` +
+        `and nothing else — budget, per-payment cap, epoch limit and window all still bind.\n\n` +
+        `  warda grant --payees payees.txt --relay     when the grant is created\n` +
+        `  warda pay <url> --relay                     when it is spent\n\n` +
+        `See x402/RELAY.md for what that trade is, exactly.`,
+    );
+  }
+
   // The binding must describe the request that is actually sent next, so it is
   // built from the same values used to send it rather than from the first
   // attempt's response.
