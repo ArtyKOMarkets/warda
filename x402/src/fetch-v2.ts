@@ -30,6 +30,7 @@ import {
   readPaymentRequired,
   selectRequirement,
   PAYMENT_REQUIRED_HEADER,
+  PAYMENT_RESPONSE_HEADER,
   PAYMENT_SIGNATURE_HEADER,
   type PaidRequest,
 } from "./v2.ts";
@@ -308,11 +309,40 @@ export async function wardaFetchV2(
      * Bounded, because an error page can be any size, and included in both the
      * event and the thrown message so a caller that logs either one has it.
      */
-    const vendorSaid = await paid
+    const body = await paid
       .clone()
       .text()
       .then((t) => t.slice(0, 2_000).trim())
       .catch(() => "");
+
+    /**
+     * The structured reason, which does not travel in the body.
+     *
+     * Their protocol puts a settlement response in a `PAYMENT-RESPONSE`
+     * header — base64 of a document carrying `errorReason` and friends — and
+     * this read only the body. The first live relayed payment came back with a
+     * body of `{"ok":false,"error":"payment_required"}`, which is the generic
+     * x402 wrapper and says nothing, while the identifier that would have said
+     * which of their checks failed was sitting in a header nobody looked at.
+     *
+     * Decoded rather than passed through: base64 in a terminal is not a
+     * finding. Anything undecodable is reported raw, because a header we
+     * cannot parse is still evidence.
+     */
+    const responseHeader = paid.headers.get(PAYMENT_RESPONSE_HEADER);
+    let settlement = "";
+    if (responseHeader) {
+      try {
+        settlement = JSON.stringify(
+          JSON.parse(Buffer.from(responseHeader, "base64").toString("utf8")),
+        );
+      } catch {
+        settlement = responseHeader.slice(0, 2_000);
+      }
+    }
+    const vendorSaid = [body, settlement && `${PAYMENT_RESPONSE_HEADER}: ${settlement}`]
+      .filter(Boolean)
+      .join("\n");
 
     /**
      * A 402 is not the same kind of failure as a 500.

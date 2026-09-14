@@ -731,15 +731,38 @@ export class WardaPayer {
 
     const deadline = Date.now() + (options.timeoutMs ?? 30_000);
     const pollMs = options.pollMs ?? 1_000;
+
+    /**
+     * Wait for the transaction the VENDOR will look at, which is not always
+     * the one the grant made.
+     *
+     * A direct spend is observed at the successor address: a coin there is the
+     * covenant's own proof that the spend was accepted, because the successor
+     * cannot exist unless the transaction creating it did.
+     *
+     * A relayed payment is a SECOND transaction, and the successor proves
+     * nothing about it. It can only be accepted after the funding spend — it
+     * spends its output — but "after" is not "at the same time", and their
+     * verifier requires the payment itself to have reached accepted finality.
+     * So this watched the wrong transaction and then reported `accepted: true`
+     * about it, which was a false claim in our own output before it was a
+     * failure at their server.
+     *
+     * The relayed one is observed at the PAYEE's address, matched by
+     * transaction id — that address may hold coins from anywhere, so the id is
+     * what makes the observation mean something.
+     */
+    const payeeAddress = this.heldRelay ? pending.payment.accepted.payTo : undefined;
     while (Date.now() < deadline) {
-      /* Acceptance is observed at the SUCCESSOR, which proves the covenant
-         spend landed. A relayed payment spends that transaction's other
-         output, so it cannot be accepted before it — and their verifier reads
-         the chain itself for the one that matters. Waiting on the successor is
-         the check this payer can make without guessing at a payee address
-         that may hold coins from anywhere. */
-      const at = await this.node.getUtxosByAddresses([pending.successorAddress]);
-      if (at.length > 0) return { txid, accepted: true };
+      if (payeeAddress) {
+        const at = await this.node.getUtxosByAddresses([payeeAddress]);
+        if (at.some((u) => toHex(u.outpoint.transactionId) === txid)) {
+          return { txid, accepted: true };
+        }
+      } else {
+        const at = await this.node.getUtxosByAddresses([pending.successorAddress]);
+        if (at.length > 0) return { txid, accepted: true };
+      }
       await new Promise((r) => setTimeout(r, pollMs));
     }
     // Submitted and not seen. Reported rather than thrown: the transaction is

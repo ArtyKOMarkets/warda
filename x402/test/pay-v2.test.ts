@@ -66,6 +66,8 @@ const state: GrantState = {
 };
 const grant: Grant = { template, authority, state, recipients };
 
+let relayedId: string | undefined;
+
 /** A node that answers the two reads a v2 build makes, and nothing else — a
  *  v2 payer must never reach `submitTransaction`, and this proves it cannot. */
 const node = {
@@ -87,9 +89,20 @@ const node = {
   /* The relayed payment: an ordinary version-0 transaction, broadcast right
      after the covenant spend that funds it. Its id is known before signing,
      which is why it can name an outpoint the network has not seen yet. */
-  submitOrdinaryPayment: async (signed: { id: Uint8Array }) => toHex(signed.id),
-  // Non-empty: acceptance is observed as a coin at the successor address.
-  getUtxosByAddresses: async () => [{ entry: { value: 1n } }],
+  submitOrdinaryPayment: async (signed: { id: Uint8Array }) => {
+    relayedId = toHex(signed.id);
+    return relayedId;
+  },
+  /* Acceptance is observed at the PAYEE, matched by transaction id — the
+     successor proves only that the funding spend landed, and a fake that
+     answered any address with any coin let the payer report `accepted: true`
+     about a transaction nobody had looked at. */
+  getUtxosByAddresses: async (addresses: string[]) => {
+    if (relayedId && addresses[0] === vendorAddress) {
+      return [{ outpoint: { transactionId: fromHex(relayedId), index: 0 }, entry: { value: 1n } }];
+    }
+    return [{ outpoint: { transactionId: fromHex("dd".repeat(32)), index: 0 }, entry: { value: 1n } }];
+  },
 } as never;
 
 function quote(over: Record<string, unknown> = {}, extra: Record<string, unknown> = {}) {

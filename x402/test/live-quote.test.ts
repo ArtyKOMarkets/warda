@@ -255,6 +255,12 @@ const relayGrant: Grant = {
 
 function relayNode(over: Record<string, unknown> = {}) {
   const submitted: { funding: number; ordinary: number } = { funding: 0, ordinary: 0 };
+  /* What the RELAYED transaction's id will be, once it is submitted. The
+     acceptance check looks for a coin at the payee carrying this id — the
+     successor address proves only that the funding spend landed, and a fake
+     that answered any address with any coin is what let the payer report
+     `accepted: true` about a transaction nobody had looked at. */
+  let relayedId: string | undefined;
   const n = {
     ...(node as object),
     submitTransaction: async () => {
@@ -264,7 +270,16 @@ function relayNode(over: Record<string, unknown> = {}) {
     submitOrdinaryPayment: async (signed: { id: Uint8Array }, allowOrphan?: boolean) => {
       submitted.ordinary++;
       assert.equal(allowOrphan, true, "the parent may not have propagated yet");
-      return toHex(signed.id);
+      relayedId = toHex(signed.id);
+      return relayedId;
+    },
+    getUtxosByAddresses: async (addresses: string[]) => {
+      /* The payee's address answers with the relayed payment; anything else
+         (the successor) answers with an ordinary coin. */
+      if (relayedId && addresses[0] === BODY_PAY_TO) {
+        return [{ outpoint: { transactionId: fromHex(relayedId), index: 0 }, entry: { value: 1n } }];
+      }
+      return [{ outpoint: { transactionId: fromHex("dd".repeat(32)), index: 0 }, entry: { value: 1n } }];
     },
     ...over,
   } as never;
@@ -608,4 +623,72 @@ test("a v1 proof still resumes, and an unreadable one is left to the v1 path", a
   });
   assert.equal(res.status, 200);
   assert.deepEqual(events, ["resuming", "done"], "unreadable is treated as v1, not guessed at");
+});
+
+/**
+ * The structured reason travels in a HEADER, and reading only the body threw
+ * it away.
+ *
+ * The first live relayed payment came back with `{"ok":false,"error":
+ * "payment_required"}` — the generic x402 wrapper, which says nothing about
+ * which check refused it — while the identifier that would have said sat in
+ * `PAYMENT-RESPONSE`, base64, unread. A payment that cost a real signature and
+ * produced "it did not work" as the entire finding.
+ */
+function refusedWith(headers: Record<string, string>) {
+  return (async (_u: string, init: RequestInit) =>
+    (init?.headers as Record<string, string> | undefined)?.["PAYMENT-SIGNATURE"]
+      ? new Response(JSON.stringify({ ok: false, error: "payment_required" }), {
+          status: 402,
+          headers: { "content-type": "application/json", ...headers },
+        })
+      : theirResponse()) as never;
+}
+
+async function vendorSaidWhenRefused(headers: Record<string, string>): Promise<string> {
+  const relayable = new RecipientSet([THEIR_PAYEE, fromHex(agentKey)]);
+  const g: Grant = {
+    ...grant,
+    recipients: relayable,
+    state: { ...grant.state, recipientsRoot: relayable.rootHex },
+  };
+  const { node: n } = relayNode();
+  let said = "";
+  await wardaFetchV2("https://demo.kaspa-x402.org/exact", {}, {
+    payer: new WardaPayer({ grant: g, node: n, sign: AGENT }),
+    relay: true,
+    fetchImpl: refusedWith(headers),
+    onEvent: (e) => {
+      if (e.type === "unresolved") said = e.vendorSaid;
+    },
+  }).catch(() => {});
+  return said;
+}
+
+test("a refusal reports the PAYMENT-RESPONSE header, decoded", async () => {
+  const settlement = {
+    success: false,
+    errorReason: "invalid_transaction_state",
+    network: "kaspa:testnet-10",
+  };
+  const said = await vendorSaidWhenRefused({
+    "PAYMENT-RESPONSE": Buffer.from(JSON.stringify(settlement)).toString("base64"),
+  });
+
+  assert.match(said, /payment_required/, "the body is still there");
+  /* And the part that was missing: WHICH of their checks refused it. */
+  assert.match(said, /PAYMENT-RESPONSE/);
+  assert.match(said, /invalid_transaction_state/);
+  assert.doesNotMatch(said, /eyJ/, "decoded, because base64 in a terminal is not a finding");
+});
+
+test("an undecodable PAYMENT-RESPONSE is reported raw rather than dropped", async () => {
+  /* A header we cannot parse is still evidence. */
+  assert.match(await vendorSaidWhenRefused({ "PAYMENT-RESPONSE": "not-base64!!" }), /not-base64/);
+});
+
+test("and with no such header, the body alone is still reported", async () => {
+  const said = await vendorSaidWhenRefused({});
+  assert.match(said, /payment_required/);
+  assert.doesNotMatch(said, /PAYMENT-RESPONSE/);
 });
