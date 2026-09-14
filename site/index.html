@@ -2188,13 +2188,17 @@ await wardaFetch(url);</code></pre>
         went to the one address it was allowed to pay, and the counter would say so if that ever
         stopped being true &mdash; <a href="/attack">take the key</a>.</p>
       </div>
-      <div class="next">
-        <span class="tag">Next <em>&middot; visibility</em></span>
+      <div class="shipped">
+        <span class="tag">Shipped <em>&middot; visibility</em></span>
         <h3>A hosted verification endpoint</h3>
-        <p>Anyone should be able to check a grant's terms without trusting whoever showed them
-        to you. The service is written and tested and you can run it yourself today; what is
-        missing is somewhere it runs that is not a laptop. Until then this is honest but not
-        useful to a stranger.</p>
+        <p>Anyone can check a grant without trusting whoever showed it to them, and without
+        installing anything &mdash;
+        <a href="https://warda-verify.vercel.app/health" rel="noopener">warda-verify.vercel.app</a>.
+        It runs on nobody's machine: no node, no key, reading a resolver-chosen public node over
+        borsh, and it refuses to answer from one that fails any of four checks. It is a service
+        with <strong>no uptime promise and no authentication</strong>, it reads testnet-10, and
+        <code>npx warda-verify</code> runs the identical thing yourself &mdash; which is the
+        version that matters, because a verifier you have to trust is not a verifier.</p>
       </div>
       <div class="shipped">
         <span class="tag">Shipped <em>&middot; delegation in public</em></span>
@@ -2220,8 +2224,8 @@ await wardaFetch(url);</code></pre>
         <h3>A Warda plugin for KeeperHub</h3>
         <p>Three actions that let a workflow ask what an agent may spend before it spends it,
         written against their repository and checked by their own compiler, tests and CI rules
-        rather than against their documentation. It has not been submitted yet, and it points
-        at a verification endpoint that is not hosted &mdash; both of which are above this line.</p>
+        rather than against their documentation. The verification endpoint it points at is now
+        hosted; what remains is that it has not been submitted.</p>
       </div>
       <div class="planned">
         <span class="tag">Planned <em>&middot; before real money</em></span>
