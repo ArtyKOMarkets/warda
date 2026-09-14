@@ -671,6 +671,23 @@ function summarise(text: string): string {
   return `all ${hosts.length} resolvers unreachable (${reason})`;
 }
 
+/** `Promise.any` rejects with an AggregateError; its one line is useless. */
+function reasonsFrom(e: unknown): string | undefined {
+  const wrapped = e as { errors?: unknown[]; cause?: unknown };
+  const errors = wrapped?.errors ?? (wrapped?.cause as { errors?: unknown[] })?.errors;
+  if (!Array.isArray(errors) || errors.length === 0) return undefined;
+  const counted = new Map<string, number>();
+  for (const one of errors) {
+    const line = summarise(textOf(one));
+    counted.set(line, (counted.get(line) ?? 0) + 1);
+  }
+  return [...counted]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+    .map(([line, n]) => (n > 1 ? `${line} (×${n})` : line))
+    .join("; ");
+}
+
 async function stage<T>(work: Promise<T>, ms: number, describe: () => string): Promise<T> {
   let timer: ReturnType<typeof setTimeout>;
   const expiry = new Promise<never>((_, reject) => {
@@ -688,7 +705,11 @@ async function stage<T>(work: Promise<T>, ms: number, describe: () => string): P
        collects one line per attempt and writes the guidance once at the end,
        rather than three times. */
     const why = describe();
-    throw new Error(why ? `${what}\n\n${why}` : what);
+    /* The original is kept as `cause`. `Promise.any` rejects with an
+       AggregateError whose `.errors` is the only useful part, and wrapping it
+       in a fresh Error threw that away — so the report said "All promises were
+       rejected", which names the mechanism and not one thing that went wrong. */
+    throw new Error(why ? `${what}\n\n${why}` : what, { cause: e });
   } finally {
     clearTimeout(timer!);
   }
@@ -701,48 +722,97 @@ async function stage<T>(work: Promise<T>, ms: number, describe: () => string): P
  * resolver reachable from here at all" — without opening a socket or loading a
  * grant. That is the first thing to know when `--borsh` does not work.
  */
+/**
+ * Ask a resolver which node to use — all of them at once, first answer wins.
+ *
+ * ## Why this does not just call `Resolver.getUrl`
+ *
+ * Because some resolvers HANG. Measured, on one machine, in one minute:
+ *
+ *   eric.kaspa.stream   200, immediately
+ *   john.kaspa.red      200, immediately
+ *   jake.kaspa.green    hangs, then closes with an empty body
+ *   noah.kaspa.blue     522
+ *
+ * `Resolver.getUrl` does not survive that well: it reports every one of the
+ * sixteen as unreachable after long enough that a caller with any deadline at
+ * all has given up. So the same command discovered a node one minute and timed
+ * out the next, and whether it worked depended on which resolver it happened
+ * to reach first. A dead resolver in a list of sixteen must cost nothing, and
+ * an answer from any one of them is a complete answer.
+ *
+ * So: every host, in parallel, `Promise.any`, first url wins, losers aborted.
+ * Sixteen concurrent GETs of ~90 bytes is not a load anyone will notice, and
+ * the slow ones no longer hold up the fast ones.
+ *
+ * ## The list, and how it can go stale
+ *
+ * `RESOLVER_HOSTS` was read out of `@kluster/kaspa-wasm@2.0.1`'s wasm binary —
+ * the TOML compiled into it, with the `*.kaspa-ng.{org,io,net}` groups
+ * commented out, so it is what the client would really have contacted rather
+ * than what a wiki says. A list in our source can drift from a list in theirs,
+ * which is why `Resolver.getUrl` runs as one more contender in the same race:
+ * if upstream adds a host we do not know, it still wins on its own merits, and
+ * if it hangs it costs nothing.
+ */
+const RESOLVER_HOSTS = [
+  "eric.kaspa.stream", "maxim.kaspa.stream", "sean.kaspa.stream", "troy.kaspa.stream",
+  "john.kaspa.red", "mike.kaspa.red", "paul.kaspa.red", "alex.kaspa.red",
+  "jake.kaspa.green", "mark.kaspa.green", "adam.kaspa.green", "liam.kaspa.green",
+  "noah.kaspa.blue", "ryan.kaspa.blue", "jack.kaspa.blue", "luke.kaspa.blue",
+];
+
+/** One resolver's answer, or a reason it is not one. */
+async function askResolver(host: string, networkId: string, signal: AbortSignal): Promise<string> {
+  const r = await fetch(`https://${host}/v2/kaspa/${networkId}/any/wrpc/borsh`, { signal });
+  if (!r.ok) throw new Error(`${host}: HTTP ${r.status}`);
+  /* An empty body is a real answer from a real resolver — jake.kaspa.green
+     does exactly this — so `json()` throwing here is the expected failure and
+     not a surprise worth a different message. */
+  const body = (await r.json()) as { url?: unknown };
+  if (typeof body.url !== "string" || !body.url) throw new Error(`${host}: no url in the reply`);
+  return body.url;
+}
+
 export async function discover(wasm: unknown, networkId: string): Promise<string> {
   const k = wasm as {
     Resolver: new () => { getUrl(encoding: unknown, networkId: string): Promise<string> };
     Encoding: { Borsh: unknown };
   };
 
-  /* Retried, because it is idempotent, cheap, and OBSERVABLY FLAKY: the same
-     machine discovered a node, failed the next attempt fifteen seconds later,
-     and succeeded again after that. Sixteen resolvers are tried per attempt and
-     some stall rather than refuse, so a slow one can eat the whole budget while
-     a healthy one waits behind it.
-
-     A transient failure that a person fixes by running the command again is a
-     failure the tool should fix itself — especially this one, which lands on
-     somebody's first use of the transport and reads as "this does not work". */
   const failures: string[] = [];
   for (let attempt = 1; attempt <= DISCOVER_ATTEMPTS; attempt++) {
+    const cancel = new AbortController();
+    const contenders: Promise<string>[] = RESOLVER_HOSTS.map((h) =>
+      askResolver(h, networkId, cancel.signal),
+    );
+    /* The client's own resolver, racing beside ours so an upstream list change
+       cannot strand us. It has no abort signal, so it is left to finish into
+       nothing — which is why the deadline below is around the race and not
+       around this. */
+    contenders.push(k.Encoding ? new k.Resolver().getUrl(k.Encoding.Borsh, networkId) : Promise.reject(new Error("no Encoding")));
+
     try {
-      return await stage(
-        new k.Resolver().getUrl(k.Encoding.Borsh, networkId),
-        DISCOVER_MS,
-        () => "",
-      );
+      const url = await stage(Promise.any(contenders), DISCOVER_MS, () => "");
+      cancel.abort();
+      return url;
     } catch (e) {
-      failures.push(`  attempt ${attempt}: ${summarise(textOf(e))}`);
+      cancel.abort();
+      failures.push(`  attempt ${attempt}: ${reasonsFrom(e) ?? summarise(textOf(e))}`);
     }
   }
 
   throw new Error(
     `no resolver answered, in ${DISCOVER_ATTEMPTS} attempts.\n\n` +
       failures.join("\n") +
-      `\n\nThis step is plain HTTPS to the community resolvers — it is not the chain, and\n` +
-      `no WebSocket has been attempted yet. A proxy, a container egress policy or a\n` +
-      `firewall that DROPS rather than refuses looks like a timeout here; the whole\n` +
-      `fleet being unreachable looks like a fast failure.\n\n` +
-      `Ask one of them directly. The list is compiled into the WASM build, and these are\n` +
-      `the four domains it actually uses — ${RESOLVER_DOMAINS.join(", ")}:\n\n` +
+      `\n\nAll ${RESOLVER_HOSTS.length} are asked at once and the first answer wins, so this is not one\n` +
+      `slow host holding up the others — it is every one of them failing. The step is\n` +
+      `plain HTTPS and no WebSocket has been attempted yet, so a proxy, a container\n` +
+      `egress policy or a firewall is the first thing to rule out.\n\n` +
       RESOLVER_PROBES.map((h) => `  curl -sS https://${h}/v2/kaspa/${networkId}/any/wrpc/borsh`).join("\n") +
-      `\n\nA 502 from one of them is that one being down, not a network problem — the\n` +
-      `resolver is meant to route around it. All four failing is the network.\n\n` +
-      `Either way there is a way past: point at a borsh endpoint directly, which skips\n` +
-      `discovery entirely.\n\n` +
+      `\n\nIf some of those answer and this does not, that is a bug here rather than a\n` +
+      `network problem, and worth reporting with the output above.\n\n` +
+      `Either way there is a way past — name a borsh endpoint and skip discovery:\n\n` +
       `  --rpc wss://<host>/kaspa/${networkId}/wrpc/borsh`,
   );
 }

@@ -153,8 +153,15 @@ const run = (script: string, args: string[], env: NodeJS.ProcessEnv = {}) => {
  * forwarded flags would have done.
  */
 const rpcArgs = (cfg: Config): string[] => {
-  if (has("borsh") || cfg.transport === "borsh") return ["--borsh"];
   const url = flag("rpc") ?? cfg.rpc ?? process.env.WARDA_RPC_JSON;
+  /* BOTH, when both are given. --borsh picks the transport; --rpc names an
+     endpoint on it, which skips resolver discovery — and that combination is
+     the only way through when the resolvers are unreachable. Returning early
+     on --borsh dropped the url silently, so the one escape hatch that works
+     was reachable from `warda node` and from nowhere else. */
+  if (has("borsh") || cfg.transport === "borsh") {
+    return flag("rpc") ? ["--borsh", "--rpc", flag("rpc")!] : ["--borsh"];
+  }
   return url ? ["--rpc", url] : [];
 };
 
@@ -253,10 +260,8 @@ switch (verb) {
     const grant = flag("grant") ?? cfg.grant;
     /* --borsh is honoured for THIS run whether or not it is remembered, so the
        command can be used to try a transport without adopting it. */
-    const asked = has("borsh") ? ["--borsh"] : rpcArgs(cfg);
     const status = run("sdk/tools/check-node.ts", [
-      ...asked,
-      ...(flag("rpc") ? ["--rpc", flag("rpc")!] : []),
+      ...rpcArgs(cfg),
       ...(grant && existsSync(grant) ? ["--grant", grant] : []),
       ...rest.filter((a) => a.startsWith("--resolver")),
     ]);
