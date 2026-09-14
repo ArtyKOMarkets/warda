@@ -194,6 +194,7 @@ export class BorshReader implements Inspectable {
   private readonly endpoint: string;
   private readonly wasm: unknown;
   private readonly wasmName: string;
+  private closed = false;
 
   private constructor(rpc: WasmRpc, endpoint: string, wasm: unknown, wasmName: string) {
     this.rpc = rpc;
@@ -254,8 +255,36 @@ export class BorshReader implements Inspectable {
     return this.endpoint;
   }
 
+  /**
+   * Disconnect, and NEVER reject. Both halves are deliberate.
+   *
+   * This is `async`, so it returns a promise — and every caller in this repo
+   * writes `client.close()` without `await`, because `NodeClient.close` is
+   * synchronous and the shared `Chain` type is written from it. An unawaited
+   * promise that rejects is an unhandled rejection, and Node 24 makes those
+   * FATAL. So a successful grant creation ended with the process dying on
+   * `RPC Server (remote error) -> WebSocket disconnected` after the work was
+   * finished and the manifest written — a crash with nothing wrong behind it.
+   *
+   * Which is the worse half of the bug: cleanup that can kill the process
+   * reports a failure that did not happen, and the next person re-runs a
+   * command that already succeeded. Closing a connection that has already gone
+   * away is not a failure at all — there is nothing a caller could do about it
+   * and nothing that depends on it — so it is swallowed here rather than
+   * pushed at somebody.
+   *
+   * Idempotent for the same reason: a `finally` that closes and an outer
+   * `finally` that closes again is ordinary code, and the second call must not
+   * be an error.
+   */
   async close(): Promise<void> {
-    await this.rpc.disconnect();
+    if (this.closed) return;
+    this.closed = true;
+    try {
+      await this.rpc.disconnect();
+    } catch {
+      /* Deliberately empty. See above: there is no caller who can act on it. */
+    }
   }
 
   /**

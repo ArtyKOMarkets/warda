@@ -653,3 +653,29 @@ test("a node that really has no index still reports none, either way round", asy
   } as Partial<WasmRpc>);
   assert.equal((await (await BorshReader.open({ client: viaGetInfo })).getInfo()).isUtxoIndexed, false);
 });
+
+test("close never rejects, and is safe to call twice", async () => {
+  /* The crash this prevents came AFTER a grant was created and written: the
+     work succeeded, cleanup threw, and Node 24 killed the process over an
+     unhandled rejection. Every call site in this repo writes `close()` without
+     `await`, because NodeClient.close is synchronous — so a rejecting close is
+     a fatal error reporting a failure that did not happen. */
+  let disconnects = 0;
+  const client = fake({
+    disconnect: async () => {
+      disconnects++;
+      throw new Error("RPC Server (remote error) -> WebSocket disconnected");
+    },
+  });
+  const r = await BorshReader.open({ client });
+  await r.close();
+  await r.close();
+  assert.equal(disconnects, 1, "the second close must not reach the socket again");
+
+  /* And unawaited, which is how it is actually called. An unhandled rejection
+     here would fail the test run rather than this assertion, which is the
+     point. */
+  const again = await BorshReader.open({ client: fake({ disconnect: async () => { throw new Error("gone"); } }) });
+  again.close();
+  await new Promise((r) => setTimeout(r, 10));
+});
