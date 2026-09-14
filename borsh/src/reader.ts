@@ -55,15 +55,22 @@ import {
   parseDagInfo,
   parseInfo,
   parseUtxos,
+  ordinaryPaymentToWire,
   toHex,
   transactionId,
   type AddressUtxo,
   type DagInfo,
   type Inspectable,
   type NodeInfo,
+  type SignedOrdinaryPayment,
   type Transaction,
 } from "@warda_protocol/kaspa";
-import { encodeForSubmit, supportsCovenants, type WasmModule } from "./submit.ts";
+import {
+  SerialisationDisagreement,
+  encodeForSubmit,
+  supportsCovenants,
+  type WasmModule,
+} from "./submit.ts";
 
 /**
  * The part of `kaspa-wasm32-sdk`'s RpcClient this uses.
@@ -333,6 +340,51 @@ export class BorshReader implements Inspectable {
       | unknown[];
     const raw = Array.isArray(reply) ? reply : (reply?.entries ?? []);
     return parseUtxos({ entries: raw.map(nest) });
+  }
+
+  /**
+   * Broadcast an ordinary version-0 payment.
+   *
+   * The relay half of an x402 `exact` purchase, and the one transaction this
+   * transport sends that carries no covenant — so `supportsCovenants` is not
+   * required here, only the ability to submit. A covenant-blind build can do
+   * this perfectly well; it is the funding spend it cannot serialise.
+   *
+   * The id is still checked both ways. It is known before signing, so a build
+   * that encodes this differently produces a different id, and the guard costs
+   * nothing.
+   */
+  async submitOrdinaryPayment(
+    signed: SignedOrdinaryPayment,
+    allowOrphan = false,
+  ): Promise<string> {
+    if (this.wasm === undefined || typeof this.rpc.submitTransaction !== "function") {
+      throw new WriteNotSupported();
+    }
+    const wire = ordinaryPaymentToWire(signed) as Record<string, unknown> & {
+      outputs: Record<string, unknown>[];
+    };
+    /* The same asymmetry the covenant path hit, in the same direction: the
+       JSON transport wants `covenant: null` and the WASM deserializer wants
+       the key absent, with `Error converting property 'covenant': supplied
+       argument is not an object` if it is there. */
+    wire.outputs = wire.outputs.map(({ covenant: _dropped, ...rest }) => rest);
+
+    const built = new (this.wasm as WasmModule).Transaction(wire);
+    const ours = toHex(signed.id);
+    if (String(built.id) !== ours) throw new SerialisationDisagreement(ours, String(built.id));
+
+    const reply = await this.rpc.submitTransaction({ transaction: built, allowOrphan });
+    const id = reply?.transactionId;
+    if (!id) throw new Error("submitTransaction returned no transaction id");
+    if (String(id) !== ours) {
+      throw new Error(
+        `the node accepted a version-0 payment with an id this SDK did not predict.\n\n` +
+          `  expected  ${ours}\n  node said ${String(id)}\n\n` +
+          `This one IS broadcast. Follow the node's id, not the predicted one.`,
+      );
+    }
+    return ours;
   }
 
   /**

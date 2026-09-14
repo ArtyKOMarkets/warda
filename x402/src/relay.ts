@@ -27,6 +27,7 @@
 import {
   decodeAddress,
   ordinaryPaymentFee,
+  ordinaryPaymentSighash,
   payToPubkeyScript,
   signOrdinaryPayment,
   storageMass,
@@ -117,10 +118,19 @@ export interface RelayPayment {
   inputIndex: 0;
 }
 
-export function buildRelayPayment(
+/**
+ * Async, and trimming, because the payer's signer is both.
+ *
+ * A Warda `Signer` may live in an HSM or another process, and it returns the
+ * 65 bytes a Kaspa TRANSACTION signature carries — 64 of Schnorr plus the
+ * sighash-type byte. `signOrdinaryPayment` appends that byte itself, from the
+ * same constant the verifier checks, so passing 65 through would produce a
+ * 67-byte signature script and an instant refusal.
+ */
+export async function buildRelayPayment(
   input: RelayInput,
-  sign: (digest: Uint8Array) => Uint8Array,
-): RelayPayment {
+  sign: (digest: Uint8Array) => Uint8Array | Promise<Uint8Array>,
+): Promise<RelayPayment> {
   const payee = relayPayee(input.accepted);
   const amount = amountOf(input.accepted);
 
@@ -148,7 +158,13 @@ export function buildRelayPayment(
 
   const payment: OrdinaryPayment = { source: input.source, payee, amount };
   ordinaryPaymentFee(payment); // refuses before signing if the coin cannot cover it
-  const signed = signOrdinaryPayment(payment, sign);
+  /* Signed up front rather than inside, so the async signer is awaited once
+     and `signOrdinaryPayment` stays synchronous — it is also used where there
+     is no event loop to wait on. */
+  const signature = await sign(ordinaryPaymentSighash(payment));
+  const signed = signOrdinaryPayment(payment, () =>
+    signature.length === 65 ? signature.subarray(0, 64) : signature,
+  );
 
   const mass = storageMass(
     [{ value: input.source.value, scriptPublicKey: payToPubkeyScript(input.source.publicKey) }],

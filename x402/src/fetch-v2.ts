@@ -99,6 +99,18 @@ export interface WardaFetchV2Options {
    * Mutually exclusive with `omitPayerAddress`, which wins if both are set.
    */
   payerIsSuccessor?: boolean;
+  /**
+   * Pay through a relay hop, which is what an x402 `exact` vendor requires.
+   *
+   * Their scheme takes only a version-0 transaction with a key-controlled
+   * input and no covenant, so the covenant spend cannot be the payment: the
+   * grant pays the agent's own key and an ordinary transaction goes from there
+   * to the vendor. Needs a grant created with `--relay`, and costs the
+   * allowlist for that one hop. See `x402/RELAY.md`.
+   */
+  relay?: boolean;
+  /** The fee for the relayed transaction. See `BuildV2Input.relayFeeSompi`. */
+  relayFeeSompi?: bigint;
 }
 
 export type WardaFetchV2Event =
@@ -191,6 +203,8 @@ export async function wardaFetchV2(
     request,
     omitPayerAddress: opts.omitPayerAddress,
     payerIsSuccessor: opts.payerIsSuccessor,
+    relay: opts.relay,
+    relayFeeSompi: opts.relayFeeSompi,
   });
   emit({ type: "signed", pending });
 

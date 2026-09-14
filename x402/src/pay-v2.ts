@@ -83,6 +83,14 @@ export interface PendingPayment {
   successorAddress: string;
   /** After this the vendor's facilitator will refuse the authorization. */
   expiresAt: string;
+  /**
+   * Set when this payment went through a relay hop.
+   *
+   * `txid` is then the RELAYED transaction — the one the vendor verifies —
+   * and this is the covenant spend that funded it. Two ids for one payment,
+   * and confusing them is how a recovery looks at the wrong transaction.
+   */
+  relay?: { fundingTxid: string; feeSompi: bigint; relayAddress: string };
 }
 
 export type Outstanding =
@@ -106,7 +114,35 @@ export interface BuildV2Input {
   omitPayerAddress?: boolean;
   /** Declare the SUCCESSOR grant address as the payer. See WardaFetchV2Options. */
   payerIsSuccessor?: boolean;
+  /**
+   * Pay through a relay hop, which is the only way to satisfy x402 `exact`.
+   *
+   * Their scheme requires the payer's input to be a bare P2PK unlocked by one
+   * signature and no output to carry a covenant, so a covenant spend can never
+   * BE the payment. With this set, the grant pays the agent's own key and an
+   * ordinary version-0 transaction goes from there to the vendor. The grant
+   * must have been created with `--relay`, or its allowlist does not contain
+   * the agent key and the covenant refuses the first half.
+   *
+   * The cost is the allowlist for that hop, and nothing else. `x402/RELAY.md`.
+   */
+  relay?: boolean;
+  /**
+   * The fee for the relayed transaction, in sompi.
+   *
+   * It is not a setting so much as a consequence: the relay coin is spent
+   * WHOLE — a change output costs four orders of magnitude more storage mass
+   * than none — so whatever the grant sends above the invoice is the fee, and
+   * anything left over is not recoverable. The default is measured, not
+   * guessed: a one-input one-output payment masses ~1,108 for storage and
+   * ~3,038 for compute, priced at 100 sompi per unit, with the same ~20%
+   * margin the rest of this repo's fee defaults carry.
+   */
+  relayFeeSompi?: bigint;
 }
+
+/** See `BuildV2Input.relayFeeSompi`. 3,038 mass × 100 sompi, +20%. */
+export const DEFAULT_RELAY_FEE_SOMPI = 365_000n;
 
 /**
  * The amount, as a bigint, or a refusal naming what arrived.

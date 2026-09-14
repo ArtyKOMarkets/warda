@@ -218,3 +218,148 @@ test("the same quote against a grant that never committed to them is refused, in
   );
   assert.equal(payer.outstanding.status, "none", "and nothing was signed");
 });
+
+// ---- the relay, against the same real quote -------------------------------
+
+/**
+ * The whole point of the relay, end to end, against the quote their server
+ * actually served.
+ *
+ * Every earlier attempt at this vendor settled on chain and was refused off
+ * it. The rule turned out to be three lines of their envelope check — version
+ * 0, no compute budget, no covenant on any output — and a covenant spend fails
+ * all three before anything about the payment is examined. So the payment is a
+ * SECOND transaction, and this asserts that what leaves the client is the one
+ * they will accept rather than the one they refused eight times.
+ */
+const relayRecipients = new RecipientSet([THEIR_PAYEE, fromHex(agentKey)]);
+const relayGrant: Grant = {
+  ...grant,
+  recipients: relayRecipients,
+  state: { ...grant.state, recipientsRoot: relayRecipients.rootHex },
+};
+
+function relayNode(over: Record<string, unknown> = {}) {
+  const submitted: { funding: number; ordinary: number } = { funding: 0, ordinary: 0 };
+  const n = {
+    ...(node as object),
+    submitTransaction: async () => {
+      submitted.funding++;
+      return "cafe".repeat(16);
+    },
+    submitOrdinaryPayment: async (signed: { id: Uint8Array }, allowOrphan?: boolean) => {
+      submitted.ordinary++;
+      assert.equal(allowOrphan, true, "the parent may not have propagated yet");
+      return toHex(signed.id);
+    },
+    ...over,
+  } as never;
+  return { node: n, submitted };
+}
+
+test("a relayed payment sends the ordinary transaction, not the covenant spend", async () => {
+  const { node: n, submitted } = relayNode();
+  const payer = new WardaPayer({ grant: relayGrant, node: n, sign: AGENT });
+  let sent: string | undefined;
+
+  const res = await wardaFetchV2(
+    "https://demo.kaspa-x402.org/exact",
+    { method: "GET" },
+    {
+      payer,
+      relay: true,
+      fetchImpl: (async (_u: string, init: RequestInit) => {
+        const header = (init?.headers as Record<string, string> | undefined)?.["PAYMENT-SIGNATURE"];
+        if (!header) return theirResponse();
+        sent = header;
+        return new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }) as never,
+    },
+  );
+  assert.equal(res.status, 200);
+  assert.deepEqual(submitted, { funding: 1, ordinary: 1 }, "both halves, once each");
+
+  const payment = JSON.parse(Buffer.from(sent!, "base64").toString("utf8"));
+  assert.ok(validatePaymentPayload(payment).ok, "their validator accepts what we would send");
+
+  const tx = JSON.parse(payment.payload.transaction);
+  /* The three checks that refused every earlier attempt. */
+  assert.equal(tx.version, 0, "version must be 0");
+  assert.equal(tx.inputs[0].computeBudget, undefined, "a v0 input carries no compute budget");
+  assert.equal(tx.outputs[0].covenant, null, "no output may carry a covenant");
+
+  assert.equal(payment.payload.paymentOutputIndex, 0);
+  assert.equal(tx.outputs.length, 1, "no change output, or the storage mass is ruinous");
+  assert.equal(tx.outputs[0].value, "20000000");
+  assert.equal(
+    tx.outputs[0].scriptPublicKey,
+    serializedScriptPublicKey(payToPubkeyScript(THEIR_PAYEE)),
+  );
+});
+
+test("the grant is charged the invoice AND the relayed transaction's fee", async () => {
+  const { node: n } = relayNode();
+  const payer = new WardaPayer({ grant: relayGrant, node: n, sign: AGENT });
+  await wardaFetchV2("https://demo.kaspa-x402.org/exact", { method: "GET" }, {
+    payer,
+    relay: true,
+    relayFeeSompi: 400_000n,
+    fetchImpl: (async (_u: string, init: RequestInit) =>
+      (init?.headers as Record<string, string> | undefined)?.["PAYMENT-SIGNATURE"]
+        ? new Response("{}", { status: 200, headers: { "content-type": "application/json" } })
+        : theirResponse()) as never,
+  });
+  /* Not 20,000,000. The fee is part of what buying the thing costs, and a
+     budget that did not count it would mean less than it says. */
+  assert.equal(payer.state.spentTotal, 20_400_000n);
+});
+
+test("a grant without --relay is refused with the command that would have worked", async () => {
+  const { node: n } = relayNode();
+  const payer = new WardaPayer({ grant, node: n, sign: AGENT });
+  await assert.rejects(
+    () =>
+      wardaFetchV2("https://demo.kaspa-x402.org/exact", {}, {
+        payer,
+        relay: true,
+        fetchImpl: (async () => theirResponse()) as never,
+      }),
+    (e: Error) => {
+      assert.match(e.message, /allowlist does not contain the agent's own key/);
+      assert.match(e.message, /warda grant --payees payees\.txt --relay/);
+      /* An allowlist is fixed at genesis, so this is not retryable and must
+         not read like a transient failure. */
+      assert.match(e.message, /fixed at genesis/);
+      return true;
+    },
+  );
+});
+
+test("a funding broadcast that lands before a refused relay says where the money is", async () => {
+  const { node: n } = relayNode({
+    submitOrdinaryPayment: async () => {
+      throw new Error("orphan rejected");
+    },
+  });
+  const payer = new WardaPayer({ grant: relayGrant, node: n, sign: AGENT });
+  await assert.rejects(
+    () =>
+      wardaFetchV2("https://demo.kaspa-x402.org/exact", {}, {
+        payer,
+        relay: true,
+        fetchImpl: (async () => theirResponse()) as never,
+      }),
+    (e: Error) => {
+      assert.match(e.message, /covenant spend was broadcast/);
+      /* The failure that must never read as "nothing happened": the grant has
+         moved and the money is at the relay address. A caller told only
+         "submit failed" would pay again. */
+      assert.match(e.message, /is now at kaspatest:/);
+      assert.match(e.message, /Nothing is lost and nothing is paid/);
+      return true;
+    },
+  );
+});

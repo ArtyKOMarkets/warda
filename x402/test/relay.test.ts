@@ -67,10 +67,11 @@ interface SafeTx {
   storageMass: string;
 }
 
-const parsed = (over: Record<string, unknown> = {}) => JSON.parse(build(over).safeJson) as SafeTx;
+const parsed = async (over: Record<string, unknown> = {}) =>
+  JSON.parse((await build(over)).safeJson) as SafeTx;
 
-test("the payload satisfies every rule their standard-native envelope applies", () => {
-  const tx = parsed();
+test("the payload satisfies every rule their standard-native envelope applies", async () => {
+  const tx = await parsed();
 
   assert.equal(tx.version, 0, "version must be 0");
   assert.equal(tx.lockTime, "0");
@@ -102,8 +103,8 @@ test("the payload satisfies every rule their standard-native envelope applies", 
   assert.equal(ins - outs, FEE, "the funding overage is the fee, exactly");
 });
 
-test("the id and the storage mass are the ones they will recompute", () => {
-  const tx = parsed();
+test("the id and the storage mass are the ones they will recompute", async () => {
+  const tx = await parsed();
 
   assert.equal(
     tx.id,
@@ -134,14 +135,14 @@ test("the id and the storage mass are the ones they will recompute", () => {
   );
 });
 
-test("the payload indices are the ones a one-in-one-out payment forces", () => {
-  const built = build();
+test("the payload indices are the ones a one-in-one-out payment forces", async () => {
+  const built = await build();
   assert.equal(built.paymentOutputIndex, 0);
   assert.equal(built.inputIndex, 0);
   assert.equal(SAFE_JSON_ENCODING, "kaspa-sdk-safe-json-v2.0.0");
 });
 
-test("a script-hash payee is refused here, not by a covenant later", () => {
+test("a script-hash payee is refused here, not by a covenant later", async () => {
   /* A grant pays x-only KEYS, so a script-hash vendor is unpayable from a
      grant by any route — the relay does not change that. Saying so names the
      real reason instead of surfacing as a failed inclusion proof. */
@@ -157,19 +158,19 @@ test("a script-hash payee is refused here, not by a covenant later", () => {
   });
 });
 
-test("a payee script that disagrees with the vendor's is refused before signing", () => {
-  assert.throws(
+test("a payee script that disagrees with the vendor's is refused before signing", async () => {
+  await assert.rejects(
     () => build({ payToScriptPublicKey: "0000" + "20" + "cc".repeat(32) + "ac" }),
     /is not the one the vendor advertised/,
   );
 });
 
-test("a quote with no script to cross-check against is still payable", () => {
-  assert.equal(parsed({ payToScriptPublicKey: undefined }).outputs[0]!.scriptPublicKey, MERCHANT_SCRIPT);
+test("a quote with no script to cross-check against is still payable", async () => {
+  assert.equal((await parsed({ payToScriptPublicKey: undefined })).outputs[0]!.scriptPublicKey, MERCHANT_SCRIPT);
 });
 
-test("funding that cannot cover the invoice is refused before anything is signed", () => {
-  assert.throws(
+test("funding that cannot cover the invoice is refused before anything is signed", async () => {
+  await assert.rejects(
     () => buildRelayPayment({ source: { ...source, value: AMOUNT - 1n }, accepted: accepted() }, sign),
     /cannot cover the amount/,
   );

@@ -77,6 +77,7 @@ export {
 } from "./v0.ts";
 
 export { storageMass, STORAGE_MASS_PARAMETER, type MassCell } from "./mass.ts";
+export { ordinaryPaymentToWire } from "./node.ts";
 
 export {
   attachSignature,

@@ -7,6 +7,7 @@ import {
   signDigest,
   verifyDigest,
   scriptHashFor,
+  pubkeyToAddress,
   scriptHashToAddress,
   payToPubkeyScript,
   serializedScriptPublicKey,
@@ -32,13 +33,22 @@ import {
  */
 export type ChainAccess = Pick<
   NodeClient,
-  "getBlockDagInfo" | "getUtxosByAddresses" | "grantUtxo" | "submitTransaction"
+  | "getBlockDagInfo"
+  | "getUtxosByAddresses"
+  | "grantUtxo"
+  | "submitTransaction"
+  /* Only a relayed payment needs this, and only some clients have it — so it
+     is optional here and its absence is a legible refusal rather than a crash
+     on a property that is not there. */
+  | "submitOrdinaryPayment"
 >;
 
 import { X402Error, type PaymentRequirement } from "./protocol.ts";
+import { buildRelayPayment, relayFunding, type RelayPayment } from "./relay.ts";
 import {
   amountOf,
   assertPayeeScriptMatches,
+  DEFAULT_RELAY_FEE_SOMPI,
   GRANT_INPUT_INDEX,
   PAYEE_OUTPUT_INDEX,
   type BuildV2Input,
@@ -280,6 +290,8 @@ export class WardaPayer {
   private held: Outstanding = { status: "none" };
   /** The same spend in its internal form, so broadcasting need not re-parse it. */
   private heldTx: Transaction | null = null;
+  /** The relayed payment, when there is one. Broadcast immediately after it. */
+  private heldRelay: RelayPayment | null = null;
 
   constructor(opts: PayerOptions) {
     this.grant = opts.grant;
@@ -406,8 +418,22 @@ export class WardaPayer {
       maxTimeoutSeconds: input.accepted.maxTimeoutSeconds,
     };
 
-    const key = payeeKey(req.payTo);
-    assertPayeeScriptMatches(input.accepted, serializedScriptPublicKey(payToPubkeyScript(key)));
+    const payee = payeeKey(req.payTo);
+    assertPayeeScriptMatches(input.accepted, serializedScriptPublicKey(payToPubkeyScript(payee)));
+
+    /**
+     * Where the COVENANT SPEND pays, which is not always the vendor.
+     *
+     * On a relayed payment the grant pays the agent's own key and an ordinary
+     * transaction carries it the rest of the way, so the covenant is charged
+     * the invoice PLUS the relayed transaction's fee. That is correct rather
+     * than unfortunate: the fee is part of what buying the thing costs, and a
+     * budget that did not count it would mean less than it says.
+     */
+    const relayFee = input.relayFeeSompi ?? DEFAULT_RELAY_FEE_SOMPI;
+    const key = input.relay ? fromHex(this.grant.state.agentKey) : payee;
+    const spendAmount = input.relay ? relayFunding(amountSompi, relayFee) : amountSompi;
+
 
     const fromAddress = this.address;
     const [dag, utxo] = await Promise.all([
@@ -415,18 +441,51 @@ export class WardaPayer {
       this.node.grantUtxo(fromAddress),
     ]);
 
-    const refusal = explainRefusal(req, this.grant, { fee: this.fee, coin: utxo.entry.value });
+    /* Checked against the SPEND amount, not the invoice: a relayed payment
+       charges the grant the fee too, and a cap or epoch limit that only saw
+       the invoice would approve a spend the covenant then refuses. */
+    const refusal = explainRefusal(
+      { ...req, amountSompi: spendAmount },
+      this.grant,
+      { fee: this.fee, coin: utxo.entry.value },
+    );
     if (refusal) throw new X402Error(refusal);
 
     const claimedDaa = claimedDaaFor(this.grant.state, dag.virtualDaaScore, this.daaBackoff);
     const s = this.grant.state;
     const epochIndex = (claimedDaa - s.notBefore) / s.epochLength;
     const usedThisEpoch = epochIndex === s.epochIndex ? s.epochSpent : 0n;
-    if (usedThisEpoch + amountSompi > s.epochLimit) {
+    if (usedThisEpoch + spendAmount > s.epochLimit) {
       throw new X402Error(
-        `this invoice is ${amountSompi} sompi and only ${s.epochLimit - usedThisEpoch} remains ` +
+        `this spend is ${spendAmount} sompi and only ${s.epochLimit - usedThisEpoch} remains ` +
           `in the current epoch (${epochIndex}). The allowance refreshes as the chain advances — ` +
           `and cannot be refreshed by claiming an earlier epoch, which the covenant refuses.`,
+      );
+    }
+
+    /* Taken AFTER the refusal and epoch checks, not before.
+       `explainRefusal` is what turns "this payee is not on the allowlist" into
+       the sentence that is this protocol's product; reaching for the proof
+       first replaced it with the recipient set's internal complaint about a
+       key not being in a tree. The order is the message. */
+    let proof;
+    try {
+      proof = this.grant.recipients.proof(toHex(key));
+    } catch (e) {
+      if (!input.relay) throw e;
+      /* The allowlist is fixed at genesis, so this cannot be fixed here and
+         must not be reported as a transient failure. It means the grant was
+         created without --relay. */
+      throw new X402Error(
+        `this grant cannot pay through a relay: its allowlist does not contain the agent's ` +
+          `own key.\n\n` +
+          `x402 exact requires the payer's input to be an ordinary key-controlled coin, so a ` +
+          `covenant spend can never be the payment itself — the grant has to pay the agent ` +
+          `first. That has to be allowed when the grant is CREATED, because an allowlist is ` +
+          `fixed at genesis:\n\n` +
+          `  warda grant --payees payees.txt --relay\n\n` +
+          `It costs the allowlist for that one hop and nothing else. See x402/RELAY.md.\n\n` +
+          `  (${(e as Error).message})`,
       );
     }
 
@@ -442,9 +501,9 @@ export class WardaPayer {
         isCoinbase: utxo.entry.isCoinbase,
         covenantId: utxo.entry.covenantId!,
       },
-      amount: amountSompi,
+      amount: spendAmount,
       recipient: key,
-      proof: this.grant.recipients.proof(toHex(key)),
+      proof,
       claimedDaa,
       fee: this.fee,
       computeBudget: this.computeBudget,
@@ -458,20 +517,50 @@ export class WardaPayer {
     const { tx, entry } = await this.signPlan(plan);
     const safe = toSafeJson(tx, [entry]);
 
-    const next = successorState(this.grant.state, amountSompi, claimedDaa);
+    const next = successorState(this.grant.state, spendAmount, claimedDaa);
     const successorAddress = scriptHashToAddress(
       scriptHashFor(this.grant.template, { authority: this.grant.authority, state: next }),
       this.prefix,
     );
 
+    /**
+     * The second transaction, built before the first is broadcast.
+     *
+     * A version-0 transaction id excludes signature scripts, and so does a
+     * version-1 one — which is what makes this possible at all: the covenant
+     * spend's id is known the moment it is signed, so the relayed payment can
+     * name an outpoint that does not exist yet. Both go out back to back and
+     * there is ONE wait for acceptance rather than two.
+     *
+     * `safe.id` is the funding transaction; `PAYEE_OUTPUT_INDEX` is the output
+     * it pays the relay key at. Those two are the outpoint.
+     */
+    let relayed: RelayPayment | undefined;
+    if (input.relay) {
+      relayed = await buildRelayPayment(
+        {
+          source: {
+            outpoint: { transactionId: fromHex(safe.id), index: PAYEE_OUTPUT_INDEX },
+            value: spendAmount,
+            publicKey: key,
+          },
+          accepted: input.accepted,
+        },
+        this.signer,
+      );
+    }
+
     const payment = await buildPayment(
       {
         accepted: input.accepted,
         request: input.request,
-        transaction: JSON.stringify(safe),
-        transactionId: safe.id,
-        paymentOutputIndex: PAYEE_OUTPUT_INDEX,
-        inputIndex: GRANT_INPUT_INDEX,
+        /* The RELAYED transaction travels, not the covenant spend. The
+           covenant spend is what the grant did; this is what the vendor is
+           asked to verify, and their scheme cannot read the other one. */
+        transaction: relayed ? relayed.safeJson : JSON.stringify(safe),
+        transactionId: relayed ? toHex(relayed.signed.id) : safe.id,
+        paymentOutputIndex: relayed ? relayed.paymentOutputIndex : PAYEE_OUTPUT_INDEX,
+        inputIndex: relayed ? relayed.inputIndex : GRANT_INPUT_INDEX,
         // Which address to declare as the payer.
         //
         // `fromAddress` is where the coin is being spent FROM, which is what a
@@ -483,9 +572,19 @@ export class WardaPayer {
         //
         // Untested when this was written. It is one flag and one payment, and
         // the alternative is guessing at a verifier we cannot read.
+        /* A relayed payment has an ordinary answer to this: the coin really
+           is spent from a key-controlled address, and that address really does
+           belong to the payer. The whole `payerIsSuccessor` question was an
+           artefact of a covenant spend having no such address. */
         ...(input.omitPayerAddress
           ? {}
-          : { payerAddress: input.payerIsSuccessor ? successorAddress : fromAddress }),
+          : {
+              payerAddress: relayed
+                ? pubkeyToAddress(key, this.prefix)
+                : input.payerIsSuccessor
+                  ? successorAddress
+                  : fromAddress,
+            }),
         nowMs: input.nowMs,
       },
       this.signer,
@@ -494,15 +593,29 @@ export class WardaPayer {
     const pending: PendingPayment = {
       header: paymentSignatureHeader(payment),
       payment,
-      txid: safe.id,
+      /* The id the VENDOR will look for. On a relayed payment that is the
+         second transaction; the covenant spend is recorded beside it, because
+         a recovery that looks at the wrong one finds nothing and concludes the
+         money never moved. */
+      txid: relayed ? toHex(relayed.signed.id) : safe.id,
       payer: fromAddress,
       amountSompi,
       successor: next,
       successorAddress,
       expiresAt: payment.payload.authorization.expiresAt,
+      ...(relayed
+        ? {
+            relay: {
+              fundingTxid: safe.id,
+              feeSompi: relayed.signed.fee,
+              relayAddress: pubkeyToAddress(key, this.prefix),
+            },
+          }
+        : {}),
     };
     this.held = { status: "pending", payment: pending };
     this.heldTx = tx;
+    this.heldRelay = relayed ?? null;
     return pending;
   }
 
@@ -540,11 +653,51 @@ export class WardaPayer {
       );
     }
     const pending = this.held.payment;
-    const txid = await this.node.submitTransaction(this.heldTx);
+    const fundingTxid = await this.node.submitTransaction(this.heldTx);
+
+    /**
+     * The relayed payment goes out IMMEDIATELY, spending a coin the network
+     * has not accepted yet.
+     *
+     * Kaspa allows that — a transaction may spend an unconfirmed output — and
+     * it is the difference between one wait and two. It is also the only
+     * ordering that is safe: the funding coin sits at a key the agent holds,
+     * so any gap between the two is a window in which the invoice is funded
+     * and unpaid, and a crash in that window leaves money at an address no
+     * record points at.
+     *
+     * `allowOrphan` because the parent may not have propagated yet. Without
+     * it a node that has not seen the funding transaction rejects this one as
+     * an orphan, which is a race rather than a refusal.
+     */
+    let txid = fundingTxid;
+    if (this.heldRelay) {
+      try {
+        txid = await this.node.submitOrdinaryPayment(this.heldRelay.signed, true);
+      } catch (e) {
+        /* The funding transaction is already out. Saying so is the whole point
+           of this branch: the grant has moved, the money is at the relay
+           address, and a caller told only "submit failed" would reasonably
+           conclude nothing happened and pay again. */
+        throw new X402Error(
+          `the covenant spend was broadcast (${fundingTxid}) and the relayed payment was ` +
+            `refused: ${(e as Error).message}\n\n` +
+            `${pending.amountSompi + (pending.relay?.feeSompi ?? 0n)} sompi is now at ` +
+            `${pending.relay?.relayAddress}, which the agent's key controls. The grant has ` +
+            `moved to ${pending.successorAddress}. Nothing is lost and nothing is paid.`,
+        );
+      }
+    }
 
     const deadline = Date.now() + (options.timeoutMs ?? 30_000);
     const pollMs = options.pollMs ?? 1_000;
     while (Date.now() < deadline) {
+      /* Acceptance is observed at the SUCCESSOR, which proves the covenant
+         spend landed. A relayed payment spends that transaction's other
+         output, so it cannot be accepted before it — and their verifier reads
+         the chain itself for the one that matters. Waiting on the successor is
+         the check this payer can make without guessing at a payee address
+         that may hold coins from anywhere. */
       const at = await this.node.getUtxosByAddresses([pending.successorAddress]);
       if (at.length > 0) return { txid, accepted: true };
       await new Promise((r) => setTimeout(r, pollMs));

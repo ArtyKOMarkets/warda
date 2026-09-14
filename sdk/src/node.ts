@@ -30,6 +30,12 @@ import { fromHex, toHex } from "./bytes.ts";
 import { RpcConnection, toBigInt, type RpcOptions } from "./rpc.ts";
 import { resolveNode, resolverFrom, type ResolveOptions } from "./resolver.ts";
 import type { ScriptPublicKey, Transaction, TransactionOutpoint, UtxoEntry } from "./tx.ts";
+import {
+  ORDINARY_NATIVE_SUBNETWORK,
+  ORDINARY_SIG_OP_COUNT,
+  ordinaryPaymentScript,
+  type SignedOrdinaryPayment,
+} from "./v0.ts";
 
 // ---- script public keys --------------------------------------------------
 
@@ -194,6 +200,52 @@ export function parseUtxos(r: { entries?: unknown[] }): AddressUtxo[] {
       },
     };
   });
+}
+
+/**
+ * The node's wire form for this payment.
+ *
+ * Shaped to match `transactionToWire` exactly, because kaspad's deserializer
+ * reads one schema for both versions and the only differences are which of
+ * `sigOpCount` and `computeBudget` carries a value — version 0 uses the first
+ * and version 1 the second, and the other must be 0. A version-0 transaction
+ * submitted with a compute budget is refused, and it is refused for a reason
+ * that reads as a malformed input rather than a wrong version.
+ *
+ * `covenant: null` on the output, which is what the JSON transport wants and
+ * the exact opposite of what the WASM deserializer wants — there the key must
+ * be ABSENT. Same field, two encodings, two incompatible rules, and both are
+ * load-bearing.
+ */
+export function ordinaryPaymentToWire(signed: SignedOrdinaryPayment): Record<string, unknown> {
+  const p = signed.payment;
+  return {
+    version: 0,
+    inputs: [
+      {
+        previousOutpoint: {
+          transactionId: toHex(p.source.outpoint.transactionId),
+          index: p.source.outpoint.index,
+        },
+        signatureScript: toHex(signed.signatureScript),
+        sequence: 0n,
+        sigOpCount: ORDINARY_SIG_OP_COUNT,
+        computeBudget: 0,
+      },
+    ],
+    outputs: [
+      {
+        value: p.amount,
+        scriptPublicKey: scriptPublicKeyToWire({ version: 0, script: ordinaryPaymentScript(p.payee) }),
+        covenant: null,
+      },
+    ],
+    lockTime: 0n,
+    subnetworkId: toHex(ORDINARY_NATIVE_SUBNETWORK),
+    gas: 0n,
+    payload: "",
+    mass: 0,
+  };
 }
 
 // ---- is this node worth believing? ---------------------------------------
@@ -485,6 +537,43 @@ export class NodeClient {
     })) as { transactionId?: string };
     if (!r.transactionId) throw new Error("submitTransaction returned no transaction id");
     return r.transactionId;
+  }
+
+  /**
+   * Broadcast an ordinary version-0 payment.
+   *
+   * Separate from `submitTransaction` because the two take different types on
+   * purpose: `Transaction` is this protocol's covenant-carrying shape and
+   * `OrdinaryPayment` is deliberately narrow. Folding them together would put
+   * a version field on a type whose whole job is that it has no version to get
+   * wrong. See `v0.ts`.
+   *
+   * `allowOrphan` matters here and almost nowhere else: a relayed payment is
+   * broadcast immediately after the transaction that funds it, so the node may
+   * not have seen its parent yet. Without it that is refused as an orphan,
+   * which is a race rather than a rejection.
+   */
+  async submitOrdinaryPayment(
+    signed: SignedOrdinaryPayment,
+    allowOrphan = false,
+  ): Promise<string> {
+    const r = (await this.rpc.call("submitTransaction", {
+      transaction: ordinaryPaymentToWire(signed),
+      allowOrphan,
+    })) as { transactionId?: string };
+    if (!r.transactionId) throw new Error("submitTransaction returned no transaction id");
+    /* The id was known before signing, so a node that assigns a different one
+       is describing a different transaction. Checked for the same reason the
+       covenant path checks it: the alternative is following the wrong id. */
+    const ours = toHex(signed.id);
+    if (r.transactionId !== ours) {
+      throw new Error(
+        `the node accepted a version-0 payment with an id this SDK did not predict.\n\n` +
+          `  expected  ${ours}\n  node said ${r.transactionId}\n\n` +
+          `This one IS broadcast. Follow the node's id, not the predicted one.`,
+      );
+    }
+    return ours;
   }
 
   /**

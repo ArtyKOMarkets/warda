@@ -73,6 +73,10 @@ export interface SignedOrdinaryPayment {
  * version-0 payment with a version-1 script is not a thing `exact` accepts, so
  * carrying the pair around would only let the two drift.
  */
+export function ordinaryPaymentScript(key: Uint8Array): Uint8Array {
+  return spkOf(key);
+}
+
 function spkOf(key: Uint8Array): Uint8Array {
   return payToPubkeyScript(key).script;
 }
@@ -194,3 +198,8 @@ export function signOrdinaryPayment(
 
   return { payment: p, id: ordinaryPaymentId(p), sighash, signatureScript, fee };
 }
+
+/** The subnetwork an ordinary payment runs on, for the wire encoder. */
+export const ORDINARY_NATIVE_SUBNETWORK = NATIVE_SUBNETWORK;
+/** `exact` requires exactly one sigop on the input, and so does the wire form. */
+export const ORDINARY_SIG_OP_COUNT = SIG_OP_COUNT;
