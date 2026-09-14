@@ -5,23 +5,34 @@
  *     https://demo.kaspa-x402.org/exact \
  *     --grant grant.json --recipients recipients.txt --rpc wss://your-node
  *
- * ## What is different from buy.ts, and why it needs its own file
+ * ## Two transactions, not one
  *
- * In v1 the payer broadcasts and hands the vendor a txid. In v2 the payer
- * hands over the whole signed transaction and the VENDOR broadcasts it. That
- * single inversion changes what "success" means and therefore when the
- * manifest may be written.
+ * x402 `exact` requires the payer's input to be a bare pay-to-pubkey coin
+ * unlocked by a single signature, and no output to carry a covenant. A grant
+ * spend is neither, under any version — output 0 IS the successor grant. That
+ * rule was unreadable until kaspa-x402 v1.0.0-rc.1 published the verifier, and
+ * it is why eight payments from this repository settled on chain and were
+ * refused off it.
  *
- * A grant's address is a hash of its state, so a spend moves it and the
- * manifest has to follow. buy.ts writes the new state as soon as the payment
- * is broadcast, because it did the broadcasting and knows. Here nothing is
- * known until the vendor answers: the transaction may be on the chain, or in
- * their queue, or discarded. So the manifest is written only after a 2xx, and
- * a failure leaves the payer deliberately stuck rather than guessing —
- * `follow-grant.ts --subsets` resolves it against the chain, which is exactly
- * what it is for.
+ * So this pays in two: the covenant spend pays the agent's own key, and an
+ * ordinary version-0 transaction goes from there to the vendor. Both are built
+ * before either is broadcast — a transaction id excludes signature scripts, so
+ * the second can name an outpoint that does not exist yet — and both go out
+ * back to back, leaving no window in which the invoice is funded and unpaid.
  *
- * ## What this run proves, if it works
+ * The grant must have been created with `--relay`, because the relay key has
+ * to be on an allowlist that is fixed at genesis. The cost is that allowlist,
+ * for that one hop. `x402/RELAY.md` is the whole argument.
+ *
+ * ## The fee is fixed in advance and cannot be corrected
+ *
+ * Whatever the covenant spend puts in above the invoice IS the relayed
+ * transaction's fee, and by the time a node could price it the funding
+ * transaction is already broadcast. Measure it first:
+ *
+ *   warda fee relay --key wallet.key --borsh
+ *
+  * ## What this run proves, if it works
  *
  * That a bounded agent can buy from a vendor nobody here controls. Every
  * previous payment in this repository has been to an endpoint we also wrote,
@@ -47,6 +58,11 @@ import {
 
 import { WardaPayer } from "../src/payer.ts";
 import { wardaFetchV2 } from "../src/fetch-v2.ts";
+
+const relayFee = ((): string | undefined => {
+  const i = process.argv.indexOf("--relay-fee");
+  return i >= 0 ? process.argv[i + 1] : undefined;
+})();
 
 const flag = (n: string, d?: string) => {
   const i = process.argv.indexOf(`--${n}`);
@@ -178,12 +194,21 @@ try {
   console.error(`buying   : ${url}`);
   const res = await wardaFetchV2(url, { method: "GET" }, {
     payer,
+    /* Required, not optional, and the tool says so above if it is missing.
+       Their `exact` scheme takes only a version-0 transaction with a
+       key-controlled input and no covenant. */
+    relay: true,
+    ...(relayFee ? { relayFeeSompi: BigInt(relayFee) } : {}),
     omitPayerAddress: process.argv.includes("--no-payer-address"),
     payerIsSuccessor: process.argv.includes("--payer-successor"),
     onEvent: (e) => {
       if (e.type === "quote") console.error(`  quoted : ${e.amountSompi} sompi to ${e.payTo}`);
       if (e.type === "signed") {
-        console.error(`  signed : ${e.pending.txid}`);
+        console.error(`  signed : ${e.pending.txid}   (the transaction THEY verify)`);
+        if (e.pending.relay) {
+          console.error(`  funding: ${e.pending.relay.fundingTxid}   (the covenant spend)`);
+          console.error(`  relay  : ${e.pending.relay.relayAddress}, fee ${e.pending.relay.feeSompi}`);
+        }
         console.error(`           authorization expires ${e.pending.expiresAt}`);
       }
       if (e.type === "broadcast") {
