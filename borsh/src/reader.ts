@@ -199,10 +199,16 @@ export class BorshReader implements Inspectable {
        plain object here, and a reader built on one must not believe it can
        construct a transaction — hence `options.wasm` rather than anything
        inferred from the client. */
+    /* A supplied client is connected here; one this built is connected ALREADY,
+       by `constructClient`, because separating discovery from the connect is
+       the only way the two failures can be told apart — and the second attempt
+       would be at best a no-op and at worst an "already connected". */
+    if (options.client) {
+      await options.client.connect();
+    }
     const loaded = options.client
       ? { rpc: options.client, wasm: options.wasm, name: options.wasmName ?? "the supplied module" }
       : await constructClient(options);
-    await loaded.rpc.connect();
     return new BorshReader(
       loaded.rpc,
       loaded.rpc.url ?? options.url ?? "borsh:resolver",
@@ -544,14 +550,146 @@ export async function loadWasm(): Promise<{ module: unknown; name: string }> {
   );
 }
 
+/**
+ * Two stages, timed separately, because they fail for different reasons.
+ *
+ * The first version of this called `new RpcClient({resolver})` and let the
+ * client do both: ask a resolver which node to use, then connect to it. That
+ * is one call and it hides the distinction that matters. `RpcClient.connect`
+ * has no timeout of its own — it retries forever, in silence — so a wrapper
+ * with a deadline around the pair can only ever say "nothing answered in 20
+ * seconds", which is true of a blocked HTTPS lookup, a blocked outbound wss, a
+ * resolver with no node for your network, and a node that is simply down.
+ *
+ * Four causes, four different things to do about them, one message. So the
+ * stages are separate and each says what it was doing:
+ *
+ *   discovery   HTTPS to the community resolvers. Blocked here and nothing
+ *               else can happen; reachable here and the transport is fine.
+ *   connect     wss to the ONE node discovery chose. A failure here names that
+ *               node, which makes "try another" a thing you can do.
+ */
+const DISCOVER_MS = 15_000;
+
+/**
+ * The resolver domains this build really uses, for the error message only.
+ *
+ * Read out of the WASM binary rather than from memory or from a wiki: the TOML
+ * compiled into `@kluster/kaspa-wasm@2.0.1` has the `*.kaspa-ng.org`,
+ * `.io` and `.net` groups COMMENTED OUT, so a message naming one of those
+ * sends somebody to curl a host the client will never contact — and a 502 from
+ * it looks like a diagnosis. It is not; it is a different server being down.
+ *
+ * Nothing reads these to connect. They exist so the suggestion in an error is
+ * a host that was actually going to be tried.
+ */
+const RESOLVER_DOMAINS = ["kaspa.stream", "kaspa.red", "kaspa.green", "kaspa.blue"];
+/* One per domain, and the path is the one the client really requests — note
+   the `any` segment, which is easy to leave out and turns a working probe into
+   a 404 that reads like the resolver is broken. */
+const RESOLVER_PROBES = ["eric.kaspa.stream", "john.kaspa.red", "jake.kaspa.green", "noah.kaspa.blue"];
+const CONNECT_MS = 20_000;
+
+/**
+ * Run a stage, and make sure its failure says which stage it was.
+ *
+ * Both outcomes go through `describe`, and that is the point. A deadline alone
+ * handles the case where nothing answers — but discovery can also fail FAST,
+ * and wasm-bindgen rejects with a value that is often not an `Error` at all, so
+ * the caller printed `undefined` and the whole diagnosis was lost. Which was
+ * the original complaint in a new costume: a transport that fails without
+ * saying anything.
+ *
+ * So a rejection is wrapped with the same explanation the timeout would have
+ * given, with whatever the underlying value stringifies to appended. The user
+ * gets the same guidance either way, and the raw cause is still there for the
+ * case where it turns out to matter.
+ */
+function textOf(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  if (typeof e === "string") return e;
+  try {
+    const s = String(e);
+    return s === "[object Object]" ? JSON.stringify(e) : s;
+  } catch {
+    return "an error that cannot be printed";
+  }
+}
+
+async function stage<T>(work: Promise<T>, ms: number, describe: () => string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const expiry = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`TIMEOUT_${ms}`)), ms);
+    /* Must not hold the process open: on the happy path this loses the race
+       and its only remaining job is to stop existing. */
+    (timer as { unref?: () => void }).unref?.();
+  });
+  try {
+    return await Promise.race([work, expiry]);
+  } catch (e) {
+    const timedOut = e instanceof Error && e.message === `TIMEOUT_${ms}`;
+    throw new Error(
+      (timedOut ? `nothing answered within ${ms / 1000}s.\n\n` : `${textOf(e)}\n\n`) + describe(),
+    );
+  } finally {
+    clearTimeout(timer!);
+  }
+}
+
+/**
+ * Which node, according to the community resolvers.
+ *
+ * Exported because it answers a question worth asking on its own — "is the
+ * resolver reachable from here at all" — without opening a socket or loading a
+ * grant. That is the first thing to know when `--borsh` does not work.
+ */
+export async function discover(wasm: unknown, networkId: string): Promise<string> {
+  const k = wasm as {
+    Resolver: new () => { getUrl(encoding: unknown, networkId: string): Promise<string> };
+    Encoding: { Borsh: unknown };
+  };
+  return stage(
+    new k.Resolver().getUrl(k.Encoding.Borsh, networkId),
+    DISCOVER_MS,
+    () =>
+      `Discovery failed. This step is plain HTTPS to the community resolvers — it is not\n` +
+      `the chain, and no WebSocket has been attempted yet. A proxy, a container egress\n` +
+      `policy or a firewall that DROPS rather than refuses looks exactly like a timeout\n` +
+      `here; all sixteen resolvers being unreachable looks like a fast failure.\n\n` +
+      `Ask one of them directly. The list is compiled into the WASM build, and these are\n` +
+      `the four domains it actually uses — ${RESOLVER_DOMAINS.join(", ")}:\n\n` +
+      RESOLVER_PROBES.map((h) => `  curl -sS https://${h}/v2/kaspa/${networkId}/any/wrpc/borsh`).join("\n") +
+      `\n\nA 502 from one of them is that one being down, not a network problem — the\n` +
+      `resolver is meant to route around it. All four failing is the network.\n\n` +
+      `Either way there is a way past: point at a borsh endpoint directly, which skips\n` +
+      `discovery entirely.\n\n` +
+      `  --rpc wss://<host>/kaspa/${networkId}/wrpc/borsh`,
+  );
+}
+
 async function constructClient(options: BorshOptions): Promise<LoadedClient> {
   const loaded = options.wasm
     ? { module: options.wasm, name: options.wasmName ?? "the supplied module" }
     : await loadWasm();
   const k = loaded.module as any;
   const networkId = options.networkId ?? process.env.WARDA_NETWORK ?? "testnet-10";
-  const rpc = options.url
-    ? new k.RpcClient({ url: options.url, networkId, encoding: k.Encoding.Borsh })
-    : new k.RpcClient({ resolver: new k.Resolver(), networkId, encoding: k.Encoding.Borsh });
+
+  const url = options.url ?? (await discover(loaded.module, networkId));
+  const rpc = new k.RpcClient({ url, networkId, encoding: k.Encoding.Borsh });
+  const chosen = options.url ? "the endpoint you named" : "the endpoint a resolver chose";
+
+  await stage(
+    rpc.connect(),
+    CONNECT_MS,
+    () =>
+      `Could not open a WebSocket to ${url}.\n\n` +
+      `This is ${chosen}, and it was reached by name — so discovery worked and the\n` +
+      `problem is the connection. RpcClient.connect does not give up on its own; it\n` +
+      `retries in silence, which is why there is a deadline here at all.\n\n` +
+      `That node may be down or overloaded. Running this again picks a different one.`,
+  );
+
+  /* Connected already, so `BorshReader.open`'s own connect is a no-op. Doing it
+     here is what lets the two failures above be told apart at all. */
   return { rpc, wasm: loaded.module, name: loaded.name };
 }
