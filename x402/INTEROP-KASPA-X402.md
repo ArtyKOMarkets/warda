@@ -1,8 +1,49 @@
 # Paying a kaspa-x402 v2 vendor from a Warda grant
 
-A record of what happens when a covenant-bounded payer meets the reference
-kaspa-x402 implementation, written while it was still failing. Every txid below
-is real, on testnet-10, and checkable.
+**Resolved 14 September 2026.** `https://demo.kaspa-x402.org/exact` answered
+`200 {"ok":true}` to a payment from a covenant-bounded grant.
+
+```
+grant       kaspatest:pzavmmdtyng656zj22jnfuyyq4kuktvzgjsj29z2ga0yecw5a8j4s5g3rtm6x
+funding     78e5564a1ec9956bcb7a1c0f8baa23d2b01600bc7a89ae3d8726f219c7c9040c   the covenant spend
+payment     28a084fd6b36daf26d77838f3e85f8f0c2798ad4f8f2d87f8d78f82065a4d49b   the transaction they verified
+```
+
+0.2 KAS invoiced, 194,880 sompi of fee, 20,194,880 charged against the grant's
+budget by the network. Their answer names the transaction, the output index and
+`finality: accepted`.
+
+**This is the first payment this repository has made to a vendor it does not
+control.** Every earlier one went to an endpoint we also wrote, which made the
+money real and the market imaginary.
+
+## The two things that were wrong
+
+**A covenant spend cannot be the payment.** x402 `exact` requires the payer's
+input to be a bare pay-to-pubkey coin unlocked by one signature, and no output
+to carry a covenant. A grant spend is neither, under any version — output 0 IS
+the successor grant. So a bounded payer pays in two transactions: the covenant
+spend pays the agent's own key, and an ordinary version-0 transaction goes from
+there to the vendor. `RELAY.md` is the design and what it costs.
+
+**And `exact` requires a payment identifier that nothing asks for.**
+
+```js
+if ((config.requirePaymentIdentifier || accepted.scheme === "exact")
+    && !paymentIdentifier)
+  return this.#paymentRequiredResponse({ ... });
+```
+
+Its absence produces a fresh QUOTE rather than a complaint: no error field, no
+settlement response, and the reference gateway's default 402 body. Two
+relayed payments came back that way — on chain, accepted, unserved, with
+nothing in the response naming which of a dozen checks had refused them. The
+transaction id is the identifier; it is the only value that is both stable
+across re-presentations of one payment and unique per payment.
+
+Neither was knowable from outside until v1.0.0-rc.1 published the verifier and
+the server. The record below is what it looked like before that, and is kept
+because the reasoning failures in it are more useful than the conclusion.
 
 ## What was tried
 

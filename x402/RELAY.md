@@ -1,5 +1,13 @@
 # Paying an x402 `exact` vendor from a grant, through one relay hop
 
+**Proven 14 September 2026** against `demo.kaspa-x402.org`, a vendor built by
+the people who wrote the protocol: `200 {"ok":true}`, `finality: accepted`.
+
+```
+funding   78e5564a1ec9956bcb7a1c0f8baa23d2b01600bc7a89ae3d8726f219c7c9040c
+payment   28a084fd6b36daf26d77838f3e85f8f0c2798ad4f8f2d87f8d78f82065a4d49b
+```
+
 The boundary is in `INTEROP-KASPA-X402.md`: x402's `exact` scheme requires a
 version-0 transaction whose every input is a **bare P2PK unlocked by a single
 66-byte Schnorr push**, and whose outputs carry no covenant. A Warda spend is
@@ -43,6 +51,34 @@ at all, because its allowlist does not contain the agent key and the covenant
 will refuse to build the spend. The refusal that is this protocol's product —
 *that payee is not on this grant's allowlist; there is nothing to sign* — is
 unchanged for every grant that does not ask for it.
+
+## The fee, measured
+
+`warda fee relay` on testnet-10: the node refused 1,000 sompi on exactly this
+shape and named **162,400**. The default derived from this repo's fitted mass
+model was 365,000 — 2.25x too high, because that model was fitted to
+version-1 transactions carrying a compute budget and a version-0 input carries
+a sig-op count instead.
+
+It also reported storage mass **zero**, which is the finding. Kaspa charges the
+greater of compute and KIP-9 storage mass, and storage mass here is
+`C/output - C/input` — it prices the GAP, and the gap is the fee:
+
+| amount | storage mass at a 162,400 fee |
+|---|---|
+| 2.0 KAS | 5 |
+| 0.2 KAS | 403 |
+| 0.1 KAS | 1,599 — still under compute mass |
+| 0.05 KAS | 6,292 → needs 629,200, which needs more |
+
+So the fee is compute-driven for a large payment and storage-driven for a small
+one, and a constant is wrong in both directions. `relayFeeFor` iterates to a
+fixed point. Below roughly 0.1 KAS it refuses: the arithmetic still settles —
+0.001 KAS converges at about 12 KAS of fee — but a transport that costs more
+than the goods is a stable answer to the wrong question.
+
+The live payment used **194,880**, which is that floor plus the repo's usual
+fifth.
 
 ## Measured, not assumed
 
