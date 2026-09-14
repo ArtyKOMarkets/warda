@@ -53,7 +53,7 @@
   },
   "sideEffects": false,
   "peerDependencies": {
-    "@warda_protocol/borsh": "^0.2.0"
+    "@warda_protocol/borsh": "^0.2.0 || ^0.3.0"
   },
   "peerDependenciesMeta": {
     "@warda_protocol/borsh": {

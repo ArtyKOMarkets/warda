@@ -1,7 +1,7 @@
 {
   "name": "@warda_protocol/borsh",
-  "version": "0.2.2",
-  "description": "Read the Kaspa UTXO set over borsh wRPC — the encoding the public resolvers actually serve — so accepting Warda payments needs no node. Read-only by design: spending stays on JSON.",
+  "version": "0.3.0",
+  "description": "Kaspa over borsh wRPC \u2014 the encoding the public resolvers actually serve. Reads the UTXO set, and submits covenant-carrying transactions through a build that has them, so neither side of a Warda payment needs a node.",
   "type": "module",
   "license": "MIT",
   "engines": {
@@ -19,6 +19,7 @@
   },
   "files": [
     "dist",
+    "tools",
     "README.md",
     "LICENSE"
   ],
@@ -32,9 +33,13 @@
     "@warda_protocol/kaspa": "^0.5.1"
   },
   "peerDependencies": {
+    "@kluster/kaspa-wasm": "*",
     "kaspa-wasm32-sdk": "*"
   },
   "peerDependenciesMeta": {
+    "@kluster/kaspa-wasm": {
+      "optional": true
+    },
     "kaspa-wasm32-sdk": {
       "optional": true
     }
@@ -48,6 +53,7 @@
     "wrpc",
     "resolver",
     "utxo",
+    "covenant",
     "agent-payments"
   ],
   "repository": {

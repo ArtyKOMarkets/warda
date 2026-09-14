@@ -106,6 +106,13 @@ interface Config {
   agentKey?: string;
   purchases?: string;
   rpc?: string;
+  /**
+   * "borsh" to reach the chain through a public resolver instead of a node.
+   *
+   * Remembered rather than asked each time, because it is a decision about
+   * whose node you believe — made once, deliberately, by `warda node --borsh`.
+   */
+  transport?: "json" | "borsh";
 }
 const readConfig = (): Config =>
   existsSync(CONFIG) ? (JSON.parse(readFileSync(CONFIG, "utf8")) as Config) : {};
@@ -137,8 +144,16 @@ const run = (script: string, args: string[], env: NodeJS.ProcessEnv = {}) => {
   return r.status ?? 1;
 };
 
-/** The rpc to use: an explicit flag, then the remembered one, then the env. */
+/**
+ * How the child reaches the chain: an explicit flag, then the remembered one,
+ * then the env — or `--borsh`, which needs no node at all.
+ *
+ * `--borsh` is forwarded rather than translated. The tools decide what it
+ * means; this only has to stop swallowing it, which is what a fixed list of
+ * forwarded flags would have done.
+ */
 const rpcArgs = (cfg: Config): string[] => {
+  if (has("borsh") || cfg.transport === "borsh") return ["--borsh"];
   const url = flag("rpc") ?? cfg.rpc ?? process.env.WARDA_RPC_JSON;
   return url ? ["--rpc", url] : [];
 };
@@ -223,6 +238,11 @@ switch (verb) {
 
   case "node": {
     const cfg = readConfig();
+    /* Remembered here rather than in a separate command: `warda node` is where
+       somebody finds out whether a transport works for them, and a choice that
+       has just been shown to work is the one worth keeping. */
+    if (has("borsh") && cfg.transport !== "borsh") writeConfig({ ...cfg, transport: "borsh" });
+    if (flag("rpc") && cfg.transport === "borsh") writeConfig({ ...cfg, transport: "json", rpc: flag("rpc") });
     const grant = flag("grant") ?? cfg.grant;
     process.exit(
       run("sdk/tools/check-node.ts", [

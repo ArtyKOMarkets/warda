@@ -10,8 +10,24 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { inspect } from "@warda_protocol/kaspa";
-import { BorshReader, CovenantUnanswerable, WriteNotSupported, type WasmRpc } from "../src/index.ts";
+import {
+  fromHex,
+  inspect,
+  toHex,
+  transactionId,
+  type Transaction,
+} from "@warda_protocol/kaspa";
+import {
+  BorshReader,
+  CovenantUnanswerable,
+  CovenantsUnsupported,
+  SerialisationDisagreement,
+  WriteNotSupported,
+  encodeForSubmit,
+  supportsCovenants,
+  toWasmTransaction,
+  type WasmRpc,
+} from "../src/index.ts";
 
 /** Amounts arrive as bigints here and as strings over JSON. Both must parse. */
 const ENTRY = {
@@ -80,12 +96,17 @@ test("getServerInfo is reported as getInfo", async () => {
   assert.equal(info.serverVersion, "1.0.1");
 });
 
-test("submitTransaction refuses, and says what would have been lost", async () => {
+test("a reader with a client but no module is read-only, and says which half is missing", async () => {
   const r = await BorshReader.open({ client: fake() });
-  await assert.rejects(() => (r as any).submitTransaction(), (e: Error) => {
+  assert.equal(r.canSubmit, false);
+  await assert.rejects(() => r.submitTransaction(TX), (e: Error) => {
     assert.ok(e instanceof WriteNotSupported);
-    assert.match(e.message, /covenant/);
-    assert.match(e.message, /WARDA_RPC_JSON/);
+    /* The old version of this error blamed borsh. It is now allowed to blame
+       only the thing that is actually absent, because a module IS available
+       to anyone who wants one — so an error that still said "spending stays on
+       JSON" would send a reader to run a node they no longer need. */
+    assert.match(e.message, /no WASM module/);
+    assert.doesNotMatch(e.message, /WARDA_RPC_JSON/);
     return true;
   });
 });
@@ -310,4 +331,237 @@ test("the same entry read through its nested `entry`, if the flattening ever goe
   assert.equal(u!.entry.blockDaaScore, 567_634_976n);
   assert.equal(u!.outpoint.index, 1);
   assert.equal(u!.address, capture.address);
+});
+
+// ---- submitting ----------------------------------------------------------
+
+/**
+ * The transport used to end at a refusal, and these tests are what replaced it.
+ *
+ * None of them talk to a resolver or load a wasm binary. What they pin is the
+ * part that is ours: that a covenant survives the hand-off to a foreign
+ * encoder, that a module which cannot carry one is refused by CONSTRUCTION
+ * rather than by version number, and — the load-bearing one — that a
+ * disagreement about serialization stops the transaction before the network
+ * sees it rather than after.
+ *
+ * Whether `@kluster/kaspa-wasm` actually agrees with this SDK is not a
+ * question a fake can answer. That was settled by building the same
+ * transaction through both and comparing ids, and it is re-settled on every
+ * single submit by the check below, which is the point of doing it there.
+ */
+
+/** One covenant-carrying output and one ordinary one — the shape of a spend. */
+const TX: Transaction = {
+  version: 1,
+  inputs: [
+    {
+      previousOutpoint: { transactionId: fromHex("aa".repeat(32)), index: 0 },
+      signatureScript: fromHex("41" + "99".repeat(65)),
+      sequence: 0n,
+      computeBudget: 1000,
+    },
+  ],
+  outputs: [
+    {
+      value: 2_900_000n,
+      scriptPublicKey: { version: 0, script: fromHex("aa20" + "dd".repeat(32) + "87") },
+      covenant: { authorizingInput: 0, covenantId: fromHex("cc".repeat(32)) },
+    },
+    {
+      value: 50_000n,
+      scriptPublicKey: { version: 0, script: fromHex("20" + "bb".repeat(32) + "ac") },
+    },
+  ],
+  lockTime: 0n,
+  subnetworkId: new Uint8Array(20),
+  gas: 0n,
+  payload: new Uint8Array(),
+};
+
+const OUR_ID = toHex(transactionId(TX));
+
+/**
+ * A module shaped like the real bindings, standing in for the binary.
+ *
+ * `supportsCovenants` probes by constructing, so the stand-in has to be
+ * constructible rather than merely present — which is the same reason the real
+ * check cannot be fooled by a package that exports the name and nothing else.
+ */
+function fakeWasm(
+  opts: { id?: string; saw?: (wire: any) => void; blind?: boolean } = {},
+): any {
+  const m: any = {
+    Hash: class {
+      hex: string;
+      constructor(hex: string) {
+        this.hex = hex;
+      }
+      toString() {
+        return this.hex;
+      }
+    },
+    Transaction: class {
+      readonly id: string;
+      constructor(wire: any) {
+        opts.saw?.(wire);
+        this.id = opts.id ?? OUR_ID;
+      }
+    },
+  };
+  if (!opts.blind) {
+    m.CovenantBinding = class {
+      covenantId: unknown;
+      constructor(_input: number, id: unknown) {
+        this.covenantId = id;
+      }
+    };
+  }
+  return m;
+}
+
+test("covenant support is detected by constructing one, not by reading a version", () => {
+  assert.equal(supportsCovenants(fakeWasm()), true);
+  assert.equal(supportsCovenants(fakeWasm({ blind: true })), false);
+  assert.equal(supportsCovenants({}), false);
+  // A module that exports the NAME but throws on construction is blind too.
+  assert.equal(
+    supportsCovenants({
+      Hash: class {},
+      CovenantBinding: class {
+        constructor() {
+          throw new Error("expected instance of Hash");
+        }
+      },
+    }),
+    false,
+  );
+});
+
+test("the covenant reaches the encoder, and the ordinary output has no covenant KEY", () => {
+  let wire: any;
+  toWasmTransaction(TX, fakeWasm({ saw: (w) => (wire = w) }));
+  assert.equal(wire.outputs.length, 2);
+  assert.ok(wire.outputs[0].covenant, "the bound output kept its binding");
+  /* Not `covenant === null`, which is what the shared wire mapping emits and
+     what the real deserializer rejects with `Error converting property
+     'covenant': supplied argument is not an object` — a message that names the
+     property and not the null, so this is worth pinning rather than
+     rediscovering. */
+  assert.equal("covenant" in wire.outputs[1], false);
+});
+
+test("a module that cannot express a covenant is refused, and named a build that can", () => {
+  assert.throws(
+    () => encodeForSubmit(TX, fakeWasm({ blind: true }), "kaspa-wasm32-sdk@0.15.2"),
+    (e: Error) => {
+      assert.ok(e instanceof CovenantsUnsupported);
+      assert.match(e.message, /kaspa-wasm32-sdk@0\.15\.2/);
+      assert.match(e.message, /@kluster\/kaspa-wasm/);
+      assert.match(e.message, /POSITIONAL/);
+      return true;
+    },
+  );
+});
+
+test("a disagreement about serialization stops the transaction BEFORE the network", async () => {
+  let submitted = false;
+  const client = fake({
+    submitTransaction: async () => {
+      submitted = true;
+      return { transactionId: "ff".repeat(32) };
+    },
+  });
+  const r = await BorshReader.open({ client, wasm: fakeWasm({ id: "ff".repeat(32) }) });
+  await assert.rejects(() => r.submitTransaction(TX), (e: Error) => {
+    assert.ok(e instanceof SerialisationDisagreement);
+    assert.match(e.message, new RegExp(OUR_ID));
+    assert.match(e.message, /Nothing was broadcast/);
+    return true;
+  });
+  assert.equal(submitted, false, "the guard must run before the call, not after");
+});
+
+test("a covenant spend goes out, and the id is the one this SDK predicted", async () => {
+  let seen: any;
+  const client = fake({
+    submitTransaction: async (req: any) => {
+      seen = req;
+      return { transactionId: OUR_ID };
+    },
+  });
+  const r = await BorshReader.open({ client, wasm: fakeWasm() });
+  assert.equal(r.canSubmit, true);
+  assert.equal(await r.submitTransaction(TX, true), OUR_ID);
+  assert.equal(seen.allowOrphan, true);
+  assert.equal(String(seen.transaction.id), OUR_ID);
+});
+
+/**
+ * The one failure that cannot be prevented, only reported.
+ *
+ * A pre-flight disagreement is free to refuse. This one has already been
+ * accepted, so the useful thing is not the error — it is telling the operator
+ * WHICH id to follow, because the grant's successor is at the node's and
+ * spending against the predicted one would build on a coin that never existed.
+ */
+test("a node that answers a different id is reported as broadcast, not as refused", async () => {
+  const theirs = "ab".repeat(32);
+  const client = fake({ submitTransaction: async () => ({ transactionId: theirs }) });
+  const r = await BorshReader.open({ client, wasm: fakeWasm() });
+  await assert.rejects(() => r.submitTransaction(TX), (e: Error) => {
+    assert.ok(!(e instanceof SerialisationDisagreement));
+    assert.match(e.message, new RegExp(theirs));
+    assert.match(e.message, /IS broadcast/);
+    return true;
+  });
+});
+
+// ---- the covenant question, once it can be asked -------------------------
+
+const GRANT = "kaspatest:prw9hklems02v8apxlx5m6y0d90e0j6657ztr3c3cjqf0wsnwsxz2fs9n0jxr";
+
+/** kaspad hands the id back as a wasm `Hash`; `String()` is its hex. */
+function withCovenant(id: string | undefined) {
+  return {
+    ...ENTRY,
+    utxoEntry: {
+      ...ENTRY.utxoEntry,
+      covenantId: id === undefined ? undefined : { toString: () => id },
+    },
+  };
+}
+
+test("the covenant id survives the borsh reader, which is what makes a grant readable", async () => {
+  const id = "cc".repeat(32);
+  const r = await BorshReader.open({
+    client: fake({}, { entries: [withCovenant(id)] }),
+    wasm: fakeWasm(),
+  });
+  const utxos = await r.getUtxosByAddresses([GRANT]);
+  assert.equal(toHex(utxos[0]!.entry.covenantId!), id);
+  await r.assertCovenantAware(GRANT);
+});
+
+test("with a covenant-carrying module, a missing id accuses the NODE and nothing else", async () => {
+  const r = await BorshReader.open({
+    client: fake({}, { entries: [withCovenant(undefined)] }),
+    wasm: fakeWasm(),
+  });
+  await assert.rejects(() => r.assertCovenantAware(GRANT), (e: Error) => {
+    assert.ok(!(e instanceof CovenantUnanswerable));
+    assert.match(e.message, /predates covenants|dropped it/);
+    /* The module is no longer one of the suspects, and saying so is the whole
+       value of the check: three causes could not be separated, two can. */
+    assert.match(e.message, /module in use does carry the field/);
+    return true;
+  });
+});
+
+test("an empty answer is not a covenant failure, and does not get reported as one", async () => {
+  const r = await BorshReader.open({ client: fake({}, { entries: [] }), wasm: fakeWasm() });
+  await assert.rejects(() => r.assertCovenantAware(GRANT), (e: Error) => {
+    assert.match(e.message, /utxo-indexed|another network|spent/);
+    return true;
+  });
 });

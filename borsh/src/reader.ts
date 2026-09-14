@@ -1,5 +1,5 @@
 /**
- * Reading Kaspa over borsh, and refusing to write over it.
+ * Kaspa over borsh — reading, and now writing.
  *
  * kaspad's wRPC speaks two encodings. Borsh is the default and the only one
  * the sixteen public resolvers serve; JSON exists only when an operator passes
@@ -8,38 +8,39 @@
  * running the tool, and "run a DAG node" is a real thing to ask of someone who
  * just wants to sell an API for a fifth of a cent.
  *
- * ## Why this reads and does not write
+ * ## This file used to end with a refusal
  *
- * The obvious move is to route everything through the official WASM client and
- * delete the JSON transport. It does not work, and it fails quietly, which is
- * worse than failing.
+ * For two versions `submitTransaction` threw, and the reason was good: borsh
+ * is POSITIONAL. There are no field names on the wire, so a struct the encoder
+ * does not know about is not an unknown field — it is an absent one, and
+ * absence shifts everything after it. `kaspa-wasm32-sdk@0.15.2` was built
+ * before covenants; the string "covenant" does not occur in its types. Hand it
+ * a grant spend and it serializes a transaction that is well-formed, correctly
+ * signed, and bound to nothing — a payment that means nothing, submitted
+ * successfully. Refusing was the only honest option available.
  *
- * Borsh is POSITIONAL. There are no field names on the wire, so a struct the
- * encoder does not know about is not an unknown field — it is an absent one,
- * and absence shifts everything after it. The WASM SDK was built before
- * covenants: its `ITransactionOutput` is `{value, scriptPublicKey}` and the
- * string "covenant" does not appear in it anywhere. Hand it a grant spend and
- * it will serialize a transaction that is well-formed, correctly signed, and
- * carries no covenant binding at all — a payment that means nothing, submitted
- * successfully.
+ * What changed is not the argument, it is the premise. rusty-kaspa's own wasm
+ * bindings have carried covenants since Toccata, and builds from those
+ * revisions are published. So the buyer's node requirement was never a
+ * protocol limit; it was a PACKAGING limit, and `submit.ts` lifts it without
+ * asking anyone to trust a binary: the covenant binding is part of the
+ * sighash, so any disagreement between what we signed and what the encoder
+ * produced shows up in the transaction id, and every submit checks that before
+ * the network sees anything. Read `submit.ts` for the full argument.
  *
- * So `submitTransaction` is not here. It is not missing because it was hard;
- * it is missing because the only honest version of it on this transport is a
- * silent loss of the one guarantee this protocol makes. Spending stays on the
- * JSON transport until the covenant-carrying transaction type exists upstream.
+ * The refusal survives, narrowed to the case that still deserves it: a module
+ * that cannot express a covenant is rejected by construction rather than by
+ * version number, because upstream may ship one tomorrow.
  *
- * ## What that leaves, which is more than it sounds
+ * ## What the reading half is still for
  *
  * A seller never submits anything. `@warda_protocol/vendor` calls exactly
  * `getUtxosByAddresses` — is the coin I was promised actually in the UTXO set —
  * and `@warda_protocol/verify` adds `getBlockDagInfo` for the epoch. Both are
  * reads, and neither touches a covenant field, because the coin a vendor is
- * paid with is an ordinary P2PK output to the vendor's own address. Which
- * means: with this reader, accepting Warda payments needs no node.
- *
- * The buyer still needs JSON. That asymmetry is the honest state of things,
- * and stating it is better than a transport that auto-detects its way into
- * building an unbound spend.
+ * paid with is an ordinary P2PK output to the vendor's own address. So a
+ * vendor needs no covenant-carrying build and no node; a buyer needs the
+ * build, and still no node.
  *
  * ## The parsers are shared on purpose
  *
@@ -54,11 +55,15 @@ import {
   parseDagInfo,
   parseInfo,
   parseUtxos,
+  toHex,
+  transactionId,
   type AddressUtxo,
   type DagInfo,
   type Inspectable,
   type NodeInfo,
+  type Transaction,
 } from "@warda_protocol/kaspa";
+import { encodeForSubmit, supportsCovenants, type WasmModule } from "./submit.ts";
 
 /**
  * The part of `kaspa-wasm32-sdk`'s RpcClient this uses.
@@ -74,6 +79,16 @@ export interface WasmRpc {
   getServerInfo(): Promise<Record<string, unknown>>;
   getBlockDagInfo(): Promise<Record<string, unknown>>;
   getUtxosByAddresses(request: { addresses: string[] }): Promise<unknown>;
+  /**
+   * Optional, because a read-only consumer of this interface is a real thing —
+   * `@warda_protocol/vendor` never submits — and requiring the method would
+   * make every such caller stub out a function it must never call. A reader
+   * whose client lacks it is read-only, and says so rather than crashing.
+   */
+  submitTransaction?(request: {
+    transaction: unknown;
+    allowOrphan?: boolean;
+  }): Promise<{ transactionId?: unknown }>;
 }
 
 export interface BorshOptions {
@@ -86,19 +101,37 @@ export interface BorshOptions {
    * the escape hatch for anyone who already has a configured RpcClient.
    */
   client?: WasmRpc;
+  /**
+   * The WASM module itself, when one is already loaded or when the caller
+   * wants to choose the build.
+   *
+   * Submitting needs the MODULE, not just the client: a transaction has to be
+   * constructed through the same bindings that will serialize it. Passing a
+   * `client` without a `wasm` therefore leaves this reader read-only, which is
+   * the safe direction for a seam the tests use.
+   */
+  wasm?: unknown;
+  /** What to call the module in errors. Defaults to whatever was loaded. */
+  wasmName?: string;
 }
 
-/** Thrown for the one method this transport must not provide. */
+/**
+ * Thrown when this reader has a client but no module to build a spend with.
+ *
+ * Narrower than it used to be. It no longer means "borsh cannot write" — it
+ * means this particular reader was opened with a `client` and no `wasm`, so it
+ * can talk to a node but cannot construct a transaction. A module that is
+ * present but covenant-blind raises `CovenantsUnsupported` instead, which is a
+ * different problem with a different fix.
+ */
 export class WriteNotSupported extends Error {
   constructor() {
     super(
-      "submitTransaction is not available over borsh.\n\n" +
-        "The WASM client's transaction type predates covenants — its output is " +
-        "{value, scriptPublicKey} with no covenant field — so a grant spend " +
-        "serialized through it would be well-formed, signed, and carry no " +
-        "binding. It would be accepted by the encoder and mean nothing.\n\n" +
-        "Build and submit over JSON-wRPC: a node with --rpclisten-json=, or " +
-        "WARDA_RPC_JSON. Reads can stay here.",
+      "this reader has no WASM module, so it cannot build a transaction to submit.\n\n" +
+        "Submitting needs the module, not just the client: the transaction has to be " +
+        "constructed through the same bindings that will serialize it. A reader opened with " +
+        "`client` and no `wasm` is read-only by construction.\n\n" +
+        "Pass `wasm` to `BorshReader.open`, or let it load one itself by omitting `client`.",
     );
     this.name = "WriteNotSupported";
   }
@@ -117,6 +150,11 @@ export class WriteNotSupported extends Error {
  * Answering anyway would be the worst option available: reporting a modern
  * node as pre-covenant sends the operator to replace a node that is fine, and
  * reporting the opposite would be a guess wearing a check's authority.
+ *
+ * A covenant-carrying module removes the third cause — it deserializes the
+ * field, so an absence is the node's absence — and then the check runs for
+ * real. This is thrown only when the module in use cannot express a covenant,
+ * which is exactly when the ambiguity is back.
  */
 export class CovenantUnanswerable extends Error {
   constructor() {
@@ -146,16 +184,56 @@ export class CovenantUnanswerable extends Error {
 export class BorshReader implements Inspectable {
   private readonly rpc: WasmRpc;
   private readonly endpoint: string;
+  private readonly wasm: unknown;
+  private readonly wasmName: string;
 
-  private constructor(rpc: WasmRpc, endpoint: string) {
+  private constructor(rpc: WasmRpc, endpoint: string, wasm: unknown, wasmName: string) {
     this.rpc = rpc;
     this.endpoint = endpoint;
+    this.wasm = wasm;
+    this.wasmName = wasmName;
   }
 
   static async open(options: BorshOptions = {}): Promise<BorshReader> {
-    const rpc = options.client ?? (await constructClient(options));
-    await rpc.connect();
-    return new BorshReader(rpc, rpc.url ?? options.url ?? "borsh:resolver");
+    /* A caller-supplied `client` does NOT imply a module. The tests pass a
+       plain object here, and a reader built on one must not believe it can
+       construct a transaction — hence `options.wasm` rather than anything
+       inferred from the client. */
+    const loaded = options.client
+      ? { rpc: options.client, wasm: options.wasm, name: options.wasmName ?? "the supplied module" }
+      : await constructClient(options);
+    await loaded.rpc.connect();
+    return new BorshReader(
+      loaded.rpc,
+      loaded.rpc.url ?? options.url ?? "borsh:resolver",
+      loaded.wasm,
+      loaded.name,
+    );
+  }
+
+  /**
+   * Can this reader build and broadcast a Warda spend?
+   *
+   * Worth asking BEFORE a grant is funded rather than after it is signed, so
+   * the tools can say "install a covenant-carrying build" at the point where
+   * that costs nothing.
+   */
+  get canSubmit(): boolean {
+    return this.carriesCovenants && typeof this.rpc.submitTransaction === "function";
+  }
+
+  /**
+   * Kept separate from `canSubmit` on purpose.
+   *
+   * Reading a grant and spending one need different things. The covenant
+   * question is about the DESERIALIZER — can the field survive the trip at
+   * all — and a client that happens to be read-only has no bearing on it. A
+   * vendor auditing a grant it was paid from is exactly this case, and folding
+   * the two together would have sent them to install a transport they never
+   * use.
+   */
+  private get carriesCovenants(): boolean {
+    return this.wasm !== undefined && supportsCovenants(this.wasm);
   }
 
   get url(): string {
@@ -187,14 +265,95 @@ export class BorshReader implements Inspectable {
     return parseUtxos({ entries: raw.map(nest) });
   }
 
-  /** Always throws. See `CovenantUnanswerable` for why that is the answer. */
-  async assertCovenantAware(_grantAddress: string): Promise<void> {
-    throw new CovenantUnanswerable();
+  /**
+   * A grant's single live coin.
+   *
+   * A grant is one coin by construction — spending it produces exactly one
+   * successor — so anything else is a question about which address is being
+   * looked at rather than about the grant. Duplicated from `NodeClient`
+   * deliberately: it is four lines of arithmetic over `getUtxosByAddresses`,
+   * and importing it would make this package depend on the JSON transport's
+   * class to talk to a resolver.
+   */
+  async grantUtxo(address: string): Promise<AddressUtxo> {
+    const utxos = await this.getUtxosByAddresses([address]);
+    if (utxos.length === 0) {
+      throw new Error(
+        `no UTXO at ${address}.\n` +
+          `A grant's address is derived from its state, and spending changes ` +
+          `that state — so an empty result usually means the grant has moved ` +
+          `to its successor address, not that it is gone.\n` +
+          `If the transaction that created it was submitted moments ago, this is ` +
+          `a race rather than a mistake: acceptance is not instant, and the ` +
+          `address is empty until it happens.`,
+      );
+    }
+    if (utxos.length > 1) {
+      throw new Error(`${utxos.length} UTXOs at ${address}; a grant holds exactly one`);
+    }
+    return utxos[0]!;
   }
 
-  /** Always throws. See `WriteNotSupported` for why this is not implemented. */
-  async submitTransaction(): Promise<never> {
-    throw new WriteNotSupported();
+  /**
+   * Does the node report covenant ids?
+   *
+   * Answerable only with a covenant-carrying module. Without one the absence
+   * of the field has three possible causes and one observation cannot separate
+   * them — see `CovenantUnanswerable`. With one, the deserializer is no longer
+   * a suspect, and this becomes the same two-cause check `NodeClient` runs.
+   */
+  async assertCovenantAware(grantAddress: string): Promise<void> {
+    if (!this.carriesCovenants) throw new CovenantUnanswerable();
+    const utxos = await this.getUtxosByAddresses([grantAddress]);
+    if (utxos.length === 0) {
+      throw new Error(
+        `no UTXO at ${grantAddress}, so covenant-awareness cannot be checked there.\n` +
+          `A grant is one coin by construction. An empty answer means the grant has been ` +
+          `spent, or this node is not utxo-indexed, or it is on another network — and none ` +
+          `of those is a covenant problem.`,
+      );
+    }
+    if (!utxos[0]!.entry.covenantId) {
+      throw new Error(
+        `the UTXO at ${grantAddress} reports no covenant id.\n` +
+          `The module in use does carry the field, so this is the node: either it predates ` +
+          `covenants, or something in between dropped it. Building a spend from this entry ` +
+          `would produce a transaction with no binding — well-formed, and refused by every ` +
+          `node that does know about covenants.`,
+      );
+    }
+  }
+
+  /**
+   * Build, check, broadcast.
+   *
+   * The id is computed twice on the way out — once by this SDK, once by the
+   * WASM encoder — and they must agree before anything is sent. It is then
+   * checked a third time against what the node answers, which is free and
+   * covers the case where the reply belongs to a different transaction
+   * entirely. See `submit.ts` for why the first check is the load-bearing one.
+   */
+  async submitTransaction(tx: Transaction, allowOrphan = false): Promise<string> {
+    if (this.wasm === undefined || typeof this.rpc.submitTransaction !== "function") {
+      throw new WriteNotSupported();
+    }
+    const transaction = encodeForSubmit(tx, this.wasm as WasmModule, this.wasmName);
+    const reply = await this.rpc.submitTransaction({ transaction, allowOrphan });
+    const id = reply?.transactionId;
+    if (!id) throw new Error("submitTransaction returned no transaction id");
+
+    const ours = toHex(transactionId(tx));
+    if (String(id) !== ours) {
+      throw new Error(
+        `the node accepted a transaction with an id this SDK did not predict.\n\n` +
+          `  expected  ${ours}\n` +
+          `  node said ${String(id)}\n\n` +
+          `This one IS broadcast — unlike a pre-flight disagreement, it is too late to refuse. ` +
+          `Look up the id the node gave before spending again: the grant's successor is at ` +
+          `that transaction, not the predicted one.`,
+      );
+    }
+    return ours;
   }
 }
 
@@ -285,6 +444,14 @@ function nest(raw: unknown): unknown {
       scriptPublicKey: spk,
       blockDaaScore: inner.blockDaaScore ?? inner.block_daa_score ?? 0n,
       isCoinbase: inner.isCoinbase ?? inner.is_coinbase ?? false,
+      /* The field that separates a grant from an ordinary coin, and the one
+         this reader could not carry at all until there was a module that
+         deserializes it. `parseUtxos` hex-decodes it through `String()`,
+         which is what a wasm `Hash` answers with, so it is passed along as
+         the object rather than stringified here. Undefined stays undefined:
+         that is the ambiguity `assertCovenantAware` exists to resolve, and
+         resolving it here would be a guess. */
+      covenantId: inner.covenantId ?? inner.covenant_id,
     },
   };
 }
@@ -324,27 +491,67 @@ function addressOf(v: unknown): string | null {
 }
 
 /**
- * Construct the real client, and say something useful when it is not installed.
+ * Load a module, construct the client, and say what is missing when nothing loads.
  *
- * `kaspa-wasm32-sdk` is a peer dependency rather than a dependency because it
- * ships a wasm binary that no JSON user should have to download. The cost of
- * that choice is this error, and an error naming the package and the install
- * is cheaper than a megabyte in everyone's node_modules.
+ * TWO candidates, in this order, and the order is not a preference between
+ * vendors — it is "covenants first". `kaspa-wasm32-sdk` is the official
+ * package and the one most people already have; it is second only because the
+ * published build predates covenants. The moment upstream ships one that does
+ * not, `supportsCovenants` will return true for it and the first candidate
+ * stops mattering. Nothing here checks a version or a package name for that
+ * reason.
+ *
+ * Both are optional peer dependencies. They carry multi-megabyte wasm
+ * binaries, and a vendor accepting payments needs neither of them to be the
+ * covenant-carrying one.
  */
-async function constructClient(options: BorshOptions): Promise<WasmRpc> {
-  let k: any;
-  try {
-    k = await import("kaspa-wasm32-sdk");
-  } catch {
-    throw new Error(
-      "kaspa-wasm32-sdk is not installed.\n\n" +
-        "It is a peer dependency: it carries a wasm binary, and only the borsh " +
-        "path needs it.\n\n" +
-        "  npm install kaspa-wasm32-sdk",
-    );
+const WASM_CANDIDATES = ["@kluster/kaspa-wasm", "kaspa-wasm32-sdk"] as const;
+
+interface LoadedClient {
+  rpc: WasmRpc;
+  wasm: unknown;
+  name: string;
+}
+
+export async function loadWasm(): Promise<{ module: unknown; name: string }> {
+  const notes: string[] = [];
+  let fallback: { module: unknown; name: string } | undefined;
+
+  for (const name of WASM_CANDIDATES) {
+    let m: unknown;
+    try {
+      m = await import(name);
+    } catch {
+      notes.push(`  ${name} — not installed`);
+      continue;
+    }
+    if (supportsCovenants(m)) return { module: m, name };
+    /* Kept rather than discarded: reading works fine through a covenant-blind
+       module, and a vendor is the majority case. It only stops being enough
+       at the moment somebody tries to submit, where the error names the gap. */
+    notes.push(`  ${name} — installed, but cannot express a covenant`);
+    fallback ??= { module: m, name };
   }
+
+  if (fallback) return fallback;
+  throw new Error(
+    "no Kaspa WASM module is installed.\n\n" +
+      notes.join("\n") +
+      "\n\nOne of these is needed for the borsh transport; both are optional peer " +
+      "dependencies because each ships a wasm binary.\n\n" +
+      "  npm install @kluster/kaspa-wasm     # reads and submits Warda spends\n" +
+      "  npm install kaspa-wasm32-sdk        # reads only, today",
+  );
+}
+
+async function constructClient(options: BorshOptions): Promise<LoadedClient> {
+  const loaded = options.wasm
+    ? { module: options.wasm, name: options.wasmName ?? "the supplied module" }
+    : await loadWasm();
+  const k = loaded.module as any;
   const networkId = options.networkId ?? process.env.WARDA_NETWORK ?? "testnet-10";
-  return options.url
+  const rpc = options.url
     ? new k.RpcClient({ url: options.url, networkId, encoding: k.Encoding.Borsh })
     : new k.RpcClient({ resolver: new k.Resolver(), networkId, encoding: k.Encoding.Borsh });
+  return { rpc, wasm: loaded.module, name: loaded.name };
 }

@@ -1,12 +1,24 @@
 /**
- * Read Kaspa over borsh, so a seller does not need a node.
+ * Kaspa over borsh — the encoding the public resolvers actually serve.
  *
- * One export. See `reader.ts` for why `submitTransaction` is not among them.
+ * Reading needs any WASM build. Submitting needs one that can express a
+ * covenant, and `submit.ts` explains why that is checked by construction
+ * rather than by version number.
  */
 export {
   BorshReader,
   CovenantUnanswerable,
   WriteNotSupported,
+  loadWasm,
   type BorshOptions,
   type WasmRpc,
 } from "./reader.ts";
+
+export {
+  CovenantsUnsupported,
+  SerialisationDisagreement,
+  encodeForSubmit,
+  supportsCovenants,
+  toWasmTransaction,
+  type WasmModule,
+} from "./submit.ts";

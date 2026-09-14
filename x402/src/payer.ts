@@ -23,6 +23,18 @@ import {
   type Transaction,
 } from "@warda_protocol/kaspa";
 
+/**
+ * What paying needs from a chain connection.
+ *
+ * `NodeClient` satisfies it and so does `BorshReader`. Keeping it to the four
+ * methods that are actually called is what makes the transport a decision the
+ * caller makes rather than one this module makes for them.
+ */
+export type ChainAccess = Pick<
+  NodeClient,
+  "getBlockDagInfo" | "getUtxosByAddresses" | "grantUtxo" | "submitTransaction"
+>;
+
 import { X402Error, type PaymentRequirement } from "./protocol.ts";
 import {
   amountOf,
@@ -85,7 +97,15 @@ export type Signer = (digest: Uint8Array) => Uint8Array | Promise<Uint8Array>;
 
 export interface PayerOptions {
   grant: Grant;
-  node: NodeClient;
+  /**
+   * The chain, as four methods rather than as a class.
+   *
+   * It was `NodeClient` until there was a second thing that could do this:
+   * `BorshReader` reaches a public resolver over the encoding they actually
+   * serve, which is how a buyer stops needing a node of their own. Naming the
+   * class here would have made that a type error rather than a choice.
+   */
+  node: ChainAccess;
   /**
    * The agent's key, or a function that signs with it.
    *
@@ -246,7 +266,7 @@ export function explainRefusal(
  */
 export class WardaPayer {
   private grant: Grant;
-  private readonly node: NodeClient;
+  private readonly node: ChainAccess;
   private readonly signer: Signer;
   private readonly prefix: NetworkPrefix;
   /** Network fee per payment. Readable because a caller reconciling a manifest

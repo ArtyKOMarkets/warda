@@ -47,8 +47,8 @@ import { fileURLToPath } from "node:url";
 
 import { closeDebt, findResumable, withProof, type Pending } from "./resume.ts";
 
+import { openChain } from "../../sdk/tools/chain.ts";
 import {
-  NodeClient,
   RecipientSet,
   EMPTY_RESERVE,
   decodeAddress,
@@ -278,11 +278,12 @@ const sameChain = (quoted: string, node: string): boolean => {
    failures returns a plausible answer rather than an error: a node without a
    utxo index reports a grant as empty, which is indistinguishable from
    drained. That check matters more with real money, not less. */
-const { client: node } = await NodeClient.open({
+const { client: node, transport } = await openChain({
   url: flag("rpc") ?? process.env.WARDA_RPC_JSON,
   resolver: flag("resolver"),
   networkId: process.env.WARDA_NETWORK,
 });
+if (transport === "borsh") console.error(`reading and spending over borsh, via ${node.url}`);
 try {
   /**
    * The timelock, checked before anything is built.

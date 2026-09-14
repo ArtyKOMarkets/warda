@@ -42,5 +42,17 @@
   "scripts": {
     "build": "node build.mjs",
     "prepublishOnly": "node build.mjs && node dist/warda.js --version"
+  },
+  "peerDependencies": {
+    "@warda_protocol/borsh": "^0.3.0",
+    "@kluster/kaspa-wasm": "*"
+  },
+  "peerDependenciesMeta": {
+    "@warda_protocol/borsh": {
+      "optional": true
+    },
+    "@kluster/kaspa-wasm": {
+      "optional": true
+    }
   }
 }

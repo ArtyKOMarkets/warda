@@ -18,8 +18,9 @@
  * a signed transaction rather than an error message.
  */
 
-import { NodeClient, formatHealth } from "../src/node.ts";
+import { formatHealth } from "../src/node.ts";
 import { resolverFrom } from "../src/resolver.ts";
+import { borshRequested, openChain, type Chain } from "./chain.ts";
 
 function flag(name: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -37,15 +38,18 @@ const options = {
   tolerate: true,
 };
 
+const borsh = borshRequested();
 const via = resolverFrom(options);
-if (via && !options.url && !options.urls?.length && !process.env.WARDA_RPC_JSON) {
+if (borsh) {
+  console.log(`asking the public resolvers for a ${options.networkId} node over borsh…\n`);
+} else if (via && !options.url && !options.urls?.length && !process.env.WARDA_RPC_JSON) {
   console.log(`asking ${via} for a ${options.networkId} node…\n`);
 }
 
-let client: NodeClient;
+let client: Chain;
 let health;
 try {
-  ({ client, health } = await NodeClient.open(options));
+  ({ client, health } = await openChain({ ...options, borsh }));
 } catch (e) {
   console.error((e as Error).message);
   process.exit(1);

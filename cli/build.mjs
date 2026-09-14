@@ -54,8 +54,24 @@ const TOOLS = [
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
 
+/**
+ * The two things that must NOT be inlined.
+ *
+ * Everything else is bundled on purpose — a CLI whose covenant rules could be
+ * satisfied by a semver-compatible but different @warda_protocol/kaspa is a CLI
+ * that can derive a different address than the one it printed yesterday. These
+ * are the exception because they cannot be inlined and should not be required:
+ * the borsh transport carries a multi-megabyte wasm binary, and it is reached
+ * by a dynamic import that fails into a message naming the install. Bundled,
+ * that import would become a hard dependency on a binary most users never
+ * need; marked external, `--borsh` is opt-in and everything else keeps working
+ * without it.
+ */
+const OPTIONAL = ["@warda_protocol/borsh", "@kluster/kaspa-wasm", "kaspa-wasm32-sdk"];
+
 const common = {
   bundle: true,
+  external: OPTIONAL,
   platform: "node",
   format: "esm",
   target: "node20",

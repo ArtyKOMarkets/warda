@@ -56,7 +56,7 @@ import { fromHex, toHex } from "../src/bytes.ts";
 import { attachGenesisSignature, buildGenesis } from "../src/genesis.ts";
 import { blake2b256 } from "../src/hashers.ts";
 import { derivePublic, EMPTY_RESERVE, KEY_DOMAIN } from "../src/keys.ts";
-import { NodeClient } from "../src/node.ts";
+import { openChain } from "./chain.ts";
 import { RecipientSet, assertRecipientsFitTemplate } from "../src/recipients.ts";
 
 import { membersFrom } from "./members.ts";
@@ -219,11 +219,15 @@ if (agentKey === principalKey) {
    failures returns a plausible answer rather than an error: a node without a
    utxo index reports a grant as empty, which is indistinguishable from
    drained. That check matters more with real money, not less. */
-const { client } = await NodeClient.open({
+/* `openChain`, not `NodeClient.open`, and the difference is --borsh: the
+   public resolvers serve borsh and nothing else, so this is what lets a grant
+   be created without a node at all. The health checks below run either way. */
+const { client, transport } = await openChain({
   url: rpcFrom(flag("rpc")),
   resolver: flag("resolver"),
   networkId: network,
 });
+if (transport === "borsh") console.error(`  over borsh, via ${client.url}\n`);
 let built, state: GrantState, notBefore: bigint;
 try {
   const info = await client.getInfo();
