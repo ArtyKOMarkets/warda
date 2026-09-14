@@ -46,12 +46,24 @@ function fake(over: Partial<WasmRpc> = {}, reply: unknown = { entries: [ENTRY] }
     connect: async () => {},
     disconnect: async () => {},
     url: "wss://eric.kaspa.stream/v2/kaspa/testnet-10/wrpc/borsh",
-    getServerInfo: async () => ({
-      serverVersion: "1.0.1",
-      isSynced: true,
-      isUtxoIndexed: true,
-      mempoolSize: 7n,
+    /* Two calls, two shapes, because they ARE two calls. The first version of
+       this fake had one `getServerInfo` answering in `getInfo`'s shape, which
+       is precisely the belief the reader held — so eleven tests agreed with
+       the bug and a real node was reported as having no UTXO index. */
+    getInfo: async () => ({
       p2pId: "abc",
+      mempoolSize: 7n,
+      serverVersion: "1.0.1",
+      isUtxoIndexed: true,
+      isSynced: true,
+    }),
+    getServerInfo: async () => ({
+      rpcApiVersion: [1, 0],
+      serverVersion: "1.0.1",
+      networkId: "kaspa-testnet-10",
+      hasUtxoIndex: true,
+      isSynced: true,
+      virtualDaaScore: 91_234_600n,
     }),
     getBlockDagInfo: async () => ({
       network: "kaspa-testnet-10",
@@ -88,7 +100,7 @@ test("a bare array reply normalises the same way", async () => {
   assert.equal(utxos[0]!.entry.value, 2_000_000n);
 });
 
-test("getServerInfo is reported as getInfo", async () => {
+test("node info comes back in the shape the shared parser reads", async () => {
   const r = await BorshReader.open({ client: fake() });
   const info = await r.getInfo();
   assert.equal(info.isSynced, true);
@@ -140,12 +152,12 @@ test("inspect runs against a borsh reader, and the covenant check is unknown", a
 
 test("a node that is not utxo-indexed is caught before it answers with silence", async () => {
   const client = fake({
-    getServerInfo: async () => ({
-      serverVersion: "1.0.1",
-      isSynced: true,
-      isUtxoIndexed: false,
-      mempoolSize: 0n,
+    getInfo: async () => ({
       p2pId: "abc",
+      mempoolSize: 0n,
+      serverVersion: "1.0.1",
+      isUtxoIndexed: false,
+      isSynced: true,
     }),
   });
   const r = await BorshReader.open({ client });
@@ -564,4 +576,80 @@ test("an empty answer is not a covenant failure, and does not get reported as on
     assert.match(e.message, /utxo-indexed|another network|spent/);
     return true;
   });
+});
+
+// ---- getInfo is not getServerInfo ----------------------------------------
+
+/**
+ * The bug these exist for: a perfectly good public node reported as having no
+ * UTXO index.
+ *
+ * `getInfo` and `getServerInfo` are two RPCs, not one under two spellings, and
+ * the same question — is there a utxo index — is `isUtxoIndexed` in the first
+ * and `hasUtxoIndex` in the second. The reader called `getServerInfo` and
+ * handed the reply to a parser that reads `isUtxoIndexed`, so the answer was
+ * `undefined`, `Boolean()` made it `false`, and `inspect` reported NO UTXO
+ * INDEX — the one check whose failure reads as "your grant is gone".
+ *
+ * Every test above passed throughout, because the fake was written from the
+ * same belief as the code. So these two pin the SHAPES rather than the
+ * behaviour: one fake that answers `getInfo` the way kaspad does, and one that
+ * only has `getServerInfo` and therefore says `hasUtxoIndex`.
+ */
+
+const SERVER_INFO = {
+  rpcApiVersion: [1, 0],
+  serverVersion: "2.0.1",
+  networkId: "kaspa-testnet-10",
+  hasUtxoIndex: true,
+  isSynced: true,
+  virtualDaaScore: 570_163_117n,
+};
+
+test("getInfo is preferred, because it is the call that answers the question", async () => {
+  let asked: string[] = [];
+  const client = fake({
+    getInfo: async () => {
+      asked.push("getInfo");
+      return {
+        p2pId: "p2p-abc",
+        mempoolSize: 7n,
+        serverVersion: "2.0.1",
+        isUtxoIndexed: true,
+        isSynced: true,
+      };
+    },
+    getServerInfo: async () => {
+      asked.push("getServerInfo");
+      return SERVER_INFO;
+    },
+  } as Partial<WasmRpc>);
+  const info = await (await BorshReader.open({ client })).getInfo();
+  assert.deepEqual(asked, ["getInfo"], "getServerInfo must not be the call");
+  assert.equal(info.isUtxoIndexed, true);
+  /* Not in a getServerInfo reply at all, which is the other half of why the
+     two are not interchangeable — these were silently "" and 0n. */
+  assert.equal(info.p2pId, "p2p-abc");
+  assert.equal(info.mempoolSize, 7n);
+});
+
+test("an older client with only getServerInfo has hasUtxoIndex translated, not trusted", async () => {
+  const client = fake({ getServerInfo: async () => SERVER_INFO } as Partial<WasmRpc>);
+  delete (client as { getInfo?: unknown }).getInfo;
+  const info = await (await BorshReader.open({ client })).getInfo();
+  assert.equal(info.isUtxoIndexed, true, "hasUtxoIndex is the same question under another name");
+  assert.equal(info.isSynced, true);
+  assert.equal(info.serverVersion, "2.0.1");
+});
+
+test("a node that really has no index still reports none, either way round", async () => {
+  const off = { ...SERVER_INFO, hasUtxoIndex: false };
+  const viaServerInfo = fake({ getServerInfo: async () => off } as Partial<WasmRpc>);
+  delete (viaServerInfo as { getInfo?: unknown }).getInfo;
+  assert.equal((await (await BorshReader.open({ client: viaServerInfo })).getInfo()).isUtxoIndexed, false);
+
+  const viaGetInfo = fake({
+    getInfo: async () => ({ p2pId: "x", mempoolSize: 0n, serverVersion: "2.0.1", isUtxoIndexed: false, isSynced: true }),
+  } as Partial<WasmRpc>);
+  assert.equal((await (await BorshReader.open({ client: viaGetInfo })).getInfo()).isUtxoIndexed, false);
 });

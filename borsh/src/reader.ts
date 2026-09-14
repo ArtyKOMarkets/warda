@@ -76,6 +76,14 @@ export interface WasmRpc {
   connect(): Promise<void>;
   disconnect(): Promise<void>;
   readonly url: string | undefined;
+  /**
+   * kaspad's `getInfo`, and NOT `getServerInfo`. See `BorshReader.getInfo`.
+   *
+   * Optional only so that a client written against the older version of this
+   * interface — which asked for `getServerInfo` — is a type error at the seam
+   * rather than a silently wrong answer at runtime.
+   */
+  getInfo?(): Promise<Record<string, unknown>>;
   getServerInfo(): Promise<Record<string, unknown>>;
   getBlockDagInfo(): Promise<Record<string, unknown>>;
   getUtxosByAddresses(request: { addresses: string[] }): Promise<unknown>;
@@ -251,12 +259,39 @@ export class BorshReader implements Inspectable {
   }
 
   /**
-   * The WASM client calls this `getServerInfo`; kaspad calls it `getInfo` and
-   * so does everything else in this protocol. The reply is the same reply, so
-   * the rename stops here rather than leaking into the shared parser.
+   * `getInfo`, which is a DIFFERENT CALL from `getServerInfo`, not a rename.
+   *
+   * This used to call `getServerInfo` with a comment saying the WASM client
+   * merely spells `getInfo` differently and "the reply is the same reply". It
+   * is not. They are two RPCs with two response types:
+   *
+   *   getInfo        p2pId, mempoolSize, serverVersion, isUtxoIndexed, isSynced
+   *   getServerInfo  rpcApiVersion, serverVersion, networkId, hasUtxoIndex,
+   *                  isSynced, virtualDaaScore
+   *
+   * `hasUtxoIndex` and `isUtxoIndexed` are the same question under two names,
+   * and the shared parser reads the second one. So a perfectly good node came
+   * back with `isUtxoIndexed: undefined`, which `Boolean()` makes `false`, and
+   * `inspect` reported NO UTXO INDEX — the single check whose failure reads as
+   * "your grant is gone". p2pId and mempoolSize were empty and zero for the
+   * same reason, and nobody looks at those, which is why it survived.
+   *
+   * Reported by the first person to run --borsh against a real resolver. It
+   * could not have been caught here: the fake in the tests was written from
+   * the same belief as the code.
+   *
+   * The fix is not to translate the names — it is to call the RPC that answers
+   * the question being asked. Both transports now make the same call and the
+   * shared parser sees one shape, which is the thing that was supposed to be
+   * true all along.
    */
   async getInfo(): Promise<NodeInfo> {
-    return parseInfo(await this.rpc.getServerInfo());
+    if (typeof this.rpc.getInfo === "function") return parseInfo(await this.rpc.getInfo());
+    /* A client from before this distinction was understood. Its getServerInfo
+       answer is translated rather than trusted, so the wrong-name failure
+       cannot come back through an old seam. */
+    const r = await this.rpc.getServerInfo();
+    return parseInfo({ ...r, isUtxoIndexed: r.isUtxoIndexed ?? r.hasUtxoIndex });
   }
 
   async getBlockDagInfo(): Promise<DagInfo> {
