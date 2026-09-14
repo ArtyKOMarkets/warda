@@ -1665,10 +1665,11 @@ Anyone can sign with it.</code></pre>
       <strong style="color:var(--chrome-dim);font-weight:500">Maturity</strong> &mdash; Warda
       itself has run on testnet-10 only and is unaudited. Audit comes before mainnet, and that
       order does not change.<br>
-      <strong style="color:var(--chrome-dim);font-weight:500">Prerequisite</strong> &mdash; a
-      Kaspa node you can reach. Not a resolver: the public ones serve borsh and this speaks
-      JSON, so they find you nothing. Borrow the testnet node on <a href="/start">/start</a>
-      to try it, run your own for anything else.
+      <strong style="color:var(--chrome-dim);font-weight:500">Prerequisite</strong> &mdash;
+      none, since <code>@warda_protocol/borsh</code> 0.3. Pass <code>--borsh</code> and it reads
+      the UTXO set from the public resolvers, over the encoding they actually serve. Run your own
+      node and pass <code>--rpc</code> when you need to stop trusting a stranger's answer &mdash;
+      <a href="/start">/start</a> has both.
     </p>
   </div>
 </section>
@@ -1678,7 +1679,7 @@ Anyone can sign with it.</code></pre>
     <div data-rise>
       <p class="eyebrow">Not a diagram</p>
       <h2>It already happened.</h2>
-      <p class="big" style="margin-top:1.4rem;max-width:54ch">A real HTTP 402 endpoint, priced at 0.2 KAS. A real covenant spend on Kaspa testnet-10. The vendor checked the UTXO set before it served anything.</p>
+      <p class="big" style="margin-top:1.4rem;max-width:54ch">A real HTTP 402 endpoint, priced at 0.2 KAS. A real covenant spend on Kaspa testnet-10. The vendor checked the UTXO set before it served anything &mdash; and then one we do not run took the money too.</p>
     </div>
 
     <div class="receipt" data-rise style="--d:120ms">
@@ -1700,6 +1701,25 @@ Anyone can sign with it.</code></pre>
         The grant's address changed because the address <em>is</em> the state. Every line above is re-derived from the UTXO set by <code>x402/demo/verify-receipt.ts</code> &mdash; the receipt was written by the process that made the payment, which is exactly the party you would not take it from.
       </div>
     </div>
+
+    <p class="needs" data-rise style="--d:200ms">
+      <strong style="color:var(--chrome-dim);font-weight:500">That endpoint is ours.</strong>
+      This one is not: <code>demo.kaspa-x402.org/exact</code>, run by people we have never
+      spoken to, answered <code>200 {&quot;ok&quot;:true}</code> to a payment funded by a grant
+      on testnet-10 and settled it to <em>accepted</em>. 0.2 KAS invoiced, 194,880 sompi of fee,
+      20,194,880 charged against the budget &mdash; goods and transport both counted, both inside
+      the limit. Payment
+      <code>28a084fd6b36daf26d77838f3e85f8f0c2798ad4f8f2d87f8d78f82065a4d49b</code>, funded by
+      <code>78e5564a1ec9956bcb7a1c0f8baa23d2b01600bc7a89ae3d8726f219c7c9040c</code>.
+      <br><br>
+      Their scheme wants an ordinary payment &mdash; one plain input, no covenant field &mdash; so
+      the grant does not pay them directly. It funds a key the agent holds for exactly one
+      transaction, and that key pays. The covenant still decides: the allowlist is checked against
+      the vendor's address, not the hop's, and the fee for the hop is charged to the same budget.
+      What a relayed payment does <em>not</em> carry is the proof itself. A vendor who wants to
+      know this coin could not have been larger, or gone anywhere else, still has to look at the
+      grant &mdash; and that part is not in the standard.
+    </p>
   </div>
 </section>
 
@@ -2184,12 +2204,16 @@ await wardaFetch(url);</code></pre>
         with a witness on every spend. When #004 was done, #003 collapsed it back and the child's
         spending was charged to the parent. Both transactions are on <a href="/agent-004">its page</a>.</p>
       </div>
-      <div class="next">
-        <span class="tag">Next <em>&middot; interoperability</em></span>
-        <h3>A payment someone else's server accepts</h3>
-        <p>Eight payments to a vendor we do not control settled on chain and were all refused
-        service, for a reason inside a verifier that is not published. Until a stranger's
-        endpoint takes a Warda payment, every demo here is us paying ourselves.</p>
+      <div class="shipped">
+        <span class="tag">Shipped <em>&middot; interoperability</em></span>
+        <h3>A payment someone else's server accepted</h3>
+        <p>A vendor we do not control, on the x402 <code>exact</code> scheme, answered
+        <code>200 {&quot;ok&quot;:true}</code> and settled it &mdash; 0.2 KAS invoiced, 194,880
+        sompi of fee, 20,194,880 charged against the grant's budget. Their scheme requires an
+        ordinary payment, so <strong>the grant does not pay the vendor directly</strong>: it funds
+        a single-use key that does, and the allowlist is checked against the vendor's address
+        rather than the hop's. The guarantee a grant carries is not in that standard yet, so a
+        vendor who wants it still has to look at the grant.</p>
       </div>
       <div class="next">
         <span class="tag">Next <em>&middot; somebody else's platform</em></span>

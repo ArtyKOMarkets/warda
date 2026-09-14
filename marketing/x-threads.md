@@ -655,3 +655,186 @@ prompt, and post 2 exists to say why that model cannot apply here.
 **5/ is not optional.** A launch post that omits "unaudited, testnet, load an
 unpacked zip" is the kind of post this project's failure posts exist to
 outweigh.
+
+---
+
+## L — the node requirement was in the client, not the protocol
+
+**The general idea:** a lot of what people call a protocol requirement is a
+client requirement wearing the protocol's clothes. The way to tell the
+difference is to ask which half of the work actually needs the thing — and
+signing is not the half that needs a node.
+
+**The event it lands on:** a grant created and spent from a machine with no
+node on it. Grant `c7a62944…`, spend `2de4e884…`, both on testnet-10.
+
+**Graphic:** `marketing/img/warda-no-node.png`
+
+**Ends on:** nine defects, all in seams, with a green test suite the whole way.
+That is the part that stops this reading as a victory lap.
+
+**1/**  *(graphic: marketing/img/warda-no-node.png)*
+
+> For two months, using Warda meant running a Kaspa node first.
+>
+> That was never in the protocol. It was in my client.
+>
+> Today a grant was created and spent from a laptop with no node on it.
+
+**2/**
+
+> The requirement came out of one detail.
+>
+> kaspad speaks two encodings over the same socket: borsh by default, and JSON only if you start it with a flag most operators never pass.
+>
+> Our client spoke JSON. The public nodes speak borsh. So they were all unreachable, and you had to run your own.
+
+**3/**
+
+> I had been reading the wrong thing as a hard limit.
+>
+> A covenant is load-bearing in the signature — a covenant-blind wallet genuinely cannot sign a Warda spend. True, and unrelated.
+>
+> Signing happens on your machine. The node only has to carry the bytes.
+
+**4/**
+
+> So the transport learned borsh, and nothing else moved.
+>
+> Your machine builds the transaction, commits the limits and signs it. A stranger's node relays it.
+>
+> The covenant binding is inside the sighash. A relay that alters the terms invalidates the signature it is carrying.
+
+**5/**
+
+> There are sixteen public resolvers.
+>
+> On the day I wired this up, one hung with an empty body, one answered 522, and the SDK's own resolver reported all sixteen unreachable.
+>
+> So we do not pick one. We ask all sixteen at once and take the first that answers.
+
+**6/**
+
+> Someone else's node can lie to you. About your balance, about whether your transaction was accepted.
+>
+> So nothing it says is taken on its word. The transaction is re-encoded locally before submit, and if the id does not match the one we signed, it is not sent.
+
+**7/**
+
+> Nine things broke getting here.
+>
+> Every one was in a seam — which endpoint, which encoding, which field, when to close the socket. None were in the covenant, the encoder or the signature.
+>
+> The offline suite was green for all nine. A fake written from an assumption agrees with the bug it was meant to catch.
+
+**First reply** — links go here, never in the post.
+
+> Both transactions: c7a6294486129962bb20eedce69596e812fb42b39ee0e060b91cdaf5686db570 and 2de4e8841736d6f21bca3cdac9712319fb636caf9ce81bb86461a59f312c6992 on testnet-10.
+>
+> Source: github.com/ArtyKOMarkets/warda
+
+### Rejected openers, and why
+
+*"Warda no longer requires a node."* A changelog line. Nothing happened in it,
+and it invites the reply "it required one?" as the first impression.
+
+*"Decentralisation means not running infrastructure."* An idea, and a wrong
+one. The honest version is that the requirement was mine, which post 1 says.
+
+---
+
+## M — the first purchase from a stranger
+
+**This closes thread J.** J ended on "nobody has paid a third-party x402 vendor
+from a covenant yet, including me." That is the only reason this thread can
+open the way it does — do not run M without J having run first.
+
+**The general idea:** interoperating with a standard rarely means the standard
+was wrong. It means your transaction is the wrong shape, and the shape is
+negotiable in a way the limits are not.
+
+**The event it lands on:** `demo.kaspa-x402.org/exact` answered `200
+{"ok":true}`, settlement `accepted`, payment `28a084fd…` on testnet-10.
+
+**Graphic:** `marketing/img/warda-first-purchase.png`
+
+**1/**  *(graphic: marketing/img/warda-first-purchase.png)*
+
+> I ended a thread here with: nobody has paid a third-party x402 vendor from a covenant yet, including me.
+>
+> That stopped being true today. 0.2 KAS, a server I do not run, 200 {"ok":true}.
+
+**2/**
+
+> The blocker was never the limits. It was the shape of the transaction.
+>
+> x402's `exact` scheme wants a plain payment: one ordinary input, one canonical signature, no covenant field present at all.
+>
+> A Warda spend is a covenant spend. Their facilitator rejects it before it ever looks at the money.
+
+**3/**
+
+> So the grant does not pay the vendor.
+>
+> It pays a key the agent holds for exactly one transaction, and that key pays the vendor with an ordinary payment their facilitator recognises.
+>
+> The covenant still decides who gets paid: the allowlist is checked against the vendor's address, not the relay's.
+
+**4/**
+
+> The hop costs something, and I wanted the number measured rather than modelled.
+>
+> We had shipped an estimate of 365,000 sompi. Measured against a real node, seven times without variation: 1,624 mass, 162,400 sompi.
+>
+> The estimate was 2.25x high because it had been fitted on a different transaction version.
+
+**5/**
+
+> What the purchase actually cost:
+>
+> 0.2 KAS invoiced. 194,880 sompi of network fee. 20,194,880 sompi charged against the grant's budget.
+>
+> The goods and the transport, both counted, both inside the limit the grant was created with.
+
+**6/**
+
+> It is not free and it is not always worth doing.
+>
+> Below a certain purchase size the transport costs more than the goods. The builder computes the fee to a fixed point and refuses when it exceeds the amount, rather than quietly eating the difference.
+>
+> Micropayments are not what this unlocks.
+
+**7/**
+
+> Twice I announced this working when it was not.
+>
+> Once I watched the wrong transaction — the successor address, which says nothing about whether the vendor was paid — and printed "accepted" about a transaction nobody had looked at.
+>
+> Once I read the response body and threw away the header carrying the real refusal.
+
+**8/**
+
+> This does not make a covenant spend an x402 payment. It makes the last hop an ordinary one.
+>
+> A vendor who wants the actual guarantee — that this coin could not have been larger, or gone anywhere else — still has to look at the grant.
+>
+> That part is not in the standard yet.
+
+**First reply** — links go here, never in the post.
+
+> Payment 28a084fd6b36daf26d77838f3e85f8f0c2798ad4f8f2d87f8d78f82065a4d49b, funded by 78e5564a1ec9956bcb7a1c0f8baa23d2b01600bc7a89ae3d8726f219c7c9040c, from grant kaspatest:pzavmmdtyng656zj22jnfuyyq4kuktvzgjsj29z2ga0yecw5a8j4s5g3rtm6x.
+>
+> Source: github.com/ArtyKOMarkets/warda
+
+### Rejected openers, and why
+
+*"Warda now supports x402."* Supports is a word for a table of features. The
+event is that a stranger's server took the money.
+
+*"We solved x402 interop for Kaspa."* We solved it for us, with a relay hop,
+and post 8 exists to say what is still missing. Claiming the general case here
+would make post 8 read as a walk-back instead of the honest ending.
+
+*Naming the other implementation whose facilitator refused us.* This file's
+standing rule: cite a protocol's own documentation, never an individual
+project's repo.
