@@ -60,6 +60,21 @@ export {
 } from "./pay-v2.ts";
 
 export {
+  // The relay: how a bounded payer reaches an x402 `exact` vendor at all. See
+  // RELAY.md — their scheme cannot take a covenant spend, under any version.
+  buildRelayPayment,
+  relayFunding,
+  relayPayee,
+  SAFE_JSON_ENCODING,
+  type RelayInput,
+  type RelayPayment,
+} from "./relay.ts";
+
+export {
+  DEFAULT_RELAY_FEE_SOMPI,
+} from "./pay-v2.ts";
+
+export {
   wardaFetchV2,
   bodyForBinding,
   type WardaFetchV2Options,
