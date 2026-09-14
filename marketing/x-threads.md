@@ -683,9 +683,9 @@ That is the part that stops this reading as a victory lap.
 
 **2/**
 
-> The requirement came out of one detail.
+> The requirement came from one detail.
 >
-> kaspad speaks two encodings over the same socket: borsh by default, and JSON only if you start it with a flag most operators never pass.
+> kaspad speaks two encodings over one socket: borsh by default, JSON only behind a flag most operators never pass.
 >
 > Our client spoke JSON. The public nodes speak borsh. So they were all unreachable, and you had to run your own.
 
@@ -701,7 +701,7 @@ That is the part that stops this reading as a victory lap.
 
 > So the transport learned borsh, and nothing else moved.
 >
-> Your machine builds the transaction, commits the limits and signs it. A stranger's node relays it.
+> Your machine builds the transaction, commits the limits, signs it. A stranger's node relays it.
 >
 > The covenant binding is inside the sighash. A relay that alters the terms invalidates the signature it is carrying.
 
@@ -709,7 +709,7 @@ That is the part that stops this reading as a victory lap.
 
 > There are sixteen public resolvers.
 >
-> On the day I wired this up, one hung with an empty body, one answered 522, and the SDK's own resolver reported all sixteen unreachable.
+> The day I wired this up, one hung with an empty body, one answered 522, and the SDK's own resolver reported all sixteen unreachable.
 >
 > So we do not pick one. We ask all sixteen at once and take the first that answers.
 
@@ -723,9 +723,9 @@ That is the part that stops this reading as a victory lap.
 
 > Nine things broke getting here.
 >
-> Every one was in a seam — which endpoint, which encoding, which field, when to close the socket. None were in the covenant, the encoder or the signature.
+> Every one was in a seam — which endpoint, which encoding, which field, when to close the socket. None in the covenant, the encoder or the signature.
 >
-> The offline suite was green for all nine. A fake written from an assumption agrees with the bug it was meant to catch.
+> The offline suite was green for all nine. A fake built from an assumption agrees with the bug.
 
 **First reply** — links go here, never in the post.
 
@@ -768,9 +768,9 @@ negotiable in a way the limits are not.
 
 > The blocker was never the limits. It was the shape of the transaction.
 >
-> x402's `exact` scheme wants a plain payment: one ordinary input, one canonical signature, no covenant field present at all.
+> x402's `exact` scheme wants a plain payment: one ordinary input, one canonical signature, no covenant field at all.
 >
-> A Warda spend is a covenant spend. Their facilitator rejects it before it ever looks at the money.
+> A Warda spend is a covenant spend. Their facilitator rejects it before it looks at the money.
 
 **3/**
 
@@ -778,15 +778,15 @@ negotiable in a way the limits are not.
 >
 > It pays a key the agent holds for exactly one transaction, and that key pays the vendor with an ordinary payment their facilitator recognises.
 >
-> The covenant still decides who gets paid: the allowlist is checked against the vendor's address, not the relay's.
+> The covenant still decides: the allowlist is checked against the vendor, not the relay.
 
 **4/**
 
-> The hop costs something, and I wanted the number measured rather than modelled.
+> The hop costs something, and I wanted it measured rather than modelled.
 >
 > We had shipped an estimate of 365,000 sompi. Measured against a real node, seven times without variation: 1,624 mass, 162,400 sompi.
 >
-> The estimate was 2.25x high because it had been fitted on a different transaction version.
+> 2.25x high — the model was fitted on a different tx version.
 
 **5/**
 
@@ -798,9 +798,9 @@ negotiable in a way the limits are not.
 
 **6/**
 
-> It is not free and it is not always worth doing.
+> It is not free and not always worth doing.
 >
-> Below a certain purchase size the transport costs more than the goods. The builder computes the fee to a fixed point and refuses when it exceeds the amount, rather than quietly eating the difference.
+> Below a certain purchase size the transport costs more than the goods. The builder computes the fee to a fixed point and refuses when it exceeds the amount, rather than eating the difference.
 >
 > Micropayments are not what this unlocks.
 
@@ -808,9 +808,9 @@ negotiable in a way the limits are not.
 
 > Twice I announced this working when it was not.
 >
-> Once I watched the wrong transaction — the successor address, which says nothing about whether the vendor was paid — and printed "accepted" about a transaction nobody had looked at.
+> Once I watched the wrong transaction — the successor address, which says nothing about whether the vendor was paid — and printed "accepted" about it.
 >
-> Once I read the response body and threw away the header carrying the real refusal.
+> Once I read the body and threw away the header carrying the refusal.
 
 **8/**
 
