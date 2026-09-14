@@ -250,19 +250,33 @@ switch (verb) {
 
   case "node": {
     const cfg = readConfig();
-    /* Remembered here rather than in a separate command: `warda node` is where
-       somebody finds out whether a transport works for them, and a choice that
-       has just been shown to work is the one worth keeping. */
-    if (has("borsh") && cfg.transport !== "borsh") writeConfig({ ...cfg, transport: "borsh" });
-    if (flag("rpc") && cfg.transport === "borsh") writeConfig({ ...cfg, transport: "json", rpc: flag("rpc") });
     const grant = flag("grant") ?? cfg.grant;
-    process.exit(
-      run("sdk/tools/check-node.ts", [
-        ...rpcArgs(cfg),
-        ...(grant && existsSync(grant) ? ["--grant", grant] : []),
-        ...rest.filter((a) => a.startsWith("--resolver")),
-      ]),
-    );
+    /* --borsh is honoured for THIS run whether or not it is remembered, so the
+       command can be used to try a transport without adopting it. */
+    const asked = has("borsh") ? ["--borsh"] : rpcArgs(cfg);
+    const status = run("sdk/tools/check-node.ts", [
+      ...asked,
+      ...(flag("rpc") ? ["--rpc", flag("rpc")!] : []),
+      ...(grant && existsSync(grant) ? ["--grant", grant] : []),
+      ...rest.filter((a) => a.startsWith("--resolver")),
+    ]);
+
+    /* Remembered only on SUCCESS, and remembered here rather than in a separate
+       command, because `warda node` is where somebody finds out whether a
+       transport works for them. The first version wrote the choice before
+       running the check — so a --borsh that could not reach a single resolver
+       still left every later command defaulting to it, which is how a failed
+       experiment becomes the configuration. */
+    if (status === 0) {
+      if (has("borsh") && cfg.transport !== "borsh") {
+        writeConfig({ ...cfg, transport: "borsh" });
+        console.error(`\nRemembered in ${CONFIG}: --borsh is now the default here.`);
+      } else if (flag("rpc") && cfg.transport === "borsh") {
+        writeConfig({ ...cfg, transport: "json", rpc: flag("rpc") });
+        console.error(`\nRemembered in ${CONFIG}: back to your own node.`);
+      }
+    }
+    process.exit(status);
     break;
   }
 

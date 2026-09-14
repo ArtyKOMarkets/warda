@@ -676,17 +676,27 @@ async function constructClient(options: BorshOptions): Promise<LoadedClient> {
 
   const url = options.url ?? (await discover(loaded.module, networkId));
   const rpc = new k.RpcClient({ url, networkId, encoding: k.Encoding.Borsh });
-  const chosen = options.url ? "the endpoint you named" : "the endpoint a resolver chose";
+  /* The advice differs, so the two cases are written out rather than shared.
+     A resolver-chosen node can simply be retried into a different one; an
+     endpoint somebody typed cannot, and telling them to "run it again" would
+     be advice that cannot work. */
+  const named = options.url !== undefined;
 
   await stage(
     rpc.connect(),
     CONNECT_MS,
     () =>
       `Could not open a WebSocket to ${url}.\n\n` +
-      `This is ${chosen}, and it was reached by name — so discovery worked and the\n` +
-      `problem is the connection. RpcClient.connect does not give up on its own; it\n` +
-      `retries in silence, which is why there is a deadline here at all.\n\n` +
-      `That node may be down or overloaded. Running this again picks a different one.`,
+      (named
+        ? `You named this endpoint, so no resolver was involved and nothing else was\n` +
+          `tried. Check the host and the path — a borsh url ends /wrpc/borsh, and the\n` +
+          `JSON one a node only serves with --rpclisten-json= is a different port.\n\n` +
+          `Drop --rpc to let a resolver pick a node instead.`
+        : `A resolver chose this node and it did not accept a connection — so discovery\n` +
+          `worked and the problem is the socket. That node may be down or overloaded;\n` +
+          `running this again picks a different one.`) +
+      `\n\nRpcClient.connect does not give up on its own: it retries in silence, which is\n` +
+      `why there is a deadline here at all.`,
   );
 
   /* Connected already, so `BorshReader.open`'s own connect is a no-op. Doing it
