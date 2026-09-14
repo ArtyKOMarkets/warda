@@ -604,7 +604,11 @@ export async function loadWasm(): Promise<{ module: unknown; name: string }> {
  *   connect     wss to the ONE node discovery chose. A failure here names that
  *               node, which makes "try another" a thing you can do.
  */
-const DISCOVER_MS = 15_000;
+/* Per ATTEMPT, not in total. Three of these bound the wait at ~36s in the
+   worst case, and the common failure — nothing reachable at all — fails fast
+   enough that the retries cost nothing. */
+const DISCOVER_MS = 12_000;
+const DISCOVER_ATTEMPTS = 3;
 
 /**
  * The resolver domains this build really uses, for the error message only.
@@ -651,6 +655,22 @@ function textOf(e: unknown): string {
   }
 }
 
+/**
+ * One line out of the resolver client's whole-fleet complaint.
+ *
+ * `Resolver.getUrl` rejects with every one of the sixteen failures
+ * concatenated — about 1,900 characters — and printing that three times over
+ * pushes the part a person can act on off the top of the terminal. The count
+ * and one representative reason carry the same information; the raw text is
+ * still what arrives if the shape is ever something else.
+ */
+function summarise(text: string): string {
+  const hosts = text.match(/https:\/\/[^/]+/g);
+  if (!hosts || hosts.length < 2) return text.split("\n")[0]!.slice(0, 200);
+  const reason = text.match(/:\s*([^:"]+)"\)/)?.[1]?.trim() ?? "unreachable";
+  return `all ${hosts.length} resolvers unreachable (${reason})`;
+}
+
 async function stage<T>(work: Promise<T>, ms: number, describe: () => string): Promise<T> {
   let timer: ReturnType<typeof setTimeout>;
   const expiry = new Promise<never>((_, reject) => {
@@ -663,9 +683,12 @@ async function stage<T>(work: Promise<T>, ms: number, describe: () => string): P
     return await Promise.race([work, expiry]);
   } catch (e) {
     const timedOut = e instanceof Error && e.message === `TIMEOUT_${ms}`;
-    throw new Error(
-      (timedOut ? `nothing answered within ${ms / 1000}s.\n\n` : `${textOf(e)}\n\n`) + describe(),
-    );
+    const what = timedOut ? `nothing answered within ${ms / 1000}s.` : textOf(e);
+    /* An empty explanation means the caller reports this itself — `discover`
+       collects one line per attempt and writes the guidance once at the end,
+       rather than three times. */
+    const why = describe();
+    throw new Error(why ? `${what}\n\n${why}` : what);
   } finally {
     clearTimeout(timer!);
   }
@@ -683,14 +706,36 @@ export async function discover(wasm: unknown, networkId: string): Promise<string
     Resolver: new () => { getUrl(encoding: unknown, networkId: string): Promise<string> };
     Encoding: { Borsh: unknown };
   };
-  return stage(
-    new k.Resolver().getUrl(k.Encoding.Borsh, networkId),
-    DISCOVER_MS,
-    () =>
-      `Discovery failed. This step is plain HTTPS to the community resolvers — it is not\n` +
-      `the chain, and no WebSocket has been attempted yet. A proxy, a container egress\n` +
-      `policy or a firewall that DROPS rather than refuses looks exactly like a timeout\n` +
-      `here; all sixteen resolvers being unreachable looks like a fast failure.\n\n` +
+
+  /* Retried, because it is idempotent, cheap, and OBSERVABLY FLAKY: the same
+     machine discovered a node, failed the next attempt fifteen seconds later,
+     and succeeded again after that. Sixteen resolvers are tried per attempt and
+     some stall rather than refuse, so a slow one can eat the whole budget while
+     a healthy one waits behind it.
+
+     A transient failure that a person fixes by running the command again is a
+     failure the tool should fix itself — especially this one, which lands on
+     somebody's first use of the transport and reads as "this does not work". */
+  const failures: string[] = [];
+  for (let attempt = 1; attempt <= DISCOVER_ATTEMPTS; attempt++) {
+    try {
+      return await stage(
+        new k.Resolver().getUrl(k.Encoding.Borsh, networkId),
+        DISCOVER_MS,
+        () => "",
+      );
+    } catch (e) {
+      failures.push(`  attempt ${attempt}: ${summarise(textOf(e))}`);
+    }
+  }
+
+  throw new Error(
+    `no resolver answered, in ${DISCOVER_ATTEMPTS} attempts.\n\n` +
+      failures.join("\n") +
+      `\n\nThis step is plain HTTPS to the community resolvers — it is not the chain, and\n` +
+      `no WebSocket has been attempted yet. A proxy, a container egress policy or a\n` +
+      `firewall that DROPS rather than refuses looks like a timeout here; the whole\n` +
+      `fleet being unreachable looks like a fast failure.\n\n` +
       `Ask one of them directly. The list is compiled into the WASM build, and these are\n` +
       `the four domains it actually uses — ${RESOLVER_DOMAINS.join(", ")}:\n\n` +
       RESOLVER_PROBES.map((h) => `  curl -sS https://${h}/v2/kaspa/${networkId}/any/wrpc/borsh`).join("\n") +
