@@ -76,6 +76,8 @@ export {
   type SignedOrdinaryPayment,
 } from "./v0.ts";
 
+export { storageMass, STORAGE_MASS_PARAMETER, type MassCell } from "./mass.ts";
+
 export {
   attachSignature,
   buildUnsignedSpend,
