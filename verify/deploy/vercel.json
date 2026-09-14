@@ -1,5 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "functions": { "api/verify.ts": { "maxDuration": 30 } },
+  "functions": {
+    "api/verify.ts": {
+      "maxDuration": 30,
+      "includeFiles": "node_modules/@kluster/kaspa-wasm/**"
+    }
+  },
   "rewrites": [{ "source": "/(.*)", "destination": "/api/verify" }]
 }

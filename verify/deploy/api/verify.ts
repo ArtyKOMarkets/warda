@@ -50,6 +50,27 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { NodeSource, handler } from "@warda_protocol/verify";
 
 /**
+ * Imported for the bundler, not for this file. Do not remove.
+ *
+ * `@warda_protocol/borsh` finds its WASM build with `await import(name)` over
+ * a candidates array, which is what lets it feature-detect covenant support
+ * instead of reading a version number, and what will let it adopt an upstream
+ * covenant-carrying `kaspa-wasm32-sdk` with no code change. A file tracer
+ * cannot follow a dynamic import whose specifier is a variable — so Vercel
+ * concluded nothing needed these packages and shipped a function without
+ * them.
+ *
+ * The first deployment failed exactly that way: both candidates installed at
+ * build time, both "not installed" at runtime, reported from inside the
+ * lambda by the loader's own message. A static reference is what puts them in
+ * the bundle; `loadWasm` then resolves them from it, cached.
+ *
+ * `vercel.json` ALSO lists them under `includeFiles`, deliberately twice: this
+ * import is a claim about how a bundler behaves, and the glob is not.
+ */
+import * as kluster from "@kluster/kaspa-wasm";
+
+/**
  * Testnet by default, and not because of a missing configuration.
  *
  * Warda has run on testnet-10 only and is unaudited, and an unset network is
@@ -63,6 +84,9 @@ const source = new NodeSource({
 });
 
 const serve = handler(source);
+
+/* Referenced so the import above cannot be elided as unused. */
+export const wasmBuild = typeof kluster === "object" ? "@kluster/kaspa-wasm" : "none";
 
 export default function (req: IncomingMessage, res: ServerResponse): Promise<void> {
   return serve(req, res);
