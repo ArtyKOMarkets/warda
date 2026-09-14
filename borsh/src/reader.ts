@@ -861,10 +861,12 @@ async function constructClient(options: BorshOptions): Promise<LoadedClient> {
      be advice that cannot work. */
   const named = options.url !== undefined;
 
-  await stage(
-    rpc.connect(),
-    CONNECT_MS,
-    () =>
+  if (process.env.WARDA_BORSH_TRACE) console.error(`borsh: connecting to ${url}`);
+  try {
+    await stage(
+      rpc.connect(),
+      CONNECT_MS,
+      () =>
       `Could not open a WebSocket to ${url}.\n\n` +
       (named
         ? `You named this endpoint, so no resolver was involved and nothing else was\n` +
@@ -874,9 +876,22 @@ async function constructClient(options: BorshOptions): Promise<LoadedClient> {
         : `A resolver chose this node and it did not accept a connection — so discovery\n` +
           `worked and the problem is the socket. That node may be down or overloaded;\n` +
           `running this again picks a different one.`) +
-      `\n\nRpcClient.connect does not give up on its own: it retries in silence, which is\n` +
-      `why there is a deadline here at all.`,
-  );
+        `\n\nRpcClient.connect does not give up on its own: it retries in silence, which is\n` +
+        `why there is a deadline here at all.`,
+    );
+  } catch (e) {
+    /* The deadline gives up on the call; it does NOT give up on the client.
+       Left alone, RpcClient keeps retrying forever in the background and
+       eventually reports a failure with nobody listening — an unhandled
+       rejection, which Node 24 turns into a crash long after the error it
+       belongs to was already reported properly. */
+    try {
+      await rpc.disconnect();
+    } catch {
+      /* Already gone, which is the outcome being asked for. */
+    }
+    throw e;
+  }
 
   /* Connected already, so `BorshReader.open`'s own connect is a no-op. Doing it
      here is what lets the two failures above be told apart at all. */

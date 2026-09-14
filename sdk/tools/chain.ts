@@ -85,11 +85,60 @@ export interface OpenedChain {
   transport: "json" | "borsh";
 }
 
+/**
+ * The WASM client reports a lost connection OUT OF BAND, and Node 24 kills the
+ * process for it.
+ *
+ * `RPC Server (remote error) -> WebSocket disconnected` does not arrive by
+ * rejecting the call you are awaiting. It surfaces from the client's own
+ * background task, as a rejection nobody is holding — and unhandled rejections
+ * have been fatal since Node 15 by default. So a dropped socket does not fail
+ * the operation, it terminates the program, with a wasm stack trace and no
+ * indication of which command was running or how far it got.
+ *
+ * That is not something the borsh package can fix from the inside: the
+ * rejection is not reachable from any promise it hands out. A process-level
+ * handler is the only place it can be caught, and a CLI tool owns its process
+ * where a library does not — so it lives here, in `sdk/tools`, and not in
+ * `@warda_protocol/borsh`.
+ *
+ * It converts, it does not swallow. A dropped connection is a real failure of
+ * whatever was in flight, so this still exits non-zero; what changes is that
+ * the exit says which node dropped out and what to do, and anything that is
+ * NOT a transport error is re-thrown so a genuine bug still crashes loudly.
+ */
+let guarded = false;
+function guardAgainstSilentDisconnect(): void {
+  if (guarded) return;
+  guarded = true;
+  process.on("unhandledRejection", (reason) => {
+    const text = reason instanceof Error ? reason.message : String(reason);
+    if (!/WebSocket disconnected|RPC Server \(remote error\)|not connected/i.test(text)) {
+      throw reason;
+    }
+    console.error(
+      `\nThe connection to the node dropped: ${text}\n\n` +
+        `This arrives from the WASM client's background task rather than from the call\n` +
+        `that was running, so there is no way to tell you which step it interrupted.\n` +
+        `Assume nothing after the last line printed above completed.\n\n` +
+        `If money was involved, CHECK BEFORE RETRYING — a submit that was accepted and\n` +
+        `then lost the socket looks identical here to one that never arrived.\n\n` +
+        `  warda find            where the grant is now\n` +
+        `  warda activity        what was attempted, refusals included\n\n` +
+        `Running again picks a different node. If it keeps happening, name one that\n` +
+        `works: --rpc wss://<host>/kaspa/<network>/wrpc/borsh`,
+    );
+    process.exit(5);
+  });
+}
+
 export async function openChain(options: ChainOptions = {}): Promise<OpenedChain> {
   if (!(options.borsh ?? borshRequested())) {
     const { client, health } = await NodeClient.open(options);
     return { client, health, transport: "json" };
   }
+
+  guardAgainstSilentDisconnect();
 
   let mod: typeof import("@warda_protocol/borsh");
   try {
