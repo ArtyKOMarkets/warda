@@ -1,6 +1,6 @@
 {
   "name": "@warda_protocol/verify",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "An HTTP endpoint that answers a counterparty's question about a Warda grant: are these terms real, where did the grant go, and what would the covenant refuse right now. Reads a node, decides nothing.",
   "type": "module",
   "license": "MIT",
