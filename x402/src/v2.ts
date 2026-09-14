@@ -108,6 +108,13 @@ export function dialect(body: unknown): "v1" | "v2" | { unsupported: number } {
   const v = (body as Record<string, unknown>).x402Version;
   if (v === undefined) return "v1";
   if (v === X402_VERSION) return "v2";
+  /* An EXPLICIT 1 is v1, not an unsupported version. This returned
+     `{unsupported: 1}` for as long as the only caller was a test, because a v1
+     quote usually omits the field entirely — and the first real caller,
+     dispatching on this, refused every v1 vendor that does stamp it with
+     "this client does not speak x402 version 1". It is the version this
+     client's entire v1 path speaks. */
+  if (v === 1) return "v1";
   return { unsupported: Number(v) };
 }
 

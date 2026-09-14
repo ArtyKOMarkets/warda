@@ -194,6 +194,8 @@ const HELP = `warda — bounded spending authority for an agent, on Kaspa.
                                 [--key <funder.key>, or set WARDA_SK]
   warda balance                 what may this agent spend right now?
   warda pay      <url>          buy something behind an HTTP 402
+                 [--relay]      required by kaspa-x402 v2 vendors, whose
+                                scheme cannot accept a covenant spend
                                 [--data <json|@file>] POST it, when the price
                                 is of the work rather than of the URL
                                 [--signer "<cmd>"] sign in another process, so
@@ -557,6 +559,11 @@ switch (verb) {
              this opts out of that and buys again. It has to be forwarded or
              the escape hatch is unreachable from the CLI. */
           ...(has("no-resume") ? ["--no-resume"] : []),
+          /* A relay hop. Ignored by a v1 vendor and required by a v2 one —
+             their exact scheme cannot take a covenant spend. Costs the
+             allowlist for that hop, which is why it is typed rather than
+             inferred from the vendor. */
+          ...(has("relay") ? ["--relay"] : []),
           ...(flag("settle-attempts") ? ["--settle-attempts", flag("settle-attempts")!] : []),
           /* Sign without holding the key: name a command and the vendor's own
              CLI does the authentication it already knows how to do. */

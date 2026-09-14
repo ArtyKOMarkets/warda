@@ -24,6 +24,7 @@
  * real refinement, and it is not guesswork this file should do by inference.
  */
 import { X402Error } from "./protocol.ts";
+import type { ExactPaymentRequirements } from "@kaspa-x402/core";
 import {
   dialect,
   readPaymentRequired,
@@ -114,7 +115,11 @@ export interface WardaFetchV2Options {
 }
 
 export type WardaFetchV2Event =
-  | { type: "quote"; amountSompi: bigint; payTo: string }
+  /* `accepted` rides along because a caller needs more than the price: the
+     network it settles on is the one check that must happen BEFORE anything
+     is signed, and a payment built for the wrong chain broadcasts, confirms,
+     and is never seen by the vendor. */
+  | { type: "quote"; amountSompi: bigint; payTo: string; accepted: ExactPaymentRequirements }
   | { type: "signed"; pending: PendingPayment }
   | { type: "broadcast"; txid: string; accepted: boolean }
   | { type: "settled"; result: PaymentResult }
@@ -185,7 +190,7 @@ export async function wardaFetchV2(
 
   const accepted = selectRequirement(quote_);
   const amountSompi = amountOf(accepted);
-  emit({ type: "quote", amountSompi, payTo: accepted.payTo });
+  emit({ type: "quote", amountSompi, payTo: accepted.payTo, accepted });
 
   if (opts.maxAmountSompi !== undefined && amountSompi > opts.maxAmountSompi) {
     throw new X402Error(

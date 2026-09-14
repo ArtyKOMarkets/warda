@@ -326,6 +326,20 @@ try {
   }, {
     payer,
     /**
+     * A relay hop, which is what a kaspa-x402 v2 vendor requires.
+     *
+     * Ignored by a v1 vendor. For a v2 one it is the only way a payment can be
+     * made at all — their `exact` scheme takes only a version-0 transaction
+     * with a key-controlled input and no covenant, so a covenant spend cannot
+     * BE the payment. The grant pays the agent's own key and an ordinary
+     * transaction goes from there to the vendor.
+     *
+     * It costs the allowlist for that one hop: the covenant stops constraining
+     * who is ultimately paid. That is why it is typed here as well as at
+     * genesis, rather than being inferred from the vendor speaking v2.
+     */
+    relay: has("relay"),
+    /**
      * How many times to re-present the proof before giving up.
      *
      * Exposed for one reason: it is the only way to produce a genuine

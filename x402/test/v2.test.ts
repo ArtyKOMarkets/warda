@@ -89,6 +89,10 @@ test("the dialect is read from the response, not from configuration", () => {
   assert.equal(dialect({ accepts: [{ scheme: "exact", amountSompi: "5000000" }] }), "v1");
   assert.equal(dialect(null), "v1");
   assert.deepEqual(dialect({ x402Version: 3, accepts: [] }), { unsupported: 3 });
+  /* An explicit 1 is v1. A v1 quote usually omits the field, which is why this
+     went unnoticed until something dispatched on it — and then it refused
+     every v1 vendor that does send it. */
+  assert.equal(dialect({ x402Version: 1, accepts: [] }), "v1");
 });
 
 // ---- selection -----------------------------------------------------------

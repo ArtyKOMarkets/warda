@@ -25,6 +25,7 @@ import {
 import { schnorr } from "@noble/curves/secp256k1.js";
 
 import { DEFAULT_RELAY_FEE_SOMPI } from "../src/pay-v2.ts";
+import { wardaFetch } from "../src/fetch.ts";
 import { buildRelayPayment } from "../src/relay.ts";
 import { dialect, readPaymentRequired, selectRequirement } from "../src/v2.ts";
 import { amountOf, assertPayeeScriptMatches } from "../src/pay-v2.ts";
@@ -476,4 +477,103 @@ test("COST: nothing on chain constrains the second hop, and here it is", async (
     "a valid, signed, broadcastable payment to someone no allowlist mentions",
   );
   assert.equal(tx.outputs[0].value, "20000000");
+});
+
+// ---- wardaFetch dispatches on what the server speaks ----------------------
+
+/**
+ * `buy.ts` calls `wardaFetch`, not `wardaFetchV2`, and that used to be a
+ * silent trap: a v2 server's 402 BODY parses as a valid v1 quote, because the
+ * real document travels in a header and the body is a stub. So the v1 path
+ * would read a v2 server as v1, build a v1 payment against a stub, and fail
+ * somewhere that pointed anywhere but here.
+ *
+ * Dispatching on `dialect()` is not a convenience. A v2 server cannot be paid
+ * by v1 rules and never could.
+ */
+test("wardaFetch reads their real 402 as v2 and pays it through the v2 flow", async () => {
+  const relayRecipients2 = new RecipientSet([THEIR_PAYEE, fromHex(agentKey)]);
+  const g: Grant = {
+    ...grant,
+    recipients: relayRecipients2,
+    state: { ...grant.state, recipientsRoot: relayRecipients2.rootHex },
+  };
+  const { node: n } = relayNode();
+  const payer = new WardaPayer({ grant: g, node: n, sign: AGENT });
+  const events: string[] = [];
+  let paidHeader: string | undefined;
+
+  const res = await wardaFetch("https://demo.kaspa-x402.org/exact", undefined, {
+    payer,
+    relay: true,
+    fetchImpl: (async (_u: string, init: RequestInit) =>
+      (init?.headers as Record<string, string> | undefined)?.["PAYMENT-SIGNATURE"]
+        ? new Response("{}", { status: 200, headers: { "content-type": "application/json" } })
+        : theirResponse()) as never,
+    onEvent: (e) => {
+      events.push(e.type);
+      if (e.type === "quote") {
+        /* The network, which the v2 quote event had to start carrying: a
+           payment built for the wrong chain broadcasts, confirms, and is never
+           seen by the vendor. buy.ts refuses on this before anything is
+           signed. */
+        assert.equal(e.requirement.network, "kaspa:testnet-10");
+        assert.equal(e.requirement.amountSompi, 20_000_000n);
+      }
+      if (e.type === "paid") paidHeader = e.header;
+    },
+  });
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(events, ["quote", "paid", "done"], "reported in v1's vocabulary");
+  /* The header is the whole reason the translation exists: it is the only
+     artefact that can redeem a purchase that settled and was never delivered,
+     and a mapping that dropped it would reintroduce the most expensive bug
+     this package has had. */
+  assert.ok(paidHeader, "the paid event carries the header");
+  assert.ok(validatePaymentPayload(JSON.parse(Buffer.from(paidHeader!, "base64").toString("utf8"))).ok);
+});
+
+test("a v2 proof cannot be resumed across calls, and is told so by name", async () => {
+  /* Detected from the PROOF, not from the server: the resume branch never
+     fetches first, and it does not need to. A v2 payload announces its version
+     and carries the requirement it paid; a v1 proof has neither. They also go
+     back in different headers, so presenting one down the v1 path sends
+     X-PAYMENT to a server watching for PAYMENT-SIGNATURE — which reads as no
+     payment at all for money that is plainly on chain. */
+  const { node: n } = relayNode();
+  const payer = new WardaPayer({ grant, node: n, sign: AGENT });
+  const v2Header = Buffer.from(
+    JSON.stringify({ x402Version: 2, accepted: { scheme: "exact" }, payload: {} }),
+  ).toString("base64");
+
+  await assert.rejects(
+    () =>
+      wardaFetch("https://demo.kaspa-x402.org/exact", undefined, {
+        payer,
+        resume: { header: v2Header, txid: "ab".repeat(32), amountSompi: "1", payTo: "k" },
+        fetchImpl: (async () => theirResponse()) as never,
+      }),
+    (e: Error) => {
+      assert.match(e.message, /no cross-call resume for v2 yet/);
+      assert.match(e.message, new RegExp("ab".repeat(32)));
+      return true;
+    },
+  );
+});
+
+test("a v1 proof still resumes, and an unreadable one is left to the v1 path", async () => {
+  const { node: n } = relayNode();
+  const payer = new WardaPayer({ grant, node: n, sign: AGENT });
+  const events: string[] = [];
+
+  const res = await wardaFetch("https://vendor.example/thing", undefined, {
+    payer,
+    resume: { header: "not-base64-json", txid: "cd".repeat(32), amountSompi: "1", payTo: "k" },
+    fetchImpl: (async () =>
+      new Response("{}", { status: 200, headers: { "content-type": "application/json" } })) as never,
+    onEvent: (e) => events.push(e.type),
+  });
+  assert.equal(res.status, 200);
+  assert.deepEqual(events, ["resuming", "done"], "unreadable is treated as v1, not guessed at");
 });

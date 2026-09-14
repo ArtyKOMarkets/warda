@@ -58,6 +58,10 @@ export type Chain = Pick<
   | "getUtxosByAddresses"
   | "grantUtxo"
   | "submitTransaction"
+  /* An ordinary version-0 payment, which is a different call because it takes
+     a different type — see `v0.ts`. Only the relay half of an x402 `exact`
+     purchase uses it, and both clients have it. */
+  | "submitOrdinaryPayment"
 > & { readonly url: string };
 
 export interface ChainOptions extends OpenOptions {
