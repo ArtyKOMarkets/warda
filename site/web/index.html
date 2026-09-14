@@ -2272,8 +2272,13 @@ await wardaFetch(url);</code></pre>
   <div class="wrap" data-rise>
     <h2>Don't take our word for it.</h2>
     <p>There is a funded grant on testnet-10 whose agent key we published in full. Take it and try to move the money somewhere we do not control. The check runs in your browser, against the real allowlist.</p>
+    <p style="margin-top:1.1rem">That still asks you to trust this page's JavaScript. So here is one that does not &mdash; a live grant, read from a public Kaspa node none of us runs, answering right now:</p>
+    <pre><code>curl https://verify.wardaprotocol.com/v1/grant/\
+  kaspatest:pra8g9rlflcs8gapvaedjfws8xmu5ld8300jj4l7rg8rtzyrcsfwggngct3r3</code></pre>
+    <p style="margin-top:1.1rem">It will tell you which node answered and whether that node passed four checks &mdash; and it will refuse to tell you the grant's terms, because an address is the hash of a script nobody has published yet. <code>npx warda-verify</code> runs the identical service on your own machine, which is the version that counts.</p>
     <div class="cta-row">
       <a class="cta primary" href="/attack">Take the key <span class="arw">&rarr;</span></a>
+      <a class="cta ghost" href="/verify">Check a grant</a>
       <a class="cta ghost" href="/build">Developer guide</a>
       <a class="cta ghost" href="https://github.com/ArtyKOMarkets/warda">GitHub</a>
     </div>
