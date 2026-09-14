@@ -253,8 +253,14 @@ export class BorshReader implements Inspectable {
    * vendor auditing a grant it was paid from is exactly this case, and folding
    * the two together would have sent them to install a transport they never
    * use.
+   *
+   * Public because a READER has to be able to gate on it. `@warda_protocol/
+   * verify` reports a grant's terms, and over a covenant-blind build every
+   * grant comes back with no covenant id — which is indistinguishable from
+   * the real finding "this grant is not what it claims". A reader that cannot
+   * ask this question answers it wrongly by default.
    */
-  private get carriesCovenants(): boolean {
+  get carriesCovenants(): boolean {
     return this.wasm !== undefined && supportsCovenants(this.wasm);
   }
 

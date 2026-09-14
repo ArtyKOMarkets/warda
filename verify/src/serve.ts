@@ -4,7 +4,9 @@
  *
  *   node --experimental-strip-types tools/serve.ts --port 8477 --rpc ws://127.0.0.1:17210
  *
- * With no --rpc it asks the resolver, the same way every other tool here does.
+ * With no --rpc it asks the resolver, the same way every other tool here does,
+ * and then reads a public node over borsh — which is what the resolvers
+ * actually serve. `--no-fallback` refuses that and returns 503 instead.
  * The node is checked before the first request is served, and the process
  * exits rather than starting on one that cannot be believed: a verifier that
  * boots on a bad node and reports grants as missing is worse than one that
@@ -23,6 +25,7 @@ const options = {
   ...(flag("network") ? { networkId: flag("network")! } : {}),
   ...(flag("port") ? { port: Number(flag("port")) } : {}),
   ...(flag("host") ? { host: flag("host")! } : {}),
+  ...(process.argv.includes("--no-fallback") ? { fallback: "none" as const } : {}),
 };
 
 const running = await serve(options);

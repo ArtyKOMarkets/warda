@@ -18,7 +18,7 @@
 export { materialise, parseRecipients, prefixFor, ManifestError } from "./manifest.ts";
 export type { Assumption, Materialised, MaterialiseInput } from "./manifest.ts";
 export { NodeSource, NodeUnusable, readFrom } from "./node.ts";
-export type { ChainReader, ChainSource, Live, NodeOptions } from "./node.ts";
+export type { ChainReader, ChainSource, FallbackReader, Live, NodeOptions, Readable } from "./node.ts";
 export { amount, envelope, reportJson, ENFORCEMENT } from "./report.ts";
 export type { Amount, Envelope, ReadFrom, ReportJson } from "./report.ts";
 export { authority, grantAt, health, locate, verify, RequestError } from "./routes.ts";
