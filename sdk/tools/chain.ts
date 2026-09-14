@@ -71,6 +71,34 @@ export function borshRequested(argv: string[] = process.argv.slice(2)): boolean 
 }
 
 /**
+ * A borsh endpoint the caller NAMED, and nothing else.
+ *
+ * Read from argv here rather than taken from `options.url`, and the difference
+ * is the whole point. Every tool computes its url as
+ * `flag("rpc") ?? process.env.WARDA_RPC_JSON`, which merges two things that
+ * must not be merged on this transport:
+ *
+ *   --rpc alongside --borsh   an endpoint somebody chose for borsh
+ *   WARDA_RPC_JSON            a JSON listener, by name and by definition
+ *
+ * Once merged, openChain could not tell them apart — so a machine with
+ * WARDA_RPC_JSON exported in its shell ran `--borsh` against its own JSON
+ * port. Borsh to a JSON listener connects and is dropped, which surfaced as
+ * `WebSocket disconnected` out of a wasm background task, and looked like the
+ * public resolvers being flaky. It was a local node refusing an encoding it
+ * does not speak.
+ *
+ * JSON and borsh are different ports on a kaspad, not different spellings.
+ * The environment variable's own name says which one it holds, so on this path
+ * it is ignored rather than guessed at.
+ */
+function namedBorshEndpoint(argv: string[] = process.argv.slice(2)): string | undefined {
+  const i = argv.indexOf("--rpc");
+  const url = i >= 0 ? argv[i + 1] : undefined;
+  return url && !url.startsWith("--") ? url : undefined;
+}
+
+/**
  * The connect deadline lives in `@warda_protocol/borsh`, not here.
  *
  * It was here first, as one timeout around the whole thing, and the message it
@@ -123,6 +151,9 @@ function guardAgainstSilentDisconnect(): void {
         `Assume nothing after the last line printed above completed.\n\n` +
         `If money was involved, CHECK BEFORE RETRYING — a submit that was accepted and\n` +
         `then lost the socket looks identical here to one that never arrived.\n\n` +
+        `An IMMEDIATE disconnect usually means the endpoint does not speak borsh: JSON\n` +
+        `and borsh are different ports on a kaspad, not different spellings, and a JSON\n` +
+        `listener accepts the socket and then drops it. A borsh url ends /wrpc/borsh.\n\n` +
         `  warda find            where the grant is now\n` +
         `  warda activity        what was attempted, refusals included\n\n` +
         `Running again picks a different node. If it keeps happening, name one that\n` +
@@ -152,12 +183,12 @@ export async function openChain(options: ChainOptions = {}): Promise<OpenedChain
   }
 
   const networkId = options.networkId ?? process.env.WARDA_NETWORK ?? "testnet-10";
+  /* Deliberately NOT options.url. See `namedBorshEndpoint`: the callers have
+     already merged --rpc with WARDA_RPC_JSON by the time it arrives here, and
+     one of those two is a JSON listener that cannot answer borsh. */
   const client = await mod.BorshReader.open({
     networkId,
-    /* A url here is still a borsh url — someone pointing this at their OWN
-       node over the default encoding, which is a reasonable thing to want and
-       costs nothing to allow. It is not the JSON url from --rpc. */
-    url: options.url,
+    url: namedBorshEndpoint(),
   });
 
   /* Checked before anything is signed, because a build that cannot carry a

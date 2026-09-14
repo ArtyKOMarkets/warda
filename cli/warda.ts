@@ -182,6 +182,7 @@ const agentSecret = (cfg: Config): string => {
 const HELP = `warda — bounded spending authority for an agent, on Kaspa.
 
   warda node     [--borsh]      is a node worth believing? (run this first)
+                 [--grant <address>]  also check it reports covenant ids
                                 --borsh reaches a public resolver instead, so
                                 nothing here needs a kaspad of your own
   warda key      [--out f.key]  a new keypair, and its address
@@ -262,7 +263,13 @@ switch (verb) {
        command can be used to try a transport without adopting it. */
     const status = run("sdk/tools/check-node.ts", [
       ...rpcArgs(cfg),
-      ...(grant && existsSync(grant) ? ["--grant", grant] : []),
+      /* An ADDRESS, never a manifest path. The covenant check probes a UTXO,
+         and a grant's address is a function of its state rather than a field
+         in the file — so there is nothing here to read it out of, and passing
+         the path produced "not a valid Kaspa address" on every run that had a
+         grant remembered. The address is printed when the grant is created and
+         by `warda find`. */
+      ...(grant?.startsWith("kaspa") ? ["--grant", grant] : []),
       ...rest.filter((a) => a.startsWith("--resolver")),
     ]);
 
