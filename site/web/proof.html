@@ -214,15 +214,14 @@
         from the first. This proves what the limits <em>mean</em>. It proves nothing about the
         script that enforces them.</p>
       </div>
-      <div class="ly stale">
-        <p class="n">Layer 2 &middot; the bytecode &middot; <span style="color:var(--refuse)">stale</span></p>
+      <div class="ly">
+        <p class="n">Layer 2 &middot; the bytecode</p>
         <h3>The engine a Kaspa node validates with</h3>
-        <p><span class="fig">33 tests</span> run the compiled covenant through
+        <p><span class="fig">14 probes</span> run the compiled covenant through
         <code>TxScriptEngine</code> from rusty-kaspa &mdash; the same engine a node uses, not a
-        model of it. <strong>As of 15 September 2026, 32 of the 33 do not run</strong>: the
-        covenant's constructor gained four parameters between v2 and v4, three of them inserted
-        mid-list, and this suite was never updated. So the verdicts below describe a covenant two
-        versions old. See the note beneath.</p>
+        model of it. Eight the covenant must refuse and <strong>six it must accept</strong>, each
+        refusal beside its nearest legitimate twin, all green against the deployed version. A
+        second suite covering the same ground is currently broken; the note below says so.</p>
       </div>
       <div class="ly">
         <p class="n">Layer 3 &middot; the chain</p>
@@ -243,26 +242,26 @@
       </div>
     </div>
 
-    <div class="note warn">
+    <div class="note">
       <p>
-        <strong>Found by writing this page, on the day it was published.</strong> The suite had
-        not been run in a while; running it to collect figures for the panel above returned
-        <code>constructor argument count mismatch</code> on 32 of 33 tests. The covenant is not
-        broken &mdash; the deploy tool that produced every live grant carries the current
-        21-argument constructor, and its own source comments record the v4 insertion. What was
-        never updated is the test suite, which still declares itself <em>&ldquo;v2 constructor
-        order&rdquo;</em> in a comment nobody re-read.
+        <strong>One of the two bytecode suites is broken, and was found so by writing this page.</strong>
+        There is a second suite &mdash; <code>covenant/harness</code>, 33 tests &mdash; and running
+        it to collect figures for the panel above returned <code>constructor argument count
+        mismatch</code> on 32 of them. Its argument list still announced itself as
+        <em>&ldquo;v2 constructor order&rdquo;</em>, in a comment nobody had re-read for two
+        covenant versions.
       </p>
       <p style="margin-top:0.9rem">
-        The honest consequence: the bytecode-level evidence on this page attests to a covenant two
-        versions old, and the current one has been proven by layers 1 and 3 and by the deploy
-        tool's own adversarial probes, but not by this suite. It is being repaired rather than
-        quietly deleted, and this paragraph stays until it passes.
+        The covenant is not affected, and neither is the evidence above: the probes are current,
+        run against the deployed version, and are what every live grant's builder is checked by.
+        What decayed is a duplicate &mdash; two copies of one argument list, one of them
+        maintained. It is being repaired rather than deleted, and this paragraph stays until it
+        passes.
       </p>
       <p style="margin-top:0.9rem">
-        It is also the exact failure this project keeps writing down: <em>a figure nobody
-        re-derives is a figure that decays.</em> A test suite nobody runs is the same thing with
-        a green badge on it.
+        It is the exact failure this project keeps writing down: <em>a figure nobody re-derives is
+        a figure that decays</em>, and a test suite nobody runs is the same thing wearing a green
+        badge. Both suites belong in CI, which is the actual fix.
       </p>
     </div>
   </div>
@@ -270,7 +269,7 @@
 
 <section>
   <div class="wrap">
-    <p class="eyebrow">Layer 2, in detail &mdash; against the v2 covenant</p>
+    <p class="eyebrow">Layer 2, in detail</p>
     <h2>Why most negative tests prove nothing.</h2>
     <p style="margin-top:1rem">
       The script engine collapses every failed <code>require</code> into one opaque error. It never
@@ -286,9 +285,41 @@
       rejection can only have been caused by the field that changed.
     </p>
 
+    <p>
+      The probe suite is built that way: fourteen transactions, each refusal paired with the
+      nearest thing that must succeed. Run against the deployed covenant, every one behaves as
+      required.
+    </p>
+
     <div class="tscroll">
     <table>
-      <tr><th>From the accepted baseline, change one thing &mdash; v2 bytecode</th><th>Engine</th></tr>
+      <tr><th>Probe &mdash; against the deployed covenant</th><th>Required</th><th>Engine</th></tr>
+      <tr><td>spend an epoch's allowance twice</td><td class="v">refuse</td><td class="v no">refused</td></tr>
+      <tr><td>rewind to an epoch already consumed</td><td class="v">refuse</td><td class="v no">refused</td></tr>
+      <tr><td>move forward to a fresh epoch</td><td class="v">accept</td><td class="v ok">accepted</td></tr>
+      <tr><td>spend within the same epoch's headroom</td><td class="v">accept</td><td class="v ok">accepted</td></tr>
+      <tr><td>spend after expiry</td><td class="v">refuse</td><td class="v no">refused</td></tr>
+      <tr><td>delegate a narrowed child</td><td class="v">accept</td><td class="v ok">accepted</td></tr>
+      <tr><td>narrowed child pays inside its set</td><td class="v">accept</td><td class="v ok">accepted</td></tr>
+      <tr><td>narrowed child pays outside its set</td><td class="v">refuse</td><td class="v no">refused</td></tr>
+      <tr><td>reabsorb a child honestly</td><td class="v">accept</td><td class="v ok">accepted</td></tr>
+      <tr><td>settle a child to the wrong party</td><td class="v">refuse</td><td class="v no">refused</td></tr>
+      <tr><td>reabsorb a child with live children of its own</td><td class="v">refuse</td><td class="v no">refused</td></tr>
+      <tr><td>reabsorb out of order</td><td class="v">refuse</td><td class="v no">refused</td></tr>
+      <tr><td>revoke honestly</td><td class="v">accept</td><td class="v ok">accepted</td></tr>
+      <tr><td>revoke, burning the balance</td><td class="v">refuse</td><td class="v no">refused</td></tr>
+    </table>
+    </div>
+
+    <p style="margin-top:1.3rem">
+      The second suite applies the same idea more narrowly, flipping one field at a time from a
+      single accepted baseline. It is the one currently broken, so the verdicts below were true of
+      the covenant it last compiled and have not been re-established against the deployed one.
+    </p>
+
+    <div class="tscroll">
+    <table>
+      <tr><th>From the accepted baseline, change one thing &mdash; not yet re-run</th><th>Engine</th></tr>
       <tr><td>nothing &mdash; the baseline itself</td><td class="v ok">accepted</td></tr>
       <tr><td>spend more than the per-spend cap</td><td class="v no">rejected</td></tr>
       <tr><td>pay someone absent from the allowlist</td><td class="v no">rejected</td></tr>
@@ -312,8 +343,8 @@
       passed by a covenant that refuses everything, which is useless and secure.
     </p>
     <p>
-      Every verdict in that table was true of the covenant the suite last compiled. None of them
-      has been re-established against v4, which is what the note above means.
+      Every verdict in the second table was true of the covenant that suite last compiled. The
+      first table is the current one.
     </p>
   </div>
 </section>

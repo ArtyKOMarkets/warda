@@ -72,7 +72,7 @@ fn ctor(max_proof_depth: i64) -> Vec<Expr<'static>> {
         Expr::int(0),                     // 17 initReserved
         Expr::int(0),                     // 18 initEpochIndex
         Expr::int(0),                     // 19 initEpochSpent
-        Expr::bytes(vec![0x00; 32]),      // 20 initReserveRoot  (empty chain)
+        Expr::bytes(empty_reserve().to_vec()),      // 20 initReserveRoot  (empty chain)
     ]
 }
 
@@ -90,12 +90,75 @@ fn authority_fields(root: [u8; 32], agent_xonly: [u8; 32]) -> Vec<(&'static str,
         ("notBefore", Expr::int(1_000_000)),
         ("expiresAt", Expr::int(1_007_000)),
         ("delegationDepth", Expr::int(2)),
+        // v4. Authority, not accounting: `spend` asserts it unchanged, so it
+        // must equal ctor slot 12 or every successor is a different grant.
+        ("templateId", Expr::bytes(vec![0x55; 32])),
     ]
 }
 
 fn compile(max_proof_depth: i64) -> CompiledContract<'static> {
     compile_contract(SOURCE, &ctor(max_proof_depth), CompileOptions::default())
         .expect("warda_grant.sil compiles")
+}
+
+// ---- reserve-chain derivations -------------------------------------------
+//
+// These mirror `covenant/deploy/src`, which is the copy that has produced
+// every live grant. Two copies of one derivation is the shape that killed
+// this suite; until they are shared, change one and search for the other.
+//
+// The empty chain is NOT 32 zero bytes. `warda_grant.sil` computes it as
+// blake2b("WardaEmptyReserve") — and the covenant's own comments explain why
+// a zero-valued separator is a trap: Kaspa script encodes zero as the EMPTY
+// byte string, so a zero constant silently disappears.
+
+fn keyed_b2b(data: &[u8], key: &[u8]) -> [u8; 32] {
+    let mut out = [0u8; 32];
+    out.copy_from_slice(
+        blake2b_simd::Params::new().hash_length(32).key(key).to_state().update(data).finalize().as_bytes(),
+    );
+    out
+}
+
+fn empty_reserve() -> [u8; 32] {
+    let mut out = [0u8; 32];
+    out.copy_from_slice(
+        blake2b_simd::Params::new().hash_length(32).to_state().update(b"WardaEmptyReserve").finalize().as_bytes(),
+    );
+    out
+}
+
+fn num2bin8(v: i64) -> [u8; 8] {
+    let mut out = (v.unsigned_abs()).to_le_bytes();
+    if v < 0 {
+        out[7] |= 0x80;
+    }
+    out
+}
+
+#[allow(clippy::too_many_arguments)]
+fn child_id(
+    agent: [u8; 32], budget: i64, max_per_spend: i64, epoch_limit: i64, epoch_length: i64,
+    root: [u8; 32], not_before: i64, expires_at: i64, delegation_depth: i64,
+) -> [u8; 32] {
+    let mut pre = Vec::new();
+    pre.extend_from_slice(&agent);
+    pre.extend_from_slice(&num2bin8(budget));
+    pre.extend_from_slice(&num2bin8(max_per_spend));
+    pre.extend_from_slice(&num2bin8(epoch_limit));
+    pre.extend_from_slice(&num2bin8(epoch_length));
+    pre.extend_from_slice(&root);
+    pre.extend_from_slice(&num2bin8(not_before));
+    pre.extend_from_slice(&num2bin8(expires_at));
+    pre.extend_from_slice(&num2bin8(delegation_depth));
+    keyed_b2b(&pre, b"WardaChildId")
+}
+
+fn push_child(root: [u8; 32], child: [u8; 32]) -> [u8; 32] {
+    let mut pre = Vec::with_capacity(64);
+    pre.extend_from_slice(&root);
+    pre.extend_from_slice(&child);
+    keyed_b2b(&pre, b"WardaReserve")
 }
 
 fn push_redeem_script(bytecode: &[u8]) -> Vec<u8> {
@@ -179,14 +242,19 @@ fn covenant_compiles_and_exposes_expected_abi() {
     assert!(names.iter().any(|n| n.contains("delegate")), "delegate entrypoint present");
     assert!(names.iter().any(|n| n == "revoke"));
     assert!(names.iter().any(|n| n == "reclaim"));
-    // Bloat guard, and it has already earned its keep — it caught delegation
-    // pushing the covenant past the previous 2,500-byte ceiling.
+    // Bloat guard. It has earned its keep twice: it caught delegation pushing
+    // the covenant past 2,500 bytes, and it caught v4 at 8,680 — more than
+    // double the 4,200 it was set to, because the guard was written for a
+    // covenant two versions ago and nothing re-ran it.
     //
-    // SIZE RISK: with delegation, depth 16 is ~3,888 bytes, well above the
-    // 2,184-byte covenant KOMarkets is proven to run on-chain. Script size
-    // limits remain undocumented, so that headroom is assumed, not known.
-    // Depth 8 (3,320) is the safer default until a limit is measured.
-    assert!(c.bytecode.len() < 4_200, "bytecode grew unexpectedly: {}", c.bytecode.len());
+    // The number to compare against is NOT folklore. MAX_SCRIPTS_SIZE_POST_TOCCATA
+    // is 1,000,000 bytes (see LIMITS.md), so 8,680 is 0.87% of the ceiling with
+    // ~115x headroom. The earlier worry about 3,888 bytes being risky was
+    // measured against a limit that does not exist.
+    //
+    // So this guards BLOAT, not safety: it exists to make a covenant that
+    // doubles in size announce itself. Raise it deliberately, and say why.
+    assert!(c.bytecode.len() < 12_000, "bytecode grew unexpectedly: {}", c.bytecode.len());
 }
 
 #[test]
@@ -260,6 +328,7 @@ fn state_full(
     fields.push(("reserved", Expr::int(reserved)));
     fields.push(("epochIndex", Expr::int(epoch_index)));
     fields.push(("epochSpent", Expr::int(epoch_spent)));
+    fields.push(("reserveRoot", Expr::bytes(empty_reserve().to_vec())));
     struct_object("State", fields)
 }
 
@@ -806,6 +875,7 @@ impl Spend {
                     fields.push(("reserved", Expr::int(sr)));
                     fields.push(("epochIndex", Expr::int(si)));
                     fields.push(("epochSpent", Expr::int(se)));
+                    fields.push(("reserveRoot", Expr::bytes(empty_reserve().to_vec())));
                     struct_object("State", fields)
                 },
                 Expr::int(amount),
@@ -999,10 +1069,12 @@ fn child_state(root: [u8; 32], child_key: [u8; 32], ch: &Child) -> Expr<'static>
             ("notBefore", Expr::int(ch.not_before)),
             ("expiresAt", Expr::int(ch.expires_at)),
             ("delegationDepth", Expr::int(ch.delegation_depth)),
+            ("templateId", Expr::bytes(vec![0x55; 32])),
             ("spentTotal", Expr::int(s)),
             ("reserved", Expr::int(r)),
             ("epochIndex", Expr::int(ei)),
             ("epochSpent", Expr::int(es)),
+            ("reserveRoot", Expr::bytes(empty_reserve().to_vec())),
         ],
     )
 }
@@ -1022,11 +1094,15 @@ fn child_ctor(root: [u8; 32], child_key: [u8; 32], ch: &Child, depth: i64) -> Ve
         Expr::int(ch.not_before),
         Expr::int(ch.expires_at),
         Expr::int(ch.delegation_depth),
-        Expr::int(depth),
+        Expr::bytes(vec![0x55; 32]),   // 12 genesisTemplateId — same template
+        Expr::int(64),                 // 13 templatePrefixLen
+        Expr::int(64),                 // 14 templateSuffixLen
+        Expr::int(depth),              // 15 maxProofDepth  (was 12 in v2)
         Expr::int(s),
         Expr::int(r),
         Expr::int(ei),
         Expr::int(es),
+        Expr::bytes(empty_reserve().to_vec()),   // 20 initReserveRoot
     ]
 }
 
@@ -1058,6 +1134,23 @@ fn run_delegation(ch: &Child, parent_reserved_override: Option<i64>) -> Result<(
     parent_fields.push(("reserved", Expr::int(reserved_after)));
     parent_fields.push(("epochIndex", Expr::int(0)));
     parent_fields.push(("epochSpent", Expr::int(0)));
+    /* A delegation MOVES this. The covenant requires exactly
+           parentNext.reserveRoot == blake2bWithKey(reserveRoot || childId, "WardaReserve")
+       so leaving it at the empty chain is not "close enough" — it is the
+       difference between a delegation the engine accepts and one it refuses
+       for a reason it will not name. */
+    let cid = child_id(
+        child_key,
+        ch.budget,
+        ch.max_per_spend,
+        ch.epoch_limit,
+        1_000,
+        ch.root.unwrap_or(tree.root()),
+        ch.not_before,
+        ch.expires_at,
+        ch.delegation_depth,
+    );
+    parent_fields.push(("reserveRoot", Expr::bytes(push_child(empty_reserve(), cid).to_vec())));
     let parent_next_state = struct_object("State", parent_fields);
 
     // `State[]` needs an explicit TypeRef — inferred_array cannot derive a
