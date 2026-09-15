@@ -1,0 +1,387 @@
+<title>What is proven about the Warda covenant</title>
+<style>
+  :root {
+    --void: #06090C; --ground: #0A1014; --panel: #101A20;
+    --edge: #1E2E37; --edge-bright: #2C4350;
+    --chrome: #DDE0E2; --chrome-dim: #8D989E; --chrome-faint: #5D6B73;
+    --teal: #14D7C1; --teal-deep: #06BBA1; --teal-ghost: rgba(20,215,193,0.10);
+    --refuse: #FF6B5A; --refuse-ghost: rgba(255,107,90,0.08);
+    --display: "Chakra Petch", "Arial Narrow", sans-serif;
+    --body: "Barlow", "Helvetica Neue", Arial, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    --gutter: clamp(1.15rem, 4vw, 3.4rem);
+  }
+  * { box-sizing: border-box; }
+  html { overflow-x: clip; }
+  body { margin: 0; background: var(--void); color: var(--chrome);
+         font-family: var(--body); line-height: 1.6; overflow-x: hidden; }
+  .wrap { max-width: 62rem; margin: 0 auto; padding: 0 var(--gutter); }
+  header { border-bottom: 1px solid var(--edge); padding: 2.6rem 0 2.4rem; }
+  h1 { font-family: var(--display); font-size: clamp(1.9rem, 5vw, 3rem); line-height: 1.06;
+       margin: 1.3rem 0 0; font-weight: 600; letter-spacing: -0.01em; }
+  .lede { color: var(--chrome-dim); max-width: 60ch; margin-top: 1.1rem; }
+  .eyebrow { font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.18em;
+             text-transform: uppercase; color: var(--teal); margin: 0; }
+  section { border-bottom: 1px solid var(--edge); padding: 2.6rem 0; }
+  h2 { font-family: var(--display); font-size: clamp(1.3rem, 3vw, 1.8rem); margin: 0.7rem 0 0;
+       font-weight: 600; }
+  p { max-width: 64ch; }
+  code { font-family: var(--mono); font-size: 0.92em; color: var(--chrome-dim); }
+  a { color: var(--teal); }
+  pre { background: var(--ground); border: 1px solid var(--edge); padding: 0.9rem 1rem;
+        font-family: var(--mono); font-size: 0.74rem; line-height: 1.8; color: var(--chrome-dim);
+        max-width: 100%; overflow-x: auto; }
+
+  /* the four layers */
+  .layers { display: grid; gap: 1rem; margin-top: 1.6rem; }
+  .ly { border: 1px solid var(--edge); border-left: 3px solid var(--teal-deep);
+        background: var(--ground); padding: 1.1rem 1.2rem; }
+  .ly.absent { border-left-color: var(--chrome-faint); }
+  .ly .n { font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.16em;
+           text-transform: uppercase; color: var(--chrome-faint); }
+  .ly h3 { font-family: var(--display); font-size: 1.05rem; margin: 0.35rem 0 0.5rem;
+           font-weight: 600; color: var(--chrome); }
+  .ly.absent h3 { color: var(--chrome-dim); }
+  .ly p { margin: 0; font-size: 0.94rem; color: var(--chrome-dim); max-width: 68ch; }
+  .ly .fig { font-family: var(--mono); color: var(--teal); font-size: 0.88rem; }
+  .ly.absent .fig { color: var(--refuse); }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 1.3rem; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 0.6rem 0.8rem 0.6rem 0; border-bottom: 1px solid var(--edge);
+           vertical-align: top; }
+  th { font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.14em;
+       text-transform: uppercase; color: var(--chrome-faint); font-weight: 400; }
+  td.v { font-family: var(--mono); font-size: 0.78rem; white-space: nowrap; }
+  td.v.no { color: var(--refuse); }
+  td.v.ok { color: var(--teal); }
+  .tscroll { overflow-x: auto; }
+
+  .note { border: 1px solid var(--edge-bright); background: var(--ground);
+          padding: 1.1rem 1.2rem; margin-top: 1.4rem; }
+  .note p { margin: 0; font-size: 0.94rem; color: var(--chrome-dim); }
+  .note.warn { border-color: var(--refuse); background: var(--refuse-ghost); }
+
+  ul { max-width: 64ch; padding-left: 1.1rem; color: var(--chrome-dim); }
+  li { margin: 0.5rem 0; }
+  li b { color: var(--chrome); font-weight: 600; }
+  footer { padding: 2.6rem 0 3.6rem; }
+  footer p { font-family: var(--mono); font-size: 0.7rem; color: var(--chrome-faint);
+             line-height: 1.75; max-width: 66ch; }
+
+  /* One bar, every page, injected by build.py.
+     There were seven public pages and the only way between any two of them
+     was back to the home page first. Sticky because the landing page is very
+     tall and a reader six sections down had no way out of it at all. */
+  /* `body > .topnav`, not `.topnav`. The landing page carries
+     `body > *:not(.field) { position: relative }` for its background field,
+     and that selector scores 0,1,1 against a bare class's 0,1,0 — so it won
+     on specificity wherever this bar was declared, and the nav silently
+     scrolled away on the one page long enough to need it. */
+  body > .topnav { position: sticky; top: 0; z-index: 60; background: rgba(6,9,12,0.86);
+                   border-bottom: 1px solid var(--edge); backdrop-filter: blur(12px); }
+  .topnav .wrap { display: flex; align-items: center; gap: 1.6rem;
+                  padding-top: 0; padding-bottom: 0; height: 3.7rem; }
+  .topnav a { text-decoration: none; white-space: nowrap; }
+  .nv-brand { font-family: var(--display); font-weight: 700; font-size: 1.12rem;
+              letter-spacing: 0.01em; color: var(--chrome); margin-right: 0.4rem; }
+  .nv-brand:hover { color: var(--teal); }
+  .nv-links { display: flex; align-items: center; gap: 1.5rem; margin-right: auto; }
+  .nv-links a { font-family: var(--body); font-size: 0.88rem; color: var(--chrome-dim);
+                transition: color 140ms ease; }
+  .nv-links a:hover { color: var(--chrome); }
+  /* The page you are on, said in the markup rather than guessed by script:
+     these are static files and build.py knows which one it is writing. */
+  .nv-links a[aria-current="page"] { color: var(--chrome); }
+  .nv-status { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.09em;
+               text-transform: uppercase; color: var(--chrome-faint); opacity: 0.8;
+               white-space: nowrap; }
+  .nv-status b { color: var(--amber); font-weight: 600; }
+  .nv-go { font-family: var(--body); font-size: 0.85rem; font-weight: 600;
+           background: var(--teal); color: var(--void); padding: 0.5rem 1.05rem;
+           border-radius: 999px; transition: background 140ms ease; }
+  .nv-go:hover { background: var(--teal-bright); }
+  .topnav a:focus-visible, .nv-burger:focus-visible { outline: 2px solid var(--teal-bright); outline-offset: 3px; }
+
+  .nv-burger { display: none; background: none; border: 1px solid var(--edge-bright);
+               border-radius: 7px; width: 2.4rem; height: 2.1rem; cursor: pointer;
+               flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+  .nv-burger span { width: 14px; height: 1.5px; background: var(--chrome); transition: 200ms ease; }
+  .nv-burger[aria-expanded="true"] span:nth-child(1) { transform: translateY(5.5px) rotate(45deg); }
+  .nv-burger[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+  .nv-burger[aria-expanded="true"] span:nth-child(3) { transform: translateY(-5.5px) rotate(-45deg); }
+
+  @media (max-width: 900px) {
+    .nv-burger { display: flex; }
+    .nv-status { display: none; }
+    .nv-links { position: absolute; left: 0; right: 0; top: 100%; display: none;
+                flex-direction: column; align-items: stretch; gap: 0; margin: 0;
+                background: var(--ground); border-bottom: 1px solid var(--edge);
+                padding: 0.3rem var(--gutter) 1rem; }
+    .nv-links[data-open="1"] { display: flex; }
+    .nv-links a { padding: 0.85rem 0; border-bottom: 1px solid var(--edge); font-size: 0.95rem; }
+    .topnav .wrap { gap: 0.9rem; }
+    .nv-go { margin-left: auto; }
+  }
+
+</style>
+
+<nav class="topnav" aria-label="Site">
+  <div class="wrap">
+    <a class="nv-brand" href="/" data-nv="index.html">Warda</a>
+    <div class="nv-links" id="nv-links">
+      <a href="/start" data-nv="start.html">Start</a>
+      <a href="/build" data-nv="build.html">How it works</a>
+      <a href="/agents" data-nv="agents.html">Agents</a>
+      <a href="/verify" data-nv="verify.html">Verify</a>
+      <a href="/proof" data-nv="proof.html" aria-current="page">Proof</a>
+      <a href="/console" data-nv="console.html">Console</a>
+      <a href="/attack" data-nv="attack.html">Attack</a>
+    </div>
+    <!-- Last, and not a link. The honest status of the whole thing, on every
+         page, so nobody has to reach a footer to learn it. Stated once and
+         calmly: a warning repeated in six places reads as either panic or
+         decoration, and this is neither. -->
+    <span class="nv-status">testnet-10 &middot; unaudited &middot; <b>no real money</b></span>
+    <a class="nv-go" href="/start">Get started &rarr;</a>
+    <button class="nv-burger" id="nv-burger" aria-expanded="false" aria-controls="nv-links" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</nav>
+<script>
+/* The menu, on every page. A link that scrolls or navigates also closes it —
+   leaving the panel covering the thing you just asked to see is the classic
+   mobile-nav bug. */
+(function () {
+  var b = document.getElementById("nv-burger");
+  var l = document.getElementById("nv-links");
+  if (!b || !l) return;
+  b.addEventListener("click", function () {
+    var open = b.getAttribute("aria-expanded") !== "true";
+    b.setAttribute("aria-expanded", String(open));
+    l.setAttribute("data-open", open ? "1" : "");
+  });
+  Array.prototype.forEach.call(l.querySelectorAll("a"), function (a) {
+    a.addEventListener("click", function () {
+      b.setAttribute("aria-expanded", "false");
+      l.setAttribute("data-open", "");
+    });
+  });
+})();
+</script>
+
+
+<header>
+  <div class="wrap">
+    <p class="eyebrow" style="margin-top:1.4rem">Evidence</p>
+    <h1>What is proven about this<br>covenant, and by what.</h1>
+    <p class="lede">
+      Nobody has ever audited a Kaspa covenant &mdash; asked in the core developer channels,
+      and the answer was nobody. There is no certificate to buy, so the only honest position is
+      to publish the evidence that does exist and name precisely what it is not. This page is
+      that, including the part where six vulnerabilities were found in here.
+    </p>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Three layers, and one that is missing</p>
+    <h2>Each proves something the others cannot.</h2>
+    <p style="margin-top:1rem">
+      A rule can be right in the specification and wrong in the bytecode. Bytecode can be right
+      in an engine and unrelayable on a real network. So the same claim is made three times, in
+      three places that can disagree with each other.
+    </p>
+
+    <div class="layers">
+      <div class="ly">
+        <p class="n">Layer 1 &middot; the rules</p>
+        <h3>One implementation of every limit</h3>
+        <p><span class="fig">606 tests</span> across nine packages. Every verdict any package gives
+        comes from <code>@warda_protocol/core</code>, so a second copy of the rules cannot drift
+        from the first. This proves what the limits <em>mean</em>. It proves nothing about the
+        script that enforces them.</p>
+      </div>
+      <div class="ly">
+        <p class="n">Layer 2 &middot; the bytecode</p>
+        <h3>The engine a Kaspa node validates with</h3>
+        <p><span class="fig">33 tests</span> run the compiled covenant through
+        <code>TxScriptEngine</code> from rusty-kaspa &mdash; the same engine a node uses, not a
+        model of it. No RPC, no testnet round trip. This is where an overspend is demonstrated to
+        be refused rather than reasoned about.</p>
+      </div>
+      <div class="ly">
+        <p class="n">Layer 3 &middot; the chain</p>
+        <h3>Transactions that actually happened</h3>
+        <p>Grants created, spent, delegated, settled, revoked and reclaimed on
+        <span class="fig">testnet-10</span>, with transaction ids published on
+        <a href="/agents">the agent pages</a>. This catches what the engine alone cannot: fees,
+        storage mass, relay policy, and every assumption about the network that was never written
+        down.</p>
+      </div>
+      <div class="ly absent">
+        <p class="n">Layer 4 &middot; formal methods</p>
+        <h3>Not done</h3>
+        <p><span class="fig">Absent.</span> The state machine &mdash; budget, per-spend cap, epoch
+        headroom, allowlist membership, succession arithmetic &mdash; has not been modelled in an
+        SMT solver. Testing samples that space; a solver covers it. Worth saying plainly, because
+        a page like this is where a reader would assume otherwise.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Layer 2, in detail</p>
+    <h2>Why most negative tests prove nothing.</h2>
+    <p style="margin-top:1rem">
+      The script engine collapses every failed <code>require</code> into one opaque error. It never
+      says which rule rejected the transaction. So a test that asserts <em>this was refused</em>,
+      against a transaction that never passed in the first place, proves only that something
+      somewhere was wrong &mdash; a malformed signature script included. It would pass just as
+      happily against a covenant with no rules in it at all.
+    </p>
+    <p>
+      The suite closes that gap with <strong>flip tests</strong>. One transaction is established
+      that the engine returns <code>Ok(())</code> for. Every other test starts from that exact
+      transaction and changes <strong>one field</strong>. Because the baseline is accepted, a
+      rejection can only have been caused by the field that changed.
+    </p>
+
+    <div class="tscroll">
+    <table>
+      <tr><th>From the accepted baseline, change one thing</th><th>Engine</th></tr>
+      <tr><td>nothing &mdash; the baseline itself</td><td class="v ok">accepted</td></tr>
+      <tr><td>spend more than the per-spend cap</td><td class="v no">rejected</td></tr>
+      <tr><td>pay someone absent from the allowlist</td><td class="v no">rejected</td></tr>
+      <tr><td>name one payee in the proof, send the money elsewhere</td><td class="v no">rejected</td></tr>
+      <tr><td>spend the money, do not record it in the successor</td><td class="v no">rejected</td></tr>
+      <tr><td>move the reserve independently of the spend</td><td class="v no">rejected</td></tr>
+      <tr><td>agent raises its own per-spend cap</td><td class="v no">rejected</td></tr>
+      <tr><td>agent widens its own allowlist</td><td class="v no">rejected</td></tr>
+      <tr><td>agent extends its own expiry</td><td class="v no">rejected</td></tr>
+      <tr><td>agent inflates its own budget</td><td class="v no">rejected</td></tr>
+      <tr><td>child delegated a wider allowlist than its parent</td><td class="v no">rejected</td></tr>
+      <tr><td>child outliving its parent</td><td class="v no">rejected</td></tr>
+      <tr><td>child born already spent</td><td class="v no">rejected</td></tr>
+      <tr><td>delegation depth extended</td><td class="v no">rejected</td></tr>
+      <tr><td>delegate without reserving, under-reserving, over-reserving</td><td class="v no">rejected</td></tr>
+    </table>
+    </div>
+
+    <p style="margin-top:1.3rem">
+      The accepted baseline is the load-bearing part. A suite made only of refusals would be
+      passed by a covenant that refuses everything, which is useless and secure.
+    </p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">The part a sales sheet leaves out</p>
+    <h2>Six vulnerabilities, none found by reading the code.</h2>
+    <p style="margin-top:1rem">
+      Every one was found by building an attack and handing it to the real script engine. That is
+      worth knowing about the ones not yet found: review has a poor record here, so the absence of
+      a finding from reading this covenant is weak evidence about it.
+    </p>
+    <p>
+      The first three share a shape &mdash; <strong>the covenant checked what something was, and
+      not how much of it there was.</strong> The fifth is the first one again, verbatim, in a code
+      path written after it had been fixed elsewhere: a value check with no destination check.
+      <em>A fix is not a lesson until it is applied to the code written next.</em>
+    </p>
+    <ul>
+      <li><b>The epoch cap limited nothing.</b> The epoch index was compared for equality, and the
+      claimed time is supplied by the agent &mdash; so the rate limit was decoration.</li>
+      <li><b>Expiry was absent from the spend path.</b> Enforced on the exits, unchecked where it
+      mattered.</li>
+      <li><b>The exits could burn the balance.</b> A value check with no destination check.</li>
+      <li><b>The template id ignored the revocation key.</b> A derivation that silently dropped one
+      of its inputs &mdash; caught by compiling with a revocation key distinct from the principal,
+      which nothing else in the suite did.</li>
+      <li><b>Settlement let the revocation key take a child.</b> Bug three, repeated in a path
+      written after bug three was fixed.</li>
+      <li><b>A child could be settled while its own children were live.</b></li>
+    </ul>
+    <p style="margin-top:1.2rem">
+      All six are written up in full &mdash; mechanism, fingerprint of the affected version, and
+      the fix &mdash; in
+      <a href="https://github.com/ArtyKOMarkets/warda/blob/main/GUARANTEES.md" rel="noopener">GUARANTEES.md</a>,
+      alongside a section on what the chain <em>cannot</em> enforce.
+    </p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Limits, not omissions</p>
+    <h2>Things the covenant does not do, and will not.</h2>
+    <p style="margin-top:1rem">
+      Each of these is structural rather than a feature waiting to be built, and each is the kind
+      of thing a reader would otherwise assume the other way round.
+    </p>
+    <ul>
+      <li><b>Expiry does not stop an agent dead.</b> A time lock proves the chain has reached a
+      moment, never that it is before one, and the claimed time comes from the agent. Unused
+      allowance from earlier epochs stays spendable after expiry. <code>revoke</code> is the only
+      immediate stop, and it needs somebody online.</li>
+      <li><b>The reserve is never released.</b> A parent can delegate its budget once across its
+      whole life. Reclaiming a child returns the coin but not the capacity.</li>
+      <li><b>The epoch limit bounds one grant, not a subtree.</b> A parent limited to 5 KAS per
+      epoch can delegate ten children at 5 KAS each. The total is still bounded exactly by the
+      budget; the <em>rate</em> limit degrades under delegation.</li>
+      <li><b>Fees are not charged against the budget.</b></li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">What none of this is</p>
+    <h2>It is not an audit.</h2>
+    <div class="note warn">
+      <p>
+        No third party has reviewed this covenant. Warda has run on <strong>testnet-10 only</strong>
+        and has never held real money. A quoted price for external review exists and has not been
+        paid. Nothing on this page should be read as a substitute for that, and the evidence above
+        is offered because it is the most that can be assembled without it &mdash; not because it
+        is equivalent.
+      </p>
+    </div>
+    <p style="margin-top:1.4rem">
+      One distinction worth keeping, because it is where this kind of claim usually goes wrong: a
+      proof about a <em>model</em> of a covenant is not a proof about the covenant that gets
+      deployed. Layer 2 above exists precisely to avoid that gap &mdash; it runs the compiled
+      artifact, not a description of it. If layer 4 is ever added, it will be stated as what it is:
+      a proof about a model, sitting beside a proof about the bytecode, which are different claims.
+    </p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Don't take our word for it</p>
+    <h2>Run the evidence yourself.</h2>
+    <p style="margin-top:1rem">The bytecode layer, in the node's own engine. First build fetches
+    rusty-kaspa and takes a few minutes; after that it is sub-second.</p>
+<pre>git clone https://github.com/ArtyKOMarkets/warda
+cd warda/covenant/harness
+cargo test --test spend -- --nocapture</pre>
+    <p style="margin-top:1.2rem">The adversarial probes &mdash; transactions the covenant must
+    refuse, each beside its nearest legitimate twin, because a covenant that refuses everything
+    would pass a suite made only of refusals. Two of them are assembled <strong>without</strong>
+    the SDK, because an attacker does not use our SDK.</p>
+<pre>cd warda/sdk &amp;&amp; node --experimental-strip-types tools/probes.ts</pre>
+    <p style="margin-top:1.2rem">And the grant behind every claim on this site is live. Its agent's
+    private key is <a href="/attack">published in full</a>.</p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>Warda runs on Kaspa L1 covenants, activated on mainnet with the Toccata hard fork on 30 June 2026. The protocol itself has been exercised end to end on testnet-10 only and has not been deployed to mainnet or audited. Unaudited. Testnet first. Do not put money on this yet.</p>
+  </div>
+</footer>

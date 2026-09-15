@@ -1116,6 +1116,7 @@
       <a href="/build" data-nv="build.html">How it works</a>
       <a href="/agents" data-nv="agents.html">Agents</a>
       <a href="/verify" data-nv="verify.html">Verify</a>
+      <a href="/proof" data-nv="proof.html">Proof</a>
       <a href="/console" data-nv="console.html">Console</a>
       <a href="/attack" data-nv="attack.html">Attack</a>
     </div>
@@ -2272,7 +2273,8 @@ await wardaFetch(url);</code></pre>
   <div class="wrap" data-rise>
     <h2>Don't take our word for it.</h2>
     <p>There is a funded grant on testnet-10 whose agent key we published in full. Take it and try to move the money somewhere we do not control. The check runs in your browser, against the real allowlist.</p>
-    <p style="margin-top:1.1rem">That still asks you to trust this page's JavaScript. So here is one that does not &mdash; a live grant, read from a public Kaspa node none of us runs, answering right now:</p>
+    <p style="margin-top:1.1rem">What is already proven about the covenant, how, and what none of it amounts to &mdash; including the six vulnerabilities found in it &mdash; is set out on <a href="/proof">the evidence page</a>.</p>
+    <p style="margin-top:1.1rem">The attack above still asks you to trust this page's JavaScript. So here is one that does not &mdash; a live grant, read from a public Kaspa node none of us runs, answering right now:</p>
     <pre><code>curl https://verify.wardaprotocol.com/v1/grant/\
   kaspatest:pra8g9rlflcs8gapvaedjfws8xmu5ld8300jj4l7rg8rtzyrcsfwggngct3r3</code></pre>
     <p style="margin-top:1.1rem">It will tell you which node answered and whether that node passed four checks &mdash; and it will refuse to tell you the grant's terms, because an address is the hash of a script nobody has published yet. <code>npx warda-verify</code> runs the identical service on your own machine, which is the version that counts.</p>
@@ -2287,7 +2289,7 @@ await wardaFetch(url);</code></pre>
 
 <footer>
   <div class="wrap">
-    <p>Warda runs on Kaspa L1 covenants, activated on mainnet with the Toccata hard fork on 30 June 2026. The protocol itself has been exercised end to end on <strong>testnet-10 only</strong> and has not been deployed to mainnet or audited. Unaudited. Testnet first. Do not put money on this yet.</p>
+    <p>Warda runs on Kaspa L1 covenants, activated on mainnet with the Toccata hard fork on 30 June 2026. The protocol itself has been exercised end to end on <strong>testnet-10 only</strong> and has not been deployed to mainnet or audited. <a href="/proof">Unaudited</a>. Testnet first. Do not put money on this yet.</p>
     <div class="ln">
       <a href="https://github.com/ArtyKOMarkets/warda">Source</a>
       <a href="https://www.npmjs.com/org/warda_protocol">npm</a>

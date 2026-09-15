@@ -35,11 +35,11 @@ debugging the wrong thing.
 
 ## Proven at bytecode level
 
-Six tests, 0.27s. Every one runs the compiled covenant through the node engine.
+Every one runs the compiled covenant through the node engine.
 
 | Test | Verdict |
 |---|---|
-| covenant compiles, ABI as expected | 1,988 bytes, size assertion guards bloat |
+| covenant compiles, ABI as expected | the test prints the size; the assertion guards bloat at 4,200 bytes |
 | harness reaches a real engine verdict | `UnsatisfiedLockTime` from reclaim CLTV |
 | **overspend — 20 KAS against a 2 KAS cap** | rejected |
 | zero amount | rejected |
@@ -49,7 +49,10 @@ Six tests, 0.27s. Every one runs the compiled covenant through the node engine.
 | prompt injection to an unlisted payee | rejected |
 | six single-field flips from that baseline | see below |
 
-15 tests, 0.77s.
+**33 tests.** The count is `grep -c '#\[test\]' tests/spend.rs`, and it is written
+that way because the last two numbers in this file went stale without anyone
+noticing — it said six tests, then fifteen, and both were a snapshot of an
+afternoon. A figure nobody can re-derive is a figure that decays.
 
 The overspend rejection is the product claim, now demonstrated in the same
 engine a node runs — not reasoned about, not simulated.
