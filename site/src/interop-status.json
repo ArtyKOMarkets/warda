@@ -1,0 +1,7 @@
+{
+  "checkedAt": "2026-09-15T10:48:06.740Z",
+  "vendor": "https://demo.kaspa-x402.org/exact",
+  "ok": false,
+  "refusedByGrant": true,
+  "error": "this grant cannot pay through a relay: its allowlist does not contain the agent's own key.\n\nx402 exact requires the payer's input to be an ordinary key-controlled coin, so a covenant spend can never be the payment itself — the grant has to pay the agent first. That has to be allowed when the grant is CREATED, because an allowlist is fixed at genesis:\n\n  warda grant --payees payees.txt --relay\n\nIt costs the allowlist for that one hop and nothing else. See x402/RELAY.md.\n\n  (6f5694ada83978c23f898f279b24e843b5285750184cd1f31fd9634c4871399c is not in this recipient set, so no proof places it in the tree)"
+}
