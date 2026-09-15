@@ -245,6 +245,14 @@ fi
 
 python3 build.py >/dev/null
 
+# Nothing is deployed that links into a hole. build.py DROPS a page whose data
+# is missing — an agent with no reading, the attack page with no live grant —
+# and everything linking to it is published regardless, so the site ships
+# looking finished with a 404 behind one link. That has happened twice; the
+# guard is what stops the third. It exits non-zero and `set -e` stops here,
+# before the deploy rather than after it.
+node ../ops/check-links.mjs
+
 sig() { grep -v '"checkedAt"' "$1" 2>/dev/null || true; }
 
 # `sort -z` is a GNU extension and this runs on macOS, where BSD sort does not

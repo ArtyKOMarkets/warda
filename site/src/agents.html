@@ -107,7 +107,14 @@
       does: "Took over #002's job holding a key #002 never saw, under a grant published before it could be used. #002's grant was ended by a key that was not #002's." },
     { id: "004", href: "/agent-004", json: "/agent-004.json",
       name: "The sub-agent",
-      does: "Not issued by a person. Agent #003 subdivided its own grant and handed over a bounded piece of it — every limit smaller, the payee list narrowed, and the remainder settling back." }
+      does: "Not issued by a person. Agent #003 subdivided its own grant and handed over a bounded piece of it — every limit smaller, the payee list narrowed, and the remainder settling back." },
+    /* The only one that pays somebody outside this project. Every agent above
+       it buys from an endpoint we also wrote, which makes the money real and
+       the market imaginary — so this is the card that carries the claim
+       hardest to fake, and the one whose failures show on the front page. */
+    { id: "005", href: "/agent-005", json: "/agent-005.json",
+      name: "The stranger's customer",
+      does: "Buys from a vendor nobody here controls, unattended, every morning — through a relay hop their scheme requires, over public nodes, writing down what happened whether or not it worked." }
   ];
 
   var PLANNED = [];

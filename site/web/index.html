@@ -2247,14 +2247,29 @@ await wardaFetch(url);</code></pre>
       </div>
       <div class="shipped">
         <span class="tag">Shipped <em>&middot; interoperability</em></span>
-        <h3>A payment someone else's server accepted</h3>
-        <p>A vendor we do not control, on the x402 <code>exact</code> scheme, answered
-        <code>200 {&quot;ok&quot;:true}</code> and settled it &mdash; 0.2 KAS invoiced, 194,880
+        <h3>An agent that buys from a stranger, every morning</h3>
+        <p>A vendor we do not control, on the x402 <code>exact</code> scheme, answers
+        <code>200 {&quot;ok&quot;:true}</code> and settles it &mdash; 0.2 KAS invoiced, 194,880
         sompi of fee, 20,194,880 charged against the grant's budget. Their scheme requires an
         ordinary payment, so <strong>the grant does not pay the vendor directly</strong>: it funds
         a single-use key that does, and the allowlist is checked against the vendor's address
         rather than the hop's. The guarantee a grant carries is not in that standard yet, so a
         vendor who wants it still has to look at the grant.</p>
+        <!-- This card used to be in the past tense, about one afternoon. It would
+             have read identically on the day their facilitator stopped answering,
+             which is the difference between a demonstration and a screenshot. -->
+        <!-- Deliberately NOT linked to /agent-005. That page is published only when
+             its reading exists, so a link typed here would be live before the page
+             was — which is the "ships looking finished with one link to an empty
+             screen" failure build.py's agent_publishable docstring says has already
+             happened twice. The /agents index links it, and drops the card when the
+             reading is missing. -->
+        <p>It happened once on 14 September. Once is an anecdote, so agent&nbsp;#005 now does it
+        unattended every day against the same vendor, and
+        <a href="#interop-live">the line under the receipt above</a> says what happened on the
+        most recent run &mdash; including when it fails, which it already has.
+        When its budget runs out it stops, and that is the agent reaching its bound rather than
+        anything breaking.</p>
       </div>
       <div class="next">
         <span class="tag">Next <em>&middot; somebody else's platform</em></span>

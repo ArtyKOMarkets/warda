@@ -129,3 +129,14 @@ jobs:
         run: npm test --workspace growth
       - name: extension
         run: npm test --workspace extension
+
+      # The site is built here and thrown away. Nothing is deployed from CI —
+      # the point is that `build.py` DROPS a page whose data is missing, and
+      # everything linking to that page is published anyway, so the site can
+      # ship looking finished with a 404 behind one link. That has happened
+      # twice. Building on a fresh checkout also catches a page that stops
+      # rendering because a placeholder was renamed, which no test would see.
+      - name: site — it builds, and links nowhere empty
+        run: |
+          python3 site/build.py
+          node ops/check-links.mjs

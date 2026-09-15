@@ -1,0 +1,33 @@
+<section>
+  <p class="eyebrow">The question this answers</p>
+  <h2>Does it work with someone who never heard of us?</h2>
+  <p>
+    Every other agent on this site pays an endpoint we also wrote. That makes the money real
+    and the market imaginary: a protocol whose counterparties are all its own author has
+    demonstrated its plumbing and nothing about the world. This one buys from
+    <code>demo.kaspa-x402.org</code> &mdash; the reference implementation of x402 on Kaspa, run
+    by people we have never spoken to, against a schema we had no part in.
+  </p>
+  <p>
+    Their scheme cannot take a covenant spend. <code>exact</code> requires the payer&rsquo;s
+    input to be an ordinary key-controlled coin with no covenant on any output, and a grant
+    spend is neither &mdash; output&nbsp;0 <em>is</em> the successor grant. So the grant pays a
+    key the agent holds for exactly one transaction, and that key pays them. The cost is precise
+    and worth naming: for that single hop <strong>the chain stops constraining who is ultimately
+    paid</strong>. The budget, the per-payment cap, the epoch limit and the window all still
+    bind, and the hop&rsquo;s own fee is charged to the same budget.
+  </p>
+  <p>
+    It runs unattended every morning, reaching the chain through public resolvers rather than a
+    node of ours, and it writes down what happened <strong>whether or not it worked</strong>.
+    That is the point of it. One purchase on one afternoon would read exactly the same on the
+    day their facilitator stopped answering; a purchase every morning turns the claim into
+    something that decays loudly. It has already failed once &mdash; paid, accepted on chain,
+    and refused off it &mdash; and that failure is on the front page rather than in a log.
+  </p>
+  <p>
+    Roughly eleven days of budget, and nothing tops it up. When it runs dry it starts refusing,
+    and that refusal is the covenant doing its job rather than the demonstration ending.
+  </p>
+  {{LOCK}}
+</section>

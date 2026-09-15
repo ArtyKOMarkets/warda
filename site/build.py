@@ -108,6 +108,8 @@ AGENT_PAGES = {
            "used, and a predecessor ended by a key that was not its own.",
     "004": "A sub-agent hired by another agent rather than issued by a person, holding a bounded "
            "piece of its parent's authority that can only ever shrink and settles back when it is done.",
+    "005": "An agent that buys from a vendor nobody here controls, unattended, every morning — so "
+           "that the one thing hardest to fake about this protocol can be checked rather than believed.",
 }
 
 CRYPTO = (here / "src" / "_crypto.js").read_text()
@@ -284,6 +286,17 @@ AGENTS = [
      "    --purchases agent-004/purchases \\\n"
      "    --parent x402/demo/agent-003-grant.json --parent-id WARDA-003 \\\n"
      "    > site/src/agent-004.json"),
+    # The only agent here that buys from outside this project, so --endpoint is
+    # not the default. No --purchases: it writes one status file per run rather
+    # than a purchase record per purchase, because what it is monitoring is
+    # whether a third party still answers, and the answer has to be written on
+    # the failures too.
+    ("agent-005.json", "agent-005.html",
+     "node --experimental-strip-types agents/tools/dashboard.ts \\\n"
+     "    x402/demo/agent-005-grant.json --id WARDA-005 \\\n"
+     "    --recipients agent-005/payees.txt \\\n"
+     "    --endpoint https://demo.kaspa-x402.org/exact \\\n"
+     "    --borsh > site/src/agent-005.json"),
 ]
 
 
