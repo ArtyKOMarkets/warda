@@ -1,6 +1,6 @@
 {
   "_comment": "Written by agents/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, the purchase log or the chain — none is typed. Each payee's LABEL is re-derived on every run from the artefact agents/known-payees.json names, and a label that stops matching is dropped rather than published: an address with no name is honest, an address with the wrong name is not.",
-  "checkedAt": "2026-09-15T08:57:09.828Z",
+  "checkedAt": "2026-09-15T12:35:12.959Z",
   "network": "testnet-10",
   "identity": {
     "agentId": "WARDA-003",
@@ -18,18 +18,27 @@
         "address": "kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e",
         "key": "3c693f61fbc35d1fd4dcec2bbbab692be38656e6fd5a4077ee495afcb23535a1",
         "label": "agent #001",
-        "derivation": "the pay-to-public-key address of the agent key named in agent #001's published manifest, x402/demo/kaspa-x402-grant.json"
+        "derivation": "the pay-to-public-key address of the agent key named in agent #001's published manifest, x402/demo/kaspa-x402-grant.json",
+        "ours": true
       },
       {
         "address": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
         "key": "16e6af2030f7e4510d1a417391a7ff7ccad21864f17eef7ee035f0453e21a033",
         "label": "the Warda demo vendor",
-        "derivation": "the pay-to-public-key address of covenant/deploy/demo-vendor.key, which is the address https://warda-demo-api.vercel.app quotes for /weather, /fact and /inference"
+        "derivation": "the pay-to-public-key address of covenant/deploy/demo-vendor.key, which is the address https://warda-demo-api.vercel.app quotes for /weather, /fact and /inference",
+        "ours": true
       }
     ],
     "address": "kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e",
     "bothEndsAreOurs": true,
-    "disclosure": "Every agent on this site was built here, and the vendors they buy from are ours too. What is demonstrated is therefore not a market — it is a payment: separate grants, separate keys, a fixed list of addresses each may pay, and settlements anyone can look up. Agent #001's digest is published free at wardaprotocol.com/agent-001.json, because pretending it was scarce would have traded the checkable claim for a flattering one."
+    "disclosure": {
+      "title": "Both ends of this are ours",
+      "paragraphs": [
+        "Every agent on this site was built here, and the vendor this one buys from is ours too. This is therefore NOT a market, and saying otherwise would be the easiest claim on this site to catch out.",
+        "What it is: a payment between independent grants, with different keys, each able to pay a fixed list of addresses, settled on a public chain where anyone can look it up. The demonstration is that the rails work — not that a third party chose to trade with us.",
+        "Agent #001's digest is published free at wardaprotocol.com/agent-001.json, because pretending it was scarce would have traded the checkable claim for a flattering one."
+      ]
+    }
   },
   "succession": {
     "replaced": "WARDA-002",
@@ -44,7 +53,7 @@
   },
   "timelock": {
     "notBefore": "564404779",
-    "virtualDaaScore": "571041847",
+    "virtualDaaScore": "571173656",
     "open": true,
     "lockedFor": "5 minutes",
     "openedAgo": "8 days",
@@ -433,5 +442,5 @@
       "derived": true
     }
   ],
-  "mission": "Take over agent #002's buying, holding its own key, from a grant published before it could be used — and hire a sub-agent out of it."
+  "mission": "Take over agent #002's buying, holding its own key, from a grant published before it could be used, and hire a sub-agent out of it."
 }

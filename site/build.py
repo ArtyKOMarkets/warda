@@ -310,6 +310,11 @@ AGENTS = [
      "    > site/src/agent-003.json.new && mv site/src/agent-003.json.new site/src/agent-003.json"),
     # #004's manifest is grant-child-5a0684c6.json — it was DELEGATED by
     # #003 rather than issued, so it is named for the child id the covenant
+    #
+    # --settled-into, not --ended. #004's grant ended because its PARENT
+    # collapsed it, not because anybody revoked it — which is the entire
+    # demonstration on that page. It had said since September that the
+    # revocation key ended it, because --ended was the only option there was.
     # derived, not for the agent number the site gave it.
     ("agent-004.json", "agent-004.html",
      "node --experimental-strip-types agents/tools/dashboard.ts \\\n"
@@ -317,6 +322,7 @@ AGENTS = [
      "    --recipients x402/demo/agent-004-recipients.txt \\\n"
      "    --purchases agent-004/purchases \\\n"
      "    --parent x402/demo/agent-003-grant.json --parent-id WARDA-003 \\\n"
+     "    --settled-into 85fa34cdd19d9d3a18675e005eb0af8f653c3bf8a89c77dc99928ce9127ba0a9 \\\n"
      "    > site/src/agent-004.json.new && mv site/src/agent-004.json.new site/src/agent-004.json"),
     # The only agent here that buys from outside this project, so --endpoint
     # is not the default.

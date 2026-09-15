@@ -66,7 +66,8 @@ if (!manifestPath || !agentId || !recipientsPath || !purchasesDir) {
     "usage: dashboard.ts <grant.json> --id WARDA-00N --recipients <file> --purchases <dir>\n" +
       "       [--mission text]\n" +
       "       [--succeeds <manifest> --succeeds-id WARDA-00N]   the grant this one replaced\n" +
-      "       [--ended <txid>]                                  this grant has been revoked\n" +
+      "       [--ended <txid>]                                  revoked, by the revocation key\n" +
+      "       [--settled-into <txid>]                           collapsed back into its parent\n" +
       "       [--settled <child.json>]                          a sub-agent it funded, settled\n" +
       "       [--parent <manifest> --parent-id WARDA-00N]       the grant that delegated it\n" +
       "       [--endpoint url] [--rpc url]\n\n" +
@@ -96,6 +97,27 @@ const parentPath = flag("parent");
  * and watch the coin leave the covenant.
  */
 const endedBy = flag("ended");
+/**
+ * The same, for a grant that ended by being SETTLED back into its parent.
+ *
+ * Two different endings, and the difference is the whole demonstration. A
+ * revocation is the principal taking authority away with the revocation key.
+ * A settlement is the PARENT AGENT collapsing a sub-agent it hired and being
+ * charged for what the child spent — no human, no revocation key, and the
+ * unspent remainder returning to the agent that was mid-task rather than to
+ * whoever funded it.
+ *
+ * `--ended` used to be the only option, so agent #004's page has said since
+ * September that "its grant was ended by a transaction the revocation key
+ * signed". It was not. #004 is the delegation demonstration, and the sentence
+ * describing how it ended named the one mechanism the page exists to
+ * distinguish itself from.
+ */
+const settledInto = flag("settled-into");
+if (endedBy && settledInto) {
+  console.error("--ended and --settled-into are two different endings. Pass one.");
+  process.exit(2);
+}
 /**
  * Children this grant has settled, whose spending it has been charged for.
  *
@@ -405,16 +427,22 @@ try {
   if (m.grant_value !== undefined && m.grant_value !== null) {
     const claimed = BigInt(m.grant_value);
     const actual = atGrant.length ? atGrant[0]!.entry.value : null;
-    if (actual === null && endedBy) {
+    if (actual === null && (endedBy || settledInto)) {
       /* Expected. An ended grant holds nothing — that is what ending one does,
-         and the operator has named the transaction that did it. */
+         and the operator has named the transaction that did it, and which of
+         the two endings it was. */
     } else if (actual === null) {
       console.error(
         `the manifest says this grant holds ${kas(claimed)}, and there is nothing at\n` +
           `${address}. Either it MOVED — recover it with sdk/tools/follow-grant.ts before\n` +
           `publishing a page about where it used to be — or it ENDED, in which case pass\n` +
-          `--ended <txid> naming the exit and this reports a retired agent instead of\n` +
-          `refusing. The chain cannot tell those apart and neither can this tool.`,
+          `one of these naming the exit, and this reports a retired agent instead of\n` +
+          `refusing:\n\n` +
+          `  --ended <txid>        the principal revoked it with the revocation key\n` +
+          `  --settled-into <txid> its PARENT collapsed it and was charged for what it\n` +
+          `                        spent, with the remainder going back to the parent agent\n\n` +
+          `Those are two different endings and the page says which. The chain cannot tell\n` +
+          `them apart from an empty address, and neither can this tool.`,
       );
       process.exit(1);
     }
@@ -597,18 +625,24 @@ try {
           bothEndsAreOurs,
           disclosure,
         },
-        ...(endedBy
+        ...(endedBy || settledInto
           ? {
               retired: {
-                endedBy,
+                endedBy: endedBy ?? settledInto,
+                how: endedBy ? "revoked" : "settled",
                 grantAddress: address,
                 holdsNothing: atGrant.length === 0,
                 itSpent: kas(state.spentTotal),
                 ofBudget: kas(state.budgetTotal),
-                note:
-                  "This agent's authority is over. Its grant was ended by a transaction the " +
-                  "revocation key signed, and the address above holds nothing — which anyone " +
-                  "can check. What it did while it ran is below and does not change.",
+                note: endedBy
+                  ? "This agent's authority is over. Its grant was ended by a transaction the " +
+                    "revocation key signed, and the address above holds nothing — which anyone " +
+                    "can check. What it did while it ran is below and does not change."
+                  : "This agent's authority is over, and no person ended it. Its parent " +
+                    "collapsed the grant it had delegated and was charged for what this agent " +
+                    "spent; the unspent remainder went back to the parent AGENT, not to whoever " +
+                    "funded it. The address above holds nothing, which anyone can check. What " +
+                    "it did while it ran is below and does not change.",
               },
             }
           : {}),

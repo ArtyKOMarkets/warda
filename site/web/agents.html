@@ -723,8 +723,17 @@ function drawGraph(loaded) {
       [retired ? "Could pay" : "May pay",
        (auth.authorizedPayees != null ? auth.authorizedPayees : "—") +
        (auth.authorizedPayees === 1 ? " address" : " addresses")],
+      /* "its revocation key" was hardcoded, and it is false of agent #004:
+         that grant ended because its PARENT collapsed it, which is the whole
+         point of the page the card links to. Two endings, and the reading says
+         which. An older reading that does not is shown as "ended" rather than
+         guessed at. */
       [retired ? "Ended by" : "Refuses",
-       retired ? "its revocation key" : ((d.refusals || []).length) + " things, derived"]
+       retired
+         ? (d.retired.how === "settled"
+             ? "its parent, settling"
+             : d.retired.how === "revoked" ? "its revocation key" : "\u2014")
+         : ((d.refusals || []).length) + " things, derived"]
     ];
     rows.forEach(function (r) {
       var dt = document.createElement("dt"); dt.textContent = r[0];
