@@ -131,6 +131,15 @@
   .cols .n { font-family: var(--mono); font-size: 0.64rem; letter-spacing: 0.13em;
              text-transform: uppercase; color: var(--teal); margin-bottom: 0.5rem; }
 
+  .rules { margin-top: 1.5rem; border-top: 1px solid var(--edge); }
+  .rules .r { display: grid; grid-template-columns: 1.6rem 1fr; gap: 0.9rem;
+              padding: 0.85rem 0; border-bottom: 1px solid var(--edge); }
+  .rules .r .m { font-family: var(--mono); font-size: 0.8rem; line-height: 1.5; }
+  .rules .r.win .m { color: var(--teal); }
+  .rules .r.no .m { color: var(--chrome-faint); }
+  .rules .r p { margin: 0; font-size: 0.93rem; color: var(--chrome-dim); }
+  .rules .r b { color: var(--chrome); font-weight: 600; }
+
   .state { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
            background: var(--edge); border: 1px solid var(--edge); margin-top: 1.2rem; }
   .fig { background: var(--ground); padding: 1.3rem 1.2rem; }
@@ -362,6 +371,68 @@
         <div class="out" id="out"><span class="head"></span><span class="body"></span><div class="steps"></div></div>
       </div>
     </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">What would count</p>
+    <h2>The engine decides, not us.</h2>
+    <p style="color:var(--chrome-dim);max-width:56ch;margin-top:0.9rem">
+      Spending this grant inside its limits is not breaking it &mdash; that is the demo working,
+      and you are welcome to it. Breaking it means a transaction <strong>a Kaspa node
+      accepts</strong> that does something the covenant is supposed to make impossible. That is
+      checkable by anyone, on chain, without asking our opinion.
+    </p>
+
+    <div class="rules">
+      <div class="r win"><span class="m">&#10003;</span><p><b>Pay an address that is not in the allowlist.</b>
+        This grant commits to one payee. The set is fixed at genesis and cannot be added to.</p></div>
+      <div class="r win"><span class="m">&#10003;</span><p><b>Move more than 0.1 KAS in one spend</b>, or more than
+        0.5 KAS within one epoch, or more than the 50 KAS budget in total.</p></div>
+      <div class="r win"><span class="m">&#10003;</span><p><b>Spend after the grant has expired</b>, or reuse an epoch's
+        allowance that has already been consumed.</p></div>
+      <div class="r win"><span class="m">&#10003;</span><p><b>Leave the successor's accounting wrong</b> &mdash; spend the
+        coin without recording it, move the reserve independently, or widen any authority field in
+        the continuation.</p></div>
+      <div class="r win"><span class="m">&#10003;</span><p><b>Delegate a child that is not a narrowing</b> of this grant,
+        or reabsorb one whose reserve was never pushed.</p></div>
+      <div class="r win"><span class="m">&#10003;</span><p><b>Take the coin anywhere but back to the principal</b> through
+        <code>revoke</code> or <code>reclaim</code>, or burn it on the way.</p></div>
+    </div>
+
+    <p class="eyebrow" style="margin-top:2.2rem">What would not</p>
+    <div class="rules">
+      <div class="r no"><span class="m">&mdash;</span><p>Anything in
+        <a href="https://github.com/ArtyKOMarkets/warda/blob/main/GUARANTEES.md" rel="noopener">GUARANTEES.md</a>
+        under <b>&ldquo;what the chain cannot enforce&rdquo;</b>. Expiry not stopping an agent dead,
+        the reserve never being released, the epoch limit binding one grant rather than a subtree
+        &mdash; all published, all structural. They are limitations we wrote down, not findings.</p></div>
+      <div class="r no"><span class="m">&mdash;</span><p><b>The principal key.</b> It is a file on
+        a machine, it is unbounded, and that is the honest gap in this protocol's own argument.
+        Saying so again is not a discovery.</p></div>
+      <div class="r no"><span class="m">&mdash;</span><p><b>The SDK, the website, this page, the
+        hosted endpoints, or anything reachable by asking a human nicely.</b> Those matter, and
+        they are not what is on trial here. The covenant is.</p></div>
+      <div class="r no"><span class="m">&mdash;</span><p><b>Spending the grant as permitted.</b>
+        The key is published. Paying the vendor with it is the point.</p></div>
+    </div>
+
+    <p style="color:var(--chrome-dim);max-width:58ch;margin-top:1.8rem">
+      <b style="color:var(--chrome)">If you break it:</b> open an issue on
+      <a href="https://github.com/ArtyKOMarkets/warda" rel="noopener">the repository</a> with the
+      transaction id, or email the address in the README. A transaction the network accepted is
+      its own proof &mdash; there is nothing to argue about and no disclosure window to negotiate,
+      because this is testnet and the covenant is not holding anyone's money.
+    </p>
+    <p style="color:var(--chrome-dim);max-width:58ch;margin-top:0.9rem">
+      <b style="color:var(--chrome)">What you get:</b> credit, by name, in
+      <code>GUARANTEES.md</code> beside the six vulnerabilities already found here, on
+      <a href="/proof">the evidence page</a>, and in whatever gets written about it. There is no
+      cash reward, and rather than name a figure we cannot honour today, we are saying so plainly.
+      Six have been found so far, every one by building an attack rather than by reading the code
+      &mdash; which is the honest argument for why the seventh is probably there.
+    </p>
   </div>
 </section>
 
