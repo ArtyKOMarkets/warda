@@ -29,11 +29,16 @@ from a per-opcode trace of an accepted spend.
 | 8 | 7,544 | 51,034 + 100,000 | 16 | 118 / 244 |
 | 16 | 8,680 | 57,866 + 100,000 | 16 | 118 / 244 |
 
-**Read the budget column, not the harness's.** `report_compute_budget_consumption`
-prints `budget_units` computed from script units alone, which is the same
-`sigop_script_units: 0` mistake corrected below — it reports 5 and 6 where the
-real figures are 15 and 16. The `+ 100,000` in this table is the signature, and it
-is most of the cost.
+**The `+ 100,000` in this table is the signature, and it is most of the cost.**
+`report_compute_budget_consumption` used to print `budget_units` from script
+units alone — the same `sigop_script_units: 0` mistake corrected below, giving
+5 and 6 where the real figures are 15 and 16. It now prints `budget_units_REAL`
+with the signature included and `bare_no_sigop` beside it, named.
+
+Those are the numbers to check the next run against: **15, 16, 16**. They were
+computed by hand from the bare figures this table records, because the line that
+prints them directly has not yet run — it was added in a commit that did not
+compile, one commit after the run that produced everything above.
 
 **The on-chain cross-check now agrees.** This file already recorded that a
 covenant spend needs 16 units on chain, against a harness that said 13 — a

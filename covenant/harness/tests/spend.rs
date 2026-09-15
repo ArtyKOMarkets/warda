@@ -598,7 +598,6 @@ fn ctor_at_state(
     epoch_index: i64,
     epoch_spent: i64,
 ) -> Vec<Expr<'static>> {
-    let mut v = ctor_with(root, agent_xonly, depth);
     /* v4 slots. These were 13..16 — the v2 positions — and stayed there after
        genesisTemplateId, templatePrefixLen and templateSuffixLen were inserted
        at 12..14. So `spent` was being written into templatePrefixLen,
@@ -1482,7 +1481,12 @@ fn report_compute_budget_consumption() {
            value measures the flag. The bare figure was still what this line
            printed, so the trap stayed set for the next reader. Both are printed
            now, and the real one is named as such. */
-        const SIGOP_SCRIPT_UNITS: usize = 100_000;
+        /* u64, because `used_script_units()` returns one. It was `usize`, which
+           compiles nowhere and was committed anyway: this line went in one
+           commit AFTER the run that reported 33/33, and nothing re-ran the
+           suite in between. The commit's own subject was about the harness
+           printing a stale figure. */
+        const SIGOP_SCRIPT_UNITS: u64 = 100_000;
         let budget_bare = used / 10_000 + 1;
         let budget = (used + SIGOP_SCRIPT_UNITS) / 10_000 + 1;
         println!(
