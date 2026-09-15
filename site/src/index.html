@@ -1318,6 +1318,14 @@ Anyone can sign with it.</code></pre>
       know this coin could not have been larger, or gone anywhere else, still has to look at the
       grant &mdash; and that part is not in the standard.
     </p>
+
+    <!-- Filled by the script at the bottom of this page, from
+         /interop-status.json, and hidden when there is nothing honest to say.
+         Everything above this line is dated: it happened on 14 September and
+         would read identically the day their facilitator stopped answering.
+         Agent #005 buys from them again every morning so that the paragraph
+         can be checked instead of believed. -->
+    <p class="needs" id="interop-live" hidden></p>
   </div>
 </section>
 
@@ -2080,6 +2088,53 @@ await wardaFetch(url);</code></pre>
     fetch("/agent-003.json", { cache: "no-store" })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (d) { if (d) renderWallet(d); })
+      .catch(function () {});
+  })();
+
+  /**
+   * Is the interoperability claim above still true THIS WEEK?
+   *
+   * The paragraph it sits under describes one afternoon. A claim like that is
+   * indistinguishable from a false one until somebody re-runs it, so agent
+   * #005 buys from the same vendor daily and writes what happened — including
+   * when it fails, which is the half that makes the rest worth reading.
+   *
+   * Three outcomes, and the silent one is deliberate. A reading older than
+   * about a day and a half renders NOTHING: the claim quietly loses its "still
+   * true" line, rather than keeping a green badge nobody re-earned. A monitor
+   * that has stopped running must not look like a monitor with nothing to
+   * report — that mistake has already been made twice in this repository.
+   */
+  (function () {
+    var el = document.getElementById("interop-live");
+    if (!el || !window.fetch) return;
+    fetch("/interop-status.json", { cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d || typeof d.ok !== "boolean" || !d.checkedAt) return;
+        var age = Date.now() - Date.parse(d.checkedAt);
+        if (!(age >= 0) || age > 129600000) return;   // 36 hours
+        var when = String(d.checkedAt).slice(0, 10);
+        if (d.ok) {
+          el.textContent =
+            "Still true on " + when + ": agent #005 bought from them again, " +
+            "unattended, for " + d.paidSompi + " sompi \u2014 transaction " + d.txid + ". " +
+            "It runs every morning and has " + d.remaining + " sompi of budget left, " +
+            "after which it stops, which is what a bounded agent reaching its bound looks like.";
+        } else if (d.refusedByGrant) {
+          el.textContent =
+            "As of " + when + " agent #005 can no longer buy from them: the covenant " +
+            "refused the spend. Nothing was paid. That is the grant reaching its own " +
+            "limit rather than the vendor going away.";
+        } else {
+          el.textContent =
+            "As of " + when + " the purchase above does not reproduce. Agent #005 tried " +
+            "and was not served" + (d.txid ? ", after paying " + d.txid : "") +
+            ". The transaction on 14 September happened; whatever is failing now is " +
+            "between us and them, and this line will say so until it is fixed.";
+        }
+        el.hidden = false;
+      })
       .catch(function () {});
   })();
 

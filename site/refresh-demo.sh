@@ -269,6 +269,16 @@ sig() { grep -v '"checkedAt"' "$1" 2>/dev/null || true; }
 # in what it describes. Both lists below have to name every such file, so they
 # are kept adjacent and a new one is two edits in one place rather than a bug
 # found a week later.
+#
+# interop-status.json is the deliberate EXCEPTION, and it is listed here so
+# that nobody adds it by following the paragraph above. Its timestamp is not
+# incidental to what it describes — it IS what it describes. The landing page
+# renders "still true on <date>" and goes silent when the reading is older than
+# a day and a half, so a run whose only change is the date still has to reach
+# the web or the claim disappears while it is true. Stripping the timestamp
+# here would produce exactly the false negative this file spends fifty lines
+# guarding against, in the opposite direction. It changes once a day, not every
+# fifteen minutes, so it costs one deploy.
 TIMESTAMPED_SRC="src/demo-state.json src/vendor-status.json src/node-status.json"
 
 signature() {

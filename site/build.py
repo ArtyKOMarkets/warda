@@ -339,6 +339,16 @@ if STATE.exists():
 if (here / "src" / "vendor-status.json").exists():
     COPIES.append("vendor-status.json")
 
+# Written by ops/daily-interop.sh on EVERY outcome, and optional in the same
+# way. It is the only live half of a dated claim: the landing page says a
+# vendor we do not control took a payment, and that was true on 14 September.
+# Agent #005 buys from them again every day so the sentence can be checked
+# rather than believed. An absent or stale file renders nothing, which is how
+# the claim decays: it loses its "still true" line rather than keeping a green
+# one nobody re-earned.
+if (here / "src" / "interop-status.json").exists():
+    COPIES.append("interop-status.json")
+
 # Written by ops/check-node.sh, and optional for the same reason: silence is
 # the honest default, because "we have not checked" must never render as "it
 # is up" on a page that is about to tell somebody where to send a payment.
