@@ -599,10 +599,47 @@ fn ctor_at_state(
     epoch_spent: i64,
 ) -> Vec<Expr<'static>> {
     let mut v = ctor_with(root, agent_xonly, depth);
-    v[13] = Expr::int(spent);
-    v[14] = Expr::int(reserved);
-    v[15] = Expr::int(epoch_index);
-    v[16] = Expr::int(epoch_spent);
+    /* v4 slots. These were 13..16 — the v2 positions — and stayed there after
+       genesisTemplateId, templatePrefixLen and templateSuffixLen were inserted
+       at 12..14. So `spent` was being written into templatePrefixLen,
+       `reserved` into templateSuffixLen and `epoch_index` into maxProofDepth.
+       The successor then compiled to entirely different bytecode, its P2SH did
+       not match the script the covenant derives for the continuation, and the
+       engine refused every baseline with an error that names nothing.
+
+       Indices into a positional list are the same hazard as the list itself:
+       `covenant/deploy` recorded this exact trap after writing a probe value
+       into a stale slot and landing a huge number where a template LENGTH
+       belongs. Second occurrence, same cause, different file. */
+    ctor_at_state_with_reserve(root, agent_xonly, depth, spent, reserved, epoch_index, epoch_spent, empty_reserve())
+}
+
+/// The same, for a successor whose reserve chain has MOVED.
+///
+/// A spend leaves `reserveRoot` alone, so `ctor_at_state` can default it. A
+/// delegation does not: the parent's continuation carries
+/// `H(reserveRoot || childId)`. Compiling that successor with the empty chain
+/// while DECLARING the pushed one produces a state the covenant accepts and a
+/// script it does not — the declared `parentNext` passes every `require`, and
+/// then the output's P2SH fails to match the continuation script the covenant
+/// derives for itself. One opaque VerifyError, a long way from the cause.
+#[allow(clippy::too_many_arguments)]
+fn ctor_at_state_with_reserve(
+    root: [u8; 32],
+    agent_xonly: [u8; 32],
+    depth: i64,
+    spent: i64,
+    reserved: i64,
+    epoch_index: i64,
+    epoch_spent: i64,
+    reserve_root: [u8; 32],
+) -> Vec<Expr<'static>> {
+    let mut v = ctor_with(root, agent_xonly, depth);
+    v[16] = Expr::int(spent);
+    v[17] = Expr::int(reserved);
+    v[18] = Expr::int(epoch_index);
+    v[19] = Expr::int(epoch_spent);
+    v[20] = Expr::bytes(reserve_root.to_vec());
     v
 }
 
@@ -1118,10 +1155,27 @@ fn run_delegation(ch: &Child, parent_reserved_override: Option<i64>) -> Result<(
 
     let reserved_after = parent_reserved_override.unwrap_or(ch.budget);
 
-    // Parent continuation: same authority, reserved advanced.
+    /* The child's identity, and the chain it pushes onto. Computed here rather
+       than beside the declared state, because the parent's CONTINUATION must
+       be compiled at this reserve root — the address commits the state, so a
+       successor compiled at the wrong one is a different address. */
+    let cid = child_id(
+        child_key,
+        ch.budget,
+        ch.max_per_spend,
+        ch.epoch_limit,
+        1_000,
+        ch.root.unwrap_or(tree.root()),
+        ch.not_before,
+        ch.expires_at,
+        ch.delegation_depth,
+    );
+    let pushed = push_child(empty_reserve(), cid);
+
+    // Parent continuation: same authority, reserved advanced, chain pushed.
     let parent_next = compile_contract(
         SOURCE,
-        &ctor_at_state(tree.root(), agent_xonly, depth, 0, reserved_after, 0, 0),
+        &ctor_at_state_with_reserve(tree.root(), agent_xonly, depth, 0, reserved_after, 0, 0, pushed),
         CompileOptions::default(),
     )
     .expect("parent successor compiles");
@@ -1139,18 +1193,7 @@ fn run_delegation(ch: &Child, parent_reserved_override: Option<i64>) -> Result<(
        so leaving it at the empty chain is not "close enough" — it is the
        difference between a delegation the engine accepts and one it refuses
        for a reason it will not name. */
-    let cid = child_id(
-        child_key,
-        ch.budget,
-        ch.max_per_spend,
-        ch.epoch_limit,
-        1_000,
-        ch.root.unwrap_or(tree.root()),
-        ch.not_before,
-        ch.expires_at,
-        ch.delegation_depth,
-    );
-    parent_fields.push(("reserveRoot", Expr::bytes(push_child(empty_reserve(), cid).to_vec())));
+    parent_fields.push(("reserveRoot", Expr::bytes(pushed.to_vec())));
     let parent_next_state = struct_object("State", parent_fields);
 
     // `State[]` needs an explicit TypeRef — inferred_array cannot derive a
@@ -1162,7 +1205,20 @@ fn run_delegation(ch: &Child, parent_reserved_override: Option<i64>) -> Result<(
 
     let in_value: u64 = 10_000_000_000;
     let build = |sig: Vec<u8>| {
-        let args = vec![new_states.clone(), Expr::bytes(sig)];
+        /* v4 added the subset witness, so delegate takes four arguments after
+           the injected prevState, not two. An EMPTY witness is not a
+           placeholder: it is the statement "this child inherits the parent's
+           allowlist exactly", which is what every test here except the
+           widening one intends. A child claiming a different root with an
+           empty witness is precisely what the covenant must refuse, so
+           delegate_child_widening_allowlist_rejected is now testing its own
+           rule rather than an arity error. */
+        let args = vec![
+            new_states.clone(),
+            byte32_array(vec![]),
+            bool_array(vec![]),
+            Expr::bytes(sig),
+        ];
         Transaction::new(
             1,
             vec![tx_input(0, sigscript(&parent, "delegate", args))],
