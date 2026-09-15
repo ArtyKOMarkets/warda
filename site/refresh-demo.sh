@@ -260,6 +260,11 @@ node ../ops/check-links.mjs
 # the tool.
 node ../ops/check-commands.mjs
 
+# And that the scripts here still run on macOS, which is where they run. bash
+# 3.2 from 2007 is what `#!/bin/bash` gets there; this file's own note about
+# `sort -z` is the previous time that cost something.
+node ../ops/check-portable.mjs
+
 sig() { grep -v '"checkedAt"' "$1" 2>/dev/null || true; }
 
 # `sort -z` is a GNU extension and this runs on macOS, where BSD sort does not
