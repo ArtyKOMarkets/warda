@@ -18,9 +18,8 @@
     --gutter: clamp(1.15rem, 4vw, 3.4rem);
   }
   * { box-sizing: border-box; }
-  html { overflow-x: clip; }
   body { margin: 0; background: var(--void); color: var(--chrome);
-         font-family: var(--body); line-height: 1.6; overflow-x: hidden; }
+         font-family: var(--body); line-height: 1.6; }
   .wrap { max-width: 62rem; margin: 0 auto; padding: 0 var(--gutter); }
   header { border-bottom: 1px solid var(--edge); padding: 2.6rem 0 2.4rem; }
   h1 { font-family: var(--display); font-size: clamp(1.9rem, 5vw, 3rem); line-height: 1.06;
@@ -85,6 +84,25 @@
      and that selector scores 0,1,1 against a bare class's 0,1,0 — so it won
      on specificity wherever this bar was declared, and the nav silently
      scrolled away on the one page long enough to need it. */
+  /* ---- the precondition, which is why the bar kept scrolling away --------
+     `position: sticky` sticks to the nearest SCROLLING ancestor, and
+     `overflow-x: hidden` on an element makes it one. Five pages carried
+     `body { overflow-x: hidden }` to stop sideways drag, so on every one of
+     them the bar was stuck to a box that scrolls with the page — which looks
+     exactly like sticky not working at all.
+
+     It was diagnosed once before, as the specificity problem described below,
+     and that fix was real but was not this. Two causes, one symptom; fixing
+     the first made no visible difference and the second went on standing.
+
+     `clip` instead of `hidden`: it clips identically and does NOT create a
+     scroll container, so the viewport stays the scrollport and the bar stays
+     put. It is declared here rather than per page because it is not a page's
+     styling choice — it is what this bar requires in order to work, and a page
+     that sets its own `overflow-x: hidden` on body silently breaks the
+     navigation for its readers with no error anywhere. */
+  html, body { overflow-x: clip; }
+
   body > .topnav { position: sticky; top: 0; z-index: 60; background: rgba(6,9,12,0.86);
                    border-bottom: 1px solid var(--edge); backdrop-filter: blur(12px); }
   .topnav .wrap { display: flex; align-items: center; gap: 1.6rem;
