@@ -3,8 +3,14 @@
        a drawing program, and then the agents change and the picture does not.
        This one has no positions for an agent it cannot read. -->
   <figure class="graph" id="g-graph" hidden>
-    <svg viewBox="0 0 760 440" role="img" aria-labelledby="g-graph-t">
-      <title id="g-graph-t">Four agents: who replaced whom, who delegated whom, and who paid whom</title>
+    <!-- 560 tall, not 440. The height was set when there were four agents and
+         one seller; #005 and the third party it buys from are two more rows.
+         A viewBox is as easy to leave behind as a sentence. -->
+    <svg viewBox="0 0 760 560" role="img" aria-labelledby="g-graph-t">
+      <!-- No count in here. It said "Four agents" and was wrong the day a
+           fifth arrived — in the accessible name, which is the one version of
+           this picture a screen reader gets. -->
+      <title id="g-graph-t">The agents: who replaced whom, who delegated whom, and who paid whom</title>
       <defs>
         <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
           <path d="M0,0 L10,5 L0,10 z" fill="var(--teal)"></path>

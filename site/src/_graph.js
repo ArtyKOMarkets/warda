@@ -12,20 +12,49 @@
  * describes. It no-ops on a page that carries none of the elements it fills.
  */
 (function () {
-  var AGENT_IDS = ["001", "002", "003", "004"];
+  var AGENT_IDS = ["001", "002", "003", "004", "005"];
 
 /* ---- the diagram -------------------------------------------------------
    Positions are fixed; everything else — which nodes exist, which are dead,
    which arrows to draw and what they are worth — comes from the data. An
    agent whose JSON is missing simply is not drawn. */
 var POS = {
-  "001": { x: 545, y: 120, role: "sells its digest" },
+  "001": { x: 545, y: 135, role: "sells its digest" },
   "002": { x: 120, y:  70, role: "retired" },
-  "003": { x: 120, y: 215, role: "buys" },
-  "004": { x: 120, y: 360, role: "settled" },
-  vendor: { x: 545, y: 330, role: "sells /weather /fact" }
+  "003": { x: 120, y: 200, role: "buys" },
+  "004": { x: 120, y: 330, role: "settled" },
+  "005": { x: 120, y: 470, role: "buys from a stranger" },
+  vendor:  { x: 545, y: 265, role: "sells /weather /fact" },
+  /* The one node on this diagram nobody here operates. It is drawn apart from
+     the others for the same reason agent #005 exists: every other arrow on
+     this picture ends at something we wrote. */
+  outside: { x: 545, y: 470, role: "nobody here runs this" }
 };
 var W = 175, H = 62;
+
+/**
+ * Which node on this diagram a payee is.
+ *
+ * From the payee's LABEL, which the reading only carries when dashboard.ts
+ * could re-derive it from a published artefact. So an address nobody has
+ * identified lands at `outside` — which is not a guess about who they are, it
+ * is the honest statement that nobody here can say.
+ *
+ * It used to be `label.indexOf("#001") >= 0 ? "001" : "vendor"`: everything
+ * that was not agent #001 was the Warda demo vendor. That was true while the
+ * only two sellers were ours, and it silently became a false claim about who
+ * received a payment the moment one of them was not.
+ */
+function nodeFor(p) {
+  var label = p.label || "";
+  if (label.indexOf("#001") >= 0) return "001";
+  if (label.indexOf("demo vendor") >= 0) return "vendor";
+  /* An agent's own relay key is plumbing, not a counterparty: the grant funds
+     it and it pays onward in the same breath. Drawing it would put a node on
+     this picture that nobody trades with. */
+  if (label.indexOf("relay key") >= 0) return null;
+  return p.ours === false || !p.label ? "outside" : null;
+}
 
 function svgEl(name, attrs) {
   var e = document.createElementNS("http://www.w3.org/2000/svg", name);
@@ -93,7 +122,19 @@ function drawGraph(loaded) {
     box(id, "Agent #" + id, POS[id] ? POS[id].role : "", !!d.retired);
   });
   if (!any) return;
-  box("vendor", "Demo vendor", POS.vendor.role, false);
+
+  /* The sellers, drawn only when somebody on this diagram may pay them. The
+     demo vendor used to be drawn unconditionally and was the only seller there
+     was; a third party is a different node and must not be folded into it. */
+  var sellers = {};
+  Object.keys(loaded).forEach(function (id) {
+    ((loaded[id] && loaded[id].buysFrom && loaded[id].buysFrom.payees) || []).forEach(function (p) {
+      var key = nodeFor(p);
+      if (key === "vendor" || key === "outside") sellers[key] = true;
+    });
+  });
+  if (sellers.vendor) box("vendor", "Demo vendor", POS.vendor.role, false);
+  if (sellers.outside) box("outside", "demo.kaspa-x402.org", POS.outside.role, false);
 
   /* Payments, aggregated from the receipts. Only what was actually served:
      an arrow for money that bought nothing would be a different claim. */
@@ -106,11 +147,14 @@ function drawGraph(loaded) {
       byPayee[p.payTo] = (byPayee[p.payTo] || 0) + parseFloat(p.paid);
     });
     var names = {};
-    (d.buysFrom && d.buysFrom.payees || []).forEach(function (p) {
-      names[p.address] = (p.label || "").indexOf("#001") >= 0 ? "001" : "vendor";
-    });
+    (d.buysFrom && d.buysFrom.payees || []).forEach(function (p) { names[p.address] = nodeFor(p); });
     Object.keys(byPayee).forEach(function (addr) {
-      edge(id, names[addr] || "vendor", byPayee[addr].toFixed(2) + " KAS", false);
+      /* No fallback to "vendor". An address this diagram cannot place is not
+         drawn, because a payment drawn at the wrong node is a false claim
+         about who was paid — which is exactly what the old `|| "vendor"`
+         produced the moment a payee was neither agent #001 nor ours. */
+      if (!names[addr]) return;
+      edge(id, names[addr], byPayee[addr].toFixed(2) + " KAS", false);
     });
   });
 
@@ -137,10 +181,13 @@ function drawGraph(loaded) {
       var d = loaded[id];
       if (!d) return;
       agents++;
-      /* Four agents exist; two of their grants do. #002 was revoked and #004
-         settled back into its parent, and calling either of them "running"
-         would be the page's own figures overstating it — which is the one
-         thing every other number here is arranged to prevent. */
+      /* Not every agent here is running. #002 was revoked and #004 settled
+         back into its parent, and calling either of them "running" would be
+         the page's own figures overstating it — which is the one thing every
+         other number here is arranged to prevent. The count is derived, so
+         this comment does not need a number in it and deliberately has none:
+         the previous one said "four agents exist, two of their grants do" and
+         was out of date the day a fifth arrived. */
       if (!d.retired && d.authority && d.authority.onChain) holding++;
       (d.purchases || []).forEach(function (p) {
         if (p.outcome !== "bought") return;
