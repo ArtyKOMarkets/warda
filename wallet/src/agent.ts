@@ -31,14 +31,20 @@
  *
  *   load        the record, and check the allowlist against its root
  *   pay         through WardaPayer, one at a time, queued inside it
- *   deliver     the vendor serves, or the purchase is a debt and not a spend
- *   advance     only then, and only on delivery
+ *   reconcile   the record follows the COIN, whatever the vendor decided
  *
- * A failure between pay and deliver leaves the record un-advanced ON PURPOSE.
- * The money moved and the grant moved with it, so the record is stale — but a
- * stale record is recoverable by following the chain, and a record advanced
- * past a payment that was never delivered loses the proof needed to collect
- * it. Of the two wrong states, only one of them is reversible.
+ * The last line was wrong for one release, and the mistake is worth keeping
+ * written down because it is a plausible one. It used to advance only on a
+ * delivered purchase, reasoning that a payment which settled and was never
+ * served is a debt rather than a spend. That is true of the accounting and
+ * irrelevant to the address: a v2 vendor broadcasts and then decides, so by
+ * the time it refuses, the grant has already moved and a record left behind
+ * points at an address holding nothing — the unaddressable-coin failure this
+ * package exists to prevent, produced by the rule meant to prevent it.
+ *
+ * Nothing is lost by writing it forward. What proves the payment happened is
+ * the header on the `paid` event, which is a separate artifact and is still
+ * handed back.
  */
 import {
   openChain,
@@ -58,7 +64,7 @@ import {
   type WardaFetchEvent,
 } from "@warda_protocol/x402";
 import covenantTemplate from "@warda_protocol/kaspa/covenant-template.json" with { type: "json" };
-import { toGrant } from "./grant.ts";
+import { toGrant, type LoadedGrant } from "./grant.ts";
 import { advanced, type Manifest, type Store } from "./store.ts";
 
 export interface AgentOptions {
@@ -101,6 +107,7 @@ export class Agent {
   private readonly payer: WardaPayer;
   private readonly store: Store;
   private readonly ownsChain: boolean;
+  private readonly grant: LoadedGrant;
   private manifestState: Manifest;
   readonly chain: Chain;
 
@@ -110,12 +117,14 @@ export class Agent {
     chain: Chain;
     ownsChain: boolean;
     manifest: Manifest;
+    grant: LoadedGrant;
   }) {
     this.payer = o.payer;
     this.store = o.store;
     this.chain = o.chain;
     this.ownsChain = o.ownsChain;
     this.manifestState = o.manifest;
+    this.grant = o.grant;
   }
 
   static async open(options: AgentOptions): Promise<Agent> {
@@ -144,7 +153,7 @@ export class Agent {
       ...(options.fee !== undefined ? { fee: options.fee } : {}),
     });
 
-    return new Agent({ payer, store: options.store, chain, ownsChain, manifest });
+    return new Agent({ payer, store: options.store, chain, ownsChain, manifest, grant });
   }
 
   /** The grant as it stands now, including anything this process has spent. */
@@ -206,31 +215,89 @@ export class Agent {
      */
     resume?: ResumableProof;
   }): Promise<Purchase> {
+    if (opts?.relay) this.assertCanRelay();
+
     let paid: Purchase["paid"];
-    const response = await wardaFetch(input, init, {
-      payer: this.payer,
-      ...(opts?.maxSettleAttempts !== undefined ? { maxSettleAttempts: opts.maxSettleAttempts } : {}),
-      ...(opts?.relay !== undefined ? { relay: opts.relay } : {}),
-      ...(opts?.relayFeeSompi !== undefined ? { relayFeeSompi: opts.relayFeeSompi } : {}),
-      ...(opts?.resume ? { resume: opts.resume } : {}),
-      onEvent: (e) => {
-        if (e.type === "paid") {
-          paid = { txid: e.result.txid, amountSompi: e.result.amountSompi, header: e.header };
-        }
-        opts?.onEvent?.(e);
-      },
-    });
-
-    /* Advance only here. `wardaFetch` resolving means the vendor served, so
-       this is the one moment the purchase is both paid AND delivered. Anything
-       that threw above left the record stale, which is the recoverable half of
-       the two ways to be wrong. */
-    if (paid) {
-      this.manifestState = advanced(this.manifestState, this.payer.state, paid.amountSompi, this.payer.fee);
-      await this.store.save(this.manifestState);
+    try {
+      const response = await wardaFetch(input, init, {
+        payer: this.payer,
+        ...(opts?.maxSettleAttempts !== undefined ? { maxSettleAttempts: opts.maxSettleAttempts } : {}),
+        ...(opts?.relay !== undefined ? { relay: opts.relay } : {}),
+        ...(opts?.relayFeeSompi !== undefined ? { relayFeeSompi: opts.relayFeeSompi } : {}),
+        ...(opts?.resume ? { resume: opts.resume } : {}),
+        onEvent: (e) => {
+          if (e.type === "paid") {
+            paid = { txid: e.result.txid, amountSompi: e.result.amountSompi, header: e.header };
+          }
+          opts?.onEvent?.(e);
+        },
+      });
+      return paid ? { response, paid } : { response };
+    } finally {
+      await this.reconcile();
     }
+  }
 
-    return paid ? { response, paid } : { response };
+  /**
+   * Write the record forward to wherever the payer says the grant now is.
+   *
+   * In a `finally`, because the record's job is to FIND THE COIN and the coin
+   * does not care whether the vendor served. This used to advance only on a
+   * 2xx, on the reasoning that a payment which settled and was never delivered
+   * is a debt rather than a spend — which is true of the accounting and false
+   * of the address. A v2 vendor broadcasts and then refuses; the grant has
+   * moved by then, and a record left behind points at an address holding
+   * nothing. Agent #005's first purchase did exactly that: `WardaPayer.settled`
+   * ran, the spend was accepted on chain, the request came back 402, and the
+   * manifest on disk still read `spent_total: 0`. The error text even said the
+   * grant had been advanced to match. It had not.
+   *
+   * Nothing about the debt is lost by writing it: the proof that the payment
+   * happened is the `paid` event's header, which is a separate artifact and
+   * still returned.
+   *
+   * The amount comes from the payer's own counters rather than from the
+   * invoice. On a relayed payment the covenant is charged the invoice PLUS the
+   * relay hop's fee, so a record advanced by the invoice alone drifts by that
+   * fee every purchase — the same slow divergence `grant_value` has already
+   * been corrected by hand once.
+   *
+   * Idempotent: the delta is zero on a second call.
+   */
+  private async reconcile(): Promise<boolean> {
+    const state = this.payer.state;
+    const spent = state.spentTotal - BigInt(this.manifestState.spent_total);
+    if (spent <= 0n) return false;
+    this.manifestState = advanced(this.manifestState, state, spent, this.payer.fee);
+    await this.store.save(this.manifestState);
+    return true;
+  }
+
+  /**
+   * Can this grant relay at all? Answerable with no network and no signature.
+   *
+   * A relayed payment goes grant -> the agent's own key -> the vendor, so the
+   * agent's key has to be on the allowlist. An allowlist is fixed at genesis,
+   * which makes this the one failure in the flow that CANNOT be fixed after
+   * the fact — and it was being discovered late, after a quote, a node round
+   * trip and a UTXO lookup, by a proof lookup throwing. Agent #005's first
+   * grant was built that way and had to be abandoned and rebuilt.
+   *
+   * So it is checked here, before the vendor is even asked for a price.
+   */
+  private assertCanRelay(): void {
+    const agentKey = this.grant.state.agentKey;
+    if (this.grant.recipients.has(agentKey)) return;
+    throw new Error(
+      `this grant cannot pay through a relay: its allowlist does not contain the agent's ` +
+        `own key (${agentKey.slice(0, 16)}\u2026).\n\n` +
+        `x402 exact requires the payer's input to be an ordinary key-controlled coin, so a ` +
+        `covenant spend can never be the payment itself \u2014 the grant has to pay the agent ` +
+        `first, and that hop has to be on the allowlist. An allowlist is fixed at genesis, so ` +
+        `this grant will never be able to do it:\n\n` +
+        `  warda grant --payees payees.txt --relay\n\n` +
+        `Nothing has been quoted, signed or spent. See x402/RELAY.md for what that hop costs.`,
+    );
   }
 
   /** Releases the chain connection, but only if this opened it. */

@@ -33,6 +33,9 @@ export interface FakeVendor {
   url: string;
   /** Change it between requests. That is the whole point. */
   mode: VendorMode;
+  /** Every request it has received, paid or not. Zero is a real assertion:
+   *  it is how a test says a client refused BEFORE asking for a price. */
+  requests: number;
   /** Every X-PAYMENT header this vendor has been shown, in order. */
   seen: string[];
   /** Transaction ids it has delivered against. */
@@ -47,7 +50,12 @@ const nonceFor = (resource: string, sompi: bigint, expiresAt: number) =>
   `${expiresAt}.${createHmac("sha256", SECRET).update(`${resource}:${sompi}:${expiresAt}`).digest("hex")}`;
 
 export async function startFakeVendor(): Promise<FakeVendor> {
-  const state = { mode: "serve" as VendorMode, seen: [] as string[], served: [] as string[] };
+  const state = {
+    mode: "serve" as VendorMode,
+    requests: 0,
+    seen: [] as string[],
+    served: [] as string[],
+  };
 
   const server: Server = createServer((req, res) => {
     const send = (status: number, body: unknown) => {
@@ -59,6 +67,8 @@ export async function startFakeVendor(): Promise<FakeVendor> {
     // Node gives a repeated header as an array. One string is the only form
     // this vendor accepts; anything else is treated as absent rather than
     // silently joined into a proof nobody sent.
+    state.requests++;
+
     const raw = req.headers["x-payment"];
     const header = typeof raw === "string" ? raw : undefined;
     if (typeof header === "string") state.seen.push(header);
@@ -110,6 +120,7 @@ export async function startFakeVendor(): Promise<FakeVendor> {
     url: `http://127.0.0.1:${port}/fact`,
     get mode() { return state.mode; },
     set mode(m: VendorMode) { state.mode = m; },
+    get requests() { return state.requests; },
     seen: state.seen,
     served: state.served,
     /* `closeAllConnections` first, and it is not belt-and-braces.

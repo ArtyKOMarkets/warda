@@ -32,14 +32,23 @@
  *   write BEFORE the broadcast     a submit that succeeds while the record is
  *                                  lost strands the coin at an address nobody
  *                                  can reconstruct
- *   advance AFTER delivery         a payment that settled and was never served
- *                                  is a debt to collect, not a spend to record
- *   never advance on a failure     the grant did not move, and writing as
+ *   advance WHEN THE COIN MOVES    not when the vendor is happy: a payment
+ *                                  that settled and was never served still
+ *                                  moved the grant, and the record's job is to
+ *                                  say where the grant is
+ *   never advance on a refusal     one that never reached the chain, that is;
+ *                                  the grant did not move and writing as
  *                                  though it did loses the real one
  *
- * The first of those is why `save` exists separately from `advance`: they
- * happen at different moments for different reasons, and a single `set` would
- * let a caller collapse them by accident.
+ * The middle rule used to read "advance AFTER delivery", which sounds more
+ * careful and is not. It is the accounting question ("is this a spend or a
+ * debt?") answered in the place that asks the addressing one ("where is the
+ * coin?"), and the two have different answers whenever a vendor broadcasts
+ * before it decides — which is what x402 v2 does.
+ *
+ * The first rule is why `save` exists separately from `advance`: they happen
+ * at different moments for different reasons, and a single `set` would let a
+ * caller collapse them by accident.
  */
 import type { GrantState } from "@warda_protocol/kaspa";
 

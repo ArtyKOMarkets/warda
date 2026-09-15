@@ -44,13 +44,20 @@ This package owns that, in a specific order:
 | | |
 |---|---|
 | **pay** | through the payer, one purchase at a time |
-| **deliver** | the vendor serves, or the purchase is a debt and not a spend |
-| **advance** | only then, and only on delivery |
+| **reconcile** | the record follows the **coin**, whatever the vendor decided |
 
-A failure between paying and delivering leaves the record **stale on purpose**.
-Stale is recoverable by following the chain. Advanced past a payment that was
-never delivered loses the proof needed to collect it. Of the two ways to be
-wrong, only one is reversible.
+A purchase that settled on chain and was never served still **moved the
+grant**, so the record moves with it. The debt is not lost by writing it
+forward: what redeems it is the header on the `paid` event, which is handed
+back separately.
+
+This rule used to read "advance only on delivery", and it was wrong in the
+expensive direction. It answers the accounting question — is this a spend or a
+debt? — in the place that asks the addressing one: where is the coin? The two
+differ whenever a vendor broadcasts before it decides, which is what x402 v2
+does. Agent #005's first purchase was broadcast, accepted on chain, refused off
+it, and left `spent_total: 0` on disk: the unaddressable grant this package
+exists to prevent, produced by the rule meant to prevent it.
 
 ## Bring your own store
 

@@ -107,7 +107,7 @@ test("a purchase pays, is served, and advances the record exactly once", async (
   );
 });
 
-test("a vendor that takes the money and does not serve leaves the record alone", async () => {
+test("a vendor that takes the money and does not serve still moves the record", async () => {
   const { node, vendor, store, agent } = await bench();
   const before = store.current();
 
@@ -123,15 +123,60 @@ test("a vendor that takes the money and does not serve leaves the record alone",
   await assert.rejects(() => agent.fetch(vendor.url, undefined, { maxSettleAttempts: 1 }));
 
   assert.equal(node.submitted.length, 1, "the payment really was broadcast");
-  assert.deepEqual(
-    store.current(),
-    before,
-    "an undelivered purchase is a debt to collect, and the proof needed to collect it " +
-      "is lost the moment the record is advanced past it",
+
+  /**
+   * This assertion used to be the opposite, and it was wrong in the expensive
+   * direction.
+   *
+   * The reasoning was that an undelivered purchase is a debt to collect rather
+   * than a spend to record. True — and it answers the accounting question in
+   * the place that asks the addressing one. The coin moved. A grant's address
+   * is a hash of its state, so a record that did not move points at an address
+   * holding nothing, which every tool reports as "no UTXO" and nothing reports
+   * as "your record is behind".
+   *
+   * Agent #005's first purchase went exactly this way against a real vendor:
+   * broadcast, accepted on chain, refused off it, and `spent_total: 0` left on
+   * disk. The debt is not lost by writing the record forward; the header that
+   * redeems it rides on the `paid` event and is a separate artifact.
+   */
+  const after_ = store.current();
+  assert.ok(
+    after_.spent_total > before.spent_total,
+    "the coin moved, so the record has to move with it — otherwise the grant is at an " +
+      "address no tool can name",
   );
-  /* And the in-memory grant HAS moved, which is the asymmetry: the wallet
-     knows more than the record does, and that is the recoverable direction. */
-  assert.ok(agent.state.spentTotal > BigInt(before.spent_total));
+  assert.equal(
+    after_.spent_total,
+    Number(agent.state.spentTotal),
+    "the record agrees with the payer about where the grant now is",
+  );
+  assert.equal(
+    after_.grant_value,
+    before.grant_value - (after_.spent_total - before.spent_total) - Number(agent.fee),
+    "and the coin lost the spend plus the fee",
+  );
+});
+
+test("a relay is refused before the vendor is asked, when the grant cannot do it", async () => {
+  /* The agent's own key has to be on the allowlist for the grant to pay it,
+     and an allowlist is fixed at genesis — so this is the one failure in the
+     flow that can never be fixed afterwards. It used to surface after a quote,
+     a node round trip and a UTXO lookup, as a Merkle proof lookup throwing.
+     Agent #005's first grant was built that way and had to be abandoned.
+
+     The vendor is started and then never contacted: `requests` staying at zero
+     is the assertion. */
+  const { vendor, store, agent } = await bench();
+  const before = store.current();
+
+  await assert.rejects(
+    () => agent.fetch(vendor.url, undefined, { relay: true }),
+    /allowlist does not contain the agent's own key/,
+  );
+
+  assert.equal(vendor.requests, 0, "nothing was quoted");
+  assert.deepEqual(store.current(), before, "and nothing was spent");
 });
 
 test("the record is advanced, not replaced — unmodelled fields survive", async () => {
