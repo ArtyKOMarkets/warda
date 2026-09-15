@@ -147,7 +147,14 @@ if (recipients.rootHex !== m.recipients_root) {
  * the honest fallback. Publishing "agent #001" over an address that is no
  * longer agent #001's would be worse than publishing no name at all.
  */
-interface KnownPayee { key: string; label: string; derivation: string; checkAgainst: string }
+interface KnownPayee {
+  key: string;
+  label: string;
+  derivation: string;
+  checkAgainst: string;
+  /** Does this address belong to this project? Decides the disclosure below. */
+  ours: boolean;
+}
 const known: KnownPayee[] = JSON.parse(
   readFileSync(here("../known-payees.json"), "utf8"),
 ).payees;
@@ -155,7 +162,7 @@ const known: KnownPayee[] = JSON.parse(
 const payees = members.map((key) => {
   const address = pubkeyToAddress(fromHex(key), prefix);
   const entry = known.find((k) => k.key.toLowerCase() === key.toLowerCase());
-  if (!entry) return { address, key, label: null, derivation: null };
+  if (!entry) return { address, key, label: null, derivation: null, ours: false };
   /* Re-derive from the named artefact. `#field` reads that field of a JSON
      manifest; anything else is a file whose whole contents are the key. */
   const [file, field] = entry.checkAgainst.split("#");
@@ -173,11 +180,69 @@ const payees = members.map((key) => {
         `  the allowlist commits to ${key}\n` +
         `  The address is published without a name rather than with the wrong one.`,
     );
-    return { address, key, label: null, derivation: null };
+    return { address, key, label: null, derivation: null, ours: false };
   }
-  return { address, key, label: entry.label, derivation: entry.derivation };
+  return { address, key, label: entry.label, derivation: entry.derivation, ours: entry.ours };
 });
 const payee = payees[0]!.address;
+
+/**
+ * "Both ends of this are ours" is a claim, so it is derived like every other.
+ *
+ * It used to be the literal `true`, written into the JSON and also hardcoded
+ * into the shared agent page, which named agents #001 and #002 by hand. That
+ * was accurate for every agent that existed when it was written and became
+ * false the moment one of them paid somebody else — and the page it would have
+ * appeared on is agent #005's, whose entire point is that the vendor is a
+ * stranger. The most prominent honesty notice on the site, saying the opposite
+ * of the thing the page exists to demonstrate.
+ *
+ * True only when EVERY payee is verifiably ours. An unlabelled payee is not
+ * evidence of a stranger — but it is an absence of evidence that it is us, and
+ * of the two directions to guess, the flattering one is the one that must
+ * never be taken.
+ */
+const bothEndsAreOurs = payees.every((p) => p.ours);
+
+/**
+ * The disclosure, as a title and paragraphs, rendered by the page from here.
+ *
+ * In the JSON rather than in the template because it is a claim about this
+ * particular agent and the template is shared by four of them. There were two
+ * copies of this text — one here that nothing read, one in `agent.html` that
+ * everything read — which is how the wrong one was the one on the page.
+ */
+const disclosure = bothEndsAreOurs
+  ? {
+      title: "Both ends of this are ours",
+      paragraphs: [
+        "Every agent on this site was built here, and the vendor this one buys from is ours " +
+          "too. This is therefore NOT a market, and saying otherwise would be the easiest " +
+          "claim on this site to catch out.",
+        "What it is: a payment between independent grants, with different keys, each able to " +
+          "pay a fixed list of addresses, settled on a public chain where anyone can look it " +
+          "up. The demonstration is that the rails work \u2014 not that a third party chose to " +
+          "trade with us.",
+        "Agent #001's digest is published free at wardaprotocol.com/agent-001.json, because " +
+          "pretending it was scarce would have traded the checkable claim for a flattering one.",
+      ],
+    }
+  : {
+      title: "This one pays somebody else",
+      paragraphs: [
+        "Every other agent on this site buys from an endpoint we also wrote, which makes the " +
+          "money real and the market imaginary. At least one address on this grant's allowlist " +
+          "is not ours, and nothing here can make it ours: an allowlist is fixed at genesis " +
+          "and the chain enforces it.",
+        "That is the claim, and it is also the limit of the claim. A vendor accepting a " +
+          "payment is not a vendor endorsing this protocol \u2014 they have never heard of it, " +
+          "which is the point. What is demonstrated is that a bounded agent can transact with " +
+          "software that knows nothing about the bound.",
+        "An address below with no name is one nobody here has identified. That is the honest " +
+          "rendering, not an omission: a name that cannot be re-derived from something " +
+          "published is worth less than the address itself.",
+      ],
+    };
 
 const authority = { principalKey: m.principal, revocationKey: m.revocation ?? m.principal };
 const state: GrantState = {
@@ -529,14 +594,8 @@ try {
              was re-derived from something published. */
           payees,
           address: payee,
-          bothEndsAreOurs: true,
-          disclosure:
-            "Every agent on this site was built here, and the vendors they buy from are ours " +
-            "too. What is demonstrated is therefore not a market — it is a payment: separate " +
-            "grants, separate keys, a fixed list of addresses each may pay, and settlements " +
-            "anyone can look up. Agent #001's digest is published free at " +
-            "wardaprotocol.com/agent-001.json, because pretending it was scarce would have " +
-            "traded the checkable claim for a flattering one.",
+          bothEndsAreOurs,
+          disclosure,
         },
         ...(endedBy
           ? {
@@ -645,7 +704,17 @@ try {
   console.error(`grant     : ${address}`);
   console.error(`  holds   : ${atGrant.length ? kas(atGrant[0]!.entry.value) : "nothing"}`);
   console.error(`  spent   : ${kas(state.spentTotal)} of ${kas(state.budgetTotal)}`);
-  console.error(`buys from : ${payee} (agent #001, derived)`);
+  /* The label, not a hardcoded one. This line said "(agent #001, derived)"
+     whatever the payee was — beside machinery a hundred lines above that drops
+     any label it cannot re-derive, and prints why. The careful version wrote
+     the JSON; the printf was what a human read. */
+  console.error(
+    `buys from : ${payee}` +
+      (payees[0]!.label ? ` (${payees[0]!.label}, re-derived)` : ` (unlabelled — nobody here has identified it)`),
+  );
+  if (!bothEndsAreOurs) {
+    console.error(`            at least one payee is NOT ours, so the page says so.`);
+  }
   console.error(`timelock  : ${open ? "open" : "closed"} — notBefore ${state.notBefore}, now ${daa}`);
   console.error(`purchases : ${purchases.length} recorded, ${purchases.filter((p) => p.outcome === "bought").length} served`);
   console.error(`payments  : ${ours.length} attributable to this grant`);

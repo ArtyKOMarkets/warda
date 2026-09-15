@@ -335,6 +335,34 @@ def agent_publishable(data_name, page_name, how):
     if not d.get("refusals"):
         print(f"! src/{data_name} carries no refusals, which are the point of the page.")
         return False
+
+    # The disclosure is now DERIVED per agent — "both ends of this are ours" is
+    # true of most of them and false of #005, whose vendor is a stranger. It
+    # used to be hardcoded in the shared template, so a reading written before
+    # that change carries the old string and the page would render without any
+    # disclosure at all.
+    #
+    # Dropped rather than published quietly. The block is a refusal of the
+    # reading a visitor would otherwise take away, so its ABSENCE flatters —
+    # which makes a silently missing one worse than a missing page. The command
+    # above regenerates it.
+    #
+    # Asked of the PAGE, not listed here, for the same reason as the guard
+    # above: agent #001 sells rather than buys and has no disclosure block, so
+    # a requirement written as a rule would have dropped a page that never
+    # renders one. The page says what it needs.
+    wants_disclosure = 'id="b-disclose"' in page.read_text()
+    disc = (d.get("buysFrom") or {}).get("disclosure")
+    if wants_disclosure and (
+        not isinstance(disc, dict) or not disc.get("title") or not disc.get("paragraphs")
+    ):
+        print(
+            f"! src/{data_name} predates the derived disclosure — the page would render "
+            f"without one, and that block is the honesty notice."
+        )
+        for line in how.splitlines():
+            print("  " + line)
+        return False
     return True
 
 
