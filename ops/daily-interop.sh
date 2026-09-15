@@ -53,7 +53,8 @@ WARDA_AGENT_SK="$(cat "$KEY")" node --experimental-strip-types agents/tools/inte
   --grant x402/demo/agent-005-grant.json \
   --recipients agent-005/payees.txt \
   --url https://demo.kaspa-x402.org/exact \
-  --status site/src/interop-status.json
+  --status site/src/interop-status.json \
+  --out agent-005/purchases
 rc=$?
 set -e
 
@@ -63,8 +64,8 @@ set -e
 case $rc in
   0) echo "bought from a stranger." ;;
   3) echo "the covenant refused it. Nothing was spent — this is the budget ending." >&2 ;;
-  4) echo "PAID AND NOT SERVED. The receipt is beside the grant as *.unredeemed.json;" >&2
-     echo "present that rather than re-running, which would buy it twice." >&2 ;;
+  4) echo "PAID AND NOT SERVED. The proof is in agent-005/purchases, on a record whose" >&2
+     echo "outcome is paid-then-failed. Do not re-run to compensate: that buys it twice." >&2 ;;
   *) echo "failed with $rc — see above." >&2 ;;
 esac
 exit $rc

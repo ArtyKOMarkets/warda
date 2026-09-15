@@ -253,6 +253,13 @@ python3 build.py >/dev/null
 # before the deploy rather than after it.
 node ../ops/check-links.mjs
 
+# And the commands build.py prints when it drops a page. Those are read months
+# later by somebody who cannot test them, so a flag that was never real is
+# found at the worst possible moment — which already happened once, to the
+# agent-005 command, written from the shape of its neighbours rather than from
+# the tool.
+node ../ops/check-commands.mjs
+
 sig() { grep -v '"checkedAt"' "$1" 2>/dev/null || true; }
 
 # `sort -z` is a GNU extension and this runs on macOS, where BSD sort does not

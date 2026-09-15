@@ -30,10 +30,11 @@
  * the same thing was six hundred lines of CLI, and the difference is the
  * argument for the package.
  */
-import { writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { readFileSync } from "node:fs";
 import { Agent, fileStore, toRecipientSet } from "@warda_protocol/agent";
 import { fromHex } from "@warda_protocol/kaspa";
+import { withProof } from "./resume.ts";
 
 const flag = (n: string, d?: string): string | undefined => {
   const i = process.argv.indexOf(`--${n}`);
@@ -42,23 +43,34 @@ const flag = (n: string, d?: string): string | undefined => {
 };
 
 const manifestPath = flag("grant");
-const manifestPathReceiptDefault = (): string | undefined =>
-  manifestPath ? manifestPath.replace(/(\.json)?$/, "") + ".unredeemed.json" : undefined;
 const recipientsPath = flag("recipients");
 const url = flag("url", "https://demo.kaspa-x402.org/exact")!;
 const statusPath = flag("status");
 /**
- * Where an unredeemed purchase's proof is kept.
+ * The purchase log — one file per attempt, refusals included.
  *
- * Separate from `--status` on purpose: the status file is published by the
- * site and this one must not be. Defaults beside the grant, because that is
- * where the other thing you cannot lose already lives.
+ * This is the repository's existing record format, not a new one. I wrote a
+ * bespoke `*.unredeemed.json` here first, which was a mistake in a specific
+ * way: `resume.ts` already defines what a purchase record looks like, attaches
+ * the proof to EVERY outcome through `withProof`, and knows how to find an
+ * unfinished one and close a debt. A second format meant the one agent most
+ * likely to be refused by a stranger wrote its receipts somewhere none of that
+ * machinery could see — and its first undelivered payment was invisible to the
+ * tooling built for exactly that case.
+ *
+ * It is also what `dashboard.ts --purchases` reads, so the agent's page
+ * reconciles what the chain says against what this wrote. Without it the page
+ * reports money leaving the grant "with no surviving record of why", which
+ * would be false in the most unflattering possible direction.
  */
-const receiptPath = flag("receipt", manifestPathReceiptDefault());
+const outDir = flag("out");
 const secretHex = process.env.WARDA_AGENT_SK;
 
 if (!manifestPath || !recipientsPath) {
-  console.error("usage: interop.ts --grant <manifest.json> --recipients <payees.txt> [--url <u>] [--status <f>]");
+  console.error(
+    "usage: interop.ts --grant <manifest.json> --recipients <payees.txt>\n" +
+      "                  [--url <u>] [--status <f>] [--out <purchases dir>]",
+  );
   process.exit(2);
 }
 if (!secretHex) {
@@ -84,6 +96,52 @@ const status = (fields: Record<string, unknown>): void => {
   );
 };
 
+/**
+ * The receipt, captured from the event rather than from the return value.
+ *
+ * `agent.fetch` throws when the vendor refuses, so the purchase that most
+ * needs recording is the one whose return value never arrives. The header on
+ * the `paid` event is the only artifact that can redeem a payment which
+ * settled and was not served, and it exists for exactly one moment: agent
+ * #005's first purchase went that way and the header was discarded, leaving a
+ * paid transaction with nothing to present it with.
+ */
+let receipt: { txid: string; amountSompi: string; header: string } | undefined;
+
+/**
+ * One file per attempt, whatever happened.
+ *
+ * The same shape `buy.ts` writes, so `resume.ts`, `dashboard.ts` and anyone
+ * reading the directory see one format. `withProof` attaches the header to
+ * EVERY outcome rather than to the successful ones — a record that names a
+ * payment has to carry the means to finish it, and the failure that rule
+ * exists for is a catch block overwriting the paid record with a poorer one.
+ */
+const startedAt = new Date();
+const stamp = startedAt.toISOString().replace(/[:.]/g, "-");
+const record = (outcome: Record<string, unknown>): void => {
+  if (!outDir) return;
+  mkdirSync(outDir, { recursive: true });
+  const path = `${outDir}/${stamp}.json`;
+  writeFileSync(
+    path,
+    JSON.stringify(
+      {
+        _comment:
+          "Written by agents/tools/interop.ts. One file per attempt, refusals included: a " +
+          "purchase log that only records successes is a sales brochure.",
+        at: startedAt.toISOString(),
+        agent: "WARDA-005",
+        url,
+        ...withProof(outcome, receipt),
+      },
+      null,
+      2,
+    ) + "\n",
+  );
+  console.error(`recorded : ${path}`);
+};
+
 const members = readFileSync(recipientsPath, "utf8").split(/\r?\n/);
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
 const recipients = toRecipientSet(members);
@@ -105,18 +163,6 @@ const agent = await Agent.open({
   borsh: true,
   networkId: process.env.WARDA_NETWORK ?? "testnet-10",
 });
-
-/**
- * The receipt, captured from the event rather than from the return value.
- *
- * `agent.fetch` throws when the vendor refuses, so the purchase that most
- * needs recording is the one whose return value never arrives. The header on
- * the `paid` event is the only artifact that can redeem a payment which
- * settled and was not served, and it exists for exactly one moment: agent
- * #005's first purchase went that way and the header was discarded, leaving a
- * paid transaction with nothing to present it with.
- */
-let receipt: { txid: string; amountSompi: string; header: string } | undefined;
 
 try {
   const { response, paid } = await agent.fetch(url, undefined, {
@@ -152,6 +198,14 @@ try {
     remaining: agent.manifest.grant_value,
     body: body.slice(0, 400),
   });
+  record({
+    outcome: response.ok ? "bought" : "paid-but-refused",
+    httpStatus: response.status,
+    amountSompi: paid?.amountSompi.toString() ?? null,
+    feeSompi: agent.fee.toString(),
+    remaining: agent.manifest.grant_value,
+    body: body.slice(0, 400),
+  });
   if (!response.ok) process.exit(4);
   console.error(`remaining: ${agent.manifest.grant_value} sompi in the grant`);
 } catch (e) {
@@ -174,11 +228,23 @@ try {
   });
   /* The header is NOT in the status file. That file is served from the site,
      and the header redeems the purchase: anyone holding it could present it
-     and collect goods this grant paid for. The txid above is chain data and
-     public either way; this is the half that is not. */
-  if (receipt && receiptPath) {
-    writeFileSync(receiptPath, JSON.stringify({ at: new Date().toISOString(), vendor: url, ...receipt }, null, 2) + "\n");
-    console.error(`receipt  : ${receiptPath} — present this rather than paying again`);
+     and collect goods this grant paid for. The txid there is chain data and
+     public either way; this is the half that is not, so it goes only into the
+     purchase log, which is local. */
+  record({
+    /* `paid-then-failed` is one of resume.ts's UNFINISHED outcomes, so a
+       record written here is a debt the existing tooling can find. A refusal
+       by the grant's own limits spent nothing, and must not look like one. */
+    outcome: refused ? "refused" : receipt ? "paid-then-failed" : "failed",
+    refusedByGrant: refused,
+    error: why,
+    remaining: agent.manifest.grant_value,
+  });
+  if (receipt && !refused) {
+    console.error(
+      `debt     : ${receipt.txid} is paid and undelivered. The proof is in the purchase\n` +
+        `           log above. Do NOT re-run to compensate — that buys it twice.`,
+    );
   }
   process.exit(refused ? 3 : 1);
 } finally {
