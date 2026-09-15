@@ -4,6 +4,7 @@
 #
 #   ops/install-cron.sh            the hourly reading
 #   ops/install-cron.sh --buy      that, and agent #003's daily purchase
+#   ops/install-cron.sh --interop  and agent #005 buying from a third party
 #
 # This script exists because a crontab LINE and a shell COMMAND look identical
 # in a chat window, and pasting one where the other belongs does nothing
@@ -28,6 +29,18 @@ BUYLOG="$HOME/Library/Logs/warda-buy.log"
 # 09:41, not on the hour and not at midnight: the reading runs at :17, and a
 # purchase wants a digest that already exists rather than one being written.
 BUYENTRY="41 9 * * * $BUY >> $BUYLOG 2>&1"
+
+# Agent #005 buying from demo.kaspa-x402.org, once a day. Opt-in for the same
+# reason as --buy: it SPENDS, about 0.22 KAS a run against 2.55 remaining, so
+# roughly eleven days. It is also the only thing watching for the relayed
+# payment that settled on chain and came back `invalid_transaction_state` on
+# 15 September, which the next run did not reproduce and nobody has explained.
+# An intermittent failure only becomes a rate if something keeps trying.
+INTEROP="$OPS/daily-interop.sh"
+INTEROPLOG="$HOME/Library/Logs/warda-interop.log"
+# 09:23: after first-contact at :07 and before #003's buy at :41, so three jobs
+# that all touch the chain are not queued behind each other.
+INTEROPENTRY="23 9 * * * $INTEROP >> $INTEROPLOG 2>&1"
 
 # Is the endpoint /start sends a stranger at actually answering? Not opt-in:
 # it costs nothing, it touches no key and moves no coin, and the failure it
@@ -62,9 +75,13 @@ VENDORLOG="$HOME/Library/Logs/warda-vendor.log"
 VENDORENTRY="*/15 * * * * $VENDOR --quiet >> $VENDORLOG 2>&1"
 WANT_BUY=""
 NO_BUY=""
+WANT_INTEROP=""
+NO_INTEROP=""
 for a in "$@"; do
   [ "$a" = "--buy" ] && WANT_BUY=1
   [ "$a" = "--no-buy" ] && NO_BUY=1
+  [ "$a" = "--interop" ] && WANT_INTEROP=1
+  [ "$a" = "--no-interop" ] && NO_INTEROP=1
 done
 
 if [ ! -x "$SCRIPT" ]; then
@@ -73,6 +90,10 @@ if [ ! -x "$SCRIPT" ]; then
 fi
 if [ -n "$WANT_BUY" ] && [ ! -x "$BUY" ]; then
   echo "not found or not executable: $BUY" >&2
+  exit 1
+fi
+if [ -n "$WANT_INTEROP" ] && [ ! -x "$INTEROP" ]; then
+  echo "not found or not executable: $INTEROP" >&2
   exit 1
 fi
 
@@ -92,7 +113,7 @@ fi
 # So: fix it if we can, refuse if we cannot. Installing a schedule of commands
 # that cannot run is worse than installing nothing, because the crontab then
 # says the job exists.
-for f in "$SCRIPT" "$BUY" "$VENDOR" "$CONTACT" "$PROXY" "$NODECHK"; do
+for f in "$SCRIPT" "$BUY" "$INTEROP" "$VENDOR" "$CONTACT" "$PROXY" "$NODECHK"; do
   [ -f "$f" ] || continue
   [ -x "$f" ] && continue
   chmod +x "$f" 2>/dev/null || true
@@ -122,10 +143,18 @@ if printf '%s\n' "$current" | grep -q -F "daily-buy.sh"; then
     WANT_BUY=1
   fi
 fi
+if printf '%s\n' "$current" | grep -q -F "daily-interop.sh"; then
+  if [ -n "$NO_INTEROP" ]; then
+    echo "removing agent #005's daily interop buy, as asked."
+  else
+    WANT_INTEROP=1
+  fi
+fi
 
 printf '%s\n' "$current" \
   | grep -v -F "hourly-reading.sh" \
   | grep -v -F "daily-buy.sh" \
+  | grep -v -F "daily-interop.sh" \
   | grep -v -F "check-vendor.sh" \
   | grep -v -F "first-contact.sh" \
   | grep -v -F "proxy-up.sh" \
@@ -137,6 +166,7 @@ printf '%s\n' "$CONTACTENTRY" >> /tmp/warda-cron.$$
 printf '%s\n' "$PROXYENTRY" >> /tmp/warda-cron.$$
 printf '%s\n' "$NODEENTRY" >> /tmp/warda-cron.$$
 if [ -n "$WANT_BUY" ]; then printf '%s\n' "$BUYENTRY" >> /tmp/warda-cron.$$; fi
+if [ -n "$WANT_INTEROP" ]; then printf '%s\n' "$INTEROPENTRY" >> /tmp/warda-cron.$$; fi
 crontab /tmp/warda-cron.$$
 rm -f /tmp/warda-cron.$$
 
@@ -161,6 +191,16 @@ if [ -n "$WANT_BUY" ]; then
   echo "a cron that tops up a grant has reinvented the hot wallet."
   echo "  tail $BUYLOG"
   echo "  ls $HOME/Desktop/warda/agent-003/purchases/"
+fi
+if [ -n "$WANT_INTEROP" ]; then
+  echo
+  echo "agent #005 buys from demo.kaspa-x402.org at 09:23 — a vendor nobody here"
+  echo "controls. ~0.22 KAS a run against 2.55 remaining, so about eleven days,"
+  echo "and it does not top itself up either. It writes site/src/interop-status.json"
+  echo "on EVERY outcome, including the failures, so a run that dies shows up as"
+  echo "the claim going stale rather than as a stale green."
+  echo "  tail $INTEROPLOG"
+  echo "  cat $HOME/Desktop/warda/site/src/interop-status.json"
 fi
 echo
 echo "If the log says 'Operation not permitted', cron needs Full Disk Access:"
