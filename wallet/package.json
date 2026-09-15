@@ -1,0 +1,44 @@
+{
+  "name": "@warda_protocol/agent",
+  "version": "0.1.0",
+  "description": "An agent wallet. Holds a Warda grant, pays HTTP 402 out of it, and keeps the grant's record current — because a grant's address is a hash of its state and moves on every spend.",
+  "type": "module",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --experimental-strip-types --test test/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+  },
+  "dependencies": {
+    "@warda_protocol/core": "^0.3.1",
+    "@warda_protocol/kaspa": "^0.5.3",
+    "@warda_protocol/x402": "^0.5.0"
+  },
+  "peerDependencies": {
+    "@warda_protocol/borsh": "^0.3.0"
+  },
+  "peerDependenciesMeta": {
+    "@warda_protocol/borsh": {
+      "optional": true
+    }
+  }
+}

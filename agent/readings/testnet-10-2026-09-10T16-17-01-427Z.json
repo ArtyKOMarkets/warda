@@ -1,0 +1,19 @@
+{
+  "at": "2026-09-10T16:17:01.427Z",
+  "network": "testnet-10",
+  "node": {
+    "url": "ws://127.0.0.1:18210",
+    "serverVersion": "2.0.1",
+    "synced": true
+  },
+  "daaScore": "566983298",
+  "sink": "0c813c40d6c4e188ea60e6eef68b1bbe182b380189344ca815131f25236fc634",
+  "tips": 1,
+  "mempoolSize": "50",
+  "blockCount": "1345289",
+  "blueScore": "556032546",
+  "circulatingSompi": "2692989761673526487",
+  "maxSompi": "2900000000000000000",
+  "hashesPerSecond": "21621871",
+  "missing": []
+}
