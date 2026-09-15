@@ -42,9 +42,19 @@ const flag = (n: string, d?: string): string | undefined => {
 };
 
 const manifestPath = flag("grant");
+const manifestPathReceiptDefault = (): string | undefined =>
+  manifestPath ? manifestPath.replace(/(\.json)?$/, "") + ".unredeemed.json" : undefined;
 const recipientsPath = flag("recipients");
 const url = flag("url", "https://demo.kaspa-x402.org/exact")!;
 const statusPath = flag("status");
+/**
+ * Where an unredeemed purchase's proof is kept.
+ *
+ * Separate from `--status` on purpose: the status file is published by the
+ * site and this one must not be. Defaults beside the grant, because that is
+ * where the other thing you cannot lose already lives.
+ */
+const receiptPath = flag("receipt", manifestPathReceiptDefault());
 const secretHex = process.env.WARDA_AGENT_SK;
 
 if (!manifestPath || !recipientsPath) {
@@ -96,6 +106,18 @@ const agent = await Agent.open({
   networkId: process.env.WARDA_NETWORK ?? "testnet-10",
 });
 
+/**
+ * The receipt, captured from the event rather than from the return value.
+ *
+ * `agent.fetch` throws when the vendor refuses, so the purchase that most
+ * needs recording is the one whose return value never arrives. The header on
+ * the `paid` event is the only artifact that can redeem a payment which
+ * settled and was not served, and it exists for exactly one moment: agent
+ * #005's first purchase went that way and the header was discarded, leaving a
+ * paid transaction with nothing to present it with.
+ */
+let receipt: { txid: string; amountSompi: string; header: string } | undefined;
+
 try {
   const { response, paid } = await agent.fetch(url, undefined, {
     /* Their `exact` scheme takes only a version-0 transaction with a
@@ -104,7 +126,17 @@ try {
     relay: true,
     onEvent: (e) => {
       if (e.type === "quote") console.error(`quoted   : ${e.requirement.amountSompi} sompi to ${e.requirement.payTo}`);
-      if (e.type === "paid") console.error(`paid     : ${e.result.txid}`);
+      if (e.type === "paid") {
+        receipt = {
+          txid: e.result.txid,
+          amountSompi: e.result.amountSompi.toString(),
+          header: e.header,
+        };
+        console.error(`paid     : ${e.result.txid}`);
+      }
+      /* Their node has not seen it yet. Printed because a silent twenty-second
+         pause reads as a hang, and because the reason is the finding. */
+      if (e.type === "settling") console.error(`settling : attempt ${e.attempt}, waiting ${e.delayMs}ms`);
       if (e.type === "done") console.error(`status   : ${e.status}`);
     },
   });
@@ -129,7 +161,25 @@ try {
      recording it as one would make the monitor cry wolf about the covenant
      doing its job. The budget running out is the expected end of this agent. */
   const refused = /allowlist|budget|cap|epoch|expire|notBefore/i.test(why);
-  status({ ok: false, refusedByGrant: refused, error: why });
+  /* The receipt goes in even here — especially here. A failure carrying the
+     txid and the header is a debt somebody can collect; the same failure
+     without them is an anecdote about losing money. */
+  status({
+    ok: false,
+    refusedByGrant: refused,
+    error: why,
+    txid: receipt?.txid ?? null,
+    paidSompi: receipt?.amountSompi ?? null,
+    remaining: agent.manifest.grant_value,
+  });
+  /* The header is NOT in the status file. That file is served from the site,
+     and the header redeems the purchase: anyone holding it could present it
+     and collect goods this grant paid for. The txid above is chain data and
+     public either way; this is the half that is not. */
+  if (receipt && receiptPath) {
+    writeFileSync(receiptPath, JSON.stringify({ at: new Date().toISOString(), vendor: url, ...receipt }, null, 2) + "\n");
+    console.error(`receipt  : ${receiptPath} — present this rather than paying again`);
+  }
   process.exit(refused ? 3 : 1);
 } finally {
   await agent.close();

@@ -5,7 +5,18 @@ dist/
 _gitjunk/
 *.key
 target/
+
+# A manifest called exactly `grant.json`, at any depth. Note the trap: this
+# pattern is why agent #005's record had to be committed under another name,
+# and why 1.778 KAS from the 14 September interop spend has no manifest
+# anywhere and is unspendable. A grant's address is a hash of its state, so an
+# ignored manifest is a lost coin. Name deliberate ones something else.
 grant.json
+
+# The proof that an undelivered purchase was paid for. Redeemable by whoever
+# holds it — presenting it collects goods the grant already paid for — so it
+# stays out of a public repository, and out of the site's status files.
+*.unredeemed.json
 _to_delete/
 js-spend.json
 js-genesis.json
