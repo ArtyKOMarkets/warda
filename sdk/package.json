@@ -43,7 +43,7 @@
     "advance": "node --experimental-strip-types tools/advance-manifest.ts",
     "genesis": "node --experimental-strip-types tools/genesis.ts",
     "probes": "node --experimental-strip-types tools/probes.ts",
-    "build": "tsc -p tsconfig.build.json",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json",
     "prepublishOnly": "npm run typecheck && npm test && npm run build"
   },

@@ -34,40 +34,19 @@
  * `Inspectable`.
  */
 
-import {
-  NodeClient,
-  formatHealth,
-  inspect,
-  type NodeHealth,
-  type OpenOptions,
-} from "@warda_protocol/kaspa";
+import { openChain as openChainCore, type ChainOptions, type OpenedChain } from "@warda_protocol/kaspa";
+
+export type { Chain, ChainOptions, OpenedChain } from "@warda_protocol/kaspa";
 
 /**
- * What the tools need from a chain connection.
+ * The reusable half now lives in `@warda_protocol/kaspa`.
  *
- * Narrow on purpose: it is what makes a `NodeClient` and a `BorshReader`
- * interchangeable at this seam. Widening it would quietly re-couple the tools
- * to the JSON transport, which is how the requirement got everywhere the first
- * time.
+ * What remains here is everything that is a decision about a PROGRAM rather
+ * than about a chain: reading argv, and installing a process-level handler. A
+ * library has no argv and does not own the process it runs in, and both of
+ * those facts have already cost this repo a defect — see the two comments
+ * below, which are the reasons rather than the rules.
  */
-export type Chain = Pick<
-  NodeClient,
-  | "close"
-  | "getInfo"
-  | "getBlockDagInfo"
-  | "getUtxosByAddresses"
-  | "grantUtxo"
-  | "submitTransaction"
-  /* An ordinary version-0 payment, which is a different call because it takes
-     a different type — see `v0.ts`. Only the relay half of an x402 `exact`
-     purchase uses it, and both clients have it. */
-  | "submitOrdinaryPayment"
-> & { readonly url: string };
-
-export interface ChainOptions extends OpenOptions {
-  /** Reach the chain over borsh, through a public resolver. */
-  borsh?: boolean;
-}
 
 /** `--borsh` on the command line, or `WARDA_BORSH=1` in the environment. */
 export function borshRequested(argv: string[] = process.argv.slice(2)): boolean {
@@ -85,12 +64,12 @@ export function borshRequested(argv: string[] = process.argv.slice(2)): boolean 
  *   --rpc alongside --borsh   an endpoint somebody chose for borsh
  *   WARDA_RPC_JSON            a JSON listener, by name and by definition
  *
- * Once merged, openChain could not tell them apart — so a machine with
- * WARDA_RPC_JSON exported in its shell ran `--borsh` against its own JSON
- * port. Borsh to a JSON listener connects and is dropped, which surfaced as
- * `WebSocket disconnected` out of a wasm background task, and looked like the
- * public resolvers being flaky. It was a local node refusing an encoding it
- * does not speak.
+ * Once merged they could not be told apart — so a machine with WARDA_RPC_JSON
+ * exported in its shell ran `--borsh` against its own JSON port. Borsh to a
+ * JSON listener connects and is dropped, which surfaced as `WebSocket
+ * disconnected` out of a wasm background task, and looked for two days like
+ * the public resolvers being flaky. It was a local node refusing an encoding
+ * it does not speak.
  *
  * JSON and borsh are different ports on a kaspad, not different spellings.
  * The environment variable's own name says which one it holds, so on this path
@@ -103,22 +82,7 @@ function namedBorshEndpoint(argv: string[] = process.argv.slice(2)): string | un
 }
 
 /**
- * The connect deadline lives in `@warda_protocol/borsh`, not here.
- *
- * It was here first, as one timeout around the whole thing, and the message it
- * could produce was "nothing answered in 20 seconds" — true of a blocked HTTPS
- * lookup, a blocked outbound wss, a resolver with no node for your network,
- * and a node that is down. Four causes, four different things to do, one
- * message. The transport knows which stage it is in; this does not.
- */
-export interface OpenedChain {
-  client: Chain;
-  health: NodeHealth;
-  transport: "json" | "borsh";
-}
-
-/**
- * The WASM client reports a lost connection OUT OF BAND, and Node 24 kills the
+ * The WASM client reports a lost connection OUT OF BAND, and Node kills the
  * process for it.
  *
  * `RPC Server (remote error) -> WebSocket disconnected` does not arrive by
@@ -130,9 +94,9 @@ export interface OpenedChain {
  *
  * That is not something the borsh package can fix from the inside: the
  * rejection is not reachable from any promise it hands out. A process-level
- * handler is the only place it can be caught, and a CLI tool owns its process
- * where a library does not — so it lives here, in `sdk/tools`, and not in
- * `@warda_protocol/borsh`.
+ * handler is the only place it can be caught, and a CLI owns its process where
+ * a library does not — which is precisely why this did NOT move to `src` with
+ * the rest of this file.
  *
  * It converts, it does not swallow. A dropped connection is a real failure of
  * whatever was in flight, so this still exits non-zero; what changes is that
@@ -167,67 +131,13 @@ function guardAgainstSilentDisconnect(): void {
   });
 }
 
+/**
+ * The tools' entry point: argv answers the two questions the library will not
+ * guess at, and the process guard goes in before anything can drop a socket.
+ */
 export async function openChain(options: ChainOptions = {}): Promise<OpenedChain> {
-  if (!(options.borsh ?? borshRequested())) {
-    const { client, health } = await NodeClient.open(options);
-    return { client, health, transport: "json" };
-  }
-
+  const borsh = options.borsh ?? borshRequested();
+  if (!borsh) return openChainCore(options);
   guardAgainstSilentDisconnect();
-
-  let mod: typeof import("@warda_protocol/borsh");
-  try {
-    mod = await import("@warda_protocol/borsh");
-  } catch {
-    throw new Error(
-      "--borsh needs the borsh transport and a WASM build that can express a covenant.\n\n" +
-        "  npm install @warda_protocol/borsh @kluster/kaspa-wasm\n\n" +
-        "Both are optional: a node of your own makes them unnecessary.",
-    );
-  }
-
-  const networkId = options.networkId ?? process.env.WARDA_NETWORK ?? "testnet-10";
-  /* Deliberately NOT options.url. See `namedBorshEndpoint`: the callers have
-     already merged --rpc with WARDA_RPC_JSON by the time it arrives here, and
-     one of those two is a JSON listener that cannot answer borsh. */
-  const client = await mod.BorshReader.open({
-    networkId,
-    url: namedBorshEndpoint(),
-  });
-
-  /* Checked before anything is signed, because a build that cannot carry a
-     covenant fails in the one direction that produces a transaction rather
-     than an error. `canSubmit` is answered by CONSTRUCTING a binding, not by
-     reading a version, so it will start saying yes the day upstream ships one
-     without anything here changing. */
-  if (!client.canSubmit) {
-    await client.close();
-    throw new Error(
-      "the WASM build installed cannot express a covenant, so it must not build a spend.\n\n" +
-        "Borsh is positional: a struct the encoder does not know about is not an unknown\n" +
-        "field, it is an ABSENT one. A grant spend through such a build would be\n" +
-        "well-formed, correctly signed, and bound to nothing.\n\n" +
-        "  npm install @kluster/kaspa-wasm\n\n" +
-        "kaspa-wasm32-sdk@0.15.2 is the one that cannot. A packaging gap upstream, not a\n" +
-        "protocol one.",
-    );
-  }
-
-  let health: NodeHealth;
-  try {
-    health = await inspect(client, options);
-  } catch (e) {
-    await client.close();
-    throw e;
-  }
-  if (!health.usable && !options.tolerate) {
-    await client.close();
-    throw new Error(
-      `this node cannot be trusted with a grant:\n\n${formatHealth(health)}\n\n` +
-        `It was chosen by a resolver rather than by you, which is the trade --borsh makes ` +
-        `— so these checks are the part that is not optional. Every one of them fails by ` +
-        `returning a plausible answer rather than an error.`,
-    );
-  }
-  return { client: client as unknown as Chain, health, transport: "borsh" };
+  return openChainCore({ ...options, borsh: true, borshUrl: options.borshUrl ?? namedBorshEndpoint() });
 }

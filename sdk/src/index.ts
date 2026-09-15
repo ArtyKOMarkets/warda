@@ -168,6 +168,13 @@ export {
 export { externalSigner, type ExternalSignerOptions } from "./signer.ts";
 
 export {
+  openChain,
+  type Chain,
+  type ChainOptions,
+  type OpenedChain,
+} from "./chain.ts";
+
+export {
   NodeClient,
   // Ask a node whether it can be believed before believing it. Every check
   // it makes fails by returning a plausible answer rather than an error.
