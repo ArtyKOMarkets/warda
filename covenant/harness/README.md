@@ -75,7 +75,13 @@ a test suite nobody runs fails in a way nobody sees.
 
 **So the rule this directory exists to serve now has a second half.** The first
 was: prove the bytecode, not the semantics. The second is: a proof that is not
-re-run is not a proof, and CI is where that belongs.
+re-run is not a proof.
+
+Both suites now run in CI — `.github/workflows/check.yml`, on every push and
+pull request, plus a weekly schedule. The weekly run is not decoration: this
+decayed across two covenant versions with nobody pushing to the covenant in
+between, and the thing that moves underneath a pinned build is usually
+somewhere else.
 
 The overspend rejection is the product claim, now demonstrated in the same
 engine a node runs — not reasoned about, not simulated.

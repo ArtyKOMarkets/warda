@@ -1,5 +1,7 @@
 # Warda
 
+[![check](https://github.com/ArtyKOMarkets/warda/actions/workflows/check.yml/badge.svg)](https://github.com/ArtyKOMarkets/warda/actions/workflows/check.yml)
+
 **Give agents money. Not unlimited authority.**
 
 An open protocol for creating, delegating, verifying and enforcing cryptographic

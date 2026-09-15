@@ -1,0 +1,129 @@
+# Run the evidence, so it cannot decay quietly.
+#
+# This file exists because of a specific failure, and the failure is the
+# argument for every choice in it.
+#
+# `covenant/harness` proves the covenant at the bytecode level: it runs the
+# compiled script through TxScriptEngine, the engine a Kaspa node validates
+# with. On 15 September 2026 it was discovered to have been broken for two
+# covenant versions. v4 had inserted three constructor parameters and appended
+# a fourth; the suite still passed the v2 list. Nobody noticed, because nobody
+# ran it — and `LIMITS.md`, `GUARANTEES.md` and the site's evidence page all
+# quoted figures it had produced when it last worked.
+#
+# The worst of the five defects was SILENT. The successor's accounting was
+# written into slots v4 had repurposed, so successors compiled fine at a wrong
+# geometry, their addresses never matched the continuation the covenant derives,
+# and everything was refused. The three BASELINES failed and every "rejected"
+# test passed — for reasons unrelated to the rule each was testing. A suite
+# reporting 18 of 33 green looked healthy to anyone who did not read which 18.
+#
+# So the rule this repo already had — prove the bytecode, not the semantics —
+# needed a second half: a proof that is not re-run is not a proof. This is that
+# half.
+
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # The decay took two covenant versions and nobody was pushing to the covenant
+  # in between. A weekly run catches rot in the things AROUND it too — a pinned
+  # dependency yanked, a toolchain moving under us.
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # The covenant. This job is the reason the file exists; it runs first in
+  # spirit, and is deliberately NOT allowed to be skipped by path filters.
+  # The suite decayed because a change somewhere else moved something under it,
+  # which is exactly the case a path filter would have excluded.
+  # ---------------------------------------------------------------------------
+  covenant:
+    name: covenant — bytecode, in the node's own engine
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      # Both suites compile rusty-kaspa and silverscript from pinned revisions.
+      # Cold that is minutes; cached it is seconds. Keyed on the lockfiles, so a
+      # deliberate bump invalidates it and an accidental one cannot hide.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            covenant/harness/target
+            covenant/deploy/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('covenant/*/Cargo.toml', 'covenant/*/Cargo.lock') }}
+          restore-keys: cargo-${{ runner.os }}-
+
+      # 33 tests: one accepted baseline per entrypoint, then single-field flips
+      # from it. The baselines are the load-bearing part — a refusal only means
+      # something when the transaction it was flipped from is accepted — so a
+      # failure here is never "most of them passed".
+      - name: harness — flip tests against TxScriptEngine
+        working-directory: covenant/harness
+        run: cargo test --test spend -- --nocapture
+
+      # 14 probes, each attack beside its nearest legitimate twin, judged in
+      # BOTH directions: a covenant that refused everything would pass a suite
+      # made only of refusals. Needs no keys and no network — the corpus is
+      # sdk/probes/, committed.
+      - name: deploy — adversarial probes, accepts and refusals
+        working-directory: covenant/deploy
+        run: cargo run -q -- probe
+
+  # ---------------------------------------------------------------------------
+  # The packages.
+  # ---------------------------------------------------------------------------
+  packages:
+    name: packages — rules, builders, clients
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      # Before the tests, and this ordering is not cosmetic. Package tests
+      # import `src/`; the repo's tools import the package, which resolves to
+      # `dist/`. A stale build is green and wrong at the same time — it has
+      # already cost one unrecoverable payment. `check-dist` refuses to let the
+      # suite run against one, so the build has to come first.
+      - name: Build every workspace, so nothing is tested against a stale dist
+        run: npm run build --workspaces --if-present
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # Per workspace rather than one `--workspaces` run: a single combined
+      # failure line tells you a number, and these packages fail for unrelated
+      # reasons. Named steps say WHICH half of the protocol broke.
+      - name: core — the rules, computed once
+        run: npm test
+      - name: sdk
+        run: npm test --workspace sdk
+      - name: x402 — the buyer's half
+        run: npm test --workspace x402
+      - name: vendor — the seller's half
+        run: npm test --workspace vendor
+      - name: borsh — the transport
+        run: npm test --workspace borsh
+      - name: verify
+        run: npm test --workspace verify
+      - name: mcp
+        run: npm test --workspace mcp
+      - name: growth
+        run: npm test --workspace growth
+      - name: extension
+        run: npm test --workspace extension
