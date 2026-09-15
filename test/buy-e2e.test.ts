@@ -104,6 +104,24 @@ function fundNode(node: FakeNode, m: Record<string, unknown>) {
  * "timed out connecting", which reads as a broken fake and was a blocked
  * parent.
  */
+/**
+ * The demo agent's secret, inline, because it is PUBLISHED.
+ *
+ * It is on /attack in 48-point type under an invitation to take the money:
+ * the covenant bounds this key, not secrecy, and that is the whole claim the
+ * page is making. Four other test files already carry it as a literal.
+ *
+ * It used to be read from `covenant/deploy/demo-agent.key`, which `.gitignore`
+ * matches as `*.key` — so these six tests could pass only on a machine that
+ * had run the deploy, and on a fresh checkout they failed with ENOENT before
+ * asserting anything. Green here, impossible in CI, for a value anyone can
+ * read off the website. The rule that no secret key is committed is worth
+ * keeping absolutely; this is not one, and treating it as one cost the suite
+ * its six most end-to-end tests.
+ */
+const DEMO_AGENT_SECRET =
+  "9fccfb08645b4a5a49f0f461b9ae7209865c234f941e9d4679e8a18da77af2ad";
+
 function run(
   ws: ReturnType<typeof workspace>,
   node: FakeNode,
@@ -116,7 +134,7 @@ function run(
   ], {
     env: {
       ...process.env,
-      WARDA_SK: readFileSync(repo("covenant/deploy/demo-agent.key"), "utf8").trim(),
+      WARDA_SK: DEMO_AGENT_SECRET,
       WARDA_RPC_JSON: node.url,
       WARDA_NETWORK: "testnet-10",
     },

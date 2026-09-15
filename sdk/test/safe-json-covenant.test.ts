@@ -32,7 +32,16 @@ import { test } from "node:test";
 import { fromWire, toHex, toSafeJson, transactionId } from "../src/index.ts";
 
 const spend = JSON.parse(
-  readFileSync(new URL("../../covenant/deploy/js-spend.json", import.meta.url), "utf8"),
+  /* `sdk/js-spend.json`, not `covenant/deploy/js-spend.json` — the same bytes,
+     and only one of them is committed. `.gitignore` matches the bare name
+     `js-spend.json` at any depth, which catches the copy the build tools write
+     into covenant/deploy and not the recorded vector beside this suite. So
+     this test read a file that exists on a machine which has run a deploy and
+     nowhere else, and threw at import on a fresh checkout — taking the whole
+     file with it, because the read is at the top level.
+
+     Its sibling `safe-json.test.ts` has always loaded the committed copy. */
+  readFileSync(new URL("../js-spend.json", import.meta.url), "utf8"),
 );
 const tx = fromWire(spend);
 
