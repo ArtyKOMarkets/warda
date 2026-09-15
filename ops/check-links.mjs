@@ -26,6 +26,7 @@
  * and the src pages are full of unsubstituted placeholders.
  */
 import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
+import { Script } from "node:vm";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -66,16 +67,57 @@ for (const page of pages) {
   }
 }
 
+/**
+ * And that every inline script PARSES.
+ *
+ * These pages render themselves from JSON: the agent pages keep `b-body`
+ * hidden until the script fills it in, and the landing page's sections are the
+ * same shape. So a syntax error does not produce a broken page, it produces a
+ * BLANK one — and the build, which only substitutes placeholders, would report
+ * success either way.
+ *
+ * Here rather than in a test because it needs the BUILT page: the sources are
+ * full of unsubstituted placeholders, and a `{{WALLET_JS}}` that lands in the
+ * wrong place is exactly the kind of thing this catches.
+ */
+for (const page of pages) {
+  const html = readFileSync(join(web, page), "utf8");
+  const scripts = [...html.matchAll(/<script(?![^>]*\ssrc=)[^>]*>([\s\S]*?)<\/script>/g)];
+  scripts.forEach((m, i) => {
+    try {
+      new Script(m[1]);
+    } catch (e) {
+      problems.push({ page, href: `inline script #${i + 1}`, why: `will not parse: ${e.message}` });
+    }
+  });
+}
+
 if (problems.length === 0) {
-  console.log(`links: ${pages.length} built pages, every internal link resolves.`);
+  console.log(
+    `links: ${pages.length} built pages, every internal link resolves and every inline script parses.`,
+  );
   process.exit(0);
 }
 
-console.error("the built site links to something that is not there:\n");
-for (const p of problems) console.error(`  ${p.page}  ->  ${p.href}   (${p.why})`);
-console.error(
-  "\nA page build.py DROPPED is the usual cause: it is skipped when its data is missing,\n" +
-    "and whatever links to it is published anyway. Either generate the data the build\n" +
-    "asked for, or stop linking it until there is a page to link to.",
-);
+const broken = problems.filter((p) => p.href.startsWith("inline script"));
+const dangling = problems.filter((p) => !p.href.startsWith("inline script"));
+
+if (dangling.length > 0) {
+  console.error("the built site links to something that is not there:\n");
+  for (const p of dangling) console.error(`  ${p.page}  ->  ${p.href}   (${p.why})`);
+  console.error(
+    "\nA page build.py DROPPED is the usual cause: it is skipped when its data is missing,\n" +
+      "and whatever links to it is published anyway. Either generate the data the build\n" +
+      "asked for, or stop linking it until there is a page to link to.\n",
+  );
+}
+if (broken.length > 0) {
+  console.error("a built page carries a script that will not parse:\n");
+  for (const p of broken) console.error(`  ${p.page}  ${p.href}   (${p.why})`);
+  console.error(
+    "\nThese pages render themselves and keep their body hidden until the script has run,\n" +
+      "so this does not ship a broken page \u2014 it ships a BLANK one, and the build reports\n" +
+      "success either way.",
+  );
+}
 process.exit(1);
