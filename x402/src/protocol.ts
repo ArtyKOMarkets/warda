@@ -145,6 +145,16 @@ export function decodeProof(header: string): PaymentProof {
 }
 
 /**
+ * How many times to present one payment before giving up on it.
+ *
+ * Here rather than in either fetch file, because BOTH dialects need it and a
+ * second copy of a 6 is how two clients end up with different patience for the
+ * same reason. v2 went without a settle loop entirely for a release; the
+ * constant moved here when that was fixed.
+ */
+export const DEFAULT_SETTLE_ATTEMPTS = 6;
+
+/**
  * The server answers 402 a second time while the payment is still settling.
  * The spec says retry the identical header after 1–8 seconds, several times.
  *

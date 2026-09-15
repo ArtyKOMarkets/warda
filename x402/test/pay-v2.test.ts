@@ -345,6 +345,10 @@ test("a spend the chain accepted is banked even when the vendor refuses to serve
         payer: p,
         relay: true,
         fetchImpl,
+        /* One presentation. The settle loop below is what happens when the
+           vendor catches up; this test is the branch where it never does, and
+           six real backoffs to prove it would cost half a minute. */
+        maxSettleAttempts: 1,
         onEvent: (e) => events.push(e.type),
       }),
     /IS on chain and accepted.*not served/s,
@@ -353,6 +357,70 @@ test("a spend the chain accepted is banked even when the vendor refuses to serve
   assert.deepEqual(events, ["quote", "signed", "broadcast", "settled", "unresolved"]);
   assert.equal(p.outstanding.status, "none", "not stuck: we watched it land");
   assert.equal(p.state.spentTotal, 20_000_000n + relayFeeFor(20_000_000n, fromHex(agentKey), VENDOR), "and the grant moved, because it did");
+});
+
+test("a 402 while their node catches up is presented again, not paid again", async () => {
+  /**
+   * The failure this exists for, from a real vendor on 15 September 2026.
+   *
+   * The relayed payment was submitted through a public resolver, watched until
+   * that resolver reported it accepted, and presented the same instant — to a
+   * verifier resolving it against a DIFFERENT node, which had not heard about
+   * it yet. `402 {"error":"invalid_transaction_state"}`, on a transaction
+   * sitting in the UTXO set paying the address they quoted.
+   *
+   * v1 had re-presented since it was written; v2 presented once and threw. The
+   * payment identifier exists precisely so that a second presentation reads to
+   * them as the same purchase, so the retry was designed for and never built.
+   *
+   * The assertion that matters is the last one: the grant moved by exactly one
+   * payment. Retrying a purchase must never become buying it twice.
+   */
+  const p = payer();
+  const events: string[] = [];
+  let presentations = 0;
+  const fetchImpl = (async (_url: string, init: RequestInit) => {
+    if (!(init?.headers as Record<string, string>)?.["PAYMENT-SIGNATURE"]) return res(402, quoted());
+    presentations++;
+    return presentations < 3
+      ? res(402, { error: "invalid_transaction_state" })
+      : res(200, { ok: true });
+  }) as never;
+
+  const out = await wardaFetchV2("https://vendor.example/infer", { method: "POST" }, {
+    payer: p,
+    relay: true,
+    fetchImpl,
+    onEvent: (e) => events.push(e.type),
+  });
+
+  assert.equal(out.status, 200);
+  assert.equal(presentations, 3, "it kept presenting until they saw it");
+  assert.deepEqual(events, ["quote", "signed", "broadcast", "settling", "settling", "settled", "done"]);
+  assert.equal(
+    p.state.spentTotal,
+    20_000_000n + relayFeeFor(20_000_000n, fromHex(agentKey), VENDOR),
+    "one payment, not three",
+  );
+});
+
+test("a refusal that is not a 402 is not retried", async () => {
+  /* 402 means "I cannot see a payment", which is what a node behind on
+     propagation says and improves by asking again. A 500 is theirs and a 400
+     is about the payload; identical bytes will not change either, and a loop
+     that retried them would turn one bad request into six. */
+  const p = payer();
+  let presentations = 0;
+  const fetchImpl = (async (_url: string, init: RequestInit) => {
+    if (!(init?.headers as Record<string, string>)?.["PAYMENT-SIGNATURE"]) return res(402, quoted());
+    presentations++;
+    return res(500, { error: "boom" });
+  }) as never;
+
+  await assert.rejects(() =>
+    wardaFetchV2("https://vendor.example/infer", { method: "POST" }, { payer: p, relay: true, fetchImpl }),
+  );
+  assert.equal(presentations, 1);
 });
 
 test("a spend that never reached the chain still stops the payer", async () => {

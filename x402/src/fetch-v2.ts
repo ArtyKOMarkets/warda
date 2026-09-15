@@ -23,7 +23,7 @@
  * and some of them can only be produced before a broadcast. Reading those is a
  * real refinement, and it is not guesswork this file should do by inference.
  */
-import { X402Error } from "./protocol.ts";
+import { DEFAULT_SETTLE_ATTEMPTS, X402Error, settleDelayMs } from "./protocol.ts";
 import type { ExactPaymentRequirements } from "@kaspa-x402/core";
 import {
   dialect,
@@ -77,6 +77,26 @@ export interface WardaFetchV2Options {
   acceptTimeoutMs?: number;
 
   /**
+   * How many times to present the SAME payment while the vendor reports it
+   * cannot see it yet. Default 6.
+   *
+   * v1 has always done this and v2 did not, which was an omission rather than
+   * a decision. Their verifier resolves the payment against its own node and
+   * requires the finality the quote names; ours is submitted through whichever
+   * public resolver answered and presented the instant that resolver reports
+   * it accepted. Those are two different nodes and there is no reason the
+   * second should have heard about it yet — so the first presentation raced
+   * propagation with nothing behind it, and a lost race was reported as a
+   * vendor refusing a payment plainly on chain.
+   *
+   * Re-presenting cannot pay again: no path in this function reaches the payer
+   * a second time, and the payload is the identical bytes. It is also what the
+   * payment identifier is FOR — the transaction id, stable across
+   * presentations, so their idempotency cache reads a retry as one purchase.
+   */
+  maxSettleAttempts?: number;
+
+  /**
    * Omit `payerAddress` from the payload. Optional in their schema.
    *
    * Their own client fills it from a funding wallet's identity, so every
@@ -123,6 +143,10 @@ export type WardaFetchV2Event =
   | { type: "quote"; amountSompi: bigint; payTo: string; accepted: ExactPaymentRequirements }
   | { type: "signed"; pending: PendingPayment }
   | { type: "broadcast"; txid: string; accepted: boolean }
+  /* Between presentations of one payment. `vendorSaid` is included because a
+     retry loop that prints only "attempt 3" hides the reason it is retrying,
+     and the reason is the finding. */
+  | { type: "settling"; attempt: number; delayMs: number; status: number; vendorSaid: string }
   | { type: "settled"; result: PaymentResult }
   | { type: "unresolved"; why: string; status: number; vendorSaid: string }
   | { type: "done"; status: number };
@@ -272,11 +296,68 @@ export async function wardaFetchV2(
     }
   }
 
-  const paid = await doFetch(url as never, {
-    ...init,
-    method,
-    headers: { ...(init?.headers as Record<string, string>), [PAYMENT_SIGNATURE_HEADER]: pending.header },
-  } as never);
+  /**
+   * Read a refusal completely, without consuming the response.
+   *
+   * Hoisted out of the failure branch because the settle loop needs it too:
+   * deciding whether to retry means reading what they said, and a loop that
+   * read the body on the last attempt only would be choosing blind on every
+   * attempt before it.
+   */
+  const decodeHeader = (r: Response, name: string): string => {
+    const raw = r.headers.get(name);
+    if (!raw) return "";
+    try {
+      return `${name}: ${JSON.stringify(JSON.parse(Buffer.from(raw, "base64").toString("utf8")))}`;
+    } catch {
+      /* A header we cannot parse is still evidence. */
+      return `${name}: ${raw.slice(0, 2_000)}`;
+    }
+  };
+  const whatTheySaid = async (r: Response): Promise<string> => {
+    const text = await r
+      .clone()
+      .text()
+      .then((t) => t.slice(0, 2_000).trim())
+      .catch(() => "");
+    return [text, decodeHeader(r, PAYMENT_RESPONSE_HEADER), decodeHeader(r, PAYMENT_REQUIRED_HEADER)]
+      .filter(Boolean)
+      .join("\n");
+  };
+
+  const present = (): Promise<Response> =>
+    doFetch(url as never, {
+      ...init,
+      method,
+      headers: { ...(init?.headers as Record<string, string>), [PAYMENT_SIGNATURE_HEADER]: pending.header },
+    } as never);
+
+  /**
+   * Present until they see it, or until patience runs out.
+   *
+   * Only a 402 is retried. It is the one status that means "as far as I can
+   * tell you have not paid", which is exactly the claim a node that has not
+   * yet heard about an accepted transaction would make. A 4xx that is not 402
+   * is a complaint about the payload, and a 5xx is theirs; neither improves by
+   * asking again with identical bytes.
+   *
+   * Guarded on `confirmedOnChain`, so a client that chose not to broadcast is
+   * not put in a loop waiting for a transaction nobody sent.
+   */
+  const attempts = Math.max(1, opts.maxSettleAttempts ?? DEFAULT_SETTLE_ATTEMPTS);
+  let paid = await present();
+  for (let attempt = 1; attempt < attempts && confirmedOnChain && paid.status === 402; attempt++) {
+    const delayMs = settleDelayMs(attempt - 1);
+    emit({
+      type: "settling",
+      attempt,
+      delayMs,
+      status: paid.status,
+      vendorSaid: await whatTheySaid(paid),
+    });
+    await new Promise((r) => setTimeout(r, delayMs));
+    paid = await present();
+  }
 
   if (!paid.ok) {
     /**
@@ -298,7 +379,7 @@ export async function wardaFetchV2(
       emit({ type: "settled", result });
     }
     /**
-     * What the vendor said, verbatim.
+     * What the vendor said, verbatim — body and both headers.
      *
      * The first live run of this against a real vendor came back 402 and this
      * function discarded the body, so the only thing anyone could report was
@@ -309,56 +390,13 @@ export async function wardaFetchV2(
      * Bounded, because an error page can be any size, and included in both the
      * event and the thrown message so a caller that logs either one has it.
      */
-    const body = await paid
-      .clone()
-      .text()
-      .then((t) => t.slice(0, 2_000).trim())
-      .catch(() => "");
-
-    /**
-     * The structured reason, which does not travel in the body.
-     *
-     * Their protocol puts a settlement response in a `PAYMENT-RESPONSE`
-     * header — base64 of a document carrying `errorReason` and friends — and
-     * this read only the body. The first live relayed payment came back with a
-     * body of `{"ok":false,"error":"payment_required"}`, which is the generic
-     * x402 wrapper and says nothing, while the identifier that would have said
-     * which of their checks failed was sitting in a header nobody looked at.
-     *
-     * Decoded rather than passed through: base64 in a terminal is not a
-     * finding. Anything undecodable is reported raw, because a header we
-     * cannot parse is still evidence.
-     */
-    const decodeHeader = (name: string): string => {
-      const raw = paid.headers.get(name);
-      if (!raw) return "";
-      try {
-        return `${name}: ${JSON.stringify(JSON.parse(Buffer.from(raw, "base64").toString("utf8")))}`;
-      } catch {
-        /* A header we cannot parse is still evidence. */
-        return `${name}: ${raw.slice(0, 2_000)}`;
-      }
-    };
-
-    /**
-     * BOTH headers, because a refusal arrives as one or the other.
-     *
-     * `PAYMENT-RESPONSE` carries a settlement response — the vendor ran its
-     * verifier and is telling you which check failed. `PAYMENT-REQUIRED`
-     * carries a fresh quote, which means the vendor did NOT consider a payment
-     * present at all and is asking again; its `error` field says why.
-     *
-     * The first live relayed payment came back with neither read: a body of
-     * `{"ok":false,"error":"payment_required"}`, which is the reference
-     * gateway's DEFAULT body for a 402 with nothing in it, and therefore says
-     * nothing whatsoever. The two possibilities above are completely different
-     * problems — one is our payload, one is our payment — and the body cannot
-     * tell them apart. Reading only it left "it did not work" as the entire
-     * finding from a payment that cost a real signature, twice.
-     */
-    const vendorSaid = [body, decodeHeader(PAYMENT_RESPONSE_HEADER), decodeHeader(PAYMENT_REQUIRED_HEADER)]
-      .filter(Boolean)
-      .join("\n");
+    /* Body and both headers, read by the helper above. A refusal arrives as
+       one or the other: `PAYMENT-RESPONSE` means they ran their verifier and
+       are naming the check that failed; `PAYMENT-REQUIRED` means they did not
+       consider a payment present at all and are quoting again. Reading only
+       the body left "it did not work" as the entire finding from a payment
+       that cost a real signature, twice. */
+    const vendorSaid = await whatTheySaid(paid);
 
     /**
      * A 402 is not the same kind of failure as a 500.

@@ -1,4 +1,5 @@
 import {
+  DEFAULT_SETTLE_ATTEMPTS,
   encodeProof,
   parsePaymentRequired,
   settleDelayMs,
@@ -107,7 +108,6 @@ export type WardaFetchEvent =
   | { type: "settling"; attempt: number; delayMs: number }
   | { type: "done"; status: number };
 
-const DEFAULT_SETTLE_ATTEMPTS = 6;
 
 /** A request body may be consumed when the first attempt is sent, so it has to
  *  be captured before that and replayed on the retry. */
@@ -328,6 +328,10 @@ async function payV2(
     payer: opts.payer,
     fetchImpl: opts.fetchImpl,
     maxAmountSompi: opts.maxAmountSompi,
+    /* Forwarded: v2 re-presents one payment while their node catches up, the
+       same way v1 does, and a caller with its own deadline has to be able to
+       say so in both dialects. */
+    maxSettleAttempts: opts.maxSettleAttempts,
     relay: opts.relay,
     relayFeeSompi: opts.relayFeeSompi,
     onEvent: (e) => {
@@ -368,6 +372,7 @@ async function payV2(
           },
         });
       }
+      if (e.type === "settling") emit({ type: "settling", attempt: e.attempt, delayMs: e.delayMs });
       if (e.type === "done") emit({ type: "done", status: e.status });
     },
   });
