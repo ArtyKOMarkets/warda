@@ -68,4 +68,19 @@ case $rc in
      echo "outcome is paid-then-failed. Do not re-run to compensate: that buys it twice." >&2 ;;
   *) echo "failed with $rc — see above." >&2 ;;
 esac
+
+# The agent's own page, after the purchase that changes it.
+#
+# Nothing else refreshes #005. site/refresh-demo.sh deliberately reads only
+# #001 and #003 hourly — #002 and #004 have ended and there is nothing left to
+# re-read — so without this line #005's page would go on saying "0 recorded, 0
+# served" after every purchase it ever makes, on the page whose whole argument
+# is that its claim can be checked rather than believed.
+#
+# Whatever the purchase did, including failing: a refusal is a reading too, and
+# the reconciliation on that page is more interesting when it is wrong than
+# when it is clean. refresh-agents.sh will not replace a reading that is poorer
+# than the one it has, and refresh-demo.sh deploys it within the hour.
+ops/refresh-agents.sh agent-005 || echo "the reading did not refresh — the page keeps the last one." >&2
+
 exit $rc
