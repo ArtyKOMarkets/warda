@@ -826,7 +826,10 @@
     <div class="col yes">
       <h3>The network enforces</h3>
       <ul>
-        <li>It can pay agent&nbsp;#001 and nobody else</li>
+        <!-- Written from the allowlist. "agent #001 and nobody else" was typed
+             here and is false of #005, which pays a third-party vendor and its
+             own relay key. -->
+        <li id="h-payee">&mdash;</li>
         <li>It could not pay anything before its start time</li>
         <li>No single payment above the cap</li>
         <li>No more than the budget, ever</li>
@@ -836,10 +839,15 @@
     <div class="col no">
       <h3>Nothing here promises</h3>
       <ul>
-        <li>That the digest is correct</li>
+        <li id="h-goods">&mdash;</li>
         <li>That the seller delivers what it charged for</li>
         <li>That a payment is refundable</li>
-        <li>That the two agents are strangers &mdash; they are not</li>
+        <!-- "That the two agents are strangers — they are not" was typed here,
+             in the honesty column, on a template shared by every agent. On
+             #005 it is the exact inverse of the page's subject: that vendor
+             has never heard of us. The most load-bearing sentence on the page
+             was the one asserting the opposite of what the page shows. -->
+        <li id="h-strangers">&mdash;</li>
         <li>That testnet coins are worth anything</li>
       </ul>
     </div>
@@ -1204,7 +1212,33 @@ function renderWallet(d) {
       set("b-budget", a.budget); set("b-spent", a.spent); set("b-remaining", a.remaining);
       set("b-max", a.maxPerPayment);
       set("b-epoch", a.epochLimit + "  (epoch = " + a.epochLengthDaa + " DAA)");
-      set("b-payees", a.authorizedPayees + " — agent #001, and nobody else");
+      /* The payee summary, from the allowlist rather than from memory. */
+      var named = (d.buysFrom.payees || [])
+        .map(function (x) { return x.label; })
+        .filter(Boolean);
+      var whoTheyAre =
+        named.length === (d.buysFrom.payees || []).length && named.length > 0
+          ? named.join(", ") + ", and nobody else"
+          : named.length > 0
+            ? named.join(", ") + " and " + ((d.buysFrom.payees || []).length - named.length) +
+              " address" + ((d.buysFrom.payees || []).length - named.length === 1 ? "" : "es") +
+              " nobody here has identified, and nobody else"
+            : (d.buysFrom.payees || []).length +
+              " address" + ((d.buysFrom.payees || []).length === 1 ? "" : "es") +
+              " nobody here has identified, and nobody else";
+      set("b-payees", a.authorizedPayees + " — " + whoTheyAre);
+      set("h-payee", "It can pay " + whoTheyAre.replace(/, and nobody else$/, "") + " and nobody else");
+
+      /* The honesty column, which is the one place a wrong sentence costs the
+         most. Both of these were typed and both were false on #005. */
+      var ours = d.buysFrom.bothEndsAreOurs !== false;
+      set("h-goods", ours ? "That the digest is correct" : "That what it bought is what it paid for");
+      set(
+        "h-strangers",
+        ours
+          ? "That the two agents are strangers — they are not"
+          : "That this vendor endorses any of it — they have never heard of us",
+      );
       set("b-notbefore", "DAA " + tl.notBefore);
       set("b-onchain", a.onChain || "—");
 
