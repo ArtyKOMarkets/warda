@@ -82,7 +82,8 @@ function flag(name: string, fallback?: string): string | undefined {
 const manifestPath = process.argv.slice(2).find((a) => !a.startsWith("--") && a.endsWith(".json"));
 if (!manifestPath) {
   console.error(
-    "usage: follow-grant.ts <grant.json> --vendor <address> [--rpc url] [--resolver url] [--write]",
+    "usage: follow-grant.ts <grant.json> --vendor <address> [--rpc url] [--resolver url] [--write]\n" +
+      "       follow-grant.ts <grant.json> --spend <sompi> [--spend <sompi> ...] [--write]",
   );
   process.exit(2);
 }
@@ -109,15 +110,53 @@ const { prefix, network } = resolveNetwork({
   action: "look up a grant",
 });
 
+/**
+ * Amounts the caller already knows, for a grant whose payments cannot be found
+ * by looking at the payee.
+ *
+ * The discovery below works because a grant pays exactly one allowlisted
+ * address and every payment it ever made is still sitting there as a UTXO. A
+ * RELAYED payment breaks that: the grant pays the agent's own key, and the
+ * ordinary transaction that goes on to the vendor spends that output in full.
+ * So the coin the covenant released has been consumed and the address it went
+ * through holds nothing, while the vendor's UTXO is for the invoice rather
+ * than for what the grant was charged — which is the invoice plus the relay
+ * hop's fee. Nothing at either address states the amount.
+ *
+ * It is not a mystery, though: a relay fee is derived, not chosen, so the
+ * spend is `relayFunding(invoice, relayFeeFor(invoice, agentKey, payee))` and
+ * a caller can compute it offline. This lets that caller say so.
+ *
+ * Everything downstream is unchanged: the epoch is still enumerated, and a
+ * candidate is still only believed when the chain shows coin at the address it
+ * derives. A wrong --spend finds nothing rather than writing a wrong manifest.
+ */
+const spends = ((): bigint[] => {
+  const out: bigint[] = [];
+  for (let i = 0; i < process.argv.length; i++) {
+    if (process.argv[i] !== "--spend") continue;
+    const v = process.argv[i + 1];
+    if (!v || v.startsWith("--")) {
+      console.error("--spend needs an amount in sompi.");
+      process.exit(2);
+    }
+    out.push(BigInt(v));
+  }
+  return out;
+})();
+
 const vendor = flag("vendor");
-if (!vendor) {
+if (!vendor && spends.length === 0) {
   console.error("--vendor is required: it is the only address this grant can pay, and the");
   console.error("UTXOs sitting there are what make the amounts knowable.");
+  console.error("");
+  console.error("Unless you already know them — a relayed payment leaves nothing at either");
+  console.error("address to read the amount off, so pass each one with --spend <sompi>.");
   process.exit(2);
 }
 // Decoded here and nowhere else: a malformed --vendor should fail on the
 // command line, not sixty lines later inside a query.
-decodeAddress(vendor);
+if (vendor) decodeAddress(vendor);
 
 function toHexKey(b: Uint8Array): string {
   return Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
@@ -171,12 +210,26 @@ try {
     process.exit(0);
   }
 
-  // Every payment this grant ever made, oldest first. One UTXO per payment,
-  // because the covenant pays exactly one recipient per spend.
-  const paid = await client.getUtxosByAddresses([vendor]);
+  /**
+   * Every payment this grant ever made, oldest first.
+   *
+   * Normally one UTXO per payment at the payee, because the covenant pays
+   * exactly one recipient per spend. Amounts given with --spend are dated at
+   * the CURRENT tip instead, which is the honest bound: the spend happened at
+   * some point between the manifest's epoch and now, and dating it at the tip
+   * makes the enumeration below consider every epoch in that range rather than
+   * asserting one.
+   */
+  const paid = vendor ? await client.getUtxosByAddresses([vendor]) : [];
+  const now = spends.length > 0 ? (await client.getBlockDagInfo()).virtualDaaScore : 0n;
+  const payments = [
+    ...paid.map(toPayment),
+    ...spends.map((value) => ({ value, blockDaaScore: now })),
+  ];
 
-  const { usable, tooEarly, tooLarge } = partitionPayments(state, paid.map(toPayment));
+  const { usable, tooEarly, tooLarge } = partitionPayments(state, payments);
   console.error(`grant is not at ${address}`);
+  for (const v of spends) console.error(`taking it on trust that ${v} sompi was spent`);
   if (tooEarly.length > 0) {
     console.error(
       `vendor holds ${paid.length} coin(s); ${tooEarly.length} of them predate this grant ` +
