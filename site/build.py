@@ -263,29 +263,45 @@ if MCP_SERVER["version"] != MCP_PKG["version"]:
 # optional file is a build that stops shipping the pages that were fine.
 AGENTS = [
     # (data, page, the command that writes the data)
+    #
+    # Every one of these redirects to a .new file and MOVES it on success. A
+    # plain `> site/src/agent-002.json` truncates the reading before the tool
+    # runs, so a tool that refuses — which these do, loudly, rather than
+    # publish a page about a grant that has moved — deletes the page's data as
+    # the price of refusing. That happened: agent #002's reading was destroyed
+    # by the refusal that was protecting it, and had to come back out of git.
+    # refresh-demo.sh has always written through a temp file; the commands
+    # printed for a human did not.
     ("agent-001.json", "agent-001.html",
      "cd agent && node --experimental-strip-types tools/dashboard.ts \\\n"
      "    ../x402/demo/kaspa-x402-grant.json \\\n"
-     "    --recipients ../x402/demo/kaspa-x402-recipients.txt > ../site/src/agent-001.json"),
+     "    --recipients ../x402/demo/kaspa-x402-recipients.txt \\\n"
+     "    > ../site/src/agent-001.json.new && mv ../site/src/agent-001.json.new ../site/src/agent-001.json"),
     ("agent-002.json", "agent-002.html",
+    # --ended, because #002 is retired: its grant was revoked by #003's
+    # succession and the address holds nothing. Without it the tool refuses,
+    # correctly, since an empty address means either ENDED or MOVED and the
+    # chain cannot tell those apart. The txid is the exit anyone can look up.
      "node --experimental-strip-types agents/tools/dashboard.ts \\\n"
      "    x402/demo/agent-002-grant.json --id WARDA-002 \\\n"
      "    --recipients x402/demo/agent-002-recipients.txt \\\n"
-     "    --purchases agent-002/purchases > site/src/agent-002.json"),
+     "    --purchases agent-002/purchases \\\n"
+     "    --ended 858e7c54c5180f8106c621982f437cb38f6a5d19b402f0a169e7847b3a28fe7d \\\n"
+     "    > site/src/agent-002.json.new && mv site/src/agent-002.json.new site/src/agent-002.json"),
     ("agent-003.json", "agent-003.html",
      "node --experimental-strip-types agents/tools/dashboard.ts \\\n"
      "    x402/demo/agent-003-grant.json --id WARDA-003 \\\n"
      "    --recipients x402/demo/agent-003-recipients.txt \\\n"
      "    --purchases agent-003/purchases \\\n"
      "    --succeeds x402/demo/agent-002-grant.json --succeeds-id WARDA-002 \\\n"
-     "    > site/src/agent-003.json"),
+     "    > site/src/agent-003.json.new && mv site/src/agent-003.json.new site/src/agent-003.json"),
     ("agent-004.json", "agent-004.html",
      "node --experimental-strip-types agents/tools/dashboard.ts \\\n"
      "    x402/demo/agent-004-grant.json --id WARDA-004 \\\n"
      "    --recipients x402/demo/agent-004-recipients.txt \\\n"
      "    --purchases agent-004/purchases \\\n"
      "    --parent x402/demo/agent-003-grant.json --parent-id WARDA-003 \\\n"
-     "    > site/src/agent-004.json"),
+     "    > site/src/agent-004.json.new && mv site/src/agent-004.json.new site/src/agent-004.json"),
     # The only agent here that buys from outside this project, so --endpoint is
     # not the default.
     ("agent-005.json", "agent-005.html",
@@ -294,7 +310,7 @@ AGENTS = [
      "    --recipients agent-005/payees.txt \\\n"
      "    --purchases agent-005/purchases \\\n"
      "    --endpoint https://demo.kaspa-x402.org/exact \\\n"
-     "    > site/src/agent-005.json"),
+     "    > site/src/agent-005.json.new && mv site/src/agent-005.json.new site/src/agent-005.json"),
 ]
 
 

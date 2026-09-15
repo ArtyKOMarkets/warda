@@ -54,6 +54,26 @@ const commands = JSON.parse(
 
 const problems = [];
 
+/**
+ * A command must not redirect onto the file it is meant to produce.
+ *
+ * `> site/src/agent-002.json` truncates the reading BEFORE the tool runs. These
+ * tools refuse loudly rather than publish a page about a grant that has moved
+ * — and with a plain redirect, refusing deletes the page's data as the price of
+ * refusing. Agent #002's reading was destroyed by the check that was protecting
+ * it and had to be recovered from git. Write to `.new` and `mv` on success.
+ */
+for (const [i, raw] of commands.entries()) {
+  const flat = raw.replace(/\\\n\s*/g, " ");
+  const target = flat.match(/>\s*(\S+)/)?.[1];
+  if (target && !target.endsWith(".new")) {
+    problems.push(
+      `command ${i + 1} redirects straight onto ${target} — a refusal would truncate it. ` +
+        `Use \`> ${target}.new && mv ${target}.new ${target}\`.`,
+    );
+  }
+}
+
 for (const raw of commands) {
   const cmd = raw.replace(/\\\n\s*/g, " ");
   const script = cmd.match(/([\w./-]+\.ts)\b/)?.[1];
