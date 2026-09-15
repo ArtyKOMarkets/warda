@@ -40,13 +40,13 @@
   "workspaces": [
     ".",
     "sdk",
+    "borsh",
+    "x402",
+    "vendor",
+    "verify",
+    "wallet",
     "cli",
     "mcp",
-    "x402",
-    "verify",
-    "vendor",
-    "wallet",
-    "borsh",
     "growth",
     "extension"
   ],
