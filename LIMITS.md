@@ -8,9 +8,15 @@ concern in the project.
 
 | Limit | Constant | Warda uses | Headroom |
 |---|---|---|---|
-| Script size | `MAX_SCRIPTS_SIZE_POST_TOCCATA` = **1,000,000** bytes | 3,888 (depth 16) | **257×** |
-| Compute budget | `ComputeBudget` is a **u16** → 65,535 units | **13** units | **5,041×** |
-| Stack depth | `MAX_STACK_SIZE` = **244** slots | **107** | 2.3× |
+| Script size | `MAX_SCRIPTS_SIZE_POST_TOCCATA` = **1,000,000** bytes | 8,680 (depth 16) | **115×** |
+| Compute budget | `ComputeBudget` is a **u16** → 65,535 units | **16** units | **4,096×** |
+| Stack depth | `MAX_STACK_SIZE` = **244** slots | **118** | 2.07× |
+
+**Re-measured 15 September 2026, against v4.** Every figure below it had gone
+stale: the harness that produces them had not compiled the covenant since v2,
+so the previous table described a covenant two versions old. The covenant grew
+— it roughly doubled in bytes and gained eleven stack slots — and none of that
+was visible while the suite was broken.
 
 Measured with `used_script_units()` and by taking the peak combined stack depth
 from a per-opcode trace of an accepted spend.
@@ -19,16 +25,27 @@ from a per-opcode trace of an accepted spend.
 
 | maxProofDepth | bytes | script units | budget units | peak stack |
 |---:|---:|---:|---:|---:|
-| 4 | 3,036 | 22,602 + 100,000 | 13 | 107 / 244 |
-| 8 | 3,320 | 24,314 + 100,000 | 13 | 107 / 244 |
-| 16 | 3,888 | 27,738 + 100,000 | 13 | 107 / 244 |
+| 4 | 6,976 | 47,618 + 100,000 | 15 | 118 / 244 |
+| 8 | 7,544 | 51,034 + 100,000 | 16 | 118 / 244 |
+| 16 | 8,680 | 57,866 + 100,000 | 16 | 118 / 244 |
+
+**Read the budget column, not the harness's.** `report_compute_budget_consumption`
+prints `budget_units` computed from script units alone, which is the same
+`sigop_script_units: 0` mistake corrected below — it reports 5 and 6 where the
+real figures are 15 and 16. The `+ 100,000` in this table is the signature, and it
+is most of the cost.
+
+**The on-chain cross-check now agrees.** This file already recorded that a
+covenant spend needs 16 units on chain, against a harness that said 13 — a
+discrepancy nobody chased. At v4 the harness gives 16. The chain was right, and
+the gap was the stale suite.
 
 ## What this changes
 
 **The size worry was misplaced.** DELEGATION.md flagged 3,320 bytes as risky
 because it exceeded the 2,184-byte covenant KOMarkets runs on-chain. That
 comparison was the wrong yardstick: 2,184 was a known-good *datapoint*, never a
-ceiling. The actual ceiling is a million bytes, so the covenant uses 0.4% of it.
+ceiling. The actual ceiling is a million bytes, so the covenant uses 0.87% of it.
 
 **Compute budget — CORRECTED after deployment.** The first figures here were
 measured wrong, and the error is worth recording.
@@ -52,7 +69,7 @@ Compute budget is charged as MASS, so this cuts both ways — over-provisioning 
 not a free safety margin. KOM's `compute_budget = 1000` demands a ~10 KAS fee
 per covenant transaction.
 
-**Stack depth is the tightest constraint, and it is flat.** 107 of 244 slots,
+**Stack depth is the tightest constraint, and it is flat.** 118 of 244 slots,
 and — the useful part — **it does not grow with proof depth.** The Merkle fold
 reuses slots, so a 65,536-entry allowlist costs the same stack as a 4-entry one.
 Depth is bounded by bytes and units, both of which have enormous headroom.

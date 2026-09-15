@@ -212,7 +212,8 @@
         <code>TxScriptEngine</code> from rusty-kaspa &mdash; the same engine a node uses, not a
         model of it. Eight the covenant must refuse and <strong>six it must accept</strong>, each
         refusal beside its nearest legitimate twin, all green against the deployed version. A
-        second suite covering the same ground is currently broken; the note below says so.</p>
+        second suite &mdash; <span class="fig">33 tests</span> flipping one field at a time from
+        an accepted baseline &mdash; is green too, as of 15 September 2026.</p>
       </div>
       <div class="ly">
         <p class="n">Layer 3 &middot; the chain</p>
@@ -222,6 +223,16 @@
         <a href="/agents">the agent pages</a>. This catches what the engine alone cannot: fees,
         storage mass, relay policy, and every assumption about the network that was never written
         down.</p>
+      </div>
+      <div class="ly">
+        <p class="n">Headroom &middot; measured, not estimated</p>
+        <h3>What the covenant costs a node to run</h3>
+        <p>Read out of the running engine at the widest allowlist depth:
+        <span class="fig">8,680 bytes</span> of a 1,000,000-byte ceiling,
+        <span class="fig">16 compute units</span> of 65,535, and
+        <span class="fig">118 stack slots</span> of 244. Stack is the tightest at 2.07&times; and
+        it is <em>flat</em> &mdash; the Merkle fold reuses slots, so a 65,536-payee allowlist costs
+        the same stack as a four-payee one.</p>
       </div>
       <div class="ly absent">
         <p class="n">Layer 4 &middot; formal methods</p>
@@ -235,24 +246,28 @@
 
     <div class="note">
       <p>
-        <strong>One of the two bytecode suites is broken, and was found so by writing this page.</strong>
-        There is a second suite &mdash; <code>covenant/harness</code>, 33 tests &mdash; and running
-        it to collect figures for the panel above returned <code>constructor argument count
-        mismatch</code> on 32 of them. Its argument list still announced itself as
-        <em>&ldquo;v2 constructor order&rdquo;</em>, in a comment nobody had re-read for two
-        covenant versions.
+        <strong>One of these two suites was dead, and writing this page is what found it.</strong>
+        Running <code>covenant/harness</code> to collect figures for the panel above returned
+        <code>constructor argument count mismatch</code> on 32 of its 33 tests. Its argument list
+        still announced itself as <em>&ldquo;v2 constructor order&rdquo;</em> in a comment nobody
+        had re-read for two covenant versions. It is repaired and green now &mdash; five separate
+        defects, four of them loud.
       </p>
       <p style="margin-top:0.9rem">
-        The covenant is not affected, and neither is the evidence above: the probes are current,
-        run against the deployed version, and are what every live grant's builder is checked by.
-        What decayed is a duplicate &mdash; two copies of one argument list, one of them
-        maintained. It is being repaired rather than deleted, and this paragraph stays until it
-        passes.
+        The fifth was not loud, and it is the one worth knowing. The successor's accounting was
+        being written into three constructor slots that v4 had repurposed, so every successor
+        compiled <em>successfully</em> at a wrong geometry, its address never matched the
+        continuation the covenant derives, and everything was refused. The three baselines failed
+        and every refusal passed &mdash; for reasons unrelated to the rule each was testing. A
+        suite reporting 18 of 33 green would have looked healthy to anyone who did not read which
+        18.
       </p>
       <p style="margin-top:0.9rem">
-        It is the exact failure this project keeps writing down: <em>a figure nobody re-derives is
-        a figure that decays</em>, and a test suite nobody runs is the same thing wearing a green
-        badge. Both suites belong in CI, which is the actual fix.
+        Nothing was ever wrong on chain; every live grant was built by the tool the probes check.
+        What decayed was the evidence, silently. That is the failure this page exists to talk
+        about, so it stays written down: <em>a figure nobody re-derives is a figure that
+        decays</em>, and a test suite nobody runs is the same thing wearing a green badge. Both
+        suites belong in CI, which is the real fix and is not done yet.
       </p>
     </div>
   </div>
@@ -304,13 +319,13 @@
 
     <p style="margin-top:1.3rem">
       The second suite applies the same idea more narrowly, flipping one field at a time from a
-      single accepted baseline. It is the one currently broken, so the verdicts below were true of
-      the covenant it last compiled and have not been re-established against the deployed one.
+      single accepted baseline &mdash; and the baseline is the load-bearing part, which is why its
+      failure invalidated everything while looking like a partial pass.
     </p>
 
     <div class="tscroll">
     <table>
-      <tr><th>From the accepted baseline, change one thing &mdash; not yet re-run</th><th>Engine</th></tr>
+      <tr><th>From the accepted baseline, change one thing</th><th>Engine</th></tr>
       <tr><td>nothing &mdash; the baseline itself</td><td class="v ok">accepted</td></tr>
       <tr><td>spend more than the per-spend cap</td><td class="v no">rejected</td></tr>
       <tr><td>pay someone absent from the allowlist</td><td class="v no">rejected</td></tr>
@@ -334,8 +349,7 @@
       passed by a covenant that refuses everything, which is useless and secure.
     </p>
     <p>
-      Every verdict in the second table was true of the covenant that suite last compiled. The
-      first table is the current one.
+      Both tables are current, against the deployed covenant.
     </p>
   </div>
 </section>

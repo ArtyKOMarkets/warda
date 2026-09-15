@@ -1470,9 +1470,23 @@ fn report_compute_budget_consumption() {
             .max()
             .unwrap_or(0);
         // Budget units: SCRIPT_UNITS_PER_COMPUTE_BUDGET_UNIT = 10_000, u16 max.
-        let budget = used / 10_000 + 1;
+        /* The engine here runs with `sigop_script_units: 0`, so `used` is the
+           covenant's arithmetic and Merkle fold ONLY — none of its signature
+           cost. One signature verification is 100,000 script units
+           (GRAMS_PER_SIGOP_COUNT_UNIT 1000 x SCRIPT_UNITS_PER_GRAM 100) and
+           dwarfs everything else, so a budget figure computed from `used`
+           alone understates the real charge by a factor of three.
+
+           LIMITS.md documents this as a correction made AFTER deployment, with
+           the lesson that a measurement taken with a flag set to a convenient
+           value measures the flag. The bare figure was still what this line
+           printed, so the trap stayed set for the next reader. Both are printed
+           now, and the real one is named as such. */
+        const SIGOP_SCRIPT_UNITS: usize = 100_000;
+        let budget_bare = used / 10_000 + 1;
+        let budget = (used + SIGOP_SCRIPT_UNITS) / 10_000 + 1;
         println!(
-            "BUDGET depth={depth:<3} bytes={:<5} script_units={used:<7} budget_units={budget:<4} peak_stack={peak:<4}/244 verdict={r:?}",
+            "BUDGET depth={depth:<3} bytes={:<5} script_units={used:<7} budget_units_REAL={budget:<4} (bare_no_sigop={budget_bare}) peak_stack={peak:<4}/244 verdict={r:?}",
             c.bytecode.len()
         );
     }
