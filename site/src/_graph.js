@@ -158,6 +158,38 @@ function drawGraph(loaded) {
     });
   });
 
+  /**
+   * Money the covenant says left, that no receipt accounts for.
+   *
+   * Agent #005 sat on this diagram with no arrow at all, which reads as "has
+   * never bought anything" and is false: it has spent 0.40 KAS. Its payments
+   * predate the purchase log, so there is no receipt to draw an arrow FROM,
+   * and the address the coins are sitting at cannot supply one — a payee
+   * serves whoever pays it, and for a third party that is the whole world.
+   *
+   * So the arrow ends in nothing. That is the fact: it left, and nothing here
+   * can say to whom. Drawing it into a seller would be exactly the guess every
+   * other sentence on this page refuses to make, and an absent arrow is a
+   * quieter false claim than a wrong one but still a false one.
+   */
+  Object.keys(loaded).forEach(function (id) {
+    var r = loaded[id] && loaded[id].reconciliation;
+    var amount = r && parseFloat(r.unrecorded);
+    if (!amount || !drawn[id]) return;
+    var a = drawn[id];
+    var x1 = a.x + W / 2, x2 = x1 + 120, y = a.y + 18;
+    edges.appendChild(svgEl("path", {
+      d: "M" + x1 + "," + y + " L" + x2 + "," + y,
+      class: "gedge unrec", "marker-end": "url(#ar-unrec)"
+    }));
+    var t = svgEl("text", { x: x1 + 6, y: y - 7, class: "gedge-l unrec", "text-anchor": "start" });
+    /* Rounded like the payment labels beside it, so the two read as the same
+       kind of figure. The exact number is on the agent's own page, where the
+       reconciliation paragraph gives it to the sompi. */
+    t.textContent = amount.toFixed(2) + " KAS, payee unrecorded";
+    edges.appendChild(t);
+  });
+
   /* Authority. Each edge is drawn only when the data carries the fact. */
   Object.keys(loaded).forEach(function (id) {
     var d = loaded[id];

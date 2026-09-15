@@ -256,6 +256,7 @@
   .graph figcaption { font-size: 0.82rem; color: var(--chrome-faint); margin-top: 1rem;
                       line-height: 1.6; max-width: 60ch; }
   .graph figcaption .lg-auth { color: var(--chrome-dim); }
+  .graph figcaption .lg-unrec { color: var(--amber); }
   /* The diagram scrolls inside its own box below 580px, and nothing on screen
      says so — the sellers are simply off the right edge. */
   .graph figcaption .hint { display: none; color: var(--teal); }
@@ -277,6 +278,12 @@
      start-anchor the code asked for on the lineage edges was silently
      overridden and their labels sat centred ON the arrow they describe. */
   .gedge-l.auth { fill: var(--chrome-faint); font-size: 9px; text-anchor: start; }
+  /* Money that left a grant with no receipt naming where it went. Amber
+     rather than teal, and ending in nothing: the covenant's own accounting
+     says it was spent, and no record here says to whom. Drawing it as a
+     payment arrow into a seller would be the guess this whole page refuses. */
+  .gedge.unrec { stroke: var(--amber); stroke-width: 1.2; stroke-dasharray: 2 3; opacity: 0.75; }
+  .gedge-l.unrec { fill: var(--amber); font-size: 9.5px; opacity: 0.9; }
 
 
   /* Retired: it ran, it stopped, and the page is a record. Dimmed, still a
@@ -453,6 +460,9 @@
         <marker id="ar-dim" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
           <path d="M0,0 L10,5 L0,10 z" fill="var(--chrome-faint)"></path>
         </marker>
+        <marker id="ar-unrec" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--amber)"></path>
+        </marker>
       </defs>
       <g id="g-edges"></g>
       <g id="g-nodes"></g>
@@ -462,6 +472,9 @@
       Solid arrows are payments that settled, with the amount this grant has spent on that payee.
       Dotted arrows are authority: <span class="lg-auth">who replaced whom, and who delegated whom</span>.
       A dimmed agent&rsquo;s grant no longer exists.
+      <span class="lg-unrec">An amber arrow ending in nothing is money the covenant says left that
+      grant, with no surviving receipt naming who received it</span> &mdash; the chain settles
+      whether a coin moved, and only a receipt settles to whom.
     </figcaption>
   </figure>
 
@@ -641,6 +654,38 @@ function drawGraph(loaded) {
       if (!names[addr]) return;
       edge(id, names[addr], byPayee[addr].toFixed(2) + " KAS", false);
     });
+  });
+
+  /**
+   * Money the covenant says left, that no receipt accounts for.
+   *
+   * Agent #005 sat on this diagram with no arrow at all, which reads as "has
+   * never bought anything" and is false: it has spent 0.40 KAS. Its payments
+   * predate the purchase log, so there is no receipt to draw an arrow FROM,
+   * and the address the coins are sitting at cannot supply one — a payee
+   * serves whoever pays it, and for a third party that is the whole world.
+   *
+   * So the arrow ends in nothing. That is the fact: it left, and nothing here
+   * can say to whom. Drawing it into a seller would be exactly the guess every
+   * other sentence on this page refuses to make, and an absent arrow is a
+   * quieter false claim than a wrong one but still a false one.
+   */
+  Object.keys(loaded).forEach(function (id) {
+    var r = loaded[id] && loaded[id].reconciliation;
+    var amount = r && parseFloat(r.unrecorded);
+    if (!amount || !drawn[id]) return;
+    var a = drawn[id];
+    var x1 = a.x + W / 2, x2 = x1 + 120, y = a.y + 18;
+    edges.appendChild(svgEl("path", {
+      d: "M" + x1 + "," + y + " L" + x2 + "," + y,
+      class: "gedge unrec", "marker-end": "url(#ar-unrec)"
+    }));
+    var t = svgEl("text", { x: x1 + 6, y: y - 7, class: "gedge-l unrec", "text-anchor": "start" });
+    /* Rounded like the payment labels beside it, so the two read as the same
+       kind of figure. The exact number is on the agent's own page, where the
+       reconciliation paragraph gives it to the sompi. */
+    t.textContent = amount.toFixed(2) + " KAS, payee unrecorded";
+    edges.appendChild(t);
   });
 
   /* Authority. Each edge is drawn only when the data carries the fact. */

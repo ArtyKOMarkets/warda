@@ -444,6 +444,7 @@
   .graph figcaption { font-size: 0.82rem; color: var(--chrome-faint); margin-top: 1rem;
                       line-height: 1.6; max-width: 60ch; }
   .graph figcaption .lg-auth { color: var(--chrome-dim); }
+  .graph figcaption .lg-unrec { color: var(--amber); }
   /* The diagram scrolls inside its own box below 580px, and nothing on screen
      says so — the sellers are simply off the right edge. */
   .graph figcaption .hint { display: none; color: var(--teal); }
@@ -465,6 +466,12 @@
      start-anchor the code asked for on the lineage edges was silently
      overridden and their labels sat centred ON the arrow they describe. */
   .gedge-l.auth { fill: var(--chrome-faint); font-size: 9px; text-anchor: start; }
+  /* Money that left a grant with no receipt naming where it went. Amber
+     rather than teal, and ending in nothing: the covenant's own accounting
+     says it was spent, and no record here says to whom. Drawing it as a
+     payment arrow into a seller would be the guess this whole page refuses. */
+  .gedge.unrec { stroke: var(--amber); stroke-width: 1.2; stroke-dasharray: 2 3; opacity: 0.75; }
+  .gedge-l.unrec { fill: var(--amber); font-size: 9.5px; opacity: 0.9; }
 
 /* The terminal window. One component, every page.
 
