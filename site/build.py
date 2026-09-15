@@ -264,6 +264,12 @@ if MCP_SERVER["version"] != MCP_PKG["version"]:
 AGENTS = [
     # (data, page, the command that writes the data)
     #
+    # --mission is not decoration: it is the page's own statement of what the
+    # agent is for, and a reading without it renders a page that does not say.
+    # #004's was missing here and refresh-agents.sh caught it by refusing a
+    # reading poorer than the one it replaced — which is what that check is
+    # for, on its first real outing.
+    #
     # THESE ARE THE COMMANDS. ops/refresh-agents.sh runs them and
     # site/refresh-demo.sh calls that script, so this list is the only copy.
     # It was not: refresh-demo.sh had its own inline versions and these had
@@ -323,6 +329,7 @@ AGENTS = [
      "    --purchases agent-004/purchases \\\n"
      "    --parent x402/demo/agent-003-grant.json --parent-id WARDA-003 \\\n"
      "    --settled-into 85fa34cdd19d9d3a18675e005eb0af8f653c3bf8a89c77dc99928ce9127ba0a9 \\\n"
+     "    --mission \"Buy agent #001's digest out of authority its parent handed down, which could only ever shrink, and hand the remainder back.\" \\\n"
      "    > site/src/agent-004.json.new && mv site/src/agent-004.json.new site/src/agent-004.json"),
     # The only agent here that buys from outside this project, so --endpoint
     # is not the default.
@@ -332,6 +339,7 @@ AGENTS = [
      "    --recipients agent-005/payees.txt \\\n"
      "    --purchases agent-005/purchases \\\n"
      "    --endpoint https://demo.kaspa-x402.org/exact \\\n"
+     "    --mission \"Buy from a vendor nobody here controls, every morning, and write down what happened whether or not it worked.\" \\\n"
      "    > site/src/agent-005.json.new && mv site/src/agent-005.json.new site/src/agent-005.json"),
 ]
 
