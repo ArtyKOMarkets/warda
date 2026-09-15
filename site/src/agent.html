@@ -201,9 +201,13 @@
 <section>
   <p class="eyebrow">Its work</p>
   <h2>Every attempt it has made</h2>
-  <p>
-    Refusals included. A purchase log that records only the successes is a sales brochure, and
-    the run that was turned away for being early is the more interesting half of this one.
+  <!-- The second sentence is written from the log below, not typed here. It
+       used to read "the run that was turned away for being early is the more
+       interesting half of this one" on every one of these pages, and that
+       happened to exactly one agent — #002, refused by its own timelock.
+       #003, #004 and #005 published it about runs that never existed. -->
+  <p id="b-work-lede">
+    Refusals included. A purchase log that records only the successes is a sales brochure.
   </p>
   <div class="stmt">
     <div class="row"><span class="k">Attempts</span><span class="v big" id="b-attempts">&mdash;</span></div>
@@ -215,12 +219,12 @@
   <div id="b-buys" style="margin-top:0.9rem"></div>
 
   <h3 class="sub-h">What the chain says arrived</h3>
-  <p style="font-size:0.9rem;color:var(--chrome-dim);margin:0.5rem 0 0.9rem">
-    Coins at this grant&rsquo;s payees that one of the receipts above names. Attribution is by
-    <strong>transaction id, not by address</strong> &mdash; a payee&rsquo;s address serves whoever
-    pays it, and more than one agent here pays the same one, so &ldquo;it arrived after this
-    grant opened and is under its cap&rdquo; is a guess rather than a fact.
-  </p>
+  <!-- "more than one agent here pays the same one" was typed here and is true
+       of the address #002, #003 and #004 all pay. It is false of #005, whose
+       payee is a third party nobody here pays twice — where the same argument
+       is STRONGER, because that address serves the whole world rather than
+       three of our own agents. Written from the reading. -->
+  <p id="b-attrib" style="font-size:0.9rem;color:var(--chrome-dim);margin:0.5rem 0 0.9rem"></p>
   <div id="b-coins"></div>
   <p class="recon" id="b-recon" hidden></p>
 </section>
@@ -489,6 +493,34 @@ WARDA_SK=$(cat ../covenant/deploy/agent-002.key) \
       set("b-attempts", String(buys.length));
       set("b-served", String(served.length));
       set("b-paid", (d.activity && d.activity.paid) || "0 KAS");
+
+      /* What makes this log worth reading, said about THIS log. */
+      var turned = buys.length - served.length;
+      set(
+        "b-work-lede",
+        "Refusals included. A purchase log that records only the successes is a sales " +
+          "brochure" +
+          (buys.length === 0
+            ? ", and this one is empty: nothing has been recorded here yet."
+            : turned === 0
+              ? ", and every attempt here went through \u2014 which is the less interesting case."
+              : ", and the " + turned + (turned === 1 ? " attempt" : " attempts") +
+                " that did not go through are the more interesting half of this one.")
+      );
+
+      /* Why attribution is by transaction id. The reason is the same either
+         way and the sharper version belongs on the page with a third party. */
+      set(
+        "b-attrib",
+        "Coins at this grant's payees that one of the receipts above names. Attribution is by " +
+          "transaction id, not by address \u2014 a payee's address serves whoever pays it, " +
+          (d.buysFrom && d.buysFrom.bothEndsAreOurs === false
+            ? "and this one belongs to somebody outside this project, so anyone at all may have " +
+              "put a coin there. "
+            : "and more than one agent here pays the same one. ") +
+          "So \u201cit arrived after this grant opened and is under its cap\u201d is a guess " +
+          "rather than a fact."
+      );
 
       var log = $("b-buys");
       buys.slice().reverse().forEach(function (p) {
