@@ -54,6 +54,29 @@ that way because the last two numbers in this file went stale without anyone
 noticing — it said six tests, then fifteen, and both were a snapshot of an
 afternoon. A figure nobody can re-derive is a figure that decays.
 
+## It was dead for two covenant versions
+
+**15 September 2026.** Run to collect figures for the site's evidence page, this
+suite returned `constructor argument count mismatch` on 32 of 33 tests. Its
+`ctor()` still declared itself *"v2 constructor order"* and passed 17
+arguments; the covenant takes 21. v4 inserted `genesisTemplateId`,
+`templatePrefixLen` and `templateSuffixLen` at 12..14, moving `maxProofDepth`
+to 15 and every init field down by three, and added `initReserveRoot` at 20.
+
+`covenant/deploy` was updated at the time and carries comments recording the
+insertion. This file was not. Two copies of one argument list, and only one of
+them was maintained — which is this repo's most expensive recurring shape,
+now on its sixth appearance.
+
+The covenant was never broken: every live grant was produced by the deploy
+tool, against the current constructor. What was broken is the only thing that
+proves the covenant at the bytecode level, and it was broken silently, because
+a test suite nobody runs fails in a way nobody sees.
+
+**So the rule this directory exists to serve now has a second half.** The first
+was: prove the bytecode, not the semantics. The second is: a proof that is not
+re-run is not a proof, and CI is where that belongs.
+
 The overspend rejection is the product claim, now demonstrated in the same
 engine a node runs — not reasoned about, not simulated.
 

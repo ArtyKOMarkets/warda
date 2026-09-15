@@ -37,6 +37,8 @@
   .ly { border: 1px solid var(--edge); border-left: 3px solid var(--teal-deep);
         background: var(--ground); padding: 1.1rem 1.2rem; }
   .ly.absent { border-left-color: var(--chrome-faint); }
+  .ly.stale { border-left-color: var(--refuse); }
+  .ly.stale .fig { color: var(--refuse); }
   .ly .n { font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.16em;
            text-transform: uppercase; color: var(--chrome-faint); }
   .ly h3 { font-family: var(--display); font-size: 1.05rem; margin: 0.35rem 0 0.5rem;
@@ -203,13 +205,15 @@
         from the first. This proves what the limits <em>mean</em>. It proves nothing about the
         script that enforces them.</p>
       </div>
-      <div class="ly">
-        <p class="n">Layer 2 &middot; the bytecode</p>
+      <div class="ly stale">
+        <p class="n">Layer 2 &middot; the bytecode &middot; <span style="color:var(--refuse)">stale</span></p>
         <h3>The engine a Kaspa node validates with</h3>
         <p><span class="fig">33 tests</span> run the compiled covenant through
         <code>TxScriptEngine</code> from rusty-kaspa &mdash; the same engine a node uses, not a
-        model of it. No RPC, no testnet round trip. This is where an overspend is demonstrated to
-        be refused rather than reasoned about.</p>
+        model of it. <strong>As of 15 September 2026, 32 of the 33 do not run</strong>: the
+        covenant's constructor gained four parameters between v2 and v4, three of them inserted
+        mid-list, and this suite was never updated. So the verdicts below describe a covenant two
+        versions old. See the note beneath.</p>
       </div>
       <div class="ly">
         <p class="n">Layer 3 &middot; the chain</p>
@@ -229,12 +233,35 @@
         a page like this is where a reader would assume otherwise.</p>
       </div>
     </div>
+
+    <div class="note warn">
+      <p>
+        <strong>Found by writing this page, on the day it was published.</strong> The suite had
+        not been run in a while; running it to collect figures for the panel above returned
+        <code>constructor argument count mismatch</code> on 32 of 33 tests. The covenant is not
+        broken &mdash; the deploy tool that produced every live grant carries the current
+        21-argument constructor, and its own source comments record the v4 insertion. What was
+        never updated is the test suite, which still declares itself <em>&ldquo;v2 constructor
+        order&rdquo;</em> in a comment nobody re-read.
+      </p>
+      <p style="margin-top:0.9rem">
+        The honest consequence: the bytecode-level evidence on this page attests to a covenant two
+        versions old, and the current one has been proven by layers 1 and 3 and by the deploy
+        tool's own adversarial probes, but not by this suite. It is being repaired rather than
+        quietly deleted, and this paragraph stays until it passes.
+      </p>
+      <p style="margin-top:0.9rem">
+        It is also the exact failure this project keeps writing down: <em>a figure nobody
+        re-derives is a figure that decays.</em> A test suite nobody runs is the same thing with
+        a green badge on it.
+      </p>
+    </div>
   </div>
 </section>
 
 <section>
   <div class="wrap">
-    <p class="eyebrow">Layer 2, in detail</p>
+    <p class="eyebrow">Layer 2, in detail &mdash; against the v2 covenant</p>
     <h2>Why most negative tests prove nothing.</h2>
     <p style="margin-top:1rem">
       The script engine collapses every failed <code>require</code> into one opaque error. It never
@@ -252,7 +279,7 @@
 
     <div class="tscroll">
     <table>
-      <tr><th>From the accepted baseline, change one thing</th><th>Engine</th></tr>
+      <tr><th>From the accepted baseline, change one thing &mdash; v2 bytecode</th><th>Engine</th></tr>
       <tr><td>nothing &mdash; the baseline itself</td><td class="v ok">accepted</td></tr>
       <tr><td>spend more than the per-spend cap</td><td class="v no">rejected</td></tr>
       <tr><td>pay someone absent from the allowlist</td><td class="v no">rejected</td></tr>
@@ -274,6 +301,10 @@
     <p style="margin-top:1.3rem">
       The accepted baseline is the load-bearing part. A suite made only of refusals would be
       passed by a covenant that refuses everything, which is useless and secure.
+    </p>
+    <p>
+      Every verdict in that table was true of the covenant the suite last compiled. None of them
+      has been re-established against v4, which is what the note above means.
     </p>
   </div>
 </section>

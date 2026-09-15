@@ -27,8 +27,21 @@ use silverscript_lang::compiler::{
 const COV: Hash = Hash::from_bytes(*b"WARDAWARDAWARDAWARDAWARDAWARDAWA");
 const SOURCE: &str = include_str!("../../warda_grant.sil");
 
-/// v2 constructor order. Authority is now GENESIS values for state fields,
-/// not immutable params — see DELEGATION.md for why that had to change.
+/// The v4 constructor: 21 arguments, in the order `warda_grant.sil` declares.
+///
+/// This list said "v2 constructor order" for two covenant versions, and was
+/// right when it was written. v4 inserted `genesisTemplateId`,
+/// `templatePrefixLen` and `templateSuffixLen` at 12..14 — which moved
+/// `maxProofDepth` to 15 and every init field below it by three — and added
+/// `initReserveRoot` at 20 for the LIFO reserve chain. `covenant/deploy` was
+/// updated and carries comments recording exactly that; this file was not, so
+/// 32 of 33 tests failed to compile and nobody noticed, because nobody ran
+/// them. The suite that exists to prove the bytecode was proving a covenant
+/// two versions old.
+///
+/// Keep this list beside `ctor()` in `covenant/deploy/src` — they are the same
+/// list twice, which is the repo's most expensive recurring shape. The fix is
+/// to share it; until then, change one and search for the other.
 fn ctor(max_proof_depth: i64) -> Vec<Expr<'static>> {
     vec![
         Expr::bytes(vec![0x11; 32]),      //  0 principalKey
@@ -43,11 +56,23 @@ fn ctor(max_proof_depth: i64) -> Vec<Expr<'static>> {
         Expr::int(1_000_000),             //  9 genesisNotBefore
         Expr::int(1_007_000),             // 10 genesisExpiresAt
         Expr::int(2),                     // 11 genesisDelegationDepth
-        Expr::int(max_proof_depth),       // 12 maxProofDepth
-        Expr::int(0),                     // 13 initSpentTotal
-        Expr::int(0),                     // 14 initReserved
-        Expr::int(0),                     // 15 initEpochIndex
-        Expr::int(0),                     // 16 initEpochSpent
+        // A wrong templateId is not a compile error and not a security hole:
+        // the covenant's own comment says it simply yields a different address,
+        // one nobody funded. Only the splice path reads it, and nothing here
+        // exercises that path yet.
+        Expr::bytes(vec![0x55; 32]),      // 12 genesisTemplateId
+        // Geometry. These are LENGTHS, and the deploy tool derives them from
+        // the compiled size by iterating to a fixed point. They must stay small
+        // and plausible: a large value lands in a for-loop bound and the
+        // compiler refuses it far from where the mistake was made.
+        Expr::int(64),                    // 13 templatePrefixLen
+        Expr::int(64),                    // 14 templateSuffixLen
+        Expr::int(max_proof_depth),       // 15 maxProofDepth   (was 12 in v2)
+        Expr::int(0),                     // 16 initSpentTotal
+        Expr::int(0),                     // 17 initReserved
+        Expr::int(0),                     // 18 initEpochIndex
+        Expr::int(0),                     // 19 initEpochSpent
+        Expr::bytes(vec![0x00; 32]),      // 20 initReserveRoot  (empty chain)
     ]
 }
 
