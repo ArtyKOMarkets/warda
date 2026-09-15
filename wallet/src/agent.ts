@@ -165,10 +165,21 @@ export class Agent {
    */
   async fetch(input: string | URL | Request, init?: RequestInit, opts?: {
     onEvent?: (e: WardaFetchEvent) => void;
+    /**
+     * How many times to re-present the same proof while the vendor reports the
+     * payment still settling.
+     *
+     * Exposed because the default is measured in seconds and a caller with its
+     * own deadline needs to say so — and because re-presenting is the ONLY
+     * correct response to a purchase that settled and did not arrive. A client
+     * that gave up by paying again would pay twice for one resource.
+     */
+    maxSettleAttempts?: number;
   }): Promise<Purchase> {
     let paid: Purchase["paid"];
     const response = await wardaFetch(input, init, {
       payer: this.payer,
+      ...(opts?.maxSettleAttempts !== undefined ? { maxSettleAttempts: opts.maxSettleAttempts } : {}),
       onEvent: (e) => {
         if (e.type === "paid") {
           paid = { txid: e.result.txid, amountSompi: e.result.amountSompi, header: e.header };

@@ -145,6 +145,14 @@ export async function startFakeNode(options: { network?: string } = {}): Promise
     get daaScore() { return state.daaScore; },
     set daaScore(d: bigint) { state.daaScore = d; },
     submitted: state.submitted,
-    close: () => new Promise<void>((r) => wss.close(() => r())),
+    /* Same reason as the vendor's: a WebSocket server will not finish closing
+       while a client in this process still holds a socket, and the client is
+       in this process whenever the thing under test is a library rather than
+       a subprocess. Terminate the sockets, then close. */
+    close: () =>
+      new Promise<void>((r) => {
+        for (const client of wss.clients) client.terminate();
+        wss.close(() => r());
+      }),
   };
 }

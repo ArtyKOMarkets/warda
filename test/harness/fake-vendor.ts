@@ -112,6 +112,17 @@ export async function startFakeVendor(): Promise<FakeVendor> {
     set mode(m: VendorMode) { state.mode = m; },
     seen: state.seen,
     served: state.served,
-    close: () => new Promise<void>((r) => server.close(() => r())),
+    /* `closeAllConnections` first, and it is not belt-and-braces.
+       `server.close()` stops accepting and then WAITS for open sockets to
+       drain. A client in the same process — an in-process agent rather than a
+       spawned CLI — holds a keep-alive socket by default, so the callback
+       never fires and the whole suite hangs after every test has passed. The
+       first wallet e2e printed three greens and then sat until it was
+       killed. */
+    close: () =>
+      new Promise<void>((r) => {
+        server.closeAllConnections?.();
+        server.close(() => r());
+      }),
   };
 }
