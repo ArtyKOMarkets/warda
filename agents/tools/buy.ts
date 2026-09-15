@@ -48,19 +48,11 @@ import { fileURLToPath } from "node:url";
 import { closeDebt, findResumable, withProof, type Pending } from "./resume.ts";
 
 import { openChain } from "../../sdk/tools/chain.ts";
-import {
-  RecipientSet,
-  EMPTY_RESERVE,
-  decodeAddress,
-  fromHex,
-  toHex,
-  templateIdFor,
-  externalSigner,
-  type CovenantTemplate,
-  type GrantState,
-} from "@warda_protocol/kaspa";
-import { WardaPayer, wardaFetch } from "@warda_protocol/x402";
-import covenantTemplate from "@warda_protocol/kaspa/covenant-template.json" with { type: "json" };
+/* Nine imports down to two. Everything dropped here — RecipientSet,
+   EMPTY_RESERVE, decodeAddress, toHex, templateIdFor, the covenant template
+   itself — existed to rebuild a grant this file no longer builds. */
+import { fromHex, externalSigner } from "@warda_protocol/kaspa";
+import { Agent, fileStore, toRecipientSet } from "@warda_protocol/agent";
 
 const flag = (n: string, d?: string) => {
   const i = process.argv.indexOf(`--${n}`);
@@ -155,18 +147,21 @@ if (!signerCmd && !secretHex) {
 }
 
 const m = JSON.parse(readFileSync(manifestPath, "utf8"));
-/* The template comes from the package, not from a path beside this file:
-   the published CLI carries this tool as bundled JS with no sdk/ directory
-   above it, and a template read from a guessed path is how a tool derives a
-   plausible address for a covenant nobody deployed. */
-const template = covenantTemplate as CovenantTemplate;
+const members = readFileSync(recipientsPath, "utf8").split(/\r?\n/);
 
-const members = readFileSync(recipientsPath, "utf8")
-  .split(/\r?\n/)
-  .map((l) => l.replace(/#.*$/, "").trim())
-  .filter(Boolean)
-  .map((t) => (t.includes(":") ? toHex(decodeAddress(t).payload) : t.toLowerCase()));
-const recipients = new RecipientSet(members);
+/**
+ * A pre-flight, not a duplicate of the wallet's check.
+ *
+ * `Agent.open` checks the allowlist against the manifest's root too, and it
+ * has to — it is an invariant of holding a grant, not a courtesy to a CLI.
+ * This one runs BEFORE a node is dialled, so the most common configuration
+ * mistake costs a hash instead of a connection, and exits 1 rather than
+ * writing a failure record for something that never reached the chain.
+ *
+ * Both call `toRecipientSet`, so the parsing that produces the root — the part
+ * where a stray comment or a mixed-case address would diverge — exists once.
+ */
+const recipients = toRecipientSet(members);
 if (recipients.rootHex !== m.recipients_root) {
   console.error(
     `these recipients hash to ${recipients.rootHex}, but the grant commits to ` +
@@ -174,25 +169,6 @@ if (recipients.rootHex !== m.recipients_root) {
   );
   process.exit(1);
 }
-
-const authority = { principalKey: m.principal, revocationKey: m.revocation ?? m.principal };
-const state: GrantState = {
-  agentKey: m.agent,
-  budgetTotal: BigInt(m.budget),
-  maxPerSpend: BigInt(m.max_per_spend),
-  epochLimit: BigInt(m.epoch_limit),
-  epochLength: BigInt(m.epoch_length),
-  recipientsRoot: m.recipients_root,
-  notBefore: BigInt(m.not_before),
-  expiresAt: BigInt(m.expires_at),
-  delegationDepth: BigInt(m.delegation_depth ?? 2),
-  templateId: templateIdFor(template, authority),
-  spentTotal: BigInt(m.spent_total ?? 0),
-  reserved: BigInt(m.reserved ?? 0),
-  epochIndex: BigInt(m.epoch_index ?? 0),
-  epochSpent: BigInt(m.epoch_spent ?? 0),
-  reserveRoot: m.reserve_root ?? EMPTY_RESERVE,
-};
 
 mkdirSync(outDir, { recursive: true });
 const startedAt = new Date();
@@ -286,6 +262,29 @@ const { client: node, transport } = await openChain({
 if (transport === "borsh") console.error(`reading and spending over borsh, via ${node.url}`);
 try {
   /**
+   * The wallet, not a payer.
+   *
+   * `@warda_protocol/agent` is this orchestration as a package: it holds the
+   * grant, signs, and — the part that matters — owns the manifest, writing it
+   * only after a purchase is both paid AND delivered. That advance used to
+   * live at the bottom of this file, which meant every integration that wanted
+   * to buy something had to re-derive it from six hundred lines of CLI, and
+   * the fee arithmetic in particular is the kind that drifts silently.
+   *
+   * What stays here is everything that is a command line's job: flags,
+   * purchase records, resume and debt-closing, the timelock refusal in words,
+   * and exit codes that mean something to a caller in another language.
+   */
+  const agent = await Agent.open({
+    store: fileStore(manifestPath),
+    recipients: members,
+    sign: signerCmd
+      ? externalSigner({ command: signerCmd, publicKey: m.agent })
+      : fromHex(secretHex.trim()),
+    chain: node,
+  });
+
+  /**
    * The timelock, checked before anything is built.
    *
    * The covenant enforces `claimedDaa >= notBefore` and would refuse the
@@ -293,38 +292,36 @@ try {
    * refusal is legible: a node's script-verification failure is a true answer
    * and an unreadable one, and an agent that cannot say why it did not buy
    * something has not really reported anything.
+   *
+   * Read off the wallet rather than from a second copy of the grant. This file
+   * used to rebuild the whole GrantState from the manifest — fifteen fields,
+   * one of them a derived template id — purely to reach `notBefore` and to
+   * hand a grant to the payer. Both come from the wallet now, so the grant is
+   * assembled once, by the package whose job that is.
    */
   const dag = await node.getBlockDagInfo();
   const daa = dag.virtualDaaScore;
-  if (daa < state.notBefore) {
-    const short = state.notBefore - daa;
+  const notBefore = agent.state.notBefore;
+  if (daa < notBefore) {
+    const short = notBefore - daa;
     const refusal =
-      `agent #002 may not spend until DAA ${state.notBefore} and the network is at ${daa} — ` +
+      `agent #002 may not spend until DAA ${notBefore} and the network is at ${daa} — ` +
       `${short} short, roughly ${Math.round(Number(short) / 10)} seconds at ten blocks per ` +
       `second. This is not a policy in this process: the covenant checks the claimed DAA score ` +
-      `against ${state.notBefore} on every spend, so no version of this program can bring the ` +
+      `against ${notBefore} on every spend, so no version of this program can bring the ` +
       `payment forward, and neither can whoever issued the grant.`;
     console.error(refusal);
-    record({ outcome: "refused", reason: "timelock", virtualDaaScore: daa.toString(), notBefore: state.notBefore.toString(), refusal });
+    record({ outcome: "refused", reason: "timelock", virtualDaaScore: daa.toString(), notBefore: notBefore.toString(), refusal });
     process.exit(has("expect-refusal") ? 0 : 3);
   }
 
-  const payer = new WardaPayer({
-    grant: { template, authority, state, recipients },
-    node,
-    sign: signerCmd
-      ? externalSigner({ command: signerCmd, publicKey: m.agent })
-      : fromHex(secretHex.trim()),
-  });
-
   console.error(`buying   : ${url}`);
 
-  const res = await wardaFetch(url, requestBody === undefined ? undefined : {
+  const { response: res } = await agent.fetch(url, requestBody === undefined ? undefined : {
     method: "POST",
     headers: { "Content-Type": contentType },
     body: requestBody,
   }, {
-    payer,
     /**
      * A relay hop, which is what a kaspa-x402 v2 vendor requires.
      *
@@ -504,27 +501,12 @@ try {
     );
   } else {
 
-  /* The grant has MOVED — its address is a hash of its state. Write the new
-     state back or the next run looks for it where it used to be, which every
-     tool reports as "no UTXO at <address>": a message that names three causes,
-     none of them this one. */
-  const s = payer.state;
-  /* Numbers, not strings — genesis, advance-manifest and follow-grant all
-     write numbers here, and a manifest that changes shape depending on which
-     tool touched it last is a manifest every reader has to guess at. */
-  const advanced = {
-    ...m,
-    spent_total: Number(s.spentTotal),
-    reserved: Number(s.reserved),
-    epoch_index: Number(s.epochIndex),
-    epoch_spent: Number(s.epochSpent),
-    /* Payment AND fee. The budget is charged the payment; the coin loses both,
-       and a grant_value advanced by only the payment drifts by one fee per
-       purchase until the dashboard refuses to publish it. */
-    grant_value: Number(BigInt(m.grant_value) - (seen.amountSompi ?? 0n) - payer.fee),
-  };
-  writeFileSync(manifestPath, JSON.stringify(advanced, null, 1) + "\n");
-  console.error(`manifest : advanced to spent_total=${advanced.spent_total}`);
+  /* Already written, by the wallet, at the only moment it is safe to: after
+     the vendor served. The grant has MOVED — its address is a hash of its
+     state — and a record left behind sends the next run to an address the
+     payment consumed, which every tool reports as "no UTXO at <address>": a
+     message that names three causes, none of them this one. */
+  console.error(`manifest : advanced to spent_total=${agent.manifest.spent_total}`);
   }
 
   /**

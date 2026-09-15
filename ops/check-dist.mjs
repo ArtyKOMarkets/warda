@@ -17,12 +17,34 @@
  * So: fail loudly, before the tests rather than after, naming the package and
  * the command. A stale build is a wrong answer waiting to be believed.
  */
-import { readdirSync, statSync, existsSync } from "node:fs";
+import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const packages = ["sdk", "x402", "mcp", "vendor", "verify", "borsh"];
+
+/**
+ * Derived from the workspaces, not listed here.
+ *
+ * It WAS a list of six names, and a seventh package was added without being
+ * added to it — so the guard that exists to catch "green and stale" sat out
+ * the first run of a tool against a package that had never been built at all.
+ * The tests passed, the CLI failed with a module-not-found for a dist nobody
+ * had made, and this file said nothing.
+ *
+ * `ops/bindings.mjs` has the same lesson written at the top of it, from a
+ * different direction: a hardcoded list is a model that stops being true the
+ * moment somebody adds a thing. The condition that actually matters is
+ * observable — a package with a `src/` whose `main` resolves into `dist/` is a
+ * package whose tools read the build rather than the source.
+ */
+const packages = JSON.parse(readFileSync(join(root, "package.json"), "utf8"))
+  .workspaces.filter((w) => {
+    const pkg = join(root, w, "package.json");
+    if (w === "." || !existsSync(pkg) || !existsSync(join(root, w, "src"))) return false;
+    const main = JSON.parse(readFileSync(pkg, "utf8")).main ?? "";
+    return main.includes("dist/");
+  });
 
 function newest(dir) {
   let latest = 0;
@@ -59,7 +81,7 @@ if (stale.length) {
     "\nThe tests here import src/ and would pass anyway. The repo's tools import\n" +
       "the package, which resolves to dist/ — so they would run the OLD code and\n" +
       "report the new feature as broken rather than absent.\n\n" +
-      `  ${stale.map(([p]) => `npm run build --workspace @warda_protocol/${p === "sdk" ? "kaspa" : p}`).join("\n  ")}\n`,
+      `  ${stale.map(([p]) => `npm run build --workspace ${p}`).join("\n  ")}\n`,
   );
   process.exit(1);
 }

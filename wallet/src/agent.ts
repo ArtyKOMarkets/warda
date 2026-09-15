@@ -50,7 +50,13 @@ import {
 /* `Signer` comes from x402 rather than from the SDK: it is the SDK's type, but
    the SDK's index does not re-export it and x402 does. Importing it from the
    package that actually publishes it beats adding an export to fix a caller. */
-import { WardaPayer, wardaFetch, type Signer, type WardaFetchEvent } from "@warda_protocol/x402";
+import {
+  WardaPayer,
+  wardaFetch,
+  type ResumableProof,
+  type Signer,
+  type WardaFetchEvent,
+} from "@warda_protocol/x402";
 import covenantTemplate from "@warda_protocol/kaspa/covenant-template.json" with { type: "json" };
 import { toGrant } from "./grant.ts";
 import { advanced, type Manifest, type Store } from "./store.ts";
@@ -175,11 +181,38 @@ export class Agent {
      * that gave up by paying again would pay twice for one resource.
      */
     maxSettleAttempts?: number;
+    /**
+     * Pay through a single-use key rather than straight from the grant.
+     *
+     * Required by an x402 v2 vendor and ignored by a v1 one: their `exact`
+     * scheme takes only a version-0 transaction with a key-controlled input
+     * and no covenant, so a covenant spend cannot BE the payment.
+     *
+     * It costs the allowlist for that one hop — the covenant stops
+     * constraining who is ultimately paid — which is why it is asked for
+     * explicitly rather than inferred from the vendor announcing v2.
+     */
+    relay?: boolean;
+    /** The relay hop's fee. Fixed by the funding transaction, so it cannot be
+     *  corrected afterwards; measure it rather than guessing. */
+    relayFeeSompi?: bigint;
+    /**
+     * A proof from an EARLIER purchase that was paid and never delivered.
+     *
+     * Re-presents the header and pays nothing — `wardaFetch` cannot reach the
+     * payer down this path at all, which is what makes it safe to do
+     * automatically. No `paid` event fires, so the record is not advanced
+     * either, and that is correct: a resume spent nothing.
+     */
+    resume?: ResumableProof;
   }): Promise<Purchase> {
     let paid: Purchase["paid"];
     const response = await wardaFetch(input, init, {
       payer: this.payer,
       ...(opts?.maxSettleAttempts !== undefined ? { maxSettleAttempts: opts.maxSettleAttempts } : {}),
+      ...(opts?.relay !== undefined ? { relay: opts.relay } : {}),
+      ...(opts?.relayFeeSompi !== undefined ? { relayFeeSompi: opts.relayFeeSompi } : {}),
+      ...(opts?.resume ? { resume: opts.resume } : {}),
       onEvent: (e) => {
         if (e.type === "paid") {
           paid = { txid: e.result.txid, amountSompi: e.result.amountSompi, header: e.header };
