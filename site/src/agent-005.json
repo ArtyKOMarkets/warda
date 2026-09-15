@@ -1,6 +1,6 @@
 {
   "_comment": "Written by agents/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, the purchase log or the chain — none is typed. Each payee's LABEL is re-derived on every run from the artefact agents/known-payees.json names, and a label that stops matching is dropped rather than published: an address with no name is honest, an address with the wrong name is not.",
-  "checkedAt": "2026-09-15T12:30:23.907Z",
+  "checkedAt": "2026-09-15T12:39:28.208Z",
   "network": "testnet-10",
   "identity": {
     "agentId": "WARDA-005",
@@ -42,7 +42,7 @@
   },
   "timelock": {
     "notBefore": "571109377",
-    "virtualDaaScore": "571170754",
+    "virtualDaaScore": "571176156",
     "open": true,
     "lockedFor": "0 seconds",
     "openedAgo": "2 hours",
@@ -123,5 +123,5 @@
       "derived": true
     }
   ],
-  "mission": ""
+  "mission": "Buy from a vendor nobody here controls, every morning, and write down what happened whether or not it worked."
 }
