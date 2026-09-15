@@ -88,10 +88,31 @@ for (const raw of commands) {
   }
   const src = readFileSync(path, "utf8");
 
+  /**
+   * Every flag the script MENTIONS, not only the ones it reads through a
+   * helper.
+   *
+   * It started as `flag("x")` and `has("x")` and produced a false positive on
+   * the first command it was asked about: `--settled` is read by a reduce over
+   * argv comparing `a === "--settled"`, which no helper pattern can see. A
+   * guard that blocks a correct command is worse than one with a gap, because
+   * the way past it is to stop believing it.
+   *
+   * So: any `--flag` appearing anywhere in the script's source, including its
+   * usage text. The gap that leaves is a tool that documents a flag it does
+   * not read. The gap it closes is the one that cost something — `--borsh`,
+   * which appeared nowhere in dashboard.ts at all.
+   */
   const known = new Set([
+    /* Read through the usual helpers... */
     ...[...src.matchAll(/\b(?:flag|has)\(\s*"([^"]+)"/g)].map((m) => m[1]),
-    ...[...src.matchAll(/argv\.indexOf\(\s*`--\$\{(\w+)\}`/g)].map(() => null),
-  ].filter(Boolean));
+    /* ...or mentioned literally anywhere, including a usage string or an argv
+       comparison. Both are needed: `--also` is only ever `flag("also")` and
+       never appears as text, while `--settled` is only ever compared as
+       `a === "--settled"` and never passes through a helper. Taking one and
+       not the other produced a false positive each way within a minute. */
+    ...[...src.matchAll(/--([A-Za-z][\w-]*)/g)].map((m) => m[1]),
+  ]);
 
   const passed = new Set([...cmd.matchAll(/\s--([\w-]+)/g)].map((m) => m[1]));
   for (const f of passed) {

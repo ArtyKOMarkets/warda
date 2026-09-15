@@ -264,24 +264,35 @@ if MCP_SERVER["version"] != MCP_PKG["version"]:
 AGENTS = [
     # (data, page, the command that writes the data)
     #
-    # Every one of these redirects to a .new file and MOVES it on success. A
-    # plain `> site/src/agent-002.json` truncates the reading before the tool
-    # runs, so a tool that refuses — which these do, loudly, rather than
-    # publish a page about a grant that has moved — deletes the page's data as
-    # the price of refusing. That happened: agent #002's reading was destroyed
-    # by the refusal that was protecting it, and had to come back out of git.
-    # refresh-demo.sh has always written through a temp file; the commands
-    # printed for a human did not.
+    # THESE ARE THE COMMANDS. ops/refresh-agents.sh runs them and
+    # site/refresh-demo.sh calls that script, so this list is the only copy.
+    # It was not: refresh-demo.sh had its own inline versions and these had
+    # drifted from them, so running the recorded ones DEGRADED two live pages
+    # — agent #001 lost its digest, its run count and its second grant,
+    # agent #003 lost its mission — and agent #004's named a manifest that
+    # does not exist. A recorded command nobody runs is a command that is
+    # wrong and cannot be noticed.
+    #
+    # No --rpc: both dashboards already fall back to WARDA_RPC_JSON, so the
+    # flag is noise in a command printed for a human to paste.
+    #
+    # Every one redirects to .new and MOVES it on success. A plain
+    # `> site/src/agent-002.json` truncates the reading before the tool runs,
+    # so a tool that refuses — which these do, loudly — deletes the page's
+    # data as the price of refusing. That happened.
     ("agent-001.json", "agent-001.html",
      "cd agent && node --experimental-strip-types tools/dashboard.ts \\\n"
      "    ../x402/demo/kaspa-x402-grant.json \\\n"
      "    --recipients ../x402/demo/kaspa-x402-recipients.txt \\\n"
+     "    --also ../x402/demo/kaspa-402-grant.json \\\n"
+     "    --also-recipients ../x402/demo/kaspa-402-recipients.txt \\\n"
+     "    --readings readings \\\n"
      "    > ../site/src/agent-001.json.new && mv ../site/src/agent-001.json.new ../site/src/agent-001.json"),
-    ("agent-002.json", "agent-002.html",
     # --ended, because #002 is retired: its grant was revoked by #003's
     # succession and the address holds nothing. Without it the tool refuses,
     # correctly, since an empty address means either ENDED or MOVED and the
     # chain cannot tell those apart. The txid is the exit anyone can look up.
+    ("agent-002.json", "agent-002.html",
      "node --experimental-strip-types agents/tools/dashboard.ts \\\n"
      "    x402/demo/agent-002-grant.json --id WARDA-002 \\\n"
      "    --recipients x402/demo/agent-002-recipients.txt \\\n"
@@ -294,16 +305,21 @@ AGENTS = [
      "    --recipients x402/demo/agent-003-recipients.txt \\\n"
      "    --purchases agent-003/purchases \\\n"
      "    --succeeds x402/demo/agent-002-grant.json --succeeds-id WARDA-002 \\\n"
+     "    --settled x402/demo/grant-child-5a0684c6.json \\\n"
+     "    --mission \"Take over agent #002's buying, holding its own key, from a grant published before it could be used, and hire a sub-agent out of it.\" \\\n"
      "    > site/src/agent-003.json.new && mv site/src/agent-003.json.new site/src/agent-003.json"),
+    # #004's manifest is grant-child-5a0684c6.json — it was DELEGATED by
+    # #003 rather than issued, so it is named for the child id the covenant
+    # derived, not for the agent number the site gave it.
     ("agent-004.json", "agent-004.html",
      "node --experimental-strip-types agents/tools/dashboard.ts \\\n"
-     "    x402/demo/agent-004-grant.json --id WARDA-004 \\\n"
+     "    x402/demo/grant-child-5a0684c6.json --id WARDA-004 \\\n"
      "    --recipients x402/demo/agent-004-recipients.txt \\\n"
      "    --purchases agent-004/purchases \\\n"
      "    --parent x402/demo/agent-003-grant.json --parent-id WARDA-003 \\\n"
      "    > site/src/agent-004.json.new && mv site/src/agent-004.json.new site/src/agent-004.json"),
-    # The only agent here that buys from outside this project, so --endpoint is
-    # not the default.
+    # The only agent here that buys from outside this project, so --endpoint
+    # is not the default.
     ("agent-005.json", "agent-005.html",
      "node --experimental-strip-types agents/tools/dashboard.ts \\\n"
      "    x402/demo/agent-005-grant.json --id WARDA-005 \\\n"

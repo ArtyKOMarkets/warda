@@ -195,53 +195,32 @@ cp "$tmp" src/demo-state.json
 # So the signature covers the whole built site. demo-state.json is excluded
 # from the file walk and folded in with its timestamp stripped, because
 # `checkedAt` changes on every reading and would make every run look different.
-# The agent's dashboard, on the same schedule as everything else.
+# The agent dashboards, on the same schedule as everything else.
 #
-# It was manual, which meant the page was accurate exactly as often as someone
-# remembered — and a dashboard that is stale by an unknown amount is worse than
-# one that says when it was read. Failure is not fatal: a refresh that cannot
-# reach the node should cost the agent page its freshness, not stop the site
-# from shipping the pages that were fine.
-if ! (cd ../agent && node --experimental-strip-types tools/dashboard.ts \
-        ../x402/demo/kaspa-x402-grant.json \
-        --recipients ../x402/demo/kaspa-x402-recipients.txt \
-        --also ../x402/demo/kaspa-402-grant.json \
-        --also-recipients ../x402/demo/kaspa-402-recipients.txt \
-        --readings readings \
-        ${WARDA_RPC_JSON:+--rpc "$WARDA_RPC_JSON"} \
-        > /tmp/agent-001.$$.json); then
-  echo "agent dashboard refresh failed — keeping the previous one" >&2
-  rm -f /tmp/agent-001.$$.json
-else
-  mv /tmp/agent-001.$$.json src/agent-001.json
+# It was manual, which meant the pages were accurate exactly as often as
+# someone remembered — and a dashboard stale by an unknown amount is worse than
+# one that says when it was read.
+#
+# Only #001 and #003. #002 and #004 have both ended — one revoked, one settled
+# — so their pages are records rather than dashboards and there is nothing on
+# chain left to re-read. #005 buys at 09:23 and is refreshed after that, not
+# twenty-four times a day. Twenty node round-trips an hour to re-derive a
+# figure that cannot change is not diligence.
+#
+# THE COMMANDS ARE NOT HERE ANY MORE. They used to be, inline, and build.py
+# kept its own copies to print when it drops a page — two sources, which
+# drifted: the recorded ones lost #001's --readings, --also and
+# --also-recipients and #003's --settled and --mission, and named a manifest
+# for #004 that does not exist. Running them succeeded and silently published
+# poorer pages. One list, in build.py, run by ops/refresh-agents.sh, which also
+# refuses a reading that drops a section the previous one had.
+#
+# Failure is not fatal: a refresh that cannot reach the node should cost those
+# pages their freshness, not stop the site shipping the ones that were fine.
+if ! ../ops/refresh-agents.sh agent-001 agent-003; then
+  echo "agent dashboard refresh failed — keeping the previous readings" >&2
 fi
 
-# Agent #003, which is the one that still moves.
-#
-# #002 and #004 are deliberately NOT refreshed. Both grants have ended — one
-# revoked, one settled — so their pages are records rather than dashboards, and
-# there is nothing on chain left to re-read. Twenty node round-trips an hour to
-# re-derive a figure that cannot change is not diligence.
-#
-# #003 buys once a day (ops/daily-buy.sh), so without this the purchase happens
-# and the site never hears about it.
-if [ -f ../x402/demo/agent-003-grant.json ]; then
-  if ! (cd .. && node --experimental-strip-types agents/tools/dashboard.ts \
-          x402/demo/agent-003-grant.json \
-          --id WARDA-003 \
-          --recipients x402/demo/agent-003-recipients.txt \
-          --purchases agent-003/purchases \
-          --succeeds x402/demo/agent-002-grant.json --succeeds-id WARDA-002 \
-          --settled x402/demo/grant-child-5a0684c6.json \
-          --mission "Take over agent #002's buying, holding its own key, from a grant published before it could be used — and hire a sub-agent out of it." \
-          ${WARDA_RPC_JSON:+--rpc "$WARDA_RPC_JSON"} \
-          > /tmp/agent-003.$$.json); then
-    echo "agent #003 dashboard refresh failed — keeping the previous one" >&2
-    rm -f /tmp/agent-003.$$.json
-  else
-    mv /tmp/agent-003.$$.json src/agent-003.json
-  fi
-fi
 
 python3 build.py >/dev/null
 

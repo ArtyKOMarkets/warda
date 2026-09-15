@@ -74,6 +74,49 @@ if [ ! -s "$LIST" ]; then
   exit 1
 fi
 
+# A regenerated reading must not be POORER than the one it replaces.
+#
+# The command each of these runs is recorded in build.py, and those records had
+# drifted from the commands refresh-demo.sh was actually using. Running the
+# recorded ones succeeded, exited 0, wrote a valid file — and agent #001 lost
+# its digest, its run count and its second grant, while #003 lost its mission.
+# A page quietly missing three sections, from a run that reported success.
+#
+# So the move is refused when a top-level key disappears. It compares the file
+# that is about to be replaced, so it says exactly what would have been lost.
+# A key going from present to null counts: that is how a missing --readings
+# shows up.
+# Compared AFTER the command, against a snapshot taken before it, because the
+# recorded commands do their own `mv` — they have to, since they are also
+# printed for a human to paste and a command that leaves a .new file behind
+# would be a command that does nothing.
+keptEverything() {
+  data="$1"
+  before="$2"
+  target="site/src/$data"
+  [ -s "$before" ] || return 0          # first run: nothing to lose
+  [ -f "$target" ] || return 0
+  lost="$(python3 - "$before" "$target" <<'ENDCHECK'
+import json, sys
+try:
+    old = json.load(open(sys.argv[1]))
+    new = json.load(open(sys.argv[2]))
+except Exception:
+    raise SystemExit(0)
+if not isinstance(old, dict) or not isinstance(new, dict):
+    raise SystemExit(0)
+print(" ".join(k for k in old if old.get(k) and not new.get(k)))
+ENDCHECK
+)"
+  [ -z "$lost" ] && return 0
+  echo "  REFUSED — the new reading drops: $lost" >&2
+  echo "            The previous one has been put back. This is usually a flag" >&2
+  echo "            missing from the command in site/build.py; compare it with" >&2
+  echo "            what actually produced the live page." >&2
+  cp "$before" "$target"
+  return 1
+}
+
 TAB="$(printf '\t')"
 failed=""
 nfailed=0
@@ -87,7 +130,9 @@ while IFS="$TAB" read -r data cmd; do
   echo "=== $data ==============================================="
   # A subshell, because one of these begins `cd agent &&` and the next must
   # not inherit it.
-  if ( eval "$cmd" ); then
+  BEFORE="$(mktemp)"
+  [ -f "site/src/$data" ] && cp "site/src/$data" "$BEFORE"
+  if ( eval "$cmd" ) && keptEverything "$data" "$BEFORE"; then
     echo "  ok"
   else
     echo "  FAILED — $data was NOT replaced." >&2
@@ -102,6 +147,7 @@ while IFS="$TAB" read -r data cmd; do
 "
     nfailed=$((nfailed + 1))
   fi
+  rm -f "$BEFORE"
 done < "$LIST"
 
 echo
