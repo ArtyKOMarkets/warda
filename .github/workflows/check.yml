@@ -125,6 +125,8 @@ jobs:
         run: npm test --workspace verify
       - name: wallet — the agent's half
         run: npm test --workspace wallet
+      - name: registry
+        run: npm test --workspace registry
       - name: mcp
         run: npm test --workspace mcp
       - name: growth

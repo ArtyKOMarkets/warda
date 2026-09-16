@@ -1,0 +1,29 @@
+{
+  "name": "@warda_protocol/registry",
+  "version": "0.1.0",
+  "description": "Service discovery for agents holding a Warda grant. A listing is a manifest the operator signs with the key they are paid at and publishes on their own domain; this reads it and says whether it stands.",
+  "type": "module",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "engines": { "node": ">=20" },
+  "files": ["dist", "README.md", "LICENSE"],
+  "scripts": {
+    "test": "node --experimental-strip-types --test test/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+  },
+  "dependencies": {
+    "@noble/curves": "^2.3.0",
+    "@warda_protocol/core": "^0.3.1"
+  }
+}

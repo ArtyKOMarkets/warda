@@ -1,4 +1,9 @@
-node_modules/
+# No trailing slash, deliberately. `node_modules/` matches a DIRECTORY, and a
+# symlink named node_modules is not a directory to git — so a workspace linked
+# rather than installed would have had its symlink committed, and a fresh
+# checkout would carry a link into a path that does not exist on that machine.
+# Caught when the registry workspace was added.
+node_modules
 dist/
 *.log
 .DS_Store

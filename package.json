@@ -45,6 +45,7 @@
     "borsh",
     "x402",
     "provider",
+    "registry",
     "vendor",
     "verify",
     "wallet",
