@@ -40,6 +40,22 @@ set -euo pipefail
 REPO="$HOME/Desktop/warda"
 export PATH="$HOME/.local/node/bin:/usr/bin:/bin"
 
+# The node, for the REFRESH at the bottom of this file.
+#
+# The purchase itself does not need one — interop.ts reaches the chain over
+# borsh through public resolvers, which is the claim it exists to exercise. So
+# this file was written without it, correctly. Then the reading refresh was
+# added at the bottom, and `dashboard.ts` speaks JSON wRPC to a node of ours.
+#
+# Under cron there is no interactive shell to have exported it, so the first
+# run bought successfully and then silently failed to refresh the page it had
+# just changed. daily-buy.sh has sourced this since it was written; this file
+# gained the dependency later and not the line.
+if [ -f "$REPO/ops/node.env" ]; then
+  # shellcheck disable=SC1091
+  . "$REPO/ops/node.env"
+fi
+
 KEY="$REPO/agent-005/agent.key"
 if [ ! -f "$KEY" ]; then
   echo "no agent key at $KEY — nothing to buy with." >&2
