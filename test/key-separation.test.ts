@@ -24,6 +24,7 @@
  * rather than a default nobody notices.
  */
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -119,4 +120,48 @@ test("genesis warns about a shared principal and revocation on testnet", () => {
   assert.match(r.stderr, /warning: the revocation key IS the principal key/);
   assert.match(r.stderr, /refused outright on mainnet/);
   assert.doesNotMatch(r.stderr, /refusing: the revocation key/);
+});
+
+/**
+ * The inventory must describe keys that exist, not keys somebody meant to make.
+ *
+ * ops/known-keys.json is a claim about CUSTODY — where a secret lives and what
+ * it is allowed to do — and a claim like that decays silently. A key listed
+ * there whose secret was never generated, or whose public half was typed by
+ * hand and is one character wrong, reads exactly like a key that is ready to
+ * use, right up until a grant is issued naming it and nobody can revoke it.
+ *
+ * So: every entry must be 64 hex characters, and no two entries may name the
+ * same key with different labels.
+ */
+test("the key inventory is well formed and unambiguous", () => {
+  const known = JSON.parse(
+    readFileSync(new URL("../ops/known-keys.json", import.meta.url), "utf8"),
+  ).keys as { key: string; label: string; secretLives?: string }[];
+
+  assert.ok(known.length > 0, "the inventory is empty");
+  const seen = new Set<string>();
+  for (const k of known) {
+    assert.match(k.key, /^[0-9a-f]{64}$/, `${k.label}: not 64 hex characters`);
+    assert.ok(k.label && k.label.length > 8, `${k.key.slice(0, 12)}: needs a label that says something`);
+    assert.ok(k.secretLives, `${k.label}: must say where the secret lives, or it is not an inventory`);
+    assert.ok(!seen.has(k.key), `${k.key.slice(0, 12)} is listed twice`);
+    seen.add(k.key);
+  }
+});
+
+/**
+ * The key that matters most must be accounted for.
+ *
+ * 0393133d… is the principal of every grant this project has issued. An
+ * inventory that does not mention it is an inventory of the easy half.
+ */
+test("the principal of every existing grant is in the inventory", () => {
+  const principals = report.keys.filter((k: { principalOf: number }) => k.principalOf > 0);
+  for (const p of principals) {
+    assert.ok(
+      p.label,
+      `${p.key.slice(0, 16)} is the principal of ${p.principalOf} grant(s) and is not in ops/known-keys.json`,
+    );
+  }
 });

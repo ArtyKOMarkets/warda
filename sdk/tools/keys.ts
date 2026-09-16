@@ -59,6 +59,26 @@ function tracked(): string[] {
 
 const files = given.length > 0 ? given : tracked();
 
+/**
+ * Labels, from ops/known-keys.json, following agents/known-payees.json.
+ *
+ * A key with no entry is printed as a bare key rather than guessed at. That is
+ * the honest rendering of one nobody has accounted for, and it is the state
+ * this whole tool exists to make visible: an unlabelled key holding something
+ * is a question, not a fact.
+ */
+interface Known { key: string; label: string; secretLives?: string }
+let known: Known[] = [];
+try {
+  known = JSON.parse(
+    readFileSync(new URL("../../ops/known-keys.json", import.meta.url), "utf8"),
+  ).keys;
+} catch {
+  /* Absent is fine: the report is about manifests, and labels only decorate it. */
+}
+const labelOf = (k: string) => known.find((x) => x.key.toLowerCase() === k)?.label;
+const custodyOf = (k: string) => known.find((x) => x.key.toLowerCase() === k)?.secretLives;
+
 interface Role { file: string; role: "principal" | "revocation" | "agent"; value: bigint }
 
 const roles = new Map<string, Role[]>();
@@ -114,6 +134,8 @@ const report = {
       const holds = of("principal").reduce((n, x) => n + x.value, 0n);
       return {
         key,
+        label: labelOf(key) ?? null,
+        secretLives: custodyOf(key) ?? null,
         principalOf: of("principal").length,
         revocationOf: of("revocation").length,
         agentOf: of("agent").length,
@@ -144,8 +166,20 @@ console.log("------------------  ---------  ------  -----   --------------");
 for (const k of report.keys) {
   console.log(
     `${k.key.slice(0, 16)}…  ${String(k.principalOf).padStart(9)}  ${String(k.revocationOf).padStart(6)}  ` +
-      `${String(k.agentOf).padStart(5)}   ${k.everBehindItKas.padStart(8)} KAS`,
+      `${String(k.agentOf).padStart(5)}   ${k.everBehindItKas.padStart(8)} KAS` +
+      (k.label ? `   ${k.label}` : ""),
   );
+}
+
+/* Keys we hold that no manifest names. A revocation key generated and not yet
+   used is exactly this, and it should read as "ready" rather than vanish. */
+const unused = known.filter((k) => !roles.has(k.key.toLowerCase()));
+if (unused.length > 0) {
+  console.log("\nHeld, and named by no grant yet:");
+  for (const k of unused) {
+    console.log(`  ${k.key.slice(0, 16)}…   ${k.label}`);
+    if (k.secretLives) console.log(`                      secret: ${k.secretLives}`);
+  }
 }
 
 if (findings.length > 0) {
