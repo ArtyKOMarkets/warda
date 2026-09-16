@@ -255,9 +255,22 @@
   .nv-burger[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
   .nv-burger[aria-expanded="true"] span:nth-child(3) { transform: translateY(-5.5px) rotate(-45deg); }
 
-  @media (max-width: 900px) {
+  /* ---- where the bar stops fitting -------------------------------------
+     Measured, not guessed, and re-measured after /sandbox made nine links out
+     of eight. The failure is invisible in the usual way: `overflow-x: clip`
+     above means a bar that is too wide does not scroll and does not report an
+     overflow — the "Get started" button is simply not on the screen, and the
+     page looks fine. At 1024px it was already 20px off the right edge with
+     eight links and nothing said so.
+
+     Two steps rather than one, because the two things have different value.
+     The status line is the widest item and the most repeatable — it is on
+     every page and says the same thing — so it goes first. The links go
+     second, into the menu that already exists. */
+  @media (max-width: 1200px) { .nv-status { display: none; } }
+
+  @media (max-width: 1040px) {
     .nv-burger { display: flex; }
-    .nv-status { display: none; }
     .nv-links { position: absolute; left: 0; right: 0; top: 100%; display: none;
                 flex-direction: column; align-items: stretch; gap: 0; margin: 0;
                 background: var(--ground); border-bottom: 1px solid var(--edge);
