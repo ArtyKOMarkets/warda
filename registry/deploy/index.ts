@@ -19,6 +19,24 @@
  * cannot run unreleased code, and it exercises the package the way an
  * installing user does.
  *
+ * ## Linking this directory to its own project
+ *
+ * This repo is in Vercel's REPO-LINKED mode: `.vercel/repo.json` at the root
+ * maps directories to projects, and it knows exactly one — `mcp/deploy` ->
+ * `warda_mcp`. So the first `vercel --prod` from here offered `warda_mcp` as
+ * the only choice, and taking it would have deployed the registry OVER the
+ * live MCP endpoint. That is a one-keystroke way to lose a production service,
+ * and the prompt gives no hint of it.
+ *
+ * The two deploys that have never had this problem — `verify/deploy` and
+ * `site/web` — do not use the repo link at all. Each has its own
+ * `.vercel/project.json`, which pins the directory to one project and makes
+ * the wrong one unreachable:
+ *
+ *     vercel project add warda-registry
+ *     vercel link --yes --project warda-registry
+ *     vercel --prod
+ *
  * ## Why a Node signature wraps a Web handler
  *
  * Vercel's Node runtime calls a function with `(IncomingMessage,
