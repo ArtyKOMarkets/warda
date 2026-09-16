@@ -38,6 +38,7 @@ import { materialise, headroom, kas, formatKas, type GrantDescriptor } from "./g
 import { addressOf, buildSpend } from "./build.ts";
 import { buildDelegation, buildExit, buildSettlement, recover } from "./lifecycle.ts";
 import type { FailureCode } from "@warda_protocol/core";
+import { FindShape, findServices } from "./discover.ts";
 import type { NetworkPrefix } from "@warda_protocol/kaspa";
 
 const EXPLAIN: Record<FailureCode, string> = {
@@ -647,6 +648,35 @@ const json = (v: unknown) => ({ content: [{ type: "text" as const, text: JSON.st
     },
   );
 
+
+  /**
+   * The only tool here that touches the network, and it touches exactly one
+   * host. See discover.ts for why that constraint is the design rather than a
+   * detail: a tool on a public endpoint that fetched URLs on request would be
+   * a server-side request forgery surface with a documentation page.
+   */
+  server.registerTool(
+    "warda_find_service",
+    {
+      title: "What can this agent buy, and for how much?",
+      description:
+        "Search the Warda service registry for endpoints an agent holding a grant can pay. " +
+        "Filters are a conjunction: a service must offer EVERY capability asked for and be at " +
+        "or under maxPrice. " +
+        "WHAT IS VERIFIED: that the operator controls the key the service is paid at, and that " +
+        "the listing was served from the same host as the endpoint it names. WHAT IS NOT: that " +
+        "the price is real, that the service works, or that it is worth paying — those are the " +
+        "operator's claims about themselves and arrive labelled as such. There is no ranking; " +
+        "do not read the order as one. " +
+        "NETWORK: unlike every other tool on this server, this one makes one outbound request, " +
+        "to the registry and to nothing else. It will not fetch a URL you give it. " +
+        "NOT REQUIRED: discovery is never in the payment path. A listing is a signed manifest at " +
+        "/.well-known/warda-service.json on the operator's own domain — if you already know an " +
+        "endpoint, read that directly and pay it without asking anyone.",
+      inputSchema: FindShape,
+    },
+    async (args) => json(await findServices(args)),
+  );
 
   return server;
 }

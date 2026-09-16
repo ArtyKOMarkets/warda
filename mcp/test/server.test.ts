@@ -47,6 +47,7 @@ test("the tools a framework would discover are registered", async () => {
     "warda_build_spend",
     "warda_check_delegation",
     "warda_check_spend",
+    "warda_find_service",
     "warda_grant_address",
     "warda_grant_authority",
     "warda_recover_grant",
@@ -267,4 +268,41 @@ test("warda_build_spend refuses an unlisted payee rather than faking a proof", a
   assert.match(r.error, /not on this grant's allowlist/);
   // Still tells the agent what it CAN do, rather than only what it cannot.
   assert.equal(r.largestPermittedSpendKas, "2");
+});
+
+/**
+ * Discovery is the one tool here that reaches the network, so what it does when
+ * the network is not there is part of its contract rather than an edge case.
+ *
+ * A registry that is down must NOT look like a world with no services in it.
+ * `{count: 0}` is the flattering failure: an agent reads "nothing matched",
+ * narrows its query, and concludes the market is empty.
+ */
+test("an unreachable registry is not reported as an empty market", async () => {
+  const { findServices } = await import("../src/discover.ts");
+  const dead = (async () => { throw new Error("getaddrinfo ENOTFOUND"); }) as unknown as typeof fetch;
+  const r = await findServices({ capability: ["weather.current"] }, { fetch: dead });
+  assert.equal(r.count, undefined, "count must be ABSENT, not zero");
+  assert.match(r.unreachable!, /ENOTFOUND/);
+  assert.match(r.note, /NOT a statement that nothing matched/);
+});
+
+test("a registry answering non-200 is a failure, not an empty result", async () => {
+  const { findServices } = await import("../src/discover.ts");
+  const five = (async () => new Response("", { status: 502 })) as unknown as typeof fetch;
+  const r = await findServices({}, { fetch: five });
+  assert.equal(r.count, undefined);
+  assert.match(r.unreachable!, /502/);
+});
+
+test("filters travel as query parameters, and only to the registry host", async () => {
+  const { registryUrl } = await import("../src/discover.ts");
+  const u = new URL(registryUrl(
+    { capability: ["a.one", "b.two"], maxPrice: "0.05", network: "kaspa:testnet-10", q: "weather" },
+    "https://registry.example",
+  ));
+  assert.equal(u.host, "registry.example");
+  assert.deepEqual(u.searchParams.getAll("capability"), ["a.one", "b.two"]);
+  assert.equal(u.searchParams.get("maxPrice"), "0.05");
+  assert.equal(u.pathname, "/services");
 });

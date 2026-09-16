@@ -261,6 +261,22 @@ if DEPLOYED != MCP_PKG["version"]:
         f"        then set deploy/package.json to ^{MCP_PKG['version']} and redeploy"
     )
 
+# server.json carries the version TWICE: once at the top, and once inside
+# `packages[]` as the npm version the MCP registry tells people to install. The
+# check below only ever read the first one, so the listing could point at a
+# release that does not contain the tool it advertises — which is the same
+# "four files claiming different versions" failure this file already generates
+# the discovery documents to prevent, surviving inside the guard against it.
+for _pkg in MCP_SERVER.get("packages", []):
+    if _pkg.get("identifier") == "@warda_protocol/mcp" and _pkg.get("version") != MCP_PKG["version"]:
+        raise SystemExit(
+            f"mcp/server.json lists @warda_protocol/mcp {_pkg.get('version')} inside packages[] "
+            f"and mcp/package.json says {MCP_PKG['version']}.\n"
+            "That nested version is the one the MCP registry tells an agent to install, so these "
+            "disagreeing means the listing points at a release that may not have the tools it "
+            "advertises. Fix both, then build."
+        )
+
 if MCP_SERVER["version"] != MCP_PKG["version"]:
     raise SystemExit(
         f"mcp/server.json says version {MCP_SERVER['version']} and "

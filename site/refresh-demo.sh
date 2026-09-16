@@ -230,6 +230,11 @@ fi
 # most flattering possible way for that page to be broken.
 node ../ops/check-core-browser.mjs
 
+# And that the hosted registry's copy of the pointer list matches this repo's.
+# The endpoint serves the file in its own directory, so a stale copy is an index
+# that silently does not contain a service somebody was told they had listed.
+node ../ops/build-registry-sources.mjs --check
+
 python3 build.py >/dev/null
 
 # Nothing is deployed that links into a hole. build.py DROPS a page whose data
