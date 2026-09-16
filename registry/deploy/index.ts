@@ -37,6 +37,25 @@
  *     vercel link --yes --project warda-registry
  *     vercel --prod
  *
+ * ## Why vercel.json declares no `functions`
+ *
+ * It did, with `{"functions": {"index.ts": {"maxDuration": 15}}}`, copied from
+ * mcp/deploy — and the deploy failed with
+ *
+ *     The pattern "index.ts" defined in `functions` doesn't match any
+ *     Serverless Functions inside the `api` directory.
+ *
+ * `functions` patterns are resolved inside `api/`, and this handler is the ROOT
+ * entrypoint, which is a different mechanism. The two cannot both be used to
+ * describe the same file. Zero-config finds `index.ts` on its own and routes
+ * every path to it, which is exactly what is wanted here, so the declaration
+ * was the only thing standing in the way.
+ *
+ * The cost is that maxDuration takes its default. That is acceptable: every
+ * request is a handful of parallel fetches with a five-second timeout each, and
+ * a registry that cannot answer in ten seconds should fail rather than hold the
+ * caller.
+ *
  * ## Why a Node signature wraps a Web handler
  *
  * Vercel's Node runtime calls a function with `(IncomingMessage,
