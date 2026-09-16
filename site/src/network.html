@@ -1,0 +1,317 @@
+<title>The Warda service registry</title>
+<style>
+  :root {
+    --void: #06090C; --ground: #0A1014; --panel: #101A20;
+    --edge: #1E2E37; --edge-bright: #2C4350;
+    --chrome: #DDE0E2; --chrome-dim: #8D989E; --chrome-faint: #5D6B73;
+    --teal: #14D7C1; --teal-deep: #06BBA1; --teal-ghost: rgba(20,215,193,0.10);
+    --refuse: #FF6B5A; --amber: #E8B14C;
+    --display: "Chakra Petch", "Arial Narrow", sans-serif;
+    --body: "Barlow", "Helvetica Neue", Arial, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    --gutter: clamp(1.15rem, 4vw, 3.4rem);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--void); color: var(--chrome);
+         font-family: var(--body); line-height: 1.6; }
+  .wrap { max-width: 62rem; margin: 0 auto; padding: 0 var(--gutter); }
+  header { border-bottom: 1px solid var(--edge); padding: 2.6rem 0 2.4rem; }
+  h1 { font-family: var(--display); font-size: clamp(1.9rem, 5vw, 3rem); line-height: 1.06;
+       margin: 1.3rem 0 0; font-weight: 600; letter-spacing: -0.01em; }
+  .lede { color: var(--chrome-dim); max-width: 62ch; margin-top: 1.1rem; }
+  .eyebrow { font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.18em;
+             text-transform: uppercase; color: var(--teal); margin: 0; }
+  section { border-bottom: 1px solid var(--edge); padding: 2.6rem 0; }
+  h2 { font-family: var(--display); font-size: clamp(1.3rem, 3vw, 1.8rem); margin: 0.7rem 0 0;
+       font-weight: 600; }
+  p { max-width: 64ch; }
+  code { font-family: var(--mono); font-size: 0.92em; color: var(--chrome-dim); }
+  a { color: var(--teal); }
+  pre { background: var(--ground); border: 1px solid var(--edge); padding: 0.9rem 1rem;
+        font-family: var(--mono); font-size: 0.74rem; line-height: 1.8; color: var(--chrome-dim);
+        max-width: 100%; overflow-x: auto; }
+
+  /* The count, which is the headline whatever it is. */
+  .tally { display: flex; align-items: baseline; gap: 1rem; margin-top: 1.8rem; flex-wrap: wrap; }
+  .tally .n { font-family: var(--display); font-size: clamp(3.4rem, 12vw, 6rem); line-height: 0.9;
+              font-weight: 700; color: var(--teal); }
+  .tally .w { font-family: var(--mono); font-size: 0.8rem; letter-spacing: 0.14em;
+              text-transform: uppercase; color: var(--chrome-dim); }
+  .tally .w b { color: var(--chrome); font-weight: 500; }
+
+  .svc { border: 1px solid var(--edge); background: var(--ground); padding: 1.3rem 1.4rem;
+         margin-top: 1rem; }
+  .svc.unlisted { border-style: dashed; border-color: var(--edge-bright); background: transparent; }
+  .svc .top { display: flex; align-items: baseline; gap: 0.8rem; flex-wrap: wrap; }
+  .svc h3 { font-family: var(--display); font-size: 1.15rem; margin: 0; font-weight: 600; }
+  .tag { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.14em;
+         text-transform: uppercase; padding: 0.18rem 0.5rem; border: 1px solid var(--edge-bright);
+         color: var(--chrome-faint); border-radius: 2px; white-space: nowrap; }
+  .tag.ours { color: var(--amber); border-color: var(--amber); }
+  .tag.independent { color: var(--teal); border-color: var(--teal-deep); }
+  .svc .desc { color: var(--chrome-dim); font-size: 0.94rem; margin: 0.6rem 0 0; }
+  .svc .ep { font-family: var(--mono); font-size: 0.78rem; color: var(--teal);
+             margin-top: 0.7rem; overflow-wrap: anywhere; }
+  .caps { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.7rem; }
+  .cap { font-family: var(--mono); font-size: 0.68rem; color: var(--chrome-dim);
+         background: var(--panel); border: 1px solid var(--edge); padding: 0.1rem 0.45rem; }
+  .facts { display: flex; gap: 2rem; flex-wrap: wrap; margin-top: 0.95rem;
+           padding-top: 0.85rem; border-top: 1px solid var(--edge); }
+  .fact .k { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.13em;
+             text-transform: uppercase; color: var(--chrome-faint); }
+  .fact .v { font-family: var(--mono); font-size: 0.9rem; color: var(--chrome); }
+  .fact .v.derived { color: var(--teal); }
+  .fact .v.none { color: var(--chrome-faint); }
+
+  .cta { border: 1px solid var(--teal-deep); background: var(--teal-ghost);
+         padding: 1.4rem 1.5rem; margin-top: 1.8rem; }
+  .cta h3 { font-family: var(--display); font-size: 1.2rem; margin: 0 0 0.6rem; font-weight: 600; }
+  .note { color: var(--chrome-faint); font-size: 0.86rem; max-width: 66ch; }
+{{NAV_CSS}}
+</style>
+{{NAV}}
+
+<div class="wrap">
+<header>
+  <p class="eyebrow">The registry</p>
+  <h1>Services an agent with a Warda grant can hire</h1>
+  <p class="lede">
+    A service lists itself by publishing a manifest. An agent asks for what it needs &mdash;
+    a capability, under a price &mdash; and gets back the ones that match. That is the whole
+    of it, and everything below is derived from the manifests and from the chain.
+  </p>
+  <!-- The count is the headline whatever it is. A registry with two entries says two: this
+       page is a recruiting tool, and a recruiting tool that overstates the size of the thing
+       it is recruiting for is the first thing a provider checks and the last page they
+       believe. -->
+  <div class="tally">
+    <span class="n" id="n-count">&mdash;</span>
+    <span class="w" id="n-words">reading the registry&hellip;</span>
+  </div>
+</header>
+
+<section>
+  <p class="eyebrow">Listed</p>
+  <h2 id="listed-h">&mdash;</h2>
+  <p class="note" id="order-note"></p>
+  <div id="listed"></div>
+</section>
+
+<!-- Known and not listed. This is the honest half and the persuasive half at once: a
+     registry that shows only what it recruited hides the size of what it has not. -->
+<section id="unlisted-sec" hidden>
+  <p class="eyebrow">Known, and not listed</p>
+  <h2>Endpoints we pay that are not in the registry</h2>
+  <p>
+    These take Warda payments today and have never been asked to list themselves. They are
+    here because the gap is the point: a directory of only its own author is a directory of
+    one, and pretending otherwise would be the easiest claim on this site to catch out.
+  </p>
+  <div id="unlisted"></div>
+</section>
+
+<section>
+  <p class="eyebrow">List yours</p>
+  <h2>What a listing is</h2>
+  <p>
+    A JSON manifest you publish and sign. The registry indexes it; it does not vouch for it.
+    Prices and availability below are as stated by the operator &mdash; what this page can show,
+    and what no other directory can, is <strong>what has actually been paid</strong> to each
+    payee, re-derived from the chain.
+  </p>
+  <pre id="schema">{
+  "name": "Weather Agent",
+  "description": "Current weather and forecasts",
+  "endpoint": "https://example.com/api",
+  "capabilities": ["weather.current", "weather.forecast"],
+  "pricing": { "asset": "KAS", "amount": "0.02", "unit": "request" },
+  "payment": { "protocol": "x402", "network": "kaspa:testnet-10", "warda": true },
+  "payee": "&lt;the x-only public key you are paid at&gt;"
+}</pre>
+  <div class="cta">
+    <h3>Why a service would want this</h3>
+    <p style="margin:0">
+      An agent holding a Warda grant can pay you without a human in the loop, and the grant is
+      a promise the network keeps rather than one its owner makes: a budget that cannot be
+      exceeded, a per-payment cap, a window, and a list of who may be paid. You are not being
+      asked to support a chain. You are being offered a customer that cannot overspend.
+    </p>
+  </div>
+  <p class="note" style="margin-top:1.2rem">
+    Send a manifest to the repository, or open an issue:
+    <a href="https://github.com/ArtyKOMarkets/warda">github.com/ArtyKOMarkets/warda</a>.
+    There is no submission API yet, and there will not be one until the file is annoying &mdash;
+    a registry with two entries does not need a service, and the shape above is the shape the
+    service will serve, so nothing about a listing has to change when one exists.
+  </p>
+</section>
+
+<section>
+  <p class="eyebrow">What this is not</p>
+  <h2>There is no ranking here, and that is deliberate</h2>
+  <p>
+    Nothing on this page is ordered by quality. With this many services and this many payments,
+    any reputation signal would be noise dressed as information, and an empty ranking teaches
+    people the ranking is decorative.
+  </p>
+  <p>
+    When there are transactions to derive it from, reputation will be
+    <strong>payment history</strong>: paid this many times, by this many distinct grants, over
+    this long. Anyone can recompute that from the chain, which is the only kind of claim this
+    project makes anywhere else. Votes would be cheaper to farm than they are to earn, and the
+    first thing a sceptic does with a voted registry is buy the top slot to prove it can be
+    bought.
+  </p>
+  <p class="note">
+    The registry is never in the payment path. An agent that already knows an endpoint pays
+    without asking this page anything, and a service found once never needs it again. If this
+    were required to make a payment, a protocol whose whole claim is that authority lives in
+    consensus would have a single host it depends on.
+  </p>
+</section>
+</div>
+
+<script>
+(function () {
+  var listed = document.getElementById("listed");
+  var unlisted = document.getElementById("unlisted");
+  if (!listed || !window.fetch) return;
+
+  var el = function (tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  };
+  var kas = function (sompi) { return (sompi / 100000000).toFixed(2) + " KAS"; };
+
+  /**
+   * What has actually been paid to each ENDPOINT, from the agents' own readings.
+   *
+   * The same files their pages render, so the registry cannot claim a payment
+   * the rest of the site does not also show.
+   *
+   * Keyed by URL, and the first draft of this keyed it by payee — which is
+   * wrong in a way the rest of this site already knows about. A payee address
+   * serves whoever pays it, and it also serves WHATEVER ITS OWNER SELLS: the
+   * Warda demo vendor is paid 0.03, 0.05 and 0.1 KAS at the same key for
+   * different paths. Attributing by payee credited the 0.03 listing with all
+   * nine payments and 0.57 KAS, most of which were for something else. A
+   * registry that inflates a service's traffic with its neighbour's is the one
+   * thing this page cannot afford to do.
+   *
+   * The purchase records carry the url they paid for, so the exact key exists
+   * and there is no reason to infer. A service with no payments shows nothing
+   * rather than a zero: zero is a claim about the service, nothing is the truth
+   * about what we know.
+   */
+  function paymentsByEndpoint(readings) {
+    var totals = {};
+    readings.forEach(function (d) {
+      if (!d) return;
+      (d.purchases || []).forEach(function (p) {
+        if (p.outcome !== "bought" || !p.url || !p.paid) return;
+        var t = totals[p.url] || (totals[p.url] = { n: 0, kas: 0, grants: {} });
+        t.n += 1;
+        t.kas += parseFloat(p.paid) || 0;
+        t.grants[(d.identity && d.identity.agentId) || "?"] = true;
+      });
+    });
+    return totals;
+  }
+
+  function fact(k, v, cls) {
+    var f = el("div", "fact");
+    f.appendChild(el("div", "k", k));
+    f.appendChild(el("div", "v " + (cls || ""), v));
+    return f;
+  }
+
+  function card(s, paid) {
+    var c = el("div", "svc");
+    var top = el("div", "top");
+    top.appendChild(el("h3", null, s.name));
+    var ours = s.operator === "warda";
+    top.appendChild(el("span", "tag " + (ours ? "ours" : "independent"),
+      ours ? "run by this project" : "independent"));
+    c.appendChild(top);
+    c.appendChild(el("p", "desc", s.description));
+    c.appendChild(el("div", "ep", s.endpoint));
+    var caps = el("div", "caps");
+    (s.capabilities || []).forEach(function (x) { caps.appendChild(el("span", "cap", x)); });
+    c.appendChild(caps);
+
+    var facts = el("div", "facts");
+    facts.appendChild(fact("Price, as stated", s.pricing.amount + " " + s.pricing.asset +
+      " / " + s.pricing.unit));
+    facts.appendChild(fact("Network", s.payment.network));
+    /* Derived, not stated: this is the half a directory cannot fake. */
+    if (paid && paid.n > 0) {
+      facts.appendChild(fact("Paid, on chain",
+        paid.n + (paid.n === 1 ? " payment" : " payments") + " · " + kas(paid.kas * 100000000),
+        "derived"));
+      facts.appendChild(fact("By", Object.keys(paid.grants).length + " grant(s)", "derived"));
+    } else {
+      facts.appendChild(fact("Paid, on chain", "nothing recorded here yet", "none"));
+    }
+    c.appendChild(facts);
+    if (s.operatorNote) {
+      var n = el("p", "note", s.operatorNote);
+      n.style.marginTop = "0.8rem";
+      c.appendChild(n);
+    }
+    return c;
+  }
+
+  Promise.all([
+    fetch("/services.json", { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; }),
+    Promise.all(["001", "002", "003", "004", "005"].map(function (n) {
+      return fetch("/agent-" + n + ".json", { cache: "no-store" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .catch(function () { return null; });
+    })),
+  ]).then(function (r) {
+    var reg = r[0], readings = r[1];
+    if (!reg || !reg.services) return;
+    var totals = paymentsByEndpoint(readings);
+    var n = reg.services.length;
+
+    document.getElementById("n-count").textContent = String(n);
+    /* The wording changes with the number, because "2 services" and "200
+       services" are different claims and one sentence cannot be honest about
+       both. At this size the absence IS the message. */
+    document.getElementById("n-words").innerHTML = n === 0
+      ? "services listed. <b>Nobody has listed one yet.</b>"
+      : n < 5
+        ? "services listed. <b>Yours could be number " + (n + 1) + ".</b>"
+        : "services listed.";
+    document.getElementById("listed-h").textContent =
+      n === 1 ? "The one service in the registry" : "The " + n + " services in the registry";
+    document.getElementById("order-note").textContent =
+      "In the order they were listed. That is not a ranking, and there isn't one.";
+
+    reg.services.forEach(function (s) { listed.appendChild(card(s, totals[s.endpoint])); });
+
+    var un = reg.known_but_unlisted || [];
+    if (un.length > 0) {
+      un.forEach(function (u) {
+        var c = el("div", "svc unlisted");
+        var top = el("div", "top");
+        top.appendChild(el("h3", null, u.name));
+        top.appendChild(el("span", "tag", "not listed"));
+        c.appendChild(top);
+        c.appendChild(el("p", "desc", u.why));
+        c.appendChild(el("div", "ep", u.endpoint));
+        var paid = totals[u.endpoint];
+        var facts = el("div", "facts");
+        facts.appendChild(paid && paid.n > 0
+          ? fact("We have paid them", paid.n + " time(s) · " + kas(paid.kas * 100000000), "derived")
+          : fact("We have paid them", "not from a recorded receipt", "none"));
+        c.appendChild(facts);
+        unlisted.appendChild(c);
+      });
+      document.getElementById("unlisted-sec").hidden = false;
+    }
+  }).catch(function () {});
+})();
+</script>

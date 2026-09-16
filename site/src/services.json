@@ -1,0 +1,40 @@
+{
+  "_comment": "The Warda service registry, version 1: a file, served as JSON and rendered by /network. It is a file and not a service on purpose — a registry with two entries does not need an API, and the shape below is the shape the API will serve, so nothing about a listing has to change when one exists. Every entry is a claim BY ITS OPERATOR about its own service. The registry does not verify prices or availability and says so on the page; what it can show, and what no other directory can, is what has actually been paid to each payee on chain.",
+  "version": 1,
+  "services": [
+    {
+      "id": "warda-digest",
+      "name": "Kaspa network digest",
+      "description": "An hourly reading of the Kaspa DAG, published as a rolling 24-hour digest. Written by agent #001, which pays for the one thing it cannot do itself.",
+      "endpoint": "https://warda-demo-api.vercel.app/digest",
+      "capabilities": ["kaspa.digest", "kaspa.network.read"],
+      "pricing": { "asset": "KAS", "amount": "0.04", "unit": "request" },
+      "payment": { "protocol": "x402", "network": "kaspa:testnet-10", "warda": true },
+      "payee": "3c693f61fbc35d1fd4dcec2bbbab692be38656e6fd5a4077ee495afcb23535a1",
+      "operator": "warda",
+      "operatorNote": "Run by this project. Agent #001 is the seller.",
+      "listedAt": "2026-09-16"
+    },
+    {
+      "id": "warda-fact",
+      "name": "Warda demo vendor",
+      "description": "A paid endpoint that exists so a stranger can make one real payment in five minutes without writing a service first. Quoted by /start.",
+      "endpoint": "https://warda-demo-api.vercel.app/fact",
+      "capabilities": ["demo.fact"],
+      "pricing": { "asset": "KAS", "amount": "0.03", "unit": "request" },
+      "payment": { "protocol": "x402", "network": "kaspa:testnet-10", "warda": true },
+      "payee": "16e6af2030f7e4510d1a417391a7ff7ccad21864f17eef7ee035f0453e21a033",
+      "operator": "warda",
+      "operatorNote": "Run by this project, for the quickstart.",
+      "listedAt": "2026-09-16"
+    }
+  ],
+  "known_but_unlisted": [
+    {
+      "name": "demo.kaspa-x402.org",
+      "endpoint": "https://demo.kaspa-x402.org/exact",
+      "why": "Agent #005 buys from it every morning and it has never been asked to list itself. It is the reference implementation of x402 on Kaspa, run by people this project has never spoken to. It is here because a registry that shows only what it has recruited hides the size of what it has not.",
+      "payee": "bee817fbf708b7ad2b12530bcc99e285805ab64faeea22f6d31e2bbcb164edf9"
+    }
+  ]
+}

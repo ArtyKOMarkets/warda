@@ -107,6 +107,8 @@ const status = (fields: Record<string, unknown>): void => {
  * paid transaction with nothing to present it with.
  */
 let receipt: { txid: string; amountSompi: string; header: string } | undefined;
+/* The quote, kept because the RECORD needs it and the response does not. */
+let quoted: { payTo: string; amountSompi: string } | undefined;
 
 /**
  * One file per attempt, whatever happened.
@@ -133,6 +135,23 @@ const record = (outcome: Record<string, unknown>): void => {
         at: startedAt.toISOString(),
         agent: "WARDA-005",
         url,
+        /* `quoted` and `txid`, in the shape dashboard.ts reads them.
+         *
+         * It was `amountSompi` and `feeSompi` at the top level, which is a
+         * perfectly good record and not the one anything else here parses:
+         * dashboard.ts takes the amount from `quoted.amountSompi` and the
+         * payee from `quoted.payTo`. So agent #005's page showed a purchase
+         * with no amount and no payee, its reconciliation could not attribute
+         * the payment it had a receipt for, and the page went on reporting
+         * money that left "with no surviving record of why" while the record
+         * sat in the directory beside it.
+         *
+         * I wrote a commit saying this file used the format that already
+         * existed. It used the outcome vocabulary and `withProof` and not the
+         * two fields anything reads. Adopting a format means the fields, not
+         * the spirit. */
+        quoted: quoted ?? null,
+        txid: receipt?.txid ?? null,
         ...withProof(outcome, receipt),
       },
       null,
@@ -171,7 +190,10 @@ try {
        payment. The grant pays a single-use key and that key pays them. */
     relay: true,
     onEvent: (e) => {
-      if (e.type === "quote") console.error(`quoted   : ${e.requirement.amountSompi} sompi to ${e.requirement.payTo}`);
+      if (e.type === "quote") {
+        quoted = { payTo: e.requirement.payTo, amountSompi: e.requirement.amountSompi.toString() };
+        console.error(`quoted   : ${e.requirement.amountSompi} sompi to ${e.requirement.payTo}`);
+      }
       if (e.type === "paid") {
         receipt = {
           txid: e.result.txid,

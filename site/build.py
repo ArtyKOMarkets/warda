@@ -15,7 +15,8 @@ diffable; this fills them in. Edit src/, never the output.
 import base64, json, pathlib, re, sys
 
 here = pathlib.Path(__file__).parent
-PAGES = ["index.html", "build.html", "verify.html", "proof.html", "agents.html", "start.html", "agent-001.html"]
+PAGES = ["index.html", "build.html", "verify.html", "proof.html", "agents.html", "start.html",
+         "network.html", "agent-001.html"]
 
 # The attack page publishes a live grant's key and terms, so it can only be
 # built when there IS one. src/demo-grant.json is written by
@@ -433,6 +434,13 @@ if (here / "src" / "vendor-status.json").exists():
 # one nobody re-earned.
 if (here / "src" / "interop-status.json").exists():
     COPIES.append("interop-status.json")
+
+# The registry itself, served as JSON beside the page that renders it. NOT
+# optional the way the status files are: /network is published unconditionally
+# and reads this, so a build without it would ship a page that renders nothing.
+# If it is ever absent that is a broken checkout, not a machine that does not
+# run the monitor.
+COPIES.append("services.json")
 
 # Written by ops/check-node.sh, and optional for the same reason: silence is
 # the honest default, because "we have not checked" must never render as "it
