@@ -68,7 +68,44 @@ for (const dir of dirs) {
     }
   }
 
-  /* 2. A tsconfig of its own, because it inherits none.
+  /* 2. A deploy that READS the covenant template must CARRY it.
+     verify.wardaprotocol.com answered /health perfectly and returned
+     `internal` to every /v1/verify, because loadTemplate resolves the file
+     through the SDK's exports map at RUNTIME and a bundler tracing the
+     function's imports never sees it. mcp/deploy hit this, solved it with a
+     copy beside the entry, and wrote it down — and the lesson stayed where it
+     was learned instead of reaching the endpoint that needed it.
+
+     And a copy introduces its own failure, which is why the bytes are compared
+     rather than the file merely counted: a STALE template does not throw. The
+     bytecode differs, so every address derived from it differs, and the
+     service reports healthy grants as missing while looking entirely well. */
+  const readsTemplate = ts.some((f) =>
+    /loadTemplate|WARDA_TEMPLATE|covenant-template/.test(readFileSync(join(root, f), "utf8")),
+  );
+  if (readsTemplate) {
+    const copies = files.filter((f) => f.endsWith("covenant-template.json"));
+    if (copies.length === 0) {
+      problems.push(
+        `${dir}: reads the covenant template and does not carry a copy. The SDK resolves it at ` +
+          `runtime through an exports map, which no bundler follows — the function deploys ` +
+          `green and fails on the first request that needs an address.`,
+      );
+    }
+    const master = JSON.parse(readFileSync(join(root, "sdk/covenant-template.json"), "utf8"));
+    for (const c of copies) {
+      const theirs = JSON.parse(readFileSync(join(root, c), "utf8"));
+      if (theirs.baselineHex !== master.baselineHex) {
+        problems.push(
+          `${c}: has drifted from sdk/covenant-template.json. A stale template does not throw — ` +
+            `every address derived from it differs, so healthy grants are reported missing and ` +
+            `the service looks entirely well.`,
+        );
+      }
+    }
+  }
+
+  /* 3. A tsconfig of its own, because it inherits none.
      A WARNING, not a failure. mcp/deploy and verify/deploy are live and have
      never had one; adding a tsconfig to a working endpoint changes what its
      build does, and that is not a change to make blind against a production
@@ -77,7 +114,7 @@ for (const dir of dirs) {
     warnings.push(`${dir}: no tsconfig.json, so its build runs on TypeScript defaults. Live and working; worth adding next time it is deployed deliberately.`);
   }
 
-  /* 3. Does its dependency range admit the version in the tree?
+  /* 4. Does its dependency range admit the version in the tree?
      A caret does not cross the minor on a 0.x version, so ^0.5.1 will never
      install 0.6.0. That is npm working correctly and is exactly how an endpoint
      silently stays a release behind — serving tools the tree stopped having, or
@@ -89,7 +126,7 @@ for (const dir of dirs) {
     if (!name.startsWith("@warda_protocol/")) continue;
     const local = findWorkspace(name);
     if (!local) continue;
-    /* 4. Has the package CHANGED since that version was released?
+    /* 5. Has the package CHANGED since that version was released?
        The registry endpoint read a document it could not parse and reported
        MISSING_FIELD, BAD_SIGNATURE_SHAPE and HOST_MISMATCH on a listing that
        was perfectly valid — because it was running the published 0.1.0, and

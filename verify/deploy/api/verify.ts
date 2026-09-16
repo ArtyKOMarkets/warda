@@ -47,6 +47,36 @@
  * able to get different answers because they landed on different nodes.
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { fileURLToPath } from "node:url";
+
+/**
+ * Point the verifier at the template sitting beside this file, BEFORE the
+ * package that reads it is imported.
+ *
+ * This endpoint answered /health perfectly and returned `internal` to every
+ * single /v1/verify — a hosted verifier that could not verify anything, for an
+ * unknown length of time, on the URL a sceptic checks first.
+ *
+ * `loadTemplate` tries three candidates. WARDA_TEMPLATE was unset.
+ * `createRequire(...).resolve("@warda_protocol/kaspa/covenant-template.json")`
+ * throws inside the lambda, because that resolution happens at RUNTIME and the
+ * bundler tracing this function's imports never saw the file. The third is a
+ * repo-layout fallback, `../../sdk/covenant-template.json`, which from
+ * node_modules/@warda_protocol/verify/dist/ lands on
+ * `/var/task/node_modules/@warda_protocol/sdk/covenant-template.json` — a path
+ * that cannot exist, because `sdk` is the DIRECTORY name and `kaspa` is the
+ * package name. The error message named a package that does not exist and read
+ * like a broken install.
+ *
+ * mcp/deploy solved this exact problem and wrote it down. The file two
+ * directories away carries a long comment about the same bundler behaviour
+ * biting the wasm loader HERE. Neither stopped it, because a lesson recorded
+ * beside the code that learned it is not a lesson applied to the code that
+ * needs it. ops/check-deploys.mjs now refuses a deploy that reads a template it
+ * does not carry.
+ */
+process.env.WARDA_TEMPLATE ??= fileURLToPath(new URL("covenant-template.json", import.meta.url));
+
 import { NodeSource, handler } from "@warda_protocol/verify";
 
 /**
