@@ -10,12 +10,5 @@
  * a provider who has to call wardaprotocol.com to verify a payment has a single
  * host in front of a guarantee that is supposed to live in consensus.
  */
-export { wardaProvider, type Provider, type ProviderOptions } from "./handler.ts";
-
-export {
-  verifyGrantProof,
-  verifyProof,
-  type Verdict,
-  type VerifyOptions,
-  type HeaderBearing,
-} from "./verify.ts";
+export { verifyGrantProof, verifyProof, } from "./verify.js";
+//# sourceMappingURL=index.js.map
