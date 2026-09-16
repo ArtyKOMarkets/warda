@@ -2,7 +2,7 @@
   "_comment": "The Warda service registry, version 1: a file, served as JSON and rendered by /network. It is a file and not a service on purpose \u2014 a registry with two entries does not need an API, and the shape below is the shape the API will serve, so nothing about a listing has to change when one exists. Every entry is a claim BY ITS OPERATOR about its own service. The registry does not verify prices or availability and says so on the page; what it can show, and what no other directory can, is what has actually been paid to each payee on chain.",
   "version": 1,
   "_registry_comment": "The hosted registry, which re-fetches every source from its operator's own domain and re-checks its signature on each request. /network prefers it and falls back to the `services` array below when it cannot be reached \u2014 saying which reading it is showing, because a cached list and a live one are different claims. Empty means the page renders the file only, which is the correct behaviour and not a degraded one.",
-  "registry": "",
+  "registry": "https://registry.wardaprotocol.com",
   "services": [
     {
       "id": "warda-digest",
