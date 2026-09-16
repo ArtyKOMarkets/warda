@@ -196,12 +196,45 @@ const agentDerivation = agentSupplied ? null : { domain: KEY_DOMAIN.agent, index
 const agentKey = agentSupplied ?? derivePublic(secret, KEY_DOMAIN.agent, 0);
 const authority = { principalKey, revocationKey };
 
+/**
+ * The two role collapses, and why they are treated differently.
+ *
+ * agent == principal is REFUSED. It does not weaken the grant, it removes it:
+ * the agent can reclaim its own coin, so the budget, the cap, the epoch and the
+ * allowlist all still compile, still run on chain, and all mean nothing. There
+ * is no reason to build one that a flag cannot express more honestly, and a
+ * warning printed to a terminal nobody is watching is not a control.
+ *
+ * principal == revocation is WARNED about, loudly, and allowed. Every grant
+ * this project has issued has that shape, because --revocation defaults to the
+ * principal; refusing it would refuse the repository's own history. But it
+ * silently voids a promise the covenant makes on purpose — `revoke` pays the
+ * principal rather than its own signer SO THAT a monitor can be handed the
+ * power to stop a grant without being trusted with its balance. One key, and
+ * the monitor you were going to trust with "stop it" is trusted with "take it".
+ */
 if (agentKey === principalKey) {
-  // Not refused — a caller may have a reason — but it is worth saying out
-  // loud, because it silently removes every limit the grant expresses.
   console.error(
-    "warning: the agent key IS the principal key. The agent can revoke its own\n" +
-      "grant and take the balance, so no limit here binds it.\n",
+    "refusing: the agent key IS the principal key.\n\n" +
+      "  The agent could reclaim its own grant and take the balance, so the budget,\n" +
+      "  the per-payment cap, the epoch limit and the allowlist would all be enforced\n" +
+      "  by the covenant and mean nothing. That is not a weaker grant, it is not a\n" +
+      "  grant.\n\n" +
+      "  Pass --agent with a key the principal does not hold. Omit it entirely and one\n" +
+      "  is derived for you.\n",
+  );
+  process.exit(1);
+}
+
+if (revocationKey === principalKey) {
+  console.error(
+    "warning: the revocation key IS the principal key.\n\n" +
+      "  `revoke` pays the principal rather than whoever signed it, deliberately, so a\n" +
+      "  monitor can be given the power to STOP a grant without being trusted with its\n" +
+      "  balance. With one key that promise is void: whoever can stop this grant can\n" +
+      "  also take it, and nothing in the grant or on chain says so.\n\n" +
+      "  --revocation <pubkey> is the whole fix. Run sdk/tools/keys.ts to see which\n" +
+      "  keys hold what today.\n",
   );
 }
 
