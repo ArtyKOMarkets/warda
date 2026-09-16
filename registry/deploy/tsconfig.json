@@ -1,0 +1,22 @@
+{
+  "_comment": [
+    "This directory is NOT a workspace, so it inherits nothing from the repo's tsconfig.",
+    "Without this file the build used TypeScript's defaults and reported two errors it then",
+    "deployed anyway: `node:http` had no types because @types/node was absent, and the import",
+    "of ./sources.ts was rejected because allowImportingTsExtensions is off by default.",
+    "Every workspace in this repo sets that flag, which makes `.ts` specifiers the house style",
+    "here — and the house style does not survive the trip out of the workspace.",
+    "moduleResolution nodenext is what makes `./sources.js` resolve to sources.ts."
+  ],
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["api/**/*.ts"]
+}

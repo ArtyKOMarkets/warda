@@ -97,7 +97,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 import { handle, type RegistryConfig } from "@warda_protocol/registry";
-import { sources } from "./sources.ts";
+import { sources } from "./sources.js";
 
 /**
  * The curated index, as a STATIC IMPORT rather than a file read at runtime.
@@ -112,6 +112,18 @@ import { sources } from "./sources.ts";
  * A static import is not a gamble — a module the function imports is a module
  * the bundler must include. ops/build-registry-sources.mjs generates it from
  * site/src/services.json, so it is still one list with one source of truth.
+ *
+ * The specifier says `./sources.js` and the file on disk is `sources.ts`. That
+ * is the ordinary TypeScript-for-ESM idiom, and writing it the way the rest of
+ * this repo writes imports — `./sources.ts` — is what broke the first attempt:
+ *
+ *     TS5097: An import path can only end with a '.ts' extension when
+ *             'allowImportingTsExtensions' is enabled.
+ *
+ * Every workspace here sets that flag, so `.ts` specifiers are the house style.
+ * This directory is not a workspace and has no tsconfig of its own, so it got
+ * the defaults and the house style did not survive the trip. There is a
+ * tsconfig.json beside this file now saying so out loud.
  *
  * These are POINTERS, not claims. Each URL is fetched from the operator's own
  * domain and its signature checked before it becomes a listing, so an entry

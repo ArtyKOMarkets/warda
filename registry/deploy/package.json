@@ -4,8 +4,14 @@
   "version": "0.1.0",
   "description": "The Warda service registry, hosted. Deploys the published package rather than the working tree.",
   "type": "module",
-  "engines": { "node": "22.x" },
+  "engines": {
+    "node": "22.x"
+  },
   "dependencies": {
     "@warda_protocol/registry": "^0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.3"
   }
 }
