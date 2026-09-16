@@ -74,6 +74,39 @@ for (const dir of dirs) {
     if (!name.startsWith("@warda_protocol/")) continue;
     const local = findWorkspace(name);
     if (!local) continue;
+    /* 4. Has the package CHANGED since that version was released?
+       The registry endpoint read a document it could not parse and reported
+       MISSING_FIELD, BAD_SIGNATURE_SHAPE and HOST_MISMATCH on a listing that
+       was perfectly valid — because it was running the published 0.1.0, and
+       multi-service support had been added to the tree afterwards without a
+       version bump. The tree said 0.1.0 and npm said 0.1.0 and they were not
+       the same code.
+
+       Range checks cannot see that: the range admitted the version, and the
+       version matched. What is checkable offline is git — source committed
+       after the commit that introduced the current version number is source
+       nobody can install. For a package the deploy serves, that is not
+       work-in-progress; it is an endpoint that cannot do what the repo says it
+       does. */
+    const unreleased = commitsSinceVersion(local.name, local.version);
+    if (unreleased > 0) {
+      /* A NOTE, and deliberately not a failure. These directories are meant to
+         lag: serving the published package is what stops an endpoint running
+         unreleased code, so drift is the feature working. What cost an hour
+         today was drift nobody had been told about — the tree and npm both
+         said 0.1.0 and were different code, and the endpoint's answer looked
+         like a broken listing rather than a stale dependency.
+
+         So it is printed every run, with a count, and acting on it is a
+         decision. Making it fail would turn the design into an obligation to
+         publish on every commit. */
+      warnings.push(
+        `${dir}: serves ${name} ${local.version}, and ${unreleased} commit(s) have changed its ` +
+          `source since. That is the endpoint lagging the tree ON PURPOSE — but if you are ` +
+          `expecting it to do something added since, publish first.`,
+      );
+    }
+
     if (!admits(range, local.version)) {
       problems.push(
         `${dir}: depends on ${name} ${range}, and the tree is at ${local.version}. ` +
@@ -81,6 +114,45 @@ for (const dir of dirs) {
       );
     }
   }
+}
+
+/**
+ * Commits touching a package's source since the commit that set its current
+ * version. Zero means the published artefact and the tree agree.
+ */
+function commitsSinceVersion(name, version) {
+  const dir = workspaceDirFor(name);
+  if (!dir) return 0;
+  try {
+    /* The commit that introduced this version string into package.json. */
+    const set = execFileSync(
+      "git",
+      ["log", "-1", "--format=%H", `-S"version": "${version}"`, "--", `${dir}/package.json`],
+      { cwd: root, encoding: "utf8" },
+    ).trim();
+    if (!set) return 0;
+    const since = execFileSync(
+      "git",
+      ["log", "--format=%H", `${set}..HEAD`, "--", `${dir}/src`, `${dir}/README.md`],
+      { cwd: root, encoding: "utf8" },
+    )
+      .split("\n")
+      .filter(Boolean);
+    return since.length;
+  } catch {
+    /* No git, a shallow clone, or a version never committed. Not a finding. */
+    return 0;
+  }
+}
+
+function workspaceDirFor(name) {
+  const ws = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).workspaces ?? [];
+  for (const w of ws) {
+    const p = join(root, w, "package.json");
+    if (!existsSync(p)) continue;
+    if (JSON.parse(readFileSync(p, "utf8")).name === name) return w;
+  }
+  return null;
 }
 
 function findWorkspace(name) {

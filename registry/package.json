@@ -1,6 +1,6 @@
 {
   "name": "@warda_protocol/registry",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Service discovery for agents holding a Warda grant. A listing is a manifest the operator signs with the key they are paid at and publishes on their own domain; this reads it and says whether it stands.",
   "type": "module",
   "license": "MIT",
