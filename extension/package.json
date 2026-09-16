@@ -9,7 +9,7 @@
     "build": "wxt build",
     "zip": "wxt zip",
     "typecheck": "tsc --noEmit",
-    "postinstall": "wxt prepare",
+    "postinstall": "npx --no-install wxt prepare",
     "test": "node --experimental-strip-types --test test/*.test.ts",
     "e2e": "node --experimental-strip-types test/e2e.mjs",
     "prebuild": "node ops/check-builder.mjs",
