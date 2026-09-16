@@ -1,18 +1,30 @@
 /**
  * The Warda service registry, reachable at a URL.
  *
- * ## Why this is its own directory, and why the file is called index.ts
+ * ## Why this file is in `api/`, which took three deploys to learn
  *
- * Everything in this header was paid for by `mcp/deploy`, and it is repeated
- * rather than referenced because the next person deploying a third thing will
- * be reading this file, not that one.
+ * A serverless function on this Vercel version is a file in `api/`. That is the
+ * whole rule, and the two ways of trying to say it some other way both failed:
  *
- * This Vercel version picks ONE root entrypoint per project and routes every
- * path to it — `/`, `/verify` and `/favicon.ico` all arrive at this function.
- * It finds that entrypoint by looking for `src/index.ts`, `index.ts` or a
- * `main` field. So this directory contains exactly one candidate: no `src/`,
- * no `main`, no build script, no `api/`. Whatever it picks here, it can only
- * pick this.
+ *   1. `vercel.json` with `{"functions": {"index.ts": …}}`, copied from
+ *      mcp/deploy, was rejected outright — those patterns are resolved INSIDE
+ *      `api/`, so the pattern matched nothing.
+ *
+ *   2. Removing that block deployed successfully and was WORSE. With nothing
+ *      declaring a function, Vercel served the directory statically: a GET of
+ *      `/` returned this file's own TypeScript source, and `/verify` was 404.
+ *      A green deploy serving its own source is the shape of failure this repo
+ *      keeps meeting — it succeeded, it answered, and everything it said was
+ *      wrong.
+ *
+ * `mcp/deploy` is not evidence for the root-entrypoint story its header tells.
+ * It has an `api/mcp.ts`, and the endpoint it documents is
+ * `mcp.wardaprotocol.com/mcp` — which is `api/mcp.ts` under the ordinary rule.
+ * Its root `index.ts` is very likely served as static source at `/index.ts` and
+ * doing nothing. Worth checking before the next MCP redeploy.
+ *
+ * So: the function lives in `api/`, and `vercel.json` rewrites every path onto
+ * it, which is how `/` and `/verify` both arrive here.
  *
  * It depends on the PUBLISHED `@warda_protocol/registry` rather than on the
  * working tree, so the endpoint serves a released version by construction. It
@@ -76,29 +88,29 @@
  * endpoint pays without asking this anything.
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 
 import { handle, type RegistryConfig } from "@warda_protocol/registry";
+import { sources } from "./sources.ts";
 
 /**
- * The curated index, as a file beside this one.
+ * The curated index, as a STATIC IMPORT rather than a file read at runtime.
  *
- * Read from source rather than resolved through a dependency, for the reason
- * the MCP endpoint's covenant template is copied here too: a runtime
- * resolution is invisible to the bundler that traces this function's imports,
- * so the file is never uploaded and the failure appears as a path under
- * /var/task that no local checkout has.
+ * It was `readFileSync(new URL("sources.json", import.meta.url))`, which is the
+ * shape the MCP endpoint's covenant template uses. That shape is a gamble: a
+ * runtime resolution is invisible to the bundler tracing this function's
+ * imports, so whether the file is uploaded depends on the bundler noticing a
+ * pattern it is not obliged to notice. When it does not, the failure is a path
+ * under /var/task that no local checkout has.
  *
- * These are POINTERS, not claims. Nothing in this file is served to anyone —
- * each URL is fetched from the operator's own domain and its signature checked
- * before it becomes a listing. An entry here that has been tampered with does
- * not produce a bad listing; it produces a `dropped` line.
+ * A static import is not a gamble — a module the function imports is a module
+ * the bundler must include. ops/build-registry-sources.mjs generates it from
+ * site/src/services.json, so it is still one list with one source of truth.
+ *
+ * These are POINTERS, not claims. Each URL is fetched from the operator's own
+ * domain and its signature checked before it becomes a listing, so an entry
+ * here that has been tampered with does not produce a bad listing — it produces
+ * a `dropped` line.
  */
-const sources: string[] = JSON.parse(
-  readFileSync(fileURLToPath(new URL("sources.json", import.meta.url)), "utf8"),
-).sources;
-
 const config: RegistryConfig = { sources, maxAgeSeconds: 60 };
 
 export default async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
