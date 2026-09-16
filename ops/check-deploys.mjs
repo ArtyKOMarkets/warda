@@ -14,6 +14,21 @@
  * PUBLISHED package so an endpoint cannot serve unreleased code. The cost is
  * that they inherit none of the repo's configuration, and every convention that
  * is invisible because it is everywhere stops being true inside them.
+ *
+ * ## Shipping a change through one of these
+ *
+ *     npm publish --workspace <pkg>
+ *     npm view @warda_protocol/<pkg> version     # wait for it to say the new one
+ *     cd <pkg>/deploy && npm install && vercel --prod
+ *
+ * The middle line is not optional. **npm's packument lags 30–60 seconds behind
+ * a successful publish**, so `npm publish` prints `+ pkg@0.2.0` and the very
+ * next `npm install` fails with
+ *
+ *     npm error notarget No matching version found for @warda_protocol/pkg@^0.2.0
+ *
+ * which reads as "the publish failed" and is not. It has now cost a command in
+ * this repo twice. Waiting is the whole fix.
  */
 import { readFileSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
