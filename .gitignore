@@ -47,3 +47,8 @@ ops/first-contact.json
 # The local usage dashboard, rewritten on every first-contact run.
 ops/usage.html
 site/src/usage.json
+
+# Left behind by the sandbox this repo is edited from, which cannot delete
+# files: `dist/` is renamed out of the way instead of removed, and one of
+# those renames was committed. `dist/` itself is ignored; its aliases were not.
+*.stale.*
