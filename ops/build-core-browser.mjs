@@ -79,6 +79,18 @@ export const BANNER =
 export async function bundleText() {
   const result = await build({
     entryPoints: [resolve(root, "ops/core-browser-entry.js")],
+    /* PIN THE WORKING DIRECTORY. esbuild writes a `// path/to/file` comment
+       above each module, relative to `process.cwd()` — so the same sources
+       produce different BYTES depending on where node was started. CI runs the
+       check from the repo root and site/refresh-demo.sh runs it from `site/`,
+       which turned all eleven of those comments into `../src/...` and made the
+       byte comparison fail by exactly 33 characters on the deploy path while
+       passing in CI.
+
+       A guard that depends on the caller's cwd is a guard that fires where it
+       is run rather than where something is wrong. This makes the output a
+       function of the sources alone. */
+    absWorkingDir: root,
     bundle: true,
     format: "iife",
     globalName: "WardaCore",
