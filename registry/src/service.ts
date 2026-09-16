@@ -1,4 +1,4 @@
-import { fetchListing, type FetchOptions } from "./fetch.ts";
+import { fetchListing, fetchListings, type FetchOptions } from "./fetch.ts";
 import { search, type Query } from "./match.ts";
 import type { ListingVerdict } from "./verify.ts";
 import type { SignedServiceManifest } from "./manifest.ts";
@@ -73,9 +73,12 @@ export async function readIndex(config: RegistryConfig): Promise<{
   listings: ListedService[];
   dropped: { source: string; failures: string[] }[];
 }> {
-  const verdicts = await Promise.all(
-    config.sources.map((u) => fetchListing(u, config.fetchOptions)),
-  );
+  /* fetchListings, not fetchListing: a host that sells three things publishes
+     three listings at one URL, and indexing one of them arbitrarily would be
+     worse than indexing none. */
+  const verdicts = (
+    await Promise.all(config.sources.map((u) => fetchListings(u, config.fetchOptions)))
+  ).flat();
   const listings: ListedService[] = [];
   const dropped: { source: string; failures: string[] }[] = [];
   for (const v of verdicts) {

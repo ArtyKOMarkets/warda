@@ -139,3 +139,50 @@ test("readIndex is usable on its own, for a build step or a cron", async () => {
   assert.equal(r.listings.length, 2);
   assert.equal(r.dropped.length, 0);
 });
+
+/* ---- one host, several services ----------------------------------------
+   The well-known path is per HOST, and a host can sell more than one thing.
+   warda-demo-api.vercel.app is the real case: /fact at 0.03 to one payee and
+   /digest at 0.04 to another. */
+
+import { schnorr as _s } from "@noble/curves/secp256k1.js";
+const SK2 = fromHex("22".repeat(32));
+const PAYEE2 = toHex(_s.getPublicKey(SK2));
+
+const MULTI = "https://shop.test/.well-known/warda-service.json";
+const multiDoc = {
+  version: 1,
+  services: [
+    signListing(manifest({ name: "Fact", endpoint: "https://shop.test/fact",
+      capabilities: ["demo.fact"], pricing: { asset: "KAS", amount: "0.03", unit: "request" } }), SK),
+    signListing(manifest({ name: "Digest", endpoint: "https://shop.test/digest",
+      capabilities: ["kaspa.digest"], pricing: { asset: "KAS", amount: "0.04", unit: "request" },
+      payee: PAYEE2 }), SK2),
+  ],
+};
+
+test("one host can list several services, each signed by its own payee", async () => {
+  const { body } = await get("/", config([MULTI], { [MULTI]: multiDoc }));
+  assert.equal(body.count, 2);
+  assert.deepEqual(body.services.map((s: any) => s.name).sort(), ["Digest", "Fact"]);
+  assert.notEqual(body.services[0].payee, body.services[1].payee);
+});
+
+test("one bad entry does not take its neighbours down", async () => {
+  const doc = { version: 1, services: [multiDoc.services[0], { ...multiDoc.services[1], signature: "ab".repeat(64) }] };
+  const { body } = await get("/", config([MULTI], { [MULTI]: doc }));
+  assert.equal(body.count, 1);
+  assert.equal(body.services[0].name, "Fact");
+  assert.deepEqual(body.dropped, [{ source: MULTI, failures: ["SIGNATURE_DOES_NOT_VERIFY"] }]);
+});
+
+test("a host selling one thing need not wrap it in a list", async () => {
+  const { body } = await get("/", config([WEATHER]));
+  assert.equal(body.count, 1);
+});
+
+test("filters apply across a multi-service document", async () => {
+  const cfg = config([MULTI], { [MULTI]: multiDoc });
+  assert.equal((await get("/?maxPrice=0.035", cfg)).body.count, 1);
+  assert.equal((await get("/?capability=kaspa.digest", cfg)).body.count, 1);
+});

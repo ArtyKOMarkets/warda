@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "_comment": "The Warda service listings for this host. Each entry is signed independently by the key that service is paid at, so one host's services need not share a key and one bad entry does not invalidate the others. A registry checks two things and repeats everything else: that the signature is by the payee named, and that this document was served from the same host as the endpoint it describes. Everything else here is this operator's claim about itself.",
+  "_not_listed": "This host also sells /digest, at 0.04 KAS, paid to 3c693f61fbc35d1fd4dcec2bbbab692be38656e6fd5a4077ee495afcb23535a1 \u2014 agent #001. It is absent because a listing is signed by the key the service is paid at, and that key was printed to a terminal on 3 September 2026 and never saved. The service works and is paid every morning; it cannot prove it is its own. An absence here is not evidence a service does not exist.",
+  "services": [
+    {
+      "version": 1,
+      "name": "Warda demo vendor",
+      "description": "A paid endpoint that exists so a stranger can make one real payment in five minutes without writing a service first. Quoted by /start.",
+      "endpoint": "https://warda-demo-api.vercel.app/fact",
+      "capabilities": [
+        "demo.fact"
+      ],
+      "pricing": {
+        "asset": "KAS",
+        "amount": "0.03",
+        "unit": "request"
+      },
+      "payment": {
+        "protocol": "x402",
+        "network": "kaspa:testnet-10",
+        "warda": true
+      },
+      "payee": "16e6af2030f7e4510d1a417391a7ff7ccad21864f17eef7ee035f0453e21a033",
+      "signature": "cc195d7dbeaef84bd4367c2ab7f8b3610260b3928f28e8c85b87593726f499c8ed1cef48816cda672ffe93ce04530df06a66a6d834fb9d53d377ef356522eaac"
+    }
+  ]
+}

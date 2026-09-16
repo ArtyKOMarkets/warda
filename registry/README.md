@@ -30,6 +30,20 @@ import { signListing } from "@warda_protocol/registry";
 const published = signListing(manifest, yourPayeeSecretKey);
 ```
 
+### More than one service on a host
+
+The well-known path is per host, and a host can sell more than one thing at
+different prices to different keys. Wrap them:
+
+```json
+{ "version": 1, "services": [ { …signed… }, { …signed… } ] }
+```
+
+Each entry is signed **independently** by the key that service is paid at, so
+your services need not share a key and one bad entry does not invalidate the
+others. A host selling one thing can publish the bare manifest without the
+wrapper.
+
 The key is the one your money already arrives at, so listing costs you no new
 secret and no relationship with this project.
 

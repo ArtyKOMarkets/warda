@@ -1,4 +1,4 @@
-import { checkOrigin, verifyListingSignature, type ListingVerdict } from "./verify.ts";
+import { candidatesIn, checkOrigin, verifyListingSignature, type ListingVerdict } from "./verify.ts";
 import type { ServiceManifest } from "./manifest.ts";
 
 export interface FetchOptions {
@@ -29,6 +29,18 @@ export const DEFAULT_TIMEOUT_MS = 5000;
  * make; a listing that needs one is a listing published at the wrong URL.
  */
 export async function fetchListing(url: string, opts: FetchOptions = {}): Promise<ListingVerdict> {
+  const all = await fetchListings(url, opts);
+  return all[0]!;
+}
+
+/**
+ * Every listing a host publishes at one URL.
+ *
+ * `fetchListing` is the single-service convenience over this; the registry uses
+ * this one, because a host that sells three things has three listings and
+ * indexing one of them arbitrarily would be worse than indexing none.
+ */
+export async function fetchListings(url: string, opts: FetchOptions = {}): Promise<ListingVerdict[]> {
   const f = opts.fetch ?? globalThis.fetch;
   const maxBytes = opts.maxBytes ?? DEFAULT_MAX_BYTES;
   const checkedAt = new Date().toISOString();
@@ -41,36 +53,37 @@ export async function fetchListing(url: string, opts: FetchOptions = {}): Promis
       headers: { accept: "application/json" },
     });
     if (!res.ok) {
-      return { ok: false, failures: ["UNREACHABLE"], source: url, checkedAt };
+      return [{ ok: false, failures: ["UNREACHABLE"], source: url, checkedAt }];
     }
     body = await res.text();
     if (body.length > maxBytes) {
-      return { ok: false, failures: ["UNREACHABLE"], source: url, checkedAt };
+      return [{ ok: false, failures: ["UNREACHABLE"], source: url, checkedAt }];
     }
   } catch {
-    return { ok: false, failures: ["UNREACHABLE"], source: url, checkedAt };
+    return [{ ok: false, failures: ["UNREACHABLE"], source: url, checkedAt }];
   }
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(body);
   } catch {
-    return { ok: false, failures: ["NOT_JSON"], source: url, checkedAt };
+    return [{ ok: false, failures: ["NOT_JSON"], source: url, checkedAt }];
   }
 
-  const verdict = verifyListingSignature(parsed);
-  verdict.source = url;
+  return candidatesIn(parsed).map((candidate) => {
+    const verdict = verifyListingSignature(candidate);
+    verdict.source = url;
 
-  /* Origin is checked even when the signature already failed, so an operator
-     gets both problems in one reply rather than fixing one and discovering the
-     other on the next attempt. */
-  if (verdict.manifest) {
-    const origin = checkOrigin(verdict.manifest as ServiceManifest, url);
-    if (origin.length > 0) {
-      verdict.ok = false;
-      verdict.failures = [...new Set([...verdict.failures, ...origin])];
+    /* Origin is checked even when the signature already failed, so an operator
+       gets both problems in one reply rather than fixing one and discovering
+       the other on the next attempt. */
+    if (verdict.manifest) {
+      const origin = checkOrigin(verdict.manifest as ServiceManifest, url);
+      if (origin.length > 0) {
+        verdict.ok = false;
+        verdict.failures = [...new Set([...verdict.failures, ...origin])];
+      }
     }
-  }
-
-  return verdict;
+    return verdict;
+  });
 }

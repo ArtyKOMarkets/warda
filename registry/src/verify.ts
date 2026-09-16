@@ -121,6 +121,33 @@ export function checkOrigin(m: ServiceManifest, sourceUrl: string): ListingFailu
   return out;
 }
 
+/**
+ * What a well-known document may contain.
+ *
+ * ONE HOST, SEVERAL SERVICES. The well-known path is per host, and a host can
+ * sell more than one thing: warda-demo-api.vercel.app serves /fact at 0.03 to
+ * one payee and /digest at 0.04 to another. A document that could describe only
+ * one of them would force an operator to choose which of their own services is
+ * listable.
+ *
+ * That is the same wrong assumption /network already had to correct in the
+ * other direction — attributing payments by payee credited one listing with all
+ * of its neighbour's traffic, because a key serves whatever its owner sells.
+ * Making it again here, in a format published on other people's servers, would
+ * be far more expensive to undo.
+ *
+ * Each entry is signed INDEPENDENTLY by its own payee key, so one host's
+ * services do not have to share a key and one bad entry does not invalidate the
+ * others. A single bare manifest is still accepted: a host selling one thing
+ * should not have to wrap it in a list.
+ */
+export function candidatesIn(input: unknown): unknown[] {
+  if (typeof input !== "object" || input === null) return [input];
+  const doc = input as Record<string, unknown>;
+  if (Array.isArray(doc.services)) return doc.services;
+  return [input];
+}
+
 /** Where a service publishes its listing. */
 export const WELL_KNOWN_PATH = "/.well-known/warda-service.json";
 
