@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "name": "Warda demo vendor",
+  "description": "A paid endpoint that exists so a stranger can make one real payment in five minutes without writing a service first. Quoted by /start.",
+  "endpoint": "https://warda-demo-api.vercel.app/fact",
+  "capabilities": [
+    "demo.fact"
+  ],
+  "pricing": {
+    "asset": "KAS",
+    "amount": "0.03",
+    "unit": "request"
+  },
+  "payment": {
+    "protocol": "x402",
+    "network": "kaspa:testnet-10",
+    "warda": true
+  },
+  "payee": "16e6af2030f7e4510d1a417391a7ff7ccad21864f17eef7ee035f0453e21a033"
+}
