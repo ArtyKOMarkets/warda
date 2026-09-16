@@ -26,7 +26,33 @@
  * a stale bundle is green and wrong at the same time, and this one is wrong in
  * public.
  */
-import { build } from "esbuild";
+/**
+ * esbuild is NOT a root dependency. It is declared by the `cli` workspace and
+ * hoisted, which is why an import from `ops/` resolves at all — `npm ci` at the
+ * root installs workspace devDependencies, so CI has it too.
+ *
+ * That is a reliance nothing declares, and the failure it sets up is the bad
+ * kind: if `cli` ever drops esbuild, the guard that exists to catch a stale
+ * bundle becomes the thing that breaks, and the message would be a module
+ * resolution error with no hint that the sandbox is what stopped working. So
+ * it says so instead.
+ *
+ * To make it a fact rather than a comment:  npm i -D esbuild  (at the root).
+ */
+let build;
+try {
+  ({ build } = await import("esbuild"));
+} catch (e) {
+  console.error(
+    "esbuild is not installed.\n\n" +
+      "It reaches this script by being hoisted out of the `cli` workspace rather\n" +
+      "than by being declared at the root, so an unrelated change in `cli` can take\n" +
+      "it away. site/src/core-browser.js is what /sandbox runs to say what a grant\n" +
+      "would refuse, and it cannot be built without this.\n\n" +
+      "  npm i -D esbuild",
+  );
+  process.exit(1);
+}
 import { writeFileSync, readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
