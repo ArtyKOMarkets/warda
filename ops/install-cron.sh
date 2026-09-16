@@ -70,6 +70,14 @@ NODECHK="$OPS/check-node.sh"
 NODELOG="$HOME/Library/Logs/warda-node.log"
 NODEENTRY="*/15 * * * * $OPS/check-node.sh --quiet >> $NODELOG 2>&1"
 
+# Every 15 minutes, beside the vendor monitor and for a sharper reason: the
+# verification API returned `internal` to every request for an unknown length
+# of time and nothing said so. It is the endpoint whose whole purpose is that a
+# stranger does not have to trust us.
+VERIFY="$OPS/check-verify.sh"
+VERIFYLOG="$HOME/Library/Logs/warda-verify.log"
+VERIFYENTRY="*/15 * * * * $VERIFY --quiet >> $VERIFYLOG 2>&1"
+
 VENDOR="$OPS/check-vendor.sh"
 VENDORLOG="$HOME/Library/Logs/warda-vendor.log"
 VENDORENTRY="*/15 * * * * $VENDOR --quiet >> $VENDORLOG 2>&1"
@@ -113,7 +121,7 @@ fi
 # So: fix it if we can, refuse if we cannot. Installing a schedule of commands
 # that cannot run is worse than installing nothing, because the crontab then
 # says the job exists.
-for f in "$SCRIPT" "$BUY" "$INTEROP" "$VENDOR" "$CONTACT" "$PROXY" "$NODECHK"; do
+for f in "$SCRIPT" "$BUY" "$INTEROP" "$VENDOR" "$VERIFY" "$CONTACT" "$PROXY" "$NODECHK"; do
   [ -f "$f" ] || continue
   [ -x "$f" ] && continue
   chmod +x "$f" 2>/dev/null || true
@@ -159,12 +167,14 @@ printf '%s\n' "$current" \
   | grep -v -F "first-contact.sh" \
   | grep -v -F "proxy-up.sh" \
   | grep -v -F "check-node.sh" \
+  | grep -v -F "check-verify.sh" \
   | grep -v '^[[:space:]]*$' > /tmp/warda-cron.$$
 printf '%s\n' "$ENTRY" >> /tmp/warda-cron.$$
 printf '%s\n' "$VENDORENTRY" >> /tmp/warda-cron.$$
 printf '%s\n' "$CONTACTENTRY" >> /tmp/warda-cron.$$
 printf '%s\n' "$PROXYENTRY" >> /tmp/warda-cron.$$
 printf '%s\n' "$NODEENTRY" >> /tmp/warda-cron.$$
+printf '%s\n' "$VERIFYENTRY" >> /tmp/warda-cron.$$
 if [ -n "$WANT_BUY" ]; then printf '%s\n' "$BUYENTRY" >> /tmp/warda-cron.$$; fi
 if [ -n "$WANT_INTEROP" ]; then printf '%s\n' "$INTEROPENTRY" >> /tmp/warda-cron.$$; fi
 crontab /tmp/warda-cron.$$

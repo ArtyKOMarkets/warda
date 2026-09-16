@@ -454,6 +454,14 @@ if STATE.exists():
 if (here / "src" / "vendor-status.json").exists():
     COPIES.append("vendor-status.json")
 
+# Written by ops/check-verify.sh every fifteen minutes, and optional in exactly
+# the same way. The landing page claims a stranger can check a grant without
+# trusting us; on 16 September that was false for an unknown length of time and
+# nothing said so. An absent or stale file renders nothing, which is the honest
+# default — "we have not checked" must never render as "it works".
+if (here / "src" / "verify-status.json").exists():
+    COPIES.append("verify-status.json")
+
 # Written by ops/daily-interop.sh on EVERY outcome, and optional in the same
 # way. It is the only live half of a dated claim: the landing page says a
 # vendor we do not control took a payment, and that was true on 14 September.

@@ -2270,6 +2270,18 @@ await wardaFetch(url);</code></pre>
         with <strong>no uptime promise and no authentication</strong>, it reads testnet-10, and
         <code>npx warda-verify</code> runs the identical thing yourself &mdash; which is the
         version that matters, because a verifier you have to trust is not a verifier.</p>
+        <!-- Filled by ops/check-verify.sh via /verify-status.json, and hidden when there is
+             nothing honest to say.
+
+             The paragraph above claims a stranger can check a grant without trusting us. On
+             16 September that claim was false: /v1/verify returned `internal` to every request
+             for an unknown length of time, while /health — the link in this very card — stayed
+             green throughout, because opening a node and deriving an address are different code
+             paths and only the second was broken. A card advertising a dead verifier is worse
+             than no card: it sends the one reader who wanted to check for themselves at a
+             service that cannot answer, and they have no reason to conclude anything but that
+             the protocol is theatre. -->
+        <p class="needs" id="vfy-live" hidden></p>
       </div>
       <div class="shipped">
         <span class="tag">Shipped <em>&middot; delegation in public</em></span>
@@ -2802,6 +2814,32 @@ function renderWallet(d) {
             ". The transaction on 14 September happened; whatever is failing now is " +
             "between us and them, and this line will say so until it is fixed.";
         }
+        el.hidden = false;
+      })
+      .catch(function () {});
+  })();
+
+  (function () {
+    var el = document.getElementById("vfy-live");
+    if (!el || !window.fetch) return;
+    fetch("/verify-status.json", { cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        /* Only speaks up when it is BROKEN, and only from a fresh reading.
+           A green line here would be the card congratulating itself; the
+           absence of a warning is the claim, and an hour-old silence is not
+           evidence of anything. */
+        if (!d || typeof d.ok !== "boolean" || d.ok || !d.checkedAt) return;
+        var age = Date.now() - Date.parse(d.checkedAt);
+        if (!(age >= 0) || age > 3600000) return;
+        el.textContent =
+          "Not right now. As of " +
+          String(d.checkedAt).replace("T", " ").slice(0, 16) + " UTC the hosted endpoint " +
+          "is not answering correctly \u2014 " + (d.reason || "reason unknown") +
+          ". It has been like that since " +
+          String(d.lastOk).replace("T", " ").slice(0, 16) + " UTC. " +
+          "`npx warda-verify` is unaffected: it runs on your machine and is the version " +
+          "this claim actually rests on.";
         el.hidden = false;
       })
       .catch(function () {});
