@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "name": "Warda demo vendor \u2014 inference",
+  "description": "A fixed model completion, priced at exactly the demo grant's per-payment cap so a buyer can see the covenant refuse the next one. The data is not the product; the limit is.",
+  "endpoint": "https://warda-demo-api.vercel.app/inference",
+  "capabilities": [
+    "demo.inference"
+  ],
+  "pricing": {
+    "asset": "KAS",
+    "amount": "0.1",
+    "unit": "request"
+  },
+  "payment": {
+    "protocol": "x402",
+    "network": "kaspa:testnet-10",
+    "warda": true
+  },
+  "payee": "16e6af2030f7e4510d1a417391a7ff7ccad21864f17eef7ee035f0453e21a033"
+}
