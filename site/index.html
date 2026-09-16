@@ -912,6 +912,14 @@
   .kard.key { background: linear-gradient(165deg, #14222A, var(--panel)); border-color: var(--teal-deep); }
   .kard h3 { font-size: 1rem; margin-bottom: 0.45rem; }
   .kard p { font-size: 0.87rem; color: var(--chrome-dim); margin: 0; }
+  /* A contact card is the link, so the whole card is the target rather than a
+     word inside it. Colour comes from the card, not from the global anchor rule. */
+  a.kard { display: block; text-decoration: none; color: inherit; }
+  a.kard:hover { border-color: var(--teal-deep); }
+  a.kard:hover h3 { color: var(--teal-bright); }
+  .kard .hd { font-family: var(--mono); font-size: 0.8rem; color: var(--teal);
+              margin-top: 0.7rem; letter-spacing: 0.01em; }
+
   .kard .ic { width: 1.9rem; height: 1.9rem; border-radius: 7px; background: var(--ground);
               border: 1px solid var(--edge); display: grid; place-items: center;
               font-family: var(--mono); font-size: 0.6rem; color: var(--teal); margin-bottom: 0.9rem; }
@@ -2366,10 +2374,44 @@ await wardaFetch(url);</code></pre>
   </div>
 </section>
 
+<section class="rule band">
+  <div class="wrap split">
+    <div data-rise>
+      <p class="eyebrow">Contact</p>
+      <h2 class="sec">Get in touch.<span>One person reads all of it.</span></h2>
+      <p class="sec-lede">A question about the covenant, a service you want listed in the
+      registry, an introduction, or something on this page you think is wrong &mdash; it all
+      reaches the same person, and it is usually the same day.</p>
+    </div>
+    <div class="cardset" data-rise style="--d:120ms">
+      <a class="kard key" href="https://t.me/Warda_protocol">
+        <span class="ic">TG</span>
+        <h3>Telegram</h3>
+        <p>The fastest way through, and the right one if you want an actual conversation.</p>
+        <p class="hd">@Warda_protocol</p>
+      </a>
+      <a class="kard" href="https://x.com/warda_protocol">
+        <span class="ic">X</span>
+        <h3>X</h3>
+        <p>Where the work gets posted as it happens &mdash; including the parts that broke.</p>
+        <p class="hd">@warda_protocol</p>
+      </a>
+      <a class="kard" href="https://github.com/ArtyKOMarkets/warda/issues">
+        <span class="ic">GH</span>
+        <h3>GitHub issues</h3>
+        <p>A bug, a broken link, or a claim on this site you can disprove. Public by default.</p>
+        <p class="hd">ArtyKOMarkets/warda</p>
+      </a>
+    </div>
+  </div>
+</section>
+
 <footer>
   <div class="wrap">
     <p>Warda runs on Kaspa L1 covenants, activated on mainnet with the Toccata hard fork on 30 June 2026. The protocol itself has been exercised end to end on <strong>testnet-10 only</strong> and has not been deployed to mainnet or audited. <a href="/proof">Unaudited</a>. Testnet first. Do not put money on this yet.</p>
     <div class="ln">
+      <a href="https://t.me/Warda_protocol">Telegram</a>
+      <a href="https://x.com/warda_protocol">X</a>
       <a href="https://github.com/ArtyKOMarkets/warda">Source</a>
       <a href="https://www.npmjs.com/org/warda_protocol">npm</a>
       <a href="/llms.txt">llms.txt</a>
