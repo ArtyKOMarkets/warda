@@ -94,6 +94,7 @@
   <p class="eyebrow">Listed</p>
   <h2 id="listed-h">&mdash;</h2>
   <p class="note" id="order-note"></p>
+  <p class="note" id="reading"></p>
   <div id="listed"></div>
 </section>
 
@@ -263,6 +264,28 @@
     return c;
   }
 
+  /**
+   * Live first, file second, and SAY WHICH.
+   *
+   * The hosted registry re-fetches every listing from its operator's own domain
+   * and re-checks the signature on each request, so what it returns is a
+   * statement about right now. The file is a statement about the last commit.
+   * Those are different claims and a page that silently swapped one for the
+   * other would be presenting a stale reading as a live one — the failure this
+   * site has already met three times, most recently on an agent page that lost
+   * its digest and looked fine.
+   *
+   * The fallback is not a degraded mode. With no registry configured the page
+   * renders the file, which is what it has always done and is honest about.
+   */
+  function fromRegistry(reg) {
+    var base = (reg && reg.registry) || "";
+    if (!base) return Promise.resolve(null);
+    return fetch(base.replace(/\/+$/, "") + "/services", { cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .catch(function () { return null; });
+  }
+
   Promise.all([
     fetch("/services.json", { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; }),
     Promise.all(["001", "002", "003", "004", "005"].map(function (n) {
@@ -270,11 +293,36 @@
         .then(function (r) { return r.ok ? r.json() : null; })
         .catch(function () { return null; });
     })),
+    fetch("/services.json", { cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(fromRegistry)
+      .catch(function () { return null; }),
   ]).then(function (r) {
-    var reg = r[0], readings = r[1];
+    var reg = r[0], readings = r[1], live = r[2];
     if (!reg || !reg.services) return;
     var totals = paymentsByEndpoint(readings);
-    var n = reg.services.length;
+
+    /* A live answer replaces the list; it never merges with it. Merging would
+       produce a page showing a service the registry has dropped beside one it
+       has verified, with nothing to tell them apart. */
+    var services = reg.services, dropped = [];
+    var reading = document.getElementById("reading");
+    if (live && Array.isArray(live.services)) {
+      services = live.services;
+      dropped = live.dropped || [];
+      reading.textContent =
+        "Read live from the registry just now: each listing was re-fetched from its operator's " +
+        "own domain and its signature re-checked." +
+        (dropped.length
+          ? " " + dropped.length + " source(s) did not verify and are not shown."
+          : "");
+    } else if (reg.registry) {
+      reading.textContent =
+        "The registry could not be reached, so this is the list as of the last deploy rather " +
+        "than a live reading. A listing here may since have stopped verifying.";
+    }
+
+    var n = services.length;
 
     document.getElementById("n-count").textContent = String(n);
     /* The wording changes with the number, because "2 services" and "200
@@ -290,7 +338,7 @@
     document.getElementById("order-note").textContent =
       "In the order they were listed. That is not a ranking, and there isn't one.";
 
-    reg.services.forEach(function (s) { listed.appendChild(card(s, totals[s.endpoint])); });
+    services.forEach(function (s) { listed.appendChild(card(s, totals[s.endpoint])); });
 
     var un = reg.known_but_unlisted || [];
     if (un.length > 0) {
