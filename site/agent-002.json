@@ -1,6 +1,6 @@
 {
   "_comment": "Written by agents/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, the purchase log or the chain — none is typed. Each payee's LABEL is re-derived on every run from the artefact agents/known-payees.json names, and a label that stops matching is dropped rather than published: an address with no name is honest, an address with the wrong name is not.",
-  "checkedAt": "2026-09-08T07:26:32.760Z",
+  "checkedAt": "2026-09-15T12:35:12.824Z",
   "network": "testnet-10",
   "identity": {
     "agentId": "WARDA-002",
@@ -18,12 +18,20 @@
         "address": "kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e",
         "key": "3c693f61fbc35d1fd4dcec2bbbab692be38656e6fd5a4077ee495afcb23535a1",
         "label": "agent #001",
-        "derivation": "the pay-to-public-key address of the agent key named in agent #001's published manifest, x402/demo/kaspa-x402-grant.json"
+        "derivation": "the pay-to-public-key address of the agent key named in agent #001's published manifest, x402/demo/kaspa-x402-grant.json",
+        "ours": true
       }
     ],
     "address": "kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e",
     "bothEndsAreOurs": true,
-    "disclosure": "Every agent on this site was built here, and the vendors they buy from are ours too. What is demonstrated is therefore not a market — it is a payment: separate grants, separate keys, a fixed list of addresses each may pay, and settlements anyone can look up. Agent #001's digest is published free at wardaprotocol.com/agent-001.json, because pretending it was scarce would have traded the checkable claim for a flattering one."
+    "disclosure": {
+      "title": "Both ends of this are ours",
+      "paragraphs": [
+        "Every agent on this site was built here, and the vendor this one buys from is ours too. This is therefore NOT a market, and saying otherwise would be the easiest claim on this site to catch out.",
+        "What it is: a payment between independent grants, with different keys, each able to pay a fixed list of addresses, settled on a public chain where anyone can look it up. The demonstration is that the rails work — not that a third party chose to trade with us.",
+        "Agent #001's digest is published free at wardaprotocol.com/agent-001.json, because pretending it was scarce would have traded the checkable claim for a flattering one."
+      ]
+    }
   },
   "retired": {
     "endedBy": "858e7c54c5180f8106c621982f437cb38f6a5d19b402f0a169e7847b3a28fe7d",
@@ -35,10 +43,10 @@
   },
   "timelock": {
     "notBefore": "564258425",
-    "virtualDaaScore": "564937241",
+    "virtualDaaScore": "571173654",
     "open": true,
     "lockedFor": "5 minutes",
-    "openedAgo": "19 hours",
+    "openedAgo": "8 days",
     "enforcedBy": "the covenant, on every spend: claimedDaa >= notBefore. Not a scheduler, not this process, and not revocable by whoever issued the grant."
   },
   "authority": {
@@ -125,12 +133,33 @@
   "reconciliation": {
     "spentPerTheCovenant": "0.08 KAS",
     "namedByTheLog": "0.04 KAS",
+    "chargedHomeBySettlement": null,
     "unrecorded": "0.04 KAS",
     "couldAccountForIt": [
       {
         "amount": "0.04 KAS",
+        "txid": "38d268add351009f410f02fbf3fd47dd1c12837bd6f305e4d2e1e596523ee1c9",
+        "daaScore": "570960248"
+      },
+      {
+        "amount": "0.04 KAS",
         "txid": "84a5e45803ae1985c91bd837fdf2ac27c53ba2f9e1005dd264493051f7af19bd",
         "daaScore": "564422587"
+      },
+      {
+        "amount": "0.04 KAS",
+        "txid": "7817e056c9917f0930e204b42d60696411e2afc7c435878b766f9a0fb23bedd6",
+        "daaScore": "566637311"
+      },
+      {
+        "amount": "0.04 KAS",
+        "txid": "f93ca337a9e8496f9a1e7425fd48471885ac478e2c68c806cfa191e93ae44c83",
+        "daaScore": "565773421"
+      },
+      {
+        "amount": "0.04 KAS",
+        "txid": "b619f26015fb1c863028841b28d29b6f00c394bf86abd7f3e35a40e9688b564e",
+        "daaScore": "564996318"
       },
       {
         "amount": "0.04 KAS",
@@ -139,8 +168,23 @@
       },
       {
         "amount": "0.04 KAS",
+        "txid": "ea87fc1f1c158417a5b74ccdd7511b74815a6592a9707ed15359e741a98b6585",
+        "daaScore": "567502343"
+      },
+      {
+        "amount": "0.04 KAS",
         "txid": "f241cd7b62bc23b9170afb98cd8efb50c6fa43fb7a591d1f90a8cf4a384f4fcd",
         "daaScore": "564406272"
+      },
+      {
+        "amount": "0.04 KAS",
+        "txid": "a635a070454b20896c34b258fea2ba4026721acb9a172243080938d9fcabfa1a",
+        "daaScore": "568365477"
+      },
+      {
+        "amount": "0.04 KAS",
+        "txid": "a55ab10a6a3c58dbf705bf4c1121de765318f187a6bbbf510fb92bb0b8c9b415",
+        "daaScore": "570093453"
       }
     ],
     "note": "The covenant's own accounting says this grant spent 0.08 KAS and its purchase log names 0.04 KAS of that. 0.04 KAS left this grant without a surviving record of why. spentTotal is part of the state the grant's address is derived from, so it cannot be quietly wrong — the log can, and was. That is the failure this page reports rather than the one it hides."
@@ -149,7 +193,7 @@
     {
       "rule": "start time (not_before)",
       "attempted": "spend before the grant opens",
-      "refusal": "this grant could not spend anything until DAA 564258425. The covenant checks the claimed DAA score against that number on every spend, so the delay was not a policy in the agent's process and could not be brought forward by whoever issued it. It opened 19 hours ago.",
+      "refusal": "this grant could not spend anything until DAA 564258425. The covenant checks the claimed DAA score against that number on every spend, so the delay was not a policy in the agent's process and could not be brought forward by whoever issued it. It opened 8 days ago.",
       "derived": true
     },
     {
@@ -171,5 +215,5 @@
       "derived": true
     }
   ],
-  "mission": "Bought agent #001's network digest over HTTP 402, from a grant that could pay one address and could not pay it at all until a start time the covenant enforced."
+  "mission": ""
 }

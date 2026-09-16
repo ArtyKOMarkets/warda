@@ -1,6 +1,6 @@
 {
   "_comment": "Written by agents/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, the purchase log or the chain — none is typed. Each payee's LABEL is re-derived on every run from the artefact agents/known-payees.json names, and a label that stops matching is dropped rather than published: an address with no name is honest, an address with the wrong name is not.",
-  "checkedAt": "2026-09-16T06:33:51.680Z",
+  "checkedAt": "2026-09-16T06:55:38.521Z",
   "network": "testnet-10",
   "identity": {
     "agentId": "WARDA-005",
@@ -42,7 +42,7 @@
   },
   "timelock": {
     "notBefore": "571109377",
-    "virtualDaaScore": "571832883",
+    "virtualDaaScore": "571846106",
     "open": true,
     "lockedFor": "0 seconds",
     "openedAgo": "20 hours",
@@ -72,10 +72,17 @@
     }
   },
   "activity": {
-    "payments": 0,
-    "paid": "0 KAS",
+    "payments": 1,
+    "paid": "0.2 KAS",
     "paidOutsideTheAllowlist": "0 KAS",
-    "coins": []
+    "coins": [
+      {
+        "amount": "0.2 KAS",
+        "daaScore": "571826521",
+        "txid": "afbbe17c7256dc29e67d54109f6b6034b180bed264ee43b1e12a0ecc061be2b8",
+        "index": 0
+      }
+    ]
   },
   "purchases": [
     {
@@ -83,24 +90,19 @@
       "outcome": "bought",
       "url": "https://demo.kaspa-x402.org/exact",
       "reason": null,
-      "txid": null,
-      "paid": null,
-      "payTo": null,
+      "txid": "afbbe17c7256dc29e67d54109f6b6034b180bed264ee43b1e12a0ecc061be2b8",
+      "paid": "0.2 KAS",
+      "payTo": "kaspatest:qzlws9lm7uyt0tftzffshnyeu2zcqk4kf7hw5ghk6v0zh093vnkljcy2fl0fh",
       "refusal": null,
       "sellerClaimed": null
     }
   ],
   "reconciliation": {
     "spentPerTheCovenant": "0.6058464 KAS",
-    "namedByTheLog": "0 KAS",
+    "namedByTheLog": "0.2 KAS",
     "chargedHomeBySettlement": null,
-    "unrecorded": "0.6058464 KAS",
+    "unrecorded": "0.4058464 KAS",
     "couldAccountForIt": [
-      {
-        "amount": "0.2 KAS",
-        "txid": "7e59e4a13cf0638abebfe5532e1723522975522ba1c93b678c3bcbf14b58c160",
-        "daaScore": "571109533"
-      },
       {
         "amount": "0.2 KAS",
         "txid": "647f648451c864073ba0d9c1ed4de56461ee392f7d5bbbb9bd9c1273a4876474",
@@ -108,11 +110,11 @@
       },
       {
         "amount": "0.2 KAS",
-        "txid": "afbbe17c7256dc29e67d54109f6b6034b180bed264ee43b1e12a0ecc061be2b8",
-        "daaScore": "571826521"
+        "txid": "7e59e4a13cf0638abebfe5532e1723522975522ba1c93b678c3bcbf14b58c160",
+        "daaScore": "571109533"
       }
     ],
-    "note": "The covenant's own accounting says this grant spent 0.6058464 KAS and its purchase log names 0 KAS of that. 0.6058464 KAS left this grant without a surviving record of why. spentTotal is part of the state the grant's address is derived from, so it cannot be quietly wrong — the log can, and was. That is the failure this page reports rather than the one it hides."
+    "note": "The covenant's own accounting says this grant spent 0.6058464 KAS and its purchase log names 0.2 KAS of that. 0.4058464 KAS left this grant without a surviving record of why. spentTotal is part of the state the grant's address is derived from, so it cannot be quietly wrong — the log can, and was. That is the failure this page reports rather than the one it hides."
   },
   "refusals": [
     {

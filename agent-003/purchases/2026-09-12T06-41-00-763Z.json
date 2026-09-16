@@ -1,0 +1,30 @@
+{
+  "_comment": "Written by agent-002/tools/buy.ts. One file per attempt, refusals included: a purchase log that only records successes is a sales brochure.",
+  "at": "2026-09-12T06:41:00.763Z",
+  "agent": "WARDA-003",
+  "url": "https://warda-demo-api.vercel.app/digest",
+  "proof": {
+    "header": "eyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJ0ZXN0bmV0LTEwIiwicGF5ZXIiOiJrYXNwYXRlc3Q6cHFobHFuZzZmaDNsNWtjZzVxYzJsM3h3d3B5dXJybjI3dmZ6ZTZjYWxwenNrZTh0N25teDJqbWU5YTQ1ZCIsInR4aWQiOiJhNjM1YTA3MDQ1NGIyMDg5NmMzNGIyNThmZWEyYmE0MDI2NzIxYWNiOWExNzIyNDMwODA5MzhkOWZjYWJmYTFhIiwiYW1vdW50U29tcGkiOiI0MDAwMDAwIiwibm9uY2UiOiIxNzg5MTk1MzgxNzYxLjFhM2Y2N2U4YjUxNjc3NThkOWYzZjYxODM3NTYxYmNlIn0=",
+    "txid": "a635a070454b20896c34b258fea2ba4026721acb9a172243080938d9fcabfa1a",
+    "amountSompi": "4000000",
+    "payTo": "kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e"
+  },
+  "outcome": "paid-but-refused",
+  "status": 503,
+  "quoted": {
+    "payTo": "kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e",
+    "amountSompi": "4000000"
+  },
+  "txid": "a635a070454b20896c34b258fea2ba4026721acb9a172243080938d9fcabfa1a",
+  "sellerClaimed": null,
+  "resumedFrom": null,
+  "response": {
+    "error": "could not reach a node: resolver https://resolver.kaspa.stream/v2/kaspa/testnet-10/any/wrpc/json did not answer: fetch failed",
+    "detail": "the payment may well be on chain; this vendor cannot see it. Re-present the same X-PAYMENT header rather than paying again — this vendor has NOT been paid twice and a second payment would not help."
+  },
+  "resolvedBy": {
+    "at": "2026-09-13T06:41:02.163Z",
+    "status": 400,
+    "record": "2026-09-13T06-41-01-136Z.json"
+  }
+}

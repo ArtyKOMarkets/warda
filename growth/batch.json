@@ -11,13 +11,6 @@
       "manifest": "/Users/artautasjasinskas/Desktop/warda/growth/grant-child-6476d3dc.json",
       "reservedSompi": "50000000",
       "hiredAt": "2026-09-13T15:50:52.813Z"
-    },
-    {
-      "name": "scout",
-      "agentKey": "6476d3dc5c61b0d75ecaf1f5d0e84878c9c11ba4f145bba1568dd904875c4c4f",
-      "manifest": "/Users/artautasjasinskas/Desktop/warda/growth/grant-child-6476d3dc.json",
-      "reservedSompi": "50000000",
-      "hiredAt": "2026-09-13T15:58:28.556Z"
     }
   ],
   "log": [
@@ -42,6 +35,12 @@
       "sompi": "50000000",
       "txid": "6476d3dc5c61b0d75ecaf1f5d0e84878c9c11ba4f145bba1568dd904875c4c4f",
       "detail": "may pay 254385aa03abefa1… and nothing else"
+    },
+    {
+      "at": "2026-09-14T07:44:48.253Z",
+      "what": "settle",
+      "who": "scout",
+      "txid": "ef6424bf4107f572e599302435cffbca3d14b65134227ea502e17dc66eb1f7e4"
     }
   ]
 }

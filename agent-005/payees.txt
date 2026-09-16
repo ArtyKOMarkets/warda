@@ -1,0 +1,9 @@
+# Agent #005 may pay two addresses, and the second one is itself.
+#
+# x402 exact requires the payer input to be an ordinary key-controlled coin,
+# so a covenant spend can never BE the payment. The grant pays the agent, and
+# the agent pays the vendor. That costs the allowlist for one hop, and it has
+# to be decided at genesis because a root is fixed there forever.
+
+kaspatest:qzlws9lm7uyt0tftzffshnyeu2zcqk4kf7hw5ghk6v0zh093vnkljcy2fl0fh
+kaspatest:qph4d99d4quh3s3l3x8j0xeyappm22zh2qvye50nrlvkxnzgwyuecadjhmsk5

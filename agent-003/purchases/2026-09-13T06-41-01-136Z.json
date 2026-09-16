@@ -1,0 +1,15 @@
+{
+  "_comment": "Written by agent-002/tools/buy.ts. One file per attempt, refusals included: a purchase log that only records successes is a sales brochure.",
+  "at": "2026-09-13T06:41:01.136Z",
+  "agent": "WARDA-003",
+  "url": "https://warda-demo-api.vercel.app/digest",
+  "outcome": "paid-but-refused",
+  "status": 400,
+  "quoted": null,
+  "txid": null,
+  "sellerClaimed": null,
+  "resumedFrom": "a635a070454b20896c34b258fea2ba4026721acb9a172243080938d9fcabfa1a",
+  "response": {
+    "error": "the quote has expired; ask again"
+  }
+}
