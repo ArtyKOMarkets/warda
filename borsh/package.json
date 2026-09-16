@@ -1,6 +1,6 @@
 {
   "name": "@warda_protocol/borsh",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Kaspa over borsh wRPC \u2014 the encoding the public resolvers actually serve. Reads the UTXO set, and submits covenant-carrying transactions through a build that has them, so neither side of a Warda payment needs a node.",
   "type": "module",
   "license": "MIT",
@@ -33,7 +33,7 @@
     "prepublishOnly": "npm run typecheck && npm test && npm run build"
   },
   "dependencies": {
-    "@warda_protocol/kaspa": "^0.5.1"
+    "@warda_protocol/kaspa": "^0.6.0"
   },
   "peerDependencies": {
     "@kluster/kaspa-wasm": "*",

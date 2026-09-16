@@ -1,7 +1,7 @@
 {
   "name": "warda-verify-endpoint",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "The Warda verification API, hosted. Deploys the published package rather than the working tree, and reads a public node over borsh rather than a machine.",
   "type": "module",
   "engines": {
@@ -9,7 +9,11 @@
   },
   "dependencies": {
     "@kluster/kaspa-wasm": "^2.0.1",
-    "@warda_protocol/borsh": "^0.4.0",
+    "@warda_protocol/borsh": "^0.4.1",
     "@warda_protocol/verify": "^0.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.3"
   }
 }

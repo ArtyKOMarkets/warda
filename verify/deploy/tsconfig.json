@@ -1,0 +1,20 @@
+{
+  "_comment": [
+    "This directory is NOT a workspace, so it inherits nothing from the repo's tsconfig.",
+    "Without this file the build ran on TypeScript defaults and reported six errors it then",
+    "deployed anyway — node:http, node:url and four uses of `process` all unresolvable, because",
+    "@types/node was absent. Vercel's typechecking is advisory: it reports and ships.",
+    "moduleResolution nodenext is what makes a `./x.js` specifier resolve to x.ts."
+  ],
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["api/**/*.ts"]
+}
