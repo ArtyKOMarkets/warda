@@ -16,7 +16,7 @@ import base64, json, pathlib, re, sys
 
 here = pathlib.Path(__file__).parent
 PAGES = ["index.html", "build.html", "verify.html", "proof.html", "agents.html", "start.html",
-         "network.html", "agent-001.html"]
+         "network.html", "sandbox.html", "agent-001.html"]
 
 # The attack page publishes a live grant's key and terms, so it can only be
 # built when there IS one. src/demo-grant.json is written by
@@ -116,6 +116,18 @@ AGENT_PAGES = {
 CRYPTO = (here / "src" / "_crypto.js").read_text()
 VERIFY_CORE = (here / "src" / "verify-core.js").read_text()
 
+# `@warda_protocol/core`, compiled for a browser by ops/build-core-browser.mjs.
+#
+# /sandbox answers "what would this grant refuse?" while somebody types, and
+# that answer comes out of the same `validateSpend` the payer runs rather than
+# a second copy of the rules written for a marketing page. Injected the way
+# CRYPTO and VERIFY_CORE are, and for the same reason: the artifact flavour has
+# no host to fetch a second file from, so the page has to carry it.
+#
+# ops/check-core-browser.mjs refuses a bundle older than the source it came
+# from. A stale one is green and wrong at the same time, and wrong in public.
+CORE_BROWSER = (here / "src" / "core-browser.js").read_text()
+
 # The covenant template, so a browser can derive a grant's address with no node
 # and no server. It carries its own address vectors, which the page re-derives
 # on load and reports on — a verifier nobody can check is not a verifier.
@@ -160,6 +172,7 @@ for _f in flavours.values():
     _f["{{QUICKSTART_CSS}}"] = QS_CSS
     _f["{{CRYPTO}}"] = CRYPTO
     _f["{{VERIFY_CORE}}"] = VERIFY_CORE
+    _f["{{CORE_BROWSER}}"] = CORE_BROWSER
     _f["{{COVENANT_TEMPLATE}}"] = TEMPLATE
 
 # Files copied through untouched. They carry no placeholders, but they are

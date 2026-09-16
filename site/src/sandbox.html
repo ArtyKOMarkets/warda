@@ -1,0 +1,695 @@
+<title>Sandbox &mdash; write a grant's terms and try to break them</title>
+<style>
+  :root {
+    --void: #06090C; --ground: #0A1014; --panel: #101A20;
+    --edge: #1E2E37; --edge-bright: #2C4350;
+    --chrome: #DDE0E2; --chrome-dim: #8D989E; --chrome-faint: #5D6B73;
+    --teal: #14D7C1; --teal-deep: #06BBA1; --teal-bright: #3BF0DC;
+    --teal-ghost: rgba(20,215,193,0.10);
+    --refuse: #FF6B5A; --refuse-ghost: rgba(255,107,90,0.09); --amber: #E8B14C;
+    --display: "Chakra Petch", "Arial Narrow", sans-serif;
+    --body: "Barlow", "Helvetica Neue", Arial, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    --gutter: clamp(1.15rem, 4vw, 3.4rem);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--void); color: var(--chrome);
+         font-family: var(--body); line-height: 1.6; }
+  .wrap { max-width: 68rem; margin: 0 auto; padding: 0 var(--gutter); }
+  header { border-bottom: 1px solid var(--edge); padding: 2.6rem 0 2.4rem; }
+  h1 { font-family: var(--display); font-size: clamp(1.9rem, 5vw, 3rem); line-height: 1.06;
+       margin: 1.3rem 0 0; font-weight: 600; letter-spacing: -0.01em; }
+  .lede { color: var(--chrome-dim); max-width: 64ch; margin-top: 1.1rem; }
+  .eyebrow { font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.18em;
+             text-transform: uppercase; color: var(--teal); margin: 0; }
+  section { border-bottom: 1px solid var(--edge); padding: 2.6rem 0; }
+  h2 { font-family: var(--display); font-size: clamp(1.3rem, 3vw, 1.8rem); margin: 0.7rem 0 0;
+       font-weight: 600; }
+  h3 { font-family: var(--display); font-size: 1.05rem; margin: 0; font-weight: 600; }
+  p { max-width: 66ch; }
+  a { color: var(--teal); }
+  code { font-family: var(--mono); font-size: 0.92em; color: var(--chrome-dim); }
+  .note { color: var(--chrome-faint); font-size: 0.86rem; max-width: 68ch; }
+
+  /* The banner from /verify, for the same reason: a page that computes
+     refusals in front of you is worth exactly what its arithmetic is worth,
+     and a verifier nobody can check is not a verifier. */
+  .selftest { font-family: var(--mono); font-size: 0.74rem; line-height: 1.7;
+              border: 1px solid var(--teal-deep); background: var(--teal-ghost);
+              color: var(--chrome-dim); padding: 0.75rem 0.9rem; margin-top: 1.6rem;
+              max-width: 70ch; }
+  .selftest b { color: var(--teal); }
+  .selftest.bad { border-color: var(--refuse); background: var(--refuse-ghost); color: var(--refuse); }
+
+  /* ---- the bench ------------------------------------------------------- */
+  /* stretch, not start: the terms column is a good deal taller than the
+     attempt column, and a short panel floating beside a long one reads as a
+     rendering fault rather than a layout. */
+  .lab { display: grid; grid-template-columns: 1fr 1fr; gap: 1.1rem; margin-top: 1.8rem; }
+  @media (max-width: 860px) { .lab { grid-template-columns: 1fr; } }
+  .panel { border: 1px solid var(--edge); background: var(--ground); padding: 1.2rem 1.25rem; }
+  .panel > .eyebrow { margin-bottom: 0.55rem; }
+
+  .field { display: grid; grid-template-columns: 1fr auto; align-items: center;
+           gap: 0.6rem; padding: 0.42rem 0; }
+  .field label { font-size: 0.87rem; color: var(--chrome-dim); }
+  .field .u { font-family: var(--mono); font-size: 0.66rem; color: var(--chrome-faint);
+              text-transform: uppercase; letter-spacing: 0.1em; }
+  input[type="number"] {
+    width: 9.5rem; background: var(--void); border: 1px solid var(--edge-bright);
+    color: var(--chrome); font-family: var(--mono); font-size: 0.86rem;
+    padding: 0.33rem 0.5rem; border-radius: 3px; text-align: right;
+  }
+  input[type="number"]:focus, select:focus, input[type="range"]:focus-visible {
+    outline: 2px solid var(--teal-bright); outline-offset: 1px; }
+  select { width: 100%; background: var(--void); border: 1px solid var(--edge-bright);
+           color: var(--chrome); font-family: var(--body); font-size: 0.87rem;
+           padding: 0.4rem 0.5rem; border-radius: 3px; }
+  input[type="range"] { width: 100%; accent-color: var(--teal); margin: 0.3rem 0 0; }
+
+  .payee { display: flex; align-items: flex-start; gap: 0.6rem; padding: 0.5rem 0;
+           border-top: 1px solid var(--edge); }
+  .payee:first-of-type { border-top: none; }
+  .payee input { margin-top: 0.35rem; accent-color: var(--teal); flex: none; }
+  .payee .nm { font-size: 0.88rem; color: var(--chrome); }
+  .payee .sub { font-size: 0.76rem; color: var(--chrome-faint); }
+  .payee .k { font-family: var(--mono); font-size: 0.66rem; color: var(--chrome-faint);
+              overflow-wrap: anywhere; }
+
+  .divider { border-top: 1px solid var(--edge); margin: 0.9rem 0 0.7rem; }
+
+  /* the verdict */
+  .verdict { border: 1px solid var(--edge-bright); background: var(--panel);
+             padding: 1rem 1.1rem; margin-top: 0.9rem; }
+  .verdict.ok { border-color: var(--teal-deep); background: var(--teal-ghost); }
+  .verdict.no { border-color: var(--refuse); background: var(--refuse-ghost); }
+  .verdict .hd { font-family: var(--display); font-size: 1.1rem; font-weight: 600; }
+  .verdict.ok .hd { color: var(--teal); }
+  .verdict.no .hd { color: var(--refuse); }
+  .fails { list-style: none; padding: 0; margin: 0.8rem 0 0; }
+  .fails li { border-top: 1px solid var(--edge); padding: 0.62rem 0 0; margin-top: 0.62rem; }
+  .fails li:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+  .fails .c { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.1em;
+              color: var(--refuse); }
+  .fails .w { font-size: 0.87rem; color: var(--chrome-dim); }
+
+  button { font-family: var(--body); font-size: 0.85rem; font-weight: 600; cursor: pointer;
+           border-radius: 999px; padding: 0.5rem 1.15rem; border: 1px solid var(--edge-bright);
+           background: transparent; color: var(--chrome-dim); }
+  button:hover:not(:disabled) { color: var(--chrome); border-color: var(--chrome-faint); }
+  button.go { background: var(--teal); color: var(--void); border-color: var(--teal); }
+  button.go:hover:not(:disabled) { background: var(--teal-bright); color: var(--void); }
+  button:disabled { opacity: 0.38; cursor: not-allowed; }
+  .row { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.9rem; align-items: center; }
+
+  /* the address strip */
+  .addrbar { border: 1px solid var(--edge); background: var(--ground); padding: 1.1rem 1.25rem;
+             margin-top: 1.1rem; }
+  .addr { font-family: var(--mono); font-size: 0.78rem; color: var(--teal);
+          overflow-wrap: anywhere; line-height: 1.75; margin-top: 0.35rem; }
+  .addr.stale { color: var(--chrome-faint); text-decoration: line-through; }
+  .meta { display: flex; gap: 1.8rem; flex-wrap: wrap; margin-top: 0.9rem;
+          padding-top: 0.8rem; border-top: 1px solid var(--edge); }
+  .meta .k { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.13em;
+             text-transform: uppercase; color: var(--chrome-faint); }
+  .meta .v { font-family: var(--mono); font-size: 0.88rem; color: var(--chrome); }
+  .meta .v.spent { color: var(--amber); }
+
+  table.ledger { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+  table.ledger th { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.13em;
+                    text-transform: uppercase; color: var(--chrome-faint); text-align: left;
+                    font-weight: 400; padding: 0 0.7rem 0.45rem 0; }
+  table.ledger td { font-family: var(--mono); font-size: 0.74rem; color: var(--chrome-dim);
+                    border-top: 1px solid var(--edge); padding: 0.55rem 0.7rem 0.55rem 0;
+                    vertical-align: top; overflow-wrap: anywhere; }
+  table.ledger td.to { color: var(--teal); }
+
+  .codes { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+           gap: 0.9rem; margin-top: 1.4rem; }
+  .codes div { border: 1px solid var(--edge); background: var(--ground); padding: 0.9rem 1rem; }
+  .codes .c { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.08em;
+              color: var(--refuse); }
+  .codes p { font-size: 0.86rem; color: var(--chrome-dim); margin: 0.45rem 0 0; max-width: none; }
+
+  .warn { border-left: 2px solid var(--amber); padding-left: 0.9rem; color: var(--chrome-dim);
+          font-size: 0.87rem; margin-top: 0.9rem; max-width: 66ch; }
+{{NAV_CSS}}
+</style>
+{{NAV}}
+
+<div class="wrap">
+<header>
+  <p class="eyebrow">Sandbox</p>
+  <h1>Write a grant's terms. Then try to break them.</h1>
+  <p class="lede">
+    Nothing here is a mock-up of the rules. The refusals below come out of
+    <code>validateSpend</code> &mdash; the same function the payer runs before it builds a
+    transaction &mdash; compiled into this page, and the address is derived by the same splice
+    the Rust implementation produces. No node, no keys, no money.
+  </p>
+  <p class="selftest" id="selftest">checking this page against its own reference vectors&hellip;</p>
+</header>
+
+<section>
+  <p class="eyebrow">The bench</p>
+  <h2>Set the authority on the left. Try to spend it on the right.</h2>
+
+  <div class="lab">
+    <div class="panel">
+      <p class="eyebrow">The terms</p>
+      <div class="field"><label for="t-budget">Total budget</label><span><input type="number" id="t-budget" min="0" step="0.01" value="1"> <span class="u">kas</span></span></div>
+      <div class="field"><label for="t-cap">Most per payment</label><span><input type="number" id="t-cap" min="0" step="0.01" value="0.2"> <span class="u">kas</span></span></div>
+      <div class="field"><label for="t-epoch">Most per epoch</label><span><input type="number" id="t-epoch" min="0" step="0.01" value="0.5"> <span class="u">kas</span></span></div>
+      <div class="field"><label for="t-len">An epoch is</label><span><input type="number" id="t-len" min="1" step="1" value="1000"> <span class="u">blocks</span></span></div>
+      <div class="field"><label for="t-from">May first spend at</label><span><input type="number" id="t-from" min="0" step="100" value="1000000"> <span class="u">daa</span></span></div>
+      <div class="field"><label for="t-to">Expires at</label><span><input type="number" id="t-to" min="0" step="100" value="1007000"> <span class="u">daa</span></span></div>
+
+      <div class="divider"></div>
+      <p class="eyebrow">Who it may pay</p>
+      <p class="note" style="margin:0.4rem 0 0.7rem">
+        Three real payees from this network. Tick the ones this grant is allowed to pay &mdash;
+        the tick changes the Merkle root, and the root is part of the address.
+      </p>
+      <div id="payees"></div>
+    </div>
+
+    <div class="panel">
+      <p class="eyebrow">The attempt</p>
+      <div class="field"><label for="a-amt">Pay</label><span><input type="number" id="a-amt" min="0" step="0.01" value="0.1"> <span class="u">kas</span></span></div>
+      <div style="padding:0.42rem 0">
+        <label for="a-to" style="font-size:0.87rem;color:var(--chrome-dim);display:block;margin-bottom:0.35rem">to</label>
+        <select id="a-to"></select>
+      </div>
+      <div style="padding:0.42rem 0">
+        <label for="a-daa" style="font-size:0.87rem;color:var(--chrome-dim);display:block">
+          at DAA score <b id="a-daaval" style="font-family:var(--mono);color:var(--chrome)">&mdash;</b>
+          <span class="u" id="a-epoch"></span>
+        </label>
+        <input type="range" id="a-daa" min="0" max="100" value="50">
+      </div>
+
+      <div class="verdict" id="verdict">
+        <div class="hd" id="v-head">&mdash;</div>
+        <div class="w" id="v-sub" style="font-size:0.87rem;color:var(--chrome-dim)"></div>
+        <ul class="fails" id="v-fails"></ul>
+      </div>
+
+      <div class="row">
+        <button class="go" id="do-spend" disabled>Make this payment</button>
+        <button id="do-revoke">Revoke the grant</button>
+        <button id="do-reset">Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="addrbar">
+    <p class="eyebrow">Where this grant lives right now</p>
+    <div class="addr" id="addr">&mdash;</div>
+    <div class="meta">
+      <div><div class="k">Still spendable</div><div class="v" id="m-avail">&mdash;</div></div>
+      <div><div class="k">Spent</div><div class="v spent" id="m-spent">&mdash;</div></div>
+      <div><div class="k">This epoch</div><div class="v" id="m-epoch">&mdash;</div></div>
+      <div><div class="k">Allowlist root</div><div class="v" id="m-root">&mdash;</div></div>
+    </div>
+    <p class="note" style="margin-top:0.9rem" id="addr-note"></p>
+  </div>
+
+  <div id="ledger-box" hidden>
+    <p class="eyebrow" style="margin-top:1.8rem">What you have spent</p>
+    <table class="ledger">
+      <thead><tr><th>#</th><th>Paid</th><th>To</th><th>Moved the grant to</th></tr></thead>
+      <tbody id="ledger"></tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow">The thing that surprises people</p>
+  <h2>Every payment moves the grant to a different address</h2>
+  <p>
+    A Warda grant's address is a hash of its own state. Spend from it and the state changes, so
+    the hash changes, so the coin is at a new address &mdash; there is no account that stays put
+    and no balance that ticks down in place. Watch the address above while you pay: it is not
+    a display refreshing, it is the grant relocating.
+  </p>
+  <p>
+    Change a term instead and the same thing happens for a different reason: different terms are
+    a different grant, at a different address, with a fresh budget. That is why editing anything
+    on the left clears the ledger. There is no way to raise a budget in place, by anyone,
+    including whoever issued it &mdash; the raised version is somewhere else and holds nothing.
+  </p>
+  <p class="warn">
+    The practical edge of this: lose the terms and you lose the coin. Not the key &mdash; the
+    <em>terms</em>. You cannot find a grant by watching an address, because the address is
+    downstream of a state only the holder of the manifest knows. Every tool in this project
+    writes the manifest to disk before it broadcasts, for this reason.
+  </p>
+</section>
+
+<section>
+  <p class="eyebrow">The refusals</p>
+  <h2>What the covenant checks, in the order it checks them</h2>
+  <p>
+    Each of these is a branch in the on-chain script, not a policy in a server. A refused payment
+    is not a rejected request: there is no transaction that both spends the grant and breaks one
+    of these, so nothing is ever submitted and nothing is ever declined.
+  </p>
+  <div class="codes">
+    <div><div class="c">NOT_YET_VALID</div><p>The grant has a start, in DAA score rather than wall-clock time. Before it, the agent holds an authority that cannot yet be used by anybody &mdash; including whoever issued it.</p></div>
+    <div><div class="c">EXPIRED</div><p>And an end. After it the coin is still there and no spend of it exists; what is left goes back to the principal.</p></div>
+    <div><div class="c">EXCEEDS_MAX_PER_SPEND</div><p>The per-payment cap. The most common thing a compromised agent tries is one large payment, and this is the check that makes that specific attack cost nothing.</p></div>
+    <div><div class="c">EXCEEDS_AVAILABLE_BUDGET</div><p>Budget less what has been spent less what has been delegated to sub-agents. A child's budget is subtracted the moment it is issued, not when it is used.</p></div>
+    <div><div class="c">EXCEEDS_EPOCH_LIMIT</div><p>A rate, expressed in blocks. Epochs are fixed windows rather than a sliding one, so the true worst case over a short span is twice the limit &mdash; spend it all at the end of one epoch and again at the start of the next. That is a known property, not a bug.</p></div>
+    <div><div class="c">RECIPIENT_NOT_AUTHORIZED</div><p>The payee must prove membership in the tree whose root was committed before the grant was funded. A payee outside it has no proof to carry, so it has no transaction to build.</p></div>
+    <div><div class="c">REVOKED</div><p>A separate key, held by whoever issued the grant, can end it at any time without the agent's agreement and without its cooperation.</p></div>
+    <div><div class="c">INVALID_SUCCESSOR</div><p>The check that makes the rest real: the transaction must produce exactly the new state the rules say it should. Without it an agent simply rewrites its own remaining budget and every limit above is decorative.</p></div>
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow">Honest limits</p>
+  <h2>What this page is not doing</h2>
+  <p>
+    It is not building a transaction, signing anything, or talking to a node, so it cannot tell you
+    a payment would go through &mdash; only that these rules would not be the thing stopping it. A
+    real spend also needs a funded grant, a fee, and a node that has seen the grant where the
+    manifest says it is.
+  </p>
+  <p>
+    It does not simulate delegation, settlement, or the relay hop that x402 requires. The principal
+    and revocation keys are held fixed: the covenant's template id is a hash over the script and its
+    authority, so a page that let you edit those would be deriving addresses against somebody else's
+    covenant and reporting them as yours.
+  </p>
+  <p class="note">
+    Want the same rules with a real grant behind them? <a href="/start">/start</a> funds one and makes
+    a payment in about five minutes, and <a href="/attack">/attack</a> hands you a live grant's private
+    key and invites you to take more than it allows. This page is the version with nothing at stake.
+  </p>
+</section>
+</div>
+
+<script>
+(function () {
+  {{CRYPTO}}
+
+  {{VERIFY_CORE}}
+
+  {{CORE_BROWSER}}
+
+  var TPL = {{COVENANT_TEMPLATE}};
+  var C = WardaCore;
+
+  /* ---- what is fixed, and why -------------------------------------------
+     The authority half of the covenant is held at a reference vector's values.
+     `templateId` is a hash over the compiled script AND its authority, so the
+     moment the principal or revocation key moves, the template id spliced into
+     the bytecode belongs to a different covenant and every address this page
+     derives would be confidently wrong. Every term the bench lets you edit is
+     a STATE field, which is exactly the set that can move without that. */
+  var REF = TPL.addressVectors[0];
+  var AUTHORITY = REF.authority;
+  var AGENT_KEY = REF.state.agentKey;
+  var TEMPLATE_ID = REF.state.templateId;
+  var RESERVE_ROOT = REF.state.reserveRoot;
+
+  /* Real payees, published elsewhere on this site, rather than three invented
+     hex strings. A sandbox is hypothetical about the terms; it does not have
+     to be hypothetical about who is on the other end. */
+  var PAYEES = [
+    { key: "16e6af2030f7e4510d1a417391a7ff7ccad21864f17eef7ee035f0453e21a033",
+      name: "Warda demo vendor", sub: "warda-demo-api.vercel.app/fact — the endpoint /start pays" },
+    { key: "3c693f61fbc35d1fd4dcec2bbbab692be38656e6fd5a4077ee495afcb23535a1",
+      name: "Kaspa network digest", sub: "agent #001, which sells the reading it takes of the DAG" },
+    { key: "bee817fbf708b7ad2b12530bcc99e285805ab64faeea22f6d31e2bbcb164edf9",
+      name: "demo.kaspa-x402.org", sub: "an outside vendor, run by people this project has never spoken to" }
+  ];
+  var ALLOWED = [true, true, false];
+
+  var $ = function (id) { return document.getElementById(id); };
+  var el = function (tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  };
+
+  /* ---- the self-test ----------------------------------------------------
+     Two halves, because this page makes two claims. The address vectors check
+     the splice, exactly as /verify does. The refusal cases check that the
+     bundled rules are the rules — a bundle that loaded but returned nothing
+     would otherwise render as a grant that refuses nothing at all, which is
+     the most flattering possible way for this page to be broken. */
+  function selfTest() {
+    var bad = [], n = 0, total = 0;
+
+    TPL.addressVectors.forEach(function (v) {
+      total++;
+      var state = {};
+      for (var k in v.state) state[k] = typeof v.state[k] === "number" ? BigInt(v.state[k]) : v.state[k];
+      try {
+        if (addressFor(TPL, v.authority, state, "kaspatest") === v.address) n++;
+        else bad.push("address:" + v.label);
+      } catch (e) { bad.push("address:" + v.label); }
+    });
+
+    var set = new C.RecipientSet([PAYEES[0].key]);
+    var g = C.createGrant({
+      version: 1, parentId: null,
+      principalKey: AUTHORITY.principalKey, agentKey: AGENT_KEY,
+      revocationKey: AUTHORITY.revocationKey, assetId: "KAS",
+      budgetTotal: C.kas("1"), maxPerSpend: C.kas("0.2"), epochLimit: C.kas("0.5"),
+      epochLength: 1000n, recipientsRoot: set.root, recipientsDepth: set.depth,
+      notBefore: 1000000n, expiresAt: 1007000n, delegationDepth: 2,
+      nonce: REF.state.templateId
+    });
+    var s0 = C.initialState(g);
+    var cases = [
+      ["EXCEEDS_MAX_PER_SPEND", s0, C.kas("0.5"), PAYEES[0].key, 1000500n],
+      ["RECIPIENT_NOT_AUTHORIZED", s0, C.kas("0.1"), PAYEES[2].key, 1000500n],
+      ["NOT_YET_VALID", s0, C.kas("0.1"), PAYEES[0].key, 999000n],
+      ["EXPIRED", s0, C.kas("0.1"), PAYEES[0].key, 1008000n],
+      ["EXCEEDS_EPOCH_LIMIT",
+        { grantId: g.grantId, spentTotal: C.kas("0.45"), reserved: 0n, epochIndex: 0n,
+          epochSpent: C.kas("0.45"), status: "ACTIVE" },
+        C.kas("0.1"), PAYEES[0].key, 1000500n],
+      ["REVOKED", C.revoke(s0), C.kas("0.1"), PAYEES[0].key, 1000500n]
+    ];
+    cases.forEach(function (c) {
+      total++;
+      try {
+        var got = judge(g, set, c[1], { amount: c[2], recipient: c[3], daaScore: c[4] });
+        if (got.length === 1 && got[0] === c[0]) n++;
+        else bad.push(c[0] + " gave [" + got.join(",") + "]");
+      } catch (e) { bad.push(c[0] + ": " + e.message); }
+    });
+
+    var st = $("selftest");
+    if (bad.length === 0) {
+      st.innerHTML = "<b>" + n + " of " + total + "</b> checks passed in this browser, just now: " +
+        TPL.addressVectors.length + " reference addresses re-derived from their terms, and " +
+        (total - TPL.addressVectors.length) + " refusals produced by the same <code>validateSpend</code> " +
+        "the payer runs. Everything below is computed the same way.";
+    } else {
+      st.className = "selftest bad";
+      st.textContent = "SELF-TEST FAILED (" + n + "/" + total + "): " + bad.join("; ") +
+        ". Do not rely on anything on this page.";
+    }
+  }
+
+  /* ---- one attempt ------------------------------------------------------
+     `validateSpend` also checks the successor state the transaction produces,
+     which is the check that makes every other one real — and which a bench
+     with no transaction cannot supply. So it is asked twice: once to learn
+     the successor the rules require, then again with that successor in place,
+     so what comes back is the set of terms that bit and not the artefact of
+     not having built a transaction yet.
+
+     When the first call returns no successor at all, the grant has not opened
+     and epoch arithmetic is undefined before that point; INVALID_SUCCESSOR
+     there is a consequence of NOT_YET_VALID and is dropped rather than
+     reported as a second, invented reason. */
+  function judge(grant, set, state, want) {
+    lastSuccessor = null;
+    var onList = set.has(want.recipient);
+    var req = {
+      grantId: grant.grantId,
+      amount: want.amount,
+      recipient: want.recipient,
+      recipientProof: onList ? set.proof(want.recipient) : { index: 0, siblings: [] },
+      daaScore: want.daaScore,
+      successor: state
+    };
+    var first = C.validateSpend(grant, state, req);
+    if (!first.expectedSuccessor) {
+      return first.failures.filter(function (f) { return f !== "INVALID_SUCCESSOR"; });
+    }
+    req.successor = first.expectedSuccessor;
+    var second = C.validateSpend(grant, state, req);
+    lastSuccessor = second.ok ? first.expectedSuccessor : null;
+    return second.failures;
+  }
+  var lastSuccessor = null;
+
+  /* ---- live state -------------------------------------------------------- */
+  var grant = null, set = null, state = null, ledger = [], termsError = null;
+
+  function readTerms() {
+    var chosen = [];
+    for (var i = 0; i < PAYEES.length; i++) if (ALLOWED[i]) chosen.push(PAYEES[i].key);
+    if (chosen.length === 0) throw new Error("a grant with an empty allowlist cannot pay anyone, and the covenant has no way to express one — tick at least one payee");
+    var s = new C.RecipientSet(chosen);
+    var g = C.createGrant({
+      version: 1, parentId: null,
+      principalKey: AUTHORITY.principalKey, agentKey: AGENT_KEY,
+      revocationKey: AUTHORITY.revocationKey, assetId: "KAS",
+      budgetTotal: C.kas($("t-budget").value || "0"),
+      maxPerSpend: C.kas($("t-cap").value || "0"),
+      epochLimit: C.kas($("t-epoch").value || "0"),
+      epochLength: BigInt($("t-len").value || "0"),
+      recipientsRoot: s.root, recipientsDepth: s.depth,
+      notBefore: BigInt($("t-from").value || "0"),
+      expiresAt: BigInt($("t-to").value || "0"),
+      delegationDepth: 2,
+      nonce: REF.state.templateId
+    });
+    return { grant: g, set: s };
+  }
+
+  function covenantState() {
+    return {
+      agentKey: AGENT_KEY,
+      budgetTotal: grant.budgetTotal, maxPerSpend: grant.maxPerSpend,
+      epochLimit: grant.epochLimit, epochLength: grant.epochLength,
+      recipientsRoot: grant.recipientsRoot,
+      notBefore: grant.notBefore, expiresAt: grant.expiresAt,
+      delegationDepth: BigInt(grant.delegationDepth),
+      templateId: TEMPLATE_ID,
+      spentTotal: state.spentTotal, reserved: state.reserved,
+      epochIndex: state.epochIndex, epochSpent: state.epochSpent,
+      reserveRoot: RESERVE_ROOT
+    };
+  }
+
+  function rebuild(keepLedger) {
+    try {
+      var t = readTerms();
+      termsError = null;
+      grant = t.grant; set = t.set;
+      if (!keepLedger) { state = C.initialState(grant); ledger = []; }
+    } catch (e) {
+      termsError = e.message;
+      grant = null; set = null;
+    }
+    syncSlider();
+    render();
+  }
+
+  function syncSlider() {
+    var sl = $("a-daa");
+    var from = Number($("t-from").value || 0), to = Number($("t-to").value || 0);
+    if (!(to > from)) return;
+    var span = to - from;
+    var lo = Math.max(0, Math.round(from - span * 0.08));
+    var hi = Math.round(to + span * 0.08);
+    var was = Number(sl.value);
+    sl.min = String(lo); sl.max = String(hi); sl.step = "1";
+    if (was < lo || was > hi || !sl.dataset.set) {
+      sl.value = String(from + Math.round(span * 0.07));
+      sl.dataset.set = "1";
+    }
+  }
+
+  /* ---- plain english for each code -------------------------------------- */
+  function explain(code, want) {
+    var K = function (v) { return C.formatKas(v) + " KAS"; };
+    switch (code) {
+      case "EXCEEDS_MAX_PER_SPEND":
+        return K(want.amount) + " is over the " + K(grant.maxPerSpend) +
+          " this grant may move in one payment. Splitting it does not help — the budget and the epoch limit are still there.";
+      case "EXCEEDS_AVAILABLE_BUDGET":
+        return "only " + K(C.available(grant, state)) + " of the budget is left, and nobody can add to it: a larger budget is a different grant at a different address.";
+      case "EXCEEDS_EPOCH_LIMIT":
+        var idx = C.epochIndexAt(grant, want.daaScore);
+        return "epoch " + idx + " has already spent " + K(C.epochSpentAt(grant, state, want.daaScore)) +
+          " of its " + K(grant.epochLimit) + ". It resets at DAA " +
+          (grant.notBefore + (idx + 1n) * grant.epochLength) + ", not before.";
+      case "RECIPIENT_NOT_AUTHORIZED":
+        return "that payee is not in the tree rooted at " + grant.recipientsRoot.slice(0, 16) +
+          "…, which was fixed before this grant could hold anything. There is no membership proof to carry, so there is no transaction to submit.";
+      case "NOT_YET_VALID":
+        return "the grant opens at DAA " + grant.notBefore + " and you are at " + want.daaScore +
+          " — " + (grant.notBefore - want.daaScore) + " blocks early.";
+      case "EXPIRED":
+        return "the grant closed at DAA " + grant.expiresAt + ". What is left goes back to the principal; the agent cannot move it.";
+      case "AMOUNT_NOT_POSITIVE":
+        return "a payment of zero is not a payment.";
+      case "REVOKED":
+        return "the revocation key ended this grant. The agent was not asked and cannot object.";
+      case "NOT_ACTIVE":
+        return "this grant is no longer active.";
+      case "INVALID_SUCCESSOR":
+        return "the transaction does not produce the state the rules require. On chain this is the check that makes every other one real.";
+      default:
+        return code;
+    }
+  }
+
+  /* ---- render ------------------------------------------------------------ */
+  function render() {
+    var v = $("verdict"), head = $("v-head"), sub = $("v-sub"), fails = $("v-fails");
+    fails.textContent = ""; sub.textContent = "";
+
+    if (termsError) {
+      v.className = "verdict no";
+      head.textContent = "These terms are not a grant";
+      sub.textContent = termsError;
+      $("do-spend").disabled = true;
+      $("addr").textContent = "—";
+      $("addr-note").textContent = "";
+      ["m-avail", "m-spent", "m-epoch", "m-root"].forEach(function (id) { $(id).textContent = "—"; });
+      return;
+    }
+
+    var daa = BigInt($("a-daa").value);
+    $("a-daaval").textContent = String(daa);
+    var want;
+    try {
+      want = { amount: C.kas($("a-amt").value || "0"), recipient: $("a-to").value, daaScore: daa };
+    } catch (e) {
+      v.className = "verdict no";
+      head.textContent = "Not an amount";
+      sub.textContent = e.message;
+      $("do-spend").disabled = true;
+      return;
+    }
+
+    try {
+      $("a-epoch").textContent = daa < grant.notBefore
+        ? "— before the grant opens"
+        : "— epoch " + C.epochIndexAt(grant, daa);
+    } catch (e) { $("a-epoch").textContent = ""; }
+
+    var failures = judge(grant, set, state, want);
+    var payeeName = (PAYEES.filter(function (p) { return p.key === want.recipient; })[0] || {}).name || "that payee";
+
+    if (failures.length === 0) {
+      v.className = "verdict ok";
+      head.textContent = "This payment is allowed";
+      sub.textContent = C.formatKas(want.amount) + " KAS to " + payeeName +
+        " is inside every limit. Make it, and watch where the grant goes.";
+      $("do-spend").disabled = false;
+    } else {
+      v.className = "verdict no";
+      head.textContent = failures.length === 1
+        ? "Refused, for one reason"
+        : "Refused, for " + failures.length + " reasons";
+      sub.textContent = "Not declined by a server. There is no transaction that both spends this grant and does this.";
+      failures.forEach(function (code) {
+        var li = el("li");
+        li.appendChild(el("div", "c", code));
+        li.appendChild(el("div", "w", explain(code, want)));
+        fails.appendChild(li);
+      });
+      $("do-spend").disabled = true;
+    }
+
+    var addr;
+    try { addr = addressFor(TPL, AUTHORITY, covenantState(), "kaspatest"); }
+    catch (e) { addr = null; }
+    var revoked = state.status !== "ACTIVE";
+    $("addr").className = "addr" + (revoked ? " stale" : "");
+    $("addr").textContent = addr || "could not derive";
+    $("addr-note").textContent = revoked
+      ? "Revoked. On chain that is a transaction signed by the revocation key, not a flag — the coin leaves this address and the agent has no spend of it."
+      : ledger.length === 0
+        ? "Real address arithmetic on hypothetical terms. Fund it and these are the rules the covenant would enforce; change one number above and the coin is somewhere else."
+        : "It has moved " + ledger.length + (ledger.length === 1 ? " time" : " times") +
+          ". No balance ticked down in place — each payment put the remaining authority at a new address.";
+
+    $("m-avail").textContent = C.formatKas(C.available(grant, state)) + " KAS";
+    $("m-spent").textContent = C.formatKas(state.spentTotal) + " KAS";
+    try {
+      $("m-epoch").textContent = C.formatKas(C.epochSpentAt(grant, state, daa)) + " / " +
+        C.formatKas(grant.epochLimit) + " KAS";
+    } catch (e) { $("m-epoch").textContent = "—"; }
+    $("m-root").textContent = grant.recipientsRoot.slice(0, 12) + "…";
+
+    var rows = $("ledger");
+    rows.textContent = "";
+    ledger.forEach(function (r, i) {
+      var tr = el("tr");
+      tr.appendChild(el("td", null, String(i + 1)));
+      tr.appendChild(el("td", null, r.paid + " KAS"));
+      tr.appendChild(el("td", null, r.to));
+      tr.appendChild(el("td", "to", r.addr));
+      rows.appendChild(tr);
+    });
+    $("ledger-box").hidden = ledger.length === 0;
+  }
+
+  /* ---- the payees panel -------------------------------------------------- */
+  PAYEES.forEach(function (p, i) {
+    var d = el("div", "payee");
+    var cb = el("input");
+    cb.type = "checkbox"; cb.checked = ALLOWED[i]; cb.id = "p" + i;
+    cb.addEventListener("change", function () { ALLOWED[i] = cb.checked; rebuild(false); });
+    var txt = el("div");
+    var lbl = el("label", "nm", p.name); lbl.htmlFor = "p" + i;
+    txt.appendChild(lbl);
+    txt.appendChild(el("div", "sub", p.sub));
+    /* Truncated with the whole thing on hover and in the title. The full
+       64 characters wrap to three lines on a phone and push the attempt panel
+       below the fold, which is the half of this page people came for. */
+    var k = el("div", "k", p.key.slice(0, 24) + "\u2026");
+    k.title = p.key;
+    txt.appendChild(k);
+    d.appendChild(cb); d.appendChild(txt);
+    $("payees").appendChild(d);
+
+    var o = el("option", null, p.name);
+    o.value = p.key;
+    $("a-to").appendChild(o);
+  });
+
+  /* ---- wiring ------------------------------------------------------------ */
+  ["t-budget", "t-cap", "t-epoch", "t-len", "t-from", "t-to"].forEach(function (id) {
+    $(id).addEventListener("input", function () { rebuild(false); });
+  });
+  ["a-amt", "a-to", "a-daa"].forEach(function (id) {
+    $(id).addEventListener("input", render);
+  });
+
+  $("do-spend").addEventListener("click", function () {
+    if (!lastSuccessor) return;
+    var before = null;
+    try { before = addressFor(TPL, AUTHORITY, covenantState(), "kaspatest"); } catch (e) {}
+    var paid = C.formatKas(C.kas($("a-amt").value || "0"));
+    var to = (PAYEES.filter(function (p) { return p.key === $("a-to").value; })[0] || {}).name || "?";
+    state = lastSuccessor;
+    var after = null;
+    try { after = addressFor(TPL, AUTHORITY, covenantState(), "kaspatest"); } catch (e) {}
+    ledger.push({ paid: paid, to: to, addr: after || "—", from: before });
+    render();
+  });
+
+  $("do-revoke").addEventListener("click", function () {
+    if (!grant) return;
+    state = C.revoke(state);
+    render();
+  });
+
+  $("do-reset").addEventListener("click", function () {
+    ALLOWED = [true, true, false];
+    PAYEES.forEach(function (p, i) { $("p" + i).checked = ALLOWED[i]; });
+    $("t-budget").value = "1"; $("t-cap").value = "0.2"; $("t-epoch").value = "0.5";
+    $("t-len").value = "1000"; $("t-from").value = "1000000"; $("t-to").value = "1007000";
+    $("a-amt").value = "0.1"; $("a-to").value = PAYEES[0].key;
+    delete $("a-daa").dataset.set;
+    rebuild(false);
+  });
+
+  selfTest();
+  rebuild(false);
+})();
+</script>

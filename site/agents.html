@@ -250,6 +250,7 @@
   .graph figcaption { font-size: 0.82rem; color: var(--chrome-faint); margin-top: 1rem;
                       line-height: 1.6; max-width: 60ch; }
   .graph figcaption .lg-auth { color: var(--chrome-dim); }
+  .graph figcaption .lg-unrec { color: var(--amber); }
   /* The diagram scrolls inside its own box below 580px, and nothing on screen
      says so — the sellers are simply off the right edge. */
   .graph figcaption .hint { display: none; color: var(--teal); }
@@ -271,6 +272,12 @@
      start-anchor the code asked for on the lineage edges was silently
      overridden and their labels sat centred ON the arrow they describe. */
   .gedge-l.auth { fill: var(--chrome-faint); font-size: 9px; text-anchor: start; }
+  /* Money that left a grant with no receipt naming where it went. Amber
+     rather than teal, and ending in nothing: the covenant's own accounting
+     says it was spent, and no record here says to whom. Drawing it as a
+     payment arrow into a seller would be the guess this whole page refuses. */
+  .gedge.unrec { stroke: var(--amber); stroke-width: 1.2; stroke-dasharray: 2 3; opacity: 0.75; }
+  .gedge-l.unrec { fill: var(--amber); font-size: 9.5px; opacity: 0.9; }
 
 
   /* Retired: it ran, it stopped, and the page is a record. Dimmed, still a
@@ -297,6 +304,25 @@
      and that selector scores 0,1,1 against a bare class's 0,1,0 — so it won
      on specificity wherever this bar was declared, and the nav silently
      scrolled away on the one page long enough to need it. */
+  /* ---- the precondition, which is why the bar kept scrolling away --------
+     `position: sticky` sticks to the nearest SCROLLING ancestor, and
+     `overflow-x: hidden` on an element makes it one. Five pages carried
+     `body { overflow-x: hidden }` to stop sideways drag, so on every one of
+     them the bar was stuck to a box that scrolls with the page — which looks
+     exactly like sticky not working at all.
+
+     It was diagnosed once before, as the specificity problem described below,
+     and that fix was real but was not this. Two causes, one symptom; fixing
+     the first made no visible difference and the second went on standing.
+
+     `clip` instead of `hidden`: it clips identically and does NOT create a
+     scroll container, so the viewport stays the scrollport and the bar stays
+     put. It is declared here rather than per page because it is not a page's
+     styling choice — it is what this bar requires in order to work, and a page
+     that sets its own `overflow-x: hidden` on body silently breaks the
+     navigation for its readers with no error anywhere. */
+  html, body { overflow-x: clip; }
+
   body > .topnav { position: sticky; top: 0; z-index: 60; background: rgba(6,9,12,0.86);
                    border-bottom: 1px solid var(--edge); backdrop-filter: blur(12px); }
   .topnav .wrap { display: flex; align-items: center; gap: 1.6rem;
@@ -352,6 +378,8 @@
       <a href="/start" data-nv="start.html">Start</a>
       <a href="/build" data-nv="build.html">How it works</a>
       <a href="/agents" data-nv="agents.html" aria-current="page">Agents</a>
+      <a href="/network" data-nv="network.html">Registry</a>
+      <a href="/sandbox" data-nv="sandbox.html">Sandbox</a>
       <a href="/verify" data-nv="verify.html">Verify</a>
       <a href="/proof" data-nv="proof.html">Proof</a>
       <a href="/console" data-nv="console.html">Console</a>
@@ -410,14 +438,23 @@
        a drawing program, and then the agents change and the picture does not.
        This one has no positions for an agent it cannot read. -->
   <figure class="graph" id="g-graph" hidden>
-    <svg viewBox="0 0 760 440" role="img" aria-labelledby="g-graph-t">
-      <title id="g-graph-t">Four agents: who replaced whom, who delegated whom, and who paid whom</title>
+    <!-- 560 tall, not 440. The height was set when there were four agents and
+         one seller; #005 and the third party it buys from are two more rows.
+         A viewBox is as easy to leave behind as a sentence. -->
+    <svg viewBox="0 0 760 560" role="img" aria-labelledby="g-graph-t">
+      <!-- No count in here. It said "Four agents" and was wrong the day a
+           fifth arrived — in the accessible name, which is the one version of
+           this picture a screen reader gets. -->
+      <title id="g-graph-t">The agents: who replaced whom, who delegated whom, and who paid whom</title>
       <defs>
         <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
           <path d="M0,0 L10,5 L0,10 z" fill="var(--teal)"></path>
         </marker>
         <marker id="ar-dim" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
           <path d="M0,0 L10,5 L0,10 z" fill="var(--chrome-faint)"></path>
+        </marker>
+        <marker id="ar-unrec" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--amber)"></path>
         </marker>
       </defs>
       <g id="g-edges"></g>
@@ -428,6 +465,9 @@
       Solid arrows are payments that settled, with the amount this grant has spent on that payee.
       Dotted arrows are authority: <span class="lg-auth">who replaced whom, and who delegated whom</span>.
       A dimmed agent&rsquo;s grant no longer exists.
+      <span class="lg-unrec">An amber arrow ending in nothing is money the covenant says left that
+      grant, with no surviving receipt naming who received it</span> &mdash; the chain settles
+      whether a coin moved, and only a receipt settles to whom.
     </figcaption>
   </figure>
 
@@ -463,20 +503,49 @@
  * describes. It no-ops on a page that carries none of the elements it fills.
  */
 (function () {
-  var AGENT_IDS = ["001", "002", "003", "004"];
+  var AGENT_IDS = ["001", "002", "003", "004", "005"];
 
 /* ---- the diagram -------------------------------------------------------
    Positions are fixed; everything else — which nodes exist, which are dead,
    which arrows to draw and what they are worth — comes from the data. An
    agent whose JSON is missing simply is not drawn. */
 var POS = {
-  "001": { x: 545, y: 120, role: "sells its digest" },
+  "001": { x: 545, y: 135, role: "sells its digest" },
   "002": { x: 120, y:  70, role: "retired" },
-  "003": { x: 120, y: 215, role: "buys" },
-  "004": { x: 120, y: 360, role: "settled" },
-  vendor: { x: 545, y: 330, role: "sells /weather /fact" }
+  "003": { x: 120, y: 200, role: "buys" },
+  "004": { x: 120, y: 330, role: "settled" },
+  "005": { x: 120, y: 470, role: "buys from a stranger" },
+  vendor:  { x: 545, y: 265, role: "sells /weather /fact" },
+  /* The one node on this diagram nobody here operates. It is drawn apart from
+     the others for the same reason agent #005 exists: every other arrow on
+     this picture ends at something we wrote. */
+  outside: { x: 545, y: 470, role: "nobody here runs this" }
 };
 var W = 175, H = 62;
+
+/**
+ * Which node on this diagram a payee is.
+ *
+ * From the payee's LABEL, which the reading only carries when dashboard.ts
+ * could re-derive it from a published artefact. So an address nobody has
+ * identified lands at `outside` — which is not a guess about who they are, it
+ * is the honest statement that nobody here can say.
+ *
+ * It used to be `label.indexOf("#001") >= 0 ? "001" : "vendor"`: everything
+ * that was not agent #001 was the Warda demo vendor. That was true while the
+ * only two sellers were ours, and it silently became a false claim about who
+ * received a payment the moment one of them was not.
+ */
+function nodeFor(p) {
+  var label = p.label || "";
+  if (label.indexOf("#001") >= 0) return "001";
+  if (label.indexOf("demo vendor") >= 0) return "vendor";
+  /* An agent's own relay key is plumbing, not a counterparty: the grant funds
+     it and it pays onward in the same breath. Drawing it would put a node on
+     this picture that nobody trades with. */
+  if (label.indexOf("relay key") >= 0) return null;
+  return p.ours === false || !p.label ? "outside" : null;
+}
 
 function svgEl(name, attrs) {
   var e = document.createElementNS("http://www.w3.org/2000/svg", name);
@@ -544,7 +613,19 @@ function drawGraph(loaded) {
     box(id, "Agent #" + id, POS[id] ? POS[id].role : "", !!d.retired);
   });
   if (!any) return;
-  box("vendor", "Demo vendor", POS.vendor.role, false);
+
+  /* The sellers, drawn only when somebody on this diagram may pay them. The
+     demo vendor used to be drawn unconditionally and was the only seller there
+     was; a third party is a different node and must not be folded into it. */
+  var sellers = {};
+  Object.keys(loaded).forEach(function (id) {
+    ((loaded[id] && loaded[id].buysFrom && loaded[id].buysFrom.payees) || []).forEach(function (p) {
+      var key = nodeFor(p);
+      if (key === "vendor" || key === "outside") sellers[key] = true;
+    });
+  });
+  if (sellers.vendor) box("vendor", "Demo vendor", POS.vendor.role, false);
+  if (sellers.outside) box("outside", "demo.kaspa-x402.org", POS.outside.role, false);
 
   /* Payments, aggregated from the receipts. Only what was actually served:
      an arrow for money that bought nothing would be a different claim. */
@@ -557,12 +638,47 @@ function drawGraph(loaded) {
       byPayee[p.payTo] = (byPayee[p.payTo] || 0) + parseFloat(p.paid);
     });
     var names = {};
-    (d.buysFrom && d.buysFrom.payees || []).forEach(function (p) {
-      names[p.address] = (p.label || "").indexOf("#001") >= 0 ? "001" : "vendor";
-    });
+    (d.buysFrom && d.buysFrom.payees || []).forEach(function (p) { names[p.address] = nodeFor(p); });
     Object.keys(byPayee).forEach(function (addr) {
-      edge(id, names[addr] || "vendor", byPayee[addr].toFixed(2) + " KAS", false);
+      /* No fallback to "vendor". An address this diagram cannot place is not
+         drawn, because a payment drawn at the wrong node is a false claim
+         about who was paid — which is exactly what the old `|| "vendor"`
+         produced the moment a payee was neither agent #001 nor ours. */
+      if (!names[addr]) return;
+      edge(id, names[addr], byPayee[addr].toFixed(2) + " KAS", false);
     });
+  });
+
+  /**
+   * Money the covenant says left, that no receipt accounts for.
+   *
+   * Agent #005 sat on this diagram with no arrow at all, which reads as "has
+   * never bought anything" and is false: it has spent 0.40 KAS. Its payments
+   * predate the purchase log, so there is no receipt to draw an arrow FROM,
+   * and the address the coins are sitting at cannot supply one — a payee
+   * serves whoever pays it, and for a third party that is the whole world.
+   *
+   * So the arrow ends in nothing. That is the fact: it left, and nothing here
+   * can say to whom. Drawing it into a seller would be exactly the guess every
+   * other sentence on this page refuses to make, and an absent arrow is a
+   * quieter false claim than a wrong one but still a false one.
+   */
+  Object.keys(loaded).forEach(function (id) {
+    var r = loaded[id] && loaded[id].reconciliation;
+    var amount = r && parseFloat(r.unrecorded);
+    if (!amount || !drawn[id]) return;
+    var a = drawn[id];
+    var x1 = a.x + W / 2, x2 = x1 + 120, y = a.y + 18;
+    edges.appendChild(svgEl("path", {
+      d: "M" + x1 + "," + y + " L" + x2 + "," + y,
+      class: "gedge unrec", "marker-end": "url(#ar-unrec)"
+    }));
+    var t = svgEl("text", { x: x1 + 6, y: y - 7, class: "gedge-l unrec", "text-anchor": "start" });
+    /* Rounded like the payment labels beside it, so the two read as the same
+       kind of figure. The exact number is on the agent's own page, where the
+       reconciliation paragraph gives it to the sompi. */
+    t.textContent = amount.toFixed(2) + " KAS, payee unrecorded";
+    edges.appendChild(t);
   });
 
   /* Authority. Each edge is drawn only when the data carries the fact. */
@@ -588,10 +704,13 @@ function drawGraph(loaded) {
       var d = loaded[id];
       if (!d) return;
       agents++;
-      /* Four agents exist; two of their grants do. #002 was revoked and #004
-         settled back into its parent, and calling either of them "running"
-         would be the page's own figures overstating it — which is the one
-         thing every other number here is arranged to prevent. */
+      /* Not every agent here is running. #002 was revoked and #004 settled
+         back into its parent, and calling either of them "running" would be
+         the page's own figures overstating it — which is the one thing every
+         other number here is arranged to prevent. The count is derived, so
+         this comment does not need a number in it and deliberately has none:
+         the previous one said "four agents exist, two of their grants do" and
+         was out of date the day a fifth arrived. */
       if (!d.retired && d.authority && d.authority.onChain) holding++;
       (d.purchases || []).forEach(function (p) {
         if (p.outcome !== "bought") return;
@@ -644,7 +763,14 @@ function drawGraph(loaded) {
       does: "Took over #002's job holding a key #002 never saw, under a grant published before it could be used. #002's grant was ended by a key that was not #002's." },
     { id: "004", href: "/agent-004", json: "/agent-004.json",
       name: "The sub-agent",
-      does: "Not issued by a person. Agent #003 subdivided its own grant and handed over a bounded piece of it — every limit smaller, the payee list narrowed, and the remainder settling back." }
+      does: "Not issued by a person. Agent #003 subdivided its own grant and handed over a bounded piece of it — every limit smaller, the payee list narrowed, and the remainder settling back." },
+    /* The only one that pays somebody outside this project. Every agent above
+       it buys from an endpoint we also wrote, which makes the money real and
+       the market imaginary — so this is the card that carries the claim
+       hardest to fake, and the one whose failures show on the front page. */
+    { id: "005", href: "/agent-005", json: "/agent-005.json",
+      name: "The stranger's customer",
+      does: "Buys from a vendor nobody here controls, unattended, every morning — through a relay hop their scheme requires, over public nodes, writing down what happened whether or not it worked." }
   ];
 
   var PLANNED = [];
@@ -688,8 +814,17 @@ function drawGraph(loaded) {
       [retired ? "Could pay" : "May pay",
        (auth.authorizedPayees != null ? auth.authorizedPayees : "—") +
        (auth.authorizedPayees === 1 ? " address" : " addresses")],
+      /* "its revocation key" was hardcoded, and it is false of agent #004:
+         that grant ended because its PARENT collapsed it, which is the whole
+         point of the page the card links to. Two endings, and the reading says
+         which. An older reading that does not is shown as "ended" rather than
+         guessed at. */
       [retired ? "Ended by" : "Refuses",
-       retired ? "its revocation key" : ((d.refusals || []).length) + " things, derived"]
+       retired
+         ? (d.retired.how === "settled"
+             ? "its parent, settling"
+             : d.retired.how === "revoked" ? "its revocation key" : "\u2014")
+         : ((d.refusals || []).length) + " things, derived"]
     ];
     rows.forEach(function (r) {
       var dt = document.createElement("dt"); dt.textContent = r[0];

@@ -140,6 +140,7 @@ jobs:
       # rendering because a placeholder was renamed, which no test would see.
       - name: site — it builds, and links nowhere empty
         run: |
+          node ops/check-core-browser.mjs
           python3 site/build.py
           node ops/check-links.mjs
           node ops/check-commands.mjs

@@ -105,17 +105,43 @@ to deciding whether any of this is true.
 
 ## Agents running against this protocol
 
-https://wardaprotocol.com/agents indexes them. Two exist:
+https://wardaprotocol.com/agents indexes them. Five exist:
 
 - #001 reads the Kaspa network every hour, publishes a digest, and pays for the
   one service it cannot provide itself.
 - #002 buys #001's digest over HTTP 402, out of a grant that may pay exactly one
   address and could not pay at all before a start time the covenant enforces.
+  Retired: its grant was revoked by #003's succession.
+- #003 took over #002's buying under its own key, from a grant published before
+  it could be used, and hired a sub-agent out of it.
+- #004 was hired by #003 rather than issued by a person: a bounded piece of its
+  parent's authority that could only ever shrink, settled back when it was done.
+- #005 buys from demo.kaspa-x402.org, unattended, every morning. That vendor is
+  the reference implementation of x402 on Kaspa and is run by people this
+  project has never spoken to, which is the one thing here hardest to fake.
 
-Both were built by the same people, which is stated on #002's page: the payment
-between them is real and checkable on chain, and the market around it is not.
-Each agent's figures are published as JSON beside its page (`/agent-001.json`,
-`/agent-002.json`) and every one of them is derived from the chain.
+All but #005's counterparty were built by the same people, and each page says
+so: the payments between them are real and checkable on chain, and the market
+around them is not. Each agent's figures are published as JSON beside its page
+(`/agent-001.json` through `/agent-005.json`) and every one of them is derived
+from the chain.
+
+## Try the rules without a node, a key or a coin
+
+https://wardaprotocol.com/sandbox runs the SDK's own `validateSpend` in the
+browser: write a grant's terms, attempt a payment, and get back the refusal the
+covenant would produce, with the reason. It also derives the grant's address as
+you type — a Warda grant's address is a hash of its state, so every payment
+moves it. The page self-tests against the covenant's reference address vectors
+on load and says so.
+
+## Services an agent can hire
+
+https://wardaprotocol.com/network is the registry, served as `/services.json`.
+A listing is a manifest published by its operator; the registry indexes it and
+does not vouch for it. What the page derives rather than states is what has
+actually been paid to each endpoint, re-read from the chain. There is no
+ranking, and the registry is never in the payment path.
 
 ## Docs
 

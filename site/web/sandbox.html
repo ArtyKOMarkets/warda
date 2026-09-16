@@ -1,0 +1,2027 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Sandbox &mdash; write a grant's terms and try to break them</title>
+<style>
+  :root {
+    --void: #06090C; --ground: #0A1014; --panel: #101A20;
+    --edge: #1E2E37; --edge-bright: #2C4350;
+    --chrome: #DDE0E2; --chrome-dim: #8D989E; --chrome-faint: #5D6B73;
+    --teal: #14D7C1; --teal-deep: #06BBA1; --teal-bright: #3BF0DC;
+    --teal-ghost: rgba(20,215,193,0.10);
+    --refuse: #FF6B5A; --refuse-ghost: rgba(255,107,90,0.09); --amber: #E8B14C;
+    --display: "Chakra Petch", "Arial Narrow", sans-serif;
+    --body: "Barlow", "Helvetica Neue", Arial, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    --gutter: clamp(1.15rem, 4vw, 3.4rem);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--void); color: var(--chrome);
+         font-family: var(--body); line-height: 1.6; }
+  .wrap { max-width: 68rem; margin: 0 auto; padding: 0 var(--gutter); }
+  header { border-bottom: 1px solid var(--edge); padding: 2.6rem 0 2.4rem; }
+  h1 { font-family: var(--display); font-size: clamp(1.9rem, 5vw, 3rem); line-height: 1.06;
+       margin: 1.3rem 0 0; font-weight: 600; letter-spacing: -0.01em; }
+  .lede { color: var(--chrome-dim); max-width: 64ch; margin-top: 1.1rem; }
+  .eyebrow { font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.18em;
+             text-transform: uppercase; color: var(--teal); margin: 0; }
+  section { border-bottom: 1px solid var(--edge); padding: 2.6rem 0; }
+  h2 { font-family: var(--display); font-size: clamp(1.3rem, 3vw, 1.8rem); margin: 0.7rem 0 0;
+       font-weight: 600; }
+  h3 { font-family: var(--display); font-size: 1.05rem; margin: 0; font-weight: 600; }
+  p { max-width: 66ch; }
+  a { color: var(--teal); }
+  code { font-family: var(--mono); font-size: 0.92em; color: var(--chrome-dim); }
+  .note { color: var(--chrome-faint); font-size: 0.86rem; max-width: 68ch; }
+
+  /* The banner from /verify, for the same reason: a page that computes
+     refusals in front of you is worth exactly what its arithmetic is worth,
+     and a verifier nobody can check is not a verifier. */
+  .selftest { font-family: var(--mono); font-size: 0.74rem; line-height: 1.7;
+              border: 1px solid var(--teal-deep); background: var(--teal-ghost);
+              color: var(--chrome-dim); padding: 0.75rem 0.9rem; margin-top: 1.6rem;
+              max-width: 70ch; }
+  .selftest b { color: var(--teal); }
+  .selftest.bad { border-color: var(--refuse); background: var(--refuse-ghost); color: var(--refuse); }
+
+  /* ---- the bench ------------------------------------------------------- */
+  /* stretch, not start: the terms column is a good deal taller than the
+     attempt column, and a short panel floating beside a long one reads as a
+     rendering fault rather than a layout. */
+  .lab { display: grid; grid-template-columns: 1fr 1fr; gap: 1.1rem; margin-top: 1.8rem; }
+  @media (max-width: 860px) { .lab { grid-template-columns: 1fr; } }
+  .panel { border: 1px solid var(--edge); background: var(--ground); padding: 1.2rem 1.25rem; }
+  .panel > .eyebrow { margin-bottom: 0.55rem; }
+
+  .field { display: grid; grid-template-columns: 1fr auto; align-items: center;
+           gap: 0.6rem; padding: 0.42rem 0; }
+  .field label { font-size: 0.87rem; color: var(--chrome-dim); }
+  .field .u { font-family: var(--mono); font-size: 0.66rem; color: var(--chrome-faint);
+              text-transform: uppercase; letter-spacing: 0.1em; }
+  input[type="number"] {
+    width: 9.5rem; background: var(--void); border: 1px solid var(--edge-bright);
+    color: var(--chrome); font-family: var(--mono); font-size: 0.86rem;
+    padding: 0.33rem 0.5rem; border-radius: 3px; text-align: right;
+  }
+  input[type="number"]:focus, select:focus, input[type="range"]:focus-visible {
+    outline: 2px solid var(--teal-bright); outline-offset: 1px; }
+  select { width: 100%; background: var(--void); border: 1px solid var(--edge-bright);
+           color: var(--chrome); font-family: var(--body); font-size: 0.87rem;
+           padding: 0.4rem 0.5rem; border-radius: 3px; }
+  input[type="range"] { width: 100%; accent-color: var(--teal); margin: 0.3rem 0 0; }
+
+  .payee { display: flex; align-items: flex-start; gap: 0.6rem; padding: 0.5rem 0;
+           border-top: 1px solid var(--edge); }
+  .payee:first-of-type { border-top: none; }
+  .payee input { margin-top: 0.35rem; accent-color: var(--teal); flex: none; }
+  .payee .nm { font-size: 0.88rem; color: var(--chrome); }
+  .payee .sub { font-size: 0.76rem; color: var(--chrome-faint); }
+  .payee .k { font-family: var(--mono); font-size: 0.66rem; color: var(--chrome-faint);
+              overflow-wrap: anywhere; }
+
+  .divider { border-top: 1px solid var(--edge); margin: 0.9rem 0 0.7rem; }
+
+  /* the verdict */
+  .verdict { border: 1px solid var(--edge-bright); background: var(--panel);
+             padding: 1rem 1.1rem; margin-top: 0.9rem; }
+  .verdict.ok { border-color: var(--teal-deep); background: var(--teal-ghost); }
+  .verdict.no { border-color: var(--refuse); background: var(--refuse-ghost); }
+  .verdict .hd { font-family: var(--display); font-size: 1.1rem; font-weight: 600; }
+  .verdict.ok .hd { color: var(--teal); }
+  .verdict.no .hd { color: var(--refuse); }
+  .fails { list-style: none; padding: 0; margin: 0.8rem 0 0; }
+  .fails li { border-top: 1px solid var(--edge); padding: 0.62rem 0 0; margin-top: 0.62rem; }
+  .fails li:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+  .fails .c { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.1em;
+              color: var(--refuse); }
+  .fails .w { font-size: 0.87rem; color: var(--chrome-dim); }
+
+  button { font-family: var(--body); font-size: 0.85rem; font-weight: 600; cursor: pointer;
+           border-radius: 999px; padding: 0.5rem 1.15rem; border: 1px solid var(--edge-bright);
+           background: transparent; color: var(--chrome-dim); }
+  button:hover:not(:disabled) { color: var(--chrome); border-color: var(--chrome-faint); }
+  button.go { background: var(--teal); color: var(--void); border-color: var(--teal); }
+  button.go:hover:not(:disabled) { background: var(--teal-bright); color: var(--void); }
+  button:disabled { opacity: 0.38; cursor: not-allowed; }
+  .row { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.9rem; align-items: center; }
+
+  /* the address strip */
+  .addrbar { border: 1px solid var(--edge); background: var(--ground); padding: 1.1rem 1.25rem;
+             margin-top: 1.1rem; }
+  .addr { font-family: var(--mono); font-size: 0.78rem; color: var(--teal);
+          overflow-wrap: anywhere; line-height: 1.75; margin-top: 0.35rem; }
+  .addr.stale { color: var(--chrome-faint); text-decoration: line-through; }
+  .meta { display: flex; gap: 1.8rem; flex-wrap: wrap; margin-top: 0.9rem;
+          padding-top: 0.8rem; border-top: 1px solid var(--edge); }
+  .meta .k { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.13em;
+             text-transform: uppercase; color: var(--chrome-faint); }
+  .meta .v { font-family: var(--mono); font-size: 0.88rem; color: var(--chrome); }
+  .meta .v.spent { color: var(--amber); }
+
+  table.ledger { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+  table.ledger th { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.13em;
+                    text-transform: uppercase; color: var(--chrome-faint); text-align: left;
+                    font-weight: 400; padding: 0 0.7rem 0.45rem 0; }
+  table.ledger td { font-family: var(--mono); font-size: 0.74rem; color: var(--chrome-dim);
+                    border-top: 1px solid var(--edge); padding: 0.55rem 0.7rem 0.55rem 0;
+                    vertical-align: top; overflow-wrap: anywhere; }
+  table.ledger td.to { color: var(--teal); }
+
+  .codes { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+           gap: 0.9rem; margin-top: 1.4rem; }
+  .codes div { border: 1px solid var(--edge); background: var(--ground); padding: 0.9rem 1rem; }
+  .codes .c { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.08em;
+              color: var(--refuse); }
+  .codes p { font-size: 0.86rem; color: var(--chrome-dim); margin: 0.45rem 0 0; max-width: none; }
+
+  .warn { border-left: 2px solid var(--amber); padding-left: 0.9rem; color: var(--chrome-dim);
+          font-size: 0.87rem; margin-top: 0.9rem; max-width: 66ch; }
+  /* One bar, every page, injected by build.py.
+     There were seven public pages and the only way between any two of them
+     was back to the home page first. Sticky because the landing page is very
+     tall and a reader six sections down had no way out of it at all. */
+  /* `body > .topnav`, not `.topnav`. The landing page carries
+     `body > *:not(.field) { position: relative }` for its background field,
+     and that selector scores 0,1,1 against a bare class's 0,1,0 — so it won
+     on specificity wherever this bar was declared, and the nav silently
+     scrolled away on the one page long enough to need it. */
+  /* ---- the precondition, which is why the bar kept scrolling away --------
+     `position: sticky` sticks to the nearest SCROLLING ancestor, and
+     `overflow-x: hidden` on an element makes it one. Five pages carried
+     `body { overflow-x: hidden }` to stop sideways drag, so on every one of
+     them the bar was stuck to a box that scrolls with the page — which looks
+     exactly like sticky not working at all.
+
+     It was diagnosed once before, as the specificity problem described below,
+     and that fix was real but was not this. Two causes, one symptom; fixing
+     the first made no visible difference and the second went on standing.
+
+     `clip` instead of `hidden`: it clips identically and does NOT create a
+     scroll container, so the viewport stays the scrollport and the bar stays
+     put. It is declared here rather than per page because it is not a page's
+     styling choice — it is what this bar requires in order to work, and a page
+     that sets its own `overflow-x: hidden` on body silently breaks the
+     navigation for its readers with no error anywhere. */
+  html, body { overflow-x: clip; }
+
+  body > .topnav { position: sticky; top: 0; z-index: 60; background: rgba(6,9,12,0.86);
+                   border-bottom: 1px solid var(--edge); backdrop-filter: blur(12px); }
+  .topnav .wrap { display: flex; align-items: center; gap: 1.6rem;
+                  padding-top: 0; padding-bottom: 0; height: 3.7rem; }
+  .topnav a { text-decoration: none; white-space: nowrap; }
+  .nv-brand { font-family: var(--display); font-weight: 700; font-size: 1.12rem;
+              letter-spacing: 0.01em; color: var(--chrome); margin-right: 0.4rem; }
+  .nv-brand:hover { color: var(--teal); }
+  .nv-links { display: flex; align-items: center; gap: 1.5rem; margin-right: auto; }
+  .nv-links a { font-family: var(--body); font-size: 0.88rem; color: var(--chrome-dim);
+                transition: color 140ms ease; }
+  .nv-links a:hover { color: var(--chrome); }
+  /* The page you are on, said in the markup rather than guessed by script:
+     these are static files and build.py knows which one it is writing. */
+  .nv-links a[aria-current="page"] { color: var(--chrome); }
+  .nv-status { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.09em;
+               text-transform: uppercase; color: var(--chrome-faint); opacity: 0.8;
+               white-space: nowrap; }
+  .nv-status b { color: var(--amber); font-weight: 600; }
+  .nv-go { font-family: var(--body); font-size: 0.85rem; font-weight: 600;
+           background: var(--teal); color: var(--void); padding: 0.5rem 1.05rem;
+           border-radius: 999px; transition: background 140ms ease; }
+  .nv-go:hover { background: var(--teal-bright); }
+  .topnav a:focus-visible, .nv-burger:focus-visible { outline: 2px solid var(--teal-bright); outline-offset: 3px; }
+
+  .nv-burger { display: none; background: none; border: 1px solid var(--edge-bright);
+               border-radius: 7px; width: 2.4rem; height: 2.1rem; cursor: pointer;
+               flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+  .nv-burger span { width: 14px; height: 1.5px; background: var(--chrome); transition: 200ms ease; }
+  .nv-burger[aria-expanded="true"] span:nth-child(1) { transform: translateY(5.5px) rotate(45deg); }
+  .nv-burger[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+  .nv-burger[aria-expanded="true"] span:nth-child(3) { transform: translateY(-5.5px) rotate(-45deg); }
+
+  @media (max-width: 900px) {
+    .nv-burger { display: flex; }
+    .nv-status { display: none; }
+    .nv-links { position: absolute; left: 0; right: 0; top: 100%; display: none;
+                flex-direction: column; align-items: stretch; gap: 0; margin: 0;
+                background: var(--ground); border-bottom: 1px solid var(--edge);
+                padding: 0.3rem var(--gutter) 1rem; }
+    .nv-links[data-open="1"] { display: flex; }
+    .nv-links a { padding: 0.85rem 0; border-bottom: 1px solid var(--edge); font-size: 0.95rem; }
+    .topnav .wrap { gap: 0.9rem; }
+    .nv-go { margin-left: auto; }
+  }
+
+</style>
+</head>
+<body>
+
+<nav class="topnav" aria-label="Site">
+  <div class="wrap">
+    <a class="nv-brand" href="/" data-nv="index.html">Warda</a>
+    <div class="nv-links" id="nv-links">
+      <a href="/start" data-nv="start.html">Start</a>
+      <a href="/build" data-nv="build.html">How it works</a>
+      <a href="/agents" data-nv="agents.html">Agents</a>
+      <a href="/network" data-nv="network.html">Registry</a>
+      <a href="/sandbox" data-nv="sandbox.html" aria-current="page">Sandbox</a>
+      <a href="/verify" data-nv="verify.html">Verify</a>
+      <a href="/proof" data-nv="proof.html">Proof</a>
+      <a href="/console" data-nv="console.html">Console</a>
+      <a href="/attack" data-nv="attack.html">Attack</a>
+    </div>
+    <!-- Last, and not a link. The honest status of the whole thing, on every
+         page, so nobody has to reach a footer to learn it. Stated once and
+         calmly: a warning repeated in six places reads as either panic or
+         decoration, and this is neither. -->
+    <span class="nv-status">testnet-10 &middot; unaudited &middot; <b>no real money</b></span>
+    <a class="nv-go" href="/start">Get started &rarr;</a>
+    <button class="nv-burger" id="nv-burger" aria-expanded="false" aria-controls="nv-links" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</nav>
+<script>
+/* The menu, on every page. A link that scrolls or navigates also closes it —
+   leaving the panel covering the thing you just asked to see is the classic
+   mobile-nav bug. */
+(function () {
+  var b = document.getElementById("nv-burger");
+  var l = document.getElementById("nv-links");
+  if (!b || !l) return;
+  b.addEventListener("click", function () {
+    var open = b.getAttribute("aria-expanded") !== "true";
+    b.setAttribute("aria-expanded", String(open));
+    l.setAttribute("data-open", open ? "1" : "");
+  });
+  Array.prototype.forEach.call(l.querySelectorAll("a"), function (a) {
+    a.addEventListener("click", function () {
+      b.setAttribute("aria-expanded", "false");
+      l.setAttribute("data-open", "");
+    });
+  });
+})();
+</script>
+
+
+<div class="wrap">
+<header>
+  <p class="eyebrow">Sandbox</p>
+  <h1>Write a grant's terms. Then try to break them.</h1>
+  <p class="lede">
+    Nothing here is a mock-up of the rules. The refusals below come out of
+    <code>validateSpend</code> &mdash; the same function the payer runs before it builds a
+    transaction &mdash; compiled into this page, and the address is derived by the same splice
+    the Rust implementation produces. No node, no keys, no money.
+  </p>
+  <p class="selftest" id="selftest">checking this page against its own reference vectors&hellip;</p>
+</header>
+
+<section>
+  <p class="eyebrow">The bench</p>
+  <h2>Set the authority on the left. Try to spend it on the right.</h2>
+
+  <div class="lab">
+    <div class="panel">
+      <p class="eyebrow">The terms</p>
+      <div class="field"><label for="t-budget">Total budget</label><span><input type="number" id="t-budget" min="0" step="0.01" value="1"> <span class="u">kas</span></span></div>
+      <div class="field"><label for="t-cap">Most per payment</label><span><input type="number" id="t-cap" min="0" step="0.01" value="0.2"> <span class="u">kas</span></span></div>
+      <div class="field"><label for="t-epoch">Most per epoch</label><span><input type="number" id="t-epoch" min="0" step="0.01" value="0.5"> <span class="u">kas</span></span></div>
+      <div class="field"><label for="t-len">An epoch is</label><span><input type="number" id="t-len" min="1" step="1" value="1000"> <span class="u">blocks</span></span></div>
+      <div class="field"><label for="t-from">May first spend at</label><span><input type="number" id="t-from" min="0" step="100" value="1000000"> <span class="u">daa</span></span></div>
+      <div class="field"><label for="t-to">Expires at</label><span><input type="number" id="t-to" min="0" step="100" value="1007000"> <span class="u">daa</span></span></div>
+
+      <div class="divider"></div>
+      <p class="eyebrow">Who it may pay</p>
+      <p class="note" style="margin:0.4rem 0 0.7rem">
+        Three real payees from this network. Tick the ones this grant is allowed to pay &mdash;
+        the tick changes the Merkle root, and the root is part of the address.
+      </p>
+      <div id="payees"></div>
+    </div>
+
+    <div class="panel">
+      <p class="eyebrow">The attempt</p>
+      <div class="field"><label for="a-amt">Pay</label><span><input type="number" id="a-amt" min="0" step="0.01" value="0.1"> <span class="u">kas</span></span></div>
+      <div style="padding:0.42rem 0">
+        <label for="a-to" style="font-size:0.87rem;color:var(--chrome-dim);display:block;margin-bottom:0.35rem">to</label>
+        <select id="a-to"></select>
+      </div>
+      <div style="padding:0.42rem 0">
+        <label for="a-daa" style="font-size:0.87rem;color:var(--chrome-dim);display:block">
+          at DAA score <b id="a-daaval" style="font-family:var(--mono);color:var(--chrome)">&mdash;</b>
+          <span class="u" id="a-epoch"></span>
+        </label>
+        <input type="range" id="a-daa" min="0" max="100" value="50">
+      </div>
+
+      <div class="verdict" id="verdict">
+        <div class="hd" id="v-head">&mdash;</div>
+        <div class="w" id="v-sub" style="font-size:0.87rem;color:var(--chrome-dim)"></div>
+        <ul class="fails" id="v-fails"></ul>
+      </div>
+
+      <div class="row">
+        <button class="go" id="do-spend" disabled>Make this payment</button>
+        <button id="do-revoke">Revoke the grant</button>
+        <button id="do-reset">Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="addrbar">
+    <p class="eyebrow">Where this grant lives right now</p>
+    <div class="addr" id="addr">&mdash;</div>
+    <div class="meta">
+      <div><div class="k">Still spendable</div><div class="v" id="m-avail">&mdash;</div></div>
+      <div><div class="k">Spent</div><div class="v spent" id="m-spent">&mdash;</div></div>
+      <div><div class="k">This epoch</div><div class="v" id="m-epoch">&mdash;</div></div>
+      <div><div class="k">Allowlist root</div><div class="v" id="m-root">&mdash;</div></div>
+    </div>
+    <p class="note" style="margin-top:0.9rem" id="addr-note"></p>
+  </div>
+
+  <div id="ledger-box" hidden>
+    <p class="eyebrow" style="margin-top:1.8rem">What you have spent</p>
+    <table class="ledger">
+      <thead><tr><th>#</th><th>Paid</th><th>To</th><th>Moved the grant to</th></tr></thead>
+      <tbody id="ledger"></tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow">The thing that surprises people</p>
+  <h2>Every payment moves the grant to a different address</h2>
+  <p>
+    A Warda grant's address is a hash of its own state. Spend from it and the state changes, so
+    the hash changes, so the coin is at a new address &mdash; there is no account that stays put
+    and no balance that ticks down in place. Watch the address above while you pay: it is not
+    a display refreshing, it is the grant relocating.
+  </p>
+  <p>
+    Change a term instead and the same thing happens for a different reason: different terms are
+    a different grant, at a different address, with a fresh budget. That is why editing anything
+    on the left clears the ledger. There is no way to raise a budget in place, by anyone,
+    including whoever issued it &mdash; the raised version is somewhere else and holds nothing.
+  </p>
+  <p class="warn">
+    The practical edge of this: lose the terms and you lose the coin. Not the key &mdash; the
+    <em>terms</em>. You cannot find a grant by watching an address, because the address is
+    downstream of a state only the holder of the manifest knows. Every tool in this project
+    writes the manifest to disk before it broadcasts, for this reason.
+  </p>
+</section>
+
+<section>
+  <p class="eyebrow">The refusals</p>
+  <h2>What the covenant checks, in the order it checks them</h2>
+  <p>
+    Each of these is a branch in the on-chain script, not a policy in a server. A refused payment
+    is not a rejected request: there is no transaction that both spends the grant and breaks one
+    of these, so nothing is ever submitted and nothing is ever declined.
+  </p>
+  <div class="codes">
+    <div><div class="c">NOT_YET_VALID</div><p>The grant has a start, in DAA score rather than wall-clock time. Before it, the agent holds an authority that cannot yet be used by anybody &mdash; including whoever issued it.</p></div>
+    <div><div class="c">EXPIRED</div><p>And an end. After it the coin is still there and no spend of it exists; what is left goes back to the principal.</p></div>
+    <div><div class="c">EXCEEDS_MAX_PER_SPEND</div><p>The per-payment cap. The most common thing a compromised agent tries is one large payment, and this is the check that makes that specific attack cost nothing.</p></div>
+    <div><div class="c">EXCEEDS_AVAILABLE_BUDGET</div><p>Budget less what has been spent less what has been delegated to sub-agents. A child's budget is subtracted the moment it is issued, not when it is used.</p></div>
+    <div><div class="c">EXCEEDS_EPOCH_LIMIT</div><p>A rate, expressed in blocks. Epochs are fixed windows rather than a sliding one, so the true worst case over a short span is twice the limit &mdash; spend it all at the end of one epoch and again at the start of the next. That is a known property, not a bug.</p></div>
+    <div><div class="c">RECIPIENT_NOT_AUTHORIZED</div><p>The payee must prove membership in the tree whose root was committed before the grant was funded. A payee outside it has no proof to carry, so it has no transaction to build.</p></div>
+    <div><div class="c">REVOKED</div><p>A separate key, held by whoever issued the grant, can end it at any time without the agent's agreement and without its cooperation.</p></div>
+    <div><div class="c">INVALID_SUCCESSOR</div><p>The check that makes the rest real: the transaction must produce exactly the new state the rules say it should. Without it an agent simply rewrites its own remaining budget and every limit above is decorative.</p></div>
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow">Honest limits</p>
+  <h2>What this page is not doing</h2>
+  <p>
+    It is not building a transaction, signing anything, or talking to a node, so it cannot tell you
+    a payment would go through &mdash; only that these rules would not be the thing stopping it. A
+    real spend also needs a funded grant, a fee, and a node that has seen the grant where the
+    manifest says it is.
+  </p>
+  <p>
+    It does not simulate delegation, settlement, or the relay hop that x402 requires. The principal
+    and revocation keys are held fixed: the covenant's template id is a hash over the script and its
+    authority, so a page that let you edit those would be deriving addresses against somebody else's
+    covenant and reporting them as yours.
+  </p>
+  <p class="note">
+    Want the same rules with a real grant behind them? <a href="/start">/start</a> funds one and makes
+    a payment in about five minutes, and <a href="/attack">/attack</a> hands you a live grant's private
+    key and invites you to take more than it allows. This page is the version with nothing at stake.
+  </p>
+</section>
+</div>
+
+<script>
+(function () {
+  /* Injected by site/build.py from src/_crypto.js.
+   Shared with verify.html rather than copied into it: two blake2b
+   implementations is one that can drift, and both pages exist to be believed. */
+/* ---- blake2b-256, enough of it to check a Merkle path ----------------- */
+  /* Inlined rather than imported: this page's whole claim is that YOU can    */
+  /* verify the refusal, and a claim that depends on fetching a script from   */
+  /* someone else's CDN is a weaker claim.                                    */
+  var IV = new Uint32Array([
+    0xf3bcc908,0x6a09e667, 0x84caa73b,0xbb67ae85, 0xfe94f82b,0x3c6ef372, 0x5f1d36f1,0xa54ff53a,
+    0xade682d1,0x510e527f, 0x2b3e6c1f,0x9b05688c, 0xfb41bd6b,0x1f83d9ab, 0x137e2179,0x5be0cd19]);
+  var SIGMA = [
+    [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15],[14,10,4,8,9,15,13,6,1,12,0,2,11,7,5,3],
+    [11,8,12,0,5,2,15,13,10,14,3,6,7,1,9,4],[7,9,3,1,13,12,11,14,2,6,5,10,4,0,15,8],
+    [9,0,5,7,2,4,10,15,14,1,11,12,6,8,3,13],[2,12,6,10,0,11,8,3,4,13,7,5,15,14,1,9],
+    [12,5,1,15,14,13,4,10,0,7,6,3,9,2,8,11],[13,11,7,14,12,1,3,9,5,0,15,4,8,6,2,10],
+    [6,15,14,9,11,3,0,8,12,2,13,7,1,4,10,5],[10,2,8,4,7,6,1,5,15,11,9,14,3,12,13,0],
+    [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15],[14,10,4,8,9,15,13,6,1,12,0,2,11,7,5,3]];
+  var v = new Uint32Array(32), m = new Uint32Array(32);
+
+  function add64(a, b, c, d) { // v[a] += v[b], 64-bit little-endian halves
+    var lo = (v[a] >>> 0) + (v[b] >>> 0);
+    v[a] = lo >>> 0;
+    v[a + 1] = (v[a + 1] + v[b + 1] + (lo >= 0x100000000 ? 1 : 0)) >>> 0;
+  }
+  function rot(a, bits) {
+    var lo = v[a], hi = v[a + 1], nl, nh;
+    if (bits === 32) { nl = hi; nh = lo; }
+    else if (bits < 32) { nl = (lo >>> bits) ^ (hi << (32 - bits)); nh = (hi >>> bits) ^ (lo << (32 - bits)); }
+    else { var b2 = bits - 32; nl = (hi >>> b2) ^ (lo << (32 - b2)); nh = (lo >>> b2) ^ (hi << (32 - b2)); }
+    v[a] = nl >>> 0; v[a + 1] = nh >>> 0;
+  }
+  function xorInto(a, b) { v[a] = (v[a] ^ v[b]) >>> 0; v[a + 1] = (v[a + 1] ^ v[b + 1]) >>> 0; }
+  function G(r, i, a, b, c, d) {
+    var x = SIGMA[r][2 * i], y = SIGMA[r][2 * i + 1];
+    add64(a, b); v[a] = (v[a] + m[2 * x]) >>> 0;
+    if ((v[a] >>> 0) < (m[2 * x] >>> 0)) v[a + 1] = (v[a + 1] + 1) >>> 0;
+    v[a + 1] = (v[a + 1] + m[2 * x + 1]) >>> 0;
+    xorInto(d, a); rot(d, 32);
+    add64(c, d); xorInto(b, c); rot(b, 24);
+    add64(a, b); v[a] = (v[a] + m[2 * y]) >>> 0;
+    if ((v[a] >>> 0) < (m[2 * y] >>> 0)) v[a + 1] = (v[a + 1] + 1) >>> 0;
+    v[a + 1] = (v[a + 1] + m[2 * y + 1]) >>> 0;
+    xorInto(d, a); rot(d, 16);
+    add64(c, d); xorInto(b, c); rot(b, 63);
+  }
+
+  function blake2b256(input) {
+    var h = new Uint32Array(IV);
+    h[0] ^= 0x01010000 ^ 32;              // no key, 32-byte digest
+    var block = new Uint8Array(128), dv = new DataView(block.buffer);
+    var t = 0, i, off = 0;
+    function compress(last) {
+      for (i = 0; i < 32; i++) m[i] = dv.getUint32(i * 4, true);
+      for (i = 0; i < 16; i++) v[i] = h[i];
+      for (i = 0; i < 16; i++) v[i + 16] = IV[i];
+      v[24] = (v[24] ^ (t >>> 0)) >>> 0;
+      v[25] = (v[25] ^ Math.floor(t / 0x100000000)) >>> 0;
+      if (last) { v[28] = (~v[28]) >>> 0; v[29] = (~v[29]) >>> 0; }
+      for (var r = 0; r < 12; r++) {
+        G(r,0,0,8,16,24); G(r,1,2,10,18,26); G(r,2,4,12,20,28); G(r,3,6,14,22,30);
+        G(r,4,0,10,20,30); G(r,5,2,12,22,24); G(r,6,4,14,16,26); G(r,7,6,8,18,28);
+      }
+      for (i = 0; i < 16; i++) h[i] = (h[i] ^ v[i] ^ v[i + 16]) >>> 0;
+    }
+    while (input.length - off > 128) {
+      block.set(input.subarray(off, off + 128)); t += 128; off += 128; compress(false);
+    }
+    block.fill(0); block.set(input.subarray(off)); t += input.length - off; compress(true);
+    var out = new Uint8Array(32);
+    for (i = 0; i < 8; i++) { new DataView(out.buffer).setUint32(i * 4, h[i], true); }
+    return out;
+  }
+
+  /* ---- bech32m, to read a kaspa address --------------------------------- */
+  var CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
+  function decodeAddress(addr) {
+    var i = addr.indexOf(":");
+    if (i < 0) return null;
+    var data = addr.slice(i + 1);
+    // The checksum is the last EIGHT FIVE-BIT GROUPS — 40 bits, five bytes —
+    // not eight bytes. Reading it as eight bytes leaves the payload short and
+    // every address looks malformed, which is exactly how this first failed.
+    if (data.length < 9) return null;
+    var body = data.slice(0, -8), bits = 0, acc = 0, out = [];
+    for (var k = 0; k < body.length; k++) {
+      var vv = CHARSET.indexOf(body[k].toLowerCase());
+      if (vv < 0) return null;
+      acc = (acc << 5) | vv; bits += 5;
+      while (bits >= 8) { bits -= 8; out.push((acc >> bits) & 0xff); }
+    }
+    // byte 0 is the address version; a 32-byte payload follows.
+    if (out.length < 33) return null;
+    return new Uint8Array(out.slice(1, 33));
+  }
+
+  function fromHex(h) {
+    var out = new Uint8Array(h.length / 2);
+    for (var i = 0; i < out.length; i++) out[i] = parseInt(h.substr(i * 2, 2), 16);
+    return out;
+  }
+  function toHex(b) {
+    var s = "";
+    for (var i = 0; i < b.length; i++) s += b[i].toString(16).padStart(2, "0");
+    return s;
+  }
+  function cat() {
+    var n = 0, i;
+    for (i = 0; i < arguments.length; i++) n += arguments[i].length;
+    var out = new Uint8Array(n), o = 0;
+    for (i = 0; i < arguments.length; i++) { out.set(arguments[i], o); o += arguments[i].length; }
+    return out;
+  }
+
+  
+
+  
+  /* ---- address encoding: kaspa's bech32 variant ------------------------- */
+  /* The checksum is 8 characters rather than 6, and the polymod uses a BCH
+     generator set of its own. Ported from src/address.ts and checked against
+     the template's own address vectors on every page load — see the banner. */
+  var CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
+  var GEN = [0x98f2bc8e61n, 0x79b76d99e2n, 0xf33e5fb3c4n, 0xae2eabe2a8n, 0x1e4f43e470n];
+
+  function polymod(values) {
+    var c = 1n;
+    for (var k = 0; k < values.length; k++) {
+      var c0 = c >> 35n;
+      c = ((c & 0x07ffffffffn) << 5n) ^ BigInt(values[k]);
+      for (var i = 0; i < 5; i++) if ((c0 >> BigInt(i)) & 1n) c ^= GEN[i];
+    }
+    return c ^ 1n;
+  }
+  function prefixToFive(p) {
+    var out = [];
+    for (var i = 0; i < p.length; i++) out.push(p.charCodeAt(i) & 0x1f);
+    return out;
+  }
+  function conv8to5(bytes) {
+    var out = [], buff = 0, bits = 0;
+    for (var i = 0; i < bytes.length; i++) {
+      buff = (buff << 8) | bytes[i]; bits += 8;
+      while (bits >= 5) { bits -= 5; out.push((buff >> bits) & 0x1f); buff &= (1 << bits) - 1; }
+    }
+    if (bits > 0) out.push((buff << (5 - bits)) & 0x1f);
+    return out;
+  }
+  function encodeAddress(prefix, version, payload) {
+    var five = conv8to5([version].concat(Array.from(payload)));
+    var sum = polymod(prefixToFive(prefix).concat([0], five, [0,0,0,0,0,0,0,0]));
+    var sumBytes = new Uint8Array(5);
+    for (var i = 0; i < 5; i++) sumBytes[4 - i] = Number((sum >> BigInt(i * 8)) & 0xffn);
+    var body = five.concat(conv8to5(sumBytes)).map(function (c) { return CHARSET[c]; }).join("");
+    return prefix + ":" + body;
+  }
+
+  /* ---- the splice ------------------------------------------------------- */
+  /* A grant's address is blake2b-256 of the covenant bytecode with the grant's
+     own values written into fixed offsets. Every occurrence, not the first:
+     several fields appear more than once in the compiled script. */
+  function i64le(v) {
+    var out = new Uint8Array(8), x = BigInt(v);
+    for (var i = 0; i < 8; i++) { out[i] = Number(x & 0xffn); x >>= 8n; }
+    return out;
+  }
+  function bytecodeFor(tpl, authority, state) {
+    var out = fromHex(tpl.baselineHex);
+    if (out.length !== tpl.bytecodeLen) throw new Error("baseline is " + out.length + " bytes, declared " + tpl.bytecodeLen);
+    for (var i = 0; i < tpl.fields.length; i++) {
+      var f = tpl.fields[i];
+      var src = f.group === "authority" ? authority : state;
+      var value = src[f.name];
+      if (value === undefined || value === null) throw new Error("missing " + f.group + " field " + f.name);
+      var bytes = f.kind === "bytes32" ? fromHex(String(value)) : i64le(value);
+      if (bytes.length !== f.width) throw new Error(f.name + ": expected " + f.width + " bytes, got " + bytes.length);
+      for (var j = 0; j < f.offsets.length; j++) out.set(bytes, f.offsets[j]);
+    }
+    return out;
+  }
+  function addressFor(tpl, authority, state, prefix) {
+    return encodeAddress(prefix, 8, blake2b256(bytecodeFor(tpl, authority, state)));
+  }
+
+
+  /* GENERATED by ops/build-core-browser.mjs from @warda_protocol/core.
+   Do not edit: it is overwritten, and editing it would create the second
+   copy of the rules this file exists to prevent.
+   Rebuild:  node ops/build-core-browser.mjs  */
+"use strict";
+var WardaCore = (() => {
+  var __defProp = Object.defineProperty;
+  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+  var __getOwnPropNames = Object.getOwnPropertyNames;
+  var __hasOwnProp = Object.prototype.hasOwnProperty;
+  var __export = (target, all) => {
+    for (var name in all)
+      __defProp(target, name, { get: all[name], enumerable: true });
+  };
+  var __copyProps = (to, from, except, desc) => {
+    if (from && typeof from === "object" || typeof from === "function") {
+      for (let key of __getOwnPropNames(from))
+        if (!__hasOwnProp.call(to, key) && key !== except)
+          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+    }
+    return to;
+  };
+  var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+
+  // ops/core-browser-entry.js
+  var core_browser_entry_exports = {};
+  __export(core_browser_entry_exports, {
+    RecipientSet: () => RecipientSet,
+    available: () => available,
+    createGrant: () => createGrant,
+    epochIndexAt: () => epochIndexAt,
+    epochSpentAt: () => epochSpentAt,
+    formatKas: () => formatKas,
+    initialState: () => initialState,
+    kas: () => kas,
+    revoke: () => revoke,
+    toHex: () => toHex,
+    validateSpend: () => validateSpend
+  });
+
+  // node_modules/@noble/hashes/utils.js
+  function isBytes(a) {
+    return a instanceof Uint8Array || ArrayBuffer.isView(a) && a.constructor.name === "Uint8Array" && "BYTES_PER_ELEMENT" in a && a.BYTES_PER_ELEMENT === 1;
+  }
+  var atitle = (title) => title ? `"${title}" ` : "";
+  function anumber(n, title = "") {
+    if (typeof n !== "number")
+      throw new TypeError(atitle(title) + "expected number, got " + typeof n);
+    if (!Number.isSafeInteger(n) || n < 0)
+      throw new RangeError(atitle(title) + "expected integer >= 0, got " + n);
+    return n;
+  }
+  function abytes(value, length, title = "") {
+    if (isBytes(value) && (length === void 0 || value.length === length))
+      return value;
+    if (length !== void 0)
+      anumber(length, "length");
+    const bytes = isBytes(value);
+    const ofLen = length !== void 0 ? ` of length ${length}` : "";
+    const got = bytes ? `length=${value.length}` : `type=${typeof value}`;
+    const message = atitle(title) + "expected Uint8Array" + ofLen + ", got " + got;
+    if (!bytes)
+      throw new TypeError(message);
+    throw new RangeError(message);
+  }
+  function copyBytes(bytes) {
+    return Uint8Array.from(abytes(bytes));
+  }
+  var aobject = (value, label) => {
+    if (value === null || typeof value !== "object" || Array.isArray(value))
+      throw new TypeError((label === "object" ? "" : `"${label}" `) + "expected object, got type=" + typeof value);
+  };
+  var aopts = (value, label) => {
+    aobject(value, label);
+    const proto = Object.getPrototypeOf(value);
+    if (proto !== Object.prototype && proto !== null)
+      throw new TypeError(`"${label}" expected plain object`);
+    if (Object.hasOwn(value, "__proto__"))
+      throw new TypeError(`"${label}.__proto__" is not allowed`);
+  };
+  function aexists(instance, checkFinished = true) {
+    if (instance.destroyed)
+      throw new Error("hash was destroyed");
+    if (checkFinished && instance.finished)
+      throw new Error("digest() was already called");
+  }
+  function aoutput(out, instance) {
+    abytes(out, void 0, "output");
+    const min = instance.outputLen;
+    if (!(out.length >= min)) {
+      throw new RangeError('"output" expected length >= ' + min);
+    }
+  }
+  function u32(arr) {
+    return new Uint32Array(arr.buffer, arr.byteOffset, Math.floor(arr.byteLength / 4));
+  }
+  function clean(...arrays) {
+    for (let i = 0; i < arrays.length; i++) {
+      arrays[i].fill(0);
+    }
+  }
+  var isLE = /* @__PURE__ */ (() => new Uint8Array(new Uint32Array([287454020]).buffer)[0] === 68)();
+  function byteSwap(word) {
+    return word << 24 & 4278190080 | word << 8 & 16711680 | word >>> 8 & 65280 | word >>> 24 & 255;
+  }
+  var swap8IfBE = isLE ? (n) => n : (n) => byteSwap(n) >>> 0;
+  function byteSwap32(arr) {
+    for (let i = 0; i < arr.length; i++) {
+      arr[i] = byteSwap(arr[i]);
+    }
+    return arr;
+  }
+  var swap32IfBE = isLE ? (u) => u : byteSwap32;
+  function checkOpts(defaults, opts, title = "opts") {
+    aopts(defaults, "defaults");
+    if (opts !== void 0)
+      aopts(opts, title);
+    const merged = Object.assign(/* @__PURE__ */ Object.create(null), defaults, opts);
+    return merged;
+  }
+  function createHasher(hashCons, info = {}) {
+    if (typeof hashCons !== "function")
+      throw new TypeError('"hashCons" expected function, got type=' + typeof hashCons);
+    info = checkOpts({}, info, "info");
+    const hashC = (msg, opts) => hashCons(opts).update(msg).digest();
+    const tmp = hashCons(void 0);
+    hashC.outputLen = tmp.outputLen;
+    hashC.blockLen = tmp.blockLen;
+    hashC.canXOF = tmp.canXOF;
+    hashC.create = (opts) => hashCons(opts);
+    Object.assign(hashC, info);
+    return Object.freeze(hashC);
+  }
+
+  // node_modules/@noble/hashes/_blake.js
+  var BSIGMA = /* @__PURE__ */ Uint8Array.from([
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    14,
+    10,
+    4,
+    8,
+    9,
+    15,
+    13,
+    6,
+    1,
+    12,
+    0,
+    2,
+    11,
+    7,
+    5,
+    3,
+    11,
+    8,
+    12,
+    0,
+    5,
+    2,
+    15,
+    13,
+    10,
+    14,
+    3,
+    6,
+    7,
+    1,
+    9,
+    4,
+    7,
+    9,
+    3,
+    1,
+    13,
+    12,
+    11,
+    14,
+    2,
+    6,
+    5,
+    10,
+    4,
+    0,
+    15,
+    8,
+    9,
+    0,
+    5,
+    7,
+    2,
+    4,
+    10,
+    15,
+    14,
+    1,
+    11,
+    12,
+    6,
+    8,
+    3,
+    13,
+    2,
+    12,
+    6,
+    10,
+    0,
+    11,
+    8,
+    3,
+    4,
+    13,
+    7,
+    5,
+    15,
+    14,
+    1,
+    9,
+    12,
+    5,
+    1,
+    15,
+    14,
+    13,
+    4,
+    10,
+    0,
+    7,
+    6,
+    3,
+    9,
+    2,
+    8,
+    11,
+    13,
+    11,
+    7,
+    14,
+    12,
+    1,
+    3,
+    9,
+    5,
+    0,
+    15,
+    4,
+    8,
+    6,
+    2,
+    10,
+    6,
+    15,
+    14,
+    9,
+    11,
+    3,
+    0,
+    8,
+    12,
+    2,
+    13,
+    7,
+    1,
+    4,
+    10,
+    5,
+    10,
+    2,
+    8,
+    4,
+    7,
+    6,
+    1,
+    5,
+    15,
+    11,
+    9,
+    14,
+    3,
+    12,
+    13,
+    0,
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    14,
+    10,
+    4,
+    8,
+    9,
+    15,
+    13,
+    6,
+    1,
+    12,
+    0,
+    2,
+    11,
+    7,
+    5,
+    3,
+    // Blake1, unused in others
+    11,
+    8,
+    12,
+    0,
+    5,
+    2,
+    15,
+    13,
+    10,
+    14,
+    3,
+    6,
+    7,
+    1,
+    9,
+    4,
+    7,
+    9,
+    3,
+    1,
+    13,
+    12,
+    11,
+    14,
+    2,
+    6,
+    5,
+    10,
+    4,
+    0,
+    15,
+    8,
+    9,
+    0,
+    5,
+    7,
+    2,
+    4,
+    10,
+    15,
+    14,
+    1,
+    11,
+    12,
+    6,
+    8,
+    3,
+    13,
+    2,
+    12,
+    6,
+    10,
+    0,
+    11,
+    8,
+    3,
+    4,
+    13,
+    7,
+    5,
+    15,
+    14,
+    1,
+    9
+  ]);
+
+  // node_modules/@noble/hashes/_u64.js
+  var fromNumH = (n) => n / 2 ** 32 | 0;
+  var fromNumL = (n) => n >>> 0;
+  var rotrSH = (h, l, s) => h >>> s | l << 32 - s;
+  var rotrSL = (h, l, s) => h << 32 - s | l >>> s;
+  var rotrBH = (h, l, s) => h << 64 - s | l >>> s - 32;
+  var rotrBL = (h, l, s) => h >>> s - 32 | l << 64 - s;
+  var rotr32H = (_h, l) => l;
+  var rotr32L = (h, _l) => h;
+  function add(Ah, Al, Bh, Bl) {
+    const l = (Al >>> 0) + (Bl >>> 0);
+    return { h: Ah + Bh + (l / 2 ** 32 | 0) | 0, l: l | 0 };
+  }
+  var add3L = (Al, Bl, Cl) => (Al >>> 0) + (Bl >>> 0) + (Cl >>> 0);
+  var add3H = (low, Ah, Bh, Ch) => Ah + Bh + Ch + (low / 2 ** 32 | 0) | 0;
+
+  // node_modules/@noble/hashes/blake2.js
+  var B2B_IV = /* @__PURE__ */ Uint32Array.from([
+    4089235720,
+    1779033703,
+    2227873595,
+    3144134277,
+    4271175723,
+    1013904242,
+    1595750129,
+    2773480762,
+    2917565137,
+    1359893119,
+    725511199,
+    2600822924,
+    4215389547,
+    528734635,
+    327033209,
+    1541459225
+  ]);
+  var BBUF = /* @__PURE__ */ new Uint32Array(32);
+  function G1b(a, b, c, d, msg, x) {
+    const Xl = msg[x], Xh = msg[x + 1];
+    let Al = BBUF[2 * a], Ah = BBUF[2 * a + 1];
+    let Bl = BBUF[2 * b], Bh = BBUF[2 * b + 1];
+    let Cl = BBUF[2 * c], Ch = BBUF[2 * c + 1];
+    let Dl = BBUF[2 * d], Dh = BBUF[2 * d + 1];
+    const ll = add3L(Al, Bl, Xl);
+    Ah = add3H(ll, Ah, Bh, Xh);
+    Al = ll | 0;
+    let xh = Dh ^ Ah, xl = Dl ^ Al;
+    Dh = rotr32H(xh, xl);
+    Dl = rotr32L(xh, xl);
+    ({ h: Ch, l: Cl } = add(Ch, Cl, Dh, Dl));
+    xh = Bh ^ Ch;
+    xl = Bl ^ Cl;
+    Bh = rotrSH(xh, xl, 24);
+    Bl = rotrSL(xh, xl, 24);
+    BBUF[2 * a] = Al;
+    BBUF[2 * a + 1] = Ah;
+    BBUF[2 * b] = Bl;
+    BBUF[2 * b + 1] = Bh;
+    BBUF[2 * c] = Cl;
+    BBUF[2 * c + 1] = Ch;
+    BBUF[2 * d] = Dl;
+    BBUF[2 * d + 1] = Dh;
+  }
+  function G2b(a, b, c, d, msg, x) {
+    const Xl = msg[x], Xh = msg[x + 1];
+    let Al = BBUF[2 * a], Ah = BBUF[2 * a + 1];
+    let Bl = BBUF[2 * b], Bh = BBUF[2 * b + 1];
+    let Cl = BBUF[2 * c], Ch = BBUF[2 * c + 1];
+    let Dl = BBUF[2 * d], Dh = BBUF[2 * d + 1];
+    const ll = add3L(Al, Bl, Xl);
+    Ah = add3H(ll, Ah, Bh, Xh);
+    Al = ll | 0;
+    let xh = Dh ^ Ah, xl = Dl ^ Al;
+    Dh = rotrSH(xh, xl, 16);
+    Dl = rotrSL(xh, xl, 16);
+    ({ h: Ch, l: Cl } = add(Ch, Cl, Dh, Dl));
+    xh = Bh ^ Ch;
+    xl = Bl ^ Cl;
+    Bh = rotrBH(xh, xl, 63);
+    Bl = rotrBL(xh, xl, 63);
+    BBUF[2 * a] = Al;
+    BBUF[2 * a + 1] = Ah;
+    BBUF[2 * b] = Bl;
+    BBUF[2 * b + 1] = Bh;
+    BBUF[2 * c] = Cl;
+    BBUF[2 * c + 1] = Ch;
+    BBUF[2 * d] = Dl;
+    BBUF[2 * d + 1] = Dh;
+  }
+  function checkBlake2Opts(outputLen, opts = {}, keyLen, saltLen, persLen) {
+    anumber(keyLen);
+    if (outputLen <= 0 || outputLen > keyLen)
+      throw new Error('"dkLen" must be 1..' + keyLen + ", got " + outputLen);
+    const { key, salt, personalization } = opts;
+    if (key !== void 0 && (key.length < 1 || key.length > keyLen))
+      throw new Error('"key" expected to be undefined or of length=1..' + keyLen);
+    if (salt !== void 0)
+      abytes(salt, saltLen, "salt");
+    if (personalization !== void 0)
+      abytes(personalization, persLen, "personalization");
+  }
+  var _BLAKE2 = class {
+    buffer;
+    buffer32;
+    finished = false;
+    destroyed = false;
+    length = 0;
+    pos = 0;
+    blockLen;
+    outputLen;
+    canXOF = false;
+    constructor(blockLen, outputLen) {
+      anumber(blockLen);
+      anumber(outputLen);
+      this.blockLen = blockLen;
+      this.outputLen = outputLen;
+      this.buffer = new Uint8Array(blockLen);
+      this.buffer32 = u32(this.buffer);
+    }
+    update(data) {
+      aexists(this);
+      abytes(data);
+      const { blockLen, buffer, buffer32 } = this;
+      const len = data.length;
+      const offset = data.byteOffset;
+      const buf = data.buffer;
+      for (let pos = 0; pos < len; ) {
+        if (this.pos === blockLen) {
+          swap32IfBE(buffer32);
+          this.compress(buffer32, 0, false);
+          swap32IfBE(buffer32);
+          this.pos = 0;
+        }
+        const take = Math.min(blockLen - this.pos, len - pos);
+        const dataOffset = offset + pos;
+        if (take === blockLen && !(dataOffset % 4) && pos + take < len) {
+          const data32 = new Uint32Array(buf, dataOffset, Math.floor((len - pos) / 4));
+          swap32IfBE(data32);
+          for (let pos32 = 0; pos + blockLen < len; pos32 += buffer32.length, pos += blockLen) {
+            this.length += blockLen;
+            this.compress(data32, pos32, false);
+          }
+          swap32IfBE(data32);
+          continue;
+        }
+        buffer.set(pos === 0 && take === len ? data : data.subarray(pos, pos + take), this.pos);
+        this.pos += take;
+        this.length += take;
+        pos += take;
+      }
+      return this;
+    }
+    digestInto(out) {
+      aexists(this);
+      aoutput(out, this);
+      if (out.byteOffset & 3)
+        throw new RangeError('"output" expected 4-byte aligned byteOffset, got ' + out.byteOffset);
+      const { pos, buffer32 } = this;
+      this.finished = true;
+      this.buffer.fill(0, pos);
+      swap32IfBE(buffer32);
+      this.compress(buffer32, 0, true);
+      swap32IfBE(buffer32);
+      const state = this.get();
+      const out32 = out === this.buffer ? buffer32 : u32(out);
+      const full = Math.floor(this.outputLen / 4);
+      for (let i = 0; i < full; i++)
+        out32[i] = swap8IfBE(state[i]);
+      const tail = this.outputLen % 4;
+      if (!tail)
+        return;
+      const off = full * 4;
+      const word = state[full];
+      for (let i = 0; i < tail; i++)
+        out[off + i] = word >>> 8 * i;
+    }
+    digest() {
+      const { buffer, outputLen } = this;
+      this.digestInto(buffer);
+      const res = buffer.slice(0, outputLen);
+      this.destroy();
+      return res;
+    }
+    _cloneInto(to) {
+      const { buffer, length, finished, destroyed, outputLen, pos } = this;
+      to ||= new this.constructor({ dkLen: outputLen });
+      to.set(...this.get());
+      to.buffer.set(buffer);
+      to.destroyed = destroyed;
+      to.finished = finished;
+      to.length = length;
+      to.pos = pos;
+      to.outputLen = outputLen;
+      return to;
+    }
+    clone() {
+      return this._cloneInto();
+    }
+  };
+  var _BLAKE2b = class extends _BLAKE2 {
+    // Same IV words as SHA-512 / BLAKE2b, encoded as LE u32 low/high halves.
+    v0l = B2B_IV[0] | 0;
+    v0h = B2B_IV[1] | 0;
+    v1l = B2B_IV[2] | 0;
+    v1h = B2B_IV[3] | 0;
+    v2l = B2B_IV[4] | 0;
+    v2h = B2B_IV[5] | 0;
+    v3l = B2B_IV[6] | 0;
+    v3h = B2B_IV[7] | 0;
+    v4l = B2B_IV[8] | 0;
+    v4h = B2B_IV[9] | 0;
+    v5l = B2B_IV[10] | 0;
+    v5h = B2B_IV[11] | 0;
+    v6l = B2B_IV[12] | 0;
+    v6h = B2B_IV[13] | 0;
+    v7l = B2B_IV[14] | 0;
+    v7h = B2B_IV[15] | 0;
+    constructor(opts = {}) {
+      opts = checkOpts({}, opts);
+      const olen = opts.dkLen === void 0 ? 64 : opts.dkLen;
+      super(128, olen);
+      checkBlake2Opts(olen, opts, 64, 16, 16);
+      let { key, personalization, salt } = opts;
+      let keyLength = 0;
+      if (key !== void 0) {
+        abytes(key, void 0, "key");
+        keyLength = key.length;
+      }
+      this.v0l ^= this.outputLen | keyLength << 8 | 1 << 16 | 1 << 24;
+      if (salt !== void 0) {
+        abytes(salt, void 0, "salt");
+        const slt = u32(copyBytes(salt));
+        this.v4l ^= swap8IfBE(slt[0]);
+        this.v4h ^= swap8IfBE(slt[1]);
+        this.v5l ^= swap8IfBE(slt[2]);
+        this.v5h ^= swap8IfBE(slt[3]);
+      }
+      if (personalization !== void 0) {
+        abytes(personalization, void 0, "personalization");
+        const pers = u32(copyBytes(personalization));
+        this.v6l ^= swap8IfBE(pers[0]);
+        this.v6h ^= swap8IfBE(pers[1]);
+        this.v7l ^= swap8IfBE(pers[2]);
+        this.v7h ^= swap8IfBE(pers[3]);
+      }
+      if (key !== void 0) {
+        const tmp = new Uint8Array(this.blockLen);
+        tmp.set(key);
+        this.update(tmp);
+        clean(tmp);
+      }
+    }
+    // prettier-ignore
+    get() {
+      let { v0l, v0h, v1l, v1h, v2l, v2h, v3l, v3h, v4l, v4h, v5l, v5h, v6l, v6h, v7l, v7h } = this;
+      return [v0l, v0h, v1l, v1h, v2l, v2h, v3l, v3h, v4l, v4h, v5l, v5h, v6l, v6h, v7l, v7h];
+    }
+    // prettier-ignore
+    set(v0l, v0h, v1l, v1h, v2l, v2h, v3l, v3h, v4l, v4h, v5l, v5h, v6l, v6h, v7l, v7h) {
+      this.v0l = v0l | 0;
+      this.v0h = v0h | 0;
+      this.v1l = v1l | 0;
+      this.v1h = v1h | 0;
+      this.v2l = v2l | 0;
+      this.v2h = v2h | 0;
+      this.v3l = v3l | 0;
+      this.v3h = v3h | 0;
+      this.v4l = v4l | 0;
+      this.v4h = v4h | 0;
+      this.v5l = v5l | 0;
+      this.v5h = v5h | 0;
+      this.v6l = v6l | 0;
+      this.v6h = v6h | 0;
+      this.v7l = v7l | 0;
+      this.v7h = v7h | 0;
+    }
+    compress(msg, offset, isLast) {
+      const { v0l, v0h, v1l, v1h, v2l, v2h, v3l, v3h, v4l, v4h, v5l, v5h, v6l, v6h, v7l, v7h } = this;
+      {
+        BBUF[0] = v0l;
+        BBUF[1] = v0h;
+        BBUF[2] = v1l;
+        BBUF[3] = v1h;
+        BBUF[4] = v2l;
+        BBUF[5] = v2h;
+        BBUF[6] = v3l;
+        BBUF[7] = v3h;
+        BBUF[8] = v4l;
+        BBUF[9] = v4h;
+        BBUF[10] = v5l;
+        BBUF[11] = v5h;
+        BBUF[12] = v6l;
+        BBUF[13] = v6h;
+        BBUF[14] = v7l;
+        BBUF[15] = v7h;
+      }
+      BBUF.set(B2B_IV, 16);
+      const l = fromNumL(this.length);
+      const h = fromNumH(this.length);
+      BBUF[24] = B2B_IV[8] ^ l;
+      BBUF[25] = B2B_IV[9] ^ h;
+      if (isLast) {
+        BBUF[28] = ~BBUF[28];
+        BBUF[29] = ~BBUF[29];
+      }
+      let j = 0;
+      const s = BSIGMA;
+      for (let i = 0; i < 12; i++) {
+        G1b(0, 4, 8, 12, msg, offset + 2 * s[j++]);
+        G2b(0, 4, 8, 12, msg, offset + 2 * s[j++]);
+        G1b(1, 5, 9, 13, msg, offset + 2 * s[j++]);
+        G2b(1, 5, 9, 13, msg, offset + 2 * s[j++]);
+        G1b(2, 6, 10, 14, msg, offset + 2 * s[j++]);
+        G2b(2, 6, 10, 14, msg, offset + 2 * s[j++]);
+        G1b(3, 7, 11, 15, msg, offset + 2 * s[j++]);
+        G2b(3, 7, 11, 15, msg, offset + 2 * s[j++]);
+        G1b(0, 5, 10, 15, msg, offset + 2 * s[j++]);
+        G2b(0, 5, 10, 15, msg, offset + 2 * s[j++]);
+        G1b(1, 6, 11, 12, msg, offset + 2 * s[j++]);
+        G2b(1, 6, 11, 12, msg, offset + 2 * s[j++]);
+        G1b(2, 7, 8, 13, msg, offset + 2 * s[j++]);
+        G2b(2, 7, 8, 13, msg, offset + 2 * s[j++]);
+        G1b(3, 4, 9, 14, msg, offset + 2 * s[j++]);
+        G2b(3, 4, 9, 14, msg, offset + 2 * s[j++]);
+      }
+      this.v0l ^= BBUF[0] ^ BBUF[16];
+      this.v0h ^= BBUF[1] ^ BBUF[17];
+      this.v1l ^= BBUF[2] ^ BBUF[18];
+      this.v1h ^= BBUF[3] ^ BBUF[19];
+      this.v2l ^= BBUF[4] ^ BBUF[20];
+      this.v2h ^= BBUF[5] ^ BBUF[21];
+      this.v3l ^= BBUF[6] ^ BBUF[22];
+      this.v3h ^= BBUF[7] ^ BBUF[23];
+      this.v4l ^= BBUF[8] ^ BBUF[24];
+      this.v4h ^= BBUF[9] ^ BBUF[25];
+      this.v5l ^= BBUF[10] ^ BBUF[26];
+      this.v5h ^= BBUF[11] ^ BBUF[27];
+      this.v6l ^= BBUF[12] ^ BBUF[28];
+      this.v6h ^= BBUF[13] ^ BBUF[29];
+      this.v7l ^= BBUF[14] ^ BBUF[30];
+      this.v7h ^= BBUF[15] ^ BBUF[31];
+      clean(BBUF);
+    }
+    destroy() {
+      this.destroyed = true;
+      clean(this.buffer32);
+      this.set(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    }
+  };
+  var blake2b = /* @__PURE__ */ createHasher((opts) => new _BLAKE2b(opts));
+
+  // src/hash.ts
+  var kaspaBlake2b256 = (data) => blake2b.create({ dkLen: 32 }).update(data).digest();
+  var active = kaspaBlake2b256;
+  function hash(...parts) {
+    let total = 0;
+    for (const p of parts) total += p.length;
+    const buf = new Uint8Array(total);
+    let off = 0;
+    for (const p of parts) {
+      buf.set(p, off);
+      off += p.length;
+    }
+    return active(buf);
+  }
+  function toHex(b) {
+    return Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
+  }
+  function fromHex(s) {
+    const clean2 = s.startsWith("0x") ? s.slice(2) : s;
+    if (clean2.length % 2 !== 0) throw new Error(`odd-length hex: ${s}`);
+    const out = new Uint8Array(clean2.length / 2);
+    for (let i = 0; i < out.length; i++) {
+      out[i] = Number.parseInt(clean2.slice(i * 2, i * 2 + 2), 16);
+    }
+    return out;
+  }
+  function utf8(s) {
+    return new TextEncoder().encode(s);
+  }
+  function u64(n) {
+    if (n < 0n) throw new Error(`u64 cannot encode negative: ${n}`);
+    if (n > 0xffffffffffffffffn) throw new Error(`u64 overflow: ${n}`);
+    const out = new Uint8Array(8);
+    let v = n;
+    for (let i = 7; i >= 0; i--) {
+      out[i] = Number(v & 0xffn);
+      v >>= 8n;
+    }
+    return out;
+  }
+  function u322(n) {
+    if (!Number.isInteger(n) || n < 0 || n > 4294967295) {
+      throw new Error(`u32 out of range: ${n}`);
+    }
+    return new Uint8Array([n >>> 24 & 255, n >>> 16 & 255, n >>> 8 & 255, n & 255]);
+  }
+
+  // src/amounts.ts
+  var SOMPI_PER_KAS = 100000000n;
+  function kas(amount) {
+    const s = String(amount);
+    if (!/^\d+(\.\d+)?$/.test(s)) throw new Error(`invalid KAS amount: ${s}`);
+    const [whole = "0", frac = ""] = s.split(".");
+    if (frac.length > 8) throw new Error(`KAS has 8 decimal places, got ${frac.length}: ${s}`);
+    return BigInt(whole) * SOMPI_PER_KAS + BigInt(frac.padEnd(8, "0") || "0");
+  }
+  function formatKas(sompi) {
+    const neg = sompi < 0n;
+    const v = neg ? -sompi : sompi;
+    const whole = v / SOMPI_PER_KAS;
+    const frac = (v % SOMPI_PER_KAS).toString().padStart(8, "0").replace(/0+$/, "");
+    return `${neg ? "-" : ""}${whole}${frac ? "." + frac : ""}`;
+  }
+
+  // src/merkle.ts
+  var LEAF = new Uint8Array([1]);
+  var NODE = new Uint8Array([2]);
+  function leafHash(recipient) {
+    return hash(LEAF, fromHex(recipient));
+  }
+  function level(nodes) {
+    const out = [];
+    for (let i = 0; i < nodes.length; i += 2) {
+      const l = nodes[i];
+      const r = i + 1 < nodes.length ? nodes[i + 1] : void 0;
+      out.push(r ? hash(NODE, l, r) : l);
+    }
+    return out;
+  }
+  var RecipientSet = class {
+    recipients;
+    levels;
+    constructor(recipients) {
+      if (recipients.length === 0) throw new Error("recipient set must not be empty");
+      const seen = /* @__PURE__ */ new Set();
+      for (const r of recipients) {
+        const k = r.toLowerCase();
+        if (seen.has(k)) throw new Error(`duplicate recipient: ${r}`);
+        seen.add(k);
+      }
+      this.recipients = [...recipients].sort();
+      this.levels = [this.recipients.map(leafHash)];
+      while (this.levels[this.levels.length - 1].length > 1) {
+        this.levels.push(level(this.levels[this.levels.length - 1]));
+      }
+    }
+    get root() {
+      return toHex(this.levels[this.levels.length - 1][0]);
+    }
+    get depth() {
+      return this.levels.length - 1;
+    }
+    get size() {
+      return this.recipients.length;
+    }
+    has(recipient) {
+      return this.recipients.includes(recipient);
+    }
+    isSubsetOf(other) {
+      return this.recipients.every((r) => other.has(r));
+    }
+    proof(recipient) {
+      const index = this.recipients.indexOf(recipient);
+      if (index < 0) throw new Error(`not in set: ${recipient}`);
+      const siblings = [];
+      let i = index;
+      for (let l = 0; l < this.levels.length - 1; l++) {
+        const nodes = this.levels[l];
+        const pair = i % 2 === 0 ? i + 1 : i - 1;
+        if (pair < nodes.length) {
+          siblings.push({ hash: toHex(nodes[pair]), left: pair < i });
+        }
+        i = Math.floor(i / 2);
+      }
+      return { index, siblings };
+    }
+  };
+  function verifyInclusion(recipient, proof, root) {
+    let node = leafHash(recipient);
+    for (const sib of proof.siblings) {
+      const s = fromHex(sib.hash);
+      node = sib.left ? hash(NODE, s, node) : hash(NODE, node, s);
+    }
+    return toHex(node) === root;
+  }
+
+  // src/grant.ts
+  function encodeGrant(g) {
+    const assetBytes = utf8(g.assetId);
+    if (assetBytes.length > 32) throw new Error(`assetId too long: ${g.assetId}`);
+    const assetPadded = new Uint8Array(32);
+    assetPadded.set(assetBytes);
+    return concat([
+      u322(g.version),
+      g.parentId ? fromHex(g.parentId) : new Uint8Array(32),
+      fromHex(g.principalKey),
+      fromHex(g.agentKey),
+      fromHex(g.revocationKey),
+      assetPadded,
+      u64(g.budgetTotal),
+      u64(g.maxPerSpend),
+      u64(g.epochLimit),
+      u64(g.epochLength),
+      fromHex(g.recipientsRoot),
+      u322(g.recipientsDepth),
+      u64(g.notBefore),
+      u64(g.expiresAt),
+      u322(g.delegationDepth),
+      fromHex(g.nonce)
+    ]);
+  }
+  function encodeState(s) {
+    const statusByte = { ACTIVE: 1, REVOKED: 2, EXPIRED: 3 }[s.status];
+    return concat([
+      fromHex(s.grantId),
+      u64(s.spentTotal),
+      u64(s.reserved),
+      u64(s.epochIndex),
+      u64(s.epochSpent),
+      new Uint8Array([statusByte])
+    ]);
+  }
+  function deriveGrantId(g) {
+    return toHex(hash(utf8("warda:grant:v1"), encodeGrant(g)));
+  }
+  function stateHash(s) {
+    return toHex(hash(utf8("warda:state:v1"), encodeState(s)));
+  }
+  function createGrant(g) {
+    assertWellFormed(g);
+    return { ...g, grantId: deriveGrantId(g) };
+  }
+  function initialState(grant) {
+    return {
+      grantId: grant.grantId,
+      spentTotal: 0n,
+      reserved: 0n,
+      epochIndex: 0n,
+      epochSpent: 0n,
+      status: "ACTIVE"
+    };
+  }
+  function available(grant, state) {
+    return grant.budgetTotal - state.spentTotal - state.reserved;
+  }
+  function statesEqual(a, b) {
+    try {
+      return stateHash(a) === stateHash(b);
+    } catch {
+      return false;
+    }
+  }
+  function assertWellFormed(g) {
+    if (g.budgetTotal <= 0n) throw new Error("budgetTotal must be positive");
+    if (g.maxPerSpend <= 0n) throw new Error("maxPerSpend must be positive");
+    if (g.epochLimit <= 0n) throw new Error("epochLimit must be positive");
+    if (g.epochLength <= 0n) throw new Error("epochLength must be positive");
+    if (g.expiresAt <= g.notBefore) throw new Error("expiresAt must be after notBefore");
+    if (g.delegationDepth < 0) throw new Error("delegationDepth must not be negative");
+  }
+  function concat(parts) {
+    let n = 0;
+    for (const p of parts) n += p.length;
+    const out = new Uint8Array(n);
+    let off = 0;
+    for (const p of parts) {
+      out.set(p, off);
+      off += p.length;
+    }
+    return out;
+  }
+
+  // src/epoch.ts
+  function epochIndexAt(grant, daaScore) {
+    if (daaScore < grant.notBefore) {
+      throw new RangeError("daaScore precedes grant.notBefore");
+    }
+    return (daaScore - grant.notBefore) / grant.epochLength;
+  }
+  function epochSpentAt(grant, state, daaScore) {
+    const current = epochIndexAt(grant, daaScore);
+    return current === state.epochIndex ? state.epochSpent : 0n;
+  }
+
+  // src/validate.ts
+  function validateSpend(grant, state, req) {
+    const failures = [];
+    if (req.grantId !== grant.grantId || state.grantId !== grant.grantId) {
+      return { ok: false, failures: ["PARENT_ID_MISMATCH"] };
+    }
+    if (state.status === "REVOKED") failures.push("REVOKED");
+    else if (state.status !== "ACTIVE") failures.push("NOT_ACTIVE");
+    const notYetValid = req.daaScore < grant.notBefore;
+    if (notYetValid) failures.push("NOT_YET_VALID");
+    if (req.daaScore >= grant.expiresAt) failures.push("EXPIRED");
+    if (req.amount <= 0n) failures.push("AMOUNT_NOT_POSITIVE");
+    if (req.amount > grant.maxPerSpend) failures.push("EXCEEDS_MAX_PER_SPEND");
+    if (req.amount > available(grant, state)) failures.push("EXCEEDS_AVAILABLE_BUDGET");
+    let expectedSuccessor;
+    if (!notYetValid) {
+      const currentEpoch = epochIndexAt(grant, req.daaScore);
+      const spentThisEpoch = epochSpentAt(grant, state, req.daaScore);
+      if (spentThisEpoch + req.amount > grant.epochLimit) {
+        failures.push("EXCEEDS_EPOCH_LIMIT");
+      }
+      expectedSuccessor = {
+        grantId: grant.grantId,
+        spentTotal: state.spentTotal + req.amount,
+        reserved: state.reserved,
+        epochIndex: currentEpoch,
+        epochSpent: spentThisEpoch + req.amount,
+        status: state.status
+      };
+    }
+    if (!verifyInclusion(req.recipient, req.recipientProof, grant.recipientsRoot)) {
+      failures.push("RECIPIENT_NOT_AUTHORIZED");
+    }
+    if (!expectedSuccessor || !statesEqual(req.successor, expectedSuccessor)) {
+      failures.push("INVALID_SUCCESSOR");
+    }
+    return { ok: failures.length === 0, failures, expectedSuccessor };
+  }
+  function revoke(state) {
+    return { ...state, status: "REVOKED" };
+  }
+  return __toCommonJS(core_browser_entry_exports);
+})();
+
+
+  var TPL = {"bytecodeLen":6912,"baked":{"_comment":"Compiled in, not spliced. Both have value-dependent widths, so they cannot occupy a fixed slot: maxProofDepth sets the Merkle loop's unroll count, and maxFee uses minimal script-number encoding. A grant that changes either needs its own template.","maxProofDepth":4,"maxFee":5000000},"stateStart":1,"stateLen":231,"baselineHex":"6b2022222222222222222222222222222222222222222222222222222222222222220800ca9a3b000000000800c2eb0b00000000080065cd1d0000000008e8030000000000002013131313131313131313131313131313131313131313131313131313131313130840420f000000000008985d0f0000000000080200000000000000204a0f1ee5af3b899b559df41bccb4056909711288a8fd57d5693f60012042f01908000000000000000008000000000000000008000000000000000008000000000000000020803b111f3c3952f7b7c9cb2bd240759e755a85ab2c6223614d08f216dd6a3bd16c7604ba2dcee88763750123798201209d7501227982599f697501217982599f697501207982599f6975011f7982599f6975011e798201209d75011d7982599f6975011c7982599f6975011b7982599f6975011a798201209d7501197982599f697501187982599f697501177982599f697501167982599f69750115798201209d7501147982599f69750113798201209d7501127982012097009d75011179825197009d75607982599f69755f798201419d75b9cb5f795f795f795f795f795f795f795f795f795f795f795f795f795f795f795e795e795e795e795e795e795e795e795e795e795e795e795e795e795e7901427901427901427901427901427901427901427901427901427901427901427901427901427901427901427901427901427901427901427901427901427901147901247987690113790123799c690112790122799c690111790121799c6960790120799c695f79013e7987695e79011e799c695d79011d799c695c79013b799c695b79011b79876956790116798769557900a0695579014179a16978013d79a269787600050088526a74a569b00119790119799376014379a1695679014379527994a169013f7900a0695279013e79940140799676011a79a2695379013e799f690078011b799c63011979776876014379a1695879014379527994a1695779577957795153797eaa005379827c75012096787853799454a1697652799f637655797851957651937f635257795279012095760120937f7e55797eaa557a75675255797e57795279012095760120937f7eaa557a7568785193537a757b75727b687652799f637655797851957651937f635257795279012095760120937f7e55797eaa557a75675255797e57795279012095760120937f7eaa557a7568785193537a757b75727b687652799f637655797851957651937f635257795279012095760120937f7e55797eaa557a75675255797e57795279012095760120937f7eaa557a7568785193537a757b75727b687652799f637655797851957651937f635257795279012095760120937f7e55797eaa557a75675255797e57795279012095760120937f7eaa557a7568785193537a757b75727b685379760149798769011579012579011279939c690114790124799c690113795a799c690112795979011279939c69b9cb519c69b900cc009c690300002060797e01ac7e51c378876951c20112799c69b9be76011379a26900c2780114799403404b4c94a2695d79015079ac69014079519c69b900cc01200166797e010801667958cd7e010801667958cd7e010801667958cd7e010801667958cd7e01200166797e010801667958cd7e010801667958cd7e010801667958cd7e01200166797e010801667958cd7e010801667958cd7e010801667958cd7e010801667958cd7e01200166797e7e7e7e7e7e7e7e7e7e7e7e7e7e7eb976c902001b94765193bc7c7eb976c97602189a937cbc7eaa02000001aa7e01207e7c7e01877e78c388757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575516776042503ed1487637501207982012097009d75011f79825897009d75011e79825897009d75011d79825897009d75011c79825897009d75011b7982012097009d75011a79825897009d75011979825897009d75011879825897009d7501177982012097009d75011679825897009d75011579825897009d75011479825897009d75011379825897009d7501127982012097009d7501117982012097009d756079825197009d755f798201419d75b9cb5f795f795f795f795f795f795f795f795f795f795f795f795f795f795f795e795e795e795e795e795e795e795e795e795e795e795e795e795e795e79013f79013f79013f79013f79013f79013f79013f79013f79013f79013f79013f79013f79013f79013f79013f79013f79013f79013f7901117900012095760120937f0111790058957658937f0111790058957658937f0111790058957658937f0111790058957658937f01117900012095760120937f0111790058957658937f0111790058957658937f0111790058957658937f01117900012095760120937f0111790058957658937f0111790058957658937f0111790058957658937f0111790058957658937f01117900012095760120937f01207951012095760120937f0120795158957658937f0120795158957658937f0120795158957658937f0120795158957658937f01207951012095760120937f0120795158957658937f0120795158957658937f0120795158957658937f01207951012095760120937f0120795158957658937f0120795158957658937f0120795158957658937f0120795158957658937f01207951012095760120937f5d7900a0690153790153799376015e79a1695e79015e79527994a1695d79015d79a1695c79015c79a1695b79015b799c695979015979a2695879015879a16957790157799f695a790122790122795279005379827c75012096787853799454a1697652799f637655797851957651937f635257795279012095760120937f7e55797eaa557a75675255797e57795279012095760120937f7eaa557a7568785193537a757b75727b687652799f637655797851957651937f635257795279012095760120937f7e55797eaa557a75675255797e57795279012095760120937f7eaa557a7568785193537a757b75727b687652799f637655797851957651937f635257795279012095760120937f7e55797eaa557a75675255797e57795279012095760120937f7eaa557a7568785193537a757b75727b687652799f637655797851957651937f635257795279012095760120937f7e55797eaa557a75675255797e57795279012095760120937f7eaa557a7568785193537a757b75727b6853797601627987695d79009c695c79009c695b79009c695a79009c695e79015e798769115761726461456d70747952657365727665aa5a7978876901277901687987690126790167799c690125790166799c690124790165799c690123790164799c6901227901637987690121790162799c690120790161799c69011f790160799c69011d79015e799c69011b79015c799c69011a79015b799c69011c79015d79011979939c69011e79015f79876901187901187958cd7e01177958cd7e01167958cd7e01157958cd7e0114797e01137958cd7e01127958cd7e01117958cd7e0c57617264614368696c644964a7015a79787e0c576172646152657365727665a7011b79788769b9cb529c69b900cc009c69b951cc519c69b9be76011b79a26951c2011b799c6900c278011c799403404b4c94a269012b79016b79ac69015b7952a169015b79017d79827c750120969c6900015c79787853799452a1697652799f6376b978cc028100795279012095760120937f02810079537958957658937f02810079547958957658937f02810079557958957658937f02810079567958957658937f028100795779012095760120937f02810079587958957658937f02810079597958957658937f028100795a7958957658937f028100795b79012095760120937f028100795c7958957658937f028100795d7958957658937f028100795e7958957658937f028100795f7958957658937f028100796079012095760120937f01205f797e01085f7958cd7e01085f7958cd7e01085f7958cd7e01085f7958cd7e01205f797e01085f7958cd7e01085f7958cd7e01085f7958cd7e01205f797e01085f7958cd7e01085f7958cd7e01085f7958cd7e01085f7958cd7e01205f797e7e7e7e7e7e7e7e7e7e7e7e7e7e7eb976c902001b94765193bc7c7eb976c97602189a937cbc7eaa02000001aa7e01207e7c7e01877e6079c3886079519301127a757777777777777777777777777777777777687652799f6376b978cc028100795279012095760120937f02810079537958957658937f02810079547958957658937f02810079557958957658937f02810079567958957658937f028100795779012095760120937f02810079587958957658937f02810079597958957658937f028100795a7958957658937f028100795b79012095760120937f028100795c7958957658937f028100795d7958957658937f028100795e7958957658937f028100795f7958957658937f028100796079012095760120937f01205f797e01085f7958cd7e01085f7958cd7e01085f7958cd7e01085f7958cd7e01205f797e01085f7958cd7e01085f7958cd7e01085f7958cd7e01205f797e01085f7958cd7e01085f7958cd7e01085f7958cd7e01085f7958cd7e01205f797e7e7e7e7e7e7e7e7e7e7e7e7e7e7eb976c902001b94765193bc7c7eb976c97602189a937cbc7eaa02000001aa7e01207e7c7e01877e6079c3886079519301127a75777777777777777777777777777777777768757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757551677604929d851e87637501207982012097009d75011f79825897009d75011e79825897009d75011d79825897009d75011c79825897009d75011b7982012097009d75011a79825897009d75011979825897009d75011879825897009d7501177982012097009d75011679825897009d75011579825897009d75011479825897009d75011379825897009d7501127982012097009d7501117982599f697560798201209d755f798201419d75b9cb5f795f795f795f795f795f795f795f795f795f795f795f795f795f795f795e795e795e795e795e795e795e795e795e795e795e795e795e795e795e79013f79013f79013f79013f79013f79013f79013f79013f79013f79013f79013f79013f79013f79013f79013f79013f79013f79013f7901117900012095760120937f0111790058957658937f0111790058957658937f0111790058957658937f0111790058957658937f01117900012095760120937f0111790058957658937f0111790058957658937f0111790058957658937f01117900012095760120937f0111790058957658937f0111790058957658937f0111790058957658937f0111790058957658937f01117900012095760120937f01117900a269011179b39f69011179b99e69011179bf011279011379c95102e7009302181a9394011479c95102e7009302181a93945102e7009302181a9393bcaa02000001aa7e01207e7c7e01877e880145795158cd011379011479c95102e7009302181a9394011579c95102e7009302181a93945193bc7e02181a58cd011479011579c95102e7009302181a9394519302e70093011679c95102e7009302181a9394519302e7009302181a93bc7e7ed988011179011279c95102e7009302181a939451519393011379c95102e7009302181a939451519393012093bc011279011379c95102e7009302181a93945101229393011479c95102e7009302181a939451012293935893bc011379011479c95102e7009302181a939451012b9393011579c95102e7009302181a939451012b93935893bc011479011579c95102e7009302181a93945101349393011679c95102e7009302181a939451013493935893bc011579011679c95102e7009302181a939451013d9393011779c95102e7009302181a939451013d93935893bc011679011779c95102e7009302181a93945101469393011879c95102e7009302181a93945101469393012093bc011779011879c95102e7009302181a93945101679393011979c95102e7009302181a939451016793935893bc011879011979c95102e7009302181a93945101709393011a79c95102e7009302181a939451017093935893bc011979011a79c95102e7009302181a93945101799393011b79c95102e7009302181a939451017993935893bc011a79011b79c95102e7009302181a9394510282009393011c79c95102e7009302181a9394510282009393012093bc011b79011c79c95102e7009302181a93945102a3009393011d79c95102e7009302181a93945102a30093935893bc011c79011d79c95102e7009302181a93945102ac009393011e79c95102e7009302181a93945102ac0093935893bc011d79011e79c95102e7009302181a93945102b5009393011f79c95102e7009302181a93945102b50093935893bc011e79011f79c95102e7009302181a93945102be009393012079c95102e7009302181a93945102be0093935893bc011f79012079c95102e7009302181a93945102c7009393012179c95102e7009302181a93945102c7009393012093bc5e795e7958cd7e5d7958cd7e5c7958cd7e5b7958cd7e5a797e597958cd7e587958cd7e577958cd7e0c57617264614368696c644964a7012079787e0c576172646152657365727665a70151797887690111790122798769567900a2695f7900a0695579009c690154796079a269011479015579011179949c690115790156795879939c6901157901157993015f79a169011f790160798769011e79015f799c69011d79015e799c69011c79015d799c69011b79015c799c69011a79015b798769011979015a799c690118790159799c690117790158799c6901167901577987690113790154799c690112790153799c69b9cb519c69b900cc009c69b9be012379be9300c27803404b4c94a269012179016179ac6901517951a169015179017379827c750120969c6900015279787853799451a1697652799f6376b978cc0177795279012095760120937f017779537958957658937f017779547958957658937f017779557958957658937f017779567958957658937f0177795779012095760120937f017779587958957658937f017779597958957658937f0177795a7958957658937f0177795b79012095760120937f0177795c7958957658937f0177795d7958957658937f0177795e7958957658937f0177795f7958957658937f0177796079012095760120937f01205f797e01085f7958cd7e01085f7958cd7e01085f7958cd7e01085f7958cd7e01205f797e01085f7958cd7e01085f7958cd7e01085f7958cd7e01205f797e01085f7958cd7e01085f7958cd7e01085f7958cd7e01085f7958cd7e01205f797e7e7e7e7e7e7e7e7e7e7e7e7e7e7eb976c902001b94765193bc7c7eb976c97602189a937cbc7eaa02000001aa7e01207e7c7e01877e6079c3886079519301127a757777777777777777777777777777777777687575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757575757551677604bd01faf38763755f798201419d755f79202323232323232323232323232323232323232323232323232323232323232323ac69b3529c6951b99476bf785279c95102e7009302181a93945379c95102e7009302181a93945102e7009302181a9393bcaa02000001aa7e01207e7c7e01877e8856795158cd52795379c95102e7009302181a93945479c95102e7009302181a93945193bc7e02181a58cd53795479c95102e7009302181a9394519302e700935579c95102e7009302181a9394519302e7009302181a93bc7e7ed9887678c95102e7009302181a9394515193935279c95102e7009302181a939451519393012093bc785279c95102e7009302181a939451012293935379c95102e7009302181a939451012293935893bc52795379c95102e7009302181a939451012b93935479c95102e7009302181a939451012b93935893bc53795479c95102e7009302181a939451013493935579c95102e7009302181a939451013493935893bc54795579c95102e7009302181a939451013d93935679c95102e7009302181a939451013d93935893bc55795679c95102e7009302181a939451014693935779c95102e7009302181a93945101469393012093bc56795779c95102e7009302181a939451016793935879c95102e7009302181a939451016793935893bc57795879c95102e7009302181a939451017093935979c95102e7009302181a939451017093935893bc58795979c95102e7009302181a939451017993935a79c95102e7009302181a939451017993935893bc59795a79c95102e7009302181a93945102820093935b79c95102e7009302181a9394510282009393012093bc5a795b79c95102e7009302181a93945102a30093935c79c95102e7009302181a93945102a30093935893bc5b795c79c95102e7009302181a93945102ac0093935d79c95102e7009302181a93945102ac0093935893bc5c795d79c95102e7009302181a93945102b50093935e79c95102e7009302181a93945102b50093935893bc5d795e79c95102e7009302181a93945102be0093935f79c95102e7009302181a93945102be0093935893bc5e795f79c95102e7009302181a93945102c70093936079c95102e7009302181a93945102c7009393012093bc5d7900a0695f79cb519c695f7900cc009c6900be51be9300c27803404b4c94a26975757575757575757575757575757575757575757575757575757575757575757551677604bd740c128763755f798201419d755f79202323232323232323232323232323232323232323232323232323232323232323ac69030000202021212121212121212121212121212121212121212121212121212121212121217e01ac7e00c378876900c2b9be03404b4c94a26975757575757575757575757575757575755167760435eecca68763755f798201419d7557797600050088526a74a569b05f79202121212121212121212121212121212121212121212121212121212121212121ac69030000202021212121212121212121212121212121212121212121212121212121212121217e01ac7e00c378876900c2b9be03404b4c94a269757575757575757575757575757575757551676a686868686868","baseline":{"_comment":"The values the baseline was compiled with. Probe constants, never keys. Splice over every one of them.","principalKey":"2121212121212121212121212121212121212121212121212121212121212121","revocationKey":"2323232323232323232323232323232323232323232323232323232323232323","agentKey":"2222222222222222222222222222222222222222222222222222222222222222","recipientsRoot":"1313131313131313131313131313131313131313131313131313131313131313","notBefore":1000000,"expiresAt":1007000},"fields":[{"name":"principalKey","group":"authority","kind":"bytes32","width":32,"offsets":[6692,6795,6834]},{"name":"revocationKey","group":"authority","kind":"bytes32","width":32,"offsets":[5752,6653]},{"name":"agentKey","group":"state","kind":"bytes32","width":32,"offsets":[2]},{"name":"budgetTotal","group":"state","kind":"int64","width":8,"offsets":[35]},{"name":"maxPerSpend","group":"state","kind":"int64","width":8,"offsets":[44]},{"name":"epochLimit","group":"state","kind":"int64","width":8,"offsets":[53]},{"name":"epochLength","group":"state","kind":"int64","width":8,"offsets":[62]},{"name":"recipientsRoot","group":"state","kind":"bytes32","width":32,"offsets":[71]},{"name":"notBefore","group":"state","kind":"int64","width":8,"offsets":[104]},{"name":"expiresAt","group":"state","kind":"int64","width":8,"offsets":[113]},{"name":"delegationDepth","group":"state","kind":"int64","width":8,"offsets":[122]},{"name":"templateId","group":"state","kind":"bytes32","width":32,"offsets":[131]},{"name":"spentTotal","group":"state","kind":"int64","width":8,"offsets":[164]},{"name":"reserved","group":"state","kind":"int64","width":8,"offsets":[173]},{"name":"epochIndex","group":"state","kind":"int64","width":8,"offsets":[182]},{"name":"epochSpent","group":"state","kind":"int64","width":8,"offsets":[191]},{"name":"reserveRoot","group":"state","kind":"bytes32","width":32,"offsets":[200]}],"addressVectors":[{"label":"zero","authority":{"principalKey":"2121212121212121212121212121212121212121212121212121212121212121","revocationKey":"2323232323232323232323232323232323232323232323232323232323232323"},"state":{"agentKey":"2222222222222222222222222222222222222222222222222222222222222222","budgetTotal":1000000000,"maxPerSpend":200000000,"epochLimit":500000000,"epochLength":1000,"recipientsRoot":"1313131313131313131313131313131313131313131313131313131313131313","notBefore":1000000,"expiresAt":1007000,"delegationDepth":2,"templateId":"4a0f1ee5af3b899b559df41bccb4056909711288a8fd57d5693f60012042f019","spentTotal":0,"reserved":0,"epochIndex":0,"epochSpent":0,"reserveRoot":"803b111f3c3952f7b7c9cb2bd240759e755a85ab2c6223614d08f216dd6a3bd1"},"scriptHash":"38a753b9117531a47ca0cdfe741c124296fb01d5632733118b8ed3f94e23775a","address":"kaspatest:pqu2w5aez96nrfru5rxluaquzfpfd7cp643jwvc33w8d872wydm45phv44frc"},{"label":"after_one_spend","authority":{"principalKey":"2121212121212121212121212121212121212121212121212121212121212121","revocationKey":"2323232323232323232323232323232323232323232323232323232323232323"},"state":{"agentKey":"2222222222222222222222222222222222222222222222222222222222222222","budgetTotal":1000000000,"maxPerSpend":200000000,"epochLimit":500000000,"epochLength":1000,"recipientsRoot":"1313131313131313131313131313131313131313131313131313131313131313","notBefore":1000000,"expiresAt":1007000,"delegationDepth":2,"templateId":"4a0f1ee5af3b899b559df41bccb4056909711288a8fd57d5693f60012042f019","spentTotal":50000000,"reserved":0,"epochIndex":0,"epochSpent":50000000,"reserveRoot":"803b111f3c3952f7b7c9cb2bd240759e755a85ab2c6223614d08f216dd6a3bd1"},"scriptHash":"8c9b0c4f86ce7dce9f5ce9d07f34ca798b296e0bab328944534dc52a084472f8","address":"kaspatest:pzxfkrz0sm88mn5ltn5aqle5efuck2twpw4n9z2y2dxu22sgg3e0setfaz3vs"},{"label":"with_reserve","authority":{"principalKey":"2121212121212121212121212121212121212121212121212121212121212121","revocationKey":"2323232323232323232323232323232323232323232323232323232323232323"},"state":{"agentKey":"2222222222222222222222222222222222222222222222222222222222222222","budgetTotal":1000000000,"maxPerSpend":200000000,"epochLimit":500000000,"epochLength":1000,"recipientsRoot":"1313131313131313131313131313131313131313131313131313131313131313","notBefore":1000000,"expiresAt":1007000,"delegationDepth":2,"templateId":"4a0f1ee5af3b899b559df41bccb4056909711288a8fd57d5693f60012042f019","spentTotal":100000000,"reserved":300000000,"epochIndex":0,"epochSpent":100000000,"reserveRoot":"803b111f3c3952f7b7c9cb2bd240759e755a85ab2c6223614d08f216dd6a3bd1"},"scriptHash":"a09ce66dd97337213152cf85b030723947ee41a98fa7c3ac219f7633523aa967","address":"kaspatest:pzsfeendm9enwgf32t8ctvpswgu50mjp4x860savyx0hvv6j825kw36yt8a3q"},{"label":"later_epoch","authority":{"principalKey":"2121212121212121212121212121212121212121212121212121212121212121","revocationKey":"2323232323232323232323232323232323232323232323232323232323232323"},"state":{"agentKey":"2222222222222222222222222222222222222222222222222222222222222222","budgetTotal":1000000000,"maxPerSpend":200000000,"epochLimit":500000000,"epochLength":1000,"recipientsRoot":"1313131313131313131313131313131313131313131313131313131313131313","notBefore":1000000,"expiresAt":1007000,"delegationDepth":2,"templateId":"4a0f1ee5af3b899b559df41bccb4056909711288a8fd57d5693f60012042f019","spentTotal":200000000,"reserved":0,"epochIndex":7,"epochSpent":25000000,"reserveRoot":"803b111f3c3952f7b7c9cb2bd240759e755a85ab2c6223614d08f216dd6a3bd1"},"scriptHash":"ebc6df0e673823cbfa0567cc3bb60e232fc791a919bf986c97bbd47773fe0e42","address":"kaspatest:pr4udhcwvuuz8jl6q4nucwakpc3jl3u34yvmlxrvj7aagamnlc8yymnj67p4x"},{"label":"other_principal","authority":{"principalKey":"4141414141414141414141414141414141414141414141414141414141414141","revocationKey":"2323232323232323232323232323232323232323232323232323232323232323"},"state":{"agentKey":"2222222222222222222222222222222222222222222222222222222222222222","budgetTotal":1000000000,"maxPerSpend":200000000,"epochLimit":500000000,"epochLength":1000,"recipientsRoot":"1313131313131313131313131313131313131313131313131313131313131313","notBefore":1000000,"expiresAt":1007000,"delegationDepth":2,"templateId":"48c2061b5f824ad1201c45c03ccade340750d238328453c74d027fa9995c4dcc","spentTotal":0,"reserved":0,"epochIndex":0,"epochSpent":0,"reserveRoot":"803b111f3c3952f7b7c9cb2bd240759e755a85ab2c6223614d08f216dd6a3bd1"},"scriptHash":"62709ae76be783a6cfe818a57b1e337586a0a8595737dd471f558d0e5907b8f9","address":"kaspatest:pp38pxh8d0nc8fk0aqv227c7xd6cdg9gt9tn0h28ra2c6rjeq7u0j2gna5wnn"},{"label":"other_revocation","authority":{"principalKey":"2121212121212121212121212121212121212121212121212121212121212121","revocationKey":"4242424242424242424242424242424242424242424242424242424242424242"},"state":{"agentKey":"2222222222222222222222222222222222222222222222222222222222222222","budgetTotal":1000000000,"maxPerSpend":200000000,"epochLimit":500000000,"epochLength":1000,"recipientsRoot":"1313131313131313131313131313131313131313131313131313131313131313","notBefore":1000000,"expiresAt":1007000,"delegationDepth":2,"templateId":"b0c6a135d4853a1649fbea0a0d23b44615cff2be65d90c5a4f6d87d7636a43a5","spentTotal":0,"reserved":0,"epochIndex":0,"epochSpent":0,"reserveRoot":"803b111f3c3952f7b7c9cb2bd240759e755a85ab2c6223614d08f216dd6a3bd1"},"scriptHash":"9336070fd305c6984fe77a20addd7b41c7917026a3022ae57837f645695d30d1","address":"kaspatest:pzfnvpc06vzudxz0uaazptwa0dqu0ytsy63sy2h90qmlv3tft5cdz7mzz2eqn"},{"label":"other_agent","authority":{"principalKey":"2121212121212121212121212121212121212121212121212121212121212121","revocationKey":"2323232323232323232323232323232323232323232323232323232323232323"},"state":{"agentKey":"4343434343434343434343434343434343434343434343434343434343434343","budgetTotal":1000000000,"maxPerSpend":200000000,"epochLimit":500000000,"epochLength":1000,"recipientsRoot":"1313131313131313131313131313131313131313131313131313131313131313","notBefore":1000000,"expiresAt":1007000,"delegationDepth":2,"templateId":"4a0f1ee5af3b899b559df41bccb4056909711288a8fd57d5693f60012042f019","spentTotal":0,"reserved":0,"epochIndex":0,"epochSpent":0,"reserveRoot":"803b111f3c3952f7b7c9cb2bd240759e755a85ab2c6223614d08f216dd6a3bd1"},"scriptHash":"cd222f1e09cb958d86b40255a58d3c11a644ecd4c8124c38faf8001873c45bd6","address":"kaspatest:prxjytc7p89etrvxksp9tfvd8sg6v38v6nypynpcltuqqxrnc3dav2rwg4yra"},{"label":"all_different","authority":{"principalKey":"4141414141414141414141414141414141414141414141414141414141414141","revocationKey":"4242424242424242424242424242424242424242424242424242424242424242"},"state":{"agentKey":"4343434343434343434343434343434343434343434343434343434343434343","budgetTotal":1000000000,"maxPerSpend":200000000,"epochLimit":500000000,"epochLength":1000,"recipientsRoot":"4444444444444444444444444444444444444444444444444444444444444444","notBefore":1000000,"expiresAt":1007000,"delegationDepth":2,"templateId":"5a8ec7ad4d1cb47bb14f63de6e8c782ab3e4574ff0d29962b0a7c481bf71b575","spentTotal":300000000,"reserved":100000000,"epochIndex":7,"epochSpent":25000000,"reserveRoot":"803b111f3c3952f7b7c9cb2bd240759e755a85ab2c6223614d08f216dd6a3bd1"},"scriptHash":"9bde3f2a63221fefbf2d2555b3716c2956308ea469d571ec2e8ae1dc0a512394","address":"kaspatest:pzdau0e2vv3plmal95j4tvm3ds54vvyw535a2u0v969wrhq22y3egfxa87vv2"}]};
+  var C = WardaCore;
+
+  /* ---- what is fixed, and why -------------------------------------------
+     The authority half of the covenant is held at a reference vector's values.
+     `templateId` is a hash over the compiled script AND its authority, so the
+     moment the principal or revocation key moves, the template id spliced into
+     the bytecode belongs to a different covenant and every address this page
+     derives would be confidently wrong. Every term the bench lets you edit is
+     a STATE field, which is exactly the set that can move without that. */
+  var REF = TPL.addressVectors[0];
+  var AUTHORITY = REF.authority;
+  var AGENT_KEY = REF.state.agentKey;
+  var TEMPLATE_ID = REF.state.templateId;
+  var RESERVE_ROOT = REF.state.reserveRoot;
+
+  /* Real payees, published elsewhere on this site, rather than three invented
+     hex strings. A sandbox is hypothetical about the terms; it does not have
+     to be hypothetical about who is on the other end. */
+  var PAYEES = [
+    { key: "16e6af2030f7e4510d1a417391a7ff7ccad21864f17eef7ee035f0453e21a033",
+      name: "Warda demo vendor", sub: "warda-demo-api.vercel.app/fact — the endpoint /start pays" },
+    { key: "3c693f61fbc35d1fd4dcec2bbbab692be38656e6fd5a4077ee495afcb23535a1",
+      name: "Kaspa network digest", sub: "agent #001, which sells the reading it takes of the DAG" },
+    { key: "bee817fbf708b7ad2b12530bcc99e285805ab64faeea22f6d31e2bbcb164edf9",
+      name: "demo.kaspa-x402.org", sub: "an outside vendor, run by people this project has never spoken to" }
+  ];
+  var ALLOWED = [true, true, false];
+
+  var $ = function (id) { return document.getElementById(id); };
+  var el = function (tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  };
+
+  /* ---- the self-test ----------------------------------------------------
+     Two halves, because this page makes two claims. The address vectors check
+     the splice, exactly as /verify does. The refusal cases check that the
+     bundled rules are the rules — a bundle that loaded but returned nothing
+     would otherwise render as a grant that refuses nothing at all, which is
+     the most flattering possible way for this page to be broken. */
+  function selfTest() {
+    var bad = [], n = 0, total = 0;
+
+    TPL.addressVectors.forEach(function (v) {
+      total++;
+      var state = {};
+      for (var k in v.state) state[k] = typeof v.state[k] === "number" ? BigInt(v.state[k]) : v.state[k];
+      try {
+        if (addressFor(TPL, v.authority, state, "kaspatest") === v.address) n++;
+        else bad.push("address:" + v.label);
+      } catch (e) { bad.push("address:" + v.label); }
+    });
+
+    var set = new C.RecipientSet([PAYEES[0].key]);
+    var g = C.createGrant({
+      version: 1, parentId: null,
+      principalKey: AUTHORITY.principalKey, agentKey: AGENT_KEY,
+      revocationKey: AUTHORITY.revocationKey, assetId: "KAS",
+      budgetTotal: C.kas("1"), maxPerSpend: C.kas("0.2"), epochLimit: C.kas("0.5"),
+      epochLength: 1000n, recipientsRoot: set.root, recipientsDepth: set.depth,
+      notBefore: 1000000n, expiresAt: 1007000n, delegationDepth: 2,
+      nonce: REF.state.templateId
+    });
+    var s0 = C.initialState(g);
+    var cases = [
+      ["EXCEEDS_MAX_PER_SPEND", s0, C.kas("0.5"), PAYEES[0].key, 1000500n],
+      ["RECIPIENT_NOT_AUTHORIZED", s0, C.kas("0.1"), PAYEES[2].key, 1000500n],
+      ["NOT_YET_VALID", s0, C.kas("0.1"), PAYEES[0].key, 999000n],
+      ["EXPIRED", s0, C.kas("0.1"), PAYEES[0].key, 1008000n],
+      ["EXCEEDS_EPOCH_LIMIT",
+        { grantId: g.grantId, spentTotal: C.kas("0.45"), reserved: 0n, epochIndex: 0n,
+          epochSpent: C.kas("0.45"), status: "ACTIVE" },
+        C.kas("0.1"), PAYEES[0].key, 1000500n],
+      ["REVOKED", C.revoke(s0), C.kas("0.1"), PAYEES[0].key, 1000500n]
+    ];
+    cases.forEach(function (c) {
+      total++;
+      try {
+        var got = judge(g, set, c[1], { amount: c[2], recipient: c[3], daaScore: c[4] });
+        if (got.length === 1 && got[0] === c[0]) n++;
+        else bad.push(c[0] + " gave [" + got.join(",") + "]");
+      } catch (e) { bad.push(c[0] + ": " + e.message); }
+    });
+
+    var st = $("selftest");
+    if (bad.length === 0) {
+      st.innerHTML = "<b>" + n + " of " + total + "</b> checks passed in this browser, just now: " +
+        TPL.addressVectors.length + " reference addresses re-derived from their terms, and " +
+        (total - TPL.addressVectors.length) + " refusals produced by the same <code>validateSpend</code> " +
+        "the payer runs. Everything below is computed the same way.";
+    } else {
+      st.className = "selftest bad";
+      st.textContent = "SELF-TEST FAILED (" + n + "/" + total + "): " + bad.join("; ") +
+        ". Do not rely on anything on this page.";
+    }
+  }
+
+  /* ---- one attempt ------------------------------------------------------
+     `validateSpend` also checks the successor state the transaction produces,
+     which is the check that makes every other one real — and which a bench
+     with no transaction cannot supply. So it is asked twice: once to learn
+     the successor the rules require, then again with that successor in place,
+     so what comes back is the set of terms that bit and not the artefact of
+     not having built a transaction yet.
+
+     When the first call returns no successor at all, the grant has not opened
+     and epoch arithmetic is undefined before that point; INVALID_SUCCESSOR
+     there is a consequence of NOT_YET_VALID and is dropped rather than
+     reported as a second, invented reason. */
+  function judge(grant, set, state, want) {
+    lastSuccessor = null;
+    var onList = set.has(want.recipient);
+    var req = {
+      grantId: grant.grantId,
+      amount: want.amount,
+      recipient: want.recipient,
+      recipientProof: onList ? set.proof(want.recipient) : { index: 0, siblings: [] },
+      daaScore: want.daaScore,
+      successor: state
+    };
+    var first = C.validateSpend(grant, state, req);
+    if (!first.expectedSuccessor) {
+      return first.failures.filter(function (f) { return f !== "INVALID_SUCCESSOR"; });
+    }
+    req.successor = first.expectedSuccessor;
+    var second = C.validateSpend(grant, state, req);
+    lastSuccessor = second.ok ? first.expectedSuccessor : null;
+    return second.failures;
+  }
+  var lastSuccessor = null;
+
+  /* ---- live state -------------------------------------------------------- */
+  var grant = null, set = null, state = null, ledger = [], termsError = null;
+
+  function readTerms() {
+    var chosen = [];
+    for (var i = 0; i < PAYEES.length; i++) if (ALLOWED[i]) chosen.push(PAYEES[i].key);
+    if (chosen.length === 0) throw new Error("a grant with an empty allowlist cannot pay anyone, and the covenant has no way to express one — tick at least one payee");
+    var s = new C.RecipientSet(chosen);
+    var g = C.createGrant({
+      version: 1, parentId: null,
+      principalKey: AUTHORITY.principalKey, agentKey: AGENT_KEY,
+      revocationKey: AUTHORITY.revocationKey, assetId: "KAS",
+      budgetTotal: C.kas($("t-budget").value || "0"),
+      maxPerSpend: C.kas($("t-cap").value || "0"),
+      epochLimit: C.kas($("t-epoch").value || "0"),
+      epochLength: BigInt($("t-len").value || "0"),
+      recipientsRoot: s.root, recipientsDepth: s.depth,
+      notBefore: BigInt($("t-from").value || "0"),
+      expiresAt: BigInt($("t-to").value || "0"),
+      delegationDepth: 2,
+      nonce: REF.state.templateId
+    });
+    return { grant: g, set: s };
+  }
+
+  function covenantState() {
+    return {
+      agentKey: AGENT_KEY,
+      budgetTotal: grant.budgetTotal, maxPerSpend: grant.maxPerSpend,
+      epochLimit: grant.epochLimit, epochLength: grant.epochLength,
+      recipientsRoot: grant.recipientsRoot,
+      notBefore: grant.notBefore, expiresAt: grant.expiresAt,
+      delegationDepth: BigInt(grant.delegationDepth),
+      templateId: TEMPLATE_ID,
+      spentTotal: state.spentTotal, reserved: state.reserved,
+      epochIndex: state.epochIndex, epochSpent: state.epochSpent,
+      reserveRoot: RESERVE_ROOT
+    };
+  }
+
+  function rebuild(keepLedger) {
+    try {
+      var t = readTerms();
+      termsError = null;
+      grant = t.grant; set = t.set;
+      if (!keepLedger) { state = C.initialState(grant); ledger = []; }
+    } catch (e) {
+      termsError = e.message;
+      grant = null; set = null;
+    }
+    syncSlider();
+    render();
+  }
+
+  function syncSlider() {
+    var sl = $("a-daa");
+    var from = Number($("t-from").value || 0), to = Number($("t-to").value || 0);
+    if (!(to > from)) return;
+    var span = to - from;
+    var lo = Math.max(0, Math.round(from - span * 0.08));
+    var hi = Math.round(to + span * 0.08);
+    var was = Number(sl.value);
+    sl.min = String(lo); sl.max = String(hi); sl.step = "1";
+    if (was < lo || was > hi || !sl.dataset.set) {
+      sl.value = String(from + Math.round(span * 0.07));
+      sl.dataset.set = "1";
+    }
+  }
+
+  /* ---- plain english for each code -------------------------------------- */
+  function explain(code, want) {
+    var K = function (v) { return C.formatKas(v) + " KAS"; };
+    switch (code) {
+      case "EXCEEDS_MAX_PER_SPEND":
+        return K(want.amount) + " is over the " + K(grant.maxPerSpend) +
+          " this grant may move in one payment. Splitting it does not help — the budget and the epoch limit are still there.";
+      case "EXCEEDS_AVAILABLE_BUDGET":
+        return "only " + K(C.available(grant, state)) + " of the budget is left, and nobody can add to it: a larger budget is a different grant at a different address.";
+      case "EXCEEDS_EPOCH_LIMIT":
+        var idx = C.epochIndexAt(grant, want.daaScore);
+        return "epoch " + idx + " has already spent " + K(C.epochSpentAt(grant, state, want.daaScore)) +
+          " of its " + K(grant.epochLimit) + ". It resets at DAA " +
+          (grant.notBefore + (idx + 1n) * grant.epochLength) + ", not before.";
+      case "RECIPIENT_NOT_AUTHORIZED":
+        return "that payee is not in the tree rooted at " + grant.recipientsRoot.slice(0, 16) +
+          "…, which was fixed before this grant could hold anything. There is no membership proof to carry, so there is no transaction to submit.";
+      case "NOT_YET_VALID":
+        return "the grant opens at DAA " + grant.notBefore + " and you are at " + want.daaScore +
+          " — " + (grant.notBefore - want.daaScore) + " blocks early.";
+      case "EXPIRED":
+        return "the grant closed at DAA " + grant.expiresAt + ". What is left goes back to the principal; the agent cannot move it.";
+      case "AMOUNT_NOT_POSITIVE":
+        return "a payment of zero is not a payment.";
+      case "REVOKED":
+        return "the revocation key ended this grant. The agent was not asked and cannot object.";
+      case "NOT_ACTIVE":
+        return "this grant is no longer active.";
+      case "INVALID_SUCCESSOR":
+        return "the transaction does not produce the state the rules require. On chain this is the check that makes every other one real.";
+      default:
+        return code;
+    }
+  }
+
+  /* ---- render ------------------------------------------------------------ */
+  function render() {
+    var v = $("verdict"), head = $("v-head"), sub = $("v-sub"), fails = $("v-fails");
+    fails.textContent = ""; sub.textContent = "";
+
+    if (termsError) {
+      v.className = "verdict no";
+      head.textContent = "These terms are not a grant";
+      sub.textContent = termsError;
+      $("do-spend").disabled = true;
+      $("addr").textContent = "—";
+      $("addr-note").textContent = "";
+      ["m-avail", "m-spent", "m-epoch", "m-root"].forEach(function (id) { $(id).textContent = "—"; });
+      return;
+    }
+
+    var daa = BigInt($("a-daa").value);
+    $("a-daaval").textContent = String(daa);
+    var want;
+    try {
+      want = { amount: C.kas($("a-amt").value || "0"), recipient: $("a-to").value, daaScore: daa };
+    } catch (e) {
+      v.className = "verdict no";
+      head.textContent = "Not an amount";
+      sub.textContent = e.message;
+      $("do-spend").disabled = true;
+      return;
+    }
+
+    try {
+      $("a-epoch").textContent = daa < grant.notBefore
+        ? "— before the grant opens"
+        : "— epoch " + C.epochIndexAt(grant, daa);
+    } catch (e) { $("a-epoch").textContent = ""; }
+
+    var failures = judge(grant, set, state, want);
+    var payeeName = (PAYEES.filter(function (p) { return p.key === want.recipient; })[0] || {}).name || "that payee";
+
+    if (failures.length === 0) {
+      v.className = "verdict ok";
+      head.textContent = "This payment is allowed";
+      sub.textContent = C.formatKas(want.amount) + " KAS to " + payeeName +
+        " is inside every limit. Make it, and watch where the grant goes.";
+      $("do-spend").disabled = false;
+    } else {
+      v.className = "verdict no";
+      head.textContent = failures.length === 1
+        ? "Refused, for one reason"
+        : "Refused, for " + failures.length + " reasons";
+      sub.textContent = "Not declined by a server. There is no transaction that both spends this grant and does this.";
+      failures.forEach(function (code) {
+        var li = el("li");
+        li.appendChild(el("div", "c", code));
+        li.appendChild(el("div", "w", explain(code, want)));
+        fails.appendChild(li);
+      });
+      $("do-spend").disabled = true;
+    }
+
+    var addr;
+    try { addr = addressFor(TPL, AUTHORITY, covenantState(), "kaspatest"); }
+    catch (e) { addr = null; }
+    var revoked = state.status !== "ACTIVE";
+    $("addr").className = "addr" + (revoked ? " stale" : "");
+    $("addr").textContent = addr || "could not derive";
+    $("addr-note").textContent = revoked
+      ? "Revoked. On chain that is a transaction signed by the revocation key, not a flag — the coin leaves this address and the agent has no spend of it."
+      : ledger.length === 0
+        ? "Real address arithmetic on hypothetical terms. Fund it and these are the rules the covenant would enforce; change one number above and the coin is somewhere else."
+        : "It has moved " + ledger.length + (ledger.length === 1 ? " time" : " times") +
+          ". No balance ticked down in place — each payment put the remaining authority at a new address.";
+
+    $("m-avail").textContent = C.formatKas(C.available(grant, state)) + " KAS";
+    $("m-spent").textContent = C.formatKas(state.spentTotal) + " KAS";
+    try {
+      $("m-epoch").textContent = C.formatKas(C.epochSpentAt(grant, state, daa)) + " / " +
+        C.formatKas(grant.epochLimit) + " KAS";
+    } catch (e) { $("m-epoch").textContent = "—"; }
+    $("m-root").textContent = grant.recipientsRoot.slice(0, 12) + "…";
+
+    var rows = $("ledger");
+    rows.textContent = "";
+    ledger.forEach(function (r, i) {
+      var tr = el("tr");
+      tr.appendChild(el("td", null, String(i + 1)));
+      tr.appendChild(el("td", null, r.paid + " KAS"));
+      tr.appendChild(el("td", null, r.to));
+      tr.appendChild(el("td", "to", r.addr));
+      rows.appendChild(tr);
+    });
+    $("ledger-box").hidden = ledger.length === 0;
+  }
+
+  /* ---- the payees panel -------------------------------------------------- */
+  PAYEES.forEach(function (p, i) {
+    var d = el("div", "payee");
+    var cb = el("input");
+    cb.type = "checkbox"; cb.checked = ALLOWED[i]; cb.id = "p" + i;
+    cb.addEventListener("change", function () { ALLOWED[i] = cb.checked; rebuild(false); });
+    var txt = el("div");
+    var lbl = el("label", "nm", p.name); lbl.htmlFor = "p" + i;
+    txt.appendChild(lbl);
+    txt.appendChild(el("div", "sub", p.sub));
+    /* Truncated with the whole thing on hover and in the title. The full
+       64 characters wrap to three lines on a phone and push the attempt panel
+       below the fold, which is the half of this page people came for. */
+    var k = el("div", "k", p.key.slice(0, 24) + "\u2026");
+    k.title = p.key;
+    txt.appendChild(k);
+    d.appendChild(cb); d.appendChild(txt);
+    $("payees").appendChild(d);
+
+    var o = el("option", null, p.name);
+    o.value = p.key;
+    $("a-to").appendChild(o);
+  });
+
+  /* ---- wiring ------------------------------------------------------------ */
+  ["t-budget", "t-cap", "t-epoch", "t-len", "t-from", "t-to"].forEach(function (id) {
+    $(id).addEventListener("input", function () { rebuild(false); });
+  });
+  ["a-amt", "a-to", "a-daa"].forEach(function (id) {
+    $(id).addEventListener("input", render);
+  });
+
+  $("do-spend").addEventListener("click", function () {
+    if (!lastSuccessor) return;
+    var before = null;
+    try { before = addressFor(TPL, AUTHORITY, covenantState(), "kaspatest"); } catch (e) {}
+    var paid = C.formatKas(C.kas($("a-amt").value || "0"));
+    var to = (PAYEES.filter(function (p) { return p.key === $("a-to").value; })[0] || {}).name || "?";
+    state = lastSuccessor;
+    var after = null;
+    try { after = addressFor(TPL, AUTHORITY, covenantState(), "kaspatest"); } catch (e) {}
+    ledger.push({ paid: paid, to: to, addr: after || "—", from: before });
+    render();
+  });
+
+  $("do-revoke").addEventListener("click", function () {
+    if (!grant) return;
+    state = C.revoke(state);
+    render();
+  });
+
+  $("do-reset").addEventListener("click", function () {
+    ALLOWED = [true, true, false];
+    PAYEES.forEach(function (p, i) { $("p" + i).checked = ALLOWED[i]; });
+    $("t-budget").value = "1"; $("t-cap").value = "0.2"; $("t-epoch").value = "0.5";
+    $("t-len").value = "1000"; $("t-from").value = "1000000"; $("t-to").value = "1007000";
+    $("a-amt").value = "0.1"; $("a-to").value = PAYEES[0].key;
+    delete $("a-daa").dataset.set;
+    rebuild(false);
+  });
+
+  selfTest();
+  rebuild(false);
+})();
+</script>
+
+</body>
+</html>

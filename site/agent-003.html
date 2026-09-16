@@ -403,6 +403,25 @@
      and that selector scores 0,1,1 against a bare class's 0,1,0 — so it won
      on specificity wherever this bar was declared, and the nav silently
      scrolled away on the one page long enough to need it. */
+  /* ---- the precondition, which is why the bar kept scrolling away --------
+     `position: sticky` sticks to the nearest SCROLLING ancestor, and
+     `overflow-x: hidden` on an element makes it one. Five pages carried
+     `body { overflow-x: hidden }` to stop sideways drag, so on every one of
+     them the bar was stuck to a box that scrolls with the page — which looks
+     exactly like sticky not working at all.
+
+     It was diagnosed once before, as the specificity problem described below,
+     and that fix was real but was not this. Two causes, one symptom; fixing
+     the first made no visible difference and the second went on standing.
+
+     `clip` instead of `hidden`: it clips identically and does NOT create a
+     scroll container, so the viewport stays the scrollport and the bar stays
+     put. It is declared here rather than per page because it is not a page's
+     styling choice — it is what this bar requires in order to work, and a page
+     that sets its own `overflow-x: hidden` on body silently breaks the
+     navigation for its readers with no error anywhere. */
+  html, body { overflow-x: clip; }
+
   body > .topnav { position: sticky; top: 0; z-index: 60; background: rgba(6,9,12,0.86);
                    border-bottom: 1px solid var(--edge); backdrop-filter: blur(12px); }
   .topnav .wrap { display: flex; align-items: center; gap: 1.6rem;
@@ -538,6 +557,8 @@
       <a href="/start" data-nv="start.html">Start</a>
       <a href="/build" data-nv="build.html">How it works</a>
       <a href="/agents" data-nv="agents.html">Agents</a>
+      <a href="/network" data-nv="network.html">Registry</a>
+      <a href="/sandbox" data-nv="sandbox.html">Sandbox</a>
       <a href="/verify" data-nv="verify.html">Verify</a>
       <a href="/proof" data-nv="proof.html">Proof</a>
       <a href="/console" data-nv="console.html">Console</a>
@@ -668,25 +689,20 @@
   </p>
   <div id="b-derivations"></div>
 
-  <div class="disclose">
-    <h3>Both ends of this are ours</h3>
-    <p>
-      Agent&nbsp;#001 and agent&nbsp;#002 were both built here. This is therefore
-      <strong>not a market</strong>, and saying otherwise would be the easiest claim on this
-      site to catch out.
-    </p>
-    <p>
-      What it is: a payment between two independent grants, with two different keys, each able
-      to pay exactly one address, settled on a public chain where anyone can look it up. The
-      demonstration is that the <em>rails</em> work between agents &mdash; not that a third party
-      chose to trade with us.
-    </p>
-    <p>
-      The digest #002 pays for is also published free at
-      <a href="/agent-001.json">wardaprotocol.com/agent-001.json</a>. Paywalling it to make this
-      look better would have swapped the one claim here a stranger can verify for one that
-      merely sounds impressive.
-    </p>
+  <!-- Filled from the agent's own JSON. This block used to be written here, in
+       a template shared by four agents, naming #001 and #002 by hand. It was
+       accurate for every agent that existed when it was written and became
+       false the moment one of them paid a stranger — and the page it would
+       have been wrong on is agent #005's, whose whole point is the stranger.
+       The most prominent honesty notice on the site, saying the opposite of
+       what the page demonstrates.
+
+       Meanwhile dashboard.ts had been writing a `disclosure` into the JSON
+       that nothing read. Two copies, and the one on the page was the wrong
+       one. It is derived now, from whether every payee is verifiably ours. -->
+  <div class="disclose" id="b-disclose" hidden>
+    <h3 id="b-disclose-h"></h3>
+    <div id="b-disclose-p"></div>
   </div>
 </section>
 
@@ -765,9 +781,13 @@
 <section>
   <p class="eyebrow">Its work</p>
   <h2>Every attempt it has made</h2>
-  <p>
-    Refusals included. A purchase log that records only the successes is a sales brochure, and
-    the run that was turned away for being early is the more interesting half of this one.
+  <!-- The second sentence is written from the log below, not typed here. It
+       used to read "the run that was turned away for being early is the more
+       interesting half of this one" on every one of these pages, and that
+       happened to exactly one agent — #002, refused by its own timelock.
+       #003, #004 and #005 published it about runs that never existed. -->
+  <p id="b-work-lede">
+    Refusals included. A purchase log that records only the successes is a sales brochure.
   </p>
   <div class="stmt">
     <div class="row"><span class="k">Attempts</span><span class="v big" id="b-attempts">&mdash;</span></div>
@@ -779,12 +799,12 @@
   <div id="b-buys" style="margin-top:0.9rem"></div>
 
   <h3 class="sub-h">What the chain says arrived</h3>
-  <p style="font-size:0.9rem;color:var(--chrome-dim);margin:0.5rem 0 0.9rem">
-    Coins at this grant&rsquo;s payees that one of the receipts above names. Attribution is by
-    <strong>transaction id, not by address</strong> &mdash; a payee&rsquo;s address serves whoever
-    pays it, and more than one agent here pays the same one, so &ldquo;it arrived after this
-    grant opened and is under its cap&rdquo; is a guess rather than a fact.
-  </p>
+  <!-- "more than one agent here pays the same one" was typed here and is true
+       of the address #002, #003 and #004 all pay. It is false of #005, whose
+       payee is a third party nobody here pays twice — where the same argument
+       is STRONGER, because that address serves the whole world rather than
+       three of our own agents. Written from the reading. -->
+  <p id="b-attrib" style="font-size:0.9rem;color:var(--chrome-dim);margin:0.5rem 0 0.9rem"></p>
   <div id="b-coins"></div>
   <p class="recon" id="b-recon" hidden></p>
 </section>
@@ -797,7 +817,10 @@
     <div class="col yes">
       <h3>The network enforces</h3>
       <ul>
-        <li>It can pay agent&nbsp;#001 and nobody else</li>
+        <!-- Written from the allowlist. "agent #001 and nobody else" was typed
+             here and is false of #005, which pays a third-party vendor and its
+             own relay key. -->
+        <li id="h-payee">&mdash;</li>
         <li>It could not pay anything before its start time</li>
         <li>No single payment above the cap</li>
         <li>No more than the budget, ever</li>
@@ -807,10 +830,15 @@
     <div class="col no">
       <h3>Nothing here promises</h3>
       <ul>
-        <li>That the digest is correct</li>
+        <li id="h-goods">&mdash;</li>
         <li>That the seller delivers what it charged for</li>
         <li>That a payment is refundable</li>
-        <li>That the two agents are strangers &mdash; they are not</li>
+        <!-- "That the two agents are strangers — they are not" was typed here,
+             in the honesty column, on a template shared by every agent. On
+             #005 it is the exact inverse of the page's subject: that vendor
+             has never heard of us. The most load-bearing sentence on the page
+             was the one asserting the opposite of what the page shows. -->
+        <li id="h-strangers">&mdash;</li>
         <li>That testnet coins are worth anything</li>
       </ul>
     </div>
@@ -1175,7 +1203,33 @@ function renderWallet(d) {
       set("b-budget", a.budget); set("b-spent", a.spent); set("b-remaining", a.remaining);
       set("b-max", a.maxPerPayment);
       set("b-epoch", a.epochLimit + "  (epoch = " + a.epochLengthDaa + " DAA)");
-      set("b-payees", a.authorizedPayees + " — agent #001, and nobody else");
+      /* The payee summary, from the allowlist rather than from memory. */
+      var named = (d.buysFrom.payees || [])
+        .map(function (x) { return x.label; })
+        .filter(Boolean);
+      var whoTheyAre =
+        named.length === (d.buysFrom.payees || []).length && named.length > 0
+          ? named.join(", ") + ", and nobody else"
+          : named.length > 0
+            ? named.join(", ") + " and " + ((d.buysFrom.payees || []).length - named.length) +
+              " address" + ((d.buysFrom.payees || []).length - named.length === 1 ? "" : "es") +
+              " nobody here has identified, and nobody else"
+            : (d.buysFrom.payees || []).length +
+              " address" + ((d.buysFrom.payees || []).length === 1 ? "" : "es") +
+              " nobody here has identified, and nobody else";
+      set("b-payees", a.authorizedPayees + " — " + whoTheyAre);
+      set("h-payee", "It can pay " + whoTheyAre.replace(/, and nobody else$/, "") + " and nobody else");
+
+      /* The honesty column, which is the one place a wrong sentence costs the
+         most. Both of these were typed and both were false on #005. */
+      var ours = d.buysFrom.bothEndsAreOurs !== false;
+      set("h-goods", ours ? "That the digest is correct" : "That what it bought is what it paid for");
+      set(
+        "h-strangers",
+        ours
+          ? "That the two agents are strangers — they are not"
+          : "That this vendor endorses any of it — they have never heard of us",
+      );
       set("b-notbefore", "DAA " + tl.notBefore);
       set("b-onchain", a.onChain || "—");
 
@@ -1219,6 +1273,34 @@ function renderWallet(d) {
       set("b-attempts", String(buys.length));
       set("b-served", String(served.length));
       set("b-paid", (d.activity && d.activity.paid) || "0 KAS");
+
+      /* What makes this log worth reading, said about THIS log. */
+      var turned = buys.length - served.length;
+      set(
+        "b-work-lede",
+        "Refusals included. A purchase log that records only the successes is a sales " +
+          "brochure" +
+          (buys.length === 0
+            ? ", and this one is empty: nothing has been recorded here yet."
+            : turned === 0
+              ? ", and every attempt here went through \u2014 which is the less interesting case."
+              : ", and the " + turned + (turned === 1 ? " attempt" : " attempts") +
+                " that did not go through are the more interesting half of this one.")
+      );
+
+      /* Why attribution is by transaction id. The reason is the same either
+         way and the sharper version belongs on the page with a third party. */
+      set(
+        "b-attrib",
+        "Coins at this grant's payees that one of the receipts above names. Attribution is by " +
+          "transaction id, not by address \u2014 a payee's address serves whoever pays it, " +
+          (d.buysFrom && d.buysFrom.bothEndsAreOurs === false
+            ? "and this one belongs to somebody outside this project, so anyone at all may have " +
+              "put a coin there. "
+            : "and more than one agent here pays the same one. ") +
+          "So \u201cit arrived after this grant opened and is under its cap\u201d is a guess " +
+          "rather than a fact."
+      );
 
       var log = $("b-buys");
       buys.slice().reverse().forEach(function (p) {
@@ -1288,6 +1370,23 @@ function renderWallet(d) {
       set("b-principal", d.identity.principal);
       set("b-covenant", d.identity.covenantId);
       set("b-endpoint", d.buysFrom.endpoint);
+
+      /* No disclosure in the reading means an OLD reading, written before this
+         was derived. The block stays hidden rather than falling back to the
+         text that used to be here: the fallback would be the stale claim, on
+         the one page where it might be false. Re-run dashboard.ts. */
+      var disc = d.buysFrom.disclosure;
+      if (disc && disc.title && disc.paragraphs && disc.paragraphs.length) {
+        set("b-disclose-h", disc.title);
+        var box = document.getElementById("b-disclose-p");
+        box.textContent = "";
+        disc.paragraphs.forEach(function (text) {
+          var p = document.createElement("p");
+          p.textContent = text;
+          box.appendChild(p);
+        });
+        document.getElementById("b-disclose").hidden = false;
+      }
       set("b-checked", "chain read " + (d.checkedAt || "").replace("T", " ").slice(0, 16) + " UTC");
     })
     .catch(function () { /* the page stays hidden rather than show placeholders */ });

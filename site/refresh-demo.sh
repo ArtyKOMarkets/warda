@@ -222,6 +222,14 @@ if ! ../ops/refresh-agents.sh agent-001 agent-003; then
 fi
 
 
+# Before the build, not after: build.py INLINES site/src/core-browser.js into
+# /sandbox, so a bundle that is behind its source is baked into the page a
+# moment later and the page is the only place it is visible. The check rebuilds
+# it and compares bytes, then puts seven spends through it — a bundle that
+# loads and refuses nothing renders as a grant with no limits, which is the
+# most flattering possible way for that page to be broken.
+node ../ops/check-core-browser.mjs
+
 python3 build.py >/dev/null
 
 # Nothing is deployed that links into a hole. build.py DROPS a page whose data
