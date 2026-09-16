@@ -93,6 +93,33 @@ const scripts = execFileSync("git", ["ls-files", "*.sh"], { cwd: root, encoding:
   .split("\n")
   .filter(Boolean);
 
+/**
+ * Is every script executable IN GIT?
+ *
+ * Not on disk — in the index, which is what a fresh clone gets and what cron
+ * will find. This repository is edited through a mount that does not carry the
+ * mode, so a file rewritten by a tool comes back 644 and `git add` records that
+ * faithfully. Nothing in a diff shows it and nothing in a review catches it.
+ *
+ * It has now happened three times. `check-vendor.sh` shipped without its bit
+ * and install-cron.sh carries a paragraph about what that costs: under cron the
+ * entry fires, fails instantly, and appends nothing to a log whose whole
+ * purpose is to be empty when things are well — a monitor that cannot start
+ * looks exactly like a monitor with nothing to report. Then, in the very commit
+ * that added a new monitor and quoted that paragraph, both the new script AND
+ * install-cron.sh itself lost their bit. The second is the worse one: it is the
+ * script that repairs everyone else's.
+ *
+ * The fix is `git update-index --chmod=+x <file>`, which sets the mode in the
+ * index regardless of what the working tree can express.
+ */
+const modes = execFileSync("git", ["ls-files", "-s", "*.sh"], { cwd: root, encoding: "utf8" })
+  .split("\n")
+  .filter(Boolean)
+  .map((l) => ({ mode: l.slice(0, 6), file: l.split("\t")[1] }));
+
+const notExecutable = modes.filter((m) => m.mode !== "100755");
+
 const problems = [];
 for (const file of scripts) {
   const lines = readFileSync(resolve(root, file), "utf8").split("\n");
@@ -108,8 +135,22 @@ for (const file of scripts) {
   for (const h of heredocSubstitutions(lines.join("\n"))) problems.push({ file, ...h });
 }
 
+if (notExecutable.length > 0) {
+  console.error("a shell script is not executable in git, so a fresh clone cannot run it:\n");
+  for (const m of notExecutable) console.error(`  ${m.mode}  ${m.file}`);
+  console.error(
+    "\nThe working tree is not the question — the INDEX is what a clone gets and what cron\n" +
+      "finds. This repo is edited through a mount that does not carry the mode, so a rewritten\n" +
+      "file comes back 644 and `git add` records it. Nothing in the diff shows it.\n\n" +
+      "  git update-index --chmod=+x " + notExecutable.map((m) => m.file).join(" "),
+  );
+  process.exit(1);
+}
+
 if (problems.length === 0) {
-  console.log(`portable: ${scripts.length} shell scripts, nothing bash-4 or GNU-only.`);
+  console.log(
+    `portable: ${scripts.length} shell scripts, all executable in git, nothing bash-4 or GNU-only.`,
+  );
   process.exit(0);
 }
 console.error("a shell script will not run on macOS, which is where these run:\n");
