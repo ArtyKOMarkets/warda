@@ -147,17 +147,18 @@ const spends = ((): bigint[] => {
 
 const vendor = flag("vendor");
 if (!vendor && spends.length === 0) {
-  /* Not fatal any more. There is a third thing this can do and it needs
-     neither: a grant whose SPENDING is recorded correctly and whose EPOCH is
-     not is lost at an address no payment applied forward will ever reach, and
-     the sweep for it takes no arguments at all. Exiting here was the guard
-     firing before a mode it did not know existed. */
-  console.error("no --vendor and no --spend, so this can only do the epoch sweep: look for a");
-  console.error("grant whose spending is recorded correctly and whose epoch is not.");
+  /* Not fatal, because with neither it can still do the thing that settled
+     agent #005: ask THIS node whether the grant is at the address its manifest
+     derives. An empty address has three causes and the third is the one nobody
+     thinks of — the node you asked is behind. Running this against a public
+     resolver, when dashboard.ts had asked a local kaspad that had been asleep,
+     is what showed the manifest had been right all along. */
+  console.error("no --vendor and no --spend: this can only check whether the grant is still");
+  console.error("at the address its manifest derives, against whichever node you point it at.");
   console.error("");
-  console.error("If that is not what happened, pass --vendor <address> to read the amounts off");
-  console.error("the payee, or --spend <sompi> for each payment you already know \u2014 a relayed");
-  console.error("payment leaves nothing at either address to read an amount off.");
+  console.error("That is worth doing on its own \u2014 asking a SECOND node is how you tell a grant");
+  console.error("that moved from a node that is behind. To follow one that really moved, pass");
+  console.error("--vendor <address>, or --spend <sompi> per payment for a relayed grant.");
   console.error("");
 }
 // Decoded here and nowhere else: a malformed --vendor should fail on the
@@ -227,10 +228,7 @@ try {
    * asserting one.
    */
   const paid = vendor ? await client.getUtxosByAddresses([vendor]) : [];
-  /* Always fetched now, not only for --spend: the epoch sweep below needs the
-     tip to know which epochs the chain could have been in. */
-  const dagDaa = (await client.getBlockDagInfo()).virtualDaaScore;
-  const now = dagDaa;
+  const now = spends.length > 0 ? (await client.getBlockDagInfo()).virtualDaaScore : 0n;
   const payments = [
     ...paid.map(toPayment),
     ...spends.map((value) => ({ value, blockDaaScore: now })),
@@ -252,69 +250,6 @@ try {
     );
   }
   console.error(`searching from ${usable.length} payment(s), epoch ${state.epochIndex} onward`);
-
-  /**
-   * The epoch sweep: same spending, wrong epoch.
-   *
-   * Everything below enumerates states reached by APPLYING payments — the
-   * manifest is behind by one or more spends and the question is which. There
-   * is a second way to be lost that this could not see at all: the spending is
-   * recorded correctly and the EPOCH is not.
-   *
-   * `epochIndex` is part of the state the address derives from, and the
-   * covenant computes it from the DAA score the spender claimed. So a client
-   * that records a different epoch than the covenant enforced writes a
-   * manifest with the right `spentTotal` and the wrong address, and no number
-   * of payments applied forward will ever reach the real one. Agent #005 went
-   * that way: three spends recorded, epoch 717 written, and the chain only at
-   * 715.
-   *
-   * So when the manifest's own address is empty and its epoch is at or beyond
-   * the tip's, the epoch is swept over the range the chain could actually have
-   * been in. `epochSpent` is carried unchanged, which is right for the usual
-   * case — the last spend was the only one in its epoch — and wrong for a
-   * grant that spent twice in one epoch, which the sweep simply will not find
-   * rather than guessing at.
-   */
-  const tipEpoch = (dagDaa - state.notBefore) / state.epochLength;
-  const sweep: GrantState[] = [];
-  if (state.epochIndex >= tipEpoch - 1n) {
-    for (let e = tipEpoch; e >= 0n && tipEpoch - e <= 60n; e--) {
-      if (e === state.epochIndex) continue;
-      sweep.push({ ...state, epochIndex: e });
-    }
-    if (sweep.length > 0) {
-      console.error(
-        `the manifest claims epoch ${state.epochIndex} and the chain is at ${tipEpoch}, so its ` +
-          `epoch cannot be\nwhat the covenant enforced. Sweeping ${sweep.length} epochs at the ` +
-          `same spending.`,
-      );
-      for (const candidate of sweep) {
-        const at = await client.getUtxosByAddresses([addressOf(candidate)]);
-        if (at.length === 0) continue;
-        console.error(`\nFOUND IT by epoch: ${addressOf(candidate)}`);
-        console.error(`  holds  : ${at[0]!.entry.value} sompi`);
-        console.error(`  epoch  : ${state.epochIndex} recorded, ${candidate.epochIndex} real`);
-        console.error(
-          `\nThe spending was right and the epoch was not. Whatever wrote this manifest ` +
-            `recorded\nan epoch the covenant did not enforce \u2014 worth finding, because it will ` +
-            `do it again.`,
-        );
-        state = candidate;
-        if (has("write")) {
-          writeFileSync(
-            manifestPath,
-            JSON.stringify({ ...m, epoch_index: Number(candidate.epochIndex) }, null, 2) + "\n",
-          );
-          console.error(`  wrote  : ${manifestPath}`);
-        } else {
-          console.error(`\n  --write to correct the manifest.`);
-        }
-        process.exit(0);
-      }
-      console.error(`no epoch in that range holds coin either.\n`);
-    }
-  }
 
   const candidates = candidateStates(state, usable, { subsets: has("subsets") });
   if (candidates.length === 0) {

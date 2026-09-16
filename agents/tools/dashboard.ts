@@ -434,7 +434,25 @@ try {
     } else if (actual === null) {
       console.error(
         `the manifest says this grant holds ${kas(claimed)}, and there is nothing at\n` +
-          `${address}. Either it MOVED — recover it with sdk/tools/follow-grant.ts before\n` +
+          `${address}, according to the node this tool asked, whose virtual DAA score\n` +
+          `is ${daa}.\n\n` +
+          /* The third cause, and the one nobody reaches for. An empty address
+             means the grant MOVED, or it ENDED, or THE NODE YOU ASKED IS
+             BEHIND — and the third looks exactly like the first two. Agent
+             #005 spent an hour there: a laptop woke from sleep, this tool
+             asked the local kaspad four minutes after a purchase and was told
+             nothing was at the address, and follow-grant against a public
+             resolver found the coin at the very address the manifest already
+             named. A wallet bug was diagnosed, and written, that did not
+             exist. The DAA score is printed so the lag is visible rather than
+             inferred. */
+          `Before either of the two below: THE NODE MAY BE BEHIND, and that looks exactly\n` +
+          `like a grant that moved. Compare that score with an explorer, or ask a second\n` +
+          `node — one command, and it settles it:\n\n` +
+          `  node --experimental-strip-types sdk/tools/follow-grant.ts <manifest> --borsh\n\n` +
+          `"the grant has not moved" from a public resolver means this node was catching up.\n\n` +
+          `Otherwise it MOVED — recover it with sdk/tools/follow-grant.ts before\n` +
+          `publishing a page about where it used to be — or it ENDED, in which case pass\n` +
           `publishing a page about where it used to be — or it ENDED, in which case pass\n` +
           `one of these naming the exit, and this reports a retired agent instead of\n` +
           `refusing:\n\n` +
