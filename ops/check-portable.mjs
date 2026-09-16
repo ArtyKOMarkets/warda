@@ -45,6 +45,50 @@ const TRAPS = [
   { re: /\bstat\s+-c\b/, why: "`stat -c` is GNU; BSD stat uses -f." },
 ];
 
+/**
+ * A separate pass, because this one is about STRUCTURE rather than a word.
+ *
+ * An unquoted heredoc interpolates, which is the point of using one — these
+ * scripts write JSON status files full of $now and $ok. It also runs backticks
+ * and $(…) as command substitution, including inside what the author is
+ * reading as prose. `ops/check-verify.sh` carried the word `found` in
+ * backticks in a JSON comment and every successful run printed
+ *
+ *     ./ops/check-verify.sh: line 116: found: command not found
+ *
+ * on stderr. The file was written, the exit code was 0, and the noise was the
+ * precise kind that teaches somebody to stop reading a monitor's output.
+ *
+ * Quoting the delimiter (<<'JSON') turns substitution off and the
+ * interpolation with it, so that is not the fix — not writing backticks in the
+ * body is.
+ */
+function heredocSubstitutions(text) {
+  const out = [];
+  const lines = text.split("\n");
+  let end = null, startedAt = 0;
+  lines.forEach((line, i) => {
+    if (end === null) {
+      /* Unquoted delimiters only: <<'X' and <<"X" do not substitute. */
+      const m = line.match(/<<-?\s*([A-Za-z_][A-Za-z0-9_]*)\s*$/);
+      if (m && !/<<-?\s*['"]/.test(line)) { end = m[1]; startedAt = i + 1; }
+      return;
+    }
+    if (line.trim() === end) { end = null; return; }
+    if (/`|\$\(/.test(line)) {
+      out.push({
+        line: i + 1,
+        text: line.trim(),
+        why:
+          `a backtick or $( inside an unquoted heredoc (opened line ${startedAt}) is COMMAND ` +
+          `SUBSTITUTION, even in prose. This already printed "found: command not found" from a ` +
+          `run that succeeded.`,
+      });
+    }
+  });
+  return out;
+}
+
 const scripts = execFileSync("git", ["ls-files", "*.sh"], { cwd: root, encoding: "utf8" })
   .split("\n")
   .filter(Boolean);
@@ -61,6 +105,7 @@ for (const file of scripts) {
       if (trap.re.test(line)) problems.push({ file, line: i + 1, text: line.trim(), why: trap.why });
     }
   });
+  for (const h of heredocSubstitutions(lines.join("\n"))) problems.push({ file, ...h });
 }
 
 if (problems.length === 0) {

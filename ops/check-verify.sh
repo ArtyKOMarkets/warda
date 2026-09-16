@@ -113,9 +113,14 @@ if [ "$ok" = false ]; then
   fi
 fi
 
+# NO BACKTICKS BELOW. This heredoc is unquoted — it has to be, it interpolates
+# $ok and $now — so bash runs a backtick as command substitution. A `found` in
+# the comment produced "found: command not found" on stderr from a run that had
+# otherwise succeeded, which is the precise noise that teaches somebody to stop
+# reading a monitor's output.
 cat > "$OUT" <<JSON
 {
-  "_comment": "Written by ops/check-verify.sh. Whether the hosted verification API can actually verify. Probes /v1/verify with the published demo manifest, not /health — /health answered perfectly through a total outage of the path that derives an address. `found` is reported and NOT alarmed on: /attack publishes that grant's key and invites strangers to spend it.",
+  "_comment": "Written by ops/check-verify.sh. Whether the hosted verification API can actually verify. Probes /v1/verify with the published demo manifest, not /health — /health answered perfectly through a total outage of the path that derives an address. grantStillFunded is reported and NOT alarmed on: /attack publishes that grant's key and invites strangers to spend it.",
   "checkedAt": "$now",
   "endpoint": "$BASE",
   "ok": $ok,
