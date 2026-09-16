@@ -100,7 +100,7 @@ const template = covenantTemplate as unknown as CovenantTemplate;
 /* Resolved and CHECKED together: a prefix and a network that disagree
    derive a well-formed address on the wrong chain, which holds nothing and
    is indistinguishable from a grant that was drained. See network.ts. */
-const { prefix, network } = resolveNetwork({
+const { prefix, network, isMainnet } = resolveNetwork({
   prefix: flag("prefix"),
   network: flag("network"),
   secret: secretHex,
@@ -226,6 +226,38 @@ if (agentKey === principalKey) {
   process.exit(1);
 }
 
+if (revocationKey === principalKey && isMainnet) {
+  /* Refused on mainnet, and only there.
+   *
+   * Every grant this project has issued on testnet has this shape, so refusing
+   * it outright would refuse the repository's own history and the demos that
+   * depend on it. On mainnet there is no history to protect and the thing at
+   * stake stops being a test coin: one key that can both stop a grant and take
+   * its balance is the largest unbounded thing in a protocol whose entire
+   * claim is that authority should be bounded by consensus rather than by
+   * trust. Declining to bound our own is the one inconsistency that cannot be
+   * argued away.
+   *
+   * No override flag, on the same reasoning as the published /attack key: an
+   * escape hatch here would be used by the person who most needed the refusal.
+   */
+  console.error(
+    "refusing: the revocation key IS the principal key, on MAINNET.\n\n" +
+      "  `revoke` pays the principal rather than whoever signed it, deliberately, so a\n" +
+      "  monitor can be given the power to STOP a grant without being trusted with its\n" +
+      "  balance. One key voids that: whoever can stop this grant can also take it.\n\n" +
+      "  Warda's claim is that authority is bounded by consensus instead of by trust.\n" +
+      "  This is the one key in the system that nothing bounds, and on mainnet it holds\n" +
+      "  real money.\n\n" +
+      "  Generate one that is not the principal's, and keep the principal offline:\n" +
+      "    node --experimental-strip-types sdk/tools/new-key.ts --label revocation \\\n" +
+      "      > ops/warda-revocation.key\n" +
+      "    ... then pass --revocation <the public half it printed>\n\n" +
+      "  There is no flag to skip this.\n",
+  );
+  process.exit(1);
+}
+
 if (revocationKey === principalKey) {
   console.error(
     "warning: the revocation key IS the principal key.\n\n" +
@@ -234,7 +266,7 @@ if (revocationKey === principalKey) {
       "  balance. With one key that promise is void: whoever can stop this grant can\n" +
       "  also take it, and nothing in the grant or on chain says so.\n\n" +
       "  --revocation <pubkey> is the whole fix. Run sdk/tools/keys.ts to see which\n" +
-      "  keys hold what today.\n",
+      "  keys hold what today. This is refused outright on mainnet.\n",
   );
 }
 

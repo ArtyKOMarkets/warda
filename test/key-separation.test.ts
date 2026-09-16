@@ -77,3 +77,46 @@ test("every grant names an agent key of its own", () => {
     );
   }
 });
+
+/**
+ * The refusals genesis makes, checked by SPAWNING it.
+ *
+ * A unit test of a checker keeps passing when somebody adds a code path that
+ * does not call it — which is why `network.ts`'s mainnet gate is tested by
+ * spawning fifteen tools rather than by calling one function. Same reasoning
+ * here, for the same kind of guard.
+ */
+import { spawnSync } from "node:child_process";
+
+const KEY = "11".repeat(32);
+const OTHER = "22".repeat(32);
+
+function genesis(args: string[], env: Record<string, string> = {}) {
+  return spawnSync(
+    "node",
+    ["--experimental-strip-types", "sdk/tools/genesis.ts", ...args],
+    {
+      cwd: root,
+      encoding: "utf8",
+      env: { ...process.env, WARDA_SK: KEY, ...env },
+    },
+  );
+}
+
+test("genesis refuses an agent that is its own principal", () => {
+  const r = genesis(["--principal", OTHER, "--agent", OTHER]);
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /refusing: the agent key IS the principal key/);
+  assert.match(r.stderr, /it is not a\s+grant/);
+});
+
+/**
+ * The testnet half: warned, and allowed, because every grant this repository
+ * has issued looks like this and refusing it would refuse its own history.
+ */
+test("genesis warns about a shared principal and revocation on testnet", () => {
+  const r = genesis(["--principal", OTHER, "--revocation", OTHER, "--agent", KEY]);
+  assert.match(r.stderr, /warning: the revocation key IS the principal key/);
+  assert.match(r.stderr, /refused outright on mainnet/);
+  assert.doesNotMatch(r.stderr, /refusing: the revocation key/);
+});
