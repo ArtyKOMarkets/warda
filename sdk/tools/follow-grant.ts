@@ -147,12 +147,18 @@ const spends = ((): bigint[] => {
 
 const vendor = flag("vendor");
 if (!vendor && spends.length === 0) {
-  console.error("--vendor is required: it is the only address this grant can pay, and the");
-  console.error("UTXOs sitting there are what make the amounts knowable.");
+  /* Not fatal any more. There is a third thing this can do and it needs
+     neither: a grant whose SPENDING is recorded correctly and whose EPOCH is
+     not is lost at an address no payment applied forward will ever reach, and
+     the sweep for it takes no arguments at all. Exiting here was the guard
+     firing before a mode it did not know existed. */
+  console.error("no --vendor and no --spend, so this can only do the epoch sweep: look for a");
+  console.error("grant whose spending is recorded correctly and whose epoch is not.");
   console.error("");
-  console.error("Unless you already know them — a relayed payment leaves nothing at either");
-  console.error("address to read the amount off, so pass each one with --spend <sompi>.");
-  process.exit(2);
+  console.error("If that is not what happened, pass --vendor <address> to read the amounts off");
+  console.error("the payee, or --spend <sompi> for each payment you already know \u2014 a relayed");
+  console.error("payment leaves nothing at either address to read an amount off.");
+  console.error("");
 }
 // Decoded here and nowhere else: a malformed --vendor should fail on the
 // command line, not sixty lines later inside a query.
