@@ -101,6 +101,24 @@ import { NodeSource, handler } from "@warda_protocol/verify";
 import * as kluster from "@kluster/kaspa-wasm";
 
 /**
+ * And borsh itself, for the same reason, which was missed.
+ *
+ * `verify` reaches its fallback reader with `await import("@warda_protocol/borsh")`
+ * inside `loadBorsh`, and that function returns NULL on any throw. So a module
+ * the bundler did not upload does not look like a missing module — it looks
+ * like an operator who chose not to install the optional transport, and the
+ * service says so in a long, helpful, entirely wrong message telling you to
+ * `npm install` something that is already in package.json.
+ *
+ * The comment above this one argues that a static reference is what puts an
+ * optional peer in the bundle, and then does it for the wasm build only. Both
+ * halves of the same fallback needed it. That is twice in one file: this and
+ * the covenant template, each a case of the right lesson written down beside
+ * the one place it was applied.
+ */
+import * as borshPeer from "@warda_protocol/borsh";
+
+/**
  * Testnet by default, and not because of a missing configuration.
  *
  * Warda has run on testnet-10 only and is unaudited, and an unset network is
@@ -115,8 +133,9 @@ const source = new NodeSource({
 
 const serve = handler(source);
 
-/* Referenced so the import above cannot be elided as unused. */
+/* Referenced so the imports above cannot be elided as unused. */
 export const wasmBuild = typeof kluster === "object" ? "@kluster/kaspa-wasm" : "none";
+export const borshBuild = typeof borshPeer === "object" ? "@warda_protocol/borsh" : "none";
 
 export default function (req: IncomingMessage, res: ServerResponse): Promise<void> {
   return serve(req, res);
