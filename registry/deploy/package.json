@@ -1,0 +1,11 @@
+{
+  "name": "warda-registry-endpoint",
+  "private": true,
+  "version": "0.1.0",
+  "description": "The Warda service registry, hosted. Deploys the published package rather than the working tree.",
+  "type": "module",
+  "engines": { "node": "22.x" },
+  "dependencies": {
+    "@warda_protocol/registry": "^0.1.0"
+  }
+}

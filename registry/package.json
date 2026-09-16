@@ -4,6 +4,9 @@
   "description": "Service discovery for agents holding a Warda grant. A listing is a manifest the operator signs with the key they are paid at and publishes on their own domain; this reads it and says whether it stands.",
   "type": "module",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -14,8 +17,14 @@
     },
     "./package.json": "./package.json"
   },
-  "engines": { "node": ">=20" },
-  "files": ["dist", "README.md", "LICENSE"],
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "test": "node --experimental-strip-types --test test/*.test.ts",
     "typecheck": "tsc -p tsconfig.json",

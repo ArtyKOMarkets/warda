@@ -4,6 +4,9 @@
   "description": "For the side being PAID. Reads the grant behind an x402 payment and says what it is bounded by \u2014 offline, with no node and nothing of ours in the path.",
   "type": "module",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {

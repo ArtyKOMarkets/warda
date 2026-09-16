@@ -4,6 +4,9 @@
   "description": "Sell an API for Kaspa over HTTP 402. Quotes a price, then verifies the payment is in the UTXO set before serving \u2014 it never trusts the payment header.",
   "type": "module",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">=20"
   },

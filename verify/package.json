@@ -4,6 +4,9 @@
   "description": "An HTTP endpoint that answers a counterparty's question about a Warda grant: are these terms real, where did the grant go, and what would the covenant refuse right now. Reads a node, decides nothing.",
   "type": "module",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
