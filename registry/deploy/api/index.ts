@@ -96,9 +96,6 @@
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
 
-import { handle, type RegistryConfig } from "@warda_protocol/registry";
-import { sources } from "./sources.js";
-
 /**
  * The curated index, as a STATIC IMPORT rather than a file read at runtime.
  *
@@ -130,9 +127,40 @@ import { sources } from "./sources.js";
  * here that has been tampered with does not produce a bad listing — it produces
  * a `dropped` line.
  */
-const config: RegistryConfig = { sources, maxAgeSeconds: 60 };
+/* BEGIN GENERATED sources — ops/build-registry-sources.mjs from site/src/services.json */
+const sources: string[] = [
+  "https://warda-demo-api.vercel.app/.well-known/warda-service.json"
+];
+/* END GENERATED sources */
 
+/**
+ * The package is imported INSIDE the handler, and that is not stylistic.
+ *
+ * An import that fails at module load takes the whole function down before any
+ * code of ours runs, and the only thing anybody sees is
+ * FUNCTION_INVOCATION_FAILED with a request id. Two deploys were spent on that
+ * screen with no way to tell a missing module from a broken one, because
+ * `vercel logs` had nothing to show either.
+ *
+ * Inside a try/catch it becomes a sentence. The cost is one resolution on a
+ * cold start, which is what a cold start already is.
+ */
 export default async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  let handle: typeof import("@warda_protocol/registry").handle;
+  try {
+    ({ handle } = await import("@warda_protocol/registry"));
+  } catch (e) {
+    res.statusCode = 500;
+    res.setHeader("content-type", "application/json; charset=utf-8");
+    res.end(JSON.stringify({
+      error: "registry_package_unavailable",
+      detail: e instanceof Error ? e.message : String(e),
+      note: "The endpoint could not load @warda_protocol/registry. This is a deployment fault, " +
+            "not a fault in any listing.",
+    }, null, 2) + "\n");
+    return;
+  }
+
   const host = req.headers.host ?? "registry.wardaprotocol.com";
   const request = new Request(`https://${host}${req.url ?? "/"}`, {
     method: req.method ?? "GET",
@@ -143,9 +171,17 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
        body cannot be made to wait on one that never arrives. */
   });
 
-  const response = await handle(request, config);
-
-  res.statusCode = response.status;
-  response.headers.forEach((value, key) => res.setHeader(key, value));
-  res.end(await response.text());
+  try {
+    const response = await handle(request, { sources, maxAgeSeconds: 60 });
+    res.statusCode = response.status;
+    response.headers.forEach((value, key) => res.setHeader(key, value));
+    res.end(await response.text());
+  } catch (e) {
+    res.statusCode = 500;
+    res.setHeader("content-type", "application/json; charset=utf-8");
+    res.end(JSON.stringify({
+      error: "registry_failed",
+      detail: e instanceof Error ? (e.stack ?? e.message) : String(e),
+    }, null, 2) + "\n");
+  }
 }

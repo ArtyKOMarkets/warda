@@ -235,6 +235,12 @@ node ../ops/check-core-browser.mjs
 # that silently does not contain a service somebody was told they had listed.
 node ../ops/build-registry-sources.mjs --check
 
+# And the deploy directories, which are the only place here that talks to
+# strangers and the only place nothing was checking. Two deploys went out green
+# and wrong inside one hour: one served its handler's own TypeScript source, the
+# next printed two compile errors and reported success.
+node ../ops/check-deploys.mjs
+
 python3 build.py >/dev/null
 
 # Nothing is deployed that links into a hole. build.py DROPS a page whose data

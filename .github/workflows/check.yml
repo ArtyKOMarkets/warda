@@ -144,6 +144,7 @@ jobs:
         run: |
           node ops/check-core-browser.mjs
           node ops/build-registry-sources.mjs --check
+          node ops/check-deploys.mjs
           python3 site/build.py
           node ops/check-links.mjs
           node ops/check-commands.mjs
