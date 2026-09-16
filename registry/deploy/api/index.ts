@@ -17,11 +17,18 @@
  *      keeps meeting — it succeeded, it answered, and everything it said was
  *      wrong.
  *
- * `mcp/deploy` is not evidence for the root-entrypoint story its header tells.
- * It has an `api/mcp.ts`, and the endpoint it documents is
- * `mcp.wardaprotocol.com/mcp` — which is `api/mcp.ts` under the ordinary rule.
- * Its root `index.ts` is very likely served as static source at `/index.ts` and
- * doing nothing. Worth checking before the next MCP redeploy.
+ * A guess that was WRONG, recorded because it was written down before it was
+ * checked: that `mcp/deploy`'s root `index.ts` was dead and being served as
+ * static source, the way this one was. It is not.
+ * `curl https://mcp.wardaprotocol.com/index.ts` returns the MCP server's own
+ * JSON greeting, so every path there really does reach one entrypoint and that
+ * header's account of itself is accurate.
+ *
+ * So the two projects behave differently under configuration that looks the
+ * same in the repo, and the difference is in the Vercel project settings rather
+ * than in any file here. Which is the actual lesson: what a directory deploys
+ * as is not fully determined by its contents, so it has to be OBSERVED after
+ * deploying rather than reasoned about from the tree.
  *
  * So: the function lives in `api/`, and `vercel.json` rewrites every path onto
  * it, which is how `/` and `/verify` both arrive here.
