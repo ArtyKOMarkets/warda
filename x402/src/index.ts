@@ -74,6 +74,16 @@ export {
 } from "./relay.ts";
 
 export {
+  // The envelope that makes a grant visible to the person being paid. See
+  // grant-proof.ts: a provider never sees a covenant, so the payer sends one.
+  GRANT_PROOF_HEADER,
+  GRANT_PROOF_VERSION,
+  encodeGrantProof,
+  decodeGrantProof,
+  type GrantProof,
+} from "./grant-proof.ts";
+
+export {
   wardaFetchV2,
   bodyForBinding,
   type WardaFetchV2Options,

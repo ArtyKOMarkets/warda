@@ -14,6 +14,7 @@ import {
   successorState,
   toHex,
   toSafeJson,
+  toWire,
   type CovenantTemplate,
   type GrantAuthority,
   type GrantState,
@@ -45,6 +46,7 @@ export type ChainAccess = Pick<
 
 import { X402Error, type PaymentRequirement } from "./protocol.ts";
 import { buildRelayPayment, relayFeeFor, relayFunding, type RelayPayment } from "./relay.ts";
+import { encodeGrantProof } from "./grant-proof.ts";
 import {
   amountOf,
   assertPayeeScriptMatches,
@@ -590,6 +592,27 @@ export class WardaPayer {
       );
     }
 
+    /**
+     * The grant proof, built only for a relayed payment.
+     *
+     * Only then is it needed and only then is it true: a direct spend IS the
+     * covenant transaction and a vendor who can read it needs nothing extra,
+     * while a relayed one arrives as an ordinary payment with the grant
+     * nowhere in sight. `tx` is the covenant spend and `entry` is the grant
+     * UTXO it consumed, which `toWire` needs because each input's digest
+     * commits to its own entry.
+     *
+     * Wire form rather than the safe JSON that travels in the payload: safe
+     * JSON has no field for an output's covenant binding and is lossy for
+     * exactly these transactions. What a provider reads is the SIGNATURE
+     * SCRIPT, which carries the redeem script in the clear, so an encoding
+     * that drops anything is the wrong one on principle even where it would
+     * have survived.
+     */
+    const grantProof = relayed
+      ? encodeGrantProof(toWire(tx, entry), PAYEE_OUTPUT_INDEX)
+      : undefined;
+
     const payment = await buildPayment(
       {
         accepted: input.accepted,
@@ -643,6 +666,7 @@ export class WardaPayer {
       successor: next,
       successorAddress,
       expiresAt: payment.payload.authorization.expiresAt,
+      ...(grantProof ? { grantProof } : {}),
       ...(relayed
         ? {
             relay: {

@@ -43,6 +43,7 @@
     "sdk",
     "borsh",
     "x402",
+    "provider",
     "vendor",
     "verify",
     "wallet",

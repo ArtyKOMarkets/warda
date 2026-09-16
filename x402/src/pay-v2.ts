@@ -91,6 +91,16 @@ export interface PendingPayment {
    * and confusing them is how a recovery looks at the wrong transaction.
    */
   relay?: { fundingTxid: string; feeSompi: bigint; relayAddress: string };
+  /**
+   * The `WARDA-GRANT` header, when this payment went through a relay hop.
+   *
+   * Present only then, because only then is a grant invisible to the person
+   * being paid. It is a separate header and not part of `header` above: the
+   * payload is validated by the vendor's own schema, and a live payment path
+   * that works against a third party is not the place to find out whether
+   * their validator tolerates an extension it has never seen.
+   */
+  grantProof?: string;
 }
 
 export type Outstanding =

@@ -24,6 +24,7 @@
  * real refinement, and it is not guesswork this file should do by inference.
  */
 import { DEFAULT_SETTLE_ATTEMPTS, X402Error, settleDelayMs } from "./protocol.ts";
+import { GRANT_PROOF_HEADER } from "./grant-proof.ts";
 import type { ExactPaymentRequirements } from "@kaspa-x402/core";
 import {
   dialect,
@@ -329,7 +330,17 @@ export async function wardaFetchV2(
     doFetch(url as never, {
       ...init,
       method,
-      headers: { ...(init?.headers as Record<string, string>), [PAYMENT_SIGNATURE_HEADER]: pending.header },
+      headers: {
+        ...(init?.headers as Record<string, string>),
+        [PAYMENT_SIGNATURE_HEADER]: pending.header,
+        /* The grant, made visible to the person being paid.
+         *
+         * A separate header, sent on every presentation including the retries,
+         * because a vendor that verifies on a later attempt must see the same
+         * thing the first one carried. A vendor that has never heard of Warda
+         * ignores it; no schema of theirs has an opinion about a header. */
+        ...(pending.grantProof ? { [GRANT_PROOF_HEADER]: pending.grantProof } : {}),
+      },
     } as never);
 
   /**

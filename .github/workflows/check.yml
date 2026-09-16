@@ -115,6 +115,8 @@ jobs:
         run: npm test --workspace sdk
       - name: x402 — the buyer's half
         run: npm test --workspace x402
+      - name: provider — the seller's half of the guarantee
+        run: npm test --workspace provider
       - name: vendor — the seller's half
         run: npm test --workspace vendor
       - name: borsh — the transport
