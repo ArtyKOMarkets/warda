@@ -32,7 +32,7 @@
     "prepublishOnly": "npm run typecheck && npm test && npm run build"
   },
   "dependencies": {
-    "@warda_protocol/kaspa": "^0.5.3",
+    "@warda_protocol/kaspa": "^0.6.0",
     "@warda_protocol/x402": "^0.5.0"
   },
   "devDependencies": {

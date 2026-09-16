@@ -33,11 +33,11 @@
   },
   "dependencies": {
     "@warda_protocol/core": "^0.3.1",
-    "@warda_protocol/kaspa": "^0.5.3",
+    "@warda_protocol/kaspa": "^0.6.0",
     "@warda_protocol/x402": "^0.5.0"
   },
   "peerDependencies": {
-    "@warda_protocol/borsh": "^0.3.0"
+    "@warda_protocol/borsh": "^0.4.1"
   },
   "peerDependenciesMeta": {
     "@warda_protocol/borsh": {

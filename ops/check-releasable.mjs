@@ -72,6 +72,71 @@ function unreleased(p) {
   }
 }
 
+/**
+ * A SECOND question, and the one that turned CI red.
+ *
+ * Do the ranges packages here declare for each other admit the versions in
+ * this tree? Bumping kaspa to 0.6.0 left seven workspaces declaring ^0.5.x,
+ * and a caret does not cross the minor below 1.0. Two consequences, and the
+ * quiet one is worse:
+ *
+ *   `npm ci` FAILED outright on cli's peerOptional borsh ^0.3.0 against a
+ *   workspace at 0.4.1 — ERESOLVE, which at least stops.
+ *
+ *   And every `dependencies` range that no longer matched silently STOPPED
+ *   LINKING THE WORKSPACE. npm satisfies a sibling from the working copy only
+ *   when the range admits its version; otherwise it fetches the published one.
+ *   So x402, vendor, verify, agent, mcp and the rest would have been built and
+ *   tested against a kaspa from the registry while the tree's sat unused, and
+ *   nothing says so.
+ *
+ * That is the same shape as borsh 0.4.0 shipping against an unpublished
+ * export, arriving from the opposite direction: there the tree was ahead of
+ * npm, here the declared range points behind the tree.
+ */
+function admits(range, version) {
+  return range.split("||").some((part) => {
+    const r = part.trim();
+    if (r === "*") return true;
+    if (!r.startsWith("^")) return r === version;
+    const a = r.slice(1).split(".").map(Number);
+    const b = version.split(".").map(Number);
+    if (a[0] !== b[0]) return false;
+    if (b[0] === 0) return a[1] === b[1] && b[2] >= a[2];
+    return b[1] > a[1] || (b[1] === a[1] && b[2] >= a[2]);
+  });
+}
+
+const all = [];
+for (const w of workspaces) {
+  const f = join(root, w, "package.json");
+  if (!existsSync(f)) continue;
+  all.push({ dir: w, ...JSON.parse(readFileSync(f, "utf8")) });
+}
+const versionOf = Object.fromEntries(all.map((p) => [p.name, p.version]));
+
+const stale = [];
+for (const p of all) {
+  for (const kind of ["dependencies", "peerDependencies", "devDependencies"]) {
+    for (const [dep, range] of Object.entries(p[kind] ?? {})) {
+      const v = versionOf[dep];
+      if (!v || admits(range, v)) continue;
+      stale.push(
+        `${p.name} declares ${dep} ${range}, and this tree has ${v}. npm links a sibling from ` +
+          `the working copy only when the range admits it — otherwise it quietly fetches the ` +
+          `published one, and everything here is built against a version nobody is editing.`,
+      );
+    }
+  }
+}
+
+if (stale.length > 0) {
+  console.error("a workspace range does not admit the version in this tree:\n");
+  for (const s of stale) console.error(`  ${s}`);
+  console.error("\nA caret does not cross the minor below 1.0.0. Widen the range.");
+  process.exit(1);
+}
+
 const drift = new Map();
 for (const p of packages) drift.set(p.name, unreleased(p));
 
