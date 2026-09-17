@@ -107,6 +107,39 @@ const { prefix, network, isMainnet } = resolveNetwork({
   action: "create a grant",
 });
 const outPath = flag("out", "grant.json")!;
+
+/**
+ * Refuse to write over a manifest that already exists.
+ *
+ * A grant's address is derived from the numbers in its manifest and from
+ * nowhere else — the comment at the write below says so, because losing them
+ * strands the coin at an address nobody can reconstruct. Until now this wrote
+ * unconditionally, so the way to lose them was to run genesis twice in one
+ * directory: the second grant's manifest landed on the first one's, and the
+ * first grant became a funded coin that could no longer be revoked, reclaimed
+ * or even named.
+ *
+ * That was always possible and never likely, because creating a grant was
+ * something a person did by hand. `warda topup` makes it something a schedule
+ * does, which turns "never likely" into "eventually" — so the successor's path
+ * is computed to be new, AND this refuses if the computation was ever wrong.
+ * A path that is chosen carefully in one place is a habit; a refusal here is
+ * the rule.
+ *
+ * Checked before anything is built or signed, so the refusal costs nothing.
+ */
+if (existsSync(outPath) && !process.argv.includes("--force")) {
+  console.error(
+    `refusing: ${outPath} already exists.\n\n` +
+      `  A grant's address is derived from the numbers in that file. Overwriting it with\n` +
+      `  another grant's leaves the first one funded and unnameable — not revocable, not\n` +
+      `  reclaimable, just a coin at an address nothing can reconstruct.\n\n` +
+      `  Nothing has been built or submitted, so nothing is lost.\n\n` +
+      `    --out <another.json>   a new grant, beside the old one\n` +
+      `    --force                replace it anyway\n`,
+  );
+  process.exit(2);
+}
 const fee = BigInt(flag("fee", "1000000")!);
 const budget = BigInt(flag("budget", "500000000")!);
 

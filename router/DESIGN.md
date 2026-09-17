@@ -150,6 +150,33 @@ Whoever it is gets named in the receipt and sits in `assumed`. **Warda does not
 need to be the filler and should not become one** — the day it holds the float
 its security argument becomes a balance sheet.
 
+### The relationship's second and every later grant
+
+A grant is a fixed budget, so a funding relationship is not one crossing of the
+input edge — it is one crossing followed by many renewals. The renewal needs no
+price, no venue and nobody's word for anything: the KAS is already at the
+funder's key, and the only questions are whether the agent is near the end of
+what it may spend and whether a single coin can pay for the next grant.
+`renewVerdict()` answers both, `sdk/tools/topup.ts` does the reading, and
+`warda grant` creates the successor unchanged.
+
+Two things are load-bearing there. **What is left is the smaller of two
+numbers** — the authority the covenant would still permit, and the coin that is
+actually at the grant's address — because a grant that has paid for anything at
+all has spent fees out of the second and not the first, and either number alone
+reports an agent as healthy in a state where it cannot pay. And **the successor
+does not end its predecessor.** Revocation's key is worth something precisely
+because it is not online; a schedule that fires it on the most routine event in
+an agent's life is that key online, daily. The remainder is named and the
+command is printed, and a person decides.
+
+This is also where the asymmetry with `warda fund` is deliberate. The rare step
+— selling an asset, withdrawing the proceeds — is printed rather than performed,
+because automating it means an exchange key with withdrawal permission living in
+a cron job, which is a worse thing to own than the problem it solves. The
+frequent step is the one worth automating, and it is the one that needs no
+custody at all.
+
 ### Output: the seller getting back to USDC
 
 **This needs no protocol at all, and must not have one.** The seller receives
@@ -228,6 +255,11 @@ was about discovery, which is not even in the payment path.
 4. **Seller tiers** in the registry manifest, and the output-edge documentation.
 5. **Guards.** Done: no baked addresses, no literal claims, no dollars in a
    sompi field, zone vocabulary closed.
+6. **Renewal.** Done. `renewVerdict()` decides; `warda topup` reads the chain,
+   refuses a manifest the chain does not confirm, and falls through to `warda
+   grant` with the predecessor's limits. genesis and quickstart now refuse to
+   write over a manifest, because a successor's path being new is a habit until
+   something says no.
 
 ## Open
 

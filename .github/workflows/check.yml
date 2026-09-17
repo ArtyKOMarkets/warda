@@ -127,6 +127,13 @@ jobs:
         run: npm test --workspace wallet
       - name: registry
         run: npm test --workspace registry
+      # The funding edges: the quote, the route's zones, and when a grant needs
+      # its successor. Added late, and it had been missing since the package was
+      # written — 85 tests that ran only when somebody remembered to run them,
+      # which is the same shape as the covenant harness decaying for two
+      # versions because nobody ran it either.
+      - name: router — the funding edges
+        run: npm test --workspace router
       - name: mcp
         run: npm test --workspace mcp
       - name: growth

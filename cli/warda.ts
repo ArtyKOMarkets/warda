@@ -179,6 +179,41 @@ const agentSecret = (cfg: Config): string => {
   return readFileSync(path!, "utf8").trim();
 };
 
+/**
+ * `topup.ts` says a successor is due with this, and nothing else does.
+ *
+ * Deliberately outside the 1-4 range `warda help` documents, where 3 means the
+ * covenant refused and 4 means paid and not served. A decision to create
+ * something is not one of the protocol's refusals and should never be readable
+ * as one.
+ */
+const TOPUP_DUE = 70;
+
+/**
+ * The next path in a numbered series: grant.json -> grant-2.json,
+ * grant-006.json -> grant-007.json, and never one that already exists.
+ *
+ * A top-up writes a NEW manifest and a NEW agent key rather than replacing
+ * either. The old manifest is the only description of a grant that may still
+ * hold coin and can still be revoked, and an agent key that is replaced leaves
+ * the grant naming it spendable by nobody.
+ */
+const successorPath = (p: string): string => {
+  const dot = p.lastIndexOf(".");
+  const ext = dot > 0 ? p.slice(dot) : "";
+  const stem = dot > 0 ? p.slice(0, dot) : p;
+  const numbered = /^(.*?)(\d+)$/.exec(stem);
+  const base = numbered ? numbered[1]! : `${stem}-`;
+  const width = numbered ? numbered[2]!.length : 1;
+  let n = numbered ? Number(numbered[2]) : 1;
+  let out: string;
+  do {
+    n += 1;
+    out = `${base}${String(n).padStart(width, "0")}${ext}`;
+  } while (existsSync(out));
+  return out;
+};
+
 const HELP = `warda — bounded spending authority for an agent, on Kaspa.
 
   warda node     [--borsh]      is a node worth believing? (run this first)
@@ -197,6 +232,12 @@ const HELP = `warda — bounded spending authority for an agent, on Kaspa.
                                 what buying from an x402 exact vendor needs
                                 [--budget 10] [--max-per-spend 1] [--epoch-limit 2]
                                 [--key <funder.key>, or set WARDA_SK]
+  warda topup    [--below 1]    the budget is running out. Issue the successor
+                                from KAS the funder already holds, with the old
+                                grant's limits unless you say otherwise.
+                                Below what? Default: its own per-payment cap —
+                                under that it cannot make a payment of the size
+                                it was authorised for. [--budget 10] [--dry-run]
   warda balance                 what may this agent spend right now?
   warda pay      <url>          buy something behind an HTTP 402
                  [--relay]      required by kaspa-x402 v2 vendors, whose
@@ -413,9 +454,131 @@ switch (verb) {
     if (!has("wait")) process.exit(0);
 
     console.error("\nbounding what arrived…");
-    /* Falls through to `grant` ON PURPOSE. Copying quickstart's invocation here
+    /* Falls through to `grant` ON PURPOSE — through `topup`, whose body is a
+       no-op for any verb but its own. Copying quickstart's invocation here
        would be a second place for its arguments to drift, and the whole claim
        of this verb is that the grant it produces is not special. */
+  }
+  // eslint-disable-next-line no-fallthrough
+
+  /**
+   * `warda topup` — the successor, issued from KAS the funder already holds.
+   *
+   * `warda fund` automates nothing about the rare step on purpose: selling an
+   * asset and withdrawing the proceeds needs an exchange key with withdrawal
+   * permission, and that key in a cron job is a worse thing to own than the
+   * problem it solves. This is the other end, and it is the opposite kind of
+   * step — frequent, unattended, and needing no price, no venue and nobody's
+   * word for anything. A grant is a fixed budget; an agent that is working
+   * runs out of one, always at the least convenient moment.
+   *
+   * Three things happen here and none of them is new. The manifest is advanced
+   * from the chain, because a grant's address moves on every spend and a
+   * top-up decided from a stale one either starves a working agent or funds a
+   * second grant beside a live one. `topup.ts` then reads what is left and
+   * whether the funder's own coins can pay for the next one. If they can, this
+   * falls through to `grant` with the predecessor's own limits as the defaults
+   * — the same invocation, so a topped-up grant is not a different kind of
+   * grant.
+   *
+   * What it does NOT do is end the predecessor. Revocation is the emergency
+   * stop, and its key is worth something precisely because it is not online; a
+   * schedule that fires it on the most routine event in an agent's life is
+   * that key online, every day. The remainder is named, and ending it is left
+   * to a person.
+   */
+  case "topup": {
+    if (verb === "topup") {
+      const cfg = readConfig();
+      const grant = flag("grant") ?? rest.find((a) => a.endsWith(".json")) ?? cfg.grant;
+      if (!grant || !existsSync(grant)) {
+        die(
+          "warda topup — no grant to top up.\n\n" +
+            "  Run it where `warda grant` remembered one, or pass --grant <grant.json>.",
+        );
+      }
+      const payees = flag("payees") ?? cfg.payees;
+      if (!payees || !existsSync(payees)) {
+        die(
+          "warda topup needs the allowlist the successor will commit to.\n\n" +
+            "  --payees <file>   the same list, or the one it should be now. It is not a\n" +
+            "  config: the root of this file is compiled into the new grant, and a grant\n" +
+            "  whose list nothing downstream can reproduce is spendable by nobody.",
+          2,
+        );
+      }
+
+      /* Best effort, and its exit code is IGNORED on purpose. Following a grant
+         needs a payment still sitting where the covenant put it; a vendor that
+         has since moved its coin makes this fail, and that is not a reason to
+         refuse — topup.ts checks the manifest against the chain itself and
+         refuses there, where the refusal can say which of the two it is. */
+      const vendor = readFileSync(payees!, "utf8")
+        .split(/\r?\n/)
+        .map((l) => l.replace(/#.*$/, "").trim())
+        .filter(Boolean)[0];
+      if (vendor && !has("no-follow")) {
+        console.error("following the grant to where it actually is…");
+        run("sdk/tools/follow-grant.ts", [grant!, "--vendor", vendor, "--write", ...rpcArgs(cfg)]);
+      }
+
+      const m = JSON.parse(readFileSync(grant!, "utf8"));
+      const funderKey = flag("key");
+      const funderEnv: NodeJS.ProcessEnv = funderKey
+        ? { WARDA_SK: readFileSync(funderKey, "utf8").trim() }
+        : {};
+
+      const budgetSompi = flag("budget")
+        ? sompi(flag("budget")!, "budget")
+        : String(m.budget ?? 0);
+      const feeSompi = sompi(flag("fee", "0.01")!, "fee");
+
+      const decided = run(
+        "sdk/tools/topup.ts",
+        [
+          "--grant", grant!,
+          "--budget", budgetSompi,
+          "--fee", feeSompi,
+          ...(flag("below") ? ["--below", sompi(flag("below")!, "below")] : []),
+          ...(has("dry-run") ? ["--dry-run"] : []),
+          ...(flag("prefix") ? ["--prefix", flag("prefix")!] : []),
+          ...(flag("network") ? ["--network", flag("network")!] : []),
+          ...rpcArgs(cfg),
+        ],
+        funderEnv,
+      );
+      /* 0 is "nothing is due", which is the ordinary outcome of a scheduled run
+         and not a failure. 70 is the one code that means go on. */
+      if (decided !== TOPUP_DUE) process.exit(decided);
+
+      /**
+       * The successor's defaults, pushed into `rest` rather than passed.
+       *
+       * `grant` below reads its arguments from exactly one place, and that is
+       * worth keeping: a second invocation of quickstart is a second set of
+       * defaults to drift. So this fills in what the caller did not say, from
+       * the grant being replaced, and then lets the one invocation run.
+       *
+       * `--out` and `--agent-out` get NEW paths, always. Overwriting the old
+       * manifest would destroy the only description of a grant that still
+       * holds coin and can still be revoked; overwriting the agent key is the
+       * mistake quickstart already refuses, and it would refuse this too.
+       */
+      if (!flag("out")) rest.push("--out", successorPath(grant!));
+      if (!flag("agent-out")) rest.push("--agent-out", successorPath(cfg.agentKey ?? "agent.key"));
+      if (!flag("payees")) rest.push("--payees", payees!);
+      if (!flag("budget")) rest.push("--budget", `${m.budget}sompi`);
+      if (!flag("max-per-spend")) rest.push("--max-per-spend", `${m.max_per_spend}sompi`);
+      if (!flag("epoch-limit")) rest.push("--epoch-limit", `${m.epoch_limit}sompi`);
+      /* Carried forward only when it is a real separation. Defaulted, the
+         revocation key IS the principal, and passing it back would turn a
+         default into something that looks like a choice somebody made. */
+      if (!flag("revocation") && m.revocation && m.revocation !== m.principal) {
+        rest.push("--revocation", m.revocation);
+      }
+      console.error("issuing the successor…");
+    }
+    /* Falls through to `grant` ON PURPOSE, for the same reason `fund` does. */
   }
   // eslint-disable-next-line no-fallthrough
 

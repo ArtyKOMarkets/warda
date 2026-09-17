@@ -84,6 +84,33 @@ const out = flag("out", "grant.json")!;
  */
 const agentOut = flag("agent-out");
 
+/**
+ * The same refusal for the manifest, and it has to be HERE rather than only in
+ * genesis.
+ *
+ * genesis refuses too, and that refusal is the rule — but it is spawned at the
+ * very end, after an agent key has been generated and written and after the
+ * node has been interrogated. Leaving the check only there means a re-run in a
+ * directory that already has a grant costs a stray key file on disk, and on a
+ * machine with no node it never gets far enough to say the useful thing at
+ * all: "you already have a grant here" is worth more than "you have no node"
+ * when both are true. So it is checked first, before anything is read, asked
+ * or created.
+ */
+if (existsSync(out) && !process.argv.includes("--force")) {
+  console.error();
+  console.error(`${out} already exists.`);
+  console.error();
+  console.error(
+    `A grant's address is derived from the numbers in that file and nowhere else.\n` +
+      `Overwriting it leaves the grant it describes funded and unnameable — not\n` +
+      `revocable, not reclaimable. Nothing has been created yet.\n\n` +
+      `  --out <another.json>   a new grant, beside the old one\n` +
+      `  --force                replace it anyway\n`,
+  );
+  process.exit(2);
+}
+
 const problems: string[] = [];
 const say = (s = "") => console.error(s);
 
@@ -330,6 +357,12 @@ const genesis = spawnSync(
        most needed. Anything left running unattended wants its own. */
     ...(flag("revocation") ? ["--revocation", flag("revocation")!] : []),
     ...(rpcFrom(flag("rpc")) ? ["--rpc", rpcFrom(flag("rpc"))!] : []),
+    /* One --force, one meaning: replace what is already there. Without this,
+       genesis's own refusal to overwrite a manifest could not be overridden
+       from the verb people actually type, and the only way past it would have
+       been to run genesis by hand — which is the opposite of what an escape
+       hatch is for. */
+    ...(process.argv.includes("--force") ? ["--force"] : []),
     "--submit",
   ],
   { encoding: "utf8", stdio: ["inherit", "pipe", "pipe"], env: process.env },
