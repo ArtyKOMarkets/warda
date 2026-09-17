@@ -1,87 +1,17 @@
-From 2d5fb952416e164be33d1a324d1d2d2ccd5e8f32 Mon Sep 17 00:00:00 2001
-From: Warda <noreply@wardaprotocol.com>
-Date: Sun, 6 Sep 2026 14:34:01 +0000
-Subject: [PATCH] =?UTF-8?q?feat(plugins):=20warda=20=E2=80=94=20check=20an?=
- =?UTF-8?q?=20agent's=20on-chain=20spending=20authority?=
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-
-Adds a plugin for Warda, an economic-authority protocol for autonomous
-agents on Kaspa. An agent holds a grant: a covenant-bound coin whose
-per-payment cap, lifetime budget, epoch allowance and payee allowlist are
-enforced by the network rather than by the process holding the key.
-
-Three read-only actions, all through a self-hosted verification service:
-
-  check-authority  would this payment be refused, and which rule refuses it
-  verify-grant     does the chain agree with the terms a manifest claims
-  locate-grant     where a grant went when a stored manifest is stale
-
-This is the layer under the one KeeperHub already describes. The agentic
-wallet evaluates a price against safety thresholds and signs; these actions
-answer what happens when the agent itself is the thing that is wrong. A
-threshold enforced by the process holding the key is a policy; a grant is a
-limit. So `allowed` here is never a permission — the covenant decides, on
-chain, and decides the same way whether or not a workflow asked. Every
-response carries an `enforcement` field saying so, and the step surfaces it.
-
-Notes for review:
-
-- egress is "user-destination": the service URL comes from the connection
-  because there is no shared instance and should not be one. The answer
-  depends on which Kaspa node was read, so every result names it in
-  `readFrom`, and that is an output field rather than something hidden.
-- Requests go through assertUrlIsPublic + safeFetch, mirroring
-  plugins/blockscout/steps/blockscout-core.ts, since the host is
-  user-configurable.
-- Amounts convert KAS to sompi with string arithmetic. Kaspa amounts are
-  u64 and a budget passed through a float can be rounded before anything
-  looks at it; a rounded amount is indistinguishable from an amount.
-- check-authority requires the payee list rather than the manifest's Merkle
-  root: a root can confirm a list but cannot produce a membership proof
-  from one, so "is this vendor allowed" is unanswerable without it. The
-  service checks the list against the committed root before answering.
-
-10 unit tests. Nothing signs, nothing holds a key, nothing broadcasts.
----
- lib/types/integration.ts                 |   3 +-
- plugins/index.ts                         |   3 +-
- plugins/plugin-allowlist.json            |   1 +
- plugins/warda/credentials.ts             |   3 +
- plugins/warda/icon.tsx                   |  20 ++
- plugins/warda/index.ts                   | 262 +++++++++++++++++++++++
- plugins/warda/steps/check-authority.ts   | 149 +++++++++++++
- plugins/warda/steps/locate-grant.ts      | 159 ++++++++++++++
- plugins/warda/steps/verify-grant.ts      | 141 ++++++++++++
- plugins/warda/steps/warda-core.ts        | 261 ++++++++++++++++++++++
- plugins/warda/test.ts                    |  52 +++++
- tests/unit/warda-check-authority.test.ts | 237 ++++++++++++++++++++
- 12 files changed, 1289 insertions(+), 2 deletions(-)
- create mode 100644 plugins/warda/credentials.ts
- create mode 100644 plugins/warda/icon.tsx
- create mode 100644 plugins/warda/index.ts
- create mode 100644 plugins/warda/steps/check-authority.ts
- create mode 100644 plugins/warda/steps/locate-grant.ts
- create mode 100644 plugins/warda/steps/verify-grant.ts
- create mode 100644 plugins/warda/steps/warda-core.ts
- create mode 100644 plugins/warda/test.ts
- create mode 100644 tests/unit/warda-check-authority.test.ts
-
 diff --git a/lib/types/integration.ts b/lib/types/integration.ts
-index 61a7a2c..95b2f0a 100755
+index 8918db2c..48504c75 100755
 --- a/lib/types/integration.ts
 +++ b/lib/types/integration.ts
 @@ -9,7 +9,7 @@
   * 2. Add a system integration to SYSTEM_INTEGRATION_TYPES in discover-plugins.ts
   * 3. Run: pnpm discover-plugins
   *
-- * Generated types: aave-v3, aave-v4, aerodrome, ai-gateway, ajna, blockscout, chainlink, chronicle, clerk, code, compound, cowswap, curve, database, discord, ethena, frax-ether-v2, hyperliquid, lido, linear, math, morpho, pendle, protocol, resend, robinhood, rocket-pool, safe, sendgrid, sky, slack, spark, superfluid, telegram, tempo, uniswap, v0, web3, webflow, webhook, wrapped, yearn
-+ * Generated types: aave-v3, aave-v4, aerodrome, ai-gateway, ajna, blockscout, chainlink, chronicle, clerk, code, compound, cowswap, curve, database, discord, ethena, frax-ether-v2, hyperliquid, lido, linear, math, morpho, pendle, protocol, resend, robinhood, rocket-pool, safe, sendgrid, sky, slack, spark, superfluid, telegram, tempo, uniswap, v0, warda, web3, webflow, webhook, wrapped, yearn
+- * Generated types: aave-v3, aave-v4, aerodrome, ajna, blockscout, chainlink, chronicle, clerk, code, coinbase-cbeth, compound, cowswap, curve, data, database, discord, elizaos, ethena, euler-v2, evm-chain, frax-ether-v2, hyperliquid, layerzero, lido, linear, math, morpho, pendle, protocol, pyth, resend, robinhood, rocket-pool, safe, sendgrid, sky, slack, spark, superfluid, telegram, tempo, uniswap, v0, web3, webflow, webhook, wrapped, yearn
++ * Generated types: aave-v3, aave-v4, aerodrome, ajna, blockscout, chainlink, chronicle, clerk, code, coinbase-cbeth, compound, cowswap, curve, data, database, discord, elizaos, ethena, euler-v2, evm-chain, frax-ether-v2, hyperliquid, layerzero, lido, linear, math, morpho, pendle, protocol, pyth, resend, robinhood, rocket-pool, safe, sendgrid, sky, slack, spark, superfluid, telegram, tempo, uniswap, v0, warda, web3, webflow, webhook, wrapped, yearn
   */
  
  // Integration type union - plugins + system integrations
-@@ -51,6 +51,7 @@ export type IntegrationType =
+@@ -57,6 +57,7 @@ export type IntegrationType =
    | "tempo"
    | "uniswap"
    | "v0"
@@ -90,19 +20,19 @@ index 61a7a2c..95b2f0a 100755
    | "webflow"
    | "webhook"
 diff --git a/plugins/index.ts b/plugins/index.ts
-index 31421ac..ea577f2 100644
+index 75503aa7..c0befce2 100644
 --- a/plugins/index.ts
 +++ b/plugins/index.ts
 @@ -13,7 +13,7 @@
   * 1. Delete the plugin directory
   * 2. Run: pnpm discover-plugins (or it runs automatically on build)
   *
-- * Discovered plugins: blockscout, code, discord, hyperliquid, math, protocol, robinhood, safe, sendgrid, slack, telegram, tempo, web3, webhook
-+ * Discovered plugins: blockscout, code, discord, hyperliquid, math, protocol, robinhood, safe, sendgrid, slack, telegram, tempo, warda, web3, webhook
+- * Discovered plugins: blockscout, code, data, discord, elizaos, evm-chain, hyperliquid, math, protocol, robinhood, safe, sendgrid, slack, telegram, tempo, web3, webhook
++ * Discovered plugins: blockscout, code, data, discord, elizaos, evm-chain, hyperliquid, math, protocol, robinhood, safe, sendgrid, slack, telegram, tempo, warda, web3, webhook
   */
  
  import "./blockscout";
-@@ -28,5 +28,6 @@ import "./sendgrid";
+@@ -31,5 +31,6 @@ import "./sendgrid";
  import "./slack";
  import "./telegram";
  import "./tempo";
@@ -110,10 +40,10 @@ index 31421ac..ea577f2 100644
  import "./web3";
  import "./webhook";
 diff --git a/plugins/plugin-allowlist.json b/plugins/plugin-allowlist.json
-index 97f6439..39c4860 100644
+index 6b4bb115..1ad0b224 100644
 --- a/plugins/plugin-allowlist.json
 +++ b/plugins/plugin-allowlist.json
-@@ -14,6 +14,7 @@
+@@ -17,6 +17,7 @@
      "slack",
      "telegram",
      "tempo",
@@ -123,7 +53,7 @@ index 97f6439..39c4860 100644
    ]
 diff --git a/plugins/warda/credentials.ts b/plugins/warda/credentials.ts
 new file mode 100644
-index 0000000..b65935d
+index 00000000..b65935de
 --- /dev/null
 +++ b/plugins/warda/credentials.ts
 @@ -0,0 +1,3 @@
@@ -132,7 +62,7 @@ index 0000000..b65935d
 +};
 diff --git a/plugins/warda/icon.tsx b/plugins/warda/icon.tsx
 new file mode 100644
-index 0000000..2302e4e
+index 00000000..2302e4e6
 --- /dev/null
 +++ b/plugins/warda/icon.tsx
 @@ -0,0 +1,20 @@
@@ -158,7 +88,7 @@ index 0000000..2302e4e
 +}
 diff --git a/plugins/warda/index.ts b/plugins/warda/index.ts
 new file mode 100644
-index 0000000..4c88fd3
+index 00000000..4c88fd3c
 --- /dev/null
 +++ b/plugins/warda/index.ts
 @@ -0,0 +1,262 @@
@@ -426,7 +356,7 @@ index 0000000..4c88fd3
 +export default wardaPlugin;
 diff --git a/plugins/warda/steps/check-authority.ts b/plugins/warda/steps/check-authority.ts
 new file mode 100644
-index 0000000..37a0410
+index 00000000..37a0410d
 --- /dev/null
 +++ b/plugins/warda/steps/check-authority.ts
 @@ -0,0 +1,149 @@
@@ -581,7 +511,7 @@ index 0000000..37a0410
 +export const _integrationType = "warda";
 diff --git a/plugins/warda/steps/locate-grant.ts b/plugins/warda/steps/locate-grant.ts
 new file mode 100644
-index 0000000..2d28f1b
+index 00000000..2d28f1b0
 --- /dev/null
 +++ b/plugins/warda/steps/locate-grant.ts
 @@ -0,0 +1,159 @@
@@ -746,7 +676,7 @@ index 0000000..2d28f1b
 +export const _integrationType = "warda";
 diff --git a/plugins/warda/steps/verify-grant.ts b/plugins/warda/steps/verify-grant.ts
 new file mode 100644
-index 0000000..cb473cd
+index 00000000..cb473cd2
 --- /dev/null
 +++ b/plugins/warda/steps/verify-grant.ts
 @@ -0,0 +1,141 @@
@@ -893,7 +823,7 @@ index 0000000..cb473cd
 +export const _integrationType = "warda";
 diff --git a/plugins/warda/steps/warda-core.ts b/plugins/warda/steps/warda-core.ts
 new file mode 100644
-index 0000000..e4d6d38
+index 00000000..e4d6d386
 --- /dev/null
 +++ b/plugins/warda/steps/warda-core.ts
 @@ -0,0 +1,261 @@
@@ -1160,7 +1090,7 @@ index 0000000..e4d6d38
 +}
 diff --git a/plugins/warda/test.ts b/plugins/warda/test.ts
 new file mode 100644
-index 0000000..f2d9a7c
+index 00000000..f2d9a7c4
 --- /dev/null
 +++ b/plugins/warda/test.ts
 @@ -0,0 +1,52 @@
@@ -1218,7 +1148,7 @@ index 0000000..f2d9a7c
 +}
 diff --git a/tests/unit/warda-check-authority.test.ts b/tests/unit/warda-check-authority.test.ts
 new file mode 100644
-index 0000000..6d8326c
+index 00000000..6d8326c8
 --- /dev/null
 +++ b/tests/unit/warda-check-authority.test.ts
 @@ -0,0 +1,237 @@
@@ -1459,6 +1389,3 @@ index 0000000..6d8326c
 +    expect(toSompi("0.123456789", "kas")).toHaveProperty("error");
 +  });
 +});
--- 
-2.43.0
-

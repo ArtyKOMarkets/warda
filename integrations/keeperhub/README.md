@@ -61,10 +61,18 @@ allowlist, and re-run `pnpm discover-plugins`.
 
 ## What was checked against their tree
 
-Verified in a clone of `KeeperHub/keeperhub` at `e089f84`:
+Re-verified on 16 September 2026 against `KeeperHub/keeperhub` at `978b916a`,
+which is 403 commits past the `e089f84` this was first built on. The plugin
+directory, the allowlist entry and the tests still applied unchanged; only the
+two generated registries needed redoing, because other people added plugins and
+moved the context lines. That is the drift to expect from this repo — it is
+busy, and a patch against it goes stale in days, not months.
 
-- `npx tsc --noEmit` reports no errors in any of these files. Ten pre-existing
-  errors elsewhere in the repo are untouched.
+Verified in a clone at `978b916a`:
+
+- `npx tsc --noEmit` reports no errors in any of these files. The one
+  pre-existing error elsewhere in the repo — a missing `@workflow/builders`
+  module in `tests/unit/workflow-directive-detection.test.ts` — is untouched.
 - The "Forbid raw network egress in plugins" CI check passes: every request
   goes through `safeFetch`, and `plugins/*/test.ts` is excluded by that check
   by design.
