@@ -14,6 +14,19 @@
  * nav itself (the `--nv-*` block, each with a literal fallback) or written
  * with a fallback at the point of use. A colour that exists on some pages is
  * not a colour this file may rely on.
+ *
+ * ## And the same failure by specificity, which the first fix did not touch
+ *
+ * Six pages carry `a:hover { color: var(--teal-bright) }` — a type selector
+ * plus a pseudo-class, 0-1-1. `.nv-go` was a bare class, 0-1-0. So on those
+ * pages the page won, the "Get started" label took the same colour as the
+ * button under it, and the control rendered as a blank teal pill. The tokens
+ * were all correct by then; the cascade was not.
+ *
+ * So the second rule: every selector in this file is scoped to `.topnav`. A
+ * bar that appears on every page cannot be written at the specificity of a
+ * page's own prose rules, and `!important` would have fixed one property and
+ * left the next one to be found by eye.
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -40,6 +53,36 @@ for (const m of css.matchAll(/var\(\s*(--[\w-]+)\s*([,)])/g)) {
   bare.push(`${FILE}:${line}: var(${name}) with no fallback, and the nav does not declare it.`);
 }
 
+/* Rule two: every selector is scoped to the bar. The two structural rules that
+   are deliberately NOT — the overflow declaration on html/body, and .topnav
+   itself — are named here so an exception stays a decision. */
+const EXEMPT = new Set(["html, body", ".topnav", "body > .topnav"]);
+const unscoped = [];
+{
+  const lines = css.split("\n");
+  lines.forEach((line, i) => {
+    const m = /^(\s*)([^{}/@\s][^{}]*?)\s*\{/.exec(line);
+    if (!m) return;
+    const sel = m[2].trim();
+    if (EXEMPT.has(sel)) return;
+    for (const part of sel.split(",").map((q) => q.trim())) {
+      if (part.startsWith(".topnav") || part.startsWith("html") || part.startsWith("body")) continue;
+      unscoped.push(`${FILE}:${i + 1}: \`${part}\` is not scoped to .topnav.`);
+    }
+  });
+}
+
+if (unscoped.length) {
+  console.error(`\nnav specificity: ${unscoped.length} selector(s) a page can outrank.\n`);
+  for (const u of unscoped) console.error(`  ${u}`);
+  console.error(
+    `\n  Prefix it with \`.topnav \`. Six pages carry \`a:hover { color: … }\` at 0-1-1, and a\n` +
+      `  bare class in this file loses to it — which is how the Get started button became a\n` +
+      `  blank teal pill on half the site.\n`,
+  );
+  process.exit(1);
+}
+
 if (bare.length) {
   console.error(`\nnav tokens: ${bare.length} depend on the page.\n`);
   for (const b of bare) console.error(`  ${b}`);
@@ -50,5 +93,6 @@ if (bare.length) {
   process.exit(1);
 }
 console.log(
-  `nav tokens: ${declared.size} declared by the bar itself, and nothing in it depends on a page's palette.`,
+  `nav tokens: ${declared.size} declared by the bar itself, nothing depends on a page's palette, ` +
+    `and every selector is scoped to .topnav.`,
 );

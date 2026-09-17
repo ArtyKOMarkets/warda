@@ -84,6 +84,22 @@
      navigation for its readers with no error anywhere. */
   html, body { overflow-x: clip; }
 
+  /* ---- every selector below is scoped to .topnav ------------------------
+     Not tidiness — specificity, and the second half of the same bug the
+     token block above describes.
+
+     Six pages carry `a:hover { color: var(--teal-bright) }`. That is a type
+     selector plus a pseudo-class, 0-1-1, and `.nv-go` was a bare class, 0-1-0.
+     So on those pages the page won: the "Get started" label turned the same
+     colour as the button it sits on and the control rendered as a blank teal
+     pill. It read as the button changing when you navigate, because it did.
+
+     A bar that appears on every page cannot be written at the specificity of a
+     page's own prose rules. `.topnav .nv-go` is 0-2-0 and beats any `a:hover`
+     a page can reasonably write, without a single `!important` — which would
+     have fixed this one case and left the next one to be found by eye.
+     `ops/check-nav-tokens.mjs` keeps it true. */
+
   /* ---- the bar brings its own palette ----------------------------------
      Every colour below is `the page's token, or this literal`. That is not
      belt-and-braces; it is a bug that shipped.
@@ -137,20 +153,20 @@
                   max-width: 74rem;
                   padding-top: 0; padding-bottom: 0; height: 3.7rem; }
   .topnav a { text-decoration: none; white-space: nowrap; }
-  .nv-brand { font-family: var(--nv-display); font-weight: 700; font-size: 1.12rem;
+  .topnav .nv-brand { font-family: var(--nv-display); font-weight: 700; font-size: 1.12rem;
               letter-spacing: 0.01em; color: var(--nv-chrome); margin-right: 0.4rem; }
-  .nv-brand:hover { color: var(--nv-teal); }
+  .topnav .nv-brand:hover { color: var(--nv-teal); }
   /* `flex: 1` so the row fills the bar, which is what lets the menu button sit
      at the far right of the links rather than bunched against "Funding". The
      ranking is the point: five words a newcomer understands, then one control
      that opens everything a sceptic wants. */
-  .nv-links { display: flex; align-items: center; gap: 1.5rem; flex: 1 1 auto; margin-right: auto; }
-  .nv-links a { font-family: var(--nv-body); font-size: 0.88rem; color: var(--nv-chrome-dim);
+  .topnav .nv-links { display: flex; align-items: center; gap: 1.5rem; flex: 1 1 auto; margin-right: auto; }
+  .topnav .nv-links a { font-family: var(--nv-body); font-size: 0.88rem; color: var(--nv-chrome-dim);
                 transition: color 140ms ease; }
-  .nv-links a:hover { color: var(--nv-chrome); }
+  .topnav .nv-links a:hover { color: var(--nv-chrome); }
   /* The page you are on, said in the markup rather than guessed by script:
      these are static files and build.py knows which one it is writing. */
-  .nv-links a[aria-current="page"] { color: var(--nv-chrome); }
+  .topnav .nv-links a[aria-current="page"] { color: var(--nv-chrome); }
 
   /* ---- the Check protocol menu -----------------------------------------
      A <details>/<summary> with a panel, not a scripted dropdown. The element
@@ -159,49 +175,49 @@
      look. Every dropdown bug this could have had — focus trapped in a closed
      panel, a summary that is not reachable by keyboard, a menu that eats the
      first tap on touch — is a bug in code that is not here. */
-  .nv-menu { position: relative; margin-left: auto; }
-  .nv-menu > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center;
+  .topnav .nv-menu { position: relative; margin-left: auto; }
+  .topnav .nv-menu > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center;
                        gap: 0.4rem; font-family: var(--nv-body); font-size: 0.88rem;
                        color: var(--nv-chrome); padding: 0.34rem 0.8rem;
                        border: 1px solid var(--nv-edge-bright); border-radius: 999px;
                        transition: border-color 140ms ease, color 140ms ease; }
-  .nv-menu > summary::-webkit-details-marker { display: none; }
-  .nv-menu > summary::after { content: ""; width: 0.36rem; height: 0.36rem; margin-top: -0.18rem;
+  .topnav .nv-menu > summary::-webkit-details-marker { display: none; }
+  .topnav .nv-menu > summary::after { content: ""; width: 0.36rem; height: 0.36rem; margin-top: -0.18rem;
                               border-right: 1.4px solid currentColor; border-bottom: 1.4px solid currentColor;
                               transform: rotate(45deg); transition: transform 180ms ease; }
-  .nv-menu[open] > summary::after { transform: rotate(-135deg) translate(-0.1rem, -0.1rem); }
-  .nv-menu > summary:hover { border-color: var(--nv-teal-deep); color: var(--nv-teal); }
-  .nv-menu > summary:focus-visible { outline: 2px solid var(--nv-teal-bright); outline-offset: 3px; }
+  .topnav .nv-menu[open] > summary::after { transform: rotate(-135deg) translate(-0.1rem, -0.1rem); }
+  .topnav .nv-menu > summary:hover { border-color: var(--nv-teal-deep); color: var(--nv-teal); }
+  .topnav .nv-menu > summary:focus-visible { outline: 2px solid var(--nv-teal-bright); outline-offset: 3px; }
 
-  .nv-sheet { position: absolute; top: calc(100% + 0.7rem); right: 0; z-index: 70;
+  .topnav .nv-sheet { position: absolute; top: calc(100% + 0.7rem); right: 0; z-index: 70;
               min-width: 20rem; display: grid; gap: 0.1rem;
               background: var(--nv-ground); border: 1px solid var(--nv-edge);
               border-radius: 12px; padding: 0.5rem; box-shadow: 0 24px 60px rgba(0,0,0,0.55); }
-  .nv-sheet a { display: block; padding: 0.6rem 0.75rem; border-radius: 8px;
+  .topnav .nv-sheet a { display: block; padding: 0.6rem 0.75rem; border-radius: 8px;
                 transition: background 120ms ease; white-space: normal; }
-  .nv-sheet a:hover { background: var(--nv-panel); }
-  .nv-sheet b { display: block; font-family: var(--nv-body); font-size: 0.9rem; font-weight: 600;
+  .topnav .nv-sheet a:hover { background: var(--nv-panel); }
+  .topnav .nv-sheet b { display: block; font-family: var(--nv-body); font-size: 0.9rem; font-weight: 600;
                 color: var(--nv-chrome); }
-  .nv-sheet span { display: block; font-size: 0.76rem; color: var(--nv-chrome-faint); margin-top: 0.1rem; }
-  .nv-sheet a[aria-current="page"] b { color: var(--nv-teal); }
+  .topnav .nv-sheet span { display: block; font-size: 0.76rem; color: var(--nv-chrome-faint); margin-top: 0.1rem; }
+  .topnav .nv-sheet a[aria-current="page"] b { color: var(--nv-teal); }
 
-  .nv-status { font-family: var(--nv-mono); font-size: 0.6rem; letter-spacing: 0.09em;
+  .topnav .nv-status { font-family: var(--nv-mono); font-size: 0.6rem; letter-spacing: 0.09em;
                text-transform: uppercase; color: var(--nv-chrome-faint); opacity: 0.8;
                white-space: nowrap; }
-  .nv-status b { color: var(--nv-amber); font-weight: 600; }
-  .nv-go { font-family: var(--nv-body); font-size: 0.85rem; font-weight: 600;
+  .topnav .nv-status b { color: var(--nv-amber); font-weight: 600; }
+  .topnav .nv-go { font-family: var(--nv-body); font-size: 0.85rem; font-weight: 600;
            background: var(--nv-teal); color: var(--nv-void); padding: 0.5rem 1.05rem;
            border-radius: 999px; transition: background 140ms ease; }
-  .nv-go:hover { background: var(--nv-teal-bright); }
-  .topnav a:focus-visible, .nv-burger:focus-visible { outline: 2px solid var(--nv-teal-bright); outline-offset: 3px; }
+  .topnav .nv-go:hover { background: var(--nv-teal-bright); }
+  .topnav a:focus-visible, .topnav .nv-burger:focus-visible { outline: 2px solid var(--nv-teal-bright); outline-offset: 3px; }
 
-  .nv-burger { display: none; background: none; border: 1px solid var(--nv-edge-bright);
+  .topnav .nv-burger { display: none; background: none; border: 1px solid var(--nv-edge-bright);
                border-radius: 7px; width: 2.4rem; height: 2.1rem; cursor: pointer;
                flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
-  .nv-burger span { width: 14px; height: 1.5px; background: var(--nv-chrome); transition: 200ms ease; }
-  .nv-burger[aria-expanded="true"] span:nth-child(1) { transform: translateY(5.5px) rotate(45deg); }
-  .nv-burger[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
-  .nv-burger[aria-expanded="true"] span:nth-child(3) { transform: translateY(-5.5px) rotate(-45deg); }
+  .topnav .nv-burger span { width: 14px; height: 1.5px; background: var(--nv-chrome); transition: 200ms ease; }
+  .topnav .nv-burger[aria-expanded="true"] span:nth-child(1) { transform: translateY(5.5px) rotate(45deg); }
+  .topnav .nv-burger[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+  .topnav .nv-burger[aria-expanded="true"] span:nth-child(3) { transform: translateY(-5.5px) rotate(-45deg); }
 
   /* ---- where the bar stops fitting -------------------------------------
      Measured, not guessed, and re-measured after /sandbox made nine links out
@@ -229,26 +245,26 @@
   @media (max-width: 1180px) { .nv-status { display: none; } }
 
   @media (max-width: 900px) {
-    .nv-burger { display: flex; }
-    .nv-links { position: absolute; left: 0; right: 0; top: 100%; display: none;
+    .topnav .nv-burger { display: flex; }
+    .topnav .nv-links { position: absolute; left: 0; right: 0; top: 100%; display: none;
                 flex-direction: column; align-items: stretch; gap: 0; margin: 0;
                 background: var(--nv-ground); border-bottom: 1px solid var(--nv-edge);
                 padding: 0.3rem var(--nv-gutter) 1rem; }
-    .nv-links[data-open="1"] { display: flex; }
-    .nv-links a { padding: 0.85rem 0; border-bottom: 1px solid var(--nv-edge); font-size: 0.95rem; }
+    .topnav .nv-links[data-open="1"] { display: flex; }
+    .topnav .nv-links a { padding: 0.85rem 0; border-bottom: 1px solid var(--nv-edge); font-size: 0.95rem; }
     /* Stacked, the sheet is part of the list rather than floating over it:
        an absolutely-positioned panel inside a full-width menu opens off the
        right edge of a phone, which is the one place this menu matters most. */
-    .nv-menu { width: 100%; margin-left: 0; }
-    .nv-menu > summary { justify-content: space-between; width: 100%; border: 0;
+    .topnav .nv-menu { width: 100%; margin-left: 0; }
+    .topnav .nv-menu > summary { justify-content: space-between; width: 100%; border: 0;
                          border-bottom: 1px solid var(--nv-edge); border-radius: 0;
                          padding: 0.85rem 0; font-size: 0.95rem; }
-    .nv-sheet { position: static; min-width: 0; border: 0; border-radius: 0; padding: 0 0 0 0.9rem;
+    .topnav .nv-sheet { position: static; min-width: 0; border: 0; border-radius: 0; padding: 0 0 0 0.9rem;
                 box-shadow: none; background: transparent; }
-    .nv-sheet a { padding: 0.7rem 0; border-bottom: 1px solid var(--nv-edge); border-radius: 0; }
-    .nv-sheet a:hover { background: transparent; }
+    .topnav .nv-sheet a { padding: 0.7rem 0; border-bottom: 1px solid var(--nv-edge); border-radius: 0; }
+    .topnav .nv-sheet a:hover { background: transparent; }
     .topnav .wrap { gap: 0.9rem; }
-    .nv-go { margin-left: auto; }
+    .topnav .nv-go { margin-left: auto; }
   }
 
 </style>
