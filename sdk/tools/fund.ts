@@ -27,7 +27,7 @@
  * when the total is there but the coin is not, and names the command that
  * fixes it.
  */
-import { readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
 import { borshRequested, openChain, type Chain } from "./chain.ts";
 import {
@@ -146,6 +146,45 @@ try {
     const utxos = (await client.getUtxosByAddresses([address])).filter((u) => !u.entry.covenantId);
     if (utxos.some((u) => u.entry.value >= required)) {
       console.error(" arrived.");
+
+      /* The rail's half of the receipt, written where the grant's half will
+         land beside it. Everything else this project publishes can be
+         re-derived from the chain; the rate, the venue and whose word they are
+         cannot be, which is exactly why they have to be written down at the
+         moment they are still true. */
+      try {
+        if (!existsSync(".warda")) mkdirSync(".warda");
+        writeFileSync(
+          ".warda/funding.json",
+          JSON.stringify(
+            {
+              _comment:
+                "How the KAS for this grant was obtained. 'assumed' because nobody here " +
+                "saw the sale or the withdrawal — see router/DESIGN.md.",
+              fundedAt: new Date().toISOString(),
+              network,
+              fundingAddress: address,
+              requiredSompi: String(required),
+              asset,
+              venue,
+              ratePerKas: rate,
+              rateSource: "the operator, at the rate they traded",
+              costStated: `${quote.price.amount} ${quote.price.asset}`,
+              custody: plan.custody,
+              zone: "assumed",
+              stepsNobodyHereSaw: plan.steps.filter((x) => x.action === "off-protocol").length,
+            },
+            null,
+            2,
+          ) + "\n",
+        );
+        console.error("  rail recorded in .warda/funding.json");
+      } catch (e) {
+        /* Never fatal. The coin has arrived and the grant is the point; a
+           receipt that could not be written is worth one line, not an exit. */
+        console.error(`  (could not write .warda/funding.json: ${(e as Error).message})`);
+      }
+
       console.error();
       console.error("Now bound it:  warda grant --payees <file> --budget …");
       process.exit(0);
