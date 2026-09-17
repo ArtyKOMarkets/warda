@@ -482,7 +482,13 @@
      The status line is the widest item and the most repeatable — it is on
      every page and says the same thing — so it goes first. The links go
      second, into the menu that already exists. */
-  @media (max-width: 1200px) { .nv-status { display: none; } }
+  /* 1320, not 1200. Ten links, the status and the button stop fitting together
+     somewhere between 1280 and 1366, and the button is the thing that went off
+     the right edge. The status is the part that can go: it is a sticky-bar
+     convenience, and the same disclosure is in the footer of every page and in
+     the page content itself, so nothing honest is lost by dropping it on a
+     narrower screen. Measured at sixteen widths on four pages. */
+  @media (max-width: 1320px) { .nv-status { display: none; } }
 
   @media (max-width: 1040px) {
     .nv-burger { display: flex; }
@@ -588,6 +594,7 @@
       <a href="/start" data-nv="start.html">Start</a>
       <a href="/build" data-nv="build.html">How it works</a>
       <a href="/agents" data-nv="agents.html">Agents</a>
+      <a href="/rail" data-nv="rail.html">Funding</a>
       <a href="/network" data-nv="network.html">Registry</a>
       <a href="/sandbox" data-nv="sandbox.html">Sandbox</a>
       <a href="/verify" data-nv="verify.html">Verify</a>
