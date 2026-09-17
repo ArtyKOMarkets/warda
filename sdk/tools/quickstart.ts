@@ -226,6 +226,33 @@ if (!agentSecret || !agentPublic) {
 }
 
 if (agentOut) {
+  /**
+   * Refuse to overwrite an agent key, for the same reason new-key.ts does and
+   * with more at stake.
+   *
+   * A funder key that is replaced strands a coin. An AGENT key that is
+   * replaced strands a funded grant: the covenant names the old agent, so the
+   * new key cannot spend it, and the grant can then only be revoked or
+   * reclaimed — never used for the thing it was created to do. Running
+   * `warda grant` twice in one directory is an ordinary mistake and it should
+   * not be able to do that silently.
+   *
+   * Checked BEFORE genesis, not after, so the refusal costs nothing: no
+   * transaction has been built and no coin has moved.
+   */
+  if (existsSync(agentOut) && !process.argv.includes("--force")) {
+    say();
+    say(`${agentOut} already exists.`);
+    say();
+    say(
+      `That file is an agent's whole authority. If a grant already names the key in it,\n` +
+        `replacing it leaves that grant spendable by nobody — revocable and reclaimable,\n` +
+        `but never usable. Nothing has been built or submitted yet, so nothing is lost.\n\n` +
+        `  --agent-out <another.key>   a new agent, beside the old one\n` +
+        `  --force                     replace it anyway\n`,
+    );
+    process.exit(2);
+  }
   writeFileSync(agentOut, agentSecret + "\n", { mode: 0o600 });
   say(`Agent key written to ${agentOut} (0600).`);
 }

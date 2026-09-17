@@ -26,9 +26,9 @@
  * hand to strangers. Generate a separate one.
  */
 import { randomBytes } from "node:crypto";
-import { writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 
-import { toHex } from "../src/bytes.ts";
+import { fromHex, toHex } from "../src/bytes.ts";
 import { pubkeyToAddress, type NetworkPrefix } from "../src/address.ts";
 import { agentPublicKey } from "../src/sign.ts";
 import { resolveNetwork } from "./network.ts";
@@ -37,6 +37,7 @@ function flag(name: string, fallback?: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
   return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : fallback;
 }
+const has = (name: string) => process.argv.includes(`--${name}`);
 
 /* Resolved and CHECKED together: a prefix and a network that disagree
    derive a well-formed address on the wrong chain, which holds nothing and
@@ -80,6 +81,46 @@ console.error(`  public  : ${publicHex}`);
 console.error(`  address : ${pubkeyToAddress(publicKey, prefix)}`);
 
 if (out) {
+  /**
+   * Refuse to overwrite a key that already exists.
+   *
+   * This wrote unconditionally, and on 17 September that silently replaced a
+   * funder key holding 1000 KAS — the whole of a faucet's minimum grant —
+   * because the setup block that creates a key was pasted twice. The coin was
+   * still at the old address; the only copy of the key that could move it was
+   * not. Nothing warned, because nothing looked.
+   *
+   * A key file is the single copy of an authority. Losing one is not a state
+   * this tool can undo, so it is a state this tool will not enter: --force is
+   * available and says what it costs, and the address of the key already there
+   * is printed, because "which key am I about to destroy" is the question
+   * somebody needs answered before they answer the prompt.
+   */
+  if (existsSync(out) && !has("force")) {
+    let existing = "";
+    try {
+      existing = pubkeyToAddress(
+        agentPublicKey(fromHex(readFileSync(out, "utf8").trim())),
+        prefix,
+      );
+    } catch {
+      existing = "unreadable — but it is a file, and this would have replaced it";
+    }
+    console.error();
+    console.error(`${out} already exists, and holds the key for:`);
+    console.error();
+    console.error(`  ${existing}`);
+    console.error();
+    console.error(
+      `Refusing to overwrite it. If that address holds anything, this is the only\n` +
+        `copy of the key that can move it — there is no recovery from replacing it.\n\n` +
+        `  warda wallet --key ${out}        what is actually there\n` +
+        `  warda key --out <another.key>    a new key, beside it\n` +
+        `  warda key --out ${out} --force   destroy it anyway\n`,
+    );
+    process.exit(2);
+  }
+
   // 0600. A secret written world-readable is a secret you have to rotate.
   writeFileSync(out, toHex(secret) + "\n", { mode: 0o600 });
   writeFileSync(`${out}.pub`, publicHex + "\n");
