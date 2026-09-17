@@ -1,0 +1,15 @@
+{
+  "_comment": "How the KAS for this grant was obtained. 'assumed' because nobody here saw the sale or the withdrawal — see router/DESIGN.md.",
+  "fundedAt": "2026-09-17T07:21:40.614Z",
+  "network": "testnet-10",
+  "fundingAddress": "kaspatest:qplutjmzldzj9tphlzg2tj200c3ldle078fqzum535nu95sz69g3yucfaklyp",
+  "requiredSompi": "301000000",
+  "asset": "USDC",
+  "venue": "testnet faucet",
+  "ratePerKas": "0.05",
+  "rateSource": "the operator, at the rate they traded",
+  "costStated": "0.1505 USDC",
+  "custody": "none",
+  "zone": "assumed",
+  "stepsNobodyHereSaw": 2
+}

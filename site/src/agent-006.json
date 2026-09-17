@@ -1,0 +1,127 @@
+{
+  "_comment": "Written by agents/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, the purchase log or the chain — none is typed. Each payee's LABEL is re-derived on every run from the artefact agents/known-payees.json names, and a label that stops matching is dropped rather than published: an address with no name is honest, an address with the wrong name is not.",
+  "checkedAt": "2026-09-17T08:08:31.232Z",
+  "network": "testnet-10",
+  "identity": {
+    "agentId": "WARDA-006",
+    "agent": "9765fba672d3a2c5b50326942ee7729f00ea05d4e1aa4c35a653e77e770bc324",
+    "principal": "7fc5cb62fb4522ac37f890a5c94f7e23f6ff2ff1d20173748d27c2d202d15112",
+    "revocation": "4c36442ee9f1677a04c72b29931a18bbe085b44bb2da165a965b4d9bd1fc4897",
+    "grantAddress": "kaspatest:pr9fs9yz2h78rx8sv0ukf84jcx0gh9kfcp7fc39j2t4fss0gks0t7q2g3duv9",
+    "covenantId": "c501850c612f56ecf25bdc0f185ffd6e4fdba8cf6c5de96f093e274b4a988e29",
+    "template": "b3e5eeefacf2021f"
+  },
+  "buysFrom": {
+    "endpoint": "https://warda-demo-api.vercel.app/fact",
+    "payees": [
+      {
+        "address": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
+        "key": "16e6af2030f7e4510d1a417391a7ff7ccad21864f17eef7ee035f0453e21a033",
+        "label": "the Warda demo vendor",
+        "derivation": "the pay-to-public-key address of covenant/deploy/demo-vendor.key, which is the address https://warda-demo-api.vercel.app quotes for /weather, /fact and /inference",
+        "ours": true
+      }
+    ],
+    "address": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
+    "bothEndsAreOurs": true,
+    "disclosure": {
+      "title": "Both ends of this are ours",
+      "paragraphs": [
+        "Every agent on this site was built here, and the vendor this one buys from is ours too. This is therefore NOT a market, and saying otherwise would be the easiest claim on this site to catch out.",
+        "What it is: a payment between independent grants, with different keys, each able to pay a fixed list of addresses, settled on a public chain where anyone can look it up. The demonstration is that the rails work — not that a third party chose to trade with us.",
+        "Agent #001's digest is published free at wardaprotocol.com/agent-001.json, because pretending it was scarce would have traded the checkable claim for a flattering one."
+      ]
+    }
+  },
+  "timelock": {
+    "notBefore": "572721927",
+    "virtualDaaScore": "572750091",
+    "open": true,
+    "lockedFor": "0 seconds",
+    "openedAgo": "47 minutes",
+    "enforcedBy": "the covenant, on every spend: claimedDaa >= notBefore. Not a scheduler, not this process, and not revocable by whoever issued the grant."
+  },
+  "authority": {
+    "budget": "3 KAS",
+    "spent": "0.03 KAS",
+    "remaining": "2.97 KAS",
+    "maxPerPayment": "0.25 KAS",
+    "epochLimit": "2 KAS",
+    "epochLengthDaa": 1000,
+    "authorizedPayees": 1,
+    "payees": [
+      "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4"
+    ],
+    "delegationDepth": 2,
+    "onChain": "2.95 KAS",
+    "sompi": {
+      "budget": "300000000",
+      "spent": "3000000",
+      "reserved": "0",
+      "maxPerPayment": "25000000",
+      "epochLimit": "200000000",
+      "onChain": "295000000"
+    }
+  },
+  "activity": {
+    "payments": 1,
+    "paid": "0.03 KAS",
+    "paidOutsideTheAllowlist": "0 KAS",
+    "coins": [
+      {
+        "amount": "0.03 KAS",
+        "daaScore": "572725671",
+        "txid": "c8e2b9f990351fb0863303c2089bf37bf11f447984872395a7a6c5be48f489ac",
+        "index": 1
+      }
+    ]
+  },
+  "purchases": [
+    {
+      "at": "2026-09-17T07:28:01.845Z",
+      "outcome": "bought",
+      "url": "https://warda-demo-api.vercel.app/fact",
+      "reason": null,
+      "txid": "c8e2b9f990351fb0863303c2089bf37bf11f447984872395a7a6c5be48f489ac",
+      "paid": "0.03 KAS",
+      "payTo": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
+      "refusal": null,
+      "sellerClaimed": "warda demo vendor"
+    }
+  ],
+  "reconciliation": {
+    "spentPerTheCovenant": "0.03 KAS",
+    "namedByTheLog": "0.03 KAS",
+    "chargedHomeBySettlement": null,
+    "unrecorded": "0 KAS",
+    "couldAccountForIt": [],
+    "note": "Every sompi the covenant says this grant spent is named by a purchase it recorded. The two halves of this page agree."
+  },
+  "refusals": [
+    {
+      "rule": "start time (not_before)",
+      "attempted": "spend before the grant opens",
+      "refusal": "this grant could not spend anything until DAA 572721927. The covenant checks the claimed DAA score against that number on every spend, so the delay was not a policy in the agent's process and could not be brought forward by whoever issued it. It opened 47 minutes ago.",
+      "derived": true
+    },
+    {
+      "rule": "payee allowlist",
+      "attempted": "pay any address other than agent #001",
+      "refusal": "kaspatest:qrxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvc3rysjr0d is not on this grant's allowlist, so no inclusion proof places it in the recipients tree. There is no valid transaction that pays them — not one the network would reject, none at all. A grant's payees are fixed at genesis: to pay this vendor you need a grant that committed to them.",
+      "derived": true
+    },
+    {
+      "rule": "per-payment cap",
+      "attempted": "pay 0.25000001 KAS to agent #001",
+      "refusal": "this invoice is 25000001 sompi and the grant's per-payment cap is 25000000. The cap exists to bound what a single decision can do, so it binds here regardless of how much budget remains.",
+      "derived": true
+    },
+    {
+      "rule": "lifetime budget",
+      "attempted": "pay 3 KAS to agent #001",
+      "refusal": "this invoice is 300000000 sompi and the grant's per-payment cap is 25000000. The cap exists to bound what a single decision can do, so it binds here regardless of how much budget remains.",
+      "derived": true
+    }
+  ],
+  "mission": "Be bought rather than funded: an asset sold once, a grant bounded from what arrived, and every power held by a different key."
+}
