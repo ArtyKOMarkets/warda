@@ -1,9 +1,9 @@
 {
   "_comment": "Written by ops/check-verify.sh. Whether the hosted verification API can actually verify. Probes /v1/verify with the published demo manifest, not /health — /health answered perfectly through a total outage of the path that derives an address. grantStillFunded is reported and NOT alarmed on: /attack publishes that grant's key and invites strangers to spend it.",
-  "checkedAt": "2026-09-17T05:45:00Z",
+  "checkedAt": "2026-09-17T07:45:00Z",
   "endpoint": "https://verify.wardaprotocol.com",
   "ok": true,
-  "lastOk": "2026-09-17T05:45:00Z",
+  "lastOk": "2026-09-17T07:45:00Z",
   "answered": { "status": 200, "ok": true },
   "derivedExpectedAddress": true,
   "node": { "usable": true, "covenantAware": true },
