@@ -1,0 +1,54 @@
+<section>
+  <p class="eyebrow">The question this answers</p>
+  <h2>Can an agent be bought, rather than funded by hand?</h2>
+  <p>
+    Every other agent here was funded the way a developer funds things: a key that already held
+    KAS, a command, a grant. That is fine and it is also the reason none of them says anything
+    about the people this protocol is actually for &mdash; who hold stablecoins, have never
+    touched Kaspa, and are not going to acquire a new asset in order to give a program a budget.
+  </p>
+  <p>
+    This one was bought. <code>warda fund</code> worked out what to sell, named the address to
+    send the KAS to, waited for it to arrive, and bounded what landed. Two of those four steps
+    happen somewhere Warda cannot see &mdash; the sale and the withdrawal &mdash; and they are
+    printed as instructions rather than reported as progress, because a tool that describes the
+    part it cannot observe in the same voice as the part it performs is a tool whose receipt
+    claims more than happened.
+  </p>
+  <p>
+    <strong>The honest gap, first:</strong> the KAS came from the testnet faucet, not a market.
+    Testnet coin has no buyers, so the one leg of this that cannot be exercised here is the sale
+    itself. Everything after it is real, on chain, and checkable below. The funding record says
+    <code>assumed</code> against that leg and names the venue, which is the faucet, because a
+    receipt that quietly upgraded it would be worth nothing.
+  </p>
+  <p>
+    Three powers, three keys &mdash; and this is the first grant here where that is true. The
+    agent key spends inside the limits. A <em>separate</em> revocation key can stop it at any
+    moment and receives nothing. The principal receives the balance on revoke or at expiry. The
+    first attempt at this grant collapsed revocation into principal, the tool warned, and it was
+    revoked and reissued rather than published with the warning in a footnote &mdash; the exit is
+    <code>0528e876&hellip;</code> and the money went back to the principal, which is the covenant
+    doing exactly what it says it does.
+  </p>
+  <p>
+    Its payments are <strong>settled, not relayed</strong>. The vendor takes a covenant spend
+    directly, so the payee sits in the grant&rsquo;s allowlist and the chain refused every
+    transaction that paid anybody else. That is a stronger claim than agent&nbsp;#005 can make
+    about its own purchases, and the difference is a property of the vendor&rsquo;s protocol
+    rather than of anyone&rsquo;s diligence.
+  </p>
+  <p>
+    The funding itself is written down, in
+    <code>agent-006/funding.json</code> in the repository: which asset, which venue, the rate
+    and <em>whose word it is</em>. That file exists because it is the one part of this nobody
+    can re-derive from the chain afterwards. Everything else on this page can be checked
+    against Kaspa by a stranger; that cannot, so it is recorded at the moment it was still true
+    and marked as the operator&rsquo;s claim.
+  </p>
+  <p>
+    Nothing tops it up. When the budget is gone it starts refusing, and that refusal is the
+    point rather than the end of the demonstration.
+  </p>
+  {{LOCK}}
+</section>

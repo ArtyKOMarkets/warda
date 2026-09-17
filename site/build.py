@@ -111,6 +111,8 @@ AGENT_PAGES = {
            "piece of its parent's authority that can only ever shrink and settles back when it is done.",
     "005": "An agent that buys from a vendor nobody here controls, unattended, every morning — so "
            "that the one thing hardest to fake about this protocol can be checked rather than believed.",
+    "006": "An agent that was bought rather than funded by hand: an asset sold once, a grant "
+           "bounded from what arrived, and three powers held by three different keys.",
 }
 
 CRYPTO = (here / "src" / "_crypto.js").read_text()
@@ -371,6 +373,18 @@ AGENTS = [
      "    --endpoint https://demo.kaspa-x402.org/exact \\\n"
      "    --mission \"Buy from a vendor nobody here controls, every morning, and write down what happened whether or not it worked.\" \\\n"
      "    > site/src/agent-005.json.new && mv site/src/agent-005.json.new site/src/agent-005.json"),
+    # #006 keeps everything in one directory, including its grant: it was
+    # created outside this repo by `warda fund` and copied in whole, so
+    # splitting the manifest away from the payees and the purchases would only
+    # be a convention inherited from agents that predate the command.
+    ("agent-006.json", "agent-006.html",
+     "node --experimental-strip-types agents/tools/dashboard.ts \\\n"
+     "    agent-006/grant-006.json --id WARDA-006 \\\n"
+     "    --recipients agent-006/payees.txt \\\n"
+     "    --purchases agent-006/purchases \\\n"
+     "    --endpoint https://warda-demo-api.vercel.app/fact \\\n"
+     "    --mission \"Be bought rather than funded: an asset sold once, a grant bounded from what arrived, and every power held by a different key.\" \\\n"
+     "    > site/src/agent-006.json.new && mv site/src/agent-006.json.new site/src/agent-006.json"),
 ]
 
 
