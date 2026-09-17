@@ -1,51 +1,107 @@
 # The payment router — decisions before the first line of it exists
 
-17 September 2026. Written before the code, because the failure mode here is
-not a bug: it is a router that quietly becomes a custodian, and a receipt that
-claims consensus enforced something consensus never saw.
+17 September 2026. Rewritten the same day it was first written, because the
+first version was shaped around bridging value per payment and that is the
+wrong shape. What was argued down is kept at the bottom; this repo's habit is
+that a decision reversed in private gets made again in six months.
 
-The positioning is *any asset in, KAS out*. The discipline is that every
-sentence of that has to survive being checked.
+## The problem, stated properly
+
+Most agents that want to buy things hold stablecoins. Most services that want
+to sell things want stablecoins. **Kaspa L1 has no stablecoin a covenant can
+hold** — see the verified state below — so an agent holding USDC cannot buy
+bounded authority today, and that is the whole addressable market sitting on
+the other side of a currency mismatch.
+
+Warda solves the two edges and changes nothing in the middle.
+
+    USDC (anywhere)                                        USDC (anywhere)
+         │                                                        ▲
+         │  once, per funding relationship                        │  when the
+         ▼                                                        │  seller chooses
+    ┌─────────────────────────── KASPA L1 ───────────────────────────┐
+    │                                                                │
+    │   genesis ──▶ grant ──spend──▶ seller's Kaspa address          │
+    │                      ×1000, sub-cent, covenant-enforced        │
+    └────────────────────────────────────────────────────────────────┘
+
+## Why KAS is in the middle
+
+Not for settlement efficiency. A USDC-to-USDC payment is a solved problem with
+a thousand rails, and not one of them produces a payment whose ceiling, budget,
+epoch, expiry and payee were **refused by a network rather than promised by
+software**. The KAS leg is not a routing hop. It is the enforcement hop, and it
+is the product.
+
+The sentence this architecture exists to make true:
+
+> USDC in, USDC out, and in between, limits a network keeps instead of a
+> promise someone made.
+
+## Why the conversions sit at the edges of a relationship, not inside a payment
+
+The tempting version converts per payment: swap USDC to KAS, spend, swap back.
+It fails on arithmetic long before it fails on principle. A ten-dollar payment
+that way carries a Uniswap swap, a bridge crossing in, the covenant spend, a
+crossing out and another swap — four operations on expensive chains, two
+crossings of minutes each, against a bridge whose minimum exit is 1,000 KAS.
+**Twenty to thirty dollars of friction and ten minutes of latency on a ten
+dollar payment.** For a thirty-seven cent API call it is not a rail, it is a
+demonstration.
+
+So the grant is a **standing balance, not a conversion**. Fund it once at a
+size that clears the bridge comfortably, make a thousand covenant-enforced
+payments out of it at sub-cent Kaspa fees, and let the seller convert on their
+own schedule. The buyer's experience is unchanged — *I hold USDC, I spend
+USDC*. The seller's is unchanged — *I get paid, I end up with USDC*. The
+conversion cost amortises across every payment instead of being paid twice per
+payment, which is about three orders of magnitude.
+
+## What this preserves, and why that is the point
+
+Converting per payment costs the **payee** constraint: the grant pays whoever
+does the swap-back, so `recipientsRoot` binds the converter and
+`authorisedToPayMe` is `"unknown"` for the seller forever. That is the x402
+relay hop, which this repo already ships and already discloses — but it is the
+one constraint a seller actually reads, and paying it as a standing cost is
+different from paying it where no alternative exists.
+
+Converting at the edges **gives it back**. A seller who receives KAS and
+converts later holds a Kaspa address, so they sit in the allowlist, so
+`authorisedToPayMe` is `"yes"`. All six constraints, including the payee.
+
+| | per payment | per relationship |
+|---|---|---|
+| budget, cap, epoch, window, depth | enforced | enforced |
+| **payee** | **unknown** | **enforced** |
+| cost of a $10 payment | $20–30 | fractions of a cent |
+| latency | ~10 minutes | sub-second |
 
 ## The state this was decided from, verified rather than recalled
 
-- **Igra is a based rollup on Kaspa**, not a sidechain and not L1. KAS wraps
-  1:1 to iKAS across a trust-minimised bridge backed by KAS locked on L1; gas
-  is iKAS; ordering is delegated to Kaspa miners.
-- **Zealous Swap runs on Igra.** Its own app addresses the network as `igra`.
-  It is not an L1 venue.
-- **USDC on Kaspa is USDC.e, bridged by Hyperlane**, and arrives on Igra.
-- **KCC-20 is a draft in a fork.** `kaspanet/kccs` — the canonical repository —
-  has an empty proposals table. The drafts, including KCC-20 "Fungible Token
-  Covenant Specification", live in `Manyfestation/kccs` and are all Draft.
-
-The load-bearing consequence: **the liquidity is not on the layer the covenant
-is on.** A grant spend is an L1 transaction. It cannot touch an Igra pool, in
-the same transaction or in any transaction. Every route crosses a bridge.
-
-Nothing about the asset adapter layer may be built on the assumption that
-KCC-20 exists. It is a possible future adapter, not a foundation.
-
-## The rule that decides the shape
-
-**The covenant spend can never be the swap.**
-
-This is not a new finding; it is `x402/RELAY.md` restated. A Warda spend's
-output 0 *is* the successor grant, so the spending transaction is
-covenant-carrying by construction. An x402 `exact` vendor refuses it, and a DEX
-refuses it for the same structural reason: it is not a bare key-controlled
-payment. So a swap is always at least a second transaction, and across layers
-it is a sequence.
-
-Everything below follows from that one fact.
+- **Kaspa L1 has no covenant-holdable stablecoin.** Chainge has bridged
+  `$CUSDC` and `$CUSDT` onto Kaspa as **KRC-20**, pre-minted against a vault
+  they custody under DCRM, at 0.06% bridging. But KRC-20 is a Kasplex *indexer*
+  convention, not something kaspad validates — so **a covenant cannot enforce
+  anything over a KRC-20 balance.** A grant secures native KAS in a UTXO and
+  nothing else. Chainge also state that KRC-20 DEXs do not yet exist, so there
+  is no on-Kaspa venue to trade them at either.
+- **KCC-20** — covenant-native fungible tokens — is **Draft**, and in a fork:
+  `kaspanet/kccs`, the canonical repository, has an empty proposals table. It
+  is the expiry condition for this whole design (see below), not a foundation.
+- **Wrapped Kaspa is liquid on EVM.** wKAS trades on Uniswap on Ethereum
+  (`0x112b0862…`) and BNB, bridged by Chainge. This is the buyer-side on-ramp
+  and it is somebody else's infrastructure, which is correct.
+- **Igra is a based rollup**, Zealous runs on it, USDC there is USDC.e via
+  Hyperlane, and `KasExitBridge.requestExit` has a **1,000 KAS minimum exit**
+  with `msg.value == (unlockAmountSompi + feeAmountSompi) * 1e10`. Treasury-
+  sized funding clears that floor; per-payment crossing never could.
 
 ## Three zones, named on every field
 
 `authorisedToPayMe: "unknown"` already exists in `provider/src/verify.ts`,
-present rather than omitted, because the relay hop means the chain did not
-constrain who was ultimately paid. The router is that problem with more hops,
-so it inherits that answer and generalises it. Every field of a router receipt
-is one of:
+present rather than omitted. The router inherits that answer and generalises it.
+Every field of a router receipt is one of:
 
 | zone | meaning | who can be wrong |
 |---|---|---|
@@ -53,177 +109,134 @@ is one of:
 | **attested** | a named party signed a statement and can be held to it | that party |
 | **assumed** | nobody proved it; it is a belief about the world | everyone |
 
-Budget, per-payment cap, epoch limit, window, delegation depth and the
-*immediate* recipient are **enforced**. A quote's rate is **attested** by
-whoever signed it. Bridge solvency, pool depth at execution time, and the far
-side of any relay are **assumed**.
-
-A receipt that reports a route without these labels is the thing this document
-exists to prevent. `authorisedToPayMe` stays `"unknown"` and does not become
-`"routed"` — a word that sounds like an answer is worse than the absence of
-one.
+A word that sounds like an answer is worse than the absence of one, so the
+vocabulary is exactly these three and `ops/check-router.mjs` refuses a fourth.
 
 ## Authority is KAS. Pricing may be dollars. These are not the same field.
 
-A covenant is a script validated by Kaspa consensus. It compares sompi. It
-cannot compare dollars, because L1 has no price and no oracle, and a covenant
-that trusted a signed price would have moved the limit back into a process that
-can be captured — which is the exact arrangement Warda exists to argue against.
+A covenant compares sompi, because that is what consensus can see. It cannot
+compare dollars: L1 has no oracle, and a covenant trusting a signed price would
+have moved the limit back into a process that can be captured. **There is no
+`$20 grant` and there will not be one.**
 
-So there is no such object as a `$20 grant`, and there will not be one.
+What there is: `pricing: { asset, amount, unit }` in the registry manifest
+already carries an asset, so a seller may price in `USD`. That is a **quote
+unit**. `quote()` converts at a rate somebody stated and everything it returns
+is `attested`. `maxPerSpend`, `budgetTotal` and `epochLimit` stay in sompi and
+stay `enforced`.
 
-What there is:
+If a rate move puts a dollar-priced service over the cap, **the payment
+refuses**. That is the covenant working. Widening the cap to fit the new rate
+would be the first vulnerability in this system designed in rather than found.
 
-- `pricing: { asset, amount, unit }` in the registry manifest **already**
-  carries an asset. A seller may set `asset: "USD"`. That is a **quote unit**.
-- The router converts at request time and produces a quote. The quote is
-  **attested**, never enforced.
-- The grant's `maxPerSpend`, `budgetTotal` and `epochLimit` stay in sompi and
-  stay **enforced**.
-
-The consequence is a feature, not a gap: if the rate moves enough that a
-dollar-priced service no longer fits under the cap, **the payment refuses**.
-That is the covenant working. A router that "helpfully" widened the cap to fit
-the new rate would be the first real vulnerability in this system that was
-designed in rather than found.
+`fitsUnderCap` therefore compares `maxSompi`, not `sompi`: a quote with
+slippage is a range and the covenant enforces a point.
 
 **KIP-9 has a floor and dollars do not know about it.** Storage mass puts about
-0.02 KAS under any payment. A dollar price therefore has a KAS floor that moves
-with the market, and a cheap enough service becomes unpayable when KAS falls. A
-USD-priced listing must carry a stated minimum, and the quote engine must
-refuse below the floor rather than emit a transaction that cannot land.
+0.02 KAS under any payment, so a USD-priced listing has a KAS floor that moves
+with the market and must carry a stated minimum.
 
-## Two placements, and only one of them is clean
+## The two edges
 
-### Funding-side: asset → KAS → `genesis`
+### Input: getting KAS into a grant
 
-    USDC.e (Igra) ──bridge──▶ KAS (L1) ──▶ genesis ──▶ funded grant
+Pre-authority, so a failure is a failed purchase — nobody is mid-payment and no
+grant is half-spent. `genesis` is the **last** step, so `verdict()` derives
+`recipientEnforced: true` from the shape rather than the code asserting it.
 
-This happens **before any authority exists**. A failure is a failed purchase:
-nobody is mid-payment, no grant is half-spent, and the worst case is that the
-buyer holds the asset they started with. A bad rate means fewer KAS in the
-grant — a bounded, visible loss, priced at the moment of purchase.
+Who converts is a vendor choice, not an architecture choice: a centralised
+exchange the buyer withdraws KAS from, a bridge, or a third-party market maker.
+Whoever it is gets named in the receipt and sits in `assumed`. **Warda does not
+need to be the filler and should not become one** — the day it holds the float
+its security argument becomes a balance sheet.
 
-Nothing about the covenant's claims changes here, because the covenant is not
-involved until the last step. **This path is fully honest and should ship
-first.**
+### Output: the seller getting back to USDC
 
-### Payment-side: grant → relay key → swap → seller's asset
+**This needs no protocol at all, and must not have one.** The seller receives
+KAS under the covenant — the one hop in the entire system with no counterparty
+— and converts afterwards with their own key on their own schedule. Routing it
+would insert a counterparty into the only hop that does not have one, and would
+cost the payee constraint that the buyer just paid for.
 
-    tx A   covenant spend   grant ──▶ successor grant
-                                  └─▶ relay key (P2PK, exactly amount + fee)
-    tx B+  ordinary         relay key ──▶ swap ──▶ seller's preferred asset
+It is a manifest field and a paragraph of documentation. Warda may sell the
+seller a conversion *convenience*; it must sit after the payment, never inside
+it.
 
-This is `RELAY.md`, extended. The grant must be created with `--relay` and the
-agent's own key on the allowlist, so the manifest says in as many words: *this
-agent may pay itself*. The cost is stated there and is unchanged: **once the
-coin sits at a key the agent holds, the agent chooses the destination.**
+The honest residual cost is that the seller carries KAS price exposure between
+receipt and conversion. The window is theirs to choose, it is the same exposure
+any merchant taking crypto accepts, and it is a decision left to them rather
+than a risk imposed inside the payment.
 
-Everything else the covenant enforces still enforces. What must never happen is
-the router describing this path as though the allowlist reached the seller.
+### Two seller tiers, published
 
-### Seller-side preference needs no protocol
+Make the distinction a field in the listing rather than a footnote:
 
-A seller who wants USDC can receive KAS under the covenant and convert it
-afterwards, with their own key, on their own schedule, bearing their own
-timing risk. Warda is not in that path and should not volunteer to be. It is a
-provider-SDK and dashboard feature — a published preference and a convenience —
-not a routing obligation.
+- **settled** — holds a Kaspa address, sits in the allowlist, full covenant proof
+- **relayed** — paid through a hop, `authorisedToPayMe: "unknown"` (what every
+  x402 vendor is today)
+
+Buyers filter on it; sellers who want the stronger claim get a concrete reason
+to hold a Kaspa address. It turns a disclosure into a sellable property and
+stops the weak tier being averaged in with the strong one.
+
+## The expiry condition
+
+When **KCC-20** ships and a real issuer deploys a covenant-native stablecoin, a
+grant can hold the stablecoin directly and both edges disappear. That is the
+end state, and it means **the conversion layer is temporary infrastructure**.
+Build it thin. Anything here that would be painful to delete is over-built.
 
 ## What was argued down, and why it is recorded
 
-**"Grant: $20 spending authority."** Impossible as stated; see above. It is
-recorded because it is the most attractive idea in the proposal and it will be
-proposed again.
+**"Grant: $20 spending authority."** Impossible; the covenant has no price. The
+most attractive idea in the original proposal and it will be proposed again.
 
-**"Warda doesn't necessarily care where the KAS comes from."** This is the
-sentence that hides the bridge. The router cares, the receipt says, and the
-buyer can read it.
+**Converting per payment.** Fails on arithmetic first and on the payee
+constraint second. See the table above.
 
-**Warda as the bridge.** No. Adapters wrap venues that already exist. The day
-Warda holds the float is the day its security argument becomes a balance sheet.
+**Routing the seller's output.** Costs `authorisedToPayMe` to save the seller a
+step they can take themselves.
 
-**A single hosted router endpoint every payment depends on.**
-`warda-network-registry.md` already settled the general case: *"Warda was down
-so my agent couldn't pay" is the one sentence that destroys the
-differentiator.* That was written about a discovery service which is not even
-in the payment path. It applies with more force to something that is. The
-router must be a library first and a hosted convenience second, and an agent
-that already holds KAS must never touch it.
+**"Use Uniswap instead of Igra, then we need no bridge."** Uniswap sells wKAS
+on Ethereum; it cannot deliver a KAS UTXO on L1, and Kaspa L1 has no DEX
+because Toccata brought covenants and not an EVM. The bridge does not go away,
+it changes vendor.
 
-## Addendum, 17 September: what the bridge actually says
+**Both ends on Ethereum with authority on Kaspa.** A seller with no Kaspa key
+cannot be in `recipientsRoot`, so `authorisedToPayMe` is permanently
+`"unknown"`. If the money must live on an EVM, the honest answer is an
+implementation of the same three-key model deployed there — a different and
+much larger build — not a message from Kaspa that an EVM contract is asked to
+believe.
 
-Written after reading Igra's KasExitBridge developer guide rather than
-inferring from the architecture. Three facts, one of which changes what the
-funding path is for.
+**Warda as the bridge, or as the filler.** Adapters wrap venues that already
+exist. Holding the float turns a security argument into a balance sheet.
 
-**The exit call is**
-
-    requestExit(string kasPayoutAddress, uint64 unlockAmountSompi) payable
-      returns (uint32 requestId, bytes32 messageId)
-
-**and `msg.value` must equal exactly `(unlockAmountSompi + feeAmountSompi) * 1e10`
-wei.** That `1e10` is `WEI_PER_SOMPI` — 18 decimals of iKAS over 8 of KAS. The
-conversion this package already computed is the one the contract demands, which
-is confirmation rather than coincidence, and `assertExitAmount` also refuses an
-amount that will not fit the `uint64`.
-
-**The minimum exit is 1,000 KAS**, or `ExitAmountBelowMinimum`.
-
-This is the fact that decides what funding-side routing is *for*. The appealing
-story — an agent holding five dollars of USDC pays for a thirty-seven cent
-service without ever touching Kaspa — cannot be served by crossing the bridge
-for it, because the smallest crossing is larger than the whole grant. So:
-
-> **Funding-side routing is a treasury operation.** Cross once at treasury
-> scale, then fund many grants from what arrived. It is not per-agent
-> micro-funding, and the product should not be described as though it were.
-
-The grants drawn from that KAS are as small as anyone likes; it is only the
-*crossing* that has a floor. That is still a real product — a CFO topping up an
-agent fleet from a stablecoin balance — but it is a different one from the
-pitch, and the difference should be found here rather than by a user.
-
-**The bridge does not checksum the payout address.** Their guide is explicit
-that the contract "only checks prefix + charset". So a transposed character is
-a valid call and an irrecoverable payout to an address nobody holds.
-`assertPayoutAddress` runs the SDK's `decodeAddress`, which verifies the
-checksum, and `planFunding` throws rather than producing a plan — a bad payout
-address is not a plan with a problem, it is a plan that must not exist. This is
-the highest-value line in the package.
-
-**Addresses: mainnet published, Galleon not.** The KasExitBridge proxy on Igra
-mainnet (chain 38833) is `0x4bb88C213d3eD9dc4bae694f1bc1bF745903b2d0`,
-published in their contract-addresses page. No Galleon testnet addresses are
-published anywhere, for the bridge or for Zealous. Both are recorded here as
-documentation and neither is a constant in source: `ops/check-router.mjs`
-refuses an address literal in `router/src`, because a testnet-only project one
-typo away from a mainnet bridge is a bad arrangement even when the address is
-correct.
+**A single hosted endpoint every payment depends on.**
+`warda-network-registry.md` settled the general case: *"Warda was down so my
+agent couldn't pay" is the one sentence that destroys the differentiator.* That
+was about discovery, which is not even in the payment path.
 
 ## Build order
 
-1. **Quote engine.** Signed quotes, expiry, USD→sompi, KIP-9 floor, and the
-   refusal when a rate move puts a payment over the cap. Testable with no
-   liquidity at all, and it is where the trust vocabulary gets fixed.
-2. **Route and hop model.** `Route = Hop[]`, each hop declaring zone and
-   counterparty; receipts derive their labels from the hops. Venues are
-   adapters behind this, so nothing is hardwired to Zealous, Igra or KCC-20.
-3. **Funding-side path**, with the first real adapter.
-4. **Payment-side path**, built on the existing relay rather than beside it.
-5. **Guards**: refuse a receipt that claims enforcement for a hop the covenant
-   did not constrain; refuse a USD amount reaching a field that holds a sompi
-   limit.
+1. **Quote engine.** Done. Signed quotes, USD→sompi, KIP-9 floor, the refusal
+   when a rate move breaks the cap.
+2. **Route and hop model.** Done. `verdict()` derives what may be claimed;
+   `assertClaimSupported` refuses a receipt that overstates it.
+3. **Funding edge.** Plan model done and holds no key; the venue adapter needs
+   a verified address, and the vendor is now a choice rather than a dependency.
+4. **Seller tiers** in the registry manifest, and the output-edge documentation.
+5. **Guards.** Done: no baked addresses, no literal claims, no dollars in a
+   sompi field, zone vocabulary closed.
 
 ## Open
 
+- **Which input vendor to name first.** A CEX withdrawal is the least
+  infrastructure and the most custodial; a bridge is the reverse. Both get the
+  same receipt treatment, so this is a go-to-market question.
 - **Quote signing key and its custody.** A quote is attested, which means
   somebody's key. Whose, held where, and what a wrong quote costs them.
-- **Bridge failure recovery.** The funding path can strand value mid-route.
-  What retries, what refunds, and who is out of pocket while it resolves.
-- **Whether a hosted quote endpoint is a dependency in disguise.** It is not in
-  the payment path for an agent holding KAS. It is for an agent holding USDC.
-  That asymmetry should be stated on the page, not discovered.
-- **Slippage as an authority question.** A quote with 1% slippage is a range,
-  and the covenant enforces a point. The cap must bind the worst case, not the
-  quoted case.
+- **Seller conversion convenience.** Real product, must sit after the payment.
+  Worth scoping only once a seller asks for it.
+- **Slippage as an authority question.** A quote with 1% slippage is a range
+  and the covenant enforces a point; `maxSompi` binds the worst case.
