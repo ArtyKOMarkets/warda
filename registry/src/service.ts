@@ -1,5 +1,6 @@
 import { fetchListing, fetchListings, type FetchOptions } from "./fetch.ts";
 import { search, type Query } from "./match.ts";
+import { settlementTier, authorisedToPayMe, type SettlementTier } from "./settlement.ts";
 import type { ListingVerdict } from "./verify.ts";
 import type { SignedServiceManifest } from "./manifest.ts";
 
@@ -65,6 +66,13 @@ function queryFrom(params: URLSearchParams): Query {
   if (network !== null) q.network = network;
   const text = params.get("q");
   if (text !== null) q.q = text;
+  const settlement = params.getAll("settlement").flatMap((v) => v.split(",")).map((v) => v.trim()).filter(Boolean);
+  /* Only the values the type admits. An unknown word must not silently widen
+     the result set — an agent asking for "settled" and getting everything back
+     because it typo'd is the failure this filter exists to prevent. */
+  const tiers = settlement.filter((v): v is SettlementTier =>
+    v === "settled" || v === "relayed" || v === "unknown");
+  if (tiers.length > 0) q.settlement = tiers;
   return q;
 }
 
@@ -138,7 +146,13 @@ export async function handle(req: Request, config: RegistryConfig): Promise<Resp
         count: matched.length,
         indexed: config.sources.length,
         query: q,
-        services: matched,
+        /* The tier is derived here rather than left to the caller, so a page,
+           an agent and a curl all read the same answer from the same rule. */
+        services: matched.map((m) => ({
+          ...m,
+          settlement: settlementTier(m),
+          authorisedToPayMe: authorisedToPayMe(m),
+        })),
         /* Reported rather than hidden. A source that stopped verifying is the
            registry working; silently shrinking the list would look like the
            operator was never there. */

@@ -1,4 +1,5 @@
 import type { ServiceManifest } from "./manifest.ts";
+import { settlementTier, type SettlementTier } from "./settlement.ts";
 
 export interface Query {
   /** Must offer ALL of these. An agent asking for two things needs both. */
@@ -6,6 +7,13 @@ export interface Query {
   /** Decimal string in the asset's own units, compared as a number. */
   maxPrice?: string;
   network?: string;
+  /**
+   * Restrict to how the payee is bound. An agent that needs the full covenant
+   * proof asks for "settled"; one that can live with the relay hop does not
+   * filter at all. Derived from the protocol, so this is not a filter on what
+   * operators claim about themselves.
+   */
+  settlement?: SettlementTier | SettlementTier[];
   /** Substring match over name and description. The crude one, and labelled
    *  as such: it is here so a human on /network can filter, not so an agent
    *  can do semantic search. */
@@ -32,6 +40,11 @@ export function matches(m: ServiceManifest, q: Query): boolean {
   }
 
   if (q.network && m.payment.network.toLowerCase() !== q.network.toLowerCase()) return false;
+
+  if (q.settlement) {
+    const want = Array.isArray(q.settlement) ? q.settlement : [q.settlement];
+    if (!want.includes(settlementTier(m))) return false;
+  }
 
   if (q.maxPrice !== undefined) {
     const cap = Number(q.maxPrice);

@@ -186,3 +186,43 @@ test("filters apply across a multi-service document", async () => {
   assert.equal((await get("/?maxPrice=0.035", cfg)).body.count, 1);
   assert.equal((await get("/?capability=kaspa.digest", cfg)).body.count, 1);
 });
+
+test("the service reports each listing's derived tier, and can filter on it", async () => {
+  const relayed = signListing(manifest(), SK);
+  const settled = signListing(
+    manifest({
+      name: "Direct Agent",
+      endpoint: "https://direct.test/api",
+      payment: { protocol: "warda", network: "kaspa:testnet-10", warda: true },
+    }),
+    SK,
+  );
+  const DIRECT = "https://direct.test/.well-known/warda-service.json";
+  const cfg = {
+    sources: [WEATHER, DIRECT],
+    fetchOptions: {
+      fetch: web({ [WEATHER]: { services: [relayed] }, [DIRECT]: { services: [settled] } }),
+    },
+  };
+
+  const all = await (await handle(new Request("https://reg.test/services"), cfg as never)).json();
+  assert.equal(all.count, 2);
+  const tiers = all.services.map((s: { name: string; settlement: string }) => [s.name, s.settlement]).sort();
+  assert.deepEqual(tiers, [["Direct Agent", "settled"], ["Weather Agent", "relayed"]]);
+  assert.equal(
+    all.services.find((s: { name: string }) => s.name === "Direct Agent").authorisedToPayMe,
+    "yes",
+  );
+
+  const only = await (
+    await handle(new Request("https://reg.test/services?settlement=settled"), cfg as never)
+  ).json();
+  assert.equal(only.count, 1);
+  assert.equal(only.services[0].name, "Direct Agent");
+
+  /* A typo must not widen the result set. */
+  const typo = await (
+    await handle(new Request("https://reg.test/services?settlement=setled"), cfg as never)
+  ).json();
+  assert.equal(typo.count, 2, "an unrecognised tier is ignored as a filter, not treated as a match");
+});
