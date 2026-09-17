@@ -33,7 +33,7 @@
     "test": "node --experimental-strip-types --test test/*.test.ts",
     "typecheck": "tsc -p tsconfig.json",
     "build": "tsc -p tsconfig.build.json",
-    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+    "prepublishOnly": "node ../ops/check-releasable.mjs --for verify && npm run typecheck && npm test && npm run build"
   },
   "dependencies": {
     "@warda_protocol/core": "^0.3.1",

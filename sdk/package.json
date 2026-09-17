@@ -48,7 +48,7 @@
     "probes": "node --experimental-strip-types tools/probes.ts",
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json",
-    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+    "prepublishOnly": "node ../ops/check-releasable.mjs --for kaspa && npm run typecheck && npm test && npm run build"
   },
   "keywords": [
     "kaspa",

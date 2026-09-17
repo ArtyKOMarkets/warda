@@ -73,9 +73,43 @@ Everything else the covenant enforces still enforces, on both sides, however
 many hops follow — budget, per-payment cap, epoch limit, window, delegation
 depth. `verdict()` returns that list and it does not shrink.
 
+## A relationship is one funding and many renewals
+
+A grant is a fixed budget, so funding an agent is not one crossing of the
+conversion edge — it is one crossing followed by many renewals. The renewal
+needs no price, no venue and nobody's word for anything: the KAS is already at
+the funder's key, and the only questions are whether the agent is near the end
+of what it may spend and whether a single coin can pay for the next grant.
+
+```ts
+import { renewVerdict } from "@warda_protocol/router";
+
+renewVerdict({
+  grant:  { budgetTotal: 2000n, spentTotal: 350n, reserved: 0n, held: 1640n, expiresAt: 900n },
+  funder: { largest: 5000n, total: 9000n },
+  below:  100n,          // its own per-payment cap, by default
+  needed: 2001n,         // the successor's budget plus the genesis fee
+  now:    500n,
+});
+// { due: false, left: 1640n, stranded: 1640n, expired: false }
+```
+
+Two things in there are load-bearing. **What is left is the smaller of two
+numbers** — the authority the covenant would still permit (`budget - spent -
+reserved`) and the coin actually at the grant's address — because a grant that
+has paid for anything has spent fees out of the second and not the first, and
+either number alone reports an agent as healthy in a state where it cannot pay.
+And **enough is not enough in one coin**: `genesis` takes a single input, so a
+funder rich in small coins gets `obstacle: "not-in-one-coin"` and a different
+fix from one that is simply short.
+
+`warda topup` is this function with a chain reading in front of it and `warda
+grant` behind it.
+
 ## Status
 
-Quote engine and route model, with tests. No liquidity adapters yet: the venue
+Quote engine, route model and the renewal decision, with 85 tests. No liquidity
+adapters yet: the venue
 integrations (Igra, Zealous, Hyperlane) plug in behind `Hop` so that nothing
 here is coupled to a venue, and nothing is built on KCC-20, which is a draft in
 a fork and not a foundation.

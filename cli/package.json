@@ -45,7 +45,7 @@
   },
   "scripts": {
     "build": "node build.mjs",
-    "prepublishOnly": "node build.mjs && node dist/warda.js --version"
+    "prepublishOnly": "node ../ops/check-releasable.mjs --for cli && node build.mjs && node dist/warda.js --version"
   },
   "peerDependencies": {
     "@warda_protocol/borsh": "^0.4.1",
