@@ -1,6 +1,6 @@
 {
   "name": "@warda_protocol/x402",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "description": "Pay HTTP 402 (x402) invoices from a Warda grant on Kaspa, so an agent's spending limits are enforced by consensus rather than by the process holding the key.",
   "type": "module",
   "license": "MIT",
@@ -23,6 +23,8 @@
   "files": [
     "dist",
     "README.md",
+    "RELAY.md",
+    "INTEROP-KASPA-X402.md",
     "LICENSE"
   ],
   "scripts": {

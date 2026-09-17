@@ -34,7 +34,7 @@
   "dependencies": {
     "@warda_protocol/core": "^0.3.1",
     "@warda_protocol/kaspa": "^0.6.0",
-    "@warda_protocol/x402": "^0.5.0"
+    "@warda_protocol/x402": "^0.6.0"
   },
   "peerDependencies": {
     "@warda_protocol/borsh": "^0.4.1"

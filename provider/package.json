@@ -33,7 +33,7 @@
   },
   "dependencies": {
     "@warda_protocol/kaspa": "^0.6.0",
-    "@warda_protocol/x402": "^0.5.0"
+    "@warda_protocol/x402": "^0.6.0"
   },
   "devDependencies": {
     "@warda_protocol/agent": "^0.1.0"

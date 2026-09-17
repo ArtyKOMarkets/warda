@@ -187,6 +187,39 @@ ceiling, which is useful against a mis-typed price. But it lives in your
 process, which is precisely the kind of limit Warda exists to replace. The
 grant's `maxPerSpend` is the one that holds.
 
+## The relay, and why a grant cannot pay an `exact` vendor directly
+
+x402's `exact` scheme requires a version-0 transaction whose every input is a
+bare P2PK unlocked by a single 66-byte Schnorr push, with no covenant on any
+output. A Warda spend is none of those things under any version, and no redeem
+script gets through — their verifier reads the public key out of a P2PK script
+or throws. **So the paying transaction can never be the covenant spend.**
+
+It is two transactions instead. The covenant spend pays a relay key the agent
+holds, for exactly the invoice plus the second transaction's fee; the second is
+an ordinary wallet-shaped payment from that key to the merchant. Both are built
+here:
+
+```ts
+import { relayFeeFor, relayFunding, buildRelayPayment } from "@warda_protocol/x402";
+
+const fee = relayFeeFor(invoiceSompi, agentKey, payeeAddress); // measured, not assumed
+const spend = relayFunding(invoiceSompi, fee);                 // what the covenant releases
+const txB = buildRelayPayment({ /* … */ });                    // what the merchant accepts
+```
+
+What this costs is stated rather than buried: the relay key is the agent's own,
+so for that one hop the chain no longer constrains who is ultimately paid. Every
+other limit still binds — budget, per-payment cap, epoch limit, window,
+delegation depth — and `@warda_protocol/router` computes exactly which claims
+survive a route with a relay in it. [RELAY.md](./RELAY.md) has the transaction
+shapes, the fee derivation and the pair of transaction ids from the day it was
+proven against a vendor nobody here controls.
+
+`GRANT_PROOF_HEADER` is the other half: a provider never sees a covenant, so
+the payer sends an envelope describing the grant it paid from, and
+`@warda_protocol/provider` checks it against the chain.
+
 ## What it does not do
 
 It does not verify the facilitator's signature on the 402, and it does not
