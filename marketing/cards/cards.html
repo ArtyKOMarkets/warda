@@ -1,0 +1,222 @@
+<!-- The five post cards, 1600x900, rendered at 2x with Playwright.
+
+     Kept because a graphic that cannot be regenerated is a graphic that goes
+     stale the first time a figure in it changes, and every figure in these is
+     a real one: agent #003 and #004 come out of their published readings, the
+     transaction ids are on chain, and the 1,000 KAS is the coin the overwritten
+     funder key can no longer move.
+
+     The typefaces come from npm (@fontsource/*) rather than Google Fonts,
+     because the machine that renders these has no route to fonts.gstatic.com
+     and a card silently rendered in Helvetica is the same bug as the six site
+     pages that were doing exactly that.
+
+       npm i @fontsource/barlow @fontsource/chakra-petch @fontsource/jetbrains-mono
+       node shoot.mjs
+-->
+<!doctype html><meta charset="utf-8">
+<style>
+@font-face{font-family:CP;src:url("node_modules/@fontsource/chakra-petch/files/chakra-petch-latin-700-normal.woff2")format("woff2");font-weight:700}
+@font-face{font-family:CP;src:url("node_modules/@fontsource/chakra-petch/files/chakra-petch-latin-600-normal.woff2")format("woff2");font-weight:600}
+@font-face{font-family:BA;src:url("node_modules/@fontsource/barlow/files/barlow-latin-400-normal.woff2")format("woff2");font-weight:400}
+@font-face{font-family:BA;src:url("node_modules/@fontsource/barlow/files/barlow-latin-600-normal.woff2")format("woff2");font-weight:600}
+@font-face{font-family:JB;src:url("node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-400-normal.woff2")format("woff2");font-weight:400}
+@font-face{font-family:JB;src:url("node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-700-normal.woff2")format("woff2");font-weight:700}
+:root{--void:#06090C;--ground:#0A1014;--panel:#101A20;--edge:#1E2E37;--edgeb:#2C4350;
+--chrome:#DDE0E2;--dim:#8D989E;--faint:#5D6B73;--teal:#14D7C1;--tealb:#38F9E9;--teald:#06BBA1;
+--ghost:rgba(20,215,193,.10);--refuse:#FF6B5A;--refuseg:rgba(255,107,90,.12);--amber:#E8B23A}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#000}
+.card{width:1600px;height:900px;background:var(--void);color:var(--chrome);
+ font-family:BA,sans-serif;padding:76px 88px;position:relative;overflow:hidden;
+ display:flex;flex-direction:column}
+.card::after{content:"";position:absolute;inset:auto -300px -420px auto;width:900px;height:900px;
+ border-radius:50%;background:radial-gradient(circle,rgba(20,215,193,.055),transparent 62%)}
+.eye{font-family:JB,monospace;font-size:19px;letter-spacing:.17em;text-transform:uppercase;
+ color:var(--teal);display:flex;align-items:center;gap:16px}
+.eye::before{content:"";width:38px;height:2px;background:var(--teald)}
+h1{font-family:CP,sans-serif;font-weight:700;font-size:66px;line-height:1.04;letter-spacing:-.025em;
+ margin-top:24px;max-width:26ch}
+h1 .d,h1 .t,h1 .r{display:block}
+h1 .d{color:var(--faint)}
+h1 .t{color:var(--teal)}
+h1 .r{color:var(--refuse)}
+.sub{font-size:27px;color:var(--dim);max-width:52ch;margin-top:24px;line-height:1.45}
+.body{flex:1;display:flex;align-items:center;margin-top:34px}
+.foot{display:flex;align-items:center;justify-content:space-between;
+ font-family:JB,monospace;font-size:17px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+.foot .wm{font-family:CP,sans-serif;font-weight:700;font-size:26px;letter-spacing:.02em;
+ text-transform:none;color:var(--chrome)}
+.foot .wm b{color:var(--teal);font-weight:700}
+/* shared bits */
+.mono{font-family:JB,monospace}
+.pane{background:var(--ground);border:1px solid var(--edge);border-radius:14px;padding:30px 32px}
+.plabel{font-family:JB,monospace;font-size:16px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.big{font-family:JB,monospace;font-size:34px;color:var(--chrome);margin-top:12px}
+.tag{display:inline-block;font-family:JB,monospace;font-size:15px;letter-spacing:.14em;
+ text-transform:uppercase;padding:5px 12px;border:1px solid var(--edgeb);color:var(--faint);border-radius:4px}
+.tag.ok{border-color:var(--teald);color:var(--teal)}
+.tag.no{border-color:var(--refuse);color:var(--refuse)}
+</style>
+<body>
+
+<!-- 1 — FAILURE ------------------------------------------------------------>
+<div class="card" id="c1">
+  <p class="eye">What broke, 17 September</p>
+  <h1>We overwrote a key.<span class="d">1,000 KAS is still there,<br>and nothing can move it.</span></h1>
+  <div class="body">
+    <div style="display:grid;grid-template-columns:1fr 172px 1fr;gap:0;align-items:center;width:100%">
+      <div class="pane">
+        <p class="plabel">before</p>
+        <p class="big" style="color:var(--teal)">funder.key</p>
+        <p style="color:var(--dim);font-size:21px;margin-top:10px">controls <span class="mono">qrk4dqk0…</span></p>
+        <p class="mono" style="font-size:26px;margin-top:22px">1,000 KAS</p>
+      </div>
+      <div style="text-align:center;font-family:JB,monospace;font-size:15px;color:var(--faint);line-height:1.6">
+        <div style="font-size:30px;color:var(--refuse)">&rarr;</div>
+        <div style="margin-top:6px">warda&nbsp;key</div>
+        <div>run twice</div>
+      </div>
+      <div class="pane" style="border-color:var(--refuse)">
+        <p class="plabel" style="color:var(--refuse)">after</p>
+        <p class="big" style="color:var(--refuse)">funder.key</p>
+        <p style="color:var(--dim);font-size:21px;margin-top:10px">controls <span class="mono">qplutjmz…</span></p>
+        <p class="mono" style="font-size:26px;margin-top:22px;color:var(--faint)">1,000 KAS &mdash; unreachable</p>
+      </div>
+    </div>
+  </div>
+  <p class="sub" style="max-width:76ch;margin-bottom:26px;font-size:24px">
+    The coin never moved. The only key that could spend it was written over by a command
+    that had no reason to refuse. It does now.</p>
+  <div class="foot"><span>testnet-10 · unaudited · no real money</span>
+    <span class="wm">Warda<b> Protocol</b></span></div>
+</div>
+
+<!-- 2 — MECHANISM ---------------------------------------------------------->
+<div class="card" id="c2">
+  <p class="eye">Where the limit lives</p>
+  <h1>Your agent's spending cap<span class="d">is enforced by the thing<br>that decides to spend.</span></h1>
+  <div class="body">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:34px;width:100%">
+      <div class="pane">
+        <p class="plabel">in the process</p>
+        <pre class="mono" style="font-size:22px;line-height:1.7;margin-top:20px;color:var(--dim)">if (amount &lt;= MAX_SPEND) {
+  wallet.sign(tx)
+}</pre>
+        <p style="font-size:21px;color:var(--dim);margin-top:24px;line-height:1.5">
+          A redeploy moves it. A second instance ignores it.<br>
+          Whoever reads the key out of env never meets it.</p>
+        <p style="margin-top:22px"><span class="tag no">a description of intent</span></p>
+      </div>
+      <div class="pane" style="border-color:var(--teald)">
+        <p class="plabel" style="color:var(--teal)">in the coin</p>
+        <pre class="mono" style="font-size:22px;line-height:1.7;margin-top:20px;color:var(--chrome)">budget      3 KAS
+per payment 0.25 KAS
+payees      1, fixed</pre>
+        <p style="font-size:21px;color:var(--dim);margin-top:24px;line-height:1.5">
+          Compiled into the script that unlocks the coin.<br>
+          Checked by every node. Nobody can edit it.</p>
+        <p style="margin-top:22px"><span class="tag ok">a condition of the coin</span></p>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>a limit you can change is not a limit</span>
+    <span class="wm">Warda<b> Protocol</b></span></div>
+</div>
+
+<!-- 3 — FUNDING ------------------------------------------------------------>
+<div class="card" id="c3">
+  <p class="eye">The funding edge</p>
+  <h1>You price it in dollars.<span class="t">The chain enforces KAS.</span></h1>
+  <p class="sub">A covenant compares sompi, because that is what consensus can see.
+    Kaspa L1 has no oracle, so a dollar-denominated grant cannot exist.</p>
+  <div class="body">
+    <div style="display:flex;align-items:center;gap:30px;width:100%">
+      <div class="pane" style="flex:1">
+        <p class="plabel">you hold</p>
+        <p class="big">$100 <span style="font-size:22px;color:var(--faint)">USDC</span></p>
+        <p style="font-size:19px;color:var(--faint);margin-top:12px">sold wherever you already trade</p>
+      </div>
+      <div style="font-family:JB,monospace;color:var(--faint);text-align:center;font-size:15px;line-height:1.7">
+        <div style="font-size:30px;color:var(--teald)">&rarr;</div><div style="margin-top:4px">ONCE,</div><div>AT THE EDGE</div>
+      </div>
+      <div class="pane" style="flex:1;border-color:var(--teald)">
+        <p class="plabel" style="color:var(--teal)">the agent gets</p>
+        <p class="big" style="color:var(--teal)">2,000 KAS</p>
+        <p style="font-size:19px;color:var(--faint);margin-top:12px">100 a payment · 4 payees · 30 days</p>
+      </div>
+      <div style="font-family:JB,monospace;color:var(--faint);text-align:center;font-size:15px;line-height:1.7">
+        <div style="font-size:30px;color:var(--teald)">&rarr;</div><div style="margin-top:4px">EVERY</div><div>SPEND</div>
+      </div>
+      <div class="pane" style="flex:.85">
+        <p class="plabel">the network compares</p>
+        <p class="big" style="font-size:27px">sompi</p>
+        <p style="font-size:19px;color:var(--faint);margin-top:12px">never the dollar figure</p>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>agent #006 was funded this way and has spent</span>
+    <span class="wm">Warda<b> Protocol</b></span></div>
+</div>
+
+<!-- 4 — AGENT ECONOMY ------------------------------------------------------>
+<div class="card" id="c4">
+  <p class="eye">On chain, testnet-10</p>
+  <h1>An agent hired another agent<span class="d">and gave it a smaller budget<br>out of its own.</span></h1>
+  <div class="body">
+    <div style="display:grid;grid-template-columns:1fr 190px 1fr;align-items:center;width:100%;gap:0">
+      <div class="pane">
+        <p class="plabel">agent #003 &mdash; the parent</p>
+        <p class="big" style="font-size:27px">2 KAS</p>
+        <p class="mono" style="font-size:20px;color:var(--dim);margin-top:12px;line-height:1.7">0.1 KAS a payment<br>2 payees<br>may delegate twice</p>
+      </div>
+      <div style="text-align:center;font-family:JB,monospace;font-size:14px;color:var(--faint);line-height:1.7">
+        <div style="font-size:30px;color:var(--teal)">&rarr;</div>
+        <div style="margin-top:6px;color:var(--teal)">DELEGATES</div>
+        <div style="margin-top:4px">6a534c38…</div>
+      </div>
+      <div class="pane" style="border-color:var(--teald)">
+        <p class="plabel" style="color:var(--teal)">agent #004 &mdash; the child</p>
+        <p class="big" style="font-size:27px;color:var(--teal)">0.5 KAS</p>
+        <p class="mono" style="font-size:20px;color:var(--dim);margin-top:12px;line-height:1.7">0.05 KAS a payment<br>1 payee &mdash; narrowed from 2<br>may delegate once</p>
+      </div>
+    </div>
+  </div>
+  <p class="sub" style="max-width:82ch;font-size:24px;margin-bottom:26px">
+    Smaller in every dimension, and not by convention &mdash; the covenant refuses a child that is
+    not. No human approved the hire, the budget or the payment, and the remainder settled home at <span class="mono" style="color:var(--chrome)">85fa34cd…</span>
+  </p>
+  <div class="foot"><span>nobody was watching</span>
+    <span class="wm">Warda<b> Protocol</b></span></div>
+</div>
+
+<!-- 5 — PROOF -------------------------------------------------------------->
+<div class="card" id="c5">
+  <p class="eye">The product is the refusal</p>
+  <h1>One payment settled.<span class="r">The other has no transaction<br>to sign at all.</span></h1>
+  <div class="body">
+    <div style="width:100%;display:grid;gap:26px">
+      <div class="pane" style="display:flex;align-items:center;gap:34px;border-color:var(--teald)">
+        <div style="flex:1">
+          <p class="plabel" style="color:var(--teal)">inside the limits, to an allowlisted payee</p>
+          <p class="mono" style="font-size:25px;margin-top:12px;color:var(--chrome)">c8e2b9f990351fb0863303c2089bf37bf11f4479&hellip;</p>
+        </div>
+        <span class="tag ok">settled &middot; 200</span>
+      </div>
+      <div class="pane" style="display:flex;align-items:center;gap:34px;border-color:var(--refuse)">
+        <div style="flex:1">
+          <p class="plabel" style="color:var(--refuse)">to an address that is not on the list</p>
+          <p class="mono" style="font-size:25px;margin-top:12px;color:var(--faint)">&mdash; no transaction exists &mdash;</p>
+        </div>
+        <span class="tag no">nothing to sign</span>
+      </div>
+    </div>
+  </div>
+  <p class="sub" style="max-width:84ch;font-size:24px;margin-bottom:26px">
+    Not a check that failed. There is no valid transaction to build, so there is nothing to
+    reject, retry or override &mdash; and the budget never moves.</p>
+  <div class="foot"><span>every figure checkable against the chain</span>
+    <span class="wm">Warda<b> Protocol</b></span></div>
+</div>
+
+</body>
