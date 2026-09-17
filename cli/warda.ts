@@ -187,6 +187,11 @@ const HELP = `warda — bounded spending authority for an agent, on Kaspa.
                                 nothing here needs a kaspad of your own
   warda key      [--out f.key]  a new keypair, and its address
   warda wallet   [consolidate]  an ordinary key: what it holds, what it can fund
+  warda fund     --payees <f>   buy a grant with an asset you already hold.
+                 --rate <p>     what one KAS costs you, as you traded it. Never
+                                fetched: a price this tool went and got would be
+                                a number Warda vouches for.
+                 [--asset USDC] [--venue Kraken] [--wait]
   warda grant    --payees <f>   create a grant. Limits in KAS.
                  [--relay]      also allow the agent to pay itself, which is
                                 what buying from an x402 exact vendor needs
@@ -359,6 +364,60 @@ switch (verb) {
     );
     break;
   }
+
+  /**
+   * Buy the grant before bounding it.
+   *
+   * Two commands' worth of work in one, and deliberately not one command's
+   * worth of magic: `fund.ts` prints the two steps nobody here can see, waits
+   * for the coin, and then this runs exactly the same quickstart invocation
+   * `warda grant` runs. Nothing about the grant is different for having been
+   * funded this way, which is the point — the rail ends where the covenant
+   * begins.
+   */
+  case "fund": {
+    const payees = flag("payees") ?? flag("recipients");
+    if (!payees) {
+      die(
+        "warda fund --payees <file> --budget <KAS> --rate <price of one KAS>\n\n" +
+          "  Same allowlist rules as `warda grant`: one address per line, fixed at\n" +
+          "  creation, and it IS the authority rather than a config.",
+        2,
+      );
+    }
+    if (!existsSync(payees!)) die(`--payees: no such file: ${payees}`, 2);
+
+    const cfg = readConfig();
+    const funder = flag("key");
+    const funderEnv: NodeJS.ProcessEnv = funder
+      ? { WARDA_SK: readFileSync(funder, "utf8").trim() }
+      : {};
+
+    /* The budget plus what genesis reserves for its own fee. Under-asking here
+       leaves somebody watching a wait loop that can never finish, holding
+       almost exactly the right amount. */
+    const budgetSompi = BigInt(sompi(flag("budget", "10")!, "budget"));
+    const feeSompi = BigInt(sompi(flag("fee", "0.01")!, "fee"));
+
+    const funded = run("sdk/tools/fund.ts", [
+      "--required", String(budgetSompi + feeSompi),
+      "--rate", flag("rate") ?? "",
+      ...(flag("asset") ? ["--asset", flag("asset")!] : []),
+      ...(flag("venue") ? ["--venue", flag("venue")!] : []),
+      ...(has("wait") ? ["--wait"] : []),
+      ...(flag("prefix") ? ["--prefix", flag("prefix")!] : []),
+      ...(flag("network") ? ["--network", flag("network")!] : []),
+      ...rpcArgs(cfg),
+    ], funderEnv);
+    if (funded !== 0) process.exit(funded);
+    if (!has("wait")) process.exit(0);
+
+    console.error("\nbounding what arrived…");
+    /* Falls through to `grant` ON PURPOSE. Copying quickstart's invocation here
+       would be a second place for its arguments to drift, and the whole claim
+       of this verb is that the grant it produces is not special. */
+  }
+  // eslint-disable-next-line no-fallthrough
 
   case "grant": {
     const payees = flag("payees") ?? flag("recipients");

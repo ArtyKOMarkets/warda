@@ -45,6 +45,7 @@ const TOOLS = [
   "../sdk/tools/wallet.ts",
   "../sdk/tools/consolidate.ts",
   "../sdk/tools/quickstart.ts",
+  "../sdk/tools/fund.ts",
   "../sdk/tools/genesis.ts",
   "../sdk/tools/follow-grant.ts",
   "../sdk/tools/which-key.ts",
