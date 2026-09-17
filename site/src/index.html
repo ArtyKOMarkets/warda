@@ -630,6 +630,38 @@
 
   /* The five limits. A set, not a sequence -- numbering them would imply an
      order the covenant does not have. */
+  /* The three clauses.
+     A LIST, in order, because the order is the argument: an asset becomes KAS
+     before there is any authority, the authority exists before anything is
+     enforced, and the enforcement is the last word. Cards side by side would
+     say these are three features; a numbered rail would say it is a setup
+     wizard. It is a sentence, so it reads down the page like one. */
+  .clauses { margin-top: clamp(2rem, 5vw, 3.2rem); border-top: 1px solid var(--edge); }
+  .clause { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            gap: 0.4rem clamp(1.6rem, 4vw, 3.4rem); padding: clamp(1.5rem, 3.4vw, 2.3rem) 0;
+            border-bottom: 1px solid var(--edge); align-items: start; }
+  @media (max-width: 760px) { .clause { grid-template-columns: 1fr; gap: 1.1rem; } }
+  .clause .who { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.14em;
+                 text-transform: uppercase; color: var(--chrome-faint); display: block;
+                 margin-bottom: 0.75rem; }
+  .clause h3 { margin: 0; font-family: var(--display); font-weight: 600;
+               font-size: clamp(1.2rem, 2.6vw, 1.7rem); letter-spacing: -0.02em; line-height: 1.16; }
+  .clause > div > p { margin: 0.85rem 0 0; color: var(--chrome-dim); font-size: 0.92rem;
+                      max-width: 44ch; }
+  /* The evidence column. Monospace because every line in it is a thing you can
+     paste into an explorer, and it should look like one. */
+  .clause .ev { font-family: var(--mono); font-size: 0.75rem; color: var(--chrome-dim);
+                overflow-wrap: anywhere; line-height: 1.6; }
+  .clause .ev b { display: block; font-weight: 500; font-size: 0.6rem; letter-spacing: 0.12em;
+                  text-transform: uppercase; color: var(--chrome-faint); margin-bottom: 0.4rem; }
+  .clause .ev span { display: block; color: var(--chrome); }
+  .clause .ev .zone { display: inline-block; margin-top: 0.75rem; padding: 0.1rem 0.45rem;
+                      border: 1px solid var(--edge-bright); color: var(--chrome-faint);
+                      font-size: 0.58rem; letter-spacing: 0.14em; text-transform: uppercase; }
+  .clause .ev .zone.hard { border-color: var(--teal-deep); color: var(--teal); }
+  .clause .ev a { color: var(--teal); text-decoration: none; border-bottom: 1px solid transparent; }
+  .clause .ev a:hover { border-bottom-color: var(--teal-deep); }
+
   .limits { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
             gap: 1px; background: var(--edge); border: 1px solid var(--edge);
             margin: clamp(2.2rem, 5vw, 3.2rem) 0 0; }
@@ -832,12 +864,12 @@
     <div class="hero-grid">
       <div>
         <img class="hero-mark" src="{{LOCKUP}}" alt="Warda Protocol" data-rise>
-        <p class="hero-eyebrow" data-rise style="--d:60ms">Authorization infrastructure for autonomous money</p>
-        <h1 class="bigline" data-rise style="--d:110ms">Money,<span>for machines.</span></h1>
-        <p class="hero-lede" data-rise style="--d:170ms">Give AI agents money without giving them unlimited authority.</p>
+        <p class="hero-eyebrow" data-rise style="--d:60ms">Spending authority for autonomous agents</p>
+        <h1 class="bigline" data-rise style="--d:110ms">Fund it with<span>any asset.</span></h1>
+        <p class="hero-lede" data-rise style="--d:170ms">Warda turns that funding into bounded spending authority, and Kaspa enforces it &mdash; so the limits hold when the agent is wrong, replaced, or stolen. The conversion happens once, at the edge, and never through us.</p>
         <div class="btns" data-rise style="--d:230ms">
           <a class="btn solid" href="/start">Start building &rarr;</a>
-          <a class="btn" href="/attack">See it in action</a>
+          <a class="btn" href="/rail">How the funding works</a>
         </div>
       </div>
 
@@ -874,6 +906,7 @@
     </div>
 
     <div class="strip" data-rise style="--d:350ms">
+      <span><i></i>Funded from any asset &mdash; converted once, at the edge</span>
       <span><i></i>Enforced by Kaspa L1 covenants</span>
       <span><i></i>8 packages on npm</span>
       <span><i></i>6 vulnerabilities found by adversarial probes, and fixed</span>
@@ -887,6 +920,74 @@
       <span><b id="live-payments">—</b> payments settled</span>
       <span><b id="live-spent">—</b> KAS spent, none of it outside the limits</span>
       <span><b>0</b> human approvals</span>
+    </div>
+  </div>
+</section>
+
+
+<!-- The three clauses.
+     This is the sentence the whole project is now organised around, and the
+     reason it is here rather than in a deck is that each clause can be
+     checked. The zone words are the repository's own closed vocabulary —
+     `assumed` means nobody proved it, `enforced` means Kaspa refused every
+     alternative — and clause one is deliberately the weak one. A page that
+     marked the off-protocol sale `enforced` would be worth nothing anywhere
+     else on it. -->
+<section class="rule">
+  <div class="wrap narrow" style="max-width:62rem">
+    <div data-rise>
+      <p class="eyebrow">In one sentence</p>
+      <h2 style="font-size:clamp(1.9rem,5vw,3.2rem);letter-spacing:-0.03em;line-height:1.08">Fund an agent with whatever asset you already have. Warda turns that funding into bounded spending authority. <span style="color:var(--chrome-faint)">Kaspa enforces the authority.</span></h2>
+      <p style="margin-top:1.6rem;max-width:52ch;color:var(--chrome-dim)">Three clauses, three different kinds of claim. Here is what each one rests on, and which of them you have to take anybody's word for.</p>
+    </div>
+
+    <div class="clauses" data-rise style="--d:120ms">
+
+      <div class="clause">
+        <div>
+          <span class="who">You, and wherever you trade</span>
+          <h3>Fund an agent with whatever asset you already have.</h3>
+          <p>You sell it where it already has a market and withdraw the proceeds. Warda does not touch the asset, does not quote the price, and never holds the float &mdash; so there is no balance sheet between you and the agent. The receipt names the venue, the rate and whose word it is, because that is the one part nothing can re-derive from the chain afterwards.</p>
+        </div>
+        <div class="ev">
+          <b>What you can check</b>
+          <span>agent&nbsp;#006&rsquo;s funding record</span>
+          <span>asset USDC &middot; rate 0.05/KAS &middot; venue: a testnet faucet, named as such</span>
+          <span class="zone">assumed</span>
+          <div style="margin-top:0.8rem"><a href="/rail">How the funding edge works &rarr;</a></div>
+        </div>
+      </div>
+
+      <div class="clause">
+        <div>
+          <span class="who">Warda &mdash; once, in one transaction</span>
+          <h3>Warda turns that funding into bounded spending authority.</h3>
+          <p>The budget, the per-payment ceiling, the rate limit, the expiry and the list of payable addresses are compiled into the script that unlocks the coin. After that they are not configuration and there is no settings page: changing them would change the address, and the money is at the old one.</p>
+        </div>
+        <div class="ev">
+          <b>What you can check</b>
+          <span>4ae57de08eaa800d63496f4d119014b1c753b588f1b8f1e0626caf6198b07a89</span>
+          <span>3 KAS total &middot; 0.25 a payment &middot; 2 an epoch &middot; one payee, fixed at creation</span>
+          <span class="zone hard">enforced</span>
+          <div style="margin-top:0.8rem"><a href="/agent-006">Agent #006&rsquo;s reading &rarr;</a></div>
+        </div>
+      </div>
+
+      <div class="clause">
+        <div>
+          <span class="who">Kaspa &mdash; on every spend, forever</span>
+          <h3>Kaspa enforces the authority.</h3>
+          <p>Not a check Warda performs. A payment outside the limits has no valid transaction to sign, so it is refused by nodes that have never heard of this project &mdash; and it stays refused if Warda stops existing. The stop is a separate key that can end a grant at any moment and receives nothing when it does, which is why a monitor can be trusted with it.</p>
+        </div>
+        <div class="ev">
+          <b>What you can check</b>
+          <span>c8e2b9f990351fb0863303c2089bf37bf11f447984872395a7a6c5be48f489ac<br>a payment inside the limits, to the one allowlisted payee</span>
+          <span style="margin-top:0.55rem">0528e87665208acd68068cd4b19051fbe702596036b8390bcc1f3bc2d6e7f690<br>a revocation, signed by a key that received none of it</span>
+          <span class="zone hard">enforced</span>
+          <div style="margin-top:0.8rem"><a href="/proof">Every claim, and what refutes it &rarr;</a></div>
+        </div>
+      </div>
+
     </div>
   </div>
 </section>
