@@ -9,8 +9,14 @@
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const SRC = "router/src";
+/* Anchored on this file, not on the caller's cwd. A guard that passes only from
+   the repo root fails in a subdirectory for a reason that has nothing to do with
+   what it checks, which has already cost this repo an afternoon once with
+   check-core-browser. */
+const ROOT = fileURLToPath(new URL("..", import.meta.url));
+const SRC = join(ROOT, "router/src");
 const failures = [];
 
 function sources(dir) {
@@ -28,7 +34,7 @@ const files = sources(SRC);
 for (const file of files) {
   const lines = readFileSync(file, "utf8").split("\n");
   lines.forEach((line, i) => {
-    const at = `${file}:${i + 1}`;
+    const at = `${file.slice(ROOT.length)}:${i + 1}`;
     const code = line.replace(/\/\*.*?\*\//g, "").replace(/\/\/.*$/, "");
 
     /* 1. A venue address baked into source. There is no published, verified

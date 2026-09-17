@@ -16,6 +16,7 @@
 
 import type { Quote } from "./quote.ts";
 import { verdict, type Hop, type Route, type RouteVerdict } from "./route.ts";
+import { MIN_EXIT_SOMPI, assertPayoutAddress } from "./bridge.ts";
 
 /**
  * Addresses a venue needs, supplied by the caller.
@@ -46,6 +47,12 @@ export interface Step {
    * executable and is not.
    */
   readonly missing: readonly string[];
+  /**
+   * Constraints config cannot fix. `missing` is "supply this and it works";
+   * a blocker is the world saying no, and the two should never be confused —
+   * one is a TODO and the other is a redesign.
+   */
+  readonly blockers: readonly string[];
   /** Human-readable: what the signer is being asked to do. */
   readonly describe: string;
 }
@@ -58,8 +65,10 @@ export interface FundingPlan {
   readonly steps: readonly Step[];
   /** Always "none". The router never holds a key and never signs. */
   readonly custody: "none";
-  /** True only when every step could be built. */
+  /** True only when every step could be built and nothing blocks it. */
   readonly executable: boolean;
+  /** Protocol constraints in the way, aggregated. */
+  readonly blockers: readonly string[];
 }
 
 export interface FundingPlanInput {
@@ -70,6 +79,11 @@ export interface FundingPlanInput {
   readonly venue?: VenueConfig;
   /** The bridge that takes iKAS to KAS on L1. */
   readonly bridge?: VenueConfig;
+  /** Where the bridge should pay out on L1. Checked here, because it is not
+   *  checked by the contract. */
+  readonly payoutAddress?: string;
+  /** Network prefix the payout address must belong to, e.g. "kaspatest". */
+  readonly expectPrefix?: string;
 }
 
 function need(cfg: VenueConfig | undefined, what: string, keys: string[]): string[] {
@@ -86,7 +100,13 @@ function need(cfg: VenueConfig | undefined, what: string, keys: string[]): strin
  * asserting it — if the shape ever changes, the claim changes with it.
  */
 export function planFunding(input: FundingPlanInput): FundingPlan {
-  const { quote, from, venue, bridge } = input;
+  const { quote, from, venue, bridge, payoutAddress, expectPrefix } = input;
+
+  /* Validated eagerly, and it throws rather than becoming a blocker: a bad
+     payout address is not a plan with a problem, it is a plan that must not
+     exist. The bridge checks only the prefix and the character set, so this is
+     the only place a transposed character gets caught before the KAS is gone. */
+  if (payoutAddress !== undefined) assertPayoutAddress(payoutAddress, expectPrefix);
 
   const swapHop: Hop = {
     kind: "swap",
@@ -114,6 +134,18 @@ export function planFunding(input: FundingPlanInput): FundingPlan {
 
   const swapMissing = need(venue, "venue", ["router", "token"]);
   const bridgeMissing = need(bridge, "bridge", ["withdraw"]);
+  if (payoutAddress === undefined) bridgeMissing.push("payoutAddress");
+
+  /* The crossing, not the payment. quote.sompi is what is expected to arrive on
+     L1, and the bridge refuses to move less than a thousand KAS at a time. */
+  const bridgeBlockers =
+    quote.sompi < MIN_EXIT_SOMPI
+      ? [
+          `the bridge will not move ${quote.sompi} sompi: its minimum exit is ${MIN_EXIT_SOMPI} ` +
+            `(1,000 KAS), so this crossing would revert with ExitAmountBelowMinimum. Crossing is a ` +
+            `treasury operation — cross once, fund many grants from what arrived.`,
+        ]
+      : [];
 
   const steps: Step[] = [
     {
@@ -122,14 +154,16 @@ export function planFunding(input: FundingPlanInput): FundingPlan {
       action: "sign-and-submit",
       ready: swapMissing.length === 0,
       missing: swapMissing,
+      blockers: [],
       describe: `swap ${from.asset} for iKAS on ${venue?.name ?? "a venue"}, worth at most ${quote.maxSompi} sompi`,
     },
     {
       index: 1,
       hop: bridgeHop,
       action: "sign-and-submit",
-      ready: bridgeMissing.length === 0,
+      ready: bridgeMissing.length === 0 && bridgeBlockers.length === 0,
       missing: bridgeMissing,
+      blockers: bridgeBlockers,
       describe: `withdraw iKAS across ${bridge?.name ?? "the bridge"} to KAS on Kaspa L1`,
     },
     {
@@ -138,6 +172,7 @@ export function planFunding(input: FundingPlanInput): FundingPlan {
       action: "await-confirmation",
       ready: true,
       missing: [],
+      blockers: [],
       describe:
         "wait for the withdrawal to land on L1 — the crossing above is not reversible by " +
         "retrying it, and a stranded crossing is a support conversation, not a failed call",
@@ -148,6 +183,7 @@ export function planFunding(input: FundingPlanInput): FundingPlan {
       action: "sign-and-submit",
       ready: true,
       missing: [],
+      blockers: [],
       describe: `genesis a grant from the arrived KAS, funded by a single input`,
     },
   ];
@@ -159,6 +195,7 @@ export function planFunding(input: FundingPlanInput): FundingPlan {
     steps,
     custody: "none",
     executable: steps.every((s) => s.ready),
+    blockers: bridgeBlockers,
   };
 }
 

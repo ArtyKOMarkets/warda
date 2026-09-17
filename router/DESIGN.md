@@ -151,6 +151,56 @@ in the payment path. It applies with more force to something that is. The
 router must be a library first and a hosted convenience second, and an agent
 that already holds KAS must never touch it.
 
+## Addendum, 17 September: what the bridge actually says
+
+Written after reading Igra's KasExitBridge developer guide rather than
+inferring from the architecture. Three facts, one of which changes what the
+funding path is for.
+
+**The exit call is**
+
+    requestExit(string kasPayoutAddress, uint64 unlockAmountSompi) payable
+      returns (uint32 requestId, bytes32 messageId)
+
+**and `msg.value` must equal exactly `(unlockAmountSompi + feeAmountSompi) * 1e10`
+wei.** That `1e10` is `WEI_PER_SOMPI` — 18 decimals of iKAS over 8 of KAS. The
+conversion this package already computed is the one the contract demands, which
+is confirmation rather than coincidence, and `assertExitAmount` also refuses an
+amount that will not fit the `uint64`.
+
+**The minimum exit is 1,000 KAS**, or `ExitAmountBelowMinimum`.
+
+This is the fact that decides what funding-side routing is *for*. The appealing
+story — an agent holding five dollars of USDC pays for a thirty-seven cent
+service without ever touching Kaspa — cannot be served by crossing the bridge
+for it, because the smallest crossing is larger than the whole grant. So:
+
+> **Funding-side routing is a treasury operation.** Cross once at treasury
+> scale, then fund many grants from what arrived. It is not per-agent
+> micro-funding, and the product should not be described as though it were.
+
+The grants drawn from that KAS are as small as anyone likes; it is only the
+*crossing* that has a floor. That is still a real product — a CFO topping up an
+agent fleet from a stablecoin balance — but it is a different one from the
+pitch, and the difference should be found here rather than by a user.
+
+**The bridge does not checksum the payout address.** Their guide is explicit
+that the contract "only checks prefix + charset". So a transposed character is
+a valid call and an irrecoverable payout to an address nobody holds.
+`assertPayoutAddress` runs the SDK's `decodeAddress`, which verifies the
+checksum, and `planFunding` throws rather than producing a plan — a bad payout
+address is not a plan with a problem, it is a plan that must not exist. This is
+the highest-value line in the package.
+
+**Addresses: mainnet published, Galleon not.** The KasExitBridge proxy on Igra
+mainnet (chain 38833) is `0x4bb88C213d3eD9dc4bae694f1bc1bF745903b2d0`,
+published in their contract-addresses page. No Galleon testnet addresses are
+published anywhere, for the bridge or for Zealous. Both are recorded here as
+documentation and neither is a constant in source: `ops/check-router.mjs`
+refuses an address literal in `router/src`, because a testnet-only project one
+typo away from a mainnet bridge is a bad arrangement even when the address is
+correct.
+
 ## Build order
 
 1. **Quote engine.** Signed quotes, expiry, USD→sompi, KIP-9 floor, and the
