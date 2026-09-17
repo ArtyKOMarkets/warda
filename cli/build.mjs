@@ -48,6 +48,7 @@ const TOOLS = [
   "../sdk/tools/fund.ts",
   "../sdk/tools/genesis.ts",
   "../sdk/tools/follow-grant.ts",
+  "../sdk/tools/build-exit.ts",
   "../sdk/tools/which-key.ts",
   "../sdk/tools/measure-relay-fee.ts",
   "../agents/tools/buy.ts",

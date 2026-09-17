@@ -152,3 +152,4 @@ jobs:
           node ops/check-portable.mjs
           node ops/check-router.mjs
           node ops/check-key-writes.mjs
+          node ops/check-cli-tools.mjs
