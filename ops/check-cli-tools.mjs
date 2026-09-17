@@ -55,6 +55,31 @@ if (missing.length) {
   process.exit(1);
 }
 
+/* A bundled tool must not reach for the covenant template at RUNTIME.
+   `../covenant-template.json` resolves to sdk/'s copy in the repo and to a file
+   nobody put there in the bundle, so the tool works everywhere it is tested and
+   fails for everybody who installed it. That is how `warda revoke` was broken
+   twice in one afternoon — first missing from TOOLS, then ENOENT once added.
+   check-deploys.mjs already enforces the same rule for the hosted deploys; a
+   shipped bundle is a deploy too. An IMPORT is fine: esbuild inlines it. */
+const readsTemplate = [];
+for (const t of bundled) {
+  const src = readFileSync(ROOT + t, "utf8");
+  if (/new URL\(\s*["'`]\.\.\/covenant-template\.json/.test(src)) readsTemplate.push(t);
+}
+if (readsTemplate.length) {
+  console.error(`\ncli tools: ${readsTemplate.length} bundled tool(s) read the covenant template from a path.\n`);
+  for (const t of readsTemplate) {
+    console.error(
+      `  ${t}\n` +
+        `    Bundled, that path is dist/covenant-template.json, which nothing writes.\n` +
+        `    Import it instead — esbuild inlines it and the template becomes part of the\n` +
+        `    artifact rather than a file that has to travel beside it.\n`,
+    );
+  }
+  process.exit(1);
+}
+
 /* Bundled-but-never-spawned is not a failure: `genesis.ts` is spawned by
    quickstart rather than by the dispatcher, and shipping it is correct. Worth
    naming so the list does not quietly accumulate. */

@@ -46,6 +46,16 @@ import { agentPublicKey, signDigest, verifyDigest } from "../src/sign.ts";
 import { scriptHashFor, templateFingerprint, type CovenantTemplate, type GrantState, templateIdFor } from "../src/template.ts";
 import { toWire } from "../src/wire.ts";
 import { resolveNetwork } from "./network.ts";
+/* IMPORTED, not read from a path beside this file.
+   `warda revoke` failed with ENOENT on dist/covenant-template.json the first
+   time it was ever bundled: in the repo `../covenant-template.json` resolves to
+   sdk/'s copy, and in the bundle it resolves to a file nobody put there. An
+   import is inlined by esbuild, which makes the template part of the artifact
+   rather than a file that has to travel beside it — the same reason genesis.ts
+   and follow-grant.ts do it this way, and the same lesson check-deploys.mjs
+   already enforces for the hosted deploys. --template still overrides it, for a
+   grant issued under an older covenant. */
+import covenantTemplate from "@warda_protocol/kaspa/covenant-template.json" with { type: "json" };
 import { submitCorrectingFee } from "./fee.ts";
 
 /** How far behind the tip to set the lock time. A lock time at or above the
@@ -116,10 +126,9 @@ const m = JSON.parse(readFileSync(manifestPath, "utf8"));
  */
 function loadTemplate(m: { covenant?: string } = {}): CovenantTemplate {
   const named = flag("template");
-  const url = named
-    ? new URL(named, `file://${process.cwd()}/`)
-    : new URL("../covenant-template.json", import.meta.url);
-  const tpl: CovenantTemplate = JSON.parse(readFileSync(url, "utf8"));
+  const tpl: CovenantTemplate = named
+    ? (JSON.parse(readFileSync(new URL(named, `file://${process.cwd()}/`), "utf8")) as CovenantTemplate)
+    : (covenantTemplate as unknown as CovenantTemplate);
   const have = templateFingerprint(tpl);
   if (m.covenant && m.covenant !== have) {
     console.error(
