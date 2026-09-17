@@ -15,7 +15,7 @@ diffable; this fills them in. Edit src/, never the output.
 import base64, json, pathlib, re, sys
 
 here = pathlib.Path(__file__).parent
-PAGES = ["index.html", "build.html", "verify.html", "proof.html", "agents.html", "start.html",
+PAGES = ["index.html", "protocol.html", "build.html", "verify.html", "proof.html", "agents.html", "start.html",
          "network.html", "sandbox.html", "rail.html", "agent-001.html"]
 
 # The attack page publishes a live grant's key and terms, so it can only be
@@ -457,7 +457,10 @@ def agent_publishable(data_name, page_name, how):
 
 
 STATE = here / "src" / "demo-state.json"
-SRC_INDEX = here / "src" / "index.html"
+# The challenge guard reads the page that HAS the challenge. It lived on the
+# landing page until the marketing split; it is /protocol now, and pointing
+# this at the marketing index would make the guard silently unable to fire.
+SRC_INDEX = here / "src" / "protocol.html"
 if STATE.exists():
     COPIES.append("demo-state.json")
 
@@ -600,7 +603,7 @@ def snapshot_matches(card):
         print(f"! the page renders the challenge only when the snapshot has a string")
         print(f"  `{guard.group(1)}`, and src/demo-state.json does not. The section would be")
         print(f"  hidden and every link to #challenge would scroll nowhere.")
-        print(f"  The field names in src/index.html and sdk/tools/demo-state.ts move together.")
+        print(f"  The field names in src/protocol.html and sdk/tools/demo-state.ts move together.")
         return False
     return True
 

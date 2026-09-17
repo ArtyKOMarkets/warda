@@ -22,7 +22,7 @@
  * the warning down with it rather than leave a page insisting all is well, and
  * must equally not leave a warning standing after the outage ended.
  *
- * Read from `site/src/index.html`, the committed source, so this runs on a
+ * Read from `site/src/protocol.html`, the committed source, so this runs on a
  * checkout with no Python and no build step — and fails if somebody edits the
  * script, which is the point.
  */
@@ -32,7 +32,7 @@ import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
 const page = readFileSync(
-  fileURLToPath(new URL("../site/src/index.html", import.meta.url)),
+  fileURLToPath(new URL("../site/src/protocol.html", import.meta.url)),
   "utf8",
 );
 
@@ -41,7 +41,7 @@ const source = page.match(
 )?.[0];
 
 test("the verify warning is still wired into the page", () => {
-  assert.ok(source, "the vfy-live script is gone from site/src/index.html");
+  assert.ok(source, "the vfy-live script is gone from site/src/protocol.html");
   assert.match(page, /id="vfy-live"/, "the element it writes into is gone");
 });
 

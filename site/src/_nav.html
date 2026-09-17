@@ -2,16 +2,37 @@
   <div class="wrap">
     <a class="nv-brand" href="/" data-nv="index.html">Warda</a>
     <div class="nv-links" id="nv-links">
-      <a href="/start" data-nv="start.html">Start</a>
       <a href="/build" data-nv="build.html">How it works</a>
       <a href="/agents" data-nv="agents.html">Agents</a>
+      <a href="/start" data-nv="start.html">Developers</a>
+      <a href="/network" data-nv="network.html">Network</a>
       <a href="/rail" data-nv="rail.html">Funding</a>
-      <a href="/network" data-nv="network.html">Registry</a>
-      <a href="/sandbox" data-nv="sandbox.html">Sandbox</a>
-      <a href="/verify" data-nv="verify.html">Verify</a>
-      <a href="/proof" data-nv="proof.html">Proof</a>
-      <a href="/console" data-nv="console.html">Console</a>
-      <a href="/attack" data-nv="attack.html">Attack</a>
+
+      <!-- The technical world, behind one control.
+           There were ten links in this bar and every one of them was a page a
+           first-time visitor had no way to rank: /attack and /console and
+           /verify are the best things here and they are the last things to
+           show somebody who does not yet know what a grant is. They are not
+           deleted, they are ranked — one button, and everything that proves
+           the claims is one click behind it.
+
+           A <details> element rather than a scripted menu: it opens on click
+           and on Enter, closes on Escape, is focusable in the tab order and
+           works with JavaScript off, all without a line of code. The script
+           below adds only the two things <details> does not do by itself —
+           close when you click elsewhere, and close when you follow a link. -->
+      <details class="nv-menu" id="nv-menu">
+        <summary>Check protocol</summary>
+        <div class="nv-sheet">
+          <a href="/protocol" data-nv="protocol.html"><b>Protocol</b><span>The covenant, the grant, the three keys</span></a>
+          <a href="/proof" data-nv="proof.html"><b>Proof</b><span>Every claim, and what would refute it</span></a>
+          <a href="/verify" data-nv="verify.html"><b>Verify</b><span>Check a grant against the chain yourself</span></a>
+          <a href="/sandbox" data-nv="sandbox.html"><b>Sandbox</b><span>Ask the covenant for money, in the browser</span></a>
+          <a href="/attack" data-nv="attack.html"><b>Attack</b><span>A live agent&rsquo;s key is published. Take it</span></a>
+          <a href="/console" data-nv="console.html"><b>Console</b><span>Watch a grant from your browser</span></a>
+          <a href="https://github.com/ArtyKOMarkets/warda" rel="noopener"><b>GitHub</b><span>The source, the tests and the probes</span></a>
+        </div>
+      </details>
     </div>
     <!-- Last, and not a link. The honest status of the whole thing, on every
          page, so nobody has to reach a footer to learn it. Stated once and
@@ -31,17 +52,37 @@
 (function () {
   var b = document.getElementById("nv-burger");
   var l = document.getElementById("nv-links");
-  if (!b || !l) return;
-  b.addEventListener("click", function () {
-    var open = b.getAttribute("aria-expanded") !== "true";
-    b.setAttribute("aria-expanded", String(open));
-    l.setAttribute("data-open", open ? "1" : "");
-  });
-  Array.prototype.forEach.call(l.querySelectorAll("a"), function (a) {
-    a.addEventListener("click", function () {
-      b.setAttribute("aria-expanded", "false");
-      l.setAttribute("data-open", "");
+  var m = document.getElementById("nv-menu");
+  if (b && l) {
+    b.addEventListener("click", function () {
+      var open = b.getAttribute("aria-expanded") !== "true";
+      b.setAttribute("aria-expanded", String(open));
+      l.setAttribute("data-open", open ? "1" : "");
     });
-  });
+  }
+  if (l) {
+    Array.prototype.forEach.call(l.querySelectorAll("a"), function (a) {
+      a.addEventListener("click", function () {
+        if (b) { b.setAttribute("aria-expanded", "false"); l.setAttribute("data-open", ""); }
+        if (m) m.open = false;
+      });
+    });
+  }
+  /* The two behaviours <details> does not have on its own. Escape and
+     click-outside, and nothing else — every other part of this menu is the
+     element doing its job, which is why there is no focus-trap or roving
+     tabindex here to get wrong. */
+  if (m) {
+    document.addEventListener("click", function (e) {
+      if (m.open && !m.contains(e.target)) m.open = false;
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && m.open) {
+        m.open = false;
+        var s = m.querySelector("summary");
+        if (s) s.focus();
+      }
+    });
+  }
 })();
 </script>

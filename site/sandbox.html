@@ -178,13 +178,51 @@
   .nv-brand { font-family: var(--display); font-weight: 700; font-size: 1.12rem;
               letter-spacing: 0.01em; color: var(--chrome); margin-right: 0.4rem; }
   .nv-brand:hover { color: var(--teal); }
-  .nv-links { display: flex; align-items: center; gap: 1.5rem; margin-right: auto; }
+  /* `flex: 1` so the row fills the bar, which is what lets the menu button sit
+     at the far right of the links rather than bunched against "Funding". The
+     ranking is the point: five words a newcomer understands, then one control
+     that opens everything a sceptic wants. */
+  .nv-links { display: flex; align-items: center; gap: 1.5rem; flex: 1 1 auto; margin-right: auto; }
   .nv-links a { font-family: var(--body); font-size: 0.88rem; color: var(--chrome-dim);
                 transition: color 140ms ease; }
   .nv-links a:hover { color: var(--chrome); }
   /* The page you are on, said in the markup rather than guessed by script:
      these are static files and build.py knows which one it is writing. */
   .nv-links a[aria-current="page"] { color: var(--chrome); }
+
+  /* ---- the Check protocol menu -----------------------------------------
+     A <details>/<summary> with a panel, not a scripted dropdown. The element
+     already opens on click and on Enter, closes on Escape, sits in the tab
+     order and works with scripting off; the only thing added in markup is the
+     look. Every dropdown bug this could have had — focus trapped in a closed
+     panel, a summary that is not reachable by keyboard, a menu that eats the
+     first tap on touch — is a bug in code that is not here. */
+  .nv-menu { position: relative; margin-left: auto; }
+  .nv-menu > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center;
+                       gap: 0.4rem; font-family: var(--body); font-size: 0.88rem;
+                       color: var(--chrome); padding: 0.34rem 0.8rem;
+                       border: 1px solid var(--edge-bright); border-radius: 999px;
+                       transition: border-color 140ms ease, color 140ms ease; }
+  .nv-menu > summary::-webkit-details-marker { display: none; }
+  .nv-menu > summary::after { content: ""; width: 0.36rem; height: 0.36rem; margin-top: -0.18rem;
+                              border-right: 1.4px solid currentColor; border-bottom: 1.4px solid currentColor;
+                              transform: rotate(45deg); transition: transform 180ms ease; }
+  .nv-menu[open] > summary::after { transform: rotate(-135deg) translate(-0.1rem, -0.1rem); }
+  .nv-menu > summary:hover { border-color: var(--teal-deep); color: var(--teal); }
+  .nv-menu > summary:focus-visible { outline: 2px solid var(--teal-bright); outline-offset: 3px; }
+
+  .nv-sheet { position: absolute; top: calc(100% + 0.7rem); right: 0; z-index: 70;
+              min-width: 20rem; display: grid; gap: 0.1rem;
+              background: var(--ground); border: 1px solid var(--edge);
+              border-radius: 12px; padding: 0.5rem; box-shadow: 0 24px 60px rgba(0,0,0,0.55); }
+  .nv-sheet a { display: block; padding: 0.6rem 0.75rem; border-radius: 8px;
+                transition: background 120ms ease; white-space: normal; }
+  .nv-sheet a:hover { background: var(--panel); }
+  .nv-sheet b { display: block; font-family: var(--body); font-size: 0.9rem; font-weight: 600;
+                color: var(--chrome); }
+  .nv-sheet span { display: block; font-size: 0.76rem; color: var(--chrome-faint); margin-top: 0.1rem; }
+  .nv-sheet a[aria-current="page"] b { color: var(--teal); }
+
   .nv-status { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.09em;
                text-transform: uppercase; color: var(--chrome-faint); opacity: 0.8;
                white-space: nowrap; }
@@ -221,9 +259,14 @@
      convenience, and the same disclosure is in the footer of every page and in
      the page content itself, so nothing honest is lost by dropping it on a
      narrower screen. Measured at sixteen widths on four pages. */
-  @media (max-width: 1320px) { .nv-status { display: none; } }
+  /* 1180 now, not 1320. Five links plus one menu button is materially
+     narrower than the ten links this was measured for, so the status line
+     survives further down the range than it used to. Re-measured rather than
+     left alone: a breakpoint kept from a layout that no longer exists is a
+     breakpoint that hides something for no reason. */
+  @media (max-width: 1180px) { .nv-status { display: none; } }
 
-  @media (max-width: 1040px) {
+  @media (max-width: 900px) {
     .nv-burger { display: flex; }
     .nv-links { position: absolute; left: 0; right: 0; top: 100%; display: none;
                 flex-direction: column; align-items: stretch; gap: 0; margin: 0;
@@ -231,6 +274,17 @@
                 padding: 0.3rem var(--gutter) 1rem; }
     .nv-links[data-open="1"] { display: flex; }
     .nv-links a { padding: 0.85rem 0; border-bottom: 1px solid var(--edge); font-size: 0.95rem; }
+    /* Stacked, the sheet is part of the list rather than floating over it:
+       an absolutely-positioned panel inside a full-width menu opens off the
+       right edge of a phone, which is the one place this menu matters most. */
+    .nv-menu { width: 100%; margin-left: 0; }
+    .nv-menu > summary { justify-content: space-between; width: 100%; border: 0;
+                         border-bottom: 1px solid var(--edge); border-radius: 0;
+                         padding: 0.85rem 0; font-size: 0.95rem; }
+    .nv-sheet { position: static; min-width: 0; border: 0; border-radius: 0; padding: 0 0 0 0.9rem;
+                box-shadow: none; background: transparent; }
+    .nv-sheet a { padding: 0.7rem 0; border-bottom: 1px solid var(--edge); border-radius: 0; }
+    .nv-sheet a:hover { background: transparent; }
     .topnav .wrap { gap: 0.9rem; }
     .nv-go { margin-left: auto; }
   }
@@ -240,16 +294,37 @@
   <div class="wrap">
     <a class="nv-brand" href="/" data-nv="index.html">Warda</a>
     <div class="nv-links" id="nv-links">
-      <a href="/start" data-nv="start.html">Start</a>
       <a href="/build" data-nv="build.html">How it works</a>
       <a href="/agents" data-nv="agents.html">Agents</a>
+      <a href="/start" data-nv="start.html">Developers</a>
+      <a href="/network" data-nv="network.html">Network</a>
       <a href="/rail" data-nv="rail.html">Funding</a>
-      <a href="/network" data-nv="network.html">Registry</a>
-      <a href="/sandbox" data-nv="sandbox.html" aria-current="page">Sandbox</a>
-      <a href="/verify" data-nv="verify.html">Verify</a>
-      <a href="/proof" data-nv="proof.html">Proof</a>
-      <a href="/console" data-nv="console.html">Console</a>
-      <a href="/attack" data-nv="attack.html">Attack</a>
+
+      <!-- The technical world, behind one control.
+           There were ten links in this bar and every one of them was a page a
+           first-time visitor had no way to rank: /attack and /console and
+           /verify are the best things here and they are the last things to
+           show somebody who does not yet know what a grant is. They are not
+           deleted, they are ranked — one button, and everything that proves
+           the claims is one click behind it.
+
+           A <details> element rather than a scripted menu: it opens on click
+           and on Enter, closes on Escape, is focusable in the tab order and
+           works with JavaScript off, all without a line of code. The script
+           below adds only the two things <details> does not do by itself —
+           close when you click elsewhere, and close when you follow a link. -->
+      <details class="nv-menu" id="nv-menu">
+        <summary>Check protocol</summary>
+        <div class="nv-sheet">
+          <a href="/protocol" data-nv="protocol.html"><b>Protocol</b><span>The covenant, the grant, the three keys</span></a>
+          <a href="/proof" data-nv="proof.html"><b>Proof</b><span>Every claim, and what would refute it</span></a>
+          <a href="/verify" data-nv="verify.html"><b>Verify</b><span>Check a grant against the chain yourself</span></a>
+          <a href="/sandbox" data-nv="sandbox.html" aria-current="page"><b>Sandbox</b><span>Ask the covenant for money, in the browser</span></a>
+          <a href="/attack" data-nv="attack.html"><b>Attack</b><span>A live agent&rsquo;s key is published. Take it</span></a>
+          <a href="/console" data-nv="console.html"><b>Console</b><span>Watch a grant from your browser</span></a>
+          <a href="https://github.com/ArtyKOMarkets/warda" rel="noopener"><b>GitHub</b><span>The source, the tests and the probes</span></a>
+        </div>
+      </details>
     </div>
     <!-- Last, and not a link. The honest status of the whole thing, on every
          page, so nobody has to reach a footer to learn it. Stated once and
@@ -269,18 +344,38 @@
 (function () {
   var b = document.getElementById("nv-burger");
   var l = document.getElementById("nv-links");
-  if (!b || !l) return;
-  b.addEventListener("click", function () {
-    var open = b.getAttribute("aria-expanded") !== "true";
-    b.setAttribute("aria-expanded", String(open));
-    l.setAttribute("data-open", open ? "1" : "");
-  });
-  Array.prototype.forEach.call(l.querySelectorAll("a"), function (a) {
-    a.addEventListener("click", function () {
-      b.setAttribute("aria-expanded", "false");
-      l.setAttribute("data-open", "");
+  var m = document.getElementById("nv-menu");
+  if (b && l) {
+    b.addEventListener("click", function () {
+      var open = b.getAttribute("aria-expanded") !== "true";
+      b.setAttribute("aria-expanded", String(open));
+      l.setAttribute("data-open", open ? "1" : "");
     });
-  });
+  }
+  if (l) {
+    Array.prototype.forEach.call(l.querySelectorAll("a"), function (a) {
+      a.addEventListener("click", function () {
+        if (b) { b.setAttribute("aria-expanded", "false"); l.setAttribute("data-open", ""); }
+        if (m) m.open = false;
+      });
+    });
+  }
+  /* The two behaviours <details> does not have on its own. Escape and
+     click-outside, and nothing else — every other part of this menu is the
+     element doing its job, which is why there is no focus-trap or roving
+     tabindex here to get wrong. */
+  if (m) {
+    document.addEventListener("click", function (e) {
+      if (m.open && !m.contains(e.target)) m.open = false;
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && m.open) {
+        m.open = false;
+        var s = m.querySelector("summary");
+        if (s) s.focus();
+      }
+    });
+  }
 })();
 </script>
 

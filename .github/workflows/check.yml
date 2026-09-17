@@ -155,6 +155,7 @@ jobs:
           node ops/check-releasable.mjs
           python3 site/build.py
           node ops/check-links.mjs
+          node ops/check-sitemap.mjs
           node ops/check-commands.mjs
           node ops/check-portable.mjs
           node ops/check-router.mjs

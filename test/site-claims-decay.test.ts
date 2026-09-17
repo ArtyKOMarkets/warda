@@ -23,7 +23,7 @@
  *
  * ## Against the source, not the build
  *
- * `site/src/index.html` is what is committed; `site/web/` is generated. Reading
+ * `site/src/protocol.html` is what is committed; `site/web/` is generated. Reading
  * the source means this runs on a checkout with no Python and no build step,
  * and it fails if somebody edits the script — which is the point.
  */
@@ -33,7 +33,7 @@ import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
 const page = readFileSync(
-  fileURLToPath(new URL("../site/src/index.html", import.meta.url)),
+  fileURLToPath(new URL("../site/src/protocol.html", import.meta.url)),
   "utf8",
 );
 
@@ -44,7 +44,7 @@ const source = page.match(
 )?.[0];
 
 test("the live interop claim is still wired into the page", () => {
-  assert.ok(source, "the interop-live script is gone from site/src/index.html");
+  assert.ok(source, "the interop-live script is gone from site/src/protocol.html");
   assert.match(page, /id="interop-live"/, "the element it writes into is gone");
 });
 
