@@ -33,9 +33,25 @@ const files = sources(SRC);
 
 for (const file of files) {
   const lines = readFileSync(file, "utf8").split("\n");
+  /* Block comments span lines, and this repo's prose quotes the very patterns
+     below. Stripping only single-line comments made the guard fire on its own
+     documentation twice. */
+  let inBlock = false;
   lines.forEach((line, i) => {
     const at = `${file.slice(ROOT.length)}:${i + 1}`;
-    const code = line.replace(/\/\*.*?\*\//g, "").replace(/\/\/.*$/, "");
+    let code = line.replace(/\/\*.*?\*\//g, "");
+    if (inBlock) {
+      const end = code.indexOf("*/");
+      if (end < 0) return;
+      code = code.slice(end + 2);
+      inBlock = false;
+    }
+    const open = code.indexOf("/*");
+    if (open >= 0) {
+      inBlock = true;
+      code = code.slice(0, open);
+    }
+    code = code.replace(/\/\/.*$/, "");
 
     /* 1. A venue address baked into source. There is no published, verified
           Galleon deployment to copy, and an address typed from memory is an

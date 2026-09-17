@@ -32,7 +32,18 @@ export interface VenueConfig {
   readonly addresses: Readonly<Record<string, string>>;
 }
 
-export type StepAction = "sign-and-submit" | "await-confirmation";
+export type StepAction =
+  /** The caller signs it. The router builds it and never holds the key. */
+  | "sign-and-submit"
+  /** Wait for something to land. Nothing after this is undone by retrying. */
+  | "await-confirmation"
+  /**
+   * The person does it somewhere Warda cannot see — an exchange trade, a
+   * withdrawal. Marked as its own action rather than dressed up as a step we
+   * perform, because a rail that pretends to cover the part it cannot observe
+   * is how a receipt ends up claiming more than happened.
+   */
+  | "off-protocol";
 
 export interface Step {
   readonly index: number;

@@ -181,15 +181,30 @@ export interface Claim {
  * document was written to prevent, and it would be indistinguishable from a
  * working system right up until somebody checked.
  */
+/**
+ * The recipient check, in one place so no caller has to write the claim out as
+ * a literal to ask for it. A literal in a call site is indistinguishable, to a
+ * reader or a grep, from a literal in a receipt.
+ */
+function refuseIfRecipientUnenforced(route: Route): void {
+  if (verdict(route).recipientEnforced) return;
+  const after = route.hops.slice(covenantIndices(route)[0]! + 1).map((h) => h.kind);
+  throw new Error(
+    `this route claims the recipient was enforced, but ${after.length} hop(s) follow the ` +
+      `covenant spend (${after.join(" -> ")}). Once value leaves the covenant the chain ` +
+      "stops constraining where it lands. The honest field is authorisedToPayMe: \"unknown\".",
+  );
+}
+
+/** Refuse a route whose final recipient the covenant did not constrain. */
+export function assertRecipientEnforced(route: Route): void {
+  refuseIfRecipientUnenforced(route);
+}
+
 export function assertClaimSupported(route: Route, claim: Claim): void {
   const v = verdict(route);
-  if (claim.recipientEnforced === true && !v.recipientEnforced) {
-    const after = route.hops.slice(covenantIndices(route)[0]! + 1).map((h) => h.kind);
-    throw new Error(
-      `this route claims the recipient was enforced, but ${after.length} hop(s) follow the ` +
-        `covenant spend (${after.join(" -> ")}). Once value leaves the covenant the chain ` +
-        "stops constraining where it lands. The honest field is authorisedToPayMe: \"unknown\".",
-    );
+  if (claim.recipientEnforced === true) {
+    refuseIfRecipientUnenforced(route);
   }
   if (claim.zone && RANK[claim.zone] > RANK[v.zone]) {
     throw new Error(

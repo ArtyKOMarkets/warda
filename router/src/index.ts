@@ -3,3 +3,5 @@ export * from "./route.ts";
 export * from "./igra.ts";
 export * from "./bridge.ts";
 export * from "./plan.ts";
+export * from "./exchange.ts";
+export * from "./receipt.ts";
