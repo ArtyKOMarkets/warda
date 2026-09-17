@@ -13,11 +13,15 @@ npx warda pay https://warda-demo-api.vercel.app/fact
 warda node                    is a node worth believing? (run this first)
 warda key      [--out f.key]  a new keypair, and its address
 warda wallet   [consolidate]  an ordinary key: what it holds, what it can fund
+warda fund     --payees <f>   buy a grant with an asset you already hold
 warda grant    --payees <f>   create a grant. Limits in KAS.
+warda topup    [--below 1]    issue the successor before the budget runs out
 warda balance                 what may this agent spend right now?
 warda pay      <url>          buy something behind an HTTP 402
 warda activity                every attempt, refusals included
 warda find                    the grant moved. Where is it now?
+warda revoke   [grant.json]   STOP IT NOW. Signed by the revocation key.
+warda reclaim  [grant.json]   the term is over, bring the remainder home
 warda mcp                     serve the grant over MCP (stdio)
 ```
 
@@ -134,6 +138,14 @@ it. `warda node` checks yours is synced, utxo-indexed and on the network it
 claims, because each of those failures returns a *plausible wrong answer* rather
 than an error: a node without a utxo index reports your grant as empty, which is
 indistinguishable from a grant that was drained.
+
+`warda mcp` needs `@warda_protocol/mcp`, and `--borsh` needs
+`@warda_protocol/borsh` and `@kluster/kaspa-wasm`. All three are optional peers
+rather than dependencies: the MCP server versions separately from this CLI, and
+the borsh transport carries a multi-megabyte wasm binary most people never need.
+Everything else is inlined into the published bundle, which therefore has no
+runtime dependencies at all — the covenant rules that decide an address are part
+of this artifact rather than whatever a semver range resolved to today.
 
 Unaudited. Testnet only. The coins are free and worth nothing, which is the
 correct amount to risk on a protocol nobody has reviewed.

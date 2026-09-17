@@ -1,6 +1,6 @@
 {
   "name": "@warda_protocol/cli",
-  "version": "0.3.5",
+  "version": "0.4.0",
   "description": "One short command for the whole life of a Warda grant: create it, see what it may spend, pay behind an HTTP 402, and read back every attempt. Adds no capability \u2014 the rules stay in @warda_protocol/core.",
   "type": "module",
   "license": "MIT",
@@ -27,10 +27,6 @@
     "agent-payments",
     "spending-limits"
   ],
-  "dependencies": {
-    "@warda_protocol/agent": "^0.1.0",
-    "@warda_protocol/mcp": "^0.6.0"
-  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ArtyKOMarkets/warda.git",
@@ -45,17 +41,17 @@
   },
   "scripts": {
     "build": "node build.mjs",
-    "prepublishOnly": "node ../ops/check-releasable.mjs --for cli && node build.mjs && node dist/warda.js --version"
+    "prepublishOnly": "node ../ops/check-releasable.mjs --for cli && node build.mjs && node ../ops/check-cli-deps.mjs && node dist/warda.js --version"
   },
   "peerDependencies": {
-    "@warda_protocol/borsh": "^0.4.1",
-    "@kluster/kaspa-wasm": "*"
+    "@warda_protocol/mcp": "^0.6.0",
+    "@warda_protocol/borsh": "^0.4.1"
   },
   "peerDependenciesMeta": {
-    "@warda_protocol/borsh": {
+    "@warda_protocol/mcp": {
       "optional": true
     },
-    "@kluster/kaspa-wasm": {
+    "@warda_protocol/borsh": {
       "optional": true
     }
   }
