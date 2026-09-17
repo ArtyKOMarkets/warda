@@ -54,20 +54,60 @@ const repo = (p: string) => fileURLToPath(new URL("../" + p, import.meta.url));
 const quiet = process.argv.includes("--quiet");
 const STATE = repo("ops/first-contact.json");
 
-const PACKAGES = [
-  "@warda_protocol/core",
-  "@warda_protocol/kaspa",
-  "@warda_protocol/mcp",
-  "@warda_protocol/x402",
-  "@warda_protocol/cli",
-  "@warda_protocol/verify",
-  /* The seller's half, and the one a reader is most likely to install
-     WITHOUT ever appearing in any of the other signals here: somebody
-     who takes payments does not clone this repo, does not create a
-     grant, and never sends us a coin. Missing from this list, they are
-     invisible. */
-  "@warda_protocol/vendor",
-];
+/**
+ * Every package this repository publishes, READ from the workspaces.
+ *
+ * It was a hand-written list of seven, and by the time anybody looked there
+ * were ten on npm. registry, borsh and router were invisible to the one
+ * instrument in this project whose entire job is noticing a stranger — and
+ * router was the newest thing here, which makes it the one an outsider is most
+ * likely to arrive at.
+ *
+ * That is this tool's own failure mode, turned on itself: a signal nobody was
+ * watching. The list is derived now, so publishing a package is the only thing
+ * anybody has to remember.
+ *
+ * Private workspaces are excluded because they are not on npm; unpublished
+ * public ones are INCLUDED, because the fetch below already distinguishes "the
+ * registry has never heard of this" from "nobody installed it", and an
+ * unpublished package that gets published later is then watched without
+ * anybody deciding to watch it.
+ */
+const PACKAGES: string[] = (() => {
+  const root = JSON.parse(readFileSync(repo("package.json"), "utf8"));
+  const out: string[] = [];
+  for (const w of root.workspaces as string[]) {
+    const f = repo(w === "." ? "package.json" : `${w}/package.json`);
+    if (!existsSync(f)) continue;
+    const d = JSON.parse(readFileSync(f, "utf8"));
+    if (d.private || !d.name?.startsWith("@warda_protocol/")) continue;
+    out.push(d.name);
+  }
+  return out.sort();
+})();
+
+/**
+ * Who depends on whom, also read rather than typed.
+ *
+ * Only runtime `dependencies`: a peer is optional, so a real install does not
+ * have to pull it, and counting one would invent a contradiction that is not
+ * there. `cli` declares none at all — it inlines everything — so it has no
+ * edges here, which is correct and not an omission.
+ */
+const EDGES: [string, string][] = (() => {
+  const root = JSON.parse(readFileSync(repo("package.json"), "utf8"));
+  const out: [string, string][] = [];
+  for (const w of root.workspaces as string[]) {
+    const f = repo(w === "." ? "package.json" : `${w}/package.json`);
+    if (!existsSync(f)) continue;
+    const d = JSON.parse(readFileSync(f, "utf8"));
+    if (d.private || !d.name?.startsWith("@warda_protocol/")) continue;
+    for (const dep of Object.keys(d.dependencies ?? {})) {
+      if (dep.startsWith("@warda_protocol/")) out.push([d.name, dep]);
+    }
+  }
+  return out;
+})();
 
 /** Where a stranger's money would land: the demo vendor, and agent #001. */
 const WATCHED = [
@@ -93,6 +133,16 @@ interface State {
   knownTxids: string[];
   npm: Record<string, number>;
   published?: Record<string, boolean>;
+  /**
+   * Which packages the registry actually answered about.
+   *
+   * Separate from `published`, because "the registry says no" and "nobody
+   * asked the registry" are different facts and only one of them is a finding.
+   * Without this, a run with no network wrote `published: false` for packages
+   * that are on npm, and the NEXT offline run read that back as a checked
+   * answer — a guess laundered into a record by one round trip through a file.
+   */
+  checked?: Record<string, boolean>;
   github: { stars: number; forks: number };
 }
 const prior: State | null = existsSync(STATE) ? JSON.parse(readFileSync(STATE, "utf8")) : null;
@@ -134,21 +184,43 @@ for (const dir of readdirSync(repo(".")).filter((d) => d.startsWith("agent-"))) 
  */
 const npm: Record<string, number> = {};
 const published: Record<string, boolean> = {};
+/**
+ * And a THIRD state, for the same reason the second one exists.
+ *
+ * The registry check can fail without answering — no network, a timeout, a
+ * proxy. With a prior reading that is fine; without one, the old code defaulted
+ * to `true` and then wrote a 0 beside it, which renders a package nobody has
+ * heard of as a published package nobody installed. That is the absence-as-a-
+ * measurement mistake this very block was written to stop, arrived at from the
+ * other side, and it became reachable the moment the package list stopped
+ * being seven names somebody had personally published.
+ */
+const checked: Record<string, boolean> = {};
 for (const pkg of PACKAGES) {
   try {
     const reg = await fetch(`https://registry.npmjs.org/${pkg.replace("/", "%2f")}`, {
       method: "HEAD",
     });
     published[pkg] = reg.ok;
-  } catch { published[pkg] = prior?.published?.[pkg] ?? true; }
+    checked[pkg] = true;
+  } catch {
+    checked[pkg] = prior?.checked?.[pkg] ?? false;
+    published[pkg] = prior?.published?.[pkg] ?? false;
+  }
 
+  /* A package the registry did not answer about keeps its last figure. Writing
+     0 would destroy the reading AND print a drop — "npm 0 (-1209)" — which is
+     an outage rendered as a collapse in interest. The row says "not checked"
+     and the total below leaves it out; the number survives for the next run
+     that can actually ask. */
+  if (!checked[pkg]) { npm[pkg] = prior?.npm[pkg] ?? 0; continue; }
   if (!published[pkg]) { npm[pkg] = 0; continue; }
   try {
     const r = await fetch(`https://api.npmjs.org/downloads/point/last-week/${pkg}`);
     npm[pkg] = r.ok ? ((await r.json()) as { downloads?: number }).downloads ?? 0 : 0;
   } catch { npm[pkg] = prior?.npm[pkg] ?? 0; }
 }
-const npmLive = PACKAGES.filter((p) => published[p]);
+const npmLive = PACKAGES.filter((p) => checked[p] && published[p]);
 
 /**
  * Whether these downloads could be real installs at all.
@@ -163,15 +235,24 @@ const npmLive = PACKAGES.filter((p) => published[p]);
  * under a big number is read as modesty and ignored.
  */
 const dl = (p: string) => npm[p] ?? 0;
-/* Both dependants, checked the same way: mcp needs core AND kaspa, vendor
-   needs kaspa. Either exceeding what it depends on is the same arithmetic
-   contradiction, and vendor is the one being posted about — so it is the one
-   most likely to show a number worth misreading. */
-const impossible =
-  dl("@warda_protocol/mcp") > Math.min(dl("@warda_protocol/core"), dl("@warda_protocol/kaspa")) ||
-  dl("@warda_protocol/vendor") > dl("@warda_protocol/kaspa");
+/** "@warda_protocol/router" -> "router", for a sentence a person reads. */
+const short = (p: string) => p.split("/")[1] ?? p;
+/* EVERY dependency edge, not the two somebody thought of. The rule is one
+   sentence — a real install of X pulls everything X depends on, so X can never
+   outrank one of them — and it was written out by hand for mcp and vendor,
+   which meant it silently stopped covering the graph the moment a package was
+   added. Each contradiction is kept rather than folded into a boolean, so the
+   report can name the pair instead of asserting the conclusion. */
+const contradictions = EDGES.filter(
+  ([of_, dep]) => published[of_] && published[dep] && dl(of_) > dl(dep),
+).map(([of_, dep]) => `${short(of_)} reads ${dl(of_)} and ${short(dep)}, which it depends on, reads ${dl(dep)}`);
+const impossible = contradictions.length > 0;
 const npmTotal = npmLive.reduce((a, p) => a + (npm[p] ?? 0), 0);
-const npmWas = prior ? Object.values(prior.npm).reduce((a, b) => a + b, 0) : null;
+/* Compared over the SAME packages, not over everything the prior file held. A
+   total that silently changes which packages it covers is a total whose delta
+   means nothing — and the first version of that delta reported -1209 because
+   one run could not reach the registry. */
+const npmWas = prior ? npmLive.reduce((a, p) => a + (prior.npm[p] ?? 0), 0) : null;
 
 // ── 2. GitHub ───────────────────────────────────────────────────────────────
 let github = prior?.github ?? { stars: 0, forks: 0 };
@@ -240,7 +321,11 @@ if (!haveBaseline) {
   if (alert.length) {
     console.log("\n" + alert.join("\n\n") + "\n");
   } else {
-    say(`\nnothing new · npm ${npmTotal} (${dNpm >= 0 ? "+" : ""}${dNpm}) · stars ${github.stars} · ` +
+    say(`\nnothing new · ` +
+        (npmLive.length
+          ? `npm ${npmTotal} (${dNpm >= 0 ? "+" : ""}${dNpm}) across ${npmLive.length} package(s)`
+          : `npm NOT CHECKED — the registry did not answer`) +
+        ` · stars ${github.stars} · ` +
         `${checkedChain ? "chain checked" : "NO NODE — the signal that matters was not read"}\n`);
   }
   if (!checkedChain) {
@@ -273,7 +358,10 @@ function writePage(path: string) {
     : "";
 
   const npmRows = PACKAGES.map((pkg) =>
-    published[pkg]
+    !checked[pkg]
+      ? `<tr><td class="mono dim">${esc(pkg)}</td>` +
+        `<td class="n dim">not checked</td></tr>`
+      : published[pkg]
       ? `<tr><td class="mono">${esc(pkg)}</td><td class="n">${npm[pkg] ?? 0}` +
         `${delta(npm[pkg] ?? 0, prior ? prior.npm[pkg] ?? 0 : null)}</td></tr>`
       : `<tr><td class="mono dim">${esc(pkg)}</td>` +
@@ -327,9 +415,12 @@ function writePage(path: string) {
 
   <h2>npm — last week ${impossible ? '<span class="warn">· not real installs</span>' : ""}</h2>
   ${impossible ? `<p class="note" style="margin:0 0 .8rem;padding:0;border:0">
-    <strong>These cannot be people.</strong> core and kaspa are dependencies of mcp, so every
-    real mcp install pulls both — yet mcp reads higher than either. That is an arithmetic
-    contradiction, not a close call: the traffic is mirrors and registry crawlers.
+    <strong>These cannot be people.</strong> A real install pulls everything the package
+    depends on, so nothing can outrank what it depends on. ${contradictions.length}
+    ${contradictions.length === 1 ? "pair does" : "pairs do"}:
+    ${contradictions.map((c) => `<br>&nbsp;&nbsp;${c}`).join("")}
+    <br>That is an arithmetic contradiction, not a close call: the traffic is mirrors and
+    registry crawlers.
   </p>` : ""}
   <table>${npmRows}<tr><td><strong>total</strong></td><td class="n"><strong>${npmTotal}</strong>${delta(npmTotal, npmWas)}</td></tr></table>
 
@@ -362,6 +453,7 @@ writeFileSync(
       knownTxids: checkedChain ? [...seen] : (prior?.knownTxids ?? []),
       npm,
       published,
+      checked,
       github,
     },
     null, 2,
