@@ -12,7 +12,7 @@
  * describes. It no-ops on a page that carries none of the elements it fills.
  */
 (function () {
-  var AGENT_IDS = ["001", "002", "003", "004", "005"];
+  var AGENT_IDS = ["001", "002", "003", "004", "005", "006"];
 
 /* ---- the diagram -------------------------------------------------------
    Positions are fixed; everything else — which nodes exist, which are dead,
@@ -24,6 +24,11 @@ var POS = {
   "003": { x: 120, y: 200, role: "buys" },
   "004": { x: 120, y: 330, role: "settled" },
   "005": { x: 120, y: 470, role: "buys from a stranger" },
+  /* The one that was bought rather than hand-funded. It buys from the demo
+     vendor like #002 and #003 did, so its arrow lands on the same node — what
+     is different about it happened before the grant existed, which is why the
+     interesting part of #006 is on /rail and not on this picture. */
+  "006": { x: 120, y: 600, role: "bought, not hand-funded" },
   vendor:  { x: 545, y: 265, role: "sells /weather /fact" },
   /* The one node on this diagram nobody here operates. It is drawn apart from
      the others for the same reason agent #005 exists: every other arrow on

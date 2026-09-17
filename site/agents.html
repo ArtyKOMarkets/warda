@@ -601,10 +601,12 @@
        a drawing program, and then the agents change and the picture does not.
        This one has no positions for an agent it cannot read. -->
   <figure class="graph" id="g-graph" hidden>
-    <!-- 560 tall, not 440. The height was set when there were four agents and
-         one seller; #005 and the third party it buys from are two more rows.
+    <!-- 700 tall, and it has been 440 and 560 on the way here. Each time the
+         height was right for the agents that existed when it was typed, and
+         each time a new row was added without it: a node drawn below the
+         viewBox is not clipped with an error, it is simply not on the picture.
          A viewBox is as easy to leave behind as a sentence. -->
-    <svg viewBox="0 0 760 560" role="img" aria-labelledby="g-graph-t">
+    <svg viewBox="0 0 760 700" role="img" aria-labelledby="g-graph-t">
       <!-- No count in here. It said "Four agents" and was wrong the day a
            fifth arrived — in the accessible name, which is the one version of
            this picture a screen reader gets. -->
@@ -666,7 +668,7 @@
  * describes. It no-ops on a page that carries none of the elements it fills.
  */
 (function () {
-  var AGENT_IDS = ["001", "002", "003", "004", "005"];
+  var AGENT_IDS = ["001", "002", "003", "004", "005", "006"];
 
 /* ---- the diagram -------------------------------------------------------
    Positions are fixed; everything else — which nodes exist, which are dead,
@@ -678,6 +680,11 @@ var POS = {
   "003": { x: 120, y: 200, role: "buys" },
   "004": { x: 120, y: 330, role: "settled" },
   "005": { x: 120, y: 470, role: "buys from a stranger" },
+  /* The one that was bought rather than hand-funded. It buys from the demo
+     vendor like #002 and #003 did, so its arrow lands on the same node — what
+     is different about it happened before the grant existed, which is why the
+     interesting part of #006 is on /rail and not on this picture. */
+  "006": { x: 120, y: 600, role: "bought, not hand-funded" },
   vendor:  { x: 545, y: 265, role: "sells /weather /fact" },
   /* The one node on this diagram nobody here operates. It is drawn apart from
      the others for the same reason agent #005 exists: every other arrow on
@@ -933,7 +940,17 @@ function drawGraph(loaded) {
        hardest to fake, and the one whose failures show on the front page. */
     { id: "005", href: "/agent-005", json: "/agent-005.json",
       name: "The stranger's customer",
-      does: "Buys from a vendor nobody here controls, unattended, every morning — through a relay hop their scheme requires, over public nodes, writing down what happened whether or not it worked." }
+      does: "Buys from a vendor nobody here controls, unattended, every morning — through a relay hop their scheme requires, over public nodes, writing down what happened whether or not it worked." },
+    /* The first one that was BOUGHT rather than hand-funded. Everything above
+       it was paid for out of a key that already held KAS, which is how a
+       developer funds things and says nothing about the people this is for —
+       who hold stablecoins and have never touched Kaspa. This card exists to
+       carry the honest gap as loudly as the claim: on testnet the sale leg
+       cannot be exercised, the KAS came from a faucet, and its funding record
+       says `assumed` and names the faucet as the venue. */
+    { id: "006", href: "/agent-006", json: "/agent-006.json",
+      name: "The one that was bought",
+      does: "Funded by selling an asset rather than by a key that already held KAS — and the first here whose three powers are three different keys. Its first issue collapsed two of them, so it was revoked and reissued rather than published with the warning in a footnote." }
   ];
 
   var PLANNED = [];

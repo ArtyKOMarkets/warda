@@ -159,9 +159,28 @@ if CONSOLE_ZIP:
     for _k, _v in _console.items():
         print(f"console: {_k} = {_v}")
 
+# How many agents there are, counted rather than typed.
+#
+# _graph.html already learned this: "No count in here. It said 'Four agents'
+# and was wrong the day a fifth landed." The lesson did not travel — the
+# section heading ABOVE that diagram still said four when there were six, and
+# the landing page carried its own hand-typed number a few hours after being
+# written. A count beside a list that grows is a claim that expires on a
+# schedule nobody is watching.
+#
+# So it comes from the readings that exist. An agent has a number here when it
+# has a published reading derived from the chain, which is the same condition
+# under which its page is allowed to exist at all.
+AGENT_COUNT = len(sorted((here / "src").glob("agent-0[0-9][0-9].json")))
+WORDS = {1: "One", 2: "Two", 3: "Three", 4: "Four", 5: "Five", 6: "Six",
+         7: "Seven", 8: "Eight", 9: "Nine", 10: "Ten"}
+print(f"agents: {AGENT_COUNT} with a published reading")
+
 for _f in flavours.values():
     if CONSOLE_ZIP:
         _f.update(_console)
+    _f["{{AGENT_COUNT}}"] = str(AGENT_COUNT)
+    _f["{{AGENT_COUNT_WORD}}"] = WORDS.get(AGENT_COUNT, str(AGENT_COUNT))
     _f["{{AGENT_CSS}}"] = AGENT_CSS
     _f["{{AGENT_GRAPH}}"] = GRAPH_HTML
     _f["{{AGENT_GRAPH_CSS}}"] = GRAPH_CSS
@@ -765,6 +784,16 @@ for outdir, subs in flavours.items():
         # second <html> inside its skeleton is a malformed document.
         if outdir == "web":
             html = as_document(html)
+        # A placeholder that survived is a page that shows a reader {{LOCKUP}}.
+        # The attack and console pages are SKIPPED when their artefact is
+        # missing, for exactly this reason; every other page gets the same
+        # protection here rather than only the two somebody thought of.
+        left = re.findall(r"\{\{[A-Z_]+\}\}", html)
+        if left:
+            print(f"! {outdir}/{name} still contains {', '.join(sorted(set(left)))}")
+            print(f"  Nothing was written. A page that says {left[0]} to a stranger is worse")
+            print(f"  than no page — add the substitution in build.py, or remove the placeholder.")
+            sys.exit(1)
         (d / name).write_text(html)
     for name in GENERATED:
         dst = d / name
