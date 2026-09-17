@@ -58,6 +58,90 @@
   .hero-mark { width: clamp(7.5rem, 13vw, 10rem); height: auto; display: block;
                margin-bottom: clamp(1.2rem, 3vw, 1.9rem); }
 
+
+  /* ---- the scene ---------------------------------------------------------
+     An agent economy, running. It is the only thing in the hero that has to
+     teach rather than assert, so it shows the mechanism and not a metaphor:
+     money arrives once, the limits close around it, the agent buys things and
+     hires another agent without anybody approving any of it, and then it asks
+     for something it may not have and the ring — the covenant — simply does
+     not let the payment out.
+
+     THE STILL FRAME IS THE DIAGRAM. Every node, every line, every label and
+     the budget ring at its resting value are in the markup. The animation adds
+     moving tokens and re-reads the caption; it does not add content. With
+     scripting off, with reduced motion, or in a thumbnail, what remains is a
+     labelled picture of the same thing. */
+  .scene { margin: 0; }
+  .scene svg { width: 100%; height: auto; display: block; overflow: visible; }
+  .scene text { font-family: var(--mono); fill: var(--chrome-faint); }
+  .n-label { font-size: 11px; letter-spacing: 0.06em; text-anchor: middle; }
+  .n-sub { font-size: 8.5px; letter-spacing: 0.1em; text-anchor: middle; fill: var(--chrome-faint); opacity: 0.75; }
+  .link { stroke: var(--edge-bright); stroke-width: 1; fill: none; }
+  .link.dim { stroke-dasharray: 3 4; opacity: 0.7; }
+  .dot { fill: var(--ground); stroke: var(--edge-bright); stroke-width: 1.5; }
+  .dot.live { stroke: var(--teal-deep); }
+  .dot.off { stroke: var(--refuse); stroke-dasharray: 3 3; }
+  /* A payee lights when it is paid, and fades back. Nothing about the light
+     is persistent, because nothing about being paid once is. */
+  .node.hit .dot { stroke: var(--teal); fill: var(--teal-ghost); }
+  .node.hit .n-label { fill: var(--chrome); }
+  .node .dot, .node .n-label { transition: stroke 260ms ease, fill 260ms ease; }
+
+  .ring-bg { fill: none; stroke: var(--edge); stroke-width: 3; }
+  /* The budget, as an arc. Drawn from the top and clockwise, and it only ever
+     goes down — a ring that recovered would be describing a different product. */
+  .ring { fill: none; stroke: var(--teal); stroke-width: 3; stroke-linecap: round;
+          transition: stroke-dashoffset 900ms cubic-bezier(.2,.7,.3,1), stroke 300ms ease; }
+  .ring.deny { stroke: var(--refuse); }
+  .grant-bg { fill: var(--ground); stroke: var(--edge); stroke-width: 1; }
+  .g-cap { font-size: 8.5px; letter-spacing: 0.16em; text-anchor: middle; fill: var(--chrome-faint); }
+  .g-num { font-size: 19px; text-anchor: middle; fill: var(--chrome); letter-spacing: -0.01em; }
+  .g-of { font-size: 9px; text-anchor: middle; fill: var(--chrome-faint); letter-spacing: 0.06em; }
+
+  .tok { opacity: 0; }
+  .tok circle { fill: var(--teal); }
+  .tok text { font-size: 9px; fill: var(--void); text-anchor: middle; letter-spacing: 0.02em; }
+  .tok.no circle { fill: var(--refuse); }
+  @keyframes tokfly {
+    0%   { transform: translate(var(--x0), var(--y0)); opacity: 0; }
+    14%  { opacity: 1; }
+    100% { transform: translate(var(--x1), var(--y1)); opacity: 1; }
+  }
+  @keyframes tokdeny {
+    0%   { transform: translate(var(--x0), var(--y0)); opacity: 0; }
+    14%  { opacity: 1; }
+    46%  { transform: translate(var(--xm), var(--ym)); opacity: 1; }
+    64%  { transform: translate(var(--xm), var(--ym)); opacity: 1; }
+    100% { transform: translate(var(--x0), var(--y0)); opacity: 0; }
+  }
+
+  /* The caption is the other half of the picture: a diagram that needs a
+     paragraph underneath has not explained anything, and a diagram with a line
+     that changes as it moves has. Fixed height so the hero does not jump when
+     the sentence gets shorter. */
+  /* Fixed to the tallest line it will ever hold. A caption that resizes as the
+     sentence changes moves the buttons above it, in the hero, every three
+     seconds — which is the kind of motion nobody asked for. */
+  .beat { margin: 0.9rem 0 0; min-height: 4.4rem; font-size: 0.86rem;
+          color: var(--chrome-dim); }
+  .beat b { color: var(--teal); font-weight: 500; }
+  .beat b.no { color: var(--refuse); }
+
+  /* The limits, under the hero rather than beside it. They were a panel in the
+     right column until the scene wanted that space; the facts are the same and
+     they read as well in a row. */
+  .terms { display: grid; grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+           gap: 1px; background: var(--edge); border-top: 1px solid var(--edge);
+           border-bottom: 1px solid var(--edge); margin-top: clamp(2.4rem, 5vw, 3.6rem); }
+  .terms div { background: var(--void); padding: 1.1rem 1.15rem 1.25rem; }
+  .terms dt { font-family: var(--mono); font-size: 0.58rem; letter-spacing: 0.13em;
+              text-transform: uppercase; color: var(--chrome-faint); }
+  .terms dd { margin: 0.5rem 0 0; font-family: var(--mono); font-size: 0.95rem; color: var(--chrome); }
+  .terms dd small { display: block; font-family: var(--body); font-size: 0.74rem;
+                    color: var(--chrome-faint); margin-top: 0.15rem; letter-spacing: 0; }
+  .terms-foot { margin: 1rem 0 0; font-size: 0.8rem; color: var(--chrome-faint); }
+
   /* The authority panel. Deliberately looks like a spec sheet rather than a
      dashboard: these are not readings that change, they are terms fixed when
      the grant was created. */
@@ -253,18 +337,75 @@
         </div>
       </div>
 
-      <div class="auth rise" style="--d:380ms">
-        <p class="head">What the coin itself refuses</p>
-        <dl>
-          <div><dt>Total it may ever spend</dt><dd>2,000 KAS<small>~$100 at funding</small></dd></div>
-          <div><dt>Any single payment</dt><dd>100 KAS<small>~$5</small></dd></div>
-          <div><dt>Who it may pay</dt><dd>4 addresses<small>fixed at creation</small></dd></div>
-          <div><dt>Per hour</dt><dd>400 KAS<small>so a bad hour is not a bad day</small></dd></div>
-          <div><dt>Ends</dt><dd>in 30 days<small>or the moment you say stop</small></dd></div>
-        </dl>
-        <p class="foot">These are not settings. They are conditions on the money, checked by every node on the network.</p>
-      </div>
+      <figure class="scene rise" style="--d:380ms">
+        <svg viewBox="0 0 460 436" role="img" aria-label="An agent is funded once, buys inference and a data feed, hires another agent which spends its own budget, and is then refused when it tries to pay an address that is not on its list.">
+
+          <!-- links, drawn first so every node sits on top of them -->
+          <g class="links">
+            <line class="link dim" x1="60" y1="52" x2="152" y2="212"/>
+            <line class="link" x1="152" y1="212" x2="368" y2="92"/>
+            <line class="link" x1="152" y1="212" x2="382" y2="200"/>
+            <line class="link" x1="152" y1="212" x2="362" y2="306"/>
+            <line class="link" x1="362" y1="306" x2="286" y2="396"/>
+            <line class="link dim" x1="152" y1="212" x2="66" y2="372"/>
+          </g>
+
+          <!-- the covenant. The ring IS the boundary: allowed payments cross
+               it, the refused one stops at it. -->
+          <circle class="ring-bg" cx="152" cy="212" r="60"/>
+          <circle class="ring" id="ring" cx="152" cy="212" r="60"
+                  transform="rotate(-90 152 212)"
+                  stroke-dasharray="376.99" stroke-dashoffset="65.97"/>
+          <circle class="grant-bg" cx="152" cy="212" r="47"/>
+          <text class="g-cap" x="152" y="197">GRANT</text>
+          <text class="g-num" id="g-num" x="152" y="219">1,650</text>
+          <text class="g-of" id="g-of" x="152" y="233">KAS LEFT OF 2,000</text>
+
+          <g class="node" id="n-you">
+            <circle class="dot" cx="60" cy="52" r="7"/>
+            <text class="n-label" x="60" y="34">You</text>
+            <text class="n-sub" x="60" y="72">ONCE</text>
+          </g>
+
+          <g class="node" id="n-api">
+            <circle class="dot live" cx="368" cy="92" r="7"/>
+            <text class="n-label" x="368" y="74">Inference API</text>
+          </g>
+
+          <g class="node" id="n-data">
+            <circle class="dot live" cx="382" cy="200" r="7"/>
+            <text class="n-label" x="382" y="182">Data feed</text>
+          </g>
+
+          <g class="node" id="n-sub">
+            <circle class="dot live" cx="362" cy="306" r="7"/>
+            <text class="n-label" x="362" y="288">Another agent</text>
+          </g>
+
+          <g class="node" id="n-leaf">
+            <circle class="dot live" cx="286" cy="396" r="6"/>
+            <text class="n-label" x="286" y="418">Its own payee</text>
+          </g>
+
+          <g class="node" id="n-off">
+            <circle class="dot off" cx="66" cy="372" r="7"/>
+            <text class="n-label" x="66" y="394">Not on the list</text>
+          </g>
+
+          <g id="tokens"></g>
+        </svg>
+        <figcaption class="beat" id="beat">One funding, then nothing else from you. The ring is the covenant &mdash; every payment leaves through it, and one will not.</figcaption>
+      </figure>
     </div>
+
+    <dl class="terms rise" style="--d:200ms">
+      <div><dt>Total it may ever spend</dt><dd>2,000 KAS<small>~$100 at funding</small></dd></div>
+      <div><dt>Any single payment</dt><dd>100 KAS<small>~$5</small></dd></div>
+      <div><dt>Who it may pay</dt><dd>4 addresses<small>fixed at creation</small></dd></div>
+      <div><dt>Per hour</dt><dd>400 KAS<small>a bad hour is not a bad day</small></dd></div>
+      <div><dt>Ends</dt><dd>in 30 days<small>or the moment you say stop</small></dd></div>
+    </dl>
+    <p class="terms-foot rise" style="--d:260ms">These are not settings. They are conditions on the money, checked by every node on the network.</p>
   </div>
 </section>
 
@@ -444,6 +585,153 @@
     });
   }, { rootMargin: "0px 0px -18% 0px", threshold: 0.35 });
   Array.prototype.forEach.call(stages, function (s) { sio.observe(s); });
+
+  /* ---- the scene ---------------------------------------------------------
+     A loop of eight beats. It runs only while it is on screen — an animation
+     that keeps going in a tab nobody is looking at is a battery bill and a
+     laptop fan, and this one is not load-bearing enough to charge anybody for.
+
+     Everything it touches is additive: it appends tokens, toggles a class on a
+     payee, moves the ring and rewrites one sentence. It never removes anything
+     the markup put there, so stopping it at any point leaves the diagram whole
+     rather than half-built. */
+  (function scene() {
+    var svg = document.querySelector(".scene svg");
+    var ring = document.getElementById("ring");
+    var num = document.getElementById("g-num");
+    var of = document.getElementById("g-of");
+    var beat = document.getElementById("beat");
+    var layer = document.getElementById("tokens");
+    if (!svg || !ring || !layer) return;
+
+    var C = { x: 152, y: 212 }, R = 60;
+    var TOTAL = 2000;
+    var AT = {
+      api:  { x: 368, y: 92,  el: "n-api"  },
+      data: { x: 382, y: 200, el: "n-data" },
+      sub:  { x: 362, y: 306, el: "n-sub"  },
+      leaf: { x: 286, y: 396, el: "n-leaf" },
+      off:  { x: 66,  y: 372, el: "n-off"  },
+      you:  { x: 60,  y: 52,  el: "n-you"  }
+    };
+    var CIRC = 2 * Math.PI * R;
+
+    function setRing(left, denied) {
+      ring.style.strokeDashoffset = String(CIRC * (1 - left / TOTAL));
+      ring.classList.toggle("deny", !!denied);
+      num.textContent = left.toLocaleString("en-US");
+      of.textContent = left === TOTAL ? "KAS, UNTOUCHED" : "KAS LEFT OF 2,000";
+    }
+
+    function say(html) { beat.innerHTML = html; }
+
+    function light(key) {
+      var n = document.getElementById(AT[key].el);
+      if (!n) return;
+      n.classList.add("hit");
+      setTimeout(function () { n.classList.remove("hit"); }, 1100);
+    }
+
+    /* One token, one journey. `from` and `to` are points; a denied token is
+       given the place on the ring where it stops, which is computed from the
+       geometry rather than guessed — the refusal happens exactly at the
+       boundary, because that is where it happens. */
+    function token(from, to, label, denied, ms) {
+      var g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      g.setAttribute("class", "tok" + (denied ? " no" : ""));
+      var c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      c.setAttribute("r", label ? "14" : "9");
+      g.appendChild(c);
+      if (label) {
+        var t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        t.setAttribute("y", "3");
+        t.textContent = label;
+        g.appendChild(t);
+      }
+      g.style.setProperty("--x0", from.x + "px");
+      g.style.setProperty("--y0", from.y + "px");
+      g.style.setProperty("--x1", to.x + "px");
+      g.style.setProperty("--y1", to.y + "px");
+      if (denied) {
+        var dx = to.x - from.x, dy = to.y - from.y;
+        var d = Math.sqrt(dx * dx + dy * dy) || 1;
+        g.style.setProperty("--xm", (from.x + (dx / d) * (R + 2)) + "px");
+        g.style.setProperty("--ym", (from.y + (dy / d) * (R + 2)) + "px");
+      }
+      g.style.animation = (denied ? "tokdeny " : "tokfly ") + ms + "ms cubic-bezier(.35,.1,.35,1) forwards";
+      layer.appendChild(g);
+      setTimeout(function () { if (g.parentNode) g.parentNode.removeChild(g); }, ms + 120);
+    }
+
+    var left = TOTAL;
+    var script = [
+      [0, function () {
+        left = TOTAL; setRing(0);
+        say("An agent needs a budget. <b>You fund it once</b> \u2014 with whatever you already hold.");
+        token(AT.you, C, "$100", false, 1500);
+      }],
+      [1700, function () {
+        setRing(TOTAL);
+        say("The limits go into the coin: <b>2,000 KAS</b>, 100 a payment, four payees, thirty days.");
+      }],
+      [3600, function () {
+        say("It buys inference. <b>Nobody approved it.</b>");
+        token(C, AT.api, "60", false, 1200);
+      }],
+      [4800, function () { light("api"); left -= 60; setRing(left); }],
+      [5900, function () {
+        say("Then a data feed, from a different vendor.");
+        token(C, AT.data, "40", false, 1200);
+      }],
+      [7100, function () { light("data"); left -= 40; setRing(left); }],
+      [8200, function () {
+        say("<b>It hires another agent</b> \u2014 a smaller budget, carved out of its own.");
+        token(C, AT.sub, "250", false, 1300);
+      }],
+      [9500, function () { light("sub"); left -= 250; setRing(left); }],
+      [10400, function () {
+        say("Which spends it, on its own, while nobody is watching.");
+        token(AT.sub, AT.leaf, "", false, 1100);
+      }],
+      [11500, function () { light("leaf"); }],
+      [12600, function () {
+        say("Now it tries to pay <b class=\"no\">somebody who is not on the list</b>.");
+        token(C, AT.off, "25", true, 2400);
+      }],
+      [13900, function () {
+        setRing(left, true);
+        say("<b class=\"no\">Refused</b> \u2014 not by Warda. There is no valid transaction to sign, so the budget never moves.");
+      }],
+      [16600, function () {
+        setRing(left, false);
+        say("One funding, then nothing else from you. <b>The ring is the covenant</b> \u2014 every payment leaves through it, and one did not.");
+      }],
+      [19600, function () { /* loop */ }]
+    ];
+
+    var timers = [], running = false;
+    function run() {
+      if (running) return;
+      running = true;
+      script.forEach(function (b) { timers.push(setTimeout(b[1], b[0])); });
+      timers.push(setTimeout(function () { stop(); run(); }, 19600));
+    }
+    function stop() {
+      running = false;
+      timers.forEach(clearTimeout);
+      timers = [];
+      layer.textContent = "";
+    }
+
+    /* Only while visible. Also only while the tab is. */
+    var vio = new IntersectionObserver(function (es) {
+      es.forEach(function (e) { if (e.isIntersecting && !document.hidden) run(); else stop(); });
+    }, { threshold: 0.25 });
+    vio.observe(svg);
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden) stop();
+    });
+  })();
 
   /* The vision lines, one at a time. They are a paragraph broken into beats
      and reading them in order is the whole effect. */
