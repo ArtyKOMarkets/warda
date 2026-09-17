@@ -29,7 +29,8 @@
   ],
   "dependencies": {
     "@warda_protocol/agent": "^0.1.0",
-    "@warda_protocol/mcp": "^0.6.0"
+    "@warda_protocol/mcp": "^0.6.0",
+    "@warda_protocol/router": "^0.1.0"
   },
   "repository": {
     "type": "git",

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { quote, fitsUnderCap, isExpired, STORAGE_MASS_FLOOR_SOMPI } from "../src/index.ts";
+import { quote, quoteForSompi, fitsUnderCap, isExpired, STORAGE_MASS_FLOOR_SOMPI } from "../src/index.ts";
 
 const USD = (amount: string) => ({ asset: "USD", amount });
 const rate = (perKas: string) => ({
@@ -127,4 +127,44 @@ test("no quote ever claims consensus enforced it", () => {
   const q = quote({ price: USD("1"), rate: rate("0.05"), expiresAt: SOON });
   assert.equal(q.zone, "attested");
   assert.notEqual(q.zone as string, "enforced");
+});
+
+test("the inverse quote says what to sell for a given amount of KAS", () => {
+  /* 10 KAS at $0.05 per KAS is $0.50. */
+  const q = quoteForSompi({ sompi: 1_000_000_000n, rate: rate("0.05"), expiresAt: SOON });
+  assert.equal(q.price.amount, "0.5");
+  assert.equal(q.price.asset, "USD");
+  assert.equal(q.sompi, 1_000_000_000n, "the amount asked for, not one derived back");
+  assert.equal(q.zone, "attested");
+});
+
+test("the inverse never understates the cost, at any rate", () => {
+  /* The property, rather than a magic constant: whatever price comes back,
+     selling exactly that much must buy at least the sompi that was asked for.
+     A constant here would only test my arithmetic. */
+  const cases: [bigint, string][] = [
+    [1_000_000_001n, "0.05"],
+    [123_456_789n, "0.037"],
+    [2_000_000_003n, "0.0333333333333333"],
+    [50_003_000_000n, "0.041666666666666667"],
+  ];
+  for (const [sompi, perKas] of cases) {
+    const q = quoteForSompi({ sompi, rate: rate(perKas), expiresAt: SOON });
+    const back = quote({ price: q.price, rate: rate(perKas), expiresAt: SOON });
+    assert.ok(
+      back.sompi >= sompi,
+      `${q.price.amount} at ${perKas} buys ${back.sompi}, short of ${sompi}`,
+    );
+  }
+});
+
+test("the inverse refuses an amount below the storage-mass floor", () => {
+  assert.throws(() => quoteForSompi({ sompi: 1n, rate: rate("0.05"), expiresAt: SOON }), /storage-mass floor/);
+  assert.throws(() => quoteForSompi({ sompi: 0n, rate: rate("0.05"), expiresAt: SOON }), /must be positive/);
+});
+
+test("the inverse and the forward direction agree at a round figure", () => {
+  const back = quoteForSompi({ sompi: 1_000_000_000n, rate: rate("0.05"), expiresAt: SOON });
+  const forward = quote({ price: back.price, rate: rate("0.05"), expiresAt: SOON });
+  assert.equal(forward.sompi, back.sompi);
 });

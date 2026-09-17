@@ -12,6 +12,7 @@
  * — neither of which matters here, because nothing crosses a bridge.
  */
 
+import { formatKas } from "@warda_protocol/core";
 import type { Quote } from "./quote.ts";
 import { verdict, type Hop, type Route, type RouteVerdict } from "./route.ts";
 import { assertPayoutAddress } from "./bridge.ts";
@@ -113,7 +114,10 @@ export function planExchangeFunding(input: ExchangeFundingInput): ExchangeFundin
       1,
       withdrawHop,
       "off-protocol",
-      `withdraw ${requiredSompi} sompi to ${fundingAddress} in ONE withdrawal. ` +
+      /* KAS, not sompi: a person about to move money reads the unit on their
+         exchange screen, and a figure they have to convert is a figure they can
+         mistype by a factor of a hundred million. */
+      `withdraw ${formatKas(requiredSompi)} KAS to ${fundingAddress} in ONE withdrawal. ` +
         `A grant is funded by a single input, so two half-withdrawals fund nothing — ` +
         `the largest grant a wallet can issue is bounded by its biggest coin, not its balance.`,
     ),
@@ -121,7 +125,7 @@ export function planExchangeFunding(input: ExchangeFundingInput): ExchangeFundin
       2,
       withdrawHop,
       "await-confirmation",
-      `wait for a single coin of at least ${requiredSompi} sompi at that address`,
+      `wait for a single coin of at least ${formatKas(requiredSompi)} KAS at that address`,
     ),
     step(
       3,

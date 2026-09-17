@@ -71,6 +71,14 @@ test("the amount to withdraw covers the fee, not just the budget", () => {
   assert.equal(p.requiredSompi, 50_003_000_000n);
 });
 
+test("amounts a person has to type are in KAS, not sompi", () => {
+  /* Off by a factor of a hundred million is a mistake somebody makes once and
+     cannot take back, so the unit on the screen matches the unit on theirs. */
+  const withdraw = rail().steps.find((s) => s.describe.includes("withdraw"))!;
+  assert.match(withdraw.describe, /500\.03 KAS/);
+  assert.ok(!withdraw.describe.includes("sompi"), "no sompi in an instruction to a human");
+});
+
 test("a funding address with a bad checksum is refused before any plan exists", () => {
   assert.throws(() => rail({ fundingAddress: "kaspatest:nope" }), /does not verify/);
 });

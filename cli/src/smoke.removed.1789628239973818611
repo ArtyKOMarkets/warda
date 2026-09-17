@@ -59,7 +59,7 @@ import {
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 
-import * as store from "./store.js";
+import * as store from "./store.ts";
 
 const require_ = createRequire(import.meta.url);
 const template: CovenantTemplate = JSON.parse(

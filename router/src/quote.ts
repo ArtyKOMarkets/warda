@@ -201,3 +201,56 @@ export function fitsUnderCap(q: Quote, maxPerSpendSompi: bigint): CapVerdict {
 export function isExpired(q: Quote, now: number = Date.now()): boolean {
   return now >= q.expiresAt;
 }
+
+function formatScaled(v: bigint): string {
+  const whole = v / SCALE;
+  const frac = (v % SCALE).toString().padStart(SCALE_DP, "0").replace(/0+$/, "");
+  return frac ? `${whole}.${frac}` : String(whole);
+}
+
+/**
+ * The other direction: I know how much KAS I need — what must I sell?
+ *
+ * Rounds **up**, for the mirror of the reason `quote` does: an understated
+ * cost is a withdrawal that arrives short, and a grant funded a sompi under
+ * its target is a grant that does not exist.
+ *
+ * `sompi` on the returned quote is the amount asked for, not a number derived
+ * back from the rounded price — round-tripping a decimal through a rate twice
+ * is how a figure drifts from the one the caller actually needs.
+ */
+export function quoteForSompi(input: {
+  readonly sompi: bigint;
+  readonly rate: Rate;
+  readonly slippageBps?: number;
+  readonly expiresAt: number;
+}): Quote {
+  const { sompi, rate, expiresAt } = input;
+  const slippageBps = input.slippageBps ?? 0;
+
+  if (sompi <= 0n) throw new Error(`sompi must be positive, got ${sompi}`);
+  if (!Number.isInteger(slippageBps) || slippageBps < 0 || slippageBps > 10_000) {
+    throw new Error(`slippageBps must be an integer in 0..10000, got ${slippageBps}`);
+  }
+  if (sompi < STORAGE_MASS_FLOOR_SOMPI) {
+    throw new Error(
+      `${sompi} sompi is below Kaspa's ~${STORAGE_MASS_FLOOR_SOMPI} sompi storage-mass floor; ` +
+        `there is no transaction this small.`,
+    );
+  }
+
+  const rateScaled = parseScaled(rate.perKas, "rate.perKas");
+  if (rateScaled === 0n) throw new Error("rate.perKas is zero; no amount of KAS costs anything");
+
+  const priceScaled = ceilDiv(sompi * rateScaled, SOMPI_PER_KAS);
+
+  return {
+    price: { asset: rate.asset, amount: formatScaled(priceScaled) },
+    sompi,
+    maxSompi: ceilDiv(sompi * BigInt(10_000 + slippageBps), 10_000n),
+    slippageBps,
+    rate,
+    expiresAt,
+    zone: "attested",
+  };
+}
