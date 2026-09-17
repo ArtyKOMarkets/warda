@@ -73,16 +73,22 @@ const recipients = flag("recipients");
 const relay = process.argv.includes("--relay");
 const out = flag("out", "grant.json")!;
 /**
- * Where to write the agent's secret.
+ * Where to write the agent's secret. There is always a where.
  *
- * Without this the key is printed and nothing else — fine for a human reading
- * the terminal, impossible for anything automating the next step. The showcase
- * hit exactly that: it created a grant, then had no way to hand the agent's
- * key to the delegation it wanted to make next, and failed with "WARDA_SK does
- * not control this grant's agent" — which is true, and says nothing about the
- * actual problem.
+ * It began optional, and without it the key was PRINTED and nothing else —
+ * fine for a human reading a terminal, impossible for anything automating the
+ * next step. The showcase hit exactly that: it created a grant, then had no
+ * way to hand the agent's key to the delegation it wanted to make next.
+ *
+ * It is no longer optional, and the reason is the other half of the same
+ * problem. A printed secret goes into scrollback, into shell history, into the
+ * log of whatever ran the command, and into any transcript of the session —
+ * and `warda topup` now issues grants on a SCHEDULE, where the audience for
+ * that line is a cron mail spool. The file is 0600 and this refuses to write
+ * over one, so there is no case left where printing the secret is the safer of
+ * the two. The path is printed instead.
  */
-const agentOut = flag("agent-out");
+const agentOut = flag("agent-out", "agent.key")!;
 
 /**
  * The same refusal for the manifest, and it has to be HERE rather than only in
@@ -252,7 +258,7 @@ if (!agentSecret || !agentPublic) {
   process.exit(1);
 }
 
-if (agentOut) {
+{
   /**
    * Refuse to overwrite an agent key, for the same reason new-key.ts does and
    * with more at stake.
@@ -430,9 +436,11 @@ say(`  per payment    ${maxPerSpend} sompi`);
 say(`  per epoch      ${epochLimit} sompi every ${manifest.epoch_length} blocks`);
 say(`  may pay        only the addresses you listed. The set is fixed.`);
 say();
-say(`  agent secret   ${agentSecret}`);
-say(`                 ^ give this to the agent. It is the whole authority, and the`);
-say(`                   authority is bounded by the four lines above.`);
+say(`  agent key      ${agentOut} (0600)`);
+say(`                 ^ give the agent THIS FILE. It is the whole authority, and the`);
+say(`                   authority is bounded by the four lines above. The secret is`);
+say(`                   not printed: a key in a terminal is a key in scrollback, in`);
+say(`                   shell history, and in the log of whatever ran this.`);
 say();
 /* The command below names a real payee rather than a placeholder. Someone who
    has just watched this succeed should be able to paste the next line, not go
@@ -467,7 +475,7 @@ if (flag("via") === "warda") {
   say(`      --recipients ${recipients} --to ${firstPayee} \\`);
   say(`      --amount ${maxPerSpend} ${rpcFrom(flag("rpc")) ? `--rpc ${rpcFrom(flag("rpc"))} ` : ""}--submit`);
 } else {
-  say(`  WARDA_SK=${agentSecret} \\`);
+  say(`  WARDA_SK=$(cat ${agentOut}) \\`);
   say(`    node --experimental-strip-types sdk/tools/build-live-spend.ts ${out} \\`);
   say(`      --recipients ${recipients} --to ${firstPayee} \\`);
   say(`      --amount ${maxPerSpend} ${rpcFrom(flag("rpc")) ? `--rpc ${rpcFrom(flag("rpc"))} ` : ""}--submit`);

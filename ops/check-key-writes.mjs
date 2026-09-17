@@ -12,6 +12,20 @@
  *
  * The rule: a `writeFileSync` with mode 0600 — this repo's marker for a
  * secret — must be preceded, within its function, by an `existsSync` check.
+ *
+ * ## And the second rule, from the same week
+ *
+ * A key file is the single copy of an authority only while it is the only
+ * copy. `quickstart` wrote the agent's secret at 0600 and then PRINTED it, so
+ * every grant it created left the authority in scrollback, in shell history,
+ * and in the log of whatever ran the command. That was survivable while
+ * creating a grant was something a person did by hand and watched; `warda
+ * topup` issues them on a schedule, where the audience for that line is a cron
+ * mail spool.
+ *
+ * So: a variable this repo writes at 0600 may not also be interpolated into
+ * output. Printing the PATH is the whole of what a caller needs, and a tool
+ * that has written the file has nothing left to say about its contents.
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
@@ -38,12 +52,41 @@ function sources(dir) {
   return out;
 }
 
+/** `writeFileSync(x, SECRET + "\n", { mode: 0o600 })` — the name of the secret. */
+const SECRET_ARG = /writeFileSync\s*\(\s*[^,]+,\s*([A-Za-z_$][\w$]*)\b/;
+/** Anything that puts a string in front of a person or a log. */
+const PRINTS = /\b(?:console\.(?:log|error|warn|info)|say|process\.(?:stdout|stderr)\.write)\s*\(/;
+
 let scanned = 0;
 for (const d of DIRS) {
   for (const file of sources(join(ROOT, d))) {
     const text = readFileSync(file, "utf8");
     const lines = text.split("\n");
     scanned++;
+
+    /* Every variable this file writes as a secret. Collected first, because
+       the print that leaks one can sit either side of the write. */
+    const secrets = new Set();
+    lines.forEach((line, i) => {
+      if (!/mode:\s*0o600/.test(line)) return;
+      for (let j = Math.max(0, i - 3); j <= i; j++) {
+        const m = SECRET_ARG.exec(lines[j] ?? "");
+        if (m) secrets.add(m[1]);
+      }
+    });
+
+    for (const name of secrets) {
+      const interpolated = new RegExp("\\$\\{\\s*" + name + "\\s*[}.+ ]");
+      lines.forEach((line, i) => {
+        if (!PRINTS.test(line) || !interpolated.test(line)) return;
+        failures.push(
+          `${file.slice(ROOT.length)}:${i + 1}: prints \`${name}\`, which this file writes at 0600.\n` +
+            `  A secret that is also printed is in scrollback, in shell history, and in the log of\n` +
+            `  whatever ran the command. Print the PATH; the file is the copy that is supposed to exist.`,
+        );
+      });
+    }
+
     lines.forEach((line, i) => {
       if (!/mode:\s*0o600/.test(line)) return;
 
