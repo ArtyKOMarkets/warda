@@ -75,6 +75,25 @@ QS_CSS = (here / "src" / "_quickstart.css").read_text()
 # the tenth page to grow a transcript would silently render unstyled.
 TERMINAL_CSS = (here / "src" / "_terminal.css").read_text()
 
+# The typefaces the whole site — and the shared nav in particular — is written
+# in. Injected rather than pasted into twenty sources, because six of them had
+# already stopped pasting it: console, network, proof, rail, sandbox and verify
+# declared `--body: "Barlow"` in :root and never loaded Barlow, so every one of
+# them rendered in Helvetica while claiming otherwise. The nav's "Get started"
+# button is 600 weight, and a 600 that has no real face behind it is SYNTHESISED
+# by the browser — which is why the button looked bolder on exactly those pages
+# and nowhere else.
+#
+# Same rule as the nav's own colours, one layer out: a component that appears on
+# every page cannot depend on each page having remembered something.
+FONT_LINK = (
+    '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?'
+    "family=Chakra+Petch:wght@500;600;700"
+    "&family=Barlow:wght@400;500;600"
+    "&family=JetBrains+Mono:wght@400;500;700"
+    '&display=swap">'
+)
+
 NAV_HTML = (here / "src" / "_nav.html").read_text()
 NAV_CSS = (here / "src" / "_nav.css").read_text()
 
@@ -777,6 +796,9 @@ for outdir, subs in flavours.items():
             html = html.replace(k, v)
         # Per page, after the shared substitutions, so the active item is right.
         html = html.replace("{{NAV}}", nav_for(name))
+        # Straight after the <title>, so it is in <head> once as_document wraps
+        # the web flavour and as early as possible in the artifact flavour.
+        html = html.replace("</title>", "</title>\n" + FONT_LINK, 1)
         # After the substitutions, so blocks that arrive inside an injected
         # component (the quickstart) are framed too.
         html = frame_terminals(html)
