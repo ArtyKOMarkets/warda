@@ -121,3 +121,19 @@ test("a receipt cannot be built over a route that does not support its claims", 
   };
   assert.throws(() => fundingReceipt(broken, q, terms), /hop\(s\) follow the covenant spend/);
 });
+
+test("a receipt survives JSON, which is how it outlives the terminal", () => {
+  /* bigints do not serialise. Every figure the CLI writes to receipt.json is
+     stringified deliberately; this asserts none slipped through the parts it
+     copies wholesale. */
+  const r = fundingReceipt(rail().route, q, terms);
+  assert.doesNotThrow(() => JSON.stringify(r.claims));
+  assert.doesNotThrow(() => JSON.stringify(r.verdict.counterparties));
+  assert.doesNotThrow(() => JSON.stringify(r.verdict.recipientEnforced));
+  assert.doesNotThrow(() => JSON.stringify(r.verdict.authorisedToPayMe));
+  assert.doesNotThrow(() => JSON.stringify(r.quote.price));
+
+  /* And the whole receipt does NOT, which is why the CLI copies fields rather
+     than spreading it — a test that would have caught the obvious shortcut. */
+  assert.throws(() => JSON.stringify(r), /BigInt/);
+});

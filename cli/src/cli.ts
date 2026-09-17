@@ -510,6 +510,42 @@ async function fund(): Promise<void> {
   for (const line of formatReceipt(receipt)) say("  " + line);
   say();
   say(`  warda held no key at any point on this path (custody: ${receipt.custody}).`);
+
+  /* Written down, not just printed. Every other figure this project publishes
+     can be re-derived from the chain; this one names the parts that cannot be,
+     which is exactly why it has to survive the terminal it appeared in. */
+  store.saveReceipt({
+    _comment:
+      "How this grant was funded, and which parts of that anyone can check. " +
+      "enforced: Kaspa consensus refused every alternative. attested: a named party said so. " +
+      "assumed: nobody proved it.",
+    fundedAt: new Date().toISOString(),
+    network: PREFIX(),
+    rail: {
+      asset,
+      venue,
+      ratePerKas: rate,
+      /* Whose word the rate is. Warda does not fetch prices. */
+      rateSource: quote.rate?.source ?? "the caller",
+      costStated: `${quote.price.amount} ${quote.price.asset}`,
+      requiredSompi: String(plan.requiredSompi),
+      custody: receipt.custody,
+      stepsWardaCannotSee: plan.steps.filter((s) => s.action === "off-protocol").length,
+    },
+    grant: {
+      address: receipt.grant.address,
+      budgetSompi: String(receipt.grant.budgetSompi),
+      maxPerSpendSompi: String(receipt.grant.maxPerSpendSompi),
+      epochLimitSompi: String(receipt.grant.epochLimitSompi),
+      expiresAtDaa: String(receipt.grant.expiresAtDaa),
+      delegationDepth: receipt.grant.delegationDepth,
+    },
+    counterparties: receipt.verdict.counterparties,
+    recipientEnforced: receipt.verdict.recipientEnforced,
+    authorisedToPayMe: receipt.verdict.authorisedToPayMe,
+    claims: receipt.claims,
+  });
+  say(`  written to ${store.paths.receipt}`);
 }
 
 // ---- dispatch ------------------------------------------------------------

@@ -26,7 +26,14 @@ export interface Config {
   network: string;
 }
 
-export const paths = { key: p("agent.key"), grant: p("grant.json"), config: p("config.json") };
+export const paths = {
+  key: p("agent.key"),
+  grant: p("grant.json"),
+  config: p("config.json"),
+  /* The funding receipt outlives the terminal it was printed in. A claim
+     nobody kept is a claim nobody can check later. */
+  receipt: p("receipt.json"),
+};
 
 export function initialised(): boolean {
   return existsSync(paths.key) && existsSync(paths.config);
@@ -58,6 +65,10 @@ export function readConfig(): Config {
 
 export function saveGrant(m: unknown): void {
   writeFileSync(paths.grant, JSON.stringify(m, null, 2) + "\n");
+}
+
+export function saveReceipt(r: unknown): void {
+  writeFileSync(paths.receipt, JSON.stringify(r, null, 2) + "\n");
 }
 
 export function readGrant(): Record<string, unknown> {
