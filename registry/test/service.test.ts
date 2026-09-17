@@ -188,7 +188,10 @@ test("filters apply across a multi-service document", async () => {
 });
 
 test("the service reports each listing's derived tier, and can filter on it", async () => {
-  const relayed = signListing(manifest(), SK);
+  const relayed = signListing(
+    manifest({ payment: { protocol: "kaspa-x402-v2", network: "kaspa:testnet-10", warda: true } }),
+    SK,
+  );
   const settled = signListing(
     manifest({
       name: "Direct Agent",

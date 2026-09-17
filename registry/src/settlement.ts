@@ -25,36 +25,44 @@ export type SettlementTier =
    *  heard of. Absence of an answer, stated rather than guessed. */
   | "unknown";
 
-/**
- * The protocol string for a direct covenant payment.
- *
- * No listing uses it yet. It is named here because the tier has to be able to
- * say "settled" before anybody can earn it — a distinction nobody can reach is
- * not an incentive, it is a decoration.
- */
+/** The protocol string for a payment that is nothing but a covenant spend. */
 export const DIRECT_PROTOCOL = "warda";
 
 /**
- * Why x402 is always relayed: their `exact` scheme requires a version-0
- * transaction whose every input is a bare P2PK unlocked by a single 66-byte
- * Schnorr push, and whose outputs carry no covenant. A Warda spend is none of
- * those things under any version, because output 0 IS the successor grant. So
- * the paying transaction can never be the covenant spend — see
+ * The protocols that CANNOT take a covenant spend, and therefore force a relay.
+ *
+ * kaspa-x402's `exact` scheme requires a version-0 transaction whose every
+ * input is a bare P2PK unlocked by a single 66-byte Schnorr push, and whose
+ * outputs carry no covenant. A Warda spend is none of those things under any
+ * version, because output 0 IS the successor grant — see
  * `x402/INTEROP-KASPA-X402.md` and `x402/RELAY.md`.
  *
- * This is a property of their protocol, not a shortcoming of the operator, and
- * the tier should never read as a judgement of one.
+ * "x402" alone is NOT on this list, and the first version of this file had it
+ * there. That was wrong, and agent #006 proved it: on 17 September it paid
+ * `warda-demo-api.vercel.app/fact` with no relay at all, in transaction
+ * c8e2b9f990351fb0863303c2089bf37bf11f447984872395a7a6c5be48f489ac — a
+ * covenant spend straight to an allowlisted payee. That vendor answers HTTP
+ * 402 and accepts a covenant payment, so the family name says nothing about
+ * whether a relay is needed; only the specific scheme does.
+ *
+ * Reporting a settled listing as relayed understates the guarantee, which is
+ * the safe direction to be wrong in and still wrong: it tells a buyer the
+ * chain did not constrain the payee when it did.
  */
-const RELAYED_PROTOCOLS = new Set(["x402"]);
+const RELAY_ONLY_PROTOCOLS = new Set(["kaspa-x402", "kaspa-x402-v2"]);
 
 export function settlementTier(m: ServiceManifest): SettlementTier {
   /* A service that does not take a grant at all has no tier to report. */
   if (m.payment?.warda !== true) return "unknown";
 
   const protocol = String(m.payment.protocol ?? "").toLowerCase();
-  if (protocol === DIRECT_PROTOCOL) return "settled";
-  if (RELAYED_PROTOCOLS.has(protocol)) return "relayed";
-  return "unknown";
+  if (!protocol) return "unknown";
+  if (RELAY_ONLY_PROTOCOLS.has(protocol)) return "relayed";
+
+  /* Everything else that declares `warda: true` accepts the covenant spend
+     itself, so its payee is in `recipientsRoot` and the chain refused every
+     transaction that paid anybody else. */
+  return "settled";
 }
 
 /** What a reader should be told, in the vocabulary `provider` already uses. */
