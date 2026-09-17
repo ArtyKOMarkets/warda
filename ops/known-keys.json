@@ -31,7 +31,7 @@
     {
       "key": "7fc5cb62fb4522ac37f890a5c94f7e23f6ff2ff1d20173748d27c2d202d15112",
       "label": "funder, and principal of grant-006",
-      "secretLives": "funder.key, in the directory agent #006 was created in on the machine that runs the agents \u2014 NOT in this repo, and not the same file as covenant/deploy/warda-testnet.key",
+      "secretLives": "funder.key, in ~/Desktop/warda-agent-006 on the machine that runs the agents \u2014 NOT in this repo, and not the same file as covenant/deploy/warda-testnet.key. agent-006/ in this repo holds that agent's manifest and records only.",
       "derivation": "the x-only public key of that funder.key; address kaspatest:qplutjmzldzj9tphlzg2tj200c3ldle078fqzum535nu95sz69g3yucfaklyp, recorded as fundingAddress in agent-006/funding.json and as `principal` in agent-006/grant-006.json",
       "can": [
         "create grants \u2014 genesis spends this key's coin",

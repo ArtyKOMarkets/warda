@@ -491,12 +491,17 @@ switch (verb) {
     if (verb === "topup") {
       const cfg = readConfig();
       const grant = flag("grant") ?? rest.find((a) => a.endsWith(".json")) ?? cfg.grant;
-      if (!grant || !existsSync(grant)) {
+      if (!grant) {
         die(
           "warda topup — no grant to top up.\n\n" +
             "  Run it where `warda grant` remembered one, or pass --grant <grant.json>.",
         );
       }
+      /* Named and missing is a DIFFERENT problem from not named, and saying
+         "no grant to top up" for a path that was right there in the command is
+         how somebody spends a minute looking for the config instead of at
+         their working directory. */
+      if (!existsSync(grant)) die(`--grant: no such file: ${grant}`, 2);
       const payees = flag("payees") ?? cfg.payees;
       if (!payees || !existsSync(payees)) {
         die(
