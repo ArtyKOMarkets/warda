@@ -1,6 +1,6 @@
 {
   "_comment": "Written by agents/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, the purchase log or the chain — none is typed. Each payee's LABEL is re-derived on every run from the artefact agents/known-payees.json names, and a label that stops matching is dropped rather than published: an address with no name is honest, an address with the wrong name is not.",
-  "checkedAt": "2026-09-15T12:39:28.069Z",
+  "checkedAt": "2026-09-20T12:04:08.314Z",
   "network": "testnet-10",
   "identity": {
     "agentId": "WARDA-004",
@@ -58,10 +58,16 @@
   },
   "timelock": {
     "notBefore": "564404779",
-    "virtualDaaScore": "571176156",
+    "virtualDaaScore": "575735102",
     "open": true,
     "lockedFor": "0 seconds",
-    "openedAgo": "8 days",
+    "openedAgo": "13 days",
+    "expiresAt": "565275853",
+    "expired": true,
+    "expiresInDaa": null,
+    "expiresIn": null,
+    "expiredAgo": "12 days",
+    "termEnforcedBy": "the covenant, on every spend: claimedDaa < expiresAt. After it, the grant refuses everything whatever its budget says, and the balance is the principal's to reclaim.",
     "enforcedBy": "the covenant, on every spend: claimedDaa >= notBefore. Not a scheduler, not this process, and not revocable by whoever issued the grant."
   },
   "authority": {
@@ -124,7 +130,7 @@
     {
       "rule": "start time (not_before)",
       "attempted": "spend before the grant opens",
-      "refusal": "this grant could not spend anything until DAA 564404779. The covenant checks the claimed DAA score against that number on every spend, so the delay was not a policy in the agent's process and could not be brought forward by whoever issued it. It opened 8 days ago.",
+      "refusal": "this grant could not spend anything until DAA 564404779. The covenant checks the claimed DAA score against that number on every spend, so the delay was not a policy in the agent's process and could not be brought forward by whoever issued it. It opened 13 days ago.",
       "derived": true
     },
     {

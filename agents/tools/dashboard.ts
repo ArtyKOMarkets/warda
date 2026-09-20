@@ -49,6 +49,7 @@ import {
   type CovenantTemplate,
   type GrantState,
 } from "@warda_protocol/kaspa";
+import { daaDuration, termReading } from "@warda_protocol/core";
 import { explainRefusal, type Grant } from "../../x402/src/payer.ts";
 
 const flag = (n: string, d?: string) => {
@@ -294,17 +295,10 @@ const kas = (v: bigint) => {
     : `${whole}.${frac.toString().padStart(8, "0").replace(/0+$/, "")} KAS`;
 };
 
-/** DAA scores are seconds at ten blocks per second. Said in words, once. */
-function daaDuration(daa: bigint): string {
-  const s = Number(daa) / 10;
-  if (s < 90) return `${Math.round(s)} second${Math.round(s) === 1 ? "" : "s"}`;
-  const mins = Math.round(s / 60);
-  if (mins < 90) return `${mins} minute${mins === 1 ? "" : "s"}`;
-  const hours = Math.round(s / 3600);
-  if (hours < 48) return `${hours} hour${hours === 1 ? "" : "s"}`;
-  const days = Math.round(s / 86400);
-  return `${days} day${days === 1 ? "" : "s"}`;
-}
+/* daaDuration and the whole timelock block now live in @warda_protocol/core.
+   They were here, and a near-identical daaDuration was about to be copied into
+   agent/tools/dashboard.ts to give agent #001 a term — which would have been
+   the tenth instance of extracted-then-copied in this repository. */
 
 // ---- the refusals, produced by the covenant's own reasoning ---------------
 
@@ -676,34 +670,16 @@ try {
           : {}),
         ...(succession ? { succession } : {}),
         ...(delegatedBy ? { delegatedBy } : {}),
-        timelock: {
-          notBefore: state.notBefore.toString(),
-          virtualDaaScore: daa.toString(),
-          open,
-          lockedFor: daaDuration(state.notBefore - BigInt(m.created_at_daa ?? m.not_before)),
-          openedAgo: open ? daaDuration(daa - state.notBefore) : null,
-          /* The other end of the term, which this reading did not carry.
-             `not_before` was published and `expires_at` was not — so nothing
-             downstream could say when a grant stops, and the console had no
-             Expires column because there was nothing to put in it. Both ends
-             are compiled into the same script and the covenant checks both on
-             every spend; publishing one of them was an omission, not a design.
-
-             `expiresIn` is null once the term is over rather than a negative
-             duration, so "expired" and "expires in 3 days" cannot be confused
-             by anything reading this. */
-          expiresAt: state.expiresAt.toString(),
-          expired: daa >= state.expiresAt,
-          expiresInDaa: daa >= state.expiresAt ? null : (state.expiresAt - daa).toString(),
-          expiresIn: daa >= state.expiresAt ? null : daaDuration(state.expiresAt - daa),
-          expiredAgo: daa >= state.expiresAt ? daaDuration(daa - state.expiresAt) : null,
-          termEnforcedBy:
-            "the covenant, on every spend: claimedDaa < expiresAt. After it, the grant refuses " +
-            "everything whatever its budget says, and the balance is the principal's to reclaim.",
-          enforcedBy:
-            "the covenant, on every spend: claimedDaa >= notBefore. Not a scheduler, not this " +
-            "process, and not revocable by whoever issued the grant.",
-        },
+        /* One definition, in @warda_protocol/core, because there are two
+           dashboards in this repository and they are copies. When expiresAt
+           was added here, five agents got a term on their page and the sixth
+           silently did not. */
+        timelock: termReading({
+          notBefore: state.notBefore,
+          expiresAt: state.expiresAt,
+          now: daa,
+          createdAtDaa: BigInt(m.created_at_daa ?? m.not_before),
+        }),
         authority: {
           budget: kas(state.budgetTotal),
           spent: kas(state.spentTotal),

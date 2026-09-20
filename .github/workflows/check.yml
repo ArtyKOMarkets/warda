@@ -183,4 +183,7 @@ jobs:
       # printing the explanation. The one message written for the most
       # confusing failure in the tool was the one that could not be printed.
       - name: agents — the tools that write the published readings
-        run: npx tsc --noEmit -p agents/tsconfig.json
+        run: |
+          npx tsc --noEmit -p agents/tsconfig.json
+          npx tsc --noEmit -p agent/tsconfig.json
+          node ops/check-readings.mjs

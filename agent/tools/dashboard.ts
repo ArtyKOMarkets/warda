@@ -51,6 +51,7 @@ import {
 // Imported through the package rather than by path: x402's payer does the same,
 // and two copies of RecipientSet reached by different routes are two different
 // types to the compiler even when they are one file on disk.
+import { termReading } from "@warda_protocol/core";
 import { explainRefusal, type Grant } from "../../x402/src/payer.ts";
 import { compare, duration, renderText } from "../src/digest.ts";
 import { loadReadings, pickPair, windowSeconds } from "../src/readings.ts";
@@ -286,7 +287,13 @@ const { client, health } = await NodeClient.open({
 });
 
 try {
-  const [here, atPayee] = await Promise.all([
+  /* The DAG, which this tool did not read at all.
+     Without it there was no virtual DAA score, so agent #001's reading carried
+     no timelock block and its page could say neither when the grant opened nor
+     when it ends — while the other five agents said both. The difference was
+     invisible because the two dashboards are copies. */
+  const [dag, here, atPayee] = await Promise.all([
+    client.getBlockDagInfo(),
     client.getUtxosByAddresses([address]),
     client.getUtxosByAddresses([payee]),
   ]);
@@ -406,6 +413,15 @@ try {
         checkedAt: new Date().toISOString(),
         network: health.network,
         ...(elsewhere ? { elsewhere } : {}),
+        /* The same function agents/tools/dashboard.ts calls. Two readings that
+           describe the same kind of object must not describe it differently
+           because two files drifted. */
+        timelock: termReading({
+          notBefore: state.notBefore,
+          expiresAt: state.expiresAt,
+          now: dag.virtualDaaScore,
+          createdAtDaa: BigInt(m.created_at_daa ?? m.not_before),
+        }),
         identity: {
           agentId: "WARDA-001",
           agent: m.agent,
