@@ -1,6 +1,6 @@
 {
   "_comment": "Written by agents/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, the purchase log or the chain — none is typed. Each payee's LABEL is re-derived on every run from the artefact agents/known-payees.json names, and a label that stops matching is dropped rather than published: an address with no name is honest, an address with the wrong name is not.",
-  "checkedAt": "2026-09-20T16:35:51.814Z",
+  "checkedAt": "2026-09-20T16:40:13.465Z",
   "network": "testnet-10",
   "identity": {
     "agentId": "WARDA-003",
@@ -53,13 +53,13 @@
   },
   "timelock": {
     "notBefore": "564404779",
-    "virtualDaaScore": "575897752",
+    "virtualDaaScore": "575900397",
     "open": true,
     "lockedFor": "5 minutes",
     "openedAgo": "13 days",
     "expiresAt": "590324779",
     "expired": false,
-    "expiresInDaa": "14427027",
+    "expiresInDaa": "14424382",
     "expiresIn": "17 days",
     "expiredAgo": null,
     "enforcedBy": "the covenant, on every spend: claimedDaa >= notBefore. Not a scheduler, not this process, and not revocable by whoever issued the grant.",
@@ -241,6 +241,7 @@
       "reason": null,
       "txid": "f241cd7b62bc23b9170afb98cd8efb50c6fa43fb7a591d1f90a8cf4a384f4fcd",
       "paid": "0.04 KAS",
+      "amountSompi": "4000000",
       "payTo": "kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e",
       "refusal": null,
       "sellerClaimed": "WARDA-001"
@@ -252,6 +253,7 @@
       "reason": null,
       "txid": "2a8719003e201bc9fd534e8861a2c734a9aaf42bc56a27ce06eabe6a880338f1",
       "paid": "0.03 KAS",
+      "amountSompi": "3000000",
       "payTo": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
       "refusal": null,
       "sellerClaimed": "warda demo vendor"
@@ -263,6 +265,7 @@
       "reason": null,
       "txid": "b619f26015fb1c863028841b28d29b6f00c394bf86abd7f3e35a40e9688b564e",
       "paid": "0.04 KAS",
+      "amountSompi": "4000000",
       "payTo": "kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e",
       "refusal": null,
       "sellerClaimed": "WARDA-001"
@@ -274,6 +277,7 @@
       "reason": null,
       "txid": "f93ca337a9e8496f9a1e7425fd48471885ac478e2c68c806cfa191e93ae44c83",
       "paid": "0.04 KAS",
+      "amountSompi": "4000000",
       "payTo": "kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e",
       "refusal": null,
       "sellerClaimed": "WARDA-001"
@@ -285,6 +289,7 @@
       "reason": null,
       "txid": "7817e056c9917f0930e204b42d60696411e2afc7c435878b766f9a0fb23bedd6",
       "paid": "0.04 KAS",
+      "amountSompi": "4000000",
       "payTo": "kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e",
       "refusal": null,
       "sellerClaimed": "WARDA-001"
@@ -296,6 +301,7 @@
       "reason": null,
       "txid": "738f9dc654f2481a83653b7a574e384251bd4193856cc599f6e1b2b3c8e9408f",
       "paid": "0.1 KAS",
+      "amountSompi": "10000000",
       "payTo": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
       "refusal": null,
       "sellerClaimed": "warda demo vendor"
@@ -307,6 +313,7 @@
       "reason": null,
       "txid": "ccfb2bcbd62b165dbf2a181325570c377e445e788a4b9d088c71042bd5747821",
       "paid": "0.1 KAS",
+      "amountSompi": "10000000",
       "payTo": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
       "refusal": null,
       "sellerClaimed": "warda demo vendor"
@@ -318,6 +325,7 @@
       "reason": null,
       "txid": "93feeb5817feb37d428109ea318efe33e9d5a883a6d9584b0d054a17f1f3b41d",
       "paid": "0.1 KAS",
+      "amountSompi": "10000000",
       "payTo": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
       "refusal": null,
       "sellerClaimed": "warda demo vendor"
@@ -329,6 +337,7 @@
       "reason": null,
       "txid": "039251ece4696a9a2f2a7d2cb31e70ae5406a39a4f5ab34bc14c2429d53af71d",
       "paid": "0.1 KAS",
+      "amountSompi": "10000000",
       "payTo": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
       "refusal": null,
       "sellerClaimed": "warda demo vendor"
@@ -340,6 +349,7 @@
       "reason": null,
       "txid": "23c5a693a55eec89243bc8b612911fbcc61f6280f7bb652724252d8a94e1735f",
       "paid": "0.03 KAS",
+      "amountSompi": "3000000",
       "payTo": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
       "refusal": null,
       "sellerClaimed": "warda demo vendor"
@@ -351,6 +361,7 @@
       "reason": null,
       "txid": "18225e2f241dc98ab6163b77f3914d4d93b4d19a918c4858fa96ac3675f229a5",
       "paid": "0.05 KAS",
+      "amountSompi": "5000000",
       "payTo": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
       "refusal": null,
       "sellerClaimed": "warda demo vendor"
@@ -362,6 +373,7 @@
       "reason": null,
       "txid": "a93b508fd17d7fa21761c771deef515d08d41b62bd6a377fdc3821b7a2d378f9",
       "paid": "0.03 KAS",
+      "amountSompi": "3000000",
       "payTo": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
       "refusal": null,
       "sellerClaimed": "warda demo vendor"
@@ -373,6 +385,7 @@
       "reason": null,
       "txid": "f73d65da5a7696e5641951dad243d24d96b1e745195d1cb500854dc5a029736c",
       "paid": "0.03 KAS",
+      "amountSompi": "3000000",
       "payTo": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
       "refusal": null,
       "sellerClaimed": null
@@ -384,6 +397,7 @@
       "reason": null,
       "txid": "2a238c2126c45bd6df2b3a66c3dd20c2a64fd0b169dcbbb900afc9c87d3a5628",
       "paid": "0.03 KAS",
+      "amountSompi": "3000000",
       "payTo": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
       "refusal": null,
       "sellerClaimed": "warda demo vendor"
@@ -395,6 +409,7 @@
       "reason": null,
       "txid": "ea87fc1f1c158417a5b74ccdd7511b74815a6592a9707ed15359e741a98b6585",
       "paid": "0.04 KAS",
+      "amountSompi": "4000000",
       "payTo": "kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e",
       "refusal": null,
       "sellerClaimed": "WARDA-001"
@@ -406,6 +421,7 @@
       "reason": null,
       "txid": "a635a070454b20896c34b258fea2ba4026721acb9a172243080938d9fcabfa1a",
       "paid": "0.04 KAS",
+      "amountSompi": "4000000",
       "payTo": "kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e",
       "refusal": null,
       "sellerClaimed": null
@@ -417,6 +433,7 @@
       "reason": null,
       "txid": null,
       "paid": null,
+      "amountSompi": null,
       "payTo": null,
       "refusal": null,
       "sellerClaimed": null
@@ -428,6 +445,7 @@
       "reason": null,
       "txid": "a55ab10a6a3c58dbf705bf4c1121de765318f187a6bbbf510fb92bb0b8c9b415",
       "paid": "0.04 KAS",
+      "amountSompi": "4000000",
       "payTo": "kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e",
       "refusal": null,
       "sellerClaimed": "WARDA-001"
@@ -439,6 +457,7 @@
       "reason": null,
       "txid": "38d268add351009f410f02fbf3fd47dd1c12837bd6f305e4d2e1e596523ee1c9",
       "paid": "0.04 KAS",
+      "amountSompi": "4000000",
       "payTo": "kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e",
       "refusal": null,
       "sellerClaimed": "WARDA-001"
@@ -450,6 +469,7 @@
       "reason": null,
       "txid": "d304ca30e48baa1ed5a5878dc46131f863899bbc1ee67c59afb615cdf914e1db",
       "paid": "0.04 KAS",
+      "amountSompi": "4000000",
       "payTo": "kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e",
       "refusal": null,
       "sellerClaimed": "WARDA-001"
@@ -461,6 +481,7 @@
       "reason": null,
       "txid": "d67f83053e027ff46ab06aa77edceff4428fed4df6bfbfc2218a1e1651ef90d6",
       "paid": "0.04 KAS",
+      "amountSompi": "4000000",
       "payTo": "kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e",
       "refusal": null,
       "sellerClaimed": "WARDA-001"
@@ -472,6 +493,7 @@
       "reason": null,
       "txid": "1bde555c4f676f0638f1762035bccf222a9f7bfb2f064117fdad6c0dc3736ce4",
       "paid": "0.04 KAS",
+      "amountSompi": "4000000",
       "payTo": "kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e",
       "refusal": null,
       "sellerClaimed": "WARDA-001"
@@ -483,6 +505,7 @@
       "reason": null,
       "txid": "68a23f955e60c36c3a14b5a142dedfc217d4fc7e6f3df69a8dbfab94b8781a94",
       "paid": "0.04 KAS",
+      "amountSompi": "4000000",
       "payTo": "kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e",
       "refusal": null,
       "sellerClaimed": "WARDA-001"
@@ -494,6 +517,7 @@
       "reason": null,
       "txid": "4099644de293a359ec934ce68baac83ab30e3a832410a92a69aabe335bf13bb5",
       "paid": "0.04 KAS",
+      "amountSompi": "4000000",
       "payTo": "kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e",
       "refusal": null,
       "sellerClaimed": null
@@ -502,8 +526,10 @@
   "reconciliation": {
     "spentPerTheCovenant": "1.16 KAS",
     "namedByTheLog": "1.12 KAS",
+    "stillVisibleAtThePayee": "1.12 KAS",
     "chargedHomeBySettlement": "0.04 KAS",
     "unrecorded": "0 KAS",
+    "overclaimedByTheLog": null,
     "couldAccountForIt": [],
     "note": "Every sompi the covenant says this grant spent is accounted for: 1.12 KAS by purchases it recorded, and 0.04 KAS charged home when a sub-agent it had funded settled back. That second figure is spending this grant paid for and did not do — the receipts are the child's."
   },
