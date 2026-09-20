@@ -972,7 +972,15 @@ ops/install-cron.sh</pre>
 (function () {
   var $ = function (id) { return document.getElementById(id); };
   var VERIFY = "https://verify.wardaprotocol.com";
-  var AGENTS = ["001", "002", "003", "004", "005", "006"];
+  /* Which agents exist is READ, not typed.
+     It was ["001" … "006"] right here — the eleventh instance of
+     extracted-then-copied in this repository, and the same shape as the one
+     that cost `first-contact` three packages: a seventh agent would have had a
+     page, a reading and a sitemap row, and been invisible on this console
+     until somebody happened to notice. `site/build.py` derives /agents.json
+     from the readings that exist, so publishing one is the only thing anybody
+     has to remember. */
+  var AGENTS = [];
 
   /* The six data hues, in fixed order, assigned to an agent by its POSITION in
      this list and never cycled. Colour follows the entity: a range filter that
@@ -1010,14 +1018,32 @@ ops/install-cron.sh</pre>
   var FAILED = [];// attempts that did not settle — events, with a date
   var RANGE = 0;  // days; 0 = all time
   var Q = "";     // the filter box
+  var MISSING = 0;// named by the index and not loaded
 
-  Promise.all(AGENTS.map(function (id) {
-    return fetch("/agent-" + id + ".json")
+  function load() {
+    return fetch("/agents.json")
       .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (j) { return j ? { id: id, d: j } : null; })
-      .catch(function () { return null; });
-  })).then(function (rows) {
+      .then(function (ix) {
+        if (!ix || !ix.ids || !ix.ids.length) throw new Error("no index");
+        AGENTS = ix.ids;
+        return Promise.all(AGENTS.map(function (id) {
+          return fetch("/agent-" + id + ".json")
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (j) { return j ? { id: id, d: j } : null; })
+            .catch(function () { return null; });
+        }));
+      });
+  }
+
+  load().then(function (rows) {
     A = rows.filter(Boolean);
+    /* An index that names more agents than loaded is a different fact from an
+       index that names none, and both are different from "no agents". Recorded
+       here and rendered by render(), which owns this chip — setting it here as
+       well meant two writers and the later one winning, so the warning was
+       composed correctly and then replaced by the freshness line a moment
+       later. Caught by removing a reading and looking. */
+    MISSING = AGENTS.length - A.length;
     A.forEach(function (a) {
       (a.d.purchases || []).forEach(function (p) { P.push({ agent: a.id, p: p }); });
       /* `refusals` in a reading are almost all `derived: true` — limits the
@@ -1036,6 +1062,13 @@ ops/install-cron.sh</pre>
       if (o && o !== "bought" && o !== "served") FAILED.push({ agent: x.agent, p: x.p });
     });
     render();
+    route();
+  }).catch(function () {
+    $("tiles").innerHTML = '<p class="empty">Could not read /agents.json, which is the list of ' +
+      'agents with a published reading. That is not "no agents" — it is no list, and this page ' +
+      'will not guess at one.</p>';
+    $("freshness").className = "chip bad";
+    $("freshness").innerHTML = "<i></i>no index";
   });
 
   function auth(a) { return a.d.authority || {}; }
@@ -1105,8 +1138,15 @@ ops/install-cron.sh</pre>
     }
     var newest = A.map(function (a) { return a.d.checkedAt; }).sort().pop();
     var mins = Math.round((Date.now() - new Date(newest).getTime()) / 60000);
-    $("freshness").className = "chip" + (mins > 1440 ? " warn" : "");
-    $("freshness").innerHTML = "<i></i>read " + ago(newest);
+    /* A reading the index named and this page could not fetch outranks how
+       fresh the others are: one of them is a hole and the other is a detail. */
+    if (MISSING > 0) {
+      $("freshness").className = "chip bad";
+      $("freshness").innerHTML = "<i></i>" + MISSING + " reading" + (MISSING === 1 ? "" : "s") + " did not load";
+    } else {
+      $("freshness").className = "chip" + (mins > 1440 ? " warn" : "");
+      $("freshness").innerHTML = "<i></i>read " + ago(newest);
+    }
     $("n-grants").textContent = A.length;
     $("n-grants-2").textContent = A.length + " grants";
     $("n-acts").textContent = P.length;
@@ -1582,9 +1622,10 @@ ops/install-cron.sh</pre>
       v + '</span></i><span class="a"></span></div>';
   }
 
-  function showAgent(id) {
+  function showAgent(id, fromRoute) {
     var a = A.filter(function (x) { return x.id === id; })[0];
     if (!a) return;
+    if (!fromRoute) location.hash = hashFor("agent", id);
     SHOWN = id;
     var u = auth(a), t = term(a), c = hue(a.id);
 
@@ -1718,7 +1759,7 @@ ops/install-cron.sh</pre>
       return evRow("ok", esc(x.amount), '<span class="kv">' + esc(x.txid) + "</span>", "DAA " + esc(x.daaScore));
     }).join("") || '<p class="empty">No coin from this grant is still sitting at a payee.</p>';
 
-    show("agent");
+    show("agent", true);
   }
 
   /* ---- dollars, and the two places they are allowed to become KAS --------
@@ -2084,8 +2125,36 @@ ops/install-cron.sh</pre>
 
   var TITLES = { dash: "Overview", grants: "Grants", agent: "Agent", activity: "Activity",
                  refusals: "Refused", alerts: "Alerts", create: "Create a grant" };
-  function show(v) {
+  /* ---- where you are, in the URL ----------------------------------------
+     The console had no address. Every view was the same page, so a reload lost
+     your place, the browser's Back button left the app entirely, and there was
+     no way to send somebody a link to the grant you were looking at — the
+     first thing anyone wants to do when a row looks wrong.
+
+     A hash rather than a path, because this is one static file served at /app
+     and a path would need the server to know about it. */
+  function hashFor(v, id) { return "#/" + v + (id ? "/" + id : ""); }
+
+  var routing = false;
+  function route() {
+    var m = /^#\/([a-z]+)(?:\/(\w+))?$/.exec(location.hash || "");
+    if (!m) { show("dash", true); return; }
+    routing = true;
+    if (m[1] === "agent" && m[2]) {
+      /* A link to an agent that did not load is not a blank page: say which,
+         and put them somewhere they can act. */
+      if (A.some(function (a) { return a.id === m[2]; })) showAgent(m[2], true);
+      else { show("grants", true); }
+    } else {
+      show(m[1], true);
+    }
+    routing = false;
+  }
+  window.addEventListener("hashchange", function () { if (!routing) route(); });
+
+  function show(v, fromRoute) {
     if (!$("v-" + v)) return;
+    if (!fromRoute) location.hash = hashFor(v);
     Array.prototype.forEach.call(document.querySelectorAll(".side a[data-view]"), function (o) {
       if (o.getAttribute("data-view") === v) o.setAttribute("aria-current", "page");
       else o.removeAttribute("aria-current");

@@ -1,6 +1,6 @@
 {
   "_comment": "Written by agents/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, the purchase log or the chain — none is typed. Each payee's LABEL is re-derived on every run from the artefact agents/known-payees.json names, and a label that stops matching is dropped rather than published: an address with no name is honest, an address with the wrong name is not.",
-  "checkedAt": "2026-09-20T16:40:13.771Z",
+  "checkedAt": "2026-09-20T16:50:00.270Z",
   "network": "testnet-10",
   "identity": {
     "agentId": "WARDA-005",
@@ -42,13 +42,13 @@
   },
   "timelock": {
     "notBefore": "571109377",
-    "virtualDaaScore": "575900399",
+    "virtualDaaScore": "575906158",
     "open": true,
     "lockedFor": "0 seconds",
     "openedAgo": "6 days",
     "expiresAt": "597029377",
     "expired": false,
-    "expiresInDaa": "21128978",
+    "expiresInDaa": "21123219",
     "expiresIn": "24 days",
     "expiredAgo": null,
     "enforcedBy": "the covenant, on every spend: claimedDaa >= notBefore. Not a scheduler, not this process, and not revocable by whoever issued the grant.",
@@ -110,6 +110,7 @@
       "reason": null,
       "txid": "afbbe17c7256dc29e67d54109f6b6034b180bed264ee43b1e12a0ecc061be2b8",
       "paid": "0.2 KAS",
+      "quoted": "0.2 KAS",
       "amountSompi": "20000000",
       "payTo": "kaspatest:qzlws9lm7uyt0tftzffshnyeu2zcqk4kf7hw5ghk6v0zh093vnkljcy2fl0fh",
       "refusal": null,
@@ -122,6 +123,7 @@
       "reason": null,
       "txid": "d359cb359529b7c75f44e430ee06875297b1eb55e9dd7388b38711aba15d1188",
       "paid": "0.2 KAS",
+      "quoted": "0.2 KAS",
       "amountSompi": "20000000",
       "payTo": "kaspatest:qzlws9lm7uyt0tftzffshnyeu2zcqk4kf7hw5ghk6v0zh093vnkljcy2fl0fh",
       "refusal": null,
@@ -134,6 +136,7 @@
       "reason": null,
       "txid": "285057ed7d6b63e581c3cc17fdc3858fbbf3d2d424267e699d7b505ce6992624",
       "paid": "0.2 KAS",
+      "quoted": "0.2 KAS",
       "amountSompi": "20000000",
       "payTo": "kaspatest:qzlws9lm7uyt0tftzffshnyeu2zcqk4kf7hw5ghk6v0zh093vnkljcy2fl0fh",
       "refusal": "the payment was broadcast as 285057ed7d6b63e581c3cc17fdc3858fbbf3d2d424267e699d7b505ce6992624 but the network had not accepted it before the wait ran out, and this vendor's quote requires accepted finality. The spend is on the network: reconcile the grant against the chain rather than re-paying.",
@@ -145,7 +148,8 @@
       "url": "https://demo.kaspa-x402.org/exact",
       "reason": null,
       "txid": null,
-      "paid": "0.2 KAS",
+      "paid": null,
+      "quoted": "0.2 KAS",
       "amountSompi": "20000000",
       "payTo": "kaspatest:qzlws9lm7uyt0tftzffshnyeu2zcqk4kf7hw5ghk6v0zh093vnkljcy2fl0fh",
       "refusal": "no UTXO at kaspatest:pzys8slr4xlgfvzsfghqmllydq27s5vqy0nhv2yrp3ysqwa6wsqfs0r7cqpk7.\nA grant's address is derived from its state, and spending changes that state — so an empty result usually means the grant has moved to its successor address, not that it is gone.\nIf the transaction that created it was submitted moments ago, this is a race rather than a mistake: acceptance is not instant, and the address is empty until it happens.",
@@ -157,7 +161,8 @@
       "url": "https://demo.kaspa-x402.org/exact",
       "reason": null,
       "txid": null,
-      "paid": "0.2 KAS",
+      "paid": null,
+      "quoted": "0.2 KAS",
       "amountSompi": "20000000",
       "payTo": "kaspatest:qzlws9lm7uyt0tftzffshnyeu2zcqk4kf7hw5ghk6v0zh093vnkljcy2fl0fh",
       "refusal": "no UTXO at kaspatest:pzys8slr4xlgfvzsfghqmllydq27s5vqy0nhv2yrp3ysqwa6wsqfs0r7cqpk7.\nA grant's address is derived from its state, and spending changes that state — so an empty result usually means the grant has moved to its successor address, not that it is gone.\nIf the transaction that created it was submitted moments ago, this is a race rather than a mistake: acceptance is not instant, and the address is empty until it happens.",
@@ -174,13 +179,13 @@
     "couldAccountForIt": [
       {
         "amount": "0.2 KAS",
-        "txid": "7e59e4a13cf0638abebfe5532e1723522975522ba1c93b678c3bcbf14b58c160",
-        "daaScore": "571109533"
+        "txid": "647f648451c864073ba0d9c1ed4de56461ee392f7d5bbbb9bd9c1273a4876474",
+        "daaScore": "571121162"
       },
       {
         "amount": "0.2 KAS",
-        "txid": "647f648451c864073ba0d9c1ed4de56461ee392f7d5bbbb9bd9c1273a4876474",
-        "daaScore": "571121162"
+        "txid": "7e59e4a13cf0638abebfe5532e1723522975522ba1c93b678c3bcbf14b58c160",
+        "daaScore": "571109533"
       }
     ],
     "note": "The covenant's own accounting says this grant spent 1.009744 KAS and its purchase log names 0.6 KAS of that. 0.409744 KAS left this grant without a surviving record of why. spentTotal is part of the state the grant's address is derived from, so it cannot be quietly wrong — the log can, and was. That is the failure this page reports rather than the one it hides."

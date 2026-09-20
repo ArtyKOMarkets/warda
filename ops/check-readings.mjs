@@ -72,6 +72,42 @@ for (const f of files) {
   }
 }
 
+/**
+ * And nothing may carry its own copy of the list.
+ *
+ * The console had `["001", "002", … "006"]` typed into its script. A seventh
+ * agent would have had a page, a reading and a sitemap row, and been invisible
+ * there until somebody noticed — the same shape as `first-contact` watching
+ * seven packages when there were ten on npm, and the eleventh instance of
+ * extracted-then-copied in this repository.
+ *
+ * `site/build.py` generates `agents.json` from the readings that exist. This
+ * refuses a second list beside it.
+ */
+const bareOf = (src) =>
+  src
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\/\/[^\n]*/g, "");
+
+for (const f of ["site/src/app.html", "site/src/agents.html", "site/src/network.html"]) {
+  const path = fileURLToPath(new URL("../" + f, import.meta.url));
+  let src;
+  try {
+    src = readFileSync(path, "utf8");
+  } catch {
+    continue; // a page that does not exist is not a page with a stale list
+  }
+  const found = [...bareOf(src).matchAll(/\[\s*"(00\d)"(?:\s*,\s*"00\d")+\s*,?\s*\]/g)];
+  if (found.length) {
+    problems.push(
+      `${f} carries its own list of agent ids: ${found[0][0].slice(0, 60)}\n` +
+        `      Read /agents.json instead — site/build.py derives it from the readings that\n` +
+        `      exist, so publishing one is the only thing anybody has to remember.`,
+    );
+  }
+}
+
 if (problems.length) {
   console.error(`check-readings: ${problems.length} problem(s) across ${files.length} reading(s)\n`);
   for (const p of problems) console.error("  - " + p + "\n");

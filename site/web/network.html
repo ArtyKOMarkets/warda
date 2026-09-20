@@ -594,18 +594,37 @@
       .catch(function () { return null; });
   }
 
-  Promise.all([
-    fetch("/services.json", { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; }),
-    Promise.all(["001", "002", "003", "004", "005"].map(function (n) {
-      return fetch("/agent-" + n + ".json", { cache: "no-store" })
-        .then(function (r) { return r.ok ? r.json() : null; })
-        .catch(function () { return null; });
-    })),
-    fetch("/services.json", { cache: "no-store" })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(fromRegistry)
-      .catch(function () { return null; }),
-  ]).then(function (r) {
+  /* Which agents exist is READ, not typed.
+     This said ["001" … "005"] and there have been six since 17 September, so
+     the per-endpoint payment totals on this page have been missing agent
+     #006's — the one that pays the demo vendor — for three days. Nothing was
+     wrong on screen: the totals were simply lower, which is the failure mode
+     that never gets reported.
+
+     `site/build.py` derives /agents.json from the readings that exist, and
+     `ops/check-readings.mjs` refuses a second copy of the list anywhere. This
+     page was that guard's first find. */
+  fetch("/agents.json", { cache: "no-store" })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (ix) {
+      /* No index means no totals, rather than the totals from a list this
+         page invented. An endpoint with no figure renders without one, which
+         is what it already does for an endpoint nobody has paid. */
+      var ids = (ix && ix.ids) || [];
+      return Promise.all([
+        fetch("/services.json", { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; }),
+        Promise.all(ids.map(function (n) {
+          return fetch("/agent-" + n + ".json", { cache: "no-store" })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .catch(function () { return null; });
+        })),
+        fetch("/services.json", { cache: "no-store" })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(fromRegistry)
+          .catch(function () { return null; }),
+      ]);
+    })
+    .then(function (r) {
     var reg = r[0], readings = r[1], live = r[2];
     if (!reg || !reg.services) return;
     var totals = paymentsByEndpoint(readings);

@@ -165,6 +165,7 @@ jobs:
           node ops/check-cli-tools.mjs
           node ops/check-cli-deps.mjs
           node ops/check-alerts.mjs
+          node ops/check-readings.mjs
 
       # ops/ was typechecked by nothing and its one test file was run by
       # nothing. Both were true for as long as ops/ has existed, and neither
@@ -186,4 +187,3 @@ jobs:
         run: |
           npx tsc --noEmit -p agents/tsconfig.json
           npx tsc --noEmit -p agent/tsconfig.json
-          node ops/check-readings.mjs
