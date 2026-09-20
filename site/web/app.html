@@ -1422,11 +1422,23 @@ ops/install-cron.sh</pre>
       var r = a.d.reconciliation;
       if (!r) return "";
       var un = num(r.unrecorded);
-      return evRow(un > 0 ? "bad" : "ok", "#" + a.id + " · " + esc(r.spentPerTheCovenant || "—") + " per the covenant",
-        esc(r.namedByTheLog || "—") + " named by its own log" +
-        (r.chargedHomeBySettlement && num(r.chargedHomeBySettlement) > 0
-          ? ", " + esc(r.chargedHomeBySettlement) + " charged home by a child" : ""),
-        un > 0 ? esc(r.unrecorded) : "0 missing");
+      var over = r.overclaimedByTheLog ? num(r.overclaimedByTheLog) : 0;
+      var sub = esc(r.namedByTheLog || "—") + " named by its own log";
+      if (r.chargedHomeBySettlement && num(r.chargedHomeBySettlement) > 0) {
+        sub += ", " + esc(r.chargedHomeBySettlement) + " charged home by a child";
+      }
+      /* Only when it DIFFERS, and only when the reading carries it. A payee
+         that spends what it received makes a recorded payment stop being
+         visible; saying so unprompted on every row would teach people to read
+         a normal thing as a warning. A reading written before the field
+         existed says nothing rather than implying zero. */
+      if (r.stillVisibleAtThePayee != null && num(r.stillVisibleAtThePayee) !== num(r.namedByTheLog)) {
+        sub += " · " + esc(r.stillVisibleAtThePayee) + " still sitting at the payee";
+      }
+      return evRow(over > 0 ? "bad" : un > 0 ? "warn" : "ok",
+        "#" + a.id + " · " + esc(r.spentPerTheCovenant || "—") + " per the covenant",
+        sub,
+        over > 0 ? esc(r.overclaimedByTheLog) + " over" : un > 0 ? esc(r.unrecorded) : "0 missing");
     }).filter(Boolean);
     $("f-recon").innerHTML = out.join("") ||
       '<p class="empty">No reconciliation in these readings. That is not the same as everything reconciling.</p>';

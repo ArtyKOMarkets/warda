@@ -379,6 +379,13 @@ try {
             reason: p.reason ?? null,
             txid: p.txid ?? null,
             paid: p.quoted?.amountSompi ? kas(BigInt(p.quoted.amountSompi)) : null,
+            /* The same figure in the unit a node compares. `paid` is for
+               people and rounds; reconciliation needs the integer, and
+               re-deriving it from the KAS string would be a second place to
+               be wrong. Read from the quote, which every record carries —
+               including the ones that paid and were not served, whose money
+               left the grant exactly like everyone else's. */
+            amountSompi: p.quoted?.amountSompi ?? p.amountSompi ?? null,
             payTo: p.quoted?.payTo ?? null,
             refusal: p.refusal ?? p.error ?? null,
             /* What the seller called itself. Recorded, not believed — the
@@ -605,9 +612,30 @@ try {
    * payee address serves whoever pays it, and two of the agents here pay the
    * same one.
    */
-  const loggedSompi = purchases.reduce((a, p) => {
-    const inLog = ours.find((u) => toHex(u.outpoint.transactionId) === p.txid);
-    return inLog ? a + inLog.entry.value : a;
+  /* Three figures, because there are three different facts here and two of
+     them were being conflated.
+
+     `loggedSompi` is what the agent's own log CLAIMS, counted from the log:
+     every purchase that carries a transaction id, at the amount recorded
+     against it. It is the agent's word.
+
+     `confirmedSompi` is how much of that claim is still independently visible
+     — the logged payments whose coin is still sitting at the payee. That is
+     the check, and it is why counting the claim is safe to do.
+
+     They were one number, computed the second way and labelled the first, and
+     that is a clock running. A payee that SPENDS what it receives makes a
+     recorded purchase vanish from the total, so `unrecorded` grows and the
+     page says "left this grant with no surviving receipt" about a payment
+     whose receipt is on disk with a txid and a signed proof. Our own agents'
+     payee addresses never spend, so it has never shown; agent #005 pays
+     demo.kaspa-x402.org, which is a third party with every reason to move its
+     own coin, and it is the only agent here that does. */
+  const logged = purchases.filter((p) => p.txid && p.amountSompi != null);
+  const loggedSompi = logged.reduce((a, p) => a + BigInt(p.amountSompi as string), 0n);
+  const confirmedSompi = logged.reduce((a, p) => {
+    const onChain = ours.find((u) => toHex(u.outpoint.transactionId) === p.txid);
+    return onChain ? a + onChain.entry.value : a;
   }, 0n);
   /* Spending this grant is charged for and did not do. Read from each settled
      child's own manifest rather than inferred from the difference, so it
@@ -717,8 +745,23 @@ try {
         reconciliation: {
           spentPerTheCovenant: kas(state.spentTotal),
           namedByTheLog: kas(loggedSompi),
+          /* Of what the log names, how much a stranger can still see. Lower
+             than `namedByTheLog` means a payee spent what it received, which
+             is a payee behaving normally and not a receipt going missing. */
+          stillVisibleAtThePayee: kas(confirmedSompi),
           chargedHomeBySettlement: chargedHome > 0n ? kas(chargedHome) : null,
           unrecorded: kas(missingFromLog > 0n ? missingFromLog : 0n),
+          /* The other direction, which only became possible today.
+             While this was counted from coins at the payee the log could not
+             over-claim: a payment the covenant never made has no coin. Counted
+             from the log's own word it can, and the clamp above would render
+             that as a tidy "0 unrecorded" — the page's two halves disagreeing
+             and the page reporting agreement. A log naming more than the
+             covenant spent means a record for a transaction that never landed,
+             or a record belonging to another grant, and either is worth saying
+             out loud. Null, not 0, when there is none: this should normally be
+             absent rather than zero. */
+          overclaimedByTheLog: missingFromLog < 0n ? kas(-missingFromLog) : null,
           /* Candidates for the unrecorded spending, and only when there IS
              any. Listing every unattributed coin at a shared payee address
              was noise: agent #002's page named three, of which at most one
@@ -734,7 +777,14 @@ try {
                 }))
               : [],
           note:
-            missingFromLog <= 0n
+            missingFromLog < 0n
+              ? `This grant's purchase log names ${kas(loggedSompi)} and the covenant says it ` +
+                `spent ${kas(state.spentTotal)} — the log claims ${kas(-missingFromLog)} MORE ` +
+                `than the chain will support. spentTotal is part of the state this grant's ` +
+                `address is derived from, so it is the half that cannot be wrong. Something in ` +
+                `the log records a transaction that never landed, or one belonging to another ` +
+                `grant.`
+              : missingFromLog === 0n
               ? chargedHome > 0n
                 ? `Every sompi the covenant says this grant spent is accounted for: ` +
                   `${kas(loggedSompi)} by purchases it recorded, and ${kas(chargedHome)} charged ` +
@@ -777,10 +827,27 @@ try {
   if (chargedHome > 0n) {
     console.error(`charged home : ${kas(chargedHome)} spent by a settled sub-agent, not by this grant`);
   }
+  if (loggedSompi !== confirmedSompi) {
+    /* Printed whenever they differ, because the difference is normal and
+       reads as alarming: a payee that spends what it receives makes a
+       recorded payment stop being visible, and nothing is wrong. */
+    console.error(
+      `at the payee: ${kas(confirmedSompi)} of the ${kas(loggedSompi)} this log names is still ` +
+        `sitting there; the rest was spent on by whoever received it.`,
+    );
+  }
   if (missingFromLog > 0n) {
     console.error(
       `UNRECORDED: the covenant says ${kas(state.spentTotal)} was spent and the log names ` +
         `${kas(loggedSompi)}. ${kas(missingFromLog)} left this grant with no surviving receipt.`,
+    );
+  }
+  if (missingFromLog < 0n) {
+    console.error(
+      `OVERCLAIMED: the log names ${kas(loggedSompi)} and the covenant says ` +
+        `${kas(state.spentTotal)} was spent. The log claims ${kas(-missingFromLog)} MORE than ` +
+        `the chain will support — a record for a transaction that never landed, or one ` +
+        `belonging to another grant. spentTotal is the half that cannot be wrong.`,
     );
   }
   if (missingFromLog > 0n && unattributed.length) {
