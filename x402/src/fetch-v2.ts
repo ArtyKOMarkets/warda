@@ -288,7 +288,14 @@ export async function wardaFetchV2(
       // authorization expires on the quote's own clock. Better to say the
       // spend is on the network and this run ran out of patience than to have
       // the vendor say something less specific.
-      opts.payer.abandonedV2(`the spend was submitted but not accepted within the wait.`);
+      //
+      // `submittedV2`, not `abandonedV2`: we called submitTransaction and hold
+      // the id it returned, so the grant has moved whatever the vendor does
+      // next. Calling `abandonedV2` here left the payer — and through it the
+      // manifest — pointing at an address the grant had already left, and the
+      // agent reported "no UTXO at the grant address" on every run afterwards.
+      // It happened to agent #005 on 15 September and again on 18 September.
+      opts.payer.submittedV2(txid);
       throw new X402Error(
         `the payment was broadcast as ${txid} but the network had not accepted it before ` +
           `the wait ran out, and this vendor's quote requires accepted finality. The spend ` +

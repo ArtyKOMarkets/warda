@@ -361,11 +361,15 @@ export class WardaPayer {
       );
     }
     if (this.held.status === "unresolved") {
+      /* One candidate or two. A message that always says "one of A or B" when
+         there is only A reads as uncertainty that does not exist, and sends
+         somebody looking for a coin at an address the grant provably left. */
+      const c = this.held.candidates;
+      const where = c.length === 1 ? `at ${c[0]}` : `at one of ${c.join(" or ")}`;
       throw new X402Error(
-        `this payer no longer knows where its grant is: ${this.held.why} It is at one of ` +
-          `${this.held.candidates[0]} or ${this.held.candidates[1]}, and one query per ` +
-          `candidate settles it (tools/follow-grant.ts does exactly that). Build a fresh ` +
-          `payer around whichever state was found.`,
+        `this payer no longer knows where its grant is: ${this.held.why} It is ${where}, and ` +
+          `one query per candidate settles it (tools/follow-grant.ts does exactly that). ` +
+          `Build a fresh payer around whichever state was found.`,
       );
     }
   }
@@ -818,6 +822,54 @@ export class WardaPayer {
       state: payment.successor,
       address: payment.successorAddress,
     };
+  }
+
+  /**
+   * WE broadcast it, and the vendor has not answered.
+   *
+   * This is not `abandonedV2`, and the difference cost agent #005 two days
+   * twice. `abandonedV2` exists for a payment handed to a vendor who may or
+   * may not have broadcast it — its whole contract is that "whether it was
+   * broadcast is not knowable from here". On the v2 path it IS knowable: this
+   * process called `submitTransaction` and holds the id it returned.
+   *
+   * And the consequence of pretending otherwise is not a missing note. A
+   * grant's address is derived from its state, so the moment that transaction
+   * is on the network the grant HAS MOVED — whether or not we waited long
+   * enough to watch it land, and whether or not the vendor ever serves. A
+   * payer left pointing at the predecessor reports "no UTXO at the grant
+   * address" on every run afterwards, which reads as a lost grant and is a
+   * stale file. Agent #005 died that way on 15 September and again on 18
+   * September, and on both days its own log said the right thing: the spend is
+   * on the network, reconcile against the chain.
+   *
+   * So the state advances here and the DEBT stays outstanding. Those are two
+   * different facts and only one of them is in doubt:
+   *
+   *   - the coin has moved       — certain, we broadcast it
+   *   - the goods were delivered — unknown, and `resume.ts` is what closes it
+   *
+   * One candidate address rather than two, for the same reason: there is no
+   * question about where the grant went.
+   */
+  submittedV2(txid: string): Outstanding {
+    if (this.held.status !== "pending") {
+      throw new X402Error(
+        `there is no payment outstanding to record as submitted (status: ${this.held.status}).`,
+      );
+    }
+    const { payment } = this.held;
+    this.grant = { ...this.grant, state: payment.successor };
+    this.heldTx = null;
+    this.held = {
+      status: "unresolved",
+      candidates: [payment.successorAddress],
+      why:
+        `${txid} was broadcast by this process and the vendor did not confirm delivery. The ` +
+        `grant has moved to ${payment.successorAddress}; what is outstanding is the goods, ` +
+        `not the coin. Re-presenting the proof is resume, not a second payment.`,
+    };
+    return this.held;
   }
 
   /**

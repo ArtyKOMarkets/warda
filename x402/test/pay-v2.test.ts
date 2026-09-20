@@ -256,6 +256,56 @@ test("abandoning does NOT roll back — it stops, and names both candidates", as
   await assert.rejects(() => p.pay({ payTo: vendorAddress } as never), /follow-grant/);
 });
 
+/**
+ * The case that killed agent #005 twice.
+ *
+ * We broadcast the covenant spend ourselves and then wait for the network to
+ * show it. When that wait runs out, the transaction is still on the network —
+ * the wait expiring says nothing about the transaction, only about our
+ * patience. The grant has moved. A payer that parks at the predecessor makes
+ * every later run report "no UTXO at the grant address", which reads as a lost
+ * grant and is a stale file; that is what happened on 15 and 18 September.
+ */
+test("a spend WE broadcast advances the grant even when acceptance is not seen", async () => {
+  const p = payer();
+  const pending = await p.buildPaymentV2({ accepted: quote(), request: REQUEST });
+  const before = p.address;
+
+  const out = p.submittedV2("abcd".repeat(16));
+  assert.equal(p.address, pending.successorAddress, "the coin moved, so the payer must have");
+  assert.notEqual(p.address, before);
+  assert.equal(p.state.spentTotal, 20_000_000n);
+
+  assert.equal(out.status, "unresolved", "the GOODS are still outstanding");
+  assert.deepEqual(
+    out.status === "unresolved" ? out.candidates : null,
+    [pending.successorAddress],
+    "one candidate, not two: there is no question about where the grant went",
+  );
+  assert.match(out.status === "unresolved" ? out.why : "", /resume, not a second payment/);
+});
+
+test("its refusal names one address, not a choice of two", async () => {
+  const p = payer();
+  const pending = await p.buildPaymentV2({ accepted: quote(), request: REQUEST });
+  p.submittedV2("abcd".repeat(16));
+
+  await assert.rejects(
+    () => p.buildPaymentV2({ accepted: quote(), request: REQUEST }),
+    (e: Error) => {
+      assert.match(e.message, /no longer knows where its grant is/);
+      assert.match(e.message, new RegExp(`at ${pending.successorAddress},`));
+      assert.doesNotMatch(e.message, /one of/, "we know exactly where it is");
+      return true;
+    },
+  );
+});
+
+test("recording a submission with nothing outstanding is an error", async () => {
+  const p = payer();
+  assert.throws(() => p.submittedV2("ab".repeat(32)), /no payment outstanding to record as submitted/);
+});
+
 test("settling or abandoning nothing is an error, not a silent no-op", async () => {
   const p = payer();
   assert.throws(() => p.settledV2(), /no payment outstanding to settle/);

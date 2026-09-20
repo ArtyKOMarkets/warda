@@ -1,6 +1,6 @@
 {
   "_comment": "Written by agent/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, or the chain — none is typed. The refusal sentences are produced by running the same explainRefusal the payer calls, except the one marked derived:false, which is consensus's answer quoted from a node's actual rejection.",
-  "checkedAt": "2026-09-20T12:04:07.884Z",
+  "checkedAt": "2026-09-20T15:35:02.154Z",
   "network": "testnet-10",
   "elsewhere": {
     "vendor": "kaspatest:qr50gmc7t3jp33gg68aj63s9av54yc7w9kyjpwqdjhva9tt8j0a7wz2h6cnll",
@@ -19,6 +19,20 @@
     "served": false,
     "servedDerived": false,
     "note": "The payment settled and the service did not arrive. Why is unknown: the same vendor refuses a payment from an ordinary wallet too, so it is not about this grant, and it has been reported. What the covenant did is the part that is checkable — it bounded what a vendor who takes payment without delivering can take."
+  },
+  "timelock": {
+    "notBefore": "560669431",
+    "virtualDaaScore": "575861530",
+    "open": true,
+    "lockedFor": "0 seconds",
+    "openedAgo": "18 days",
+    "expiresAt": "586589431",
+    "expired": false,
+    "expiresInDaa": "10727901",
+    "expiresIn": "12 days",
+    "expiredAgo": null,
+    "enforcedBy": "the covenant, on every spend: claimedDaa >= notBefore. Not a scheduler, not this process, and not revocable by whoever issued the grant.",
+    "termEnforcedBy": "the covenant, on every spend: claimedDaa < expiresAt. After it, the grant refuses everything whatever its budget says, and the balance is the principal's to reclaim."
   },
   "identity": {
     "agentId": "WARDA-001",
@@ -206,8 +220,8 @@
   ],
   "mission": "Monitor the Kaspa network and publish an independent daily digest, unattended. It holds a bounded Warda grant and may buy an approved service when it needs one.",
   "lastRun": {
-    "at": "2026-09-20T11:17:01.131Z",
-    "runs": 357,
+    "at": "2026-09-20T15:17:01.413Z",
+    "runs": 361,
     "since": "2026-09-03T08:18:38.642Z",
     "servicesUsed": 0,
     "spent": "0 KAS",
@@ -215,8 +229,8 @@
   },
   "digest": {
     "window": "24 h",
-    "from": "2026-09-19T11:17:01.493Z",
-    "to": "2026-09-20T11:17:01.131Z",
-    "text": "Kaspa testnet-10 · 24 h to 2026-09-20 11:17 UTC\n\n  blue score  +804,239           9.30 blue blocks/s\n  DAA score   +940,489           now 575,706,713\n  minted      +2,903,076.91 KAS  26,956,826,210 KAS in existence\n  hashrate    25.62 MH/s         node estimate over its last 1,000 blocks\n  mempool     111 tx             held, unaccepted, at the closing reading\n  DAG         5191 tips          1,573,276 blocks held by this node\n\nmeasured between two readings of one node (kaspad 2.0.1)\n"
+    "from": "2026-09-19T15:17:01.724Z",
+    "to": "2026-09-20T15:17:01.413Z",
+    "text": "Kaspa testnet-10 · 24 h to 2026-09-20 15:17 UTC\n\n  blue score  +804,166           9.30 blue blocks/s\n  DAA score   +935,188           now 575,850,671\n  minted      +2,886,714.06 KAS  26,957,270,575 KAS in existence\n  hashrate    26.58 MH/s         node estimate over its last 1,000 blocks\n  mempool     0 tx               held, unaccepted, at the closing reading\n  DAG         5191 tips          1,717,234 blocks held by this node\n\nmeasured between two readings of one node (kaspad 2.0.1)\n"
   }
 }

@@ -1,6 +1,6 @@
 {
   "_comment": "Written by agents/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, the purchase log or the chain — none is typed. Each payee's LABEL is re-derived on every run from the artefact agents/known-payees.json names, and a label that stops matching is dropped rather than published: an address with no name is honest, an address with the wrong name is not.",
-  "checkedAt": "2026-09-20T12:04:08.314Z",
+  "checkedAt": "2026-09-20T12:16:22.027Z",
   "network": "testnet-10",
   "identity": {
     "agentId": "WARDA-004",
@@ -58,7 +58,7 @@
   },
   "timelock": {
     "notBefore": "564404779",
-    "virtualDaaScore": "575735102",
+    "virtualDaaScore": "575742369",
     "open": true,
     "lockedFor": "0 seconds",
     "openedAgo": "13 days",
@@ -67,8 +67,8 @@
     "expiresInDaa": null,
     "expiresIn": null,
     "expiredAgo": "12 days",
-    "termEnforcedBy": "the covenant, on every spend: claimedDaa < expiresAt. After it, the grant refuses everything whatever its budget says, and the balance is the principal's to reclaim.",
-    "enforcedBy": "the covenant, on every spend: claimedDaa >= notBefore. Not a scheduler, not this process, and not revocable by whoever issued the grant."
+    "enforcedBy": "the covenant, on every spend: claimedDaa >= notBefore. Not a scheduler, not this process, and not revocable by whoever issued the grant.",
+    "termEnforcedBy": "the covenant, on every spend: claimedDaa < expiresAt. After it, the grant refuses everything whatever its budget says, and the balance is the principal's to reclaim."
   },
   "authority": {
     "budget": "0.5 KAS",

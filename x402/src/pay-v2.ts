@@ -108,10 +108,16 @@ export type Outstanding =
   | { status: "pending"; payment: PendingPayment }
   /**
    * The payer is out of the loop and must be resynced before it is used again.
-   * `candidates` are the two addresses the grant can be at: the one it was at,
-   * and the one the abandoned payment would have moved it to.
+   *
+   * `candidates` are the addresses the grant can be at. Two when a signed
+   * payment was handed to a vendor who may or may not have broadcast it: the
+   * one it was at, and the one that payment would have moved it to. ONE when
+   * this process broadcast the transaction itself and holds the id — there is
+   * no question about where the grant went, only about whether the goods
+   * arrive, and offering the predecessor as a possibility would send somebody
+   * looking for a coin that is provably not there.
    */
-  | { status: "unresolved"; candidates: [string, string]; why: string };
+  | { status: "unresolved"; candidates: [string, ...string[]]; why: string };
 
 export interface BuildV2Input {
   accepted: ExactPaymentRequirements;
