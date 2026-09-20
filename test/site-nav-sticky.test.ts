@@ -86,10 +86,39 @@ test("no page makes body a scroll container and unsticks the bar", () => {
   );
 });
 
+/**
+ * Pages that carry navigation of their own, and why each one is allowed to.
+ *
+ * An exception has to be written down or it is indistinguishable from the bug
+ * this test exists to catch — a page that simply forgot the placeholder and
+ * renders with no way out at all. Each entry states what the reader gets
+ * instead, and the test checks THAT rather than taking the exemption on trust.
+ */
+const OWN_NAV: Record<string, string> = {
+  /* The console is an application, not a page of the site: it has a sidebar,
+     a persistent top bar and views that swap under them. Stacking the
+     marketing bar above app chrome gives a reader two navigations with
+     different rules, which is worse than either. It carries its own way back
+     to the site instead, and the assertion below is that it really does. */
+  "app.html": "/",
+};
+
+test("a page with its own navigation still offers a way back to the site", () => {
+  for (const [page, href] of Object.entries(OWN_NAV)) {
+    const t = read(page);
+    assert.ok(
+      t.includes(`href="${href}"`),
+      `${page} is exempt from the site bar, so it must link to ${href} itself — ` +
+        "an exemption without a way out is the failure this file is about.",
+    );
+  }
+});
+
 test("every navigable page actually gets the bar and its CSS", () => {
   /* A page that forgets the placeholder renders with no navigation at all,
      which is the failure this whole file is about, in its loudest form. */
   const missing = pages.filter((p) => {
+    if (p in OWN_NAV) return false;
     const t = read(p);
     return !t.includes("{{NAV}}") || !t.includes("{{NAV_CSS}}");
   });

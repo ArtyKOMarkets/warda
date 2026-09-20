@@ -1,148 +1,331 @@
 <title>Warda Console</title>
-<meta name="description" content="Create a bounded agent and fund it. Set a budget in dollars, watch it become the KAS the network actually enforces, and get the one command that creates it. This console has never seen a private key and cannot.">
+<meta name="description" content="The control plane for agent spending: every grant, what it has spent, what the network refused, and one screen that creates a new bounded agent. Reads the chain and this project's published readings; has never seen a private key.">
 <style>
   :root {
-    --void: #06090C; --ground: #0A1014; --panel: #101A20;
+    --void: #06090C; --ground: #0A1014; --panel: #101A20; --raise: #14212A;
     --edge: #1E2E37; --edge-bright: #2C4350;
     --chrome: #DDE0E2; --chrome-dim: #8D989E; --chrome-faint: #5D6B73;
     --teal: #14D7C1; --teal-bright: #38F9E9; --teal-deep: #06BBA1;
     --teal-ghost: rgba(20,215,193,0.10);
     --refuse: #FF6B5A; --amber: #E8B23A;
+    /* The one hue data marks are drawn in. NOT --teal: brand teal sits at OKLCH
+       L 0.79 and the dark-mode band for a mark is 0.48–0.67, so as a fill it
+       glows and as a thin line it vibrates. Validated against this surface
+       rather than chosen by eye. --teal stays for text and accents, where the
+       test is contrast and it passes. */
+    --mark: #0FA890; --mark-soft: rgba(15,168,144,0.16);
     --display: "Chakra Petch", "Arial Narrow", sans-serif;
     --body: "Barlow", "Helvetica Neue", Arial, sans-serif;
     --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
-    --gutter: clamp(1.15rem, 4vw, 3.4rem);
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--void); color: var(--chrome);
-         font-family: var(--body); line-height: 1.6; }
-  .wrap { max-width: 62rem; margin: 0 auto; padding: 0 var(--gutter); }
-  a { color: var(--teal); }
+         font-family: var(--body); line-height: 1.55; font-size: 14px; }
+  a { color: var(--teal); text-decoration: none; }
 
-  header { border-bottom: 1px solid var(--edge); padding: 2.4rem 0 2rem; }
-  .eyebrow { display: inline-flex; align-items: center; gap: 0.7rem; margin: 0;
-             font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.16em;
-             text-transform: uppercase; color: var(--teal); }
-  .eyebrow::before { content: ""; width: 1.6rem; height: 1px; background: var(--teal-deep); }
-  h1 { font-family: var(--display); font-size: clamp(2rem, 5.4vw, 3.1rem); line-height: 1.04;
-       margin: 1rem 0 0; font-weight: 700; letter-spacing: -0.025em; }
-  h1 span { display: block; color: var(--chrome-faint); }
-  .lede { color: var(--chrome-dim); max-width: 54ch; margin: 1.1rem 0 0; }
+  /* ---- shell ------------------------------------------------------------ */
+  .app { display: grid; grid-template-columns: 15rem 1fr; min-height: 100vh; }
+  @media (max-width: 900px) { .app { grid-template-columns: 1fr; } }
 
-  /* ---- the bar: which chain, and what a KAS costs -------------------------
-     Two numbers that look alike and are not. The FUNDING rate is the one you
-     traded at; it sizes the grant and the network enforces the result. The
-     MARKET rate is context, from a named source with a time on it. They are
-     never added together and never shown as one figure. */
-  .bar { display: flex; flex-wrap: wrap; gap: 0.9rem 1.6rem; align-items: center;
-         margin-top: 1.7rem; padding: 0.85rem 1rem; border: 1px solid var(--edge);
-         border-radius: 10px; background: var(--ground); }
-  .bar label { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.13em;
-               text-transform: uppercase; color: var(--chrome-faint); display: block; }
-  select, input, textarea { font-family: var(--mono); font-size: 0.9rem; color: var(--chrome);
+  .side { border-right: 1px solid var(--edge); background: var(--ground);
+          padding: 1.2rem 0.9rem; display: flex; flex-direction: column; gap: 1.4rem; }
+  @media (max-width: 900px) { .side { border-right: 0; border-bottom: 1px solid var(--edge); } }
+  .brand { display: flex; align-items: center; gap: 0.6rem; padding: 0.3rem 0.5rem;
+           border-radius: 7px; color: var(--chrome); }
+  .brand:hover { background: var(--panel); }
+  .brand b { color: var(--chrome); }
+  .brand b { font-family: var(--display); font-size: 1.15rem; font-weight: 700; letter-spacing: 0.01em; }
+  .brand span { font-family: var(--mono); font-size: 0.52rem; letter-spacing: 0.14em;
+                text-transform: uppercase; color: var(--chrome-faint); display: block; }
+  .side nav { display: grid; gap: 0.15rem; }
+  .side a { display: flex; align-items: center; gap: 0.65rem; padding: 0.5rem 0.6rem;
+            border-radius: 7px; color: var(--chrome-dim); font-size: 0.9rem; cursor: pointer; }
+  .side a:hover { background: var(--panel); color: var(--chrome); }
+  .side a[aria-current="page"] { background: var(--teal-ghost); color: var(--teal); }
+  .side a svg { width: 15px; height: 15px; flex: none; }
+  .side .grp { font-family: var(--mono); font-size: 0.54rem; letter-spacing: 0.16em;
+               text-transform: uppercase; color: var(--chrome-faint); padding: 0 0.6rem; margin-bottom: 0.4rem; }
+  .side .foot { margin-top: auto; padding: 0 0.6rem; font-size: 0.72rem; color: var(--chrome-faint); }
+
+  .main { min-width: 0; }
+  .top { display: flex; flex-wrap: wrap; gap: 0.8rem; align-items: center;
+         padding: 0.9rem clamp(1rem, 3vw, 1.8rem); border-bottom: 1px solid var(--edge);
+         background: var(--ground); position: sticky; top: 0; z-index: 20; }
+  .top h1 { font-family: var(--display); font-size: 1.15rem; margin: 0; font-weight: 600;
+            letter-spacing: -0.01em; margin-right: auto; }
+  .chip { display: inline-flex; align-items: center; gap: 0.45rem; font-family: var(--mono);
+          font-size: 0.68rem; letter-spacing: 0.06em; color: var(--chrome-dim);
+          border: 1px solid var(--edge-bright); border-radius: 999px; padding: 0.3rem 0.7rem; }
+  .chip i { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); flex: none; }
+  select.net { width: auto; font-family: var(--mono); font-size: 0.68rem; color: var(--chrome);
+    background: var(--panel); border: 1px solid var(--edge-bright); border-radius: 999px;
+    padding: 0.3rem 0.6rem; }
+  .pad { padding: clamp(1rem, 3vw, 1.8rem); }
+
+  /* ---- tiles ------------------------------------------------------------ */
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 0.8rem; }
+  .tile { background: var(--ground); border: 1px solid var(--edge); border-radius: 12px;
+          padding: 0.95rem 1rem 1.05rem; }
+  .tile .k { font-family: var(--mono); font-size: 0.58rem; letter-spacing: 0.13em;
+             text-transform: uppercase; color: var(--chrome-faint); }
+  .tile .v { font-family: var(--mono); font-size: 1.6rem; margin-top: 0.45rem; letter-spacing: -0.01em; }
+  .tile .s { font-size: 0.76rem; color: var(--chrome-faint); margin-top: 0.2rem; }
+  .tile.hot .v { color: var(--teal); }
+
+  /* ---- panels ----------------------------------------------------------- */
+  .cols { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+          gap: 0.8rem; margin-top: 0.8rem; }
+  @media (max-width: 1080px) { .cols { grid-template-columns: 1fr; } }
+  .card { background: var(--ground); border: 1px solid var(--edge); border-radius: 12px;
+          padding: 1rem 1.1rem 1.15rem; min-width: 0; }
+  .card h2 { font-family: var(--display); font-size: 0.95rem; font-weight: 600; margin: 0;
+             letter-spacing: -0.005em; display: flex; align-items: baseline; gap: 0.6rem; }
+  .card h2 small { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.1em;
+                   text-transform: uppercase; color: var(--chrome-faint); font-weight: 400; }
+  .card .why { font-size: 0.78rem; color: var(--chrome-faint); margin: 0.35rem 0 0; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 0.8rem; }
+  th { font-family: var(--mono); font-size: 0.56rem; letter-spacing: 0.13em; text-transform: uppercase;
+       color: var(--chrome-faint); text-align: left; font-weight: 400; padding: 0.4rem 0.5rem;
+       border-bottom: 1px solid var(--edge); }
+  td { padding: 0.55rem 0.5rem; border-bottom: 1px solid var(--edge); font-size: 0.84rem; vertical-align: middle; }
+  tr:last-child td { border-bottom: 0; }
+  td.n { font-family: var(--mono); text-align: right; white-space: nowrap; }
+  .who { display: flex; flex-direction: column; }
+  .who b { font-weight: 600; font-size: 0.88rem; }
+  .who span { font-size: 0.72rem; color: var(--chrome-faint); }
+  .meter { height: 4px; border-radius: 2px; background: var(--panel); overflow: hidden; margin-top: 0.3rem; }
+  .meter i { display: block; height: 100%; background: var(--mark); border-radius: 2px; }
+  .pill { font-family: var(--mono); font-size: 0.58rem; letter-spacing: 0.1em; text-transform: uppercase;
+          border: 1px solid var(--edge-bright); border-radius: 4px; padding: 0.12rem 0.4rem;
+          color: var(--chrome-faint); white-space: nowrap; }
+  .pill.live { border-color: var(--teal-deep); color: var(--teal); }
+  .pill.done { border-color: var(--edge-bright); color: var(--chrome-faint); }
+  .pill.no { border-color: var(--refuse); color: var(--refuse); }
+
+  /* ---- charts ----------------------------------------------------------- */
+  .chart { margin-top: 0.7rem; position: relative; }
+  .chart svg { width: 100%; height: auto; display: block; overflow: visible; }
+  .ax { font-family: var(--mono); font-size: 9px; fill: var(--chrome-faint); }
+  .grid-l { stroke: var(--edge); stroke-width: 1; }
+  .ln { fill: none; stroke: var(--mark); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .ar { fill: var(--mark-soft); }
+  .dot { fill: var(--mark); }
+  .cross { stroke: var(--edge-bright); stroke-width: 1; stroke-dasharray: 3 3; }
+  .tip { position: absolute; pointer-events: none; background: var(--raise); border: 1px solid var(--edge-bright);
+         border-radius: 7px; padding: 0.4rem 0.6rem; font-family: var(--mono); font-size: 0.7rem;
+         white-space: nowrap; transform: translate(-50%, -115%); opacity: 0; transition: opacity 120ms; }
+  .tip b { color: var(--teal); }
+  .bars { display: grid; gap: 0.55rem; margin-top: 0.8rem; }
+  .brow { display: grid; grid-template-columns: 1fr auto; gap: 0.2rem 0.8rem; align-items: baseline; }
+  .brow .lab { font-size: 0.8rem; color: var(--chrome-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .brow .amt { font-family: var(--mono); font-size: 0.78rem; }
+  .brow .tr { grid-column: 1 / -1; height: 6px; background: var(--panel); border-radius: 3px; overflow: hidden; }
+  .brow .tr i { display: block; height: 100%; background: var(--mark); border-radius: 3px; }
+
+  .empty { font-size: 0.82rem; color: var(--chrome-faint); padding: 1.2rem 0; }
+  .feed { display: grid; gap: 0.5rem; margin-top: 0.8rem; }
+  .ev { display: grid; grid-template-columns: auto 1fr auto; gap: 0.6rem; align-items: baseline;
+        font-size: 0.8rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--edge); }
+  .ev:last-child { border-bottom: 0; }
+  .ev .t { font-family: var(--mono); font-size: 0.66rem; color: var(--chrome-faint); }
+  .ev .a { font-family: var(--mono); font-size: 0.74rem; white-space: nowrap; }
+
+  .view { display: none; }
+  .view.on { display: block; }
+  .col > section:first-child { padding-top: 0; }
+
+  /* the create flow, inherited from the v1 page */
+  section { border-bottom: 1px solid var(--edge); padding: 1.6rem 0; }
+  section:last-child { border-bottom: 0; }
+  h2.step { font-family: var(--display); font-size: 1.15rem; margin: 0; font-weight: 600;
+            display: flex; align-items: baseline; gap: 0.7rem; }
+  h2.step em { font-style: normal; font-family: var(--mono); font-size: 0.66rem;
+               color: var(--teal-deep); letter-spacing: 0.14em; }
+  .say { color: var(--chrome-dim); margin: 0.6rem 0 0; max-width: 64ch; font-size: 0.88rem; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: 0.9rem; margin-top: 1.1rem; }
+  .field label { font-family: var(--mono); font-size: 0.56rem; letter-spacing: 0.13em;
+                 text-transform: uppercase; color: var(--chrome-faint); display: block; margin-bottom: 0.35rem; }
+  select, input, textarea { font-family: var(--mono); font-size: 0.85rem; color: var(--chrome);
     background: var(--panel); border: 1px solid var(--edge-bright); border-radius: 6px;
-    padding: 0.45rem 0.6rem; width: 100%; }
-  select:focus-visible, input:focus-visible, textarea:focus-visible {
-    outline: 2px solid var(--teal-bright); outline-offset: 2px; }
-  option:disabled { color: var(--chrome-faint); }
-  .bar > div { min-width: 9rem; }
-  .px { font-family: var(--mono); font-size: 0.82rem; color: var(--chrome); }
-  .px b { color: var(--teal); font-weight: 500; }
-  .px i { font-style: normal; color: var(--chrome-faint); font-size: 0.72rem; display: block; }
-
-  section { border-bottom: 1px solid var(--edge); padding: 2.4rem 0; }
-  h2 { font-family: var(--display); font-size: clamp(1.3rem, 3vw, 1.75rem); margin: 0;
-       font-weight: 600; letter-spacing: -0.015em; display: flex; align-items: baseline; gap: 0.8rem; }
-  h2 em { font-style: normal; font-family: var(--mono); font-size: 0.72rem; color: var(--teal-deep);
-          letter-spacing: 0.14em; }
-  .say { color: var(--chrome-dim); margin: 0.8rem 0 0; max-width: 62ch; font-size: 0.94rem; }
-
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
-          gap: 1rem; margin-top: 1.5rem; }
-  .field label { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.13em;
-                 text-transform: uppercase; color: var(--chrome-faint); display: block;
-                 margin-bottom: 0.4rem; }
-  .field .out { font-family: var(--mono); font-size: 0.78rem; color: var(--chrome-dim);
-                margin-top: 0.4rem; }
+    padding: 0.42rem 0.55rem; width: 100%; }
+  select:focus-visible, input:focus-visible, textarea:focus-visible,
+  .side a:focus-visible, button:focus-visible { outline: 2px solid var(--teal-bright); outline-offset: 2px; }
+  .field .out { font-family: var(--mono); font-size: 0.74rem; color: var(--chrome-dim); margin-top: 0.35rem; }
   .field .out b { color: var(--chrome); font-weight: 500; }
   .field .out .now { color: var(--amber); }
-
-  /* The enforced figures, together, so what the network compares is one block
-     and the dollars are visibly the gloss rather than the rule. */
-  .enforced { margin-top: 1.6rem; border: 1px solid var(--teal-deep); border-radius: 10px;
-              background: var(--ground); padding: 1.2rem 1.3rem; }
-  .enforced p.k { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.14em;
-                  text-transform: uppercase; color: var(--teal); margin: 0 0 0.9rem; }
-  .enforced dl { margin: 0; display: grid; gap: 0.55rem; }
+  .enforced { margin-top: 1.3rem; border: 1px solid var(--teal-deep); border-radius: 10px;
+              background: var(--ground); padding: 1rem 1.1rem; }
+  .enforced p.k { font-family: var(--mono); font-size: 0.58rem; letter-spacing: 0.14em;
+                  text-transform: uppercase; color: var(--teal); margin: 0 0 0.8rem; }
+  .enforced dl { margin: 0; display: grid; gap: 0.5rem; }
   .enforced div { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; }
-  .enforced dt { color: var(--chrome-dim); font-size: 0.9rem; }
-  .enforced dd { margin: 0; font-family: var(--mono); font-size: 0.95rem; text-align: right; }
-  .enforced dd small { display: block; font-size: 0.68rem; color: var(--chrome-faint); }
-  .enforced .foot { margin: 1rem 0 0; font-size: 0.82rem; color: var(--chrome-faint); }
-
-  pre { font-family: var(--mono); font-size: 0.78rem; line-height: 1.7; color: var(--chrome);
+  .enforced dt { color: var(--chrome-dim); font-size: 0.86rem; }
+  .enforced dd { margin: 0; font-family: var(--mono); font-size: 0.9rem; text-align: right; }
+  .enforced dd small { display: block; font-size: 0.65rem; color: var(--chrome-faint); }
+  .enforced .foot { margin: 0.9rem 0 0; font-size: 0.78rem; color: var(--chrome-faint); }
+  pre { font-family: var(--mono); font-size: 0.74rem; line-height: 1.7; color: var(--chrome);
         background: var(--panel); border: 1px solid var(--edge); border-radius: 8px;
-        padding: 0.9rem 1rem; overflow-x: auto; margin: 1rem 0 0; }
-  .note { margin-top: 1.2rem; border-left: 2px solid var(--edge-bright); padding-left: 1rem;
-          font-size: 0.87rem; color: var(--chrome-faint); }
+        padding: 0.8rem 0.9rem; overflow-x: auto; margin: 0.9rem 0 0; }
+  .note { margin-top: 1rem; border-left: 2px solid var(--edge-bright); padding-left: 0.9rem;
+          font-size: 0.82rem; color: var(--chrome-faint); }
   .note b { color: var(--chrome-dim); }
-
-  button.go { font-family: var(--body); font-weight: 600; font-size: 0.9rem; cursor: pointer;
+  button.go { font-family: var(--body); font-weight: 600; font-size: 0.85rem; cursor: pointer;
     background: var(--teal); color: var(--void); border: 1px solid var(--teal);
-    border-radius: 999px; padding: 0.6rem 1.2rem; }
+    border-radius: 999px; padding: 0.5rem 1.1rem; }
   button.go:hover { background: var(--teal-bright); border-color: var(--teal-bright); }
-  button.go[disabled] { background: transparent; color: var(--chrome-faint);
-    border-color: var(--edge-bright); cursor: default; }
-
-  .state { margin-top: 1.1rem; font-family: var(--mono); font-size: 0.82rem; line-height: 1.7; }
-  .state .ok { color: var(--teal); }
-  .state .no { color: var(--refuse); }
-  .state .wait { color: var(--amber); }
-  .state .src { color: var(--chrome-faint); font-size: 0.72rem; }
-
-  footer { padding: 2rem 0 3rem; font-size: 0.82rem; color: var(--chrome-faint); }
-
-{{NAV_CSS}}
+  .state { margin-top: 0.9rem; font-family: var(--mono); font-size: 0.78rem; line-height: 1.7; }
+  .state .ok { color: var(--teal); } .state .no { color: var(--refuse); }
+  .state .wait { color: var(--amber); } .state .src { color: var(--chrome-faint); font-size: 0.7rem; }
+  .bar { display: flex; flex-wrap: wrap; gap: 0.8rem 1.4rem; align-items: center;
+         margin-top: 1.2rem; padding: 0.8rem 0.9rem; border: 1px solid var(--edge);
+         border-radius: 10px; background: var(--ground); }
+  .bar label { font-family: var(--mono); font-size: 0.56rem; letter-spacing: 0.13em;
+               text-transform: uppercase; color: var(--chrome-faint); display: block; }
+  .bar > div { min-width: 9rem; }
+  .px { font-family: var(--mono); font-size: 0.8rem; }
+  .px b { color: var(--teal); font-weight: 500; }
+  .px i { font-style: normal; color: var(--chrome-faint); font-size: 0.7rem; display: block; }
 </style>
 
-{{NAV}}
+<div class="app">
+  <aside class="side">
+    <a class="brand" href="/" title="Back to wardaprotocol.com">
+      <b>Warda</b>
+      <span>console</span>
+    </a>
 
-<header>
-  <div class="wrap">
-    <p class="eyebrow">Console &middot; v1</p>
-    <h1>Give an agent a budget.<span>Keep the authority.</span></h1>
-    <p class="lede">Set what it may spend in dollars, watch that become the KAS the network
-      actually enforces, and leave with the one command that creates it.</p>
+    <nav>
+      <p class="grp">Operate</p>
+      <a data-view="dash" aria-current="page">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1"/><rect x="9" y="1.5" width="5.5" height="5.5" rx="1"/><rect x="1.5" y="9" width="5.5" height="5.5" rx="1"/><rect x="9" y="9" width="5.5" height="5.5" rx="1"/></svg>
+        Dashboard</a>
+      <a data-view="grants">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2.5" width="12" height="11" rx="1.5"/><path d="M5 6h6M5 9h6M5 12h3"/></svg>
+        Grants</a>
+      <a data-view="refusals">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M4.2 4.2l7.6 7.6"/></svg>
+        Refusals</a>
+      <a data-view="activity">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.5 9h3l2-5 3 9 2-4h3"/></svg>
+        Activity</a>
+      <p class="grp" style="margin-top:0.9rem">Build</p>
+      <a data-view="create">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 2v12M2 8h12"/></svg>
+        Create a grant</a>
+      <a href="/network">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="3.5" r="2"/><circle cx="3.5" cy="12" r="2"/><circle cx="12.5" cy="12" r="2"/><path d="M8 5.5L4.3 10.2M8 5.5l3.7 4.7M5.5 12h5"/></svg>
+        Registry</a>
+      <a href="/proof">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.8l5 2v4.4c0 3-2.1 5-5 6-2.9-1-5-3-5-6V3.8z"/><path d="M5.8 8l1.6 1.6 3-3.2"/></svg>
+        Proof</a>
+    </nav>
 
-    <div class="bar">
-      <div>
-        <label for="net">Network</label>
-        <select id="net">
-          <option value="testnet-10" selected>testnet-10</option>
-          <option value="mainnet" disabled>mainnet &mdash; when it is audited</option>
-        </select>
+    <p class="foot">
+      Reads this project's published readings and the chain. Has never seen a private key.
+      <br><br>testnet-10 &middot; unaudited
+    </p>
+  </aside>
+
+  <div class="main">
+    <div class="top">
+      <h1 id="title">Dashboard</h1>
+      <select class="net" id="net" aria-label="Network">
+        <option value="testnet-10" selected>Kaspa testnet-10</option>
+        <option value="mainnet" disabled>Kaspa mainnet &mdash; when audited</option>
+      </select>
+      <span class="chip" id="freshness"><i></i>loading</span>
+    </div>
+
+    <!-- ============================ DASHBOARD ============================ -->
+    <div class="view on pad" id="v-dash">
+      <div class="tiles" id="tiles"></div>
+
+      <div class="cols">
+        <div class="card">
+          <h2>Spending <small>every payment, by day</small></h2>
+          <p class="why">Each point is money that actually left a grant. Days with no payment are
+            drawn at zero rather than skipped, so a gap reads as a gap.</p>
+          <div class="chart" id="c-spend"><div class="tip" id="tip-spend"></div></div>
+        </div>
+
+        <div class="card">
+          <h2>Where it went <small>by payee</small></h2>
+          <p class="why">Grouped by the address that received it, not by the agent that sent it &mdash;
+            one key often serves several endpoints at different prices.</p>
+          <div class="bars" id="c-payees"></div>
+        </div>
       </div>
-      <div>
-        <label for="rate">Your rate &mdash; $ per KAS</label>
-        <input id="rate" inputmode="decimal" value="0.05">
-      </div>
-      <div class="px" style="flex:1;min-width:14rem">
-        <label>Market, for context only</label>
-        <span id="px">&mdash;</span>
-        <i id="px-src">not fetched yet</i>
+
+      <div class="cols">
+        <div class="card">
+          <h2>Grants <small>live and ended</small></h2>
+          <table id="t-grants"><thead><tr>
+            <th>Agent</th><th>Spent of budget</th><th class="n">Per payment</th>
+            <th class="n">Payees</th><th class="n">State</th>
+          </tr></thead><tbody></tbody></table>
+        </div>
+        <div class="card">
+          <h2>Recent <small>newest first</small></h2>
+          <div class="feed" id="f-recent"></div>
+        </div>
       </div>
     </div>
-    <p class="note" style="margin-top:1rem">
-      <b>Two rates, and they are not the same number.</b> Yours sizes the grant, because it is
-      the one you actually traded at &mdash; Warda never fetches it. The market figure is context
-      with a source and a time on it, and nothing is ever enforced against it.
-    </p>
-  </div>
-</header>
 
+    <!-- ============================= GRANTS ============================== -->
+    <div class="view pad" id="v-grants">
+      <div class="card">
+        <h2>Every grant <small>read from its published reading</small></h2>
+        <p class="why">Budget, cap, epoch limit and payee list are the figures compiled into the
+          script that unlocks each coin. Nothing here is a setting.</p>
+        <table id="t-all"><thead><tr>
+          <th>Agent</th><th class="n">Budget</th><th class="n">Spent</th><th class="n">Left</th>
+          <th class="n">Cap</th><th class="n">Per epoch</th><th class="n">Payees</th><th class="n">State</th>
+        </tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+
+    <!-- ============================ REFUSALS ============================= -->
+    <div class="view pad" id="v-refusals">
+      <div class="card">
+        <h2>Refusals <small>what the covenant would not do</small></h2>
+        <p class="why">The only figures on this console that no other dashboard can show. A refusal
+          is not a failed request &mdash; it is a transaction that was never valid to sign.</p>
+        <div class="feed" id="f-refusals"></div>
+      </div>
+    </div>
+
+    <!-- ============================ ACTIVITY ============================= -->
+    <div class="view pad" id="v-activity">
+      <div class="card">
+        <h2>Every payment <small>newest first</small></h2>
+        <table id="t-acts"><thead><tr>
+          <th>When</th><th>Agent</th><th>For</th><th class="n">Paid</th><th class="n">Outcome</th>
+        </tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+
+    <!-- ============================= CREATE ============================== -->
+    <div class="view pad" id="v-create">
+      <div class="bar">
+        <div>
+          <label for="rate">Your rate &mdash; $ per KAS</label>
+          <input id="rate" inputmode="decimal" value="0.05">
+        </div>
+        <div class="px" style="flex:1;min-width:14rem">
+          <label>Market, for context only</label>
+          <span id="px">&mdash;</span>
+          <i id="px-src">not fetched yet</i>
+        </div>
+      </div>
+      <p class="note" style="margin-top:0.8rem">
+        <b>Two rates, and they are not the same number.</b> Yours sizes the grant, because it is the
+        one you actually traded at &mdash; Warda never fetches it. The market figure is context with a
+        source and a time on it, and nothing is ever enforced against it.
+      </p>
 <section>
-  <div class="wrap">
-    <h2><em>01</em> What it may spend</h2>
+  <div>
+    <h2 class="step"><em>01</em> What it may spend</h2>
     <p class="say">Type dollars. The column underneath each field is what goes into the script
       that unlocks the coin &mdash; and that is the only figure any node will ever compare.</p>
 
@@ -191,8 +374,8 @@
 </section>
 
 <section>
-  <div class="wrap">
-    <h2><em>02</em> Its keys, which this page never sees</h2>
+  <div>
+    <h2 class="step"><em>02</em> Its keys, which this page never sees</h2>
     <p class="say">Three powers, three keys, because they are three separate risks. Generate them
       on your own machine and paste only the public halves. Nothing secret is typed here, stored
       here, or sent anywhere &mdash; this console cannot sign and has no way to.</p>
@@ -215,8 +398,8 @@ warda key --out revocation.key   <span style="color:var(--chrome-faint)"># can s
 </section>
 
 <section>
-  <div class="wrap">
-    <h2><em>03</em> Funding it</h2>
+  <div>
+    <h2 class="step"><em>03</em> Funding it</h2>
     <p class="say">You sell what you already hold, wherever it already has a market, and withdraw
       the proceeds. Warda does not touch the asset, does not quote the price and never holds the
       float &mdash; so there is no balance sheet between you and your agent.</p>
@@ -238,8 +421,8 @@ warda key --out revocation.key   <span style="color:var(--chrome-faint)"># can s
 </section>
 
 <section>
-  <div class="wrap">
-    <h2><em>04</em> Creating it</h2>
+  <div>
+    <h2 class="step"><em>04</em> Creating it</h2>
     <p class="say">One command, on your machine, with your key. It builds the grant locally, writes
       the manifest before it broadcasts, and prints the address the coin will live at.</p>
     <pre id="cmd">&mdash;</pre>
@@ -249,159 +432,275 @@ warda key --out revocation.key   <span style="color:var(--chrome-faint)"># can s
   </div>
 </section>
 
-<footer>
-  <div class="wrap">
-    This console reads the chain through <a href="https://verify.wardaprotocol.com">verify.wardaprotocol.com</a>,
-    which holds no keys, signs nothing and names the node it read in every answer.
-    testnet-10 &middot; unaudited &middot; no real money.
-  </div>
-</footer>
+    </div><!-- /v-create -->
+  </div><!-- /main -->
+</div><!-- /app -->
 
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); };
   var VERIFY = "https://verify.wardaprotocol.com";
-  var SOMPI = 100000000;
+  var AGENTS = ["001", "002", "003", "004", "005", "006"];
 
-  function num(v) { var n = parseFloat(String(v).replace(/[^0-9.]/g, "")); return isFinite(n) ? n : 0; }
-  function kas(n) { return (Math.round(n * 1e8) / 1e8).toLocaleString("en-US", { maximumFractionDigits: 8 }); }
-  /* The same number, for a shell rather than for a person. `warda` parses KAS
-     with `kas()`, which refuses a thousands separator — so a figure formatted
-     for reading and then pasted into a terminal fails with "budget: not a
-     number", which reads as the tool being broken rather than the page being
-     helpful. Display and argument are two renderings and never one. */
-  function arg(n) { return String(Math.round(n * 1e8) / 1e8); }
-  function usd(n) { return "$" + n.toLocaleString("en-US", { maximumFractionDigits: 2 }); }
+  /* ---- reading the real thing ------------------------------------------
+     Every figure on this console comes from the agent readings this project
+     publishes, which `agents/tools/dashboard.ts` derives from the chain and
+     which anybody can fetch at the same URLs. Nothing is typed in, and there
+     is no demo dataset to fall back to: a console that invents a number to
+     fill a panel is the one thing this project cannot ship. */
+  function num(s) { var n = parseFloat(String(s == null ? "" : s).replace(/[^0-9.\-]/g, "")); return isFinite(n) ? n : 0; }
+  /* Two decimals for a headline, six for a figure somebody may reconcile. A
+     tile that says 12.702205 wraps to two lines and reads as precision nobody
+     asked for. */
+  function kas2(n) { return (Math.round(n * 100) / 100).toLocaleString("en-US", { maximumFractionDigits: 2 }); }
+  function kas(n) { return (Math.round(n * 1e6) / 1e6).toLocaleString("en-US", { maximumFractionDigits: 6 }); }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]; }); }
+  function short(a) { return !a ? "—" : a.length > 22 ? a.slice(0, 12) + "…" + a.slice(-6) : a; }
+  function day(iso) { return String(iso || "").slice(0, 10); }
 
-  /* Dollars in, KAS out, at YOUR rate. Ceiling rather than rounding: a cap that
-     rounded down would enforce slightly less than the number on the screen, and
-     the screen is what somebody will quote back. */
-  function toKas(dollars, rate) { return rate > 0 ? Math.ceil((dollars / rate) * 1e8) / 1e8 : 0; }
+  var A = [];   // the readings that loaded
+  var P = [];   // every purchase, flattened, with its agent
+  var R = [];   // every refusal, flattened
 
-  var market = null;   // { perKas, source, observedAt } or null. Never zero.
-
-  function recompute() {
-    var rate = num($("rate").value);
-    var fields = [["budget", "e-budget"], ["cap", "e-cap"], ["epoch", "e-epoch"]];
-    var anyDrift = false, driftBits = [];
-
-    fields.forEach(function (pair) {
-      var d = num($(pair[0]).value);
-      var k = toKas(d, rate);
-      var line = rate > 0 ? "<b>" + kas(k) + " KAS</b> at your rate" : "enter a rate above";
-      /* Today's value of the ENFORCED figure — not a second limit, the same one
-         priced again. Said as a drift rather than a number so nobody reads it
-         as something the chain knows. */
-      if (market && k > 0) {
-        var today = k * market.perKas;
-        if (Math.abs(today - d) / Math.max(d, 0.01) > 0.02) {
-          anyDrift = true;
-          line += " &middot; <span class='now'>" + usd(today) + " today</span>";
-          driftBits.push(pair[0]);
-        }
-      }
-      $("o-" + pair[0]).innerHTML = line;
-      $("e-" + pair[0]).innerHTML = kas(k) + " KAS<small>" + usd(d) + " at your rate</small>";
+  Promise.all(AGENTS.map(function (id) {
+    return fetch("/agent-" + id + ".json")
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { return j ? { id: id, d: j } : null; })
+      .catch(function () { return null; });
+  })).then(function (rows) {
+    A = rows.filter(Boolean);
+    A.forEach(function (a) {
+      (a.d.purchases || []).forEach(function (p) { P.push({ agent: a.id, p: p }); });
+      (a.d.refusals || []).forEach(function (r) { R.push({ agent: a.id, r: r }); });
     });
-
-    var payees = $("payees").value.split(/\n/).map(function (s) { return s.trim(); }).filter(Boolean);
-    $("e-payees").innerHTML = payees.length
-      ? payees.length + (payees.length === 1 ? " address" : " addresses") + "<small>fixed at creation</small>"
-      : "&mdash;<small>none yet</small>";
-
-    $("drift").innerHTML = !market
-      ? "The figures above are what the network compares. A market price is not loaded, so this page is not showing what they are worth today &mdash; which is different from them being worth nothing."
-      : anyDrift
-        ? "KAS has moved since your rate. The network still enforces the KAS figures above and knows nothing about dollars, so the amber numbers are what those same limits are worth right now."
-        : "The network enforces the KAS figures above. It has no idea what a dollar is.";
-
-    var need = toKas(num($("budget").value), rate) + 0.01;
-    $("need").innerHTML = rate > 0
-      ? "needs <b class='ok'>" + kas(need) + " KAS</b> &mdash; the budget plus the genesis fee &mdash; <b class='ok'>as one coin</b>"
-      : "&mdash;";
-
-    var sompi = function (k) { return Math.round(k * SOMPI); };
-    $("cmd").textContent =
-      "WARDA_SK=$(cat funder.key) warda grant \\\n" +
-      "  --payees payees.txt \\\n" +
-      "  --budget " + arg(toKas(num($("budget").value), rate)) + " \\\n" +
-      "  --max-per-spend " + arg(toKas(num($("cap").value), rate)) + " \\\n" +
-      "  --epoch-limit " + arg(toKas(num($("epoch").value), rate)) + " \\\n" +
-      ($("k-revoke").value.trim() ? "  --revocation " + $("k-revoke").value.trim() + " \\\n" : "") +
-      "  --network " + $("net").value;
-  }
-
-  ["rate", "budget", "cap", "epoch", "days", "payees", "k-revoke", "net"].forEach(function (id) {
-    $(id).addEventListener("input", recompute);
-    $(id).addEventListener("change", recompute);
+    P.sort(function (x, y) { return String(y.p.at).localeCompare(String(x.p.at)); });
+    render();
   });
 
-  /* The market price. Optional by construction: if it does not arrive the page
-     says so and shows no figure, because a price that failed to load rendered
-     as 0 is the same bug as an empty grant rendered as drained. */
-  (function price() {
-    fetch("https://api.coingecko.com/api/v3/simple/price?ids=kaspa&vs_currencies=usd")
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (j) {
-        var p = j && j.kaspa && j.kaspa.usd;
-        if (typeof p !== "number" || !(p > 0)) throw new Error("no price");
-        market = { perKas: p, source: "CoinGecko", observedAt: Date.now() };
-        $("px").innerHTML = "<b>$" + p + "</b> per KAS";
-        $("px-src").textContent = "CoinGecko, just now";
-        recompute();
-      })
-      .catch(function () {
-        $("px").textContent = "not available";
-        $("px-src").textContent = "no market price loaded — nothing here depends on one";
-      });
-  })();
+  function auth(a) { return a.d.authority || {}; }
+  /* "Live" is a claim about now, and the only thing a reading supports is
+     whether the grant still existed when the chain was last read. The field
+     that says so is `retired` — `succession` means this agent REPLACED another
+     one, which is a fact about its birth. Reading the second as the first made
+     #003 (which succeeded #002) render as ended and #002 (which was actually
+     revoked) render as live: the two agents swapped states on screen, and
+     every total built on top of it was wrong in the same direction. */
+  function live(a) {
+    var r = a.d.retired;
+    if (r) return r.how === "settled" ? "settled" : "revoked";
+    return "live";
+  }
+  function isLive(a) { return live(a) === "live"; }
 
-  /* The watcher. Three answers, and the middle one is the whole point. */
-  var timer = null;
-  $("watch").addEventListener("click", function () {
-    var addr = $("funder").value.trim();
-    var out = $("watch-out");
-    if (!addr || addr.indexOf(":") < 0) {
-      out.innerHTML = "<span class='no'>that is not a Kaspa address.</span>";
+  function render() {
+    if (!A.length) {
+      $("tiles").innerHTML = '<p class="empty">No readings loaded. This console shows nothing rather than a zero — the two are different, and only one of them is a measurement.</p>';
+      $("freshness").innerHTML = "<i style='background:var(--refuse)'></i>no data";
       return;
     }
-    if (timer) { clearInterval(timer); timer = null; $("watch").textContent = "Watch for it"; }
-    var need = toKas(num($("budget").value), num($("rate").value)) + 0.01;
-    $("watch").textContent = "Watching…";
 
-    function poll() {
-      fetch(VERIFY + "/v1/grant/" + encodeURIComponent(addr))
-        .then(function (r) { return r.json(); })
-        .then(function (j) {
-          var d = j && (j.data || j.result || j);
-          var node = (j && j.readFrom && (j.readFrom.node || j.readFrom.url)) || "a node";
-          var largest = d && d.largest ? num(d.largest.kas || d.largest.amount || d.largest) : 0;
-          var total = d && d.total ? num(d.total.kas || d.total.amount || d.total) : 0;
-          var src = "<span class='src'>read from " + node + " · " + new Date().toLocaleTimeString() + "</span>";
+    var spent = A.reduce(function (s, a) { return s + num((a.d.activity || {}).paid); }, 0);
+    var left = A.filter(isLive).reduce(function (s, a) { return s + num(auth(a).remaining); }, 0);
+    var pays = A.reduce(function (s, a) { return s + ((a.d.activity || {}).payments || 0); }, 0);
+    var liveN = A.filter(isLive).length;
+    var outside = A.reduce(function (s, a) { return s + num((a.d.activity || {}).paidOutsideTheAllowlist); }, 0);
 
-          if (largest >= need) {
-            out.innerHTML = "<span class='ok'>arrived — " + kas(largest) +
-              " KAS in a single coin. Run the command below.</span><br>" + src;
-            clearInterval(timer); timer = null; $("watch").textContent = "Watch for it";
-          } else if (total >= need) {
-            out.innerHTML = "<span class='wait'>enough in total (" + kas(total) +
-              " KAS) but not in one coin — the largest is " + kas(largest) + ".</span><br>" +
-              "<span class='src'>genesis takes a single input. Merge them first: <b>warda wallet consolidate</b></span><br>" + src;
-            clearInterval(timer); timer = null; $("watch").textContent = "Watch for it";
-          } else {
-            out.innerHTML = "<span class='wait'>waiting — holds " + kas(total) + " KAS, needs " +
-              kas(need) + " in one coin.</span><br>" + src;
-          }
-        })
-        .catch(function () {
-          out.innerHTML = "<span class='no'>could not reach the verification service.</span> " +
-            "<span class='src'>Nothing is wrong with your funding — this page just cannot see the chain right now.</span>";
-        });
+    var newest = A.map(function (a) { return a.d.checkedAt; }).sort().pop();
+    var mins = Math.round((Date.now() - new Date(newest).getTime()) / 60000);
+    $("freshness").innerHTML = "<i></i>read " + (mins < 90 ? mins + " min ago" : Math.round(mins / 60) + " h ago");
+
+    $("tiles").innerHTML = [
+      tile("Spent", kas2(spent) + " KAS", pays + " payments, all inside the limits", true),
+      tile("Still authorised", kas2(left) + " KAS", "across " + liveN + " live grant" + (liveN === 1 ? "" : "s") + " — a retired grant authorises nothing", false),
+      tile("Grants", A.length, liveN + " live, " + (A.length - liveN) + " ended", false),
+      tile("Paid outside the allowlist", kas2(outside) + " KAS", outside === 0 ? "the covenant permits no other value" : "investigate", false),
+      tile("Refused", R.length, R.length ? "attempts the network would not sign" : "none recorded", false)
+    ].join("");
+
+    spendChart();
+    payeeBars();
+    grantRows();
+    recent();
+    refusals();
+    activity();
+  }
+
+  function tile(k, v, s, hot) {
+    return '<div class="tile' + (hot ? " hot" : "") + '"><p class="k">' + esc(k) + '</p>' +
+           '<p class="v">' + esc(String(v)) + '</p><p class="s">' + esc(s) + '</p></div>';
+  }
+
+  /* ---- spending over time ------------------------------------------------
+     One series, so no legend: the title names it. Area under a 2px line, the
+     points drawn only where a payment happened, and a crosshair that reads the
+     nearest day rather than the nearest pixel. */
+  function spendChart() {
+    var by = {};
+    P.forEach(function (x) {
+      if (x.p.outcome !== "bought" && x.p.outcome !== "served") return;
+      var d = day(x.p.at); if (!d) return;
+      by[d] = (by[d] || 0) + num(x.p.paid);
+    });
+    var days = Object.keys(by).sort();
+    var host = $("c-spend");
+    if (days.length < 2) {
+      host.innerHTML = '<p class="empty">Fewer than two days with a payment. A line needs a second point before it is a line.</p>';
+      return;
     }
-    poll();
-    timer = setInterval(poll, 6000);
-  });
+    /* Every calendar day between the first and last, so a gap reads as a gap
+       rather than being closed by the line. */
+    var t0 = new Date(days[0] + "T00:00:00Z").getTime();
+    var t1 = new Date(days[days.length - 1] + "T00:00:00Z").getTime();
+    var pts = [];
+    for (var t = t0; t <= t1; t += 86400000) {
+      var d = new Date(t).toISOString().slice(0, 10);
+      pts.push({ d: d, v: by[d] || 0 });
+    }
+    var W = 720, H = 190, L = 44, Rr = 10, T = 12, B = 26;
+    var max = Math.max.apply(null, pts.map(function (p) { return p.v; })) || 1;
+    var nice = Math.ceil(max * 20) / 20;
+    var x = function (i) { return L + (i / (pts.length - 1)) * (W - L - Rr); };
+    var y = function (v) { return T + (1 - v / nice) * (H - T - B); };
 
-  recompute();
+    var line = pts.map(function (p, i) { return (i ? "L" : "M") + x(i).toFixed(1) + " " + y(p.v).toFixed(1); }).join(" ");
+    var area = line + " L" + x(pts.length - 1).toFixed(1) + " " + y(0) + " L" + x(0).toFixed(1) + " " + y(0) + " Z";
+
+    var ticks = [0, nice / 2, nice].map(function (v) {
+      return '<line class="grid-l" x1="' + L + '" y1="' + y(v) + '" x2="' + (W - Rr) + '" y2="' + y(v) + '"/>' +
+             '<text class="ax" x="' + (L - 7) + '" y="' + (y(v) + 3) + '" text-anchor="end">' + kas(v) + '</text>';
+    }).join("");
+
+    var every = Math.max(1, Math.ceil(pts.length / 6));
+    var xlab = pts.map(function (p, i) {
+      return (i % every === 0 || i === pts.length - 1)
+        ? '<text class="ax" x="' + x(i) + '" y="' + (H - 8) + '" text-anchor="middle">' + p.d.slice(5) + '</text>' : "";
+    }).join("");
+
+    var dots = pts.map(function (p, i) {
+      return p.v > 0 ? '<circle class="dot" cx="' + x(i).toFixed(1) + '" cy="' + y(p.v).toFixed(1) + '" r="3"/>' : "";
+    }).join("");
+
+    host.innerHTML =
+      '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="KAS paid per day across every agent, ' +
+      pts[0].d + ' to ' + pts[pts.length - 1].d + '. Total ' + kas(pts.reduce(function (s, p) { return s + p.v; }, 0)) + ' KAS.">' +
+      ticks + '<path class="ar" d="' + area + '"/><path class="ln" d="' + line + '"/>' + dots + xlab +
+      '<line id="cx" class="cross" x1="0" y1="' + T + '" x2="0" y2="' + (H - B) + '" style="opacity:0"/>' +
+      '</svg><div class="tip" id="tip-spend"></div>';
+
+    var svg = host.querySelector("svg"), tip = $("tip-spend"), cx = $("cx");
+    svg.addEventListener("mousemove", function (e) {
+      var r = svg.getBoundingClientRect();
+      var px = (e.clientX - r.left) / r.width * W;
+      var i = Math.round((px - L) / (W - L - Rr) * (pts.length - 1));
+      i = Math.max(0, Math.min(pts.length - 1, i));
+      cx.setAttribute("x1", x(i)); cx.setAttribute("x2", x(i)); cx.style.opacity = 1;
+      tip.innerHTML = pts[i].d + " &middot; <b>" + kas(pts[i].v) + " KAS</b>";
+      tip.style.left = (x(i) / W * r.width) + "px";
+      tip.style.top = (y(pts[i].v) / H * r.height) + "px";
+      tip.style.opacity = 1;
+    });
+    svg.addEventListener("mouseleave", function () { tip.style.opacity = 0; cx.style.opacity = 0; });
+  }
+
+  /* ---- where it went ----------------------------------------------------
+     Bars rather than a ring: four values whose differences matter read better
+     against a shared baseline than as angles, and each one gets its own label
+     so identity is never colour alone. */
+  function payeeBars() {
+    var by = {};
+    P.forEach(function (x) {
+      if (x.p.outcome !== "bought" && x.p.outcome !== "served") return;
+      var to = x.p.payTo || "unknown";
+      if (!by[to]) by[to] = { v: 0, n: 0, url: x.p.url };
+      by[to].v += num(x.p.paid); by[to].n++;
+    });
+    var rows = Object.keys(by).map(function (k) { return { to: k, v: by[k].v, n: by[k].n, url: by[k].url }; })
+      .sort(function (a, b) { return b.v - a.v; }).slice(0, 6);
+    if (!rows.length) { $("c-payees").innerHTML = '<p class="empty">No settled payments in these readings.</p>'; return; }
+    var max = rows[0].v;
+    $("c-payees").innerHTML = rows.map(function (r) {
+      return '<div class="brow"><span class="lab" title="' + esc(r.to) + '">' + esc(payeeLabel(r.to, r.url)) + '</span>' +
+        '<span class="amt">' + kas(r.v) + ' KAS</span>' +
+        '<span class="tr"><i style="width:' + Math.max(2, r.v / max * 100) + '%"></i></span></div>';
+    }).join("");
+  }
+
+  function stateP(a) {
+    var s = live(a);
+    return '<span class="pill ' + (s === "live" ? "live" : "done") + '">' + s + '</span>';
+  }
+  /* A payee is an ADDRESS. Two addresses can serve the same host at different
+     prices — which is exactly the mistake /network made when it keyed a
+     registry on the payee and credited one listing with everybody's payments.
+     So the host is the label and the address is what distinguishes the row. */
+  function payeeLabel(to, url) {
+    var host = ""; try { host = url ? new URL(url).host : ""; } catch (e) {}
+    return (host ? host + " · " : "") + short(to);
+  }
+
+  function grantRows() {
+    $("t-grants").querySelector("tbody").innerHTML = A.map(function (a) {
+      var au = auth(a), b = num(au.budget), sp = num(au.spent);
+      return '<tr><td><span class="who"><b>#' + a.id + '</b><span>' +
+        esc(String(a.d.mission || "").split(".")[0].slice(0, 48)) + '</span></span></td>' +
+        '<td><span class="amt" style="font-family:var(--mono);font-size:0.78rem">' + kas(sp) + ' / ' + kas(b) + ' KAS</span>' +
+        '<span class="meter"><i style="width:' + (b ? Math.min(100, sp / b * 100) : 0) + '%"></i></span></td>' +
+        '<td class="n">' + kas(num(au.maxPerPayment)) + '</td>' +
+        '<td class="n">' + (au.authorizedPayees || 0) + '</td>' +
+        '<td class="n">' + stateP(a) + '</td></tr>';
+    }).join("");
+
+    $("t-all").querySelector("tbody").innerHTML = A.map(function (a) {
+      var au = auth(a);
+      return '<tr><td><b>#' + a.id + '</b></td>' +
+        '<td class="n">' + kas(num(au.budget)) + '</td><td class="n">' + kas(num(au.spent)) + '</td>' +
+        '<td class="n">' + kas(num(au.remaining)) + '</td><td class="n">' + kas(num(au.maxPerPayment)) + '</td>' +
+        '<td class="n">' + kas(num(au.epochLimit)) + '</td><td class="n">' + (au.authorizedPayees || 0) + '</td>' +
+        '<td class="n">' + stateP(a) + '</td></tr>';
+    }).join("");
+  }
+
+  function recent() {
+    $("f-recent").innerHTML = P.slice(0, 8).map(function (x) {
+      var ok = x.p.outcome === "bought" || x.p.outcome === "served";
+      return '<div class="ev"><span class="t">' + esc(day(x.p.at).slice(5)) + '</span>' +
+        '<span>#' + x.agent + ' ' + (ok ? "paid" : esc(x.p.outcome || "attempted")) + ' ' +
+        esc((function () { try { return new URL(x.p.url).pathname; } catch (e) { return x.p.url || ""; } })()) + '</span>' +
+        '<span class="a">' + (ok ? esc(x.p.paid || "") : '<span class="pill no">no</span>') + '</span></div>';
+    }).join("") || '<p class="empty">Nothing recorded.</p>';
+  }
+
+  function refusals() {
+    $("f-refusals").innerHTML = R.length ? R.map(function (x) {
+      var r = x.r;
+      return '<div class="ev"><span class="t">#' + x.agent + '</span><span>' +
+        esc(typeof r === "string" ? r : (r.reason || r.refusal || JSON.stringify(r).slice(0, 120))) +
+        '</span><span class="a"><span class="pill no">refused</span></span></div>';
+    }).join("") : '<p class="empty">No refusals in these readings. That is not the same as none having happened — a refusal only lands here when an agent recorded the attempt.</p>';
+  }
+
+  function activity() {
+    $("t-acts").querySelector("tbody").innerHTML = P.map(function (x) {
+      var ok = x.p.outcome === "bought" || x.p.outcome === "served";
+      var path = ""; try { path = new URL(x.p.url).pathname; } catch (e) { path = x.p.url || ""; }
+      return '<tr><td class="n" style="text-align:left">' + esc(day(x.p.at)) + '</td><td>#' + x.agent + '</td>' +
+        '<td>' + esc(path) + '</td><td class="n">' + esc(x.p.paid || "—") + '</td>' +
+        '<td class="n"><span class="pill ' + (ok ? "live" : "no") + '">' + esc(x.p.outcome || "—") + '</span></td></tr>';
+    }).join("") || "";
+  }
+
+  /* ---- navigation -------------------------------------------------------- */
+  var TITLES = { dash: "Dashboard", grants: "Grants", refusals: "Refusals", activity: "Activity", create: "Create a grant" };
+  Array.prototype.forEach.call(document.querySelectorAll(".side a[data-view]"), function (a) {
+    a.addEventListener("click", function () {
+      var v = a.getAttribute("data-view");
+      Array.prototype.forEach.call(document.querySelectorAll(".side a[data-view]"), function (o) { o.removeAttribute("aria-current"); });
+      a.setAttribute("aria-current", "page");
+      Array.prototype.forEach.call(document.querySelectorAll(".view"), function (o) { o.classList.remove("on"); });
+      $("v-" + v).classList.add("on");
+      $("title").textContent = TITLES[v] || "Console";
+      window.scrollTo(0, 0);
+    });
+  });
 })();
 </script>
