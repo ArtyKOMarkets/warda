@@ -378,7 +378,13 @@ try {
             url: p.url,
             reason: p.reason ?? null,
             txid: p.txid ?? null,
-            paid: p.quoted?.amountSompi ? kas(BigInt(p.quoted.amountSompi)) : null,
+            /* `paid` means paid. It was the QUOTE, published under that name on
+               every agent page — so an attempt that never produced a
+               transaction rendered as "failed · 0.2 KAS", which reads as money
+               that moved. Nothing moved: there is no txid. The quote is still
+               worth showing, under its own name. */
+            paid: p.txid && p.quoted?.amountSompi ? kas(BigInt(p.quoted.amountSompi)) : null,
+            quoted: p.quoted?.amountSompi ? kas(BigInt(p.quoted.amountSompi)) : null,
             /* The same figure in the unit a node compares. `paid` is for
                people and rounds; reconciliation needs the integer, and
                re-deriving it from the KAS string would be a second place to
