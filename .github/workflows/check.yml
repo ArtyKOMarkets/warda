@@ -164,3 +164,15 @@ jobs:
           node ops/check-key-writes.mjs
           node ops/check-cli-tools.mjs
           node ops/check-cli-deps.mjs
+          node ops/check-alerts.mjs
+
+      # ops/ was typechecked by nothing and its one test file was run by
+      # nothing. Both were true for as long as ops/ has existed, and neither
+      # is the kind of gap a failing build announces — an unchecked tool is
+      # green right up until the night it runs. The proxy test in particular
+      # asserts which wRPC calls must NOT reach the node, which is the only
+      # thing standing between a public endpoint and Shutdown.
+      - name: ops — the tools that run on a schedule
+        run: |
+          npx tsc --noEmit -p ops/tsconfig.json
+          node --experimental-strip-types --test ops/test/*.test.ts

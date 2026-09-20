@@ -362,6 +362,14 @@ const genesis = spawnSync(
        means a compromised funder key loses the stop at the same moment it is
        most needed. Anything left running unattended wants its own. */
     ...(flag("revocation") ? ["--revocation", flag("revocation")!] : []),
+    /* The term. It was not forwarded, so every grant made through `warda
+       grant` — which is every grant anybody makes who has not read genesis's
+       flags — got genesis's 30-day default and had no way to ask for another.
+       A grant's term is one of the four things the covenant enforces; three of
+       them were reachable from the CLI and the fourth was not. Found by a
+       console that offered to set it and then printed a command that could
+       not. */
+    ...(flag("window") ? ["--window", flag("window")!] : []),
     ...(rpcFrom(flag("rpc")) ? ["--rpc", rpcFrom(flag("rpc"))!] : []),
     /* One --force, one meaning: replace what is already there. Without this,
        genesis's own refusal to overwrite a manifest could not be overridden

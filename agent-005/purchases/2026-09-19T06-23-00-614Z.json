@@ -1,0 +1,15 @@
+{
+  "_comment": "Written by agents/tools/interop.ts. One file per attempt, refusals included: a purchase log that only records successes is a sales brochure.",
+  "at": "2026-09-19T06:23:00.614Z",
+  "agent": "WARDA-005",
+  "url": "https://demo.kaspa-x402.org/exact",
+  "quoted": {
+    "payTo": "kaspatest:qzlws9lm7uyt0tftzffshnyeu2zcqk4kf7hw5ghk6v0zh093vnkljcy2fl0fh",
+    "amountSompi": "20000000"
+  },
+  "txid": null,
+  "outcome": "failed",
+  "refusedByGrant": false,
+  "error": "no UTXO at kaspatest:pzys8slr4xlgfvzsfghqmllydq27s5vqy0nhv2yrp3ysqwa6wsqfs0r7cqpk7.\nA grant's address is derived from its state, and spending changes that state — so an empty result usually means the grant has moved to its successor address, not that it is gone.\nIf the transaction that created it was submitted moments ago, this is a race rather than a mistake: acceptance is not instant, and the address is empty until it happens.",
+  "remaining": 211220480
+}

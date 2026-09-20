@@ -57,3 +57,11 @@ site/src/usage.json
 # files: `dist/` is renamed out of the way instead of removed, and one of
 # those renames was committed. `dist/` itself is ignored; its aliases were not.
 *.stale.*
+
+# The alert rules and the state they remember. Machine-local by design: the
+# rules name your addresses and the exact figures you are watching for, and a
+# published threshold is a number somebody knows to sit just underneath.
+# ops/alerts.env holds the Telegram bot token, which is a password.
+ops/alerts.json
+ops/alerts-state.json
+ops/alerts.env

@@ -247,6 +247,80 @@ macOS note: cron needs Full Disk Access to write inside `~/Desktop`. If the log
 shows "Operation not permitted", grant it to `/usr/sbin/cron` in System
 Settings > Privacy & Security > Full Disk Access.
 
+## Being told when something changes
+
+`ops/alerts.sh` watches a few things and sends a Telegram message when one of
+them changes. Three kinds of rule, all notify-only:
+
+- **`budget-low`** — a grant is at or below the point where it can no longer
+  make a payment of the size it was authorised for. Same decision `warda topup`
+  takes, from the same function in `@warda_protocol/router`.
+- **`expiring`** — the term is nearly up. A grant past it refuses every spend
+  whatever its budget says.
+- **`balance-at-or-above`** — an address has received enough to be worth doing
+  something about. This is the seller's rule.
+
+### It notifies. It never acts.
+
+The obvious next feature is the one it will not have: converting on your behalf
+when the balance reaches your number. Doing that means holding a key that can
+move the coin, or an exchange key that can withdraw, unattended, forever — the
+hot wallet this whole project exists to not be. `warda fund` prints the sale
+rather than performing it for the same reason, and `warda topup` is not in
+`install-cron.sh` for the same reason.
+
+So the strongest thing to say about `ops/alerts.ts` is what it cannot do. It
+holds no key, signs nothing and builds no transaction; `ops/check-alerts.mjs`
+fails the build if that stops being true. If it were compromised tomorrow, what
+an attacker gets is your Telegram chat and the knowledge of what your agents
+hold — which is a public chain they could already read.
+
+### Your threshold is in KAS, even when you meant dollars
+
+"Tell me when this is worth $50" is a reasonable thing to want and an
+unreasonable thing for a cron job to decide, because deciding it means fetching
+a price, and a price fetched by a machine at 3am is a number nobody said.
+
+So the conversion happens once, in front of you, when you write the rule: the
+console at `/app` turns $50 into KAS at a rate you can see, and records both.
+What lands in `ops/alerts.json` is a sompi figure the node can compare against,
+plus a note of what you meant by it. The comparison never reads the note. The
+message always shows it, and says whose number it was and that this run did not
+re-check it.
+
+### Setting it up
+
+    cp ops/alerts.example.json ops/alerts.json     # or compose one at /app
+    cp ops/alerts.env.example ops/alerts.env       # the bot token and chat id
+    ops/alerts.sh --test                           # prove the pipe works
+    ops/alerts.sh --dry-run                        # what it would send, sending nothing
+    ops/install-cron.sh                            # schedules it, if rules exist
+
+Both new files are gitignored. `alerts.json` names your addresses and the exact
+figures you are watching for, and a published threshold is a number somebody
+knows to sit just underneath; `alerts.env` holds a bot token, which is a
+password.
+
+Run `--test` before relying on it. A notifier you have never seen deliver
+anything is indistinguishable from a quiet world, and you find out which one
+you had on the night it mattered.
+
+### What it will and will not say
+
+Only **changes** are sent, including the change back — a message every fifteen
+minutes for a condition that is still true is a message you learn to swipe
+away, and the one that mattered goes with it. A rule seen for the first time
+and already true does speak; one seen for the first time and quiet does not.
+
+A rule that cannot be **read** — the node is down, or the chain holds nothing
+at the address a manifest claims — is `undecided`, not `clear`. It says so
+once, keeps whatever it knew before, and does not repeat until it can be read
+again. This is the failure this repository keeps re-learning: absence rendered
+as a measurement. An empty grant address is a manifest that is behind the agent
+*or* a grant that has ended, and neither of those is "fine".
+
+    tail ~/Library/Logs/warda-alerts.log
+
 ## Afterwards
 
     launchctl list | grep wardaprotocol          # are they running

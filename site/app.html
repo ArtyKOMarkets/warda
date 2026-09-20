@@ -210,6 +210,9 @@
       <a data-view="activity">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.5 9h3l2-5 3 9 2-4h3"/></svg>
         Activity</a>
+      <a data-view="alerts">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3.5 6.5a4.5 4.5 0 0 1 9 0c0 3 1 4 1 4h-11s1-1 1-4z"/><path d="M6.6 13a1.6 1.6 0 0 0 2.8 0"/></svg>
+        Alerts</a>
       <p class="grp" style="margin-top:0.9rem">Build</p>
       <a data-view="create">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 2v12M2 8h12"/></svg>
@@ -306,6 +309,156 @@
       </div>
     </div>
 
+    <!-- ============================= ALERTS ============================== -->
+    <div class="view pad" id="v-alerts">
+      <div class="bar">
+        <div>
+          <label for="a-rate">Your rate &mdash; $ per KAS</label>
+          <input id="a-rate" inputmode="decimal" value="0.05">
+        </div>
+        <div class="px" style="flex:1;min-width:14rem">
+          <label>Market, for context only</label>
+          <span id="a-px">&mdash;</span>
+          <i id="a-px-src">not fetched yet</i>
+        </div>
+      </div>
+      <p class="note" style="margin-top:0.8rem">
+        <b>Your threshold is in KAS, even when you meant dollars.</b> The conversion happens here,
+        once, while you are looking at it &mdash; because doing it on a schedule means a machine
+        fetching a price at 3am, and a price nobody said is not a reason to do anything. The rule
+        stores the KAS figure your node can compare against, and a note of what you meant by it.
+        The note is shown in every message and never compared against.
+      </p>
+
+<section>
+  <div>
+    <h2 class="step"><em>01</em> What to watch</h2>
+    <p class="say">Three kinds. All of them tell you something; none of them does anything.</p>
+
+    <div class="field">
+      <label for="a-kind">Kind</label>
+      <select id="a-kind">
+        <option value="balance-at-or-above">An address has received enough to act on</option>
+        <option value="budget-low">A grant is running out of budget</option>
+        <option value="expiring">A grant&rsquo;s term is nearly up</option>
+      </select>
+      <p class="out" id="a-kind-say">&mdash;</p>
+    </div>
+
+    <div class="grid" style="margin-top:1.2rem">
+      <div class="field">
+        <label for="a-id">Name it</label>
+        <input id="a-id" spellcheck="false" value="earnings-worth-converting">
+        <p class="out">How the rule is remembered between runs. Two rules with one name and only
+          one of them ever fires.</p>
+      </div>
+      <div class="field">
+        <label for="a-note">What you want to be reminded of</label>
+        <input id="a-note" value="Convert, and top the agent back up.">
+        <p class="out">Sent at the top of the message. Yours, not generated.</p>
+      </div>
+    </div>
+
+    <div data-kind="balance-at-or-above">
+      <div class="field" style="margin-top:1.2rem">
+        <label for="a-addr">The address to watch</label>
+        <input id="a-addr" spellcheck="false" placeholder="kaspatest:qq&hellip;">
+        <p class="out">Where your sales land. A public address and nothing else &mdash; this rule
+          cannot spend from it and the tool that evaluates it holds no key.</p>
+      </div>
+      <div class="grid" style="margin-top:1.2rem">
+        <div class="field">
+          <label for="a-usd">Tell me when it reaches &mdash; $</label>
+          <input id="a-usd" inputmode="decimal" value="50">
+          <p class="out" id="a-o-usd">&mdash;</p>
+        </div>
+        <div class="field">
+          <label>Which is, at your rate</label>
+          <p class="out" id="a-o-kas" style="margin-top:0.45rem">&mdash;</p>
+        </div>
+      </div>
+    </div>
+
+    <div data-kind="budget-low expiring">
+      <div class="field" style="margin-top:1.2rem">
+        <label for="a-grant">The grant&rsquo;s manifest, as your machine sees it</label>
+        <input id="a-grant" spellcheck="false" value="grant.json">
+        <p class="out">A path, relative to the repository. A grant&rsquo;s address is a hash of its
+          state, so this file is the only thing that knows where the grant currently is.</p>
+      </div>
+    </div>
+
+    <div data-kind="budget-low">
+      <div class="grid" style="margin-top:1.2rem">
+        <div class="field">
+          <label for="a-below">Warn me below &mdash; $ left</label>
+          <input id="a-below" inputmode="decimal" value="2">
+          <p class="out" id="a-o-below">&mdash;</p>
+        </div>
+        <div class="field">
+          <label for="a-funder">Your funding address &mdash; optional</label>
+          <input id="a-funder" spellcheck="false" placeholder="kaspatest:qq&hellip;">
+          <p class="out">Given one, the message also says whether the next grant can be paid for,
+            and whether it is in one coin. Left blank, nothing is claimed about it.</p>
+        </div>
+      </div>
+    </div>
+
+    <div data-kind="expiring">
+      <div class="field" style="margin-top:1.2rem">
+        <label for="a-days">Warn me this long before the end &mdash; days</label>
+        <input id="a-days" inputmode="decimal" value="2">
+        <p class="out" id="a-o-days">&mdash;</p>
+      </div>
+    </div>
+
+    <div class="enforced">
+      <p class="k">What the rule actually compares</p>
+      <dl id="a-enf">
+        <div><dt>Measured</dt><dd id="a-e-what">&mdash;</dd></div>
+        <div><dt>Against</dt><dd id="a-e-against">&mdash;</dd></div>
+        <div><dt>Read from</dt><dd id="a-e-from">the chain, every fifteen minutes</dd></div>
+      </dl>
+      <p class="foot" id="a-drift">&mdash;</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div>
+    <h2 class="step"><em>02</em> The rule</h2>
+    <p class="say">Add this to <code>ops/alerts.json</code> on the machine beside your node. That
+      file is gitignored: it names your addresses and the exact figure you are watching for, and a
+      published threshold is a number somebody knows to sit just underneath.</p>
+    <pre id="a-json">&mdash;</pre>
+    <p class="note"><b>Only changes are sent, including the change back.</b> A message every
+      fifteen minutes for a condition that is still true is a message you learn to swipe away, and
+      the one that mattered goes with it. A rule that cannot be <em>read</em> &mdash; the node is
+      down, or the chain holds nothing where the manifest says the grant is &mdash; says so once,
+      and is never reported as &ldquo;fine&rdquo;.</p>
+  </div>
+</section>
+
+<section>
+  <div>
+    <h2 class="step"><em>03</em> Where it runs</h2>
+    <p class="say">On your machine, next to your node. Nothing here is stored on a server, and this
+      page has no way to reach your chat.</p>
+<pre>cp ops/alerts.env.example ops/alerts.env   <span style="color:var(--chrome-faint)"># your bot token and chat id</span>
+ops/alerts.sh --test                       <span style="color:var(--chrome-faint)"># prove the pipe works, before you rely on it</span>
+ops/alerts.sh --dry-run                    <span style="color:var(--chrome-faint)"># what it would send, sending nothing</span>
+ops/install-cron.sh                        <span style="color:var(--chrome-faint)"># every fifteen minutes from now on</span></pre>
+    <p class="note"><b>It notifies. It never acts.</b> The obvious next feature is the one it will
+      not have: converting for you when the balance reaches your number. That needs a key that can
+      move the coin, held unattended, forever &mdash; which is the hot wallet this whole project
+      exists to not be. So the strongest thing to say about the alerter is what it cannot do: it
+      holds no key, signs nothing, and builds no transaction, and the build fails if that stops
+      being true.</p>
+  </div>
+</section>
+
+    </div><!-- /v-alerts -->
+
     <!-- ============================= CREATE ============================== -->
     <div class="view pad" id="v-create">
       <div class="bar">
@@ -377,19 +530,18 @@
 <section>
   <div>
     <h2 class="step"><em>02</em> Its keys, which this page never sees</h2>
-    <p class="say">Three powers, three keys, because they are three separate risks. Generate them
-      on your own machine and paste only the public halves. Nothing secret is typed here, stored
-      here, or sent anywhere &mdash; this console cannot sign and has no way to.</p>
-<pre>warda key --out agent.key        <span style="color:var(--chrome-faint)"># the agent spends, and only inside the limits</span>
-warda key --out revocation.key   <span style="color:var(--chrome-faint)"># can stop it at any moment, and receives nothing</span></pre>
+    <p class="say">Three powers, three keys, because they are three separate risks. The agent's is
+      generated by the command in step 4, on your machine, and written to <code>agent.key</code>
+      &mdash; it is never typed, printed or sent anywhere. The revocation key you make yourself and
+      paste only the public half of. Nothing secret is entered here; this console cannot sign and
+      has no way to.</p>
+<pre>warda key --out revocation.key   <span style="color:var(--chrome-faint)"># can stop it at any moment, and receives nothing</span></pre>
     <div class="grid" style="margin-top:1.2rem">
       <div class="field">
-        <label for="k-agent">Agent public key</label>
-        <input id="k-agent" spellcheck="false" placeholder="64 hex characters">
-      </div>
-      <div class="field">
-        <label for="k-revoke">Revocation public key</label>
+        <label for="k-revoke">Revocation public key &mdash; optional</label>
         <input id="k-revoke" spellcheck="false" placeholder="64 hex characters">
+        <p class="out">Left blank, the stop is the funding key itself. That is one key to keep and
+          one thing to lose &mdash; fine for a first grant, wrong for anything left running.</p>
       </div>
     </div>
     <p class="note"><b>The revocation key is the one worth keeping cold.</b> A revoke pays the
@@ -690,8 +842,258 @@ warda key --out revocation.key   <span style="color:var(--chrome-faint)"># can s
     }).join("") || "";
   }
 
+  /* ---- dollars, and the two places they are allowed to become KAS --------
+     Nowhere else. A dollar is a QUOTE unit: no node compares one, no covenant
+     can read one, and every figure this console sends to a command or writes
+     into a rule is the KAS figure underneath. The conversion happens twice on
+     this page — sizing a grant, and setting a threshold — and both times a
+     person is looking at the rate while it happens. That is the whole of the
+     argument for why `warda fund` will not fetch a price and `ops/alerts.ts`
+     will not either. */
+  var SOMPI = 100000000;
+
+  /** Dollars at a rate, to whole sompi. Null when the rate is unusable — and
+      null must render as "—", never as zero. */
+  function toSompi(usd, rate) {
+    var u = parseFloat(usd), r = parseFloat(rate);
+    if (!isFinite(u) || !isFinite(r) || r <= 0 || u < 0) return null;
+    return Math.round(u / r * SOMPI);
+  }
+  /** Sompi to the exact KAS string. Derived from the integer, so the command
+      and the panel can never disagree about the same number. */
+  function kasOf(n) {
+    if (n == null) return "—";
+    var neg = n < 0, a = Math.abs(n);
+    var whole = Math.floor(a / SOMPI);
+    var frac = String(a % SOMPI).padStart(8, "0").replace(/0+$/, "");
+    return (neg ? "-" : "") + whole + (frac ? "." + frac : "");
+  }
+  /** For reading. Thousands separators are for people and poison for a shell. */
+  function kasPretty(n) { return n == null ? "—" : kas2(n / SOMPI) + " KAS"; }
+
+  /* ---- the market figure, which decides nothing --------------------------
+     The user asked to see a real price beside their own, and that is a fair
+     thing to want: a rate you typed in March is a rate you will forget to
+     revisit. So it is fetched, in a browser, with a person present, and shown
+     with a source and a time on it.
+     What it is NOT is an input. Nothing on this page is computed from it and
+     nothing is ever enforced against it — the rate that sizes a grant is the
+     one you actually traded at, which is the only rate anybody can be held to.
+     A fetch that fails says so. It does not say $0, and it does not quietly
+     leave the last value on screen as though it were current. */
+  function market() {
+    var miss = function (why) {
+      ["px", "a-px"].forEach(function (id) { if ($(id)) $(id).textContent = "—"; });
+      ["px-src", "a-px-src"].forEach(function (id) { if ($(id)) $(id).textContent = why; });
+    };
+    fetch("https://api.coingecko.com/api/v3/simple/price?ids=kaspa&vs_currencies=usd")
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        var v = j && j.kaspa && j.kaspa.usd;
+        if (!(v > 0)) return miss("no price in the reply. That is not $0.");
+        var t = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+        ["px", "a-px"].forEach(function (id) { if ($(id)) $(id).textContent = "$" + v + " per KAS"; });
+        ["px-src", "a-px-src"].forEach(function (id) {
+          if ($(id)) $(id).textContent = "CoinGecko, read at " + t + " — context only, nothing is enforced against it";
+        });
+      })
+      .catch(function () { miss("could not be fetched. That is not $0 — nothing here depends on it."); });
+  }
+  market();
+
+  /* ---- create a grant ----------------------------------------------------
+     This markup shipped without its script. Every output field on the Create
+     view read "—" on the live page: the dollar columns, the enforced panel,
+     the funding figure and the command itself. It looked like a form that was
+     still loading, which is the worst way for a page to be broken — nothing
+     is wrong on screen, so nobody reports it.
+     Found by trying to use it while adding the view next door. */
+  function createView() {
+    if (!$("budget")) return;
+    var rate = $("rate").value;
+    var b = toSompi($("budget").value, rate);
+    var c = toSompi($("cap").value, rate);
+    var e = toSompi($("epoch").value, rate);
+    var days = parseFloat($("days").value);
+    var payees = $("payees").value.split("\n").map(function (x) { return x.trim(); }).filter(Boolean);
+
+    $("o-budget").textContent = b == null ? "—" : kasOf(b) + " KAS";
+    $("o-cap").textContent = c == null ? "—" : kasOf(c) + " KAS";
+    $("o-epoch").textContent = e == null ? "—" : kasOf(e) + " KAS";
+
+    $("e-budget").textContent = b == null ? "—" : kasOf(b) + " KAS";
+    $("e-cap").textContent = c == null ? "—" : kasOf(c) + " KAS";
+    $("e-epoch").textContent = e == null ? "—" : kasOf(e) + " KAS";
+    $("e-payees").textContent = payees.length
+      ? payees.length + " address" + (payees.length === 1 ? "" : "es") + ", fixed at creation"
+      : "— none yet, and a grant with no payee can pay nobody";
+
+    /* The sentence somebody needs before they sign anything: what they typed
+       in dollars stops being dollars the moment the grant exists. */
+    $("drift").textContent = b == null
+      ? "Enter a rate above zero. Until then there is no KAS figure, which is not the same as zero KAS."
+      : "These are KAS figures from here on. If KAS moves, the grant does not — " +
+        kasOf(b) + " KAS stays " + kasOf(b) + " KAS, and what it is worth is somebody else's number.";
+
+    /* Genesis takes a single input, so the figure that matters is the largest
+       coin rather than the balance. 0.01 KAS for the genesis fee, the CLI's
+       own default. */
+    var need = b == null ? null : b + 1000000;
+    $("need").textContent = need == null
+      ? "—"
+      : "You need " + kasOf(need) + " KAS at that address, as ONE coin — " +
+        kasOf(b) + " for the grant and 0.01 for the genesis fee.";
+
+    $("cmd").textContent = (b == null || c == null)
+      ? "—"
+      : "WARDA_SK=$(cat wallet.key) warda grant \\\n" +
+        "  --payees payees.txt \\\n" +
+        "  --budget " + kasOf(b) + " \\\n" +
+        "  --max-per-spend " + kasOf(c) + " \\\n" +
+        (e == null ? "" : "  --epoch-limit " + kasOf(e) + " \\\n") +
+        (isFinite(days) && days > 0 ? "  --days " + days + " \\\n" : "") +
+        ($("k-revoke").value.trim() ? "  --revocation " + $("k-revoke").value.trim() + " \\\n" : "") +
+        "  --out grant.json";
+  }
+
+  /* The funder's address, read through the public verifier rather than
+     trusted: it reports the coins at an address, and the one that matters is
+     the LARGEST, not the total. An exchange that splits a withdrawal into two
+     payments funds nothing, and nobody has any reason to expect that. */
+  function watchFunder() {
+    var a = ($("funder").value || "").trim();
+    var out = $("watch-out");
+    if (!a) { out.textContent = "Enter the address the KAS will land at."; return; }
+    var b = toSompi($("budget").value, $("rate").value);
+    if (b == null) { out.textContent = "Set a rate above zero first — there is no figure to look for."; return; }
+    var need = b + 1000000;
+    out.textContent = "Looking…";
+    fetch(VERIFY + "/v1/grant/" + encodeURIComponent(a))
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        var g = j && j.result;
+        if (!g) { out.textContent = "The verifier did not answer. That is not an empty address — it is no reading at all."; return; }
+        if (!g.found) { out.textContent = "Nothing there yet. Withdrawals take a few minutes."; return; }
+        var largest = parseInt((g.largest && g.largest.sompi) || "0", 10);
+        var total = parseInt((g.total && g.total.sompi) || "0", 10);
+        if (largest >= need) {
+          out.textContent = "Ready: " + kasOf(largest) + " KAS in one coin, and " + kasOf(need) + " is needed.";
+        } else if (total >= need) {
+          out.textContent = "Enough in total (" + kasOf(total) + " KAS across " + g.coins +
+            " coins) but not in one coin — the largest is " + kasOf(largest) + " KAS. Genesis takes a single input: warda wallet consolidate";
+        } else {
+          out.textContent = "Short: " + kasOf(total) + " KAS there, " + kasOf(need) + " needed.";
+        }
+      })
+      .catch(function () { out.textContent = "Could not reach the verifier. Nothing was read, so nothing is being reported."; });
+  }
+
+  /* ---- compose an alert rule --------------------------------------------- */
+  var KIND_SAY = {
+    "balance-at-or-above": "Fires when the coins at an address add up to your figure or more. This is the seller's rule — it tells you the takings are worth doing something about, and then you decide what.",
+    "budget-low": "Fires when what the grant can still pay drops to your figure. That is the smaller of two numbers: the authority left in the covenant, and the coin actually there. Either one alone reports an agent as healthy when it cannot pay for anything.",
+    "expiring": "Fires when the term is nearly up. A grant past it refuses every spend whatever its budget says, so this is the one that ends an agent with money still in it."
+  };
+
+  /* The name follows the kind until somebody types their own. A default that
+     says "earnings-worth-converting" over a rule about a grant's budget is a
+     rule that gets installed under the wrong name and then never found. */
+  var ID_DEFAULT = {
+    "balance-at-or-above": "earnings-worth-converting",
+    "budget-low": "agent-running-low",
+    "expiring": "grant-term-ending"
+  };
+  var NOTE_DEFAULT = {
+    "balance-at-or-above": "Convert, and top the agent back up.",
+    "budget-low": "Issue the successor before it stops: warda topup",
+    "expiring": "Reclaim what is left, or issue the successor."
+  };
+  var idIsMine = false, noteIsMine = false;
+  if ($("a-id")) $("a-id").addEventListener("input", function () { idIsMine = true; });
+  if ($("a-note")) $("a-note").addEventListener("input", function () { noteIsMine = true; });
+
+  function alertsView() {
+    if (!$("a-kind")) return;
+    var kind = $("a-kind").value;
+    if (!idIsMine) $("a-id").value = ID_DEFAULT[kind] || "unnamed";
+    if (!noteIsMine) $("a-note").value = NOTE_DEFAULT[kind] || "";
+    var rate = $("a-rate").value;
+    $("a-kind-say").textContent = KIND_SAY[kind] || "—";
+    Array.prototype.forEach.call(document.querySelectorAll("#v-alerts [data-kind]"), function (el) {
+      el.style.display = el.getAttribute("data-kind").split(" ").indexOf(kind) >= 0 ? "" : "none";
+    });
+
+    var rule = { id: ($("a-id").value || "").trim() || "unnamed", kind: kind };
+    var note = ($("a-note").value || "").trim();
+    if (note) rule.note = note;
+    var what = "—", against = "—", drift = "—";
+
+    if (kind === "balance-at-or-above") {
+      var n = toSompi($("a-usd").value, rate);
+      $("a-o-usd").textContent = n == null ? "Set a rate above zero." : "at $" + parseFloat(rate) + " per KAS";
+      $("a-o-kas").textContent = n == null ? "—" : kasOf(n) + " KAS — " + n + " sompi, which is the figure stored";
+      rule.address = ($("a-addr").value || "").trim() || "kaspatest:…";
+      rule.atOrAbove = n == null ? null : String(n);
+      if (n != null) {
+        rule.quote = {
+          amount: String(parseFloat($("a-usd").value)),
+          asset: "USD",
+          perKas: String(parseFloat(rate)),
+          source: "you, " + new Date().toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })
+        };
+      }
+      what = "what the address holds, in sompi";
+      against = n == null ? "—" : kasOf(n) + " KAS";
+      drift = "The dollar figure is a note, not a comparison. If KAS moves, this rule keeps firing at " +
+        kasOf(n) + " KAS — which will be worth more or less than $" + $("a-usd").value +
+        " by then, and the message says so rather than pretending otherwise.";
+    } else {
+      rule.grant = ($("a-grant").value || "").trim() || "grant.json";
+      if (kind === "budget-low") {
+        var bl = toSompi($("a-below").value, rate);
+        $("a-o-below").textContent = bl == null ? "Set a rate above zero." : "= " + kasOf(bl) + " KAS";
+        if (bl != null) rule.below = String(bl);
+        var f = ($("a-funder").value || "").trim();
+        if (f) rule.funder = f;
+        what = "the smaller of the authority left and the coin held";
+        against = bl == null ? "the grant's own per-payment cap" : kasOf(bl) + " KAS";
+        drift = "Leave the threshold empty and it defaults to the grant's own per-payment cap — " +
+          "below that it can no longer make a payment of the size it was authorised for, whatever " +
+          "the counters say.";
+      } else {
+        var d = parseFloat($("a-days").value);
+        /* Kaspa is ten blocks a second. A term is measured in blocks because
+           that is what the covenant compares; days are for you. */
+        var blocks = isFinite(d) && d > 0 ? Math.round(d * 24 * 60 * 60 * 10) : null;
+        $("a-o-days").textContent = blocks == null ? "—" : "= " + blocks.toLocaleString("en-US") + " blocks, at ten a second";
+        if (blocks != null) rule.within = blocks;
+        what = "blocks left in the term";
+        against = blocks == null ? "—" : blocks.toLocaleString("en-US") + " blocks";
+        drift = "Blocks, not dates. The covenant compares a DAA score, so that is what the rule " +
+          "compares too — a date would be a second thing to be wrong.";
+      }
+    }
+
+    $("a-e-what").textContent = what;
+    $("a-e-against").textContent = against;
+    $("a-drift").textContent = drift;
+    $("a-json").textContent = JSON.stringify(rule, null, 2);
+  }
+
+  Array.prototype.forEach.call(
+    document.querySelectorAll("#v-create input, #v-create textarea"),
+    function (el) { el.addEventListener("input", createView); }
+  );
+  Array.prototype.forEach.call(
+    document.querySelectorAll("#v-alerts input, #v-alerts select"),
+    function (el) { el.addEventListener("input", alertsView); el.addEventListener("change", alertsView); }
+  );
+  if ($("watch")) $("watch").addEventListener("click", watchFunder);
+  createView();
+  alertsView();
+
   /* ---- navigation -------------------------------------------------------- */
-  var TITLES = { dash: "Dashboard", grants: "Grants", refusals: "Refusals", activity: "Activity", create: "Create a grant" };
+  var TITLES = { dash: "Dashboard", grants: "Grants", refusals: "Refusals", activity: "Activity", alerts: "Alerts", create: "Create a grant" };
   Array.prototype.forEach.call(document.querySelectorAll(".side a[data-view]"), function (a) {
     a.addEventListener("click", function () {
       var v = a.getAttribute("data-view");

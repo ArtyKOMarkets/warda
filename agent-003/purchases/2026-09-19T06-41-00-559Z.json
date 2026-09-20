@@ -1,0 +1,47 @@
+{
+  "_comment": "Written by agent-002/tools/buy.ts. One file per attempt, refusals included: a purchase log that only records successes is a sales brochure.",
+  "at": "2026-09-19T06:41:00.559Z",
+  "agent": "WARDA-003",
+  "url": "https://warda-demo-api.vercel.app/digest",
+  "proof": {
+    "header": "eyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJ0ZXN0bmV0LTEwIiwicGF5ZXIiOiJrYXNwYXRlc3Q6cHF2eGU4ejlleGswMzV6azBzcXF5NzhjN2s1NGVmdXNxcDh4ZjJqaGhyMHZqanFmaHFjanNsNzhxam1sMyIsInR4aWQiOiI2OGEyM2Y5NTVlNjBjMzZjM2ExNGI1YTE0MmRlZGZjMjE3ZDRmYzdlNmYzZGY2OWE4ZGJmYWI5NGI4NzgxYTk0IiwiYW1vdW50U29tcGkiOiI0MDAwMDAwIiwibm9uY2UiOiIxNzg5ODAwMTgxNjEyLjAwZGNiOTI0ODU4ZDkxZWU5YzE1MzMxMTZiNmY4YmI1In0=",
+    "txid": "68a23f955e60c36c3a14b5a142dedfc217d4fc7e6f3df69a8dbfab94b8781a94",
+    "amountSompi": "4000000",
+    "payTo": "kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e"
+  },
+  "outcome": "bought",
+  "status": 200,
+  "quoted": {
+    "payTo": "kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e",
+    "amountSompi": "4000000"
+  },
+  "txid": "68a23f955e60c36c3a14b5a142dedfc217d4fc7e6f3df69a8dbfab94b8781a94",
+  "sellerClaimed": "WARDA-001",
+  "resumedFrom": null,
+  "response": {
+    "agent": "WARDA-001",
+    "digest": {
+      "window": "24 h",
+      "from": "2026-09-18T06:17:04.417Z",
+      "to": "2026-09-19T06:17:01.450Z",
+      "text": "Kaspa testnet-10 · 24 h to 2026-09-19 06:17 UTC\n\n  blue score  +758,329           8.77 blue blocks/s\n  DAA score   +958,150           now 574,538,140\n  minted      +2,957,589.21 KAS  26,953,219,096 KAS in existence\n  hashrate    9.92 MH/s          node estimate over its last 1,000 blocks\n  mempool     670 tx             held, unaccepted, at the closing reading\n  DAG         6961 tips          1,489,021 blocks held by this node\n\nmeasured between two readings of one node (kaspad 2.0.1)\n"
+    },
+    "lastRun": {
+      "at": "2026-09-19T06:17:01.450Z",
+      "runs": 328,
+      "since": "2026-09-03T08:18:38.642Z",
+      "servicesUsed": 0,
+      "spent": "0 KAS",
+      "note": "reading the chain needs no vendor, so this run bought nothing"
+    },
+    "measuredAt": "2026-09-19T06:35:05.885Z",
+    "network": "testnet-10",
+    "alsoPublishedFreeAt": "https://wardaprotocol.com/agent-001.json",
+    "note": "Every figure is a difference between two counters a Kaspa node maintains for its own reasons, and both readings are published beside it. This costs money because a payment is what is being demonstrated, not because the data is scarce — the free copy is above.",
+    "seller": "WARDA-001",
+    "paidTo": "kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e",
+    "settledBy": "68a23f955e60c36c3a14b5a142dedfc217d4fc7e6f3df69a8dbfab94b8781a94",
+    "verified": "a UTXO at this endpoint's payee address, from that transaction, for exactly the quoted amount",
+    "readFrom": "this vendor's own node"
+  }
+}

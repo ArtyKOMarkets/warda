@@ -121,6 +121,20 @@ const writeConfig = (c: Config) => {
   writeFileSync(CONFIG, JSON.stringify(c, null, 2) + "\n");
 };
 
+/**
+ * Days in, blocks out. Kaspa is ten blocks a second.
+ *
+ * Validated rather than coerced: `--days thirty` through `Number()` is `NaN`,
+ * `Math.round(NaN)` is `NaN`, and `"NaN"` reaches genesis as a term. Genesis
+ * would refuse it, but the message would be about a window rather than about
+ * the word the person actually typed.
+ */
+const days = (v: string): number => {
+  const n = Number(v);
+  if (!isFinite(n) || n <= 0) die(`--days: "${v}" is not a number of days above zero.`, 2);
+  return Math.round(n * 24 * 60 * 60 * 10);
+};
+
 /** KAS in, sompi out. Accepts "10", "0.04", "10kas", "1000000000sompi". */
 const sompi = (v: string, what: string): string => {
   const s = v.trim().toLowerCase();
@@ -231,6 +245,8 @@ const HELP = `warda — bounded spending authority for an agent, on Kaspa.
                  [--relay]      also allow the agent to pay itself, which is
                                 what buying from an x402 exact vendor needs
                                 [--budget 10] [--max-per-spend 1] [--epoch-limit 2]
+                                [--days 30]    how long the grant runs. After
+                                that the balance is the principal's to reclaim
                                 [--key <funder.key>, or set WARDA_SK]
   warda topup    [--below 1]    the budget is running out. Issue the successor
                                 from KAS the funder already holds, with the old
@@ -646,6 +662,11 @@ switch (verb) {
          from the CLI, and the separation exists precisely for the case where
          the principal key is the thing that went wrong. */
       ...(flag("revocation") ? ["--revocation", flag("revocation")!] : []),
+      /* The term, in DAYS here and blocks underneath. Same rule as --budget
+         taking KAS rather than sompi: 30 is a number somebody can check by
+         eye and 25920000 is a number nobody can. Kaspa is ten blocks a second,
+         and the conversion happens here, once, where it is written down. */
+      ...(flag("days") ? ["--window", String(days(flag("days")!))] : []),
       /* Puts the agent's own address on the allowlist, so it can reach an
          x402 `exact` vendor through a relay hop. It costs the allowlist for
          that hop and nothing else; quickstart says so at the point of use. */

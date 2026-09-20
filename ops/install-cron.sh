@@ -78,6 +78,21 @@ VERIFY="$OPS/check-verify.sh"
 VERIFYLOG="$HOME/Library/Logs/warda-verify.log"
 VERIFYENTRY="*/15 * * * * $VERIFY --quiet >> $VERIFYLOG 2>&1"
 
+# The alerts. Notify-only by construction — ops/alerts.ts holds no key, signs
+# nothing and builds no transaction — so it is as safe to schedule as the
+# monitors above, and unlike them it watches YOUR grants rather than our
+# endpoints.
+#
+# Installed only when ops/alerts.json exists. Without rules it exits 1 on every
+# run, and a job that fails four times an hour into a log is a log nobody
+# opens — which would cost us the next real failure written in the same file.
+# Minutes 8/23/38/53: the three monitors above all fire at 0,15,30,45 and all
+# three touch the node, and queueing a fourth behind them is how a reading
+# times out for a reason that has nothing to do with the chain.
+ALERTS="$OPS/alerts.sh"
+ALERTSLOG="$HOME/Library/Logs/warda-alerts.log"
+ALERTSENTRY="8,23,38,53 * * * * $ALERTS --quiet >> $ALERTSLOG 2>&1"
+
 VENDOR="$OPS/check-vendor.sh"
 VENDORLOG="$HOME/Library/Logs/warda-vendor.log"
 VENDORENTRY="*/15 * * * * $VENDOR --quiet >> $VENDORLOG 2>&1"
@@ -121,7 +136,7 @@ fi
 # So: fix it if we can, refuse if we cannot. Installing a schedule of commands
 # that cannot run is worse than installing nothing, because the crontab then
 # says the job exists.
-for f in "$SCRIPT" "$BUY" "$INTEROP" "$VENDOR" "$VERIFY" "$CONTACT" "$PROXY" "$NODECHK"; do
+for f in "$SCRIPT" "$BUY" "$INTEROP" "$VENDOR" "$VERIFY" "$CONTACT" "$PROXY" "$NODECHK" "$ALERTS"; do
   [ -f "$f" ] || continue
   [ -x "$f" ] && continue
   chmod +x "$f" 2>/dev/null || true
@@ -168,6 +183,7 @@ printf '%s\n' "$current" \
   | grep -v -F "proxy-up.sh" \
   | grep -v -F "check-node.sh" \
   | grep -v -F "check-verify.sh" \
+  | grep -v -F "alerts.sh" \
   | grep -v '^[[:space:]]*$' > /tmp/warda-cron.$$
 printf '%s\n' "$ENTRY" >> /tmp/warda-cron.$$
 printf '%s\n' "$VENDORENTRY" >> /tmp/warda-cron.$$
@@ -175,6 +191,7 @@ printf '%s\n' "$CONTACTENTRY" >> /tmp/warda-cron.$$
 printf '%s\n' "$PROXYENTRY" >> /tmp/warda-cron.$$
 printf '%s\n' "$NODEENTRY" >> /tmp/warda-cron.$$
 printf '%s\n' "$VERIFYENTRY" >> /tmp/warda-cron.$$
+if [ -f "$OPS/alerts.json" ]; then printf '%s\n' "$ALERTSENTRY" >> /tmp/warda-cron.$$; fi
 if [ -n "$WANT_BUY" ]; then printf '%s\n' "$BUYENTRY" >> /tmp/warda-cron.$$; fi
 if [ -n "$WANT_INTEROP" ]; then printf '%s\n' "$INTEROPENTRY" >> /tmp/warda-cron.$$; fi
 crontab /tmp/warda-cron.$$
@@ -212,6 +229,20 @@ if [ -n "$WANT_INTEROP" ]; then
   echo "  tail $INTEROPLOG"
   echo "  cat $HOME/Desktop/warda/site/src/interop-status.json"
 fi
+echo
+if [ -f "$OPS/alerts.json" ]; then
+  echo "your alert rules are watched at 8/23/38/53 past the hour. This NOTIFIES and"
+  echo "never acts: it holds no key and builds no transaction, so the worst it can"
+  echo "do is tell you something. Only CHANGES are sent, including the change back."
+  echo "  ops/alerts.sh --dry-run"
+  echo "  tail $ALERTSLOG"
+else
+  echo "no alert rules installed. There is nothing watching your grants:"
+  echo "  cp ops/alerts.example.json ops/alerts.json    (or compose one at /app)"
+  echo "  cp ops/alerts.env.example ops/alerts.env      then ops/alerts.sh --test"
+  echo "  ops/install-cron.sh                           run this again to schedule it"
+fi
+
 echo
 echo "If the log says 'Operation not permitted', cron needs Full Disk Access:"
 echo "System Settings > Privacy & Security > Full Disk Access > add /usr/sbin/cron"
