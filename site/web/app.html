@@ -6,109 +6,175 @@
 <meta name="color-scheme" content="dark">
 <title>Warda Console</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap">
-<meta name="description" content="The control plane for agent spending: every grant, what it has spent, what the network refused, and one screen that creates a new bounded agent. Reads the chain and this project's published readings; has never seen a private key.">
+<meta name="description" content="The control plane for agent spending: every grant, what it has spent, what the covenant refused, and a guided flow that creates a new bounded agent. Reads the chain and this project's published readings; has never seen a private key.">
 <style>
   :root {
-    --void: #06090C; --ground: #0A1014; --panel: #101A20; --raise: #14212A;
-    --edge: #1E2E37; --edge-bright: #2C4350;
-    --chrome: #DDE0E2; --chrome-dim: #8D989E; --chrome-faint: #5D6B73;
-    --teal: #14D7C1; --teal-bright: #38F9E9; --teal-deep: #06BBA1;
-    --teal-ghost: rgba(20,215,193,0.10);
-    --refuse: #FF6B5A; --amber: #E8B23A;
-    /* The one hue data marks are drawn in. NOT --teal: brand teal sits at OKLCH
-       L 0.79 and the dark-mode band for a mark is 0.48–0.67, so as a fill it
-       glows and as a thin line it vibrates. Validated against this surface
-       rather than chosen by eye. --teal stays for text and accents, where the
-       test is contrast and it passes. */
-    --mark: #0FA890; --mark-soft: rgba(15,168,144,0.16);
+    /* Surfaces. Three steps, not two: the page, the card, and the inset a
+       control or a meter sits in. A single flat ground with borders reads as a
+       wireframe — the card has to be lighter than what it sits on. */
+    --void: #0C1220; --ground: #141C2E; --panel: #1A2338; --raise: #212C45;
+    --edge: #222D45; --edge-bright: #35415E;
+    --chrome: #E8ECF5; --chrome-dim: #9AA6BE; --chrome-faint: #6E7C97;
+
+    --teal: #14D7C1; --teal-bright: #38F9E9; --teal-deep: #0BB6A2;
+    --teal-ghost: rgba(20,215,193,0.11);
+    --refuse: #FF6B5A; --amber: #E8B23A; --good: #43C97F;
+
+    /* Data marks. Validated with the dataviz palette checker against THIS
+       surface, not chosen by eye: all six inside the dark-mode lightness band
+       L 0.48–0.67, chroma floor met, worst adjacent CVD pair ΔE 12.8 and worst
+       normal-vision pair 19.4. Brand --teal is L 0.79 — fine as text, a glow as
+       a fill — which is why the first slot is a darker teal instead.
+       Every segment is also direct-labelled, so identity is never colour alone. */
+    --m1: #0FA890; --m2: #4C8DF6; --m3: #C95FA8;
+    --m4: #B87F2E; --m5: #9B6BE8; --m6: #6BA83C;
+    --mark: var(--m1); --mark-soft: rgba(15,168,144,0.16);
+
     --display: "Chakra Petch", "Arial Narrow", sans-serif;
     --body: "Barlow", "Helvetica Neue", Arial, sans-serif;
     --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    --r: 12px;
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--void); color: var(--chrome);
-         font-family: var(--body); line-height: 1.55; font-size: 14px; }
+         font-family: var(--body); line-height: 1.55; font-size: 14px;
+         -webkit-font-smoothing: antialiased; }
   a { color: var(--teal); text-decoration: none; }
+  ::selection { background: var(--teal-ghost); }
+  .num { font-variant-numeric: tabular-nums; }
 
   /* ---- shell ------------------------------------------------------------ */
-  .app { display: grid; grid-template-columns: 15rem 1fr; min-height: 100vh; }
-  @media (max-width: 900px) { .app { grid-template-columns: 1fr; } }
+  .app { display: grid; grid-template-columns: 15.5rem 1fr; min-height: 100vh; }
+  @media (max-width: 960px) { .app { grid-template-columns: 1fr; } }
 
   .side { border-right: 1px solid var(--edge); background: var(--ground);
-          padding: 1.2rem 0.9rem; display: flex; flex-direction: column; gap: 1.4rem; }
-  @media (max-width: 900px) { .side { border-right: 0; border-bottom: 1px solid var(--edge); } }
-  .brand { display: flex; align-items: center; gap: 0.6rem; padding: 0.3rem 0.5rem;
-           border-radius: 7px; color: var(--chrome); }
+          padding: 1.1rem 0.8rem; display: flex; flex-direction: column; gap: 1.3rem; }
+  @media (max-width: 960px) { .side { border-right: 0; border-bottom: 1px solid var(--edge); } }
+  .brand { display: flex; align-items: center; gap: 0.55rem; padding: 0.35rem 0.5rem;
+           border-radius: 9px; color: var(--chrome); }
   .brand:hover { background: var(--panel); }
-  .brand b { color: var(--chrome); }
-  .brand b { font-family: var(--display); font-size: 1.15rem; font-weight: 700; letter-spacing: 0.01em; }
-  .brand span { font-family: var(--mono); font-size: 0.52rem; letter-spacing: 0.14em;
+  .brand .bm { width: 28px; height: 28px; flex: none; border-radius: 8px; background: var(--teal-ghost);
+               display: grid; place-items: center; color: var(--teal); }
+  .brand .bm svg { width: 17px; height: 17px; }
+  .brand b { font-family: var(--display); font-size: 1.1rem; font-weight: 700; letter-spacing: 0.01em;
+             display: block; line-height: 1.1; }
+  .brand span { font-family: var(--mono); font-size: 0.5rem; letter-spacing: 0.15em;
                 text-transform: uppercase; color: var(--chrome-faint); display: block; }
-  .side nav { display: grid; gap: 0.15rem; }
-  .side a { display: flex; align-items: center; gap: 0.65rem; padding: 0.5rem 0.6rem;
-            border-radius: 7px; color: var(--chrome-dim); font-size: 0.9rem; cursor: pointer; }
+  .side nav { display: grid; gap: 0.12rem; }
+  .side a { display: flex; align-items: center; gap: 0.7rem; padding: 0.52rem 0.65rem;
+            border-radius: 9px; color: var(--chrome-dim); font-size: 0.89rem; cursor: pointer;
+            position: relative; }
   .side a:hover { background: var(--panel); color: var(--chrome); }
-  .side a[aria-current="page"] { background: var(--teal-ghost); color: var(--teal); }
-  .side a svg { width: 15px; height: 15px; flex: none; }
-  .side .grp { font-family: var(--mono); font-size: 0.54rem; letter-spacing: 0.16em;
-               text-transform: uppercase; color: var(--chrome-faint); padding: 0 0.6rem; margin-bottom: 0.4rem; }
-  .side .foot { margin-top: auto; padding: 0 0.6rem; font-size: 0.72rem; color: var(--chrome-faint); }
+  .side a[aria-current="page"] { background: var(--teal-ghost); color: var(--teal); font-weight: 500; }
+  .side a[aria-current="page"]::before { content: ""; position: absolute; left: -0.8rem; top: 0.45rem;
+            bottom: 0.45rem; width: 3px; border-radius: 0 3px 3px 0; background: var(--teal); }
+  .side a svg { width: 16px; height: 16px; flex: none; }
+  .side a .tag { margin-left: auto; font-family: var(--mono); font-size: 0.58rem;
+            background: var(--panel); border-radius: 5px; padding: 0.05rem 0.34rem; color: var(--chrome-faint); }
+  .side a[aria-current="page"] .tag { background: rgba(20,215,193,0.16); color: var(--teal); }
+  .side .grp { font-family: var(--mono); font-size: 0.53rem; letter-spacing: 0.17em;
+               text-transform: uppercase; color: var(--chrome-faint); padding: 0 0.65rem; margin-bottom: 0.35rem; }
+  .side .foot { margin-top: auto; padding: 0.7rem 0.65rem 0; font-size: 0.71rem; color: var(--chrome-faint);
+               border-top: 1px solid var(--edge); }
 
-  .main { min-width: 0; }
-  .top { display: flex; flex-wrap: wrap; gap: 0.8rem; align-items: center;
-         padding: 0.9rem clamp(1rem, 3vw, 1.8rem); border-bottom: 1px solid var(--edge);
-         background: var(--ground); position: sticky; top: 0; z-index: 20; }
-  .top h1 { font-family: var(--display); font-size: 1.15rem; margin: 0; font-weight: 600;
-            letter-spacing: -0.01em; margin-right: auto; }
+  .main { min-width: 0; display: flex; flex-direction: column; min-height: 100vh; }
+  /* A flex item's default `min-width: auto` lets it grow to its content, so
+     making .main a column to pin the status bar handed every view permission
+     to overflow the phone. It showed up as 24px of sideways scroll on one
+     view only — the one with the widest thing in it. */
+  .main > * { min-width: 0; }
+  .statusbar { margin-top: auto; }
+  .top { display: flex; flex-wrap: wrap; gap: 0.7rem; align-items: center;
+         padding: 0.7rem clamp(0.9rem, 2.4vw, 1.5rem); border-bottom: 1px solid var(--edge);
+         background: rgba(12,18,32,0.88); backdrop-filter: blur(8px);
+         position: sticky; top: 0; z-index: 20; }
+  .search { flex: 1 1 18rem; min-width: 0; position: relative; display: flex; align-items: center; }
+  .search svg { position: absolute; left: 0.65rem; width: 14px; height: 14px; color: var(--chrome-faint); }
+  .search input { padding-left: 2rem; padding-right: 2.2rem; font-family: var(--body); font-size: 0.85rem; }
+  .search kbd { position: absolute; right: 0.5rem; font-family: var(--mono); font-size: 0.6rem;
+         color: var(--chrome-faint); border: 1px solid var(--edge-bright); border-radius: 4px;
+         padding: 0.05rem 0.3rem; }
   .chip { display: inline-flex; align-items: center; gap: 0.45rem; font-family: var(--mono);
-          font-size: 0.68rem; letter-spacing: 0.06em; color: var(--chrome-dim);
-          border: 1px solid var(--edge-bright); border-radius: 999px; padding: 0.3rem 0.7rem; }
-  .chip i { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); flex: none; }
-  select.net { width: auto; font-family: var(--mono); font-size: 0.68rem; color: var(--chrome);
+          font-size: 0.67rem; letter-spacing: 0.04em; color: var(--chrome-dim);
+          background: var(--panel); border: 1px solid var(--edge-bright); border-radius: 999px;
+          padding: 0.32rem 0.7rem; white-space: nowrap; }
+  .chip i { width: 6px; height: 6px; border-radius: 50%; background: var(--good); flex: none; }
+  .chip.warn i { background: var(--amber); } .chip.bad i { background: var(--refuse); }
+  select.net { width: auto; font-family: var(--mono); font-size: 0.67rem; color: var(--chrome);
     background: var(--panel); border: 1px solid var(--edge-bright); border-radius: 999px;
-    padding: 0.3rem 0.6rem; }
-  .pad { padding: clamp(1rem, 3vw, 1.8rem); }
+    padding: 0.32rem 0.6rem; }
+  .pad { padding: clamp(0.9rem, 2.4vw, 1.5rem); }
+
+  /* ---- page head -------------------------------------------------------- */
+  .head { display: flex; flex-wrap: wrap; gap: 0.8rem; align-items: flex-end;
+          justify-content: space-between; margin-bottom: 1.1rem; }
+  .head h1 { font-family: var(--display); font-size: 1.65rem; margin: 0; font-weight: 700;
+             letter-spacing: -0.015em; }
+  .head p { margin: 0.2rem 0 0; color: var(--chrome-faint); font-size: 0.85rem; max-width: 62ch; }
+  .seg { display: flex; background: var(--panel); border: 1px solid var(--edge); border-radius: 9px;
+         padding: 2px; gap: 2px; }
+  .seg button { font-family: var(--body); font-size: 0.76rem; color: var(--chrome-dim); cursor: pointer;
+         background: none; border: 0; border-radius: 7px; padding: 0.3rem 0.75rem; }
+  .seg button:hover { color: var(--chrome); }
+  .seg button[aria-pressed="true"] { background: var(--raise); color: var(--chrome); font-weight: 500; }
+
+  /* ---- dashboard grid --------------------------------------------------- */
+  .dash { display: grid; grid-template-columns: minmax(0, 1fr) 19rem; gap: 0.85rem; align-items: start; }
+  @media (max-width: 1240px) { .dash { grid-template-columns: 1fr; } }
+  .stack { display: grid; gap: 0.85rem; min-width: 0; }
+  .rail { display: grid; gap: 0.85rem; }
 
   /* ---- tiles ------------------------------------------------------------ */
-  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 0.8rem; }
-  .tile { background: var(--ground); border: 1px solid var(--edge); border-radius: 12px;
-          padding: 0.95rem 1rem 1.05rem; }
-  .tile .k { font-family: var(--mono); font-size: 0.58rem; letter-spacing: 0.13em;
-             text-transform: uppercase; color: var(--chrome-faint); }
-  .tile .v { font-family: var(--mono); font-size: 1.6rem; margin-top: 0.45rem; letter-spacing: -0.01em; }
-  .tile .s { font-size: 0.76rem; color: var(--chrome-faint); margin-top: 0.2rem; }
-  .tile.hot .v { color: var(--teal); }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr)); gap: 0.85rem; }
+  .tile { background: var(--ground); border: 1px solid var(--edge); border-radius: var(--r);
+          padding: 0.9rem 0.95rem 1rem; }
+  .tile .ic { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center;
+              margin-bottom: 0.65rem; }
+  .tile .ic svg { width: 15px; height: 15px; }
+  .tile .k { font-size: 0.74rem; color: var(--chrome-faint); }
+  .tile .v { font-family: var(--mono); font-size: 1.42rem; margin-top: 0.1rem; letter-spacing: -0.02em;
+             font-variant-numeric: tabular-nums; }
+  .tile .s { font-size: 0.72rem; color: var(--chrome-faint); margin-top: 0.3rem; line-height: 1.4; }
 
-  /* ---- panels ----------------------------------------------------------- */
-  .cols { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
-          gap: 0.8rem; margin-top: 0.8rem; }
-  @media (max-width: 1080px) { .cols { grid-template-columns: 1fr; } }
-  .card { background: var(--ground); border: 1px solid var(--edge); border-radius: 12px;
-          padding: 1rem 1.1rem 1.15rem; min-width: 0; }
-  .card h2 { font-family: var(--display); font-size: 0.95rem; font-weight: 600; margin: 0;
-             letter-spacing: -0.005em; display: flex; align-items: baseline; gap: 0.6rem; }
-  .card h2 small { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.1em;
-                   text-transform: uppercase; color: var(--chrome-faint); font-weight: 400; }
-  .card .why { font-size: 0.78rem; color: var(--chrome-faint); margin: 0.35rem 0 0; }
+  /* ---- cards ------------------------------------------------------------ */
+  .card { background: var(--ground); border: 1px solid var(--edge); border-radius: var(--r);
+          padding: 0.95rem 1.05rem 1.1rem; min-width: 0; }
+  .card > header { display: flex; align-items: baseline; justify-content: space-between; gap: 0.8rem; }
+  .card h2 { font-family: var(--display); font-size: 0.98rem; font-weight: 600; margin: 0;
+             letter-spacing: -0.005em; }
+  .card h2 small { font-family: var(--mono); font-size: 0.58rem; letter-spacing: 0.11em;
+                   text-transform: uppercase; color: var(--chrome-faint); font-weight: 400;
+                   margin-left: 0.55rem; }
+  .card .why { font-size: 0.76rem; color: var(--chrome-faint); margin: 0.3rem 0 0; }
+  .card .more { font-size: 0.76rem; color: var(--chrome-dim); white-space: nowrap; }
+  .card .more:hover { color: var(--teal); }
+  .two { display: grid; grid-template-columns: minmax(0,1.55fr) minmax(0,1fr); gap: 0.85rem; }
+  @media (max-width: 1080px) { .two { grid-template-columns: 1fr; } }
 
-  table { width: 100%; border-collapse: collapse; margin-top: 0.8rem; }
-  th { font-family: var(--mono); font-size: 0.56rem; letter-spacing: 0.13em; text-transform: uppercase;
+  table { width: 100%; border-collapse: collapse; margin-top: 0.75rem; }
+  th { font-family: var(--mono); font-size: 0.55rem; letter-spacing: 0.13em; text-transform: uppercase;
        color: var(--chrome-faint); text-align: left; font-weight: 400; padding: 0.4rem 0.5rem;
        border-bottom: 1px solid var(--edge); }
-  td { padding: 0.55rem 0.5rem; border-bottom: 1px solid var(--edge); font-size: 0.84rem; vertical-align: middle; }
+  td { padding: 0.6rem 0.5rem; border-bottom: 1px solid var(--edge); font-size: 0.83rem; vertical-align: middle; }
   tr:last-child td { border-bottom: 0; }
-  td.n { font-family: var(--mono); text-align: right; white-space: nowrap; }
-  .who { display: flex; flex-direction: column; }
-  .who b { font-weight: 600; font-size: 0.88rem; }
-  .who span { font-size: 0.72rem; color: var(--chrome-faint); }
-  .meter { height: 4px; border-radius: 2px; background: var(--panel); overflow: hidden; margin-top: 0.3rem; }
-  .meter i { display: block; height: 100%; background: var(--mark); border-radius: 2px; }
-  .pill { font-family: var(--mono); font-size: 0.58rem; letter-spacing: 0.1em; text-transform: uppercase;
-          border: 1px solid var(--edge-bright); border-radius: 4px; padding: 0.12rem 0.4rem;
-          color: var(--chrome-faint); white-space: nowrap; }
-  .pill.live { border-color: var(--teal-deep); color: var(--teal); }
-  .pill.done { border-color: var(--edge-bright); color: var(--chrome-faint); }
-  .pill.no { border-color: var(--refuse); color: var(--refuse); }
+  td.n { font-family: var(--mono); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .who { display: flex; align-items: center; gap: 0.6rem; }
+  .who .av { width: 26px; height: 26px; border-radius: 8px; flex: none; display: grid; place-items: center;
+             font-family: var(--mono); font-size: 0.6rem; font-weight: 700; }
+  .who i { font-style: normal; display: block; min-width: 0; }
+  .who b { font-weight: 600; font-size: 0.85rem; display: block; }
+  .who span { font-size: 0.7rem; color: var(--chrome-faint); display: block; overflow: hidden;
+              text-overflow: ellipsis; white-space: nowrap; max-width: 24ch; }
+  .meter { height: 5px; border-radius: 3px; background: var(--panel); overflow: hidden; margin-top: 0.32rem; }
+  .meter i { display: block; height: 100%; background: var(--mark); border-radius: 3px; }
+  .meter.full i { background: var(--amber); }
+  .pill { display: inline-block; font-size: 0.66rem; font-weight: 600; letter-spacing: 0.02em;
+          border-radius: 999px; padding: 0.14rem 0.55rem; white-space: nowrap;
+          background: var(--panel); color: var(--chrome-faint); }
+  .pill.live { background: rgba(67,201,127,0.14); color: var(--good); }
+  .pill.done { background: rgba(110,124,151,0.16); color: var(--chrome-dim); }
+  .pill.no { background: rgba(255,107,90,0.14); color: var(--refuse); }
+  .pill.warn { background: rgba(232,178,58,0.14); color: var(--amber); }
 
   /* ---- charts ----------------------------------------------------------- */
   .chart { margin-top: 0.7rem; position: relative; }
@@ -116,83 +182,152 @@
   .ax { font-family: var(--mono); font-size: 9px; fill: var(--chrome-faint); }
   .grid-l { stroke: var(--edge); stroke-width: 1; }
   .ln { fill: none; stroke: var(--mark); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
-  .ar { fill: var(--mark-soft); }
-  .dot { fill: var(--mark); }
+  .ar { fill: url(#gfade); }
+  .dot { fill: var(--mark); stroke: var(--ground); stroke-width: 2; }
   .cross { stroke: var(--edge-bright); stroke-width: 1; stroke-dasharray: 3 3; }
   .tip { position: absolute; pointer-events: none; background: var(--raise); border: 1px solid var(--edge-bright);
-         border-radius: 7px; padding: 0.4rem 0.6rem; font-family: var(--mono); font-size: 0.7rem;
-         white-space: nowrap; transform: translate(-50%, -115%); opacity: 0; transition: opacity 120ms; }
+         border-radius: 8px; padding: 0.4rem 0.6rem; font-family: var(--mono); font-size: 0.69rem;
+         white-space: nowrap; transform: translate(-50%, -118%); opacity: 0; transition: opacity 120ms;
+         box-shadow: 0 6px 20px rgba(0,0,0,0.45); z-index: 3; }
   .tip b { color: var(--teal); }
-  .bars { display: grid; gap: 0.55rem; margin-top: 0.8rem; }
-  .brow { display: grid; grid-template-columns: 1fr auto; gap: 0.2rem 0.8rem; align-items: baseline; }
-  .brow .lab { font-size: 0.8rem; color: var(--chrome-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .brow .amt { font-family: var(--mono); font-size: 0.78rem; }
-  .brow .tr { grid-column: 1 / -1; height: 6px; background: var(--panel); border-radius: 3px; overflow: hidden; }
-  .brow .tr i { display: block; height: 100%; background: var(--mark); border-radius: 3px; }
+  .legend { display: grid; gap: 0.42rem; margin-top: 0.7rem; }
+  .lrow { display: grid; grid-template-columns: auto 1fr auto auto; gap: 0.55rem; align-items: center;
+          font-size: 0.78rem; }
+  .lrow .sw { width: 9px; height: 9px; border-radius: 3px; }
+  .lrow .lb { color: var(--chrome-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lrow .vl { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .lrow .pc { font-family: var(--mono); font-size: 0.72rem; color: var(--chrome-faint); width: 3.2rem; text-align: right; }
+  .donut { display: block; margin: 0.2rem auto 0; max-width: 200px; }
+  .dseg { fill: none; stroke-width: 15; }
+  .dmid { text-anchor: middle; }
+  .dmid .a { font-family: var(--mono); font-size: 15px; fill: var(--chrome); }
+  .dmid .b { font-family: var(--mono); font-size: 7.5px; fill: var(--chrome-faint);
+             letter-spacing: 0.1em; text-transform: uppercase; }
 
-  .empty { font-size: 0.82rem; color: var(--chrome-faint); padding: 1.2rem 0; }
-  .feed { display: grid; gap: 0.5rem; margin-top: 0.8rem; }
-  .ev { display: grid; grid-template-columns: auto 1fr auto; gap: 0.6rem; align-items: baseline;
-        font-size: 0.8rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--edge); }
+  .bars { display: grid; gap: 0.6rem; margin-top: 0.8rem; }
+  .brow { display: grid; grid-template-columns: auto 1fr auto; gap: 0.2rem 0.6rem; align-items: center; }
+  .brow .av { width: 24px; height: 24px; border-radius: 7px; grid-row: span 2; display: grid;
+              place-items: center; font-family: var(--mono); font-size: 0.56rem; font-weight: 700; }
+  .brow .lab { font-size: 0.79rem; color: var(--chrome-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .brow .amt { font-family: var(--mono); font-size: 0.77rem; font-variant-numeric: tabular-nums; }
+  .brow .tr { grid-column: 2 / -1; height: 5px; background: var(--panel); border-radius: 3px; overflow: hidden; }
+  .brow .tr i { display: block; height: 100%; border-radius: 3px; background: var(--mark); }
+
+  .empty { font-size: 0.81rem; color: var(--chrome-faint); padding: 1.1rem 0; line-height: 1.6; }
+  .feed { display: grid; gap: 0.1rem; margin-top: 0.7rem; }
+  .ev { display: grid; grid-template-columns: auto 1fr auto; gap: 0.6rem; align-items: center;
+        font-size: 0.79rem; padding: 0.5rem 0; border-bottom: 1px solid var(--edge); }
   .ev:last-child { border-bottom: 0; }
-  .ev .t { font-family: var(--mono); font-size: 0.66rem; color: var(--chrome-faint); }
-  .ev .a { font-family: var(--mono); font-size: 0.74rem; white-space: nowrap; }
+  .ev .ic { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; flex: none; }
+  .ev .ic svg { width: 13px; height: 13px; }
+  .ev b { display: block; font-weight: 500; font-size: 0.8rem; }
+  .ev span { display: block; font-size: 0.71rem; color: var(--chrome-faint); overflow: hidden;
+             text-overflow: ellipsis; white-space: nowrap; }
+  .ev .a { font-family: var(--mono); font-size: 0.72rem; white-space: nowrap; color: var(--chrome-dim);
+           font-variant-numeric: tabular-nums; }
 
   .view { display: none; }
   .view.on { display: block; }
-  .col > section:first-child { padding-top: 0; }
 
-  /* the create flow, inherited from the v1 page */
-  section { border-bottom: 1px solid var(--edge); padding: 1.6rem 0; }
-  section:last-child { border-bottom: 0; }
-  h2.step { font-family: var(--display); font-size: 1.15rem; margin: 0; font-weight: 600;
-            display: flex; align-items: baseline; gap: 0.7rem; }
-  h2.step em { font-style: normal; font-family: var(--mono); font-size: 0.66rem;
-               color: var(--teal-deep); letter-spacing: 0.14em; }
-  .say { color: var(--chrome-dim); margin: 0.6rem 0 0; max-width: 64ch; font-size: 0.88rem; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: 0.9rem; margin-top: 1.1rem; }
-  .field label { font-family: var(--mono); font-size: 0.56rem; letter-spacing: 0.13em;
-                 text-transform: uppercase; color: var(--chrome-faint); display: block; margin-bottom: 0.35rem; }
+  /* ---- forms ------------------------------------------------------------ */
+  .field label, .bar label { font-size: 0.7rem; color: var(--chrome-faint); display: block; margin-bottom: 0.32rem; }
   select, input, textarea { font-family: var(--mono); font-size: 0.85rem; color: var(--chrome);
-    background: var(--panel); border: 1px solid var(--edge-bright); border-radius: 6px;
-    padding: 0.42rem 0.55rem; width: 100%; }
+    background: var(--panel); border: 1px solid var(--edge); border-radius: 8px;
+    padding: 0.5rem 0.6rem; width: 100%; }
+  input::placeholder, textarea::placeholder { color: var(--chrome-faint); }
+  input:focus, textarea:focus, select:focus { border-color: var(--edge-bright); }
   select:focus-visible, input:focus-visible, textarea:focus-visible,
   .side a:focus-visible, button:focus-visible { outline: 2px solid var(--teal-bright); outline-offset: 2px; }
-  .field .out { font-family: var(--mono); font-size: 0.74rem; color: var(--chrome-dim); margin-top: 0.35rem; }
-  .field .out b { color: var(--chrome); font-weight: 500; }
-  .field .out .now { color: var(--amber); }
-  .enforced { margin-top: 1.3rem; border: 1px solid var(--teal-deep); border-radius: 10px;
-              background: var(--ground); padding: 1rem 1.1rem; }
-  .enforced p.k { font-family: var(--mono); font-size: 0.58rem; letter-spacing: 0.14em;
-                  text-transform: uppercase; color: var(--teal); margin: 0 0 0.8rem; }
+  .field .out { font-size: 0.73rem; color: var(--chrome-faint); margin-top: 0.35rem; line-height: 1.5; }
+  .field .out b { color: var(--chrome-dim); font-weight: 500; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: 0.9rem; }
+  button.go { font-family: var(--body); font-weight: 600; font-size: 0.85rem; cursor: pointer;
+    background: var(--teal); color: #05231F; border: 1px solid var(--teal);
+    border-radius: 9px; padding: 0.52rem 1.1rem; display: inline-flex; align-items: center; gap: 0.45rem; }
+  button.go:hover { background: var(--teal-bright); border-color: var(--teal-bright); }
+  button.go svg { width: 14px; height: 14px; }
+  button.gh { background: var(--panel); color: var(--chrome-dim); border-color: var(--edge-bright); }
+  button.gh:hover { background: var(--raise); color: var(--chrome); border-color: var(--edge-bright); }
+  button.go[disabled] { opacity: 0.4; cursor: not-allowed; }
+  button.go[disabled]:hover { background: var(--teal); border-color: var(--teal); }
+  button.gh[disabled]:hover { background: var(--panel); }
+  pre { font-family: var(--mono); font-size: 0.74rem; line-height: 1.75; color: var(--chrome);
+        background: var(--panel); border: 1px solid var(--edge); border-radius: 9px;
+        padding: 0.85rem 0.95rem; overflow-x: auto; margin: 0.9rem 0 0; }
+  .note { margin-top: 1rem; border-left: 2px solid var(--edge-bright); padding-left: 0.9rem;
+          font-size: 0.8rem; color: var(--chrome-faint); line-height: 1.6; }
+  .note b { color: var(--chrome-dim); }
+  .say { color: var(--chrome-dim); margin: 0.5rem 0 1.1rem; max-width: 66ch; font-size: 0.86rem; }
+  .state { margin-top: 0.9rem; font-family: var(--mono); font-size: 0.78rem; line-height: 1.7; }
+  .bar { display: flex; flex-wrap: wrap; gap: 0.8rem 1.4rem; align-items: center;
+         padding: 0.75rem 0.9rem; border: 1px solid var(--edge); border-radius: 10px; background: var(--ground); }
+  .bar > div { min-width: min(9rem, 100%); }
+  .bar .px { flex: 1 1 12rem; min-width: 0; }
+  .px { font-family: var(--mono); font-size: 0.79rem; }
+  .px i { font-style: normal; color: var(--chrome-faint); font-size: 0.69rem; display: block; }
+  .enforced { border: 1px solid var(--teal-deep); border-radius: 11px;
+              background: linear-gradient(180deg, rgba(20,215,193,0.05), transparent); padding: 0.95rem 1rem; }
+  .enforced p.k { font-family: var(--mono); font-size: 0.56rem; letter-spacing: 0.14em;
+                  text-transform: uppercase; color: var(--teal); margin: 0 0 0.75rem; }
   .enforced dl { margin: 0; display: grid; gap: 0.5rem; }
   .enforced div { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; }
-  .enforced dt { color: var(--chrome-dim); font-size: 0.86rem; }
-  .enforced dd { margin: 0; font-family: var(--mono); font-size: 0.9rem; text-align: right; }
-  .enforced dd small { display: block; font-size: 0.65rem; color: var(--chrome-faint); }
-  .enforced .foot { margin: 0.9rem 0 0; font-size: 0.78rem; color: var(--chrome-faint); }
-  pre { font-family: var(--mono); font-size: 0.74rem; line-height: 1.7; color: var(--chrome);
-        background: var(--panel); border: 1px solid var(--edge); border-radius: 8px;
-        padding: 0.8rem 0.9rem; overflow-x: auto; margin: 0.9rem 0 0; }
-  .note { margin-top: 1rem; border-left: 2px solid var(--edge-bright); padding-left: 0.9rem;
-          font-size: 0.82rem; color: var(--chrome-faint); }
-  .note b { color: var(--chrome-dim); }
-  button.go { font-family: var(--body); font-weight: 600; font-size: 0.85rem; cursor: pointer;
-    background: var(--teal); color: var(--void); border: 1px solid var(--teal);
-    border-radius: 999px; padding: 0.5rem 1.1rem; }
-  button.go:hover { background: var(--teal-bright); border-color: var(--teal-bright); }
-  .state { margin-top: 0.9rem; font-family: var(--mono); font-size: 0.78rem; line-height: 1.7; }
-  .state .ok { color: var(--teal); } .state .no { color: var(--refuse); }
-  .state .wait { color: var(--amber); } .state .src { color: var(--chrome-faint); font-size: 0.7rem; }
-  .bar { display: flex; flex-wrap: wrap; gap: 0.8rem 1.4rem; align-items: center;
-         margin-top: 1.2rem; padding: 0.8rem 0.9rem; border: 1px solid var(--edge);
-         border-radius: 10px; background: var(--ground); }
-  .bar label { font-family: var(--mono); font-size: 0.56rem; letter-spacing: 0.13em;
-               text-transform: uppercase; color: var(--chrome-faint); display: block; }
-  .bar > div { min-width: 9rem; }
-  .px { font-family: var(--mono); font-size: 0.8rem; }
-  .px b { color: var(--teal); font-weight: 500; }
-  .px i { font-style: normal; color: var(--chrome-faint); font-size: 0.7rem; display: block; }
+  .enforced dt { color: var(--chrome-dim); font-size: 0.83rem; }
+  .enforced dd { margin: 0; font-family: var(--mono); font-size: 0.87rem; text-align: right;
+                 font-variant-numeric: tabular-nums; }
+  .enforced .foot { margin: 0.85rem 0 0; font-size: 0.76rem; color: var(--chrome-faint); line-height: 1.55; }
+
+  /* ---- the wizard ------------------------------------------------------- */
+  .wrap { display: grid; grid-template-columns: minmax(0,1fr) 20rem; gap: 1.1rem; align-items: start; }
+  @media (max-width: 1140px) { .wrap { grid-template-columns: 1fr; } }
+  /* Same trap as .main above, one level down: a grid item's default
+     `min-width: auto` is its content width, so a single-column .wrap does not
+     actually constrain the column it contains. */
+  .wrap > * { min-width: 0; }
+  .rail-steps { display: flex; gap: 0; margin-bottom: 1.2rem; }
+  .st { flex: 1; display: flex; align-items: center; gap: 0.55rem; min-width: 0;
+        background: none; border: 0; padding: 0; font-family: var(--body); text-align: left;
+        color: var(--chrome-faint); cursor: pointer; }
+  .st:disabled { cursor: default; }
+  .st .n { width: 26px; height: 26px; flex: none; border-radius: 50%; display: grid; place-items: center;
+           font-family: var(--mono); font-size: 0.72rem; border: 1px solid var(--edge-bright);
+           background: var(--panel); color: var(--chrome-faint); }
+  .st .n svg { width: 12px; height: 12px; }
+  .st i { font-style: normal; font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .st .bar-l { flex: 1; height: 1px; background: var(--edge); margin: 0 0.55rem; min-width: 0.6rem; }
+  .st:last-child { flex: none; }
+  .st[data-state="now"] { color: var(--chrome); }
+  .st[data-state="now"] .n { border-color: var(--teal); background: var(--teal-ghost); color: var(--teal); }
+  .st[data-state="done"] { color: var(--chrome-dim); }
+  .st[data-state="done"] .n { border-color: var(--teal-deep); background: var(--teal-deep); color: #05231F; }
+  @media (max-width: 760px) { .st i { display: none; } }
+
+  .wstep { display: none; }
+  .wstep.on { display: block; }
+  .wstep h2 { font-family: var(--display); font-size: 1.2rem; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+  .nav-w { display: flex; gap: 0.6rem; align-items: center; margin-top: 1.4rem;
+           padding-top: 1.1rem; border-top: 1px solid var(--edge); }
+  .nav-w .sp { margin-left: auto; font-size: 0.75rem; color: var(--chrome-faint); }
+  .aside { position: sticky; top: 4.2rem; display: grid; gap: 0.85rem; }
+
+  /* ---- sidebar identity & status bar ------------------------------------ */
+  .wallet { display: flex; align-items: center; gap: 0.55rem; margin-top: auto;
+            background: var(--panel); border: 1px solid var(--edge); border-radius: 10px;
+            padding: 0.6rem 0.65rem; }
+  .wallet .ic { width: 28px; height: 28px; flex: none; border-radius: 8px; display: grid;
+            place-items: center; background: rgba(20,215,193,0.12); color: var(--teal); }
+  .wallet .ic svg { width: 15px; height: 15px; }
+  .wallet b { display: block; font-size: 0.8rem; font-weight: 600; }
+  .wallet span { display: block; font-size: 0.68rem; color: var(--chrome-faint); }
+  .side .foot { margin-top: 0.7rem; }
+
+  .statusbar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1.2rem;
+        padding: 0.55rem clamp(0.9rem, 2.4vw, 1.5rem); border-top: 1px solid var(--edge);
+        background: var(--ground); font-family: var(--mono); font-size: 0.66rem;
+        color: var(--chrome-faint); }
+  .statusbar b { color: var(--chrome-dim); font-weight: 400; }
+  .statusbar .d { display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+        background: var(--good); margin-right: 0.45rem; }
+  .statusbar .sp { flex: 1; min-width: 0; }
 </style>
 </head>
 <body>
@@ -201,30 +336,31 @@
 <div class="app">
   <aside class="side">
     <a class="brand" href="/" title="Back to wardaprotocol.com">
-      <b>Warda</b>
-      <span>console</span>
+      <span class="bm"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1.8 3.4h12.4M3.4 3.4v9.2h9.2V3.4"/><path d="M6.2 7.2h3.6"/></svg></span>
+      <i style="font-style:normal"><b>Warda</b><span>console</span></i>
     </a>
 
     <nav>
       <p class="grp">Operate</p>
       <a data-view="dash" aria-current="page">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1"/><rect x="9" y="1.5" width="5.5" height="5.5" rx="1"/><rect x="1.5" y="9" width="5.5" height="5.5" rx="1"/><rect x="9" y="9" width="5.5" height="5.5" rx="1"/></svg>
-        Dashboard</a>
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1.5"/><rect x="9" y="1.5" width="5.5" height="5.5" rx="1.5"/><rect x="1.5" y="9" width="5.5" height="5.5" rx="1.5"/><rect x="9" y="9" width="5.5" height="5.5" rx="1.5"/></svg>
+        Overview</a>
       <a data-view="grants">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2.5" width="12" height="11" rx="1.5"/><path d="M5 6h6M5 9h6M5 12h3"/></svg>
-        Grants</a>
-      <a data-view="refusals">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M4.2 4.2l7.6 7.6"/></svg>
-        Refusals</a>
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2.5" width="12" height="11" rx="2"/><path d="M5 6h6M5 9h6M5 12h3"/></svg>
+        Grants<span class="tag" id="n-grants">—</span></a>
       <a data-view="activity">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.5 9h3l2-5 3 9 2-4h3"/></svg>
-        Activity</a>
+        Activity<span class="tag" id="n-acts">—</span></a>
+      <a data-view="refusals">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M4.2 4.2l7.6 7.6"/></svg>
+        Refused</a>
       <a data-view="alerts">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3.5 6.5a4.5 4.5 0 0 1 9 0c0 3 1 4 1 4h-11s1-1 1-4z"/><path d="M6.6 13a1.6 1.6 0 0 0 2.8 0"/></svg>
         Alerts</a>
+
       <p class="grp" style="margin-top:0.9rem">Build</p>
       <a data-view="create">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 2v12M2 8h12"/></svg>
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2.5v11M2.5 8h11"/></svg>
         Create a grant</a>
       <a href="/network">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="3.5" r="2"/><circle cx="3.5" cy="12" r="2"/><circle cx="12.5" cy="12" r="2"/><path d="M8 5.5L4.3 10.2M8 5.5l3.7 4.7M5.5 12h5"/></svg>
@@ -234,15 +370,26 @@
         Proof</a>
     </nav>
 
+    <div class="wallet">
+      <span class="ic"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.8" y="4" width="12.4" height="9" rx="2"/><path d="M1.8 6.6h12.4"/><circle cx="11.4" cy="9.8" r="0.9" fill="currentColor" stroke="none"/></svg></span>
+      <i style="font-style:normal">
+        <b>No key here</b>
+        <span>this console reads only</span>
+      </i>
+    </div>
     <p class="foot">
-      Reads this project's published readings and the chain. Has never seen a private key.
-      <br><br>testnet-10 &middot; unaudited
+      Every figure comes from a published reading or the chain. Signing happens on your
+      machine, by a command you type.
     </p>
   </aside>
 
   <div class="main">
     <div class="top">
-      <h1 id="title">Dashboard</h1>
+      <label class="search">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="4.5"/><path d="M10.4 10.4L14 14"/></svg>
+        <input id="q" placeholder="Filter by agent, payee, address or endpoint…" aria-label="Filter">
+        <kbd>/</kbd>
+      </label>
       <select class="net" id="net" aria-label="Network">
         <option value="testnet-10" selected>Kaspa testnet-10</option>
         <option value="mainnet" disabled>Kaspa mainnet &mdash; when audited</option>
@@ -250,351 +397,475 @@
       <span class="chip" id="freshness"><i></i>loading</span>
     </div>
 
-    <!-- ============================ DASHBOARD ============================ -->
+    <!-- =========================== OVERVIEW ============================== -->
     <div class="view on pad" id="v-dash">
-      <div class="tiles" id="tiles"></div>
-
-      <div class="cols">
-        <div class="card">
-          <h2>Spending <small>every payment, by day</small></h2>
-          <p class="why">Each point is money that actually left a grant. Days with no payment are
-            drawn at zero rather than skipped, so a gap reads as a gap.</p>
-          <div class="chart" id="c-spend"><div class="tip" id="tip-spend"></div></div>
+      <div class="head">
+        <div>
+          <h1>Overview</h1>
+          <p>Every grant this project has issued, what it spent, and what the covenant would not let it do.</p>
         </div>
-
-        <div class="card">
-          <h2>Where it went <small>by payee</small></h2>
-          <p class="why">Grouped by the address that received it, not by the agent that sent it &mdash;
-            one key often serves several endpoints at different prices.</p>
-          <div class="bars" id="c-payees"></div>
+        <div class="seg" id="range" role="group" aria-label="Time range">
+          <button data-d="7" aria-pressed="false">7 days</button>
+          <button data-d="30" aria-pressed="false">30 days</button>
+          <button data-d="0" aria-pressed="true">All time</button>
         </div>
       </div>
 
-      <div class="cols">
-        <div class="card">
-          <h2>Grants <small>live and ended</small></h2>
-          <table id="t-grants"><thead><tr>
-            <th>Agent</th><th>Spent of budget</th><th class="n">Per payment</th>
-            <th class="n">Payees</th><th class="n">State</th>
-          </tr></thead><tbody></tbody></table>
+      <div class="dash">
+        <div class="stack">
+          <div class="tiles" id="tiles"></div>
+
+          <div class="two">
+            <div class="card">
+              <header>
+                <h2>Spending over time <small id="sp-span">&mdash;</small></h2>
+                <span class="more" id="sp-rate">&mdash;</span>
+              </header>
+              <p class="why">Every payment any of these agents recorded, by the day it settled. Cumulative, because a budget is a total and not a rate.</p>
+              <div class="chart" id="c-spend"></div>
+            </div>
+
+            <div class="card">
+              <header><h2>Where it went <small>by agent</small></h2></header>
+              <p class="why">KAS only. There is no second asset here to split by &mdash; the covenant compares sompi, and a chart with one slice labelled &ldquo;100% KAS&rdquo; would be decoration.</p>
+              <div id="c-agents"></div>
+            </div>
+          </div>
+
+          <div class="two">
+            <div class="card">
+              <header>
+                <h2>Grants</h2>
+                <a class="more" data-view="grants">All grants &rarr;</a>
+              </header>
+              <div style="overflow-x:auto">
+              <table id="t-grants"><thead><tr>
+                <th>Agent</th><th>Spent of budget</th><th class="n">Per payment</th><th class="n">Payees</th><th class="n">State</th>
+              </tr></thead><tbody></tbody></table>
+              </div>
+              <p style="margin:1rem 0 0"><button class="go" data-view="create">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 2.5v11M2.5 8h11"/></svg>
+                Create a grant</button></p>
+            </div>
+
+            <div class="card">
+              <header><h2>Top payees</h2></header>
+              <p class="why">A payee is an address. Two addresses can serve the same host at different prices, so the host is the label and the address is what distinguishes the row.</p>
+              <div class="bars" id="c-payees"></div>
+            </div>
+          </div>
+
+          <div class="two" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start">
+            <div class="card">
+              <header><h2>Delegation <small>one grant funding another</small></h2></header>
+              <p class="why">A grant can fund a child with a narrower allowlist and a smaller budget. The depth is compiled in, so the chain is what stops it going further.</p>
+              <div id="c-deleg"></div>
+            </div>
+
+            <div class="card">
+              <header><h2>Reconciliation</h2></header>
+              <p class="why">What the covenant says was spent, against what the agent&rsquo;s own log names. A gap here is the only kind of missing money this design can produce.</p>
+              <div class="feed" id="f-recon"></div>
+            </div>
+          </div>
         </div>
-        <div class="card">
-          <h2>Recent <small>newest first</small></h2>
-          <div class="feed" id="f-recent"></div>
+
+        <div class="rail">
+          <div class="card">
+            <header><h2>Notices</h2></header>
+            <p class="why">Derived from the readings on this page, every one of them checkable against the row it came from.</p>
+            <div class="feed" id="f-notices"></div>
+          </div>
+
+          <div class="card">
+            <header>
+              <h2>Recent activity</h2>
+              <a class="more" data-view="activity">All &rarr;</a>
+            </header>
+            <div class="feed" id="f-recent"></div>
+          </div>
+
+          <div class="card">
+            <header><h2>The readings themselves</h2></header>
+            <p class="why">Nothing on this page is typed in. Each figure comes from one of these, which anybody can fetch and check.</p>
+            <div class="feed" id="f-src"></div>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- ============================= GRANTS ============================== -->
+    <!-- ============================ GRANTS =============================== -->
     <div class="view pad" id="v-grants">
+      <div class="head"><div>
+        <h1>Grants</h1>
+        <p>What the covenant permits each agent, and what is left of it. Budget and cap are fixed at creation and cannot be raised.</p>
+      </div></div>
       <div class="card">
-        <h2>Every grant <small>read from its published reading</small></h2>
-        <p class="why">Budget, cap, epoch limit and payee list are the figures compiled into the
-          script that unlocks each coin. Nothing here is a setting.</p>
+        <header><h2>Every grant <small id="n-grants-2">&mdash;</small></h2></header>
+        <div style="overflow-x:auto">
         <table id="t-all"><thead><tr>
           <th>Agent</th><th class="n">Budget</th><th class="n">Spent</th><th class="n">Left</th>
-          <th class="n">Cap</th><th class="n">Per epoch</th><th class="n">Payees</th><th class="n">State</th>
+          <th class="n">On chain</th><th class="n">Per payment</th><th class="n">Per epoch</th>
+          <th class="n">Payees</th><th class="n">Depth</th><th class="n">State</th>
         </tr></thead><tbody></tbody></table>
+        </div>
+        <p class="note"><b>Two numbers can end an agent, and the smaller one is the answer.</b>
+          <em>Left</em> is what the covenant would still permit; <em>on chain</em> is what the coin at the
+          grant&rsquo;s address actually holds. Any grant that has paid for anything has spent fees out of the
+          second and not the first.</p>
       </div>
     </div>
 
-    <!-- ============================ REFUSALS ============================= -->
-    <div class="view pad" id="v-refusals">
-      <div class="card">
-        <h2>Refusals <small>what the covenant would not do</small></h2>
-        <p class="why">The only figures on this console that no other dashboard can show. A refusal
-          is not a failed request &mdash; it is a transaction that was never valid to sign.</p>
-        <div class="feed" id="f-refusals"></div>
-      </div>
-    </div>
-
-    <!-- ============================ ACTIVITY ============================= -->
+    <!-- =========================== ACTIVITY ============================== -->
     <div class="view pad" id="v-activity">
+      <div class="head"><div>
+        <h1>Activity</h1>
+        <p>Every payment these agents recorded, newest first, with the outcome each one actually had.</p>
+      </div></div>
       <div class="card">
-        <h2>Every payment <small>newest first</small></h2>
+        <header><h2>Payments <small id="n-acts-2">&mdash;</small></h2></header>
+        <div style="overflow-x:auto">
         <table id="t-acts"><thead><tr>
           <th>When</th><th>Agent</th><th>For</th><th class="n">Paid</th><th class="n">Outcome</th>
         </tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- =========================== REFUSALS =============================== -->
+    <div class="view pad" id="v-refusals">
+      <div class="head"><div>
+        <h1>Refused</h1>
+        <p>Two different things, kept apart on purpose &mdash; what actually went wrong, and what the covenant would refuse if anybody tried it.</p>
+      </div></div>
+      <div class="two" style="align-items:start">
+        <div class="card">
+          <header><h2>Attempts that did not settle <small id="n-fail">&mdash;</small></h2></header>
+          <p class="why">Recorded by the agent at the moment it happened. These are events, with a date.</p>
+          <div class="feed" id="f-failed"></div>
+        </div>
+        <div class="card">
+          <header><h2>Rules in force <small>derived</small></h2></header>
+          <p class="why">Not attempts. Each is a limit the covenant enforces on every spend, derived from the
+            grant&rsquo;s own terms &mdash; a thing that cannot happen rather than a thing that did.</p>
+          <div class="feed" id="f-rules"></div>
+        </div>
       </div>
     </div>
 
     <!-- ============================= ALERTS ============================== -->
     <div class="view pad" id="v-alerts">
-      <div class="bar">
+      <div class="head"><div>
+        <h1>Alerts</h1>
+        <p>Compose a rule here; your own machine evaluates it and Telegram carries the message. Nothing about this is stored on a server.</p>
+      </div></div>
+
+      <div class="wrap">
         <div>
-          <label for="a-rate">Your rate &mdash; $ per KAS</label>
-          <input id="a-rate" inputmode="decimal" value="0.05">
+          <div class="bar">
+            <div>
+              <label for="a-rate">Your rate &mdash; $ per KAS</label>
+              <input id="a-rate" inputmode="decimal" value="0.05">
+            </div>
+            <div class="px">
+              <label>Market, for context only</label>
+              <span id="a-px">&mdash;</span>
+              <i id="a-px-src">not fetched yet</i>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:0.85rem">
+            <header><h2>What to watch</h2></header>
+            <p class="why">Three kinds. All of them tell you something; none of them does anything.</p>
+
+            <div class="grid" style="margin-top:1rem">
+              <div class="field">
+                <label for="a-kind">Kind</label>
+                <select id="a-kind">
+                  <option value="balance-at-or-above">An address has received enough to act on</option>
+                  <option value="budget-low">A grant is running out of budget</option>
+                  <option value="expiring">A grant&rsquo;s term is nearly up</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="a-id">Name it</label>
+                <input id="a-id" spellcheck="false" value="earnings-worth-converting">
+                <p class="out">How the rule is remembered between runs.</p>
+              </div>
+            </div>
+            <p class="out" id="a-kind-say" style="margin-top:0.7rem;font-size:0.79rem;color:var(--chrome-dim)">&mdash;</p>
+
+            <div class="field" style="margin-top:1rem">
+              <label for="a-note">What you want to be reminded of</label>
+              <input id="a-note" value="Convert, and top the agent back up.">
+              <p class="out">Sent at the top of the message. Yours, not generated.</p>
+            </div>
+
+            <div data-kind="balance-at-or-above">
+              <div class="field" style="margin-top:1rem">
+                <label for="a-addr">The address to watch</label>
+                <input id="a-addr" spellcheck="false" placeholder="kaspatest:qq&hellip;">
+                <p class="out">Where your sales land. A public address and nothing else &mdash; this rule cannot
+                  spend from it, and the tool that evaluates it holds no key.</p>
+              </div>
+              <div class="grid" style="margin-top:1rem">
+                <div class="field">
+                  <label for="a-usd">Tell me when it reaches &mdash; $</label>
+                  <input id="a-usd" inputmode="decimal" value="50">
+                  <p class="out" id="a-o-usd">&mdash;</p>
+                </div>
+                <div class="field">
+                  <label>Which is, at your rate</label>
+                  <p class="out" id="a-o-kas" style="margin-top:0.55rem">&mdash;</p>
+                </div>
+              </div>
+            </div>
+
+            <div data-kind="budget-low expiring">
+              <div class="field" style="margin-top:1rem">
+                <label for="a-grant">The grant&rsquo;s manifest, as your machine sees it</label>
+                <input id="a-grant" spellcheck="false" value="grant.json">
+                <p class="out">A path, relative to the repository. A grant&rsquo;s address is a hash of its state,
+                  so this file is the only thing that knows where the grant currently is.</p>
+              </div>
+            </div>
+
+            <div data-kind="budget-low">
+              <div class="grid" style="margin-top:1rem">
+                <div class="field">
+                  <label for="a-below">Warn me below &mdash; $ left</label>
+                  <input id="a-below" inputmode="decimal" value="2">
+                  <p class="out" id="a-o-below">&mdash;</p>
+                </div>
+                <div class="field">
+                  <label for="a-funder">Your funding address &mdash; optional</label>
+                  <input id="a-funder" spellcheck="false" placeholder="kaspatest:qq&hellip;">
+                  <p class="out">Given one, the message also says whether the next grant can be paid for, and
+                    whether it is in one coin. Left blank, nothing is claimed about it.</p>
+                </div>
+              </div>
+            </div>
+
+            <div data-kind="expiring">
+              <div class="field" style="margin-top:1rem">
+                <label for="a-days">Warn me this long before the end &mdash; days</label>
+                <input id="a-days" inputmode="decimal" value="2">
+                <p class="out" id="a-o-days">&mdash;</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:0.85rem">
+            <header><h2>The rule</h2></header>
+            <p class="why">Add this to <code>ops/alerts.json</code> beside your node. That file is gitignored: a
+              published threshold is a number somebody knows to sit just underneath.</p>
+            <pre id="a-json">&mdash;</pre>
+            <p class="note"><b>Only changes are sent, including the change back.</b> A message every fifteen
+              minutes for a condition that is still true is a message you learn to swipe away. A rule that cannot
+              be <em>read</em> &mdash; the node is down, or the chain holds nothing where the manifest says the
+              grant is &mdash; says so once, and is never reported as &ldquo;fine&rdquo;.</p>
+          </div>
         </div>
-        <div class="px" style="flex:1;min-width:14rem">
-          <label>Market, for context only</label>
-          <span id="a-px">&mdash;</span>
-          <i id="a-px-src">not fetched yet</i>
-        </div>
-      </div>
-      <p class="note" style="margin-top:0.8rem">
-        <b>Your threshold is in KAS, even when you meant dollars.</b> The conversion happens here,
-        once, while you are looking at it &mdash; because doing it on a schedule means a machine
-        fetching a price at 3am, and a price nobody said is not a reason to do anything. The rule
-        stores the KAS figure your node can compare against, and a note of what you meant by it.
-        The note is shown in every message and never compared against.
-      </p>
 
-<section>
-  <div>
-    <h2 class="step"><em>01</em> What to watch</h2>
-    <p class="say">Three kinds. All of them tell you something; none of them does anything.</p>
+        <div class="aside">
+          <div class="enforced">
+            <p class="k">What the rule actually compares</p>
+            <dl>
+              <div><dt>Measured</dt><dd id="a-e-what">&mdash;</dd></div>
+              <div><dt>Against</dt><dd id="a-e-against">&mdash;</dd></div>
+              <div><dt>Read from</dt><dd>the chain, every 15 min</dd></div>
+            </dl>
+            <p class="foot" id="a-drift">&mdash;</p>
+          </div>
 
-    <div class="field">
-      <label for="a-kind">Kind</label>
-      <select id="a-kind">
-        <option value="balance-at-or-above">An address has received enough to act on</option>
-        <option value="budget-low">A grant is running out of budget</option>
-        <option value="expiring">A grant&rsquo;s term is nearly up</option>
-      </select>
-      <p class="out" id="a-kind-say">&mdash;</p>
-    </div>
-
-    <div class="grid" style="margin-top:1.2rem">
-      <div class="field">
-        <label for="a-id">Name it</label>
-        <input id="a-id" spellcheck="false" value="earnings-worth-converting">
-        <p class="out">How the rule is remembered between runs. Two rules with one name and only
-          one of them ever fires.</p>
-      </div>
-      <div class="field">
-        <label for="a-note">What you want to be reminded of</label>
-        <input id="a-note" value="Convert, and top the agent back up.">
-        <p class="out">Sent at the top of the message. Yours, not generated.</p>
-      </div>
-    </div>
-
-    <div data-kind="balance-at-or-above">
-      <div class="field" style="margin-top:1.2rem">
-        <label for="a-addr">The address to watch</label>
-        <input id="a-addr" spellcheck="false" placeholder="kaspatest:qq&hellip;">
-        <p class="out">Where your sales land. A public address and nothing else &mdash; this rule
-          cannot spend from it and the tool that evaluates it holds no key.</p>
-      </div>
-      <div class="grid" style="margin-top:1.2rem">
-        <div class="field">
-          <label for="a-usd">Tell me when it reaches &mdash; $</label>
-          <input id="a-usd" inputmode="decimal" value="50">
-          <p class="out" id="a-o-usd">&mdash;</p>
-        </div>
-        <div class="field">
-          <label>Which is, at your rate</label>
-          <p class="out" id="a-o-kas" style="margin-top:0.45rem">&mdash;</p>
+          <div class="card">
+            <header><h2>Where it runs</h2></header>
+<pre style="margin-top:0.7rem">cp ops/alerts.env.example ops/alerts.env
+ops/alerts.sh --test
+ops/alerts.sh --dry-run
+ops/install-cron.sh</pre>
+            <p class="note" style="margin-top:0.8rem"><b>It notifies. It never acts.</b> Converting for you at
+              your threshold needs a key that can move the coin, held unattended, forever &mdash; the hot wallet
+              this project exists to not be. It holds no key, signs nothing and builds no transaction, and the
+              build fails if that stops being true.</p>
+          </div>
         </div>
       </div>
     </div>
-
-    <div data-kind="budget-low expiring">
-      <div class="field" style="margin-top:1.2rem">
-        <label for="a-grant">The grant&rsquo;s manifest, as your machine sees it</label>
-        <input id="a-grant" spellcheck="false" value="grant.json">
-        <p class="out">A path, relative to the repository. A grant&rsquo;s address is a hash of its
-          state, so this file is the only thing that knows where the grant currently is.</p>
-      </div>
-    </div>
-
-    <div data-kind="budget-low">
-      <div class="grid" style="margin-top:1.2rem">
-        <div class="field">
-          <label for="a-below">Warn me below &mdash; $ left</label>
-          <input id="a-below" inputmode="decimal" value="2">
-          <p class="out" id="a-o-below">&mdash;</p>
-        </div>
-        <div class="field">
-          <label for="a-funder">Your funding address &mdash; optional</label>
-          <input id="a-funder" spellcheck="false" placeholder="kaspatest:qq&hellip;">
-          <p class="out">Given one, the message also says whether the next grant can be paid for,
-            and whether it is in one coin. Left blank, nothing is claimed about it.</p>
-        </div>
-      </div>
-    </div>
-
-    <div data-kind="expiring">
-      <div class="field" style="margin-top:1.2rem">
-        <label for="a-days">Warn me this long before the end &mdash; days</label>
-        <input id="a-days" inputmode="decimal" value="2">
-        <p class="out" id="a-o-days">&mdash;</p>
-      </div>
-    </div>
-
-    <div class="enforced">
-      <p class="k">What the rule actually compares</p>
-      <dl id="a-enf">
-        <div><dt>Measured</dt><dd id="a-e-what">&mdash;</dd></div>
-        <div><dt>Against</dt><dd id="a-e-against">&mdash;</dd></div>
-        <div><dt>Read from</dt><dd id="a-e-from">the chain, every fifteen minutes</dd></div>
-      </dl>
-      <p class="foot" id="a-drift">&mdash;</p>
-    </div>
-  </div>
-</section>
-
-<section>
-  <div>
-    <h2 class="step"><em>02</em> The rule</h2>
-    <p class="say">Add this to <code>ops/alerts.json</code> on the machine beside your node. That
-      file is gitignored: it names your addresses and the exact figure you are watching for, and a
-      published threshold is a number somebody knows to sit just underneath.</p>
-    <pre id="a-json">&mdash;</pre>
-    <p class="note"><b>Only changes are sent, including the change back.</b> A message every
-      fifteen minutes for a condition that is still true is a message you learn to swipe away, and
-      the one that mattered goes with it. A rule that cannot be <em>read</em> &mdash; the node is
-      down, or the chain holds nothing where the manifest says the grant is &mdash; says so once,
-      and is never reported as &ldquo;fine&rdquo;.</p>
-  </div>
-</section>
-
-<section>
-  <div>
-    <h2 class="step"><em>03</em> Where it runs</h2>
-    <p class="say">On your machine, next to your node. Nothing here is stored on a server, and this
-      page has no way to reach your chat.</p>
-<pre>cp ops/alerts.env.example ops/alerts.env   <span style="color:var(--chrome-faint)"># your bot token and chat id</span>
-ops/alerts.sh --test                       <span style="color:var(--chrome-faint)"># prove the pipe works, before you rely on it</span>
-ops/alerts.sh --dry-run                    <span style="color:var(--chrome-faint)"># what it would send, sending nothing</span>
-ops/install-cron.sh                        <span style="color:var(--chrome-faint)"># every fifteen minutes from now on</span></pre>
-    <p class="note"><b>It notifies. It never acts.</b> The obvious next feature is the one it will
-      not have: converting for you when the balance reaches your number. That needs a key that can
-      move the coin, held unattended, forever &mdash; which is the hot wallet this whole project
-      exists to not be. So the strongest thing to say about the alerter is what it cannot do: it
-      holds no key, signs nothing, and builds no transaction, and the build fails if that stops
-      being true.</p>
-  </div>
-</section>
-
-    </div><!-- /v-alerts -->
 
     <!-- ============================= CREATE ============================== -->
     <div class="view pad" id="v-create">
-      <div class="bar">
+      <div class="head"><div>
+        <h1>Create a grant</h1>
+        <p>Four steps. You type dollars; what the network compares is the KAS underneath, shown beside every field.</p>
+      </div></div>
+
+      <div class="rail-steps" id="w-rail">
+        <button class="st" data-go="1" data-state="now"><span class="n">1</span><i>Limits</i><span class="bar-l"></span></button>
+        <button class="st" data-go="2"><span class="n">2</span><i>Who it may pay</i><span class="bar-l"></span></button>
+        <button class="st" data-go="3"><span class="n">3</span><i>Keys and funding</i><span class="bar-l"></span></button>
+        <button class="st" data-go="4"><span class="n">4</span><i>Create it</i></button>
+      </div>
+
+      <div class="wrap">
         <div>
-          <label for="rate">Your rate &mdash; $ per KAS</label>
-          <input id="rate" inputmode="decimal" value="0.05">
-        </div>
-        <div class="px" style="flex:1;min-width:14rem">
-          <label>Market, for context only</label>
-          <span id="px">&mdash;</span>
-          <i id="px-src">not fetched yet</i>
-        </div>
-      </div>
-      <p class="note" style="margin-top:0.8rem">
-        <b>Two rates, and they are not the same number.</b> Yours sizes the grant, because it is the
-        one you actually traded at &mdash; Warda never fetches it. The market figure is context with a
-        source and a time on it, and nothing is ever enforced against it.
-      </p>
-<section>
-  <div>
-    <h2 class="step"><em>01</em> What it may spend</h2>
-    <p class="say">Type dollars. The column underneath each field is what goes into the script
-      that unlocks the coin &mdash; and that is the only figure any node will ever compare.</p>
+          <!-- step 1 -->
+          <div class="wstep on" data-step="1">
+            <div class="card">
+              <header><h2>What it may spend</h2></header>
+              <p class="say">Type dollars. The line under each field is what goes into the script that unlocks
+                the coin, and that is the only figure any node will ever compare.</p>
 
-    <div class="grid">
-      <div class="field">
-        <label for="budget">Total budget &mdash; $</label>
-        <input id="budget" inputmode="decimal" value="100">
-        <p class="out" id="o-budget">&mdash;</p>
-      </div>
-      <div class="field">
-        <label for="cap">Any single payment &mdash; $</label>
-        <input id="cap" inputmode="decimal" value="5">
-        <p class="out" id="o-cap">&mdash;</p>
-      </div>
-      <div class="field">
-        <label for="epoch">Per hour &mdash; $</label>
-        <input id="epoch" inputmode="decimal" value="20">
-        <p class="out" id="o-epoch">&mdash;</p>
-      </div>
-      <div class="field">
-        <label for="days">Ends in &mdash; days</label>
-        <input id="days" inputmode="numeric" value="30">
-        <p class="out">after that the balance is the principal's to reclaim</p>
-      </div>
-    </div>
+              <div class="bar" style="margin-bottom:1.1rem">
+                <div>
+                  <label for="rate">Your rate &mdash; $ per KAS</label>
+                  <input id="rate" inputmode="decimal" value="0.05">
+                </div>
+                <div class="px">
+                  <label>Market, for context only</label>
+                  <span id="px">&mdash;</span>
+                  <i id="px-src">not fetched yet</i>
+                </div>
+              </div>
 
-    <div class="field" style="margin-top:1.2rem">
-      <label for="payees">Who it may pay &mdash; one Kaspa address per line</label>
-      <textarea id="payees" rows="3" spellcheck="false"
-        placeholder="kaspatest:qq…"></textarea>
-      <p class="out">Fixed at creation. This list is not a setting &mdash; its root is compiled
-        into the grant, and it can never be added to.</p>
-    </div>
+              <div class="grid">
+                <div class="field">
+                  <label for="budget">Total budget &mdash; $</label>
+                  <input id="budget" inputmode="decimal" value="100">
+                  <p class="out" id="o-budget">&mdash;</p>
+                </div>
+                <div class="field">
+                  <label for="cap">Any single payment &mdash; $</label>
+                  <input id="cap" inputmode="decimal" value="5">
+                  <p class="out" id="o-cap">&mdash;</p>
+                </div>
+                <div class="field">
+                  <label for="epoch">Per hour &mdash; $</label>
+                  <input id="epoch" inputmode="decimal" value="20">
+                  <p class="out" id="o-epoch">&mdash;</p>
+                </div>
+                <div class="field">
+                  <label for="days">Ends in &mdash; days</label>
+                  <input id="days" inputmode="numeric" value="30">
+                  <p class="out" id="o-days">after that the balance is the principal&rsquo;s to reclaim</p>
+                </div>
+              </div>
 
-    <div class="enforced">
-      <p class="k">What the network will enforce</p>
-      <dl id="enf">
-        <div><dt>Total it may ever spend</dt><dd id="e-budget">&mdash;</dd></div>
-        <div><dt>Any single payment</dt><dd id="e-cap">&mdash;</dd></div>
-        <div><dt>Per hour</dt><dd id="e-epoch">&mdash;</dd></div>
-        <div><dt>Who it may pay</dt><dd id="e-payees">&mdash;</dd></div>
-      </dl>
-      <p class="foot" id="drift">&mdash;</p>
-    </div>
-  </div>
-</section>
+              <p class="note"><b>Two rates, and they are not the same number.</b> Yours sizes the grant, because
+                it is the one you actually traded at &mdash; Warda never fetches it. The market figure carries a
+                source and a time, and nothing is ever enforced against it.</p>
+            </div>
+          </div>
 
-<section>
-  <div>
-    <h2 class="step"><em>02</em> Its keys, which this page never sees</h2>
-    <p class="say">Three powers, three keys, because they are three separate risks. The agent's is
-      generated by the command in step 4, on your machine, and written to <code>agent.key</code>
-      &mdash; it is never typed, printed or sent anywhere. The revocation key you make yourself and
-      paste only the public half of. Nothing secret is entered here; this console cannot sign and
-      has no way to.</p>
+          <!-- step 2 -->
+          <div class="wstep" data-step="2">
+            <div class="card">
+              <header><h2>Who it may pay</h2></header>
+              <p class="say">One Kaspa address per line. This list is not a setting &mdash; its root is compiled
+                into the grant, and it can never be added to afterwards.</p>
+              <div class="field">
+                <label for="payees">The allowlist</label>
+                <textarea id="payees" rows="6" spellcheck="false" placeholder="kaspatest:qq&hellip;"></textarea>
+                <p class="out" id="o-payees">&mdash;</p>
+              </div>
+              <p class="note"><b>A payee is an address, not a company.</b> One key often serves several endpoints
+                at different prices, and the covenant compares the address. If you need the agent to reach an
+                x402 vendor through a relay hop, its own address goes on the list too &mdash; that costs the
+                allowlist for that hop and nothing else.</p>
+            </div>
+          </div>
+
+          <!-- step 3 -->
+          <div class="wstep" data-step="3">
+            <div class="card">
+              <header><h2>Its keys, which this page never sees</h2></header>
+              <p class="say">Three powers, three keys, because they are three separate risks. The agent&rsquo;s is
+                generated by the command in step 4, on your machine, and written to <code>agent.key</code> &mdash;
+                never typed, printed or sent anywhere. The revocation key you make yourself, and paste only the
+                public half of.</p>
 <pre>warda key --out revocation.key   <span style="color:var(--chrome-faint)"># can stop it at any moment, and receives nothing</span></pre>
-    <div class="grid" style="margin-top:1.2rem">
-      <div class="field">
-        <label for="k-revoke">Revocation public key &mdash; optional</label>
-        <input id="k-revoke" spellcheck="false" placeholder="64 hex characters">
-        <p class="out">Left blank, the stop is the funding key itself. That is one key to keep and
-          one thing to lose &mdash; fine for a first grant, wrong for anything left running.</p>
+              <div class="field" style="margin-top:1.1rem">
+                <label for="k-revoke">Revocation public key &mdash; optional</label>
+                <input id="k-revoke" spellcheck="false" placeholder="64 hex characters">
+                <p class="out" id="o-revoke">Left blank, the stop is the funding key itself. One key to keep and
+                  one thing to lose &mdash; fine for a first grant, wrong for anything left running.</p>
+              </div>
+              <p class="note"><b>The revocation key is the one worth keeping cold.</b> A revoke pays the
+                principal rather than its own signer, so whoever holds it can end a grant and cannot take a sompi
+                of it. That asymmetry is the entire reason the two are separate.</p>
+            </div>
+
+            <div class="card" style="margin-top:0.85rem">
+              <header><h2>Funding it</h2></header>
+              <p class="say">You sell what you already hold, wherever it already has a market, and withdraw the
+                proceeds. Warda does not touch the asset, does not quote the price and never holds the float.</p>
+              <div class="field">
+                <label for="funder">Your funding address &mdash; where the KAS will land</label>
+                <input id="funder" spellcheck="false" placeholder="kaspatest:qq&hellip;">
+              </div>
+              <p class="state" id="need">&mdash;</p>
+              <p style="margin-top:0.9rem"><button class="go gh" id="watch">Check that address</button></p>
+              <p class="state" id="watch-out"></p>
+              <p class="note"><b>Genesis takes a single input.</b> The figure that matters is your largest coin,
+                not your balance &mdash; an exchange that splits a withdrawal into two payments funds nothing, and
+                nobody has any reason to expect that. This looks for the coin, not the total, and says which of
+                the two you have.</p>
+            </div>
+          </div>
+
+          <!-- step 4 -->
+          <div class="wstep" data-step="4">
+            <div class="card">
+              <header><h2>Create it</h2></header>
+              <p class="say">One command, on your machine, with your key. It builds the grant locally, writes the
+                manifest before it broadcasts, and prints the address the coin will live at.</p>
+              <pre id="cmd">&mdash;</pre>
+              <p class="note"><b>Keep the manifest and the allowlist.</b> A grant&rsquo;s address is derived from
+                the numbers in that file and nowhere else, and a spend rebuilds its proof from the allowlist. Lose
+                either and the grant can be revoked, never spent.</p>
+            </div>
+            <div class="card" style="margin-top:0.85rem">
+              <header><h2>What you are about to make</h2></header>
+              <div class="feed" id="w-review"></div>
+            </div>
+          </div>
+
+          <div class="nav-w">
+            <button class="go gh" id="w-back">Back</button>
+            <button class="go" id="w-next">Continue</button>
+            <button class="go gh" id="w-restart" hidden>Start again</button>
+            <span class="sp" id="w-hint"></span>
+          </div>
+        </div>
+
+        <div class="aside">
+          <div class="enforced">
+            <p class="k">What the network will enforce</p>
+            <dl>
+              <div><dt>Total it may ever spend</dt><dd id="e-budget">&mdash;</dd></div>
+              <div><dt>Any single payment</dt><dd id="e-cap">&mdash;</dd></div>
+              <div><dt>Per hour</dt><dd id="e-epoch">&mdash;</dd></div>
+              <div><dt>Term</dt><dd id="e-days">&mdash;</dd></div>
+              <div><dt>Who it may pay</dt><dd id="e-payees">&mdash;</dd></div>
+            </dl>
+            <p class="foot" id="drift">&mdash;</p>
+          </div>
+          <div class="card">
+            <header><h2>Not settings</h2></header>
+            <p class="why">None of the five above can be raised after the grant exists. A grant is not a policy
+              your process agrees to follow; it is a script the network refuses to spend outside of. Changing any
+              of them means issuing a successor and ending this one.</p>
+          </div>
+        </div>
       </div>
     </div>
-    <p class="note"><b>The revocation key is the one worth keeping cold.</b> A revoke pays the
-      principal rather than its own signer, so whoever holds it can end a grant and cannot take a
-      sompi of it. That asymmetry is the entire reason the two are separate.</p>
-  </div>
-</section>
 
-<section>
-  <div>
-    <h2 class="step"><em>03</em> Funding it</h2>
-    <p class="say">You sell what you already hold, wherever it already has a market, and withdraw
-      the proceeds. Warda does not touch the asset, does not quote the price and never holds the
-      float &mdash; so there is no balance sheet between you and your agent.</p>
-
-    <div class="field" style="margin-top:1.3rem">
-      <label for="funder">Your funding address &mdash; where the KAS will land</label>
-      <input id="funder" spellcheck="false" placeholder="kaspatest:qq…">
+    <div class="statusbar">
+      <span><i class="d"></i>Network: <b id="sb-net">Kaspa testnet-10</b></span>
+      <span id="sb-daa">&mdash;</span>
+      <span class="sp"></span>
+      <span id="sb-right">unaudited &middot; bounded by the covenant, not by this page</span>
     </div>
-
-    <p class="state" id="need">&mdash;</p>
-    <p style="margin-top:1rem"><button class="go" id="watch">Watch for it</button></p>
-    <p class="state" id="watch-out"></p>
-
-    <p class="note"><b>Genesis takes a single input.</b> The figure that matters is your largest
-      coin, not your balance &mdash; an exchange that splits a withdrawal into two payments funds
-      nothing, and nobody has any reason to expect that. This watches for the coin, not the total,
-      and says which of the two you have.</p>
-  </div>
-</section>
-
-<section>
-  <div>
-    <h2 class="step"><em>04</em> Creating it</h2>
-    <p class="say">One command, on your machine, with your key. It builds the grant locally, writes
-      the manifest before it broadcasts, and prints the address the coin will live at.</p>
-    <pre id="cmd">&mdash;</pre>
-    <p class="note"><b>Keep the manifest and the allowlist.</b> A grant's address is derived from
-      the numbers in that file and nowhere else, and the allowlist is what a spend rebuilds its
-      proof from. Lose either and the grant can be revoked, never spent.</p>
-  </div>
-</section>
-
-    </div><!-- /v-create -->
   </div><!-- /main -->
 </div><!-- /app -->
 
@@ -604,25 +875,42 @@ ops/install-cron.sh                        <span style="color:var(--chrome-faint
   var VERIFY = "https://verify.wardaprotocol.com";
   var AGENTS = ["001", "002", "003", "004", "005", "006"];
 
+  /* The six data hues, in fixed order, assigned to an agent by its POSITION in
+     this list and never cycled. Colour follows the entity: a range filter that
+     hides an agent must not repaint the ones that remain. */
+  var MARKS = ["#0FA890", "#4C8DF6", "#C95FA8", "#B87F2E", "#9B6BE8", "#6BA83C"];
+  var hue = function (id) { return MARKS[AGENTS.indexOf(id) % MARKS.length]; };
+
   /* ---- reading the real thing ------------------------------------------
      Every figure on this console comes from the agent readings this project
      publishes, which `agents/tools/dashboard.ts` derives from the chain and
      which anybody can fetch at the same URLs. Nothing is typed in, and there
      is no demo dataset to fall back to: a console that invents a number to
-     fill a panel is the one thing this project cannot ship. */
+     fill a panel is the one thing this project cannot ship. Where the chain
+     offers nothing — a second asset to split spending by, a success rate over
+     attempts nobody made — the panel says so instead of being filled. */
   function num(s) { var n = parseFloat(String(s == null ? "" : s).replace(/[^0-9.\-]/g, "")); return isFinite(n) ? n : 0; }
-  /* Two decimals for a headline, six for a figure somebody may reconcile. A
-     tile that says 12.702205 wraps to two lines and reads as precision nobody
-     asked for. */
   function kas2(n) { return (Math.round(n * 100) / 100).toLocaleString("en-US", { maximumFractionDigits: 2 }); }
   function kas(n) { return (Math.round(n * 1e6) / 1e6).toLocaleString("en-US", { maximumFractionDigits: 6 }); }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]; }); }
   function short(a) { return !a ? "—" : a.length > 22 ? a.slice(0, 12) + "…" + a.slice(-6) : a; }
   function day(iso) { return String(iso || "").slice(0, 10); }
+  function ago(iso) {
+    var m = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+    if (!isFinite(m)) return "—";
+    if (m < 90) return m + " min ago";
+    if (m < 60 * 36) return Math.round(m / 60) + " h ago";
+    return Math.round(m / 1440) + " d ago";
+  }
+  function host(u) { try { return new URL(u).host; } catch (e) { return ""; } }
+  function path(u) { try { return new URL(u).pathname; } catch (e) { return u || ""; } }
 
-  var A = [];   // the readings that loaded
-  var P = [];   // every purchase, flattened, with its agent
-  var R = [];   // every refusal, flattened
+  var A = [];     // the readings that loaded
+  var P = [];     // every purchase, flattened, with its agent
+  var RULES = []; // derived limits — NOT events
+  var FAILED = [];// attempts that did not settle — events, with a date
+  var RANGE = 0;  // days; 0 = all time
+  var Q = "";     // the filter box
 
   Promise.all(AGENTS.map(function (id) {
     return fetch("/agent-" + id + ".json")
@@ -633,242 +921,499 @@ ops/install-cron.sh                        <span style="color:var(--chrome-faint
     A = rows.filter(Boolean);
     A.forEach(function (a) {
       (a.d.purchases || []).forEach(function (p) { P.push({ agent: a.id, p: p }); });
-      (a.d.refusals || []).forEach(function (r) { R.push({ agent: a.id, r: r }); });
+      /* `refusals` in a reading are almost all `derived: true` — limits the
+         covenant enforces, not attempts anybody made. Counting them as
+         refusals said "26 attempts the network would not sign" when the real
+         number of recorded failures was one. Two different facts, so two
+         different lists. */
+      (a.d.refusals || []).forEach(function (r) {
+        if (typeof r === "string") { RULES.push({ agent: a.id, r: { rule: r } }); return; }
+        (r.derived === false ? FAILED : RULES).push({ agent: a.id, r: r });
+      });
     });
     P.sort(function (x, y) { return String(y.p.at).localeCompare(String(x.p.at)); });
+    P.forEach(function (x) {
+      var o = x.p.outcome;
+      if (o && o !== "bought" && o !== "served") FAILED.push({ agent: x.agent, p: x.p });
+    });
     render();
   });
 
   function auth(a) { return a.d.authority || {}; }
+  function act(a) { return a.d.activity || {}; }
   /* "Live" is a claim about now, and the only thing a reading supports is
      whether the grant still existed when the chain was last read. The field
      that says so is `retired` — `succession` means this agent REPLACED another
-     one, which is a fact about its birth. Reading the second as the first made
-     #003 (which succeeded #002) render as ended and #002 (which was actually
-     revoked) render as live: the two agents swapped states on screen, and
-     every total built on top of it was wrong in the same direction. */
+     one, which is a fact about its birth. */
   function live(a) {
     var r = a.d.retired;
     if (r) return r.how === "settled" ? "settled" : "revoked";
     return "live";
   }
   function isLive(a) { return live(a) === "live"; }
+  function label(a) { return String(a.d.mission || "").split(".")[0]; }
 
+  function inRange(iso) {
+    if (!RANGE) return true;
+    var t = new Date(iso).getTime();
+    return isFinite(t) && (Date.now() - t) <= RANGE * 86400000;
+  }
+  function hit(s) { return !Q || String(s).toLowerCase().indexOf(Q) >= 0; }
+  function payHit(x) {
+    return hit("#" + x.agent + " " + (x.p.url || "") + " " + (x.p.payTo || "") + " " + (x.p.outcome || ""));
+  }
+  function agentHit(a) {
+    return hit("#" + a.id + " " + label(a) + " " + (a.d.identity || {}).grantAddress + " " + (auth(a).payees || []).join(" "));
+  }
+
+  function P_() { return P.filter(function (x) { return inRange(x.p.at) && payHit(x); }); }
+  function A_() { return A.filter(agentHit); }
+
+  /* ---------------------------------------------------------------- render */
   function render() {
     if (!A.length) {
       $("tiles").innerHTML = '<p class="empty">No readings loaded. This console shows nothing rather than a zero — the two are different, and only one of them is a measurement.</p>';
-      $("freshness").innerHTML = "<i style='background:var(--refuse)'></i>no data";
+      $("freshness").className = "chip bad";
+      $("freshness").innerHTML = "<i></i>no data";
       return;
     }
-
-    var spent = A.reduce(function (s, a) { return s + num((a.d.activity || {}).paid); }, 0);
-    var left = A.filter(isLive).reduce(function (s, a) { return s + num(auth(a).remaining); }, 0);
-    var pays = A.reduce(function (s, a) { return s + ((a.d.activity || {}).payments || 0); }, 0);
-    var liveN = A.filter(isLive).length;
-    var outside = A.reduce(function (s, a) { return s + num((a.d.activity || {}).paidOutsideTheAllowlist); }, 0);
-
     var newest = A.map(function (a) { return a.d.checkedAt; }).sort().pop();
     var mins = Math.round((Date.now() - new Date(newest).getTime()) / 60000);
-    $("freshness").innerHTML = "<i></i>read " + (mins < 90 ? mins + " min ago" : Math.round(mins / 60) + " h ago");
+    $("freshness").className = "chip" + (mins > 1440 ? " warn" : "");
+    $("freshness").innerHTML = "<i></i>read " + ago(newest);
+    $("n-grants").textContent = A.length;
+    $("n-grants-2").textContent = A.length + " grants";
+    $("n-acts").textContent = P.length;
+    $("n-acts-2").textContent = P.length + " recorded";
+
+    var daa = A.map(function (a) { return (a.d.timelock || {}).virtualDaaScore; }).filter(Boolean).sort().pop();
+    $("sb-daa").textContent = daa ? "Virtual DAA " + Number(daa).toLocaleString("en-US") + " · read " + ago(newest) : "no chain reading";
+
+    tiles(); spendChart(); agentDonut(); payees();
+    grantRows(); allRows(); acts(); notices(); recent(); sources(); deleg(); recon(); refusals();
+  }
+
+  function tile(ic, tint, k, v, s) {
+    return '<div class="tile"><span class="ic" style="background:' + tint + '22;color:' + tint + '">' + ic +
+      '</span><p class="k">' + k + '</p><p class="v">' + v + '</p><p class="s">' + s + '</p></div>';
+  }
+  var I = {
+    coin: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v6M6.2 6.6h3.6M6.2 9.4h3.6"/></svg>',
+    lock: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="7" width="10" height="7" rx="2"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>',
+    grid: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="5" height="5" rx="1.5"/><rect x="9" y="2" width="5" height="5" rx="1.5"/><rect x="2" y="9" width="5" height="5" rx="1.5"/><rect x="9" y="9" width="5" height="5" rx="1.5"/></svg>',
+    tick: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="6"/><path d="M5.4 8.2l1.9 1.9 3.4-3.7"/></svg>',
+    shield: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1.8l5 2v4.4c0 3-2.1 5-5 6-2.9-1-5-3-5-6V3.8z"/><path d="M6 8l1.5 1.5L10.2 6.6"/></svg>'
+  };
+
+  function tiles() {
+    var rows = P_();
+    var spent = rows.reduce(function (s, x) { return s + num(x.p.paid); }, 0);
+    var seen = A_();
+    var leftA = seen.filter(isLive);
+    var left = leftA.reduce(function (s, a) { return s + num(auth(a).remaining); }, 0);
+    var onchain = leftA.reduce(function (s, a) { return s + num(auth(a).onChain); }, 0);
+    var liveN = leftA.length;
+    var outside = seen.reduce(function (s, a) { return s + num(act(a).paidOutsideTheAllowlist); }, 0);
+    var settled = rows.filter(function (x) { return x.p.outcome === "bought" || x.p.outcome === "served"; }).length;
+    var span = RANGE ? "in the last " + RANGE + " days" : "since the first grant";
 
     $("tiles").innerHTML = [
-      tile("Spent", kas2(spent) + " KAS", pays + " payments, all inside the limits", true),
-      tile("Still authorised", kas2(left) + " KAS", "across " + liveN + " live grant" + (liveN === 1 ? "" : "s") + " — a retired grant authorises nothing", false),
-      tile("Grants", A.length, liveN + " live, " + (A.length - liveN) + " ended", false),
-      tile("Paid outside the allowlist", kas2(outside) + " KAS", outside === 0 ? "the covenant permits no other value" : "investigate", false),
-      tile("Refused", R.length, R.length ? "attempts the network would not sign" : "none recorded", false)
+      tile(I.coin, "#0FA890", "Spent", kas2(spent) + " KAS", rows.length + " payment" + (rows.length === 1 ? "" : "s") + " " + span),
+      tile(I.lock, "#9B6BE8", "Still authorised", kas2(left) + " KAS", "across " + liveN + " live grant" + (liveN === 1 ? "" : "s") + "; " + kas2(onchain) + " KAS of it is actually on chain"),
+      tile(I.grid, "#4C8DF6", "Grants", seen.length, liveN + " live, " + (seen.length - liveN) + " ended"),
+      tile(I.tick, "#43C97F", "Settled", rows.length ? settled + " of " + rows.length : "—",
+           rows.length ? (rows.length - settled) + " did not, and each one is on the Refused page" : "no payments in this range"),
+      tile(I.shield, "#14D7C1", "Paid outside the allowlist", kas2(outside) + " KAS",
+           outside === 0 ? "the covenant permits no other value" : "investigate")
     ].join("");
 
-    spendChart();
-    payeeBars();
-    grantRows();
-    recent();
-    refusals();
-    activity();
+    /* A rate is only honest over a span somebody can see. Measured between the
+       first and last payment in view, not assumed over the range's length. */
+    var r = $("sp-rate");
+    if (rows.length < 2) { r.textContent = ""; }
+    else {
+      var t0 = new Date(rows[rows.length - 1].p.at).getTime();
+      var t1 = new Date(rows[0].p.at).getTime();
+      var d = Math.max(1, (t1 - t0) / 86400000);
+      r.textContent = kas2(spent / d) + " KAS/day over " + Math.round(d) + " days";
+    }
+    $("sp-span").textContent = rows.length ? day(rows[rows.length - 1].p.at) + " → " + day(rows[0].p.at) : "";
   }
 
-  function tile(k, v, s, hot) {
-    return '<div class="tile' + (hot ? " hot" : "") + '"><p class="k">' + esc(k) + '</p>' +
-           '<p class="v">' + esc(String(v)) + '</p><p class="s">' + esc(s) + '</p></div>';
-  }
-
-  /* ---- spending over time ------------------------------------------------
-     One series, so no legend: the title names it. Area under a 2px line, the
-     points drawn only where a payment happened, and a crosshair that reads the
-     nearest day rather than the nearest pixel. */
+  /* ---- spending over time ------------------------------------------------ */
   function spendChart() {
-    var by = {};
-    P.forEach(function (x) {
-      if (x.p.outcome !== "bought" && x.p.outcome !== "served") return;
-      var d = day(x.p.at); if (!d) return;
-      by[d] = (by[d] || 0) + num(x.p.paid);
-    });
-    var days = Object.keys(by).sort();
-    var host = $("c-spend");
-    if (days.length < 2) {
-      host.innerHTML = '<p class="empty">Fewer than two days with a payment. A line needs a second point before it is a line.</p>';
+    var rows = P_().filter(function (x) { return x.p.outcome === "bought" || x.p.outcome === "served"; })
+                   .slice().reverse();
+    var host_ = $("c-spend");
+    if (rows.length < 2) {
+      host_.innerHTML = '<p class="empty">Fewer than two settled payments in this range. A line between one point and the edge of a chart is a shape, not a trend.</p>';
       return;
     }
-    /* Every calendar day between the first and last, so a gap reads as a gap
-       rather than being closed by the line. */
-    var t0 = new Date(days[0] + "T00:00:00Z").getTime();
-    var t1 = new Date(days[days.length - 1] + "T00:00:00Z").getTime();
-    var pts = [];
-    for (var t = t0; t <= t1; t += 86400000) {
-      var d = new Date(t).toISOString().slice(0, 10);
-      pts.push({ d: d, v: by[d] || 0 });
-    }
-    var W = 720, H = 190, L = 44, Rr = 10, T = 12, B = 26;
-    var max = Math.max.apply(null, pts.map(function (p) { return p.v; })) || 1;
-    var nice = Math.ceil(max * 20) / 20;
-    var x = function (i) { return L + (i / (pts.length - 1)) * (W - L - Rr); };
-    var y = function (v) { return T + (1 - v / nice) * (H - T - B); };
+    var byDay = {}, order = [];
+    rows.forEach(function (x) {
+      var d = day(x.p.at);
+      if (!(d in byDay)) { byDay[d] = 0; order.push(d); }
+      byDay[d] += num(x.p.paid);
+    });
+    var run = 0;
+    var pts = order.map(function (d) { run += byDay[d]; return { d: d, v: run, one: byDay[d] }; });
+
+    var W = 560, H = 170, PL = 38, PR = 8, PT = 10, PB = 20;
+    var max = pts[pts.length - 1].v * 1.08 || 1;
+    var x = function (i) { return PL + (pts.length === 1 ? 0 : i * (W - PL - PR) / (pts.length - 1)); };
+    var y = function (v) { return PT + (H - PT - PB) * (1 - v / max); };
 
     var line = pts.map(function (p, i) { return (i ? "L" : "M") + x(i).toFixed(1) + " " + y(p.v).toFixed(1); }).join(" ");
-    var area = line + " L" + x(pts.length - 1).toFixed(1) + " " + y(0) + " L" + x(0).toFixed(1) + " " + y(0) + " Z";
+    var area = line + " L" + x(pts.length - 1).toFixed(1) + " " + (H - PB) + " L" + x(0).toFixed(1) + " " + (H - PB) + " Z";
 
-    var ticks = [0, nice / 2, nice].map(function (v) {
-      return '<line class="grid-l" x1="' + L + '" y1="' + y(v) + '" x2="' + (W - Rr) + '" y2="' + y(v) + '"/>' +
-             '<text class="ax" x="' + (L - 7) + '" y="' + (y(v) + 3) + '" text-anchor="end">' + kas(v) + '</text>';
+    var ticks = [0, max / 2, max];
+    var g = ticks.map(function (t) {
+      return '<line class="grid-l" x1="' + PL + '" x2="' + (W - PR) + '" y1="' + y(t).toFixed(1) + '" y2="' + y(t).toFixed(1) + '"/>' +
+             '<text class="ax" x="' + (PL - 6) + '" y="' + (y(t) + 3).toFixed(1) + '" text-anchor="end">' + kas2(t) + '</text>';
     }).join("");
 
-    var every = Math.max(1, Math.ceil(pts.length / 6));
-    var xlab = pts.map(function (p, i) {
-      return (i % every === 0 || i === pts.length - 1)
-        ? '<text class="ax" x="' + x(i) + '" y="' + (H - 8) + '" text-anchor="middle">' + p.d.slice(5) + '</text>' : "";
-    }).join("");
+    var labs = [0, Math.floor((pts.length - 1) / 2), pts.length - 1].filter(function (v, i, s) { return s.indexOf(v) === i; })
+      .map(function (i) {
+        return '<text class="ax" x="' + x(i).toFixed(1) + '" y="' + (H - 6) + '" text-anchor="' +
+          (i === 0 ? "start" : i === pts.length - 1 ? "end" : "middle") + '">' + pts[i].d.slice(5) + '</text>';
+      }).join("");
 
-    var dots = pts.map(function (p, i) {
-      return p.v > 0 ? '<circle class="dot" cx="' + x(i).toFixed(1) + '" cy="' + y(p.v).toFixed(1) + '" r="3"/>' : "";
-    }).join("");
+    host_.innerHTML =
+      '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Cumulative KAS paid, ' + pts[0].d + ' to ' + pts[pts.length - 1].d + '">' +
+      '<defs><linearGradient id="gfade" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0%" stop-color="#0FA890" stop-opacity="0.30"/><stop offset="100%" stop-color="#0FA890" stop-opacity="0"/>' +
+      '</linearGradient></defs>' + g +
+      '<path class="ar" d="' + area + '"/><path class="ln" d="' + line + '"/>' +
+      '<line class="cross" id="cx" x1="0" x2="0" y1="' + PT + '" y2="' + (H - PB) + '" style="opacity:0"/>' +
+      '<circle class="dot" id="cd" r="4" style="opacity:0"/>' +
+      '<rect x="0" y="0" width="' + W + '" height="' + H + '" fill="transparent" id="cz"/>' +
+      labs + '</svg><div class="tip" id="ctip"></div>';
 
-    host.innerHTML =
-      '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="KAS paid per day across every agent, ' +
-      pts[0].d + ' to ' + pts[pts.length - 1].d + '. Total ' + kas(pts.reduce(function (s, p) { return s + p.v; }, 0)) + ' KAS.">' +
-      ticks + '<path class="ar" d="' + area + '"/><path class="ln" d="' + line + '"/>' + dots + xlab +
-      '<line id="cx" class="cross" x1="0" y1="' + T + '" x2="0" y2="' + (H - B) + '" style="opacity:0"/>' +
-      '</svg><div class="tip" id="tip-spend"></div>';
-
-    var svg = host.querySelector("svg"), tip = $("tip-spend"), cx = $("cx");
+    var svg = host_.querySelector("svg"), tip = $("ctip"), cx = $("cx"), cd = $("cd");
     svg.addEventListener("mousemove", function (e) {
       var r = svg.getBoundingClientRect();
       var px = (e.clientX - r.left) / r.width * W;
-      var i = Math.round((px - L) / (W - L - Rr) * (pts.length - 1));
-      i = Math.max(0, Math.min(pts.length - 1, i));
+      var i = 0, best = 1e9;
+      pts.forEach(function (p, k) { var dd = Math.abs(x(k) - px); if (dd < best) { best = dd; i = k; } });
       cx.setAttribute("x1", x(i)); cx.setAttribute("x2", x(i)); cx.style.opacity = 1;
-      tip.innerHTML = pts[i].d + " &middot; <b>" + kas(pts[i].v) + " KAS</b>";
+      cd.setAttribute("cx", x(i)); cd.setAttribute("cy", y(pts[i].v)); cd.style.opacity = 1;
+      tip.innerHTML = pts[i].d + " · <b>" + kas(pts[i].v) + " KAS</b> total<br>" + kas(pts[i].one) + " that day";
       tip.style.left = (x(i) / W * r.width) + "px";
       tip.style.top = (y(pts[i].v) / H * r.height) + "px";
       tip.style.opacity = 1;
     });
-    svg.addEventListener("mouseleave", function () { tip.style.opacity = 0; cx.style.opacity = 0; });
+    svg.addEventListener("mouseleave", function () { tip.style.opacity = 0; cx.style.opacity = 0; cd.style.opacity = 0; });
   }
 
-  /* ---- where it went ----------------------------------------------------
-     Bars rather than a ring: four values whose differences matter read better
-     against a shared baseline than as angles, and each one gets its own label
-     so identity is never colour alone. */
-  function payeeBars() {
+  /* ---- where it went ----------------------------------------------------- */
+  function agentDonut() {
+    var rows = P_();
     var by = {};
-    P.forEach(function (x) {
-      if (x.p.outcome !== "bought" && x.p.outcome !== "served") return;
-      var to = x.p.payTo || "unknown";
-      if (!by[to]) by[to] = { v: 0, n: 0, url: x.p.url };
-      by[to].v += num(x.p.paid); by[to].n++;
+    rows.forEach(function (x) { by[x.agent] = (by[x.agent] || 0) + num(x.p.paid); });
+    var keys = Object.keys(by).filter(function (k) { return by[k] > 0; })
+      .sort(function (a, b) { return by[b] - by[a]; });
+    var total = keys.reduce(function (s, k) { return s + by[k]; }, 0);
+    var host_ = $("c-agents");
+    if (!keys.length) {
+      host_.innerHTML = '<p class="empty">No payments in this range to divide up.</p>';
+      return;
+    }
+    var R = 40, C = 2 * Math.PI * R, GAP = 2, off = 0;
+    var segs = keys.map(function (k) {
+      var frac = by[k] / total;
+      var len = Math.max(0, C * frac - GAP);
+      var s = '<circle class="dseg" cx="50" cy="50" r="' + R + '" stroke="' + hue(k) + '" ' +
+        'stroke-dasharray="' + len.toFixed(2) + ' ' + (C - len).toFixed(2) + '" ' +
+        'stroke-dashoffset="' + (-off).toFixed(2) + '"/>';
+      off += C * frac;
+      return s;
+    }).join("");
+
+    host_.innerHTML =
+      '<svg class="donut" viewBox="0 0 100 100" role="img" aria-label="KAS paid by agent">' +
+      '<g transform="rotate(-90 50 50)">' + segs + '</g>' +
+      '<g class="dmid"><text class="a" x="50" y="49">' + kas2(total) + '</text>' +
+      '<text class="b" x="50" y="60">KAS paid</text></g></svg>' +
+      '<div class="legend">' + keys.map(function (k) {
+        return '<div class="lrow"><span class="sw" style="background:' + hue(k) + '"></span>' +
+          '<span class="lb">Agent #' + k + '</span>' +
+          '<span class="vl">' + kas2(by[k]) + '</span>' +
+          '<span class="pc">' + (by[k] / total * 100).toFixed(1) + '%</span></div>';
+      }).join("") + '</div>';
+  }
+
+  /* ---- top payees -------------------------------------------------------- */
+  function payees() {
+    var by = {};
+    P_().forEach(function (x) {
+      var to = x.p.payTo; if (!to) return;
+      by[to] = by[to] || { v: 0, url: x.p.url };
+      by[to].v += num(x.p.paid);
     });
-    var rows = Object.keys(by).map(function (k) { return { to: k, v: by[k].v, n: by[k].n, url: by[k].url }; })
+    var rows = Object.keys(by).map(function (k) { return { to: k, v: by[k].v, url: by[k].url }; })
       .sort(function (a, b) { return b.v - a.v; }).slice(0, 6);
-    if (!rows.length) { $("c-payees").innerHTML = '<p class="empty">No settled payments in these readings.</p>'; return; }
-    var max = rows[0].v;
-    $("c-payees").innerHTML = rows.map(function (r) {
-      return '<div class="brow"><span class="lab" title="' + esc(r.to) + '">' + esc(payeeLabel(r.to, r.url)) + '</span>' +
-        '<span class="amt">' + kas(r.v) + ' KAS</span>' +
-        '<span class="tr"><i style="width:' + Math.max(2, r.v / max * 100) + '%"></i></span></div>';
+    if (!rows.length) { $("c-payees").innerHTML = '<p class="empty">No recorded payee in this range.</p>'; return; }
+    var max = rows[0].v, total = rows.reduce(function (s, r) { return s + r.v; }, 0);
+    $("c-payees").innerHTML = rows.map(function (r, i) {
+      var h = host(r.url), c = MARKS[i % MARKS.length];
+      return '<div class="brow"><span class="av" style="background:' + c + '22;color:' + c + '">' +
+        esc((h || "?").slice(0, 2).toUpperCase()) + '</span>' +
+        /* Both the host AND the address. Two of these rows can carry the same
+           host at different prices — which is exactly the mistake /network made
+           when it keyed a registry on the payee — and two identical-looking
+           rows read as a rendering bug rather than as the fact they are. */
+        '<span class="lab" title="' + esc(r.to) + '">' + esc(h || "unnamed") +
+        ' <span style="color:var(--chrome-faint)">' + esc(short(r.to)) + '</span></span>' +
+        '<span class="amt">' + kas2(r.v) + ' KAS <span style="color:var(--chrome-faint)">' +
+        (r.v / total * 100).toFixed(1) + '%</span></span>' +
+        '<span class="tr"><i style="width:' + Math.max(2, r.v / max * 100) + '%;background:' + c + '"></i></span></div>';
     }).join("");
   }
 
+  /* ---- tables ------------------------------------------------------------ */
+  function av(a) {
+    var c = hue(a.id);
+    return '<span class="av" style="background:' + c + '22;color:' + c + '">' + a.id + '</span>';
+  }
   function stateP(a) {
     var s = live(a);
     return '<span class="pill ' + (s === "live" ? "live" : "done") + '">' + s + '</span>';
   }
-  /* A payee is an ADDRESS. Two addresses can serve the same host at different
-     prices — which is exactly the mistake /network made when it keyed a
-     registry on the payee and credited one listing with everybody's payments.
-     So the host is the label and the address is what distinguishes the row. */
-  function payeeLabel(to, url) {
-    var host = ""; try { host = url ? new URL(url).host : ""; } catch (e) {}
-    return (host ? host + " · " : "") + short(to);
-  }
 
   function grantRows() {
-    $("t-grants").querySelector("tbody").innerHTML = A.map(function (a) {
-      var au = auth(a), b = num(au.budget), sp = num(au.spent);
-      return '<tr><td><span class="who"><b>#' + a.id + '</b><span>' +
-        esc(String(a.d.mission || "").split(".")[0].slice(0, 48)) + '</span></span></td>' +
-        '<td><span class="amt" style="font-family:var(--mono);font-size:0.78rem">' + kas(sp) + ' / ' + kas(b) + ' KAS</span>' +
-        '<span class="meter"><i style="width:' + (b ? Math.min(100, sp / b * 100) : 0) + '%"></i></span></td>' +
-        '<td class="n">' + kas(num(au.maxPerPayment)) + '</td>' +
-        '<td class="n">' + (au.authorizedPayees || 0) + '</td>' +
+    var rows = A_().slice(0, 6);
+    var tb = $("t-grants").querySelector("tbody");
+    if (!rows.length) { tb.innerHTML = '<tr><td colspan="5"><p class="empty">Nothing matches that filter.</p></td></tr>'; return; }
+    tb.innerHTML = rows.map(function (a) {
+      var u = auth(a), b = num(u.budget), sp = num(u.spent);
+      var pct = b ? Math.min(100, sp / b * 100) : 0;
+      return '<tr><td><span class="who">' + av(a) + '<i><b>Agent #' + a.id + '</b>' +
+        '<span>' + esc(label(a).slice(0, 44)) + '</span></i></span></td>' +
+        '<td style="min-width:9rem"><span class="num" style="font-family:var(--mono);font-size:0.77rem">' +
+        kas2(sp) + ' <span style="color:var(--chrome-faint)">/ ' + kas2(b) + ' KAS</span></span>' +
+        '<span class="meter' + (pct > 85 ? ' full' : '') + '"><i style="width:' + pct + '%"></i></span></td>' +
+        '<td class="n">' + kas(num(u.maxPerPayment)) + '</td>' +
+        '<td class="n">' + (u.authorizedPayees || 0) + '</td>' +
         '<td class="n">' + stateP(a) + '</td></tr>';
     }).join("");
+  }
 
-    $("t-all").querySelector("tbody").innerHTML = A.map(function (a) {
-      var au = auth(a);
-      return '<tr><td><b>#' + a.id + '</b></td>' +
-        '<td class="n">' + kas(num(au.budget)) + '</td><td class="n">' + kas(num(au.spent)) + '</td>' +
-        '<td class="n">' + kas(num(au.remaining)) + '</td><td class="n">' + kas(num(au.maxPerPayment)) + '</td>' +
-        '<td class="n">' + kas(num(au.epochLimit)) + '</td><td class="n">' + (au.authorizedPayees || 0) + '</td>' +
+  function allRows() {
+    var rows = A_();
+    var tb = $("t-all").querySelector("tbody");
+    if (!rows.length) { tb.innerHTML = '<tr><td colspan="10"><p class="empty">Nothing matches that filter.</p></td></tr>'; return; }
+    tb.innerHTML = rows.map(function (a) {
+      var u = auth(a);
+      /* On chain BELOW what authority permits is the ordinary case for any
+         grant that has paid a fee, and it is the number that actually binds.
+         Marked, not hidden. */
+      var thin = num(u.onChain) < num(u.remaining);
+      return '<tr><td><span class="who">' + av(a) + '<i><b>#' + a.id + '</b>' +
+        '<span>' + esc(label(a).slice(0, 34)) + '</span></i></span></td>' +
+        '<td class="n">' + kas(num(u.budget)) + '</td><td class="n">' + kas(num(u.spent)) + '</td>' +
+        '<td class="n">' + kas(num(u.remaining)) + '</td>' +
+        '<td class="n"' + (thin ? ' style="color:var(--amber)"' : '') + '>' + kas(num(u.onChain)) + '</td>' +
+        '<td class="n">' + kas(num(u.maxPerPayment)) + '</td><td class="n">' + kas(num(u.epochLimit)) + '</td>' +
+        '<td class="n">' + (u.authorizedPayees || 0) + '</td>' +
+        '<td class="n">' + (u.delegationDepth == null ? "—" : u.delegationDepth) + '</td>' +
         '<td class="n">' + stateP(a) + '</td></tr>';
     }).join("");
+  }
+
+  function acts() {
+    var rows = P_();
+    var tb = $("t-acts").querySelector("tbody");
+    if (!rows.length) { tb.innerHTML = '<tr><td colspan="5"><p class="empty">No payment in this range matches.</p></td></tr>'; return; }
+    tb.innerHTML = rows.map(function (x) {
+      var ok = x.p.outcome === "bought" || x.p.outcome === "served";
+      var c = hue(x.agent);
+      return '<tr><td class="n" style="text-align:left">' + esc(day(x.p.at)) + '</td>' +
+        '<td><span style="color:' + c + '">#' + x.agent + '</span></td>' +
+        '<td>' + esc(host(x.p.url)) + '<span style="color:var(--chrome-faint)">' + esc(path(x.p.url)) + '</span></td>' +
+        '<td class="n">' + esc(x.p.paid || "—") + '</td>' +
+        '<td class="n"><span class="pill ' + (ok ? "live" : "no") + '">' + esc(x.p.outcome || "—") + '</span></td></tr>';
+    }).join("");
+  }
+
+  /* ---- rail -------------------------------------------------------------- */
+  var EV = {
+    warn: ['#E8B23A', '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2.5l6 11H2z"/><path d="M8 6.6v3.1M8 11.6v.1"/></svg>'],
+    bad: ['#FF6B5A', '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v4M8 11v.1"/></svg>'],
+    ok: ['#43C97F', '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="6"/><path d="M5.4 8.2l1.9 1.9 3.4-3.7"/></svg>'],
+    info: ['#4C8DF6', '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 7.4v3.4M8 5.2v.1"/></svg>']
+  };
+  function evRow(kind, title, sub, right) {
+    var e = EV[kind] || EV.info;
+    return '<div class="ev"><span class="ic" style="background:' + e[0] + '22;color:' + e[0] + '">' + e[1] + '</span>' +
+      '<i style="font-style:normal;min-width:0"><b>' + title + '</b><span>' + sub + '</span></i>' +
+      '<span class="a">' + (right || "") + '</span></div>';
+  }
+
+  /* Notices are DERIVED, every one of them from a figure visible on this page.
+     Nothing here is a threshold somebody set, an anomaly score, or a guess
+     about what is unusual — the readings support none of those, and inventing
+     one would be the same failure as inventing a number. */
+  function notices() {
+    var out = [];
+    A.forEach(function (a) {
+      var u = auth(a), id = "#" + a.id;
+      if (!isLive(a)) return;
+      var left = num(u.remaining), coin = num(u.onChain), capp = num(u.maxPerPayment);
+      var can = Math.min(left, coin);
+      if (can <= capp) {
+        out.push(evRow("warn", id + " cannot make a full payment",
+          kas(can) + " KAS usable against a " + kas(capp) + " KAS cap", "topup"));
+      } else if (coin < left) {
+        out.push(evRow("info", id + " holds less than it may spend",
+          kas(coin) + " KAS on chain, " + kas(left) + " authorised", kas2(coin)));
+      }
+    });
+    /* Staleness is one fact about the page, not one fact per agent. Six rows
+       saying the same thing push the findings that differ off the bottom. */
+    var stale = A.filter(function (a) {
+      return (Date.now() - new Date(a.d.checkedAt).getTime()) / 86400000 > 2;
+    });
+    if (stale.length) {
+      out.push(evRow("warn", stale.length + " reading" + (stale.length === 1 ? " is" : "s are") + " stale",
+        stale.map(function (a) { return "#" + a.id; }).join(", ") +
+        " — last read is not a measurement of now", ago(stale.map(function (a) { return a.d.checkedAt; }).sort().pop())));
+    }
+    A.forEach(function (a) {
+      var r = a.d.reconciliation || {};
+      if (r.unrecorded && num(r.unrecorded) > 0) {
+        out.push(evRow("bad", "#" + a.id + " has spending with no receipt",
+          r.unrecorded + " the covenant counted and the log does not name", ""));
+      }
+      if (num(act(a).paidOutsideTheAllowlist) > 0) {
+        out.push(evRow("bad", "#" + a.id + " paid outside the allowlist",
+          "this should be impossible — investigate", ""));
+      }
+    });
+    if (!out.length) {
+      out.push(evRow("ok", "Nothing to flag", "every live grant can still make a payment of its own cap size", ""));
+    }
+    $("f-notices").innerHTML = out.slice(0, 6).join("");
   }
 
   function recent() {
-    $("f-recent").innerHTML = P.slice(0, 8).map(function (x) {
+    $("f-recent").innerHTML = P.slice(0, 6).map(function (x) {
       var ok = x.p.outcome === "bought" || x.p.outcome === "served";
-      return '<div class="ev"><span class="t">' + esc(day(x.p.at).slice(5)) + '</span>' +
-        '<span>#' + x.agent + ' ' + (ok ? "paid" : esc(x.p.outcome || "attempted")) + ' ' +
-        esc((function () { try { return new URL(x.p.url).pathname; } catch (e) { return x.p.url || ""; } })()) + '</span>' +
-        '<span class="a">' + (ok ? esc(x.p.paid || "") : '<span class="pill no">no</span>') + '</span></div>';
+      return evRow(ok ? "ok" : "bad",
+        "#" + x.agent + " " + (ok ? "paid" : esc(x.p.outcome || "attempted")) + " " + esc(host(x.p.url)),
+        esc(path(x.p.url)) + " · " + ago(x.p.at),
+        ok ? esc(x.p.paid || "") : "—");
     }).join("") || '<p class="empty">Nothing recorded.</p>';
   }
 
-  function refusals() {
-    $("f-refusals").innerHTML = R.length ? R.map(function (x) {
-      var r = x.r;
-      return '<div class="ev"><span class="t">#' + x.agent + '</span><span>' +
-        esc(typeof r === "string" ? r : (r.reason || r.refusal || JSON.stringify(r).slice(0, 120))) +
-        '</span><span class="a"><span class="pill no">refused</span></span></div>';
-    }).join("") : '<p class="empty">No refusals in these readings. That is not the same as none having happened — a refusal only lands here when an agent recorded the attempt.</p>';
+  /* Built with DOM calls rather than a string, and deliberately.
+     `ops/check-links.mjs` reads every href out of the BUILT page and demands a
+     file behind it — it cannot tell a real link from one assembled at runtime,
+     so a script that concatenates an href leaves it chasing a path made of
+     JavaScript. That is the guard doing its job: an href in the markup is a
+     promise the build can check, and one built from a variable is not. So
+     these are set as properties, where there is no literal to misread. */
+  function srcRow(a) {
+    var row = document.createElement("div");
+    row.className = "ev";
+    var ic = document.createElement("span");
+    ic.className = "ic";
+    ic.style.background = hue(a.id) + "22";
+    ic.style.color = hue(a.id);
+    ic.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M9.5 1.8H4a1.5 1.5 0 0 0-1.5 1.5v9.4A1.5 1.5 0 0 0 4 14.2h8a1.5 1.5 0 0 0 1.5-1.5V5.8z"/><path d="M9.5 1.8v4h4"/></svg>';
+    var mid = document.createElement("i");
+    mid.style.fontStyle = "normal"; mid.style.minWidth = "0";
+    var b = document.createElement("b");
+    var j = document.createElement("a");
+    j.href = "/agent-" + a.id + ".json";
+    j.textContent = "agent-" + a.id + ".json";
+    b.appendChild(j);
+    var sub = document.createElement("span");
+    sub.textContent = "read " + ago(a.d.checkedAt);
+    mid.appendChild(b); mid.appendChild(sub);
+    var right = document.createElement("span");
+    right.className = "a";
+    var pg = document.createElement("a");
+    pg.href = "/agent-" + a.id;
+    pg.textContent = "page";
+    right.appendChild(pg);
+    row.appendChild(ic); row.appendChild(mid); row.appendChild(right);
+    return row;
+  }
+  function sources() {
+    var host_ = $("f-src");
+    host_.textContent = "";
+    A.forEach(function (a) { host_.appendChild(srcRow(a)); });
   }
 
-  function activity() {
-    $("t-acts").querySelector("tbody").innerHTML = P.map(function (x) {
-      var ok = x.p.outcome === "bought" || x.p.outcome === "served";
-      var path = ""; try { path = new URL(x.p.url).pathname; } catch (e) { path = x.p.url || ""; }
-      return '<tr><td class="n" style="text-align:left">' + esc(day(x.p.at)) + '</td><td>#' + x.agent + '</td>' +
-        '<td>' + esc(path) + '</td><td class="n">' + esc(x.p.paid || "—") + '</td>' +
-        '<td class="n"><span class="pill ' + (ok ? "live" : "no") + '">' + esc(x.p.outcome || "—") + '</span></td></tr>';
-    }).join("") || "";
+  /* Delegation and succession are two different relations and are drawn as
+     two, because collapsing them is exactly the mistake that made #002 and
+     #003 swap states on this page once already. */
+  function deleg() {
+    var out = [];
+    A.forEach(function (a) {
+      var d = a.d.delegatedBy;
+      if (d) {
+        var who = d.agentId || d.parent || d.from || "";
+        out.push(evRow("info", (who ? esc(who) : "a parent grant") + " → agent #" + a.id,
+          "a child grant, funded out of the parent's budget, with its own narrower allowlist", "depth " + (auth(a).delegationDepth == null ? "—" : auth(a).delegationDepth)));
+      }
+      var s = a.d.succession;
+      if (s && s.replaced) {
+        out.push(evRow("info", "agent #" + a.id + " replaced " + esc(s.replaced),
+          "a successor grant with its own key — not a refill, which cannot exist", ""));
+      }
+    });
+    $("c-deleg").innerHTML = '<div class="feed">' + (out.join("") ||
+      '<p class="empty">No delegation or succession in these readings.</p>') + '</div>';
+  }
+
+  function recon() {
+    var out = A.map(function (a) {
+      var r = a.d.reconciliation;
+      if (!r) return "";
+      var un = num(r.unrecorded);
+      return evRow(un > 0 ? "bad" : "ok", "#" + a.id + " · " + esc(r.spentPerTheCovenant || "—") + " per the covenant",
+        esc(r.namedByTheLog || "—") + " named by its own log" +
+        (r.chargedHomeBySettlement && num(r.chargedHomeBySettlement) > 0
+          ? ", " + esc(r.chargedHomeBySettlement) + " charged home by a child" : ""),
+        un > 0 ? esc(r.unrecorded) : "0 missing");
+    }).filter(Boolean);
+    $("f-recon").innerHTML = out.join("") ||
+      '<p class="empty">No reconciliation in these readings. That is not the same as everything reconciling.</p>';
+  }
+
+  function refusals() {
+    $("n-fail").textContent = FAILED.length + " recorded";
+    $("f-failed").innerHTML = FAILED.map(function (x) {
+      if (x.p) {
+        return evRow("bad", "#" + x.agent + " · " + esc(x.p.outcome),
+          esc(host(x.p.url) + path(x.p.url)) + (x.p.reason ? " — " + esc(String(x.p.reason).slice(0, 80)) : ""),
+          esc(day(x.p.at)));
+      }
+      return evRow("bad", "#" + x.agent + " · " + esc(x.r.rule || "refused"),
+        esc(String(x.r.refusal || x.r.attempted || "").slice(0, 110)), "");
+    }).join("") || '<p class="empty">No failed attempt in these readings. That is not the same as none having happened — a failure only lands here when an agent recorded the attempt.</p>';
+
+    $("f-rules").innerHTML = RULES.map(function (x) {
+      return evRow("info", "#" + x.agent + " · " + esc(x.r.rule || "a limit"),
+        esc(String(x.r.attempted || x.r.refusal || "").slice(0, 110)), "");
+    }).join("") || '<p class="empty">No rules derived in these readings.</p>';
   }
 
   /* ---- dollars, and the two places they are allowed to become KAS --------
      Nowhere else. A dollar is a QUOTE unit: no node compares one, no covenant
-     can read one, and every figure this console sends to a command or writes
-     into a rule is the KAS figure underneath. The conversion happens twice on
-     this page — sizing a grant, and setting a threshold — and both times a
-     person is looking at the rate while it happens. That is the whole of the
-     argument for why `warda fund` will not fetch a price and `ops/alerts.ts`
-     will not either. */
+     can read one, and every figure this console puts into a command or a rule
+     is the KAS underneath. The conversion happens twice on this page — sizing
+     a grant, and setting a threshold — and both times a person is looking at
+     the rate while it happens. That is the whole argument for why `warda fund`
+     will not fetch a price and `ops/alerts.ts` will not either. */
   var SOMPI = 100000000;
-
-  /** Dollars at a rate, to whole sompi. Null when the rate is unusable — and
-      null must render as "—", never as zero. */
   function toSompi(usd, rate) {
     var u = parseFloat(usd), r = parseFloat(rate);
     if (!isFinite(u) || !isFinite(r) || r <= 0 || u < 0) return null;
     return Math.round(u / r * SOMPI);
   }
-  /** Sompi to the exact KAS string. Derived from the integer, so the command
+  /** Sompi to the exact KAS string, derived from the integer — so the command
       and the panel can never disagree about the same number. */
   function kasOf(n) {
     if (n == null) return "—";
@@ -877,19 +1422,14 @@ ops/install-cron.sh                        <span style="color:var(--chrome-faint
     var frac = String(a % SOMPI).padStart(8, "0").replace(/0+$/, "");
     return (neg ? "-" : "") + whole + (frac ? "." + frac : "");
   }
-  /** For reading. Thousands separators are for people and poison for a shell. */
-  function kasPretty(n) { return n == null ? "—" : kas2(n / SOMPI) + " KAS"; }
 
   /* ---- the market figure, which decides nothing --------------------------
-     The user asked to see a real price beside their own, and that is a fair
-     thing to want: a rate you typed in March is a rate you will forget to
-     revisit. So it is fetched, in a browser, with a person present, and shown
-     with a source and a time on it.
-     What it is NOT is an input. Nothing on this page is computed from it and
-     nothing is ever enforced against it — the rate that sizes a grant is the
-     one you actually traded at, which is the only rate anybody can be held to.
-     A fetch that fails says so. It does not say $0, and it does not quietly
-     leave the last value on screen as though it were current. */
+     A rate you typed in March is a rate you will forget to revisit, so it is
+     fetched — in a browser, with a person present — and shown with a source
+     and a time on it. It is not an input: nothing here is computed from it and
+     nothing is ever enforced against it. A fetch that fails says so. It does
+     not say $0, and it does not leave a stale value on screen as though it
+     were current. */
   function market() {
     var miss = function (why) {
       ["px", "a-px"].forEach(function (id) { if ($(id)) $(id).textContent = "—"; });
@@ -910,74 +1450,143 @@ ops/install-cron.sh                        <span style="color:var(--chrome-faint
   }
   market();
 
-  /* ---- create a grant ----------------------------------------------------
-     This markup shipped without its script. Every output field on the Create
-     view read "—" on the live page: the dollar columns, the enforced panel,
-     the funding figure and the command itself. It looked like a form that was
-     still loading, which is the worst way for a page to be broken — nothing
-     is wrong on screen, so nobody reports it.
-     Found by trying to use it while adding the view next door. */
-  function createView() {
-    if (!$("budget")) return;
+  /* ---- create a grant, as four steps -------------------------------------
+     One step at a time, because the four decisions are genuinely sequential:
+     the allowlist is meaningless before you know the budget, the funding
+     figure is not knowable before both, and the command cannot be written
+     until all three exist. A single long form let somebody reach the command
+     with an empty allowlist — a grant that can pay nobody. */
+  var STEP = 1, SEEN = 1;
+
+  function parts() {
     var rate = $("rate").value;
-    var b = toSompi($("budget").value, rate);
-    var c = toSompi($("cap").value, rate);
-    var e = toSompi($("epoch").value, rate);
-    var days = parseFloat($("days").value);
     var payees = $("payees").value.split("\n").map(function (x) { return x.trim(); }).filter(Boolean);
-
-    $("o-budget").textContent = b == null ? "—" : kasOf(b) + " KAS";
-    $("o-cap").textContent = c == null ? "—" : kasOf(c) + " KAS";
-    $("o-epoch").textContent = e == null ? "—" : kasOf(e) + " KAS";
-
-    $("e-budget").textContent = b == null ? "—" : kasOf(b) + " KAS";
-    $("e-cap").textContent = c == null ? "—" : kasOf(c) + " KAS";
-    $("e-epoch").textContent = e == null ? "—" : kasOf(e) + " KAS";
-    $("e-payees").textContent = payees.length
-      ? payees.length + " address" + (payees.length === 1 ? "" : "es") + ", fixed at creation"
-      : "— none yet, and a grant with no payee can pay nobody";
-
-    /* The sentence somebody needs before they sign anything: what they typed
-       in dollars stops being dollars the moment the grant exists. */
-    $("drift").textContent = b == null
-      ? "Enter a rate above zero. Until then there is no KAS figure, which is not the same as zero KAS."
-      : "These are KAS figures from here on. If KAS moves, the grant does not — " +
-        kasOf(b) + " KAS stays " + kasOf(b) + " KAS, and what it is worth is somebody else's number.";
-
-    /* Genesis takes a single input, so the figure that matters is the largest
-       coin rather than the balance. 0.01 KAS for the genesis fee, the CLI's
-       own default. */
-    var need = b == null ? null : b + 1000000;
-    $("need").textContent = need == null
-      ? "—"
-      : "You need " + kasOf(need) + " KAS at that address, as ONE coin — " +
-        kasOf(b) + " for the grant and 0.01 for the genesis fee.";
-
-    $("cmd").textContent = (b == null || c == null)
-      ? "—"
-      : "WARDA_SK=$(cat wallet.key) warda grant \\\n" +
-        "  --payees payees.txt \\\n" +
-        "  --budget " + kasOf(b) + " \\\n" +
-        "  --max-per-spend " + kasOf(c) + " \\\n" +
-        (e == null ? "" : "  --epoch-limit " + kasOf(e) + " \\\n") +
-        (isFinite(days) && days > 0 ? "  --days " + days + " \\\n" : "") +
-        ($("k-revoke").value.trim() ? "  --revocation " + $("k-revoke").value.trim() + " \\\n" : "") +
-        "  --out grant.json";
+    return {
+      rate: rate,
+      b: toSompi($("budget").value, rate),
+      c: toSompi($("cap").value, rate),
+      e: toSompi($("epoch").value, rate),
+      days: parseFloat($("days").value),
+      payees: payees,
+      revoke: $("k-revoke").value.trim(),
+      funder: $("funder").value.trim()
+    };
   }
 
-  /* The funder's address, read through the public verifier rather than
-     trusted: it reports the coins at an address, and the one that matters is
-     the LARGEST, not the total. An exchange that splits a withdrawal into two
-     payments funds nothing, and nobody has any reason to expect that. */
+  /* What each step needs before it can be left. A wizard whose Continue is
+     always lit is a form with extra clicks. */
+  function blocker(step, p) {
+    if (step === 1) {
+      if (p.b == null || p.c == null) return "Enter a rate above zero and a budget.";
+      if (p.b <= 0) return "A budget of nothing is not a grant.";
+      if (p.c > p.b) return "A single payment cannot be larger than the whole budget.";
+      if (!(isFinite(p.days) && p.days > 0)) return "How long should it run?";
+      return "";
+    }
+    if (step === 2) {
+      if (!p.payees.length) return "A grant with no payee can pay nobody. Add at least one address.";
+      var bad = p.payees.filter(function (a) { return a.indexOf(":") < 0; });
+      if (bad.length) return bad.length + " line" + (bad.length === 1 ? " is" : "s are") + " not a Kaspa address.";
+      return "";
+    }
+    if (step === 3) {
+      if (p.revoke && !/^[0-9a-fA-F]{64}$/.test(p.revoke)) return "A public key is 64 hex characters.";
+      return "";
+    }
+    return "";
+  }
+
+  function goStep(n) {
+    STEP = Math.max(1, Math.min(4, n));
+    SEEN = Math.max(SEEN, STEP);
+    Array.prototype.forEach.call(document.querySelectorAll(".wstep"), function (el) {
+      el.classList.toggle("on", Number(el.getAttribute("data-step")) === STEP);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("#w-rail .st"), function (el) {
+      var k = Number(el.getAttribute("data-go"));
+      el.setAttribute("data-state", k === STEP ? "now" : k < STEP ? "done" : "next");
+      el.disabled = k > SEEN;
+      el.querySelector(".n").innerHTML = k < STEP
+        ? '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3.6 8.4l3 3 5.8-6.4"/></svg>'
+        : String(k);
+    });
+    $("w-back").style.visibility = STEP === 1 ? "hidden" : "visible";
+    /* On the last step the useful action is taking the command away, not
+       going round again — a wizard whose final button resets it is one you
+       press by reflex and lose your work to. */
+    $("w-next").textContent = STEP === 4 ? "Copy the command" : "Continue";
+    $("w-restart").hidden = STEP !== 4;
+    createView();
+    window.scrollTo(0, 0);
+  }
+
+  function createView() {
+    if (!$("budget")) return;
+    var p = parts();
+
+    $("o-budget").textContent = p.b == null ? "—" : kasOf(p.b) + " KAS";
+    $("o-cap").textContent = p.c == null ? "—" : kasOf(p.c) + " KAS";
+    $("o-epoch").textContent = p.e == null ? "—" : kasOf(p.e) + " KAS";
+    $("o-days").textContent = isFinite(p.days) && p.days > 0
+      ? Math.round(p.days * 24 * 60 * 60 * 10).toLocaleString("en-US") + " blocks, at ten a second — then the balance is the principal's to reclaim"
+      : "after that the balance is the principal's to reclaim";
+    $("o-payees").textContent = p.payees.length
+      ? p.payees.length + " address" + (p.payees.length === 1 ? "" : "es") + ", and this list can never be added to"
+      : "none yet — a grant with no payee can pay nobody";
+    $("o-revoke").textContent = p.revoke
+      ? "the stop is a separate key: whoever holds it can end the grant and cannot take a sompi of it"
+      : "Left blank, the stop is the funding key itself. One key to keep and one thing to lose — fine for a first grant, wrong for anything left running.";
+
+    $("e-budget").textContent = p.b == null ? "—" : kasOf(p.b) + " KAS";
+    $("e-cap").textContent = p.c == null ? "—" : kasOf(p.c) + " KAS";
+    $("e-epoch").textContent = p.e == null ? "—" : kasOf(p.e) + " KAS";
+    $("e-days").textContent = isFinite(p.days) && p.days > 0 ? p.days + " days" : "—";
+    $("e-payees").textContent = p.payees.length
+      ? p.payees.length + " address" + (p.payees.length === 1 ? "" : "es")
+      : "— none yet";
+
+    $("drift").textContent = p.b == null
+      ? "Enter a rate above zero. Until then there is no KAS figure, which is not the same as zero KAS."
+      : "These are KAS figures from here on. If KAS moves, the grant does not — " + kasOf(p.b) +
+        " KAS stays " + kasOf(p.b) + " KAS, and what it is worth is somebody else's number.";
+
+    var need = p.b == null ? null : p.b + 1000000;
+    $("need").textContent = need == null ? "—"
+      : "You need " + kasOf(need) + " KAS at that address, as ONE coin — " + kasOf(p.b) +
+        " for the grant and 0.01 for the genesis fee.";
+
+    $("cmd").textContent = (p.b == null || p.c == null) ? "—"
+      : "WARDA_SK=$(cat wallet.key) warda grant \\\n" +
+        "  --payees payees.txt \\\n" +
+        "  --budget " + kasOf(p.b) + " \\\n" +
+        "  --max-per-spend " + kasOf(p.c) + " \\\n" +
+        (p.e == null ? "" : "  --epoch-limit " + kasOf(p.e) + " \\\n") +
+        (isFinite(p.days) && p.days > 0 ? "  --days " + p.days + " \\\n" : "") +
+        (p.revoke ? "  --revocation " + p.revoke + " \\\n" : "") +
+        "  --out grant.json";
+
+    if ($("w-review")) {
+      $("w-review").innerHTML = [
+        evRow("info", "A budget of " + kasOf(p.b) + " KAS", "spent at most " + kasOf(p.c) + " KAS at a time" + (p.e == null ? "" : ", " + kasOf(p.e) + " KAS an hour"), ""),
+        evRow("info", p.payees.length + " payee" + (p.payees.length === 1 ? "" : "s"), p.payees.map(esc).map(short).join(", ") || "none", ""),
+        evRow(p.revoke ? "ok" : "warn", p.revoke ? "A separate revocation key" : "No separate revocation key",
+          p.revoke ? short(p.revoke) : "the funding key is also the stop", ""),
+        evRow("info", (isFinite(p.days) ? p.days : "—") + " days", "then whatever is left returns to the principal", "")
+      ].join("");
+    }
+
+    var why = blocker(STEP, p);
+    $("w-next").disabled = STEP < 4 && !!why;
+    $("w-hint").textContent = STEP === 4 ? "Run it on your machine. This page cannot." : why;
+  }
+
   function watchFunder() {
-    var a = ($("funder").value || "").trim();
-    var out = $("watch-out");
-    if (!a) { out.textContent = "Enter the address the KAS will land at."; return; }
-    var b = toSompi($("budget").value, $("rate").value);
-    if (b == null) { out.textContent = "Set a rate above zero first — there is no figure to look for."; return; }
-    var need = b + 1000000;
+    var p = parts(), out = $("watch-out");
+    if (!p.funder) { out.textContent = "Enter the address the KAS will land at."; return; }
+    if (p.b == null) { out.textContent = "Set a rate above zero first — there is no figure to look for."; return; }
+    var need = p.b + 1000000;
     out.textContent = "Looking…";
-    fetch(VERIFY + "/v1/grant/" + encodeURIComponent(a))
+    fetch(VERIFY + "/v1/grant/" + encodeURIComponent(p.funder))
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) {
         var g = j && j.result;
@@ -989,7 +1598,8 @@ ops/install-cron.sh                        <span style="color:var(--chrome-faint
           out.textContent = "Ready: " + kasOf(largest) + " KAS in one coin, and " + kasOf(need) + " is needed.";
         } else if (total >= need) {
           out.textContent = "Enough in total (" + kasOf(total) + " KAS across " + g.coins +
-            " coins) but not in one coin — the largest is " + kasOf(largest) + " KAS. Genesis takes a single input: warda wallet consolidate";
+            " coins) but not in one coin — the largest is " + kasOf(largest) +
+            " KAS. Genesis takes a single input: warda wallet consolidate";
         } else {
           out.textContent = "Short: " + kasOf(total) + " KAS there, " + kasOf(need) + " needed.";
         }
@@ -1003,10 +1613,6 @@ ops/install-cron.sh                        <span style="color:var(--chrome-faint
     "budget-low": "Fires when what the grant can still pay drops to your figure. That is the smaller of two numbers: the authority left in the covenant, and the coin actually there. Either one alone reports an agent as healthy when it cannot pay for anything.",
     "expiring": "Fires when the term is nearly up. A grant past it refuses every spend whatever its budget says, so this is the one that ends an agent with money still in it."
   };
-
-  /* The name follows the kind until somebody types their own. A default that
-     says "earnings-worth-converting" over a rule about a grant's budget is a
-     rule that gets installed under the wrong name and then never found. */
   var ID_DEFAULT = {
     "balance-at-or-above": "earnings-worth-converting",
     "budget-low": "agent-running-low",
@@ -1023,10 +1629,9 @@ ops/install-cron.sh                        <span style="color:var(--chrome-faint
 
   function alertsView() {
     if (!$("a-kind")) return;
-    var kind = $("a-kind").value;
+    var kind = $("a-kind").value, rate = $("a-rate").value;
     if (!idIsMine) $("a-id").value = ID_DEFAULT[kind] || "unnamed";
     if (!noteIsMine) $("a-note").value = NOTE_DEFAULT[kind] || "";
-    var rate = $("a-rate").value;
     $("a-kind-say").textContent = KIND_SAY[kind] || "—";
     Array.prototype.forEach.call(document.querySelectorAll("#v-alerts [data-kind]"), function (el) {
       el.style.display = el.getAttribute("data-kind").split(" ").indexOf(kind) >= 0 ? "" : "none";
@@ -1045,8 +1650,7 @@ ops/install-cron.sh                        <span style="color:var(--chrome-faint
       rule.atOrAbove = n == null ? null : String(n);
       if (n != null) {
         rule.quote = {
-          amount: String(parseFloat($("a-usd").value)),
-          asset: "USD",
+          amount: String(parseFloat($("a-usd").value)), asset: "USD",
           perKas: String(parseFloat(rate)),
           source: "you, " + new Date().toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })
         };
@@ -1066,54 +1670,90 @@ ops/install-cron.sh                        <span style="color:var(--chrome-faint
         if (f) rule.funder = f;
         what = "the smaller of the authority left and the coin held";
         against = bl == null ? "the grant's own per-payment cap" : kasOf(bl) + " KAS";
-        drift = "Leave the threshold empty and it defaults to the grant's own per-payment cap — " +
-          "below that it can no longer make a payment of the size it was authorised for, whatever " +
-          "the counters say.";
+        drift = "Leave the threshold empty and it defaults to the grant's own per-payment cap — below that it " +
+          "can no longer make a payment of the size it was authorised for, whatever the counters say.";
       } else {
         var d = parseFloat($("a-days").value);
-        /* Kaspa is ten blocks a second. A term is measured in blocks because
-           that is what the covenant compares; days are for you. */
         var blocks = isFinite(d) && d > 0 ? Math.round(d * 24 * 60 * 60 * 10) : null;
         $("a-o-days").textContent = blocks == null ? "—" : "= " + blocks.toLocaleString("en-US") + " blocks, at ten a second";
         if (blocks != null) rule.within = blocks;
         what = "blocks left in the term";
         against = blocks == null ? "—" : blocks.toLocaleString("en-US") + " blocks";
-        drift = "Blocks, not dates. The covenant compares a DAA score, so that is what the rule " +
-          "compares too — a date would be a second thing to be wrong.";
+        drift = "Blocks, not dates. The covenant compares a DAA score, so that is what the rule compares too — " +
+          "a date would be a second thing to be wrong.";
       }
     }
-
     $("a-e-what").textContent = what;
     $("a-e-against").textContent = against;
     $("a-drift").textContent = drift;
     $("a-json").textContent = JSON.stringify(rule, null, 2);
   }
 
-  Array.prototype.forEach.call(
-    document.querySelectorAll("#v-create input, #v-create textarea"),
-    function (el) { el.addEventListener("input", createView); }
-  );
-  Array.prototype.forEach.call(
-    document.querySelectorAll("#v-alerts input, #v-alerts select"),
-    function (el) { el.addEventListener("input", alertsView); el.addEventListener("change", alertsView); }
-  );
+  /* ---- wiring ------------------------------------------------------------ */
+  Array.prototype.forEach.call(document.querySelectorAll("#v-create input, #v-create textarea"),
+    function (el) { el.addEventListener("input", createView); });
+  Array.prototype.forEach.call(document.querySelectorAll("#v-alerts input, #v-alerts select"),
+    function (el) { el.addEventListener("input", alertsView); el.addEventListener("change", alertsView); });
+  Array.prototype.forEach.call(document.querySelectorAll("#w-rail .st"),
+    function (el) { el.addEventListener("click", function () { goStep(Number(el.getAttribute("data-go"))); }); });
+  $("w-back").addEventListener("click", function () { goStep(STEP - 1); });
+  $("w-next").addEventListener("click", function () {
+    if (STEP !== 4) { goStep(STEP + 1); return; }
+    var text = $("cmd").textContent;
+    var done = function (ok) {
+      $("w-hint").textContent = ok
+        ? "Copied. Run it on your machine — this page cannot."
+        : "Could not reach the clipboard. Select the command above and copy it.";
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(false); });
+    } else { done(false); }
+  });
+  $("w-restart").addEventListener("click", function () { SEEN = 1; goStep(1); });
   if ($("watch")) $("watch").addEventListener("click", watchFunder);
-  createView();
-  alertsView();
 
-  /* ---- navigation -------------------------------------------------------- */
-  var TITLES = { dash: "Dashboard", grants: "Grants", refusals: "Refusals", activity: "Activity", alerts: "Alerts", create: "Create a grant" };
-  Array.prototype.forEach.call(document.querySelectorAll(".side a[data-view]"), function (a) {
-    a.addEventListener("click", function () {
-      var v = a.getAttribute("data-view");
-      Array.prototype.forEach.call(document.querySelectorAll(".side a[data-view]"), function (o) { o.removeAttribute("aria-current"); });
-      a.setAttribute("aria-current", "page");
-      Array.prototype.forEach.call(document.querySelectorAll(".view"), function (o) { o.classList.remove("on"); });
-      $("v-" + v).classList.add("on");
-      $("title").textContent = TITLES[v] || "Console";
-      window.scrollTo(0, 0);
+  $("q").addEventListener("input", function () { Q = this.value.trim().toLowerCase(); if (A.length) render(); });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "/" && document.activeElement !== $("q") &&
+        ["INPUT", "TEXTAREA", "SELECT"].indexOf((document.activeElement || {}).tagName) < 0) {
+      e.preventDefault(); $("q").focus();
+    }
+  });
+  Array.prototype.forEach.call($("range").querySelectorAll("button"), function (b) {
+    b.addEventListener("click", function () {
+      RANGE = Number(b.getAttribute("data-d"));
+      Array.prototype.forEach.call($("range").querySelectorAll("button"), function (o) {
+        o.setAttribute("aria-pressed", String(o === b));
+      });
+      if (A.length) render();
     });
   });
+
+  var TITLES = { dash: "Overview", grants: "Grants", activity: "Activity", refusals: "Refused",
+                 alerts: "Alerts", create: "Create a grant" };
+  function show(v) {
+    if (!$("v-" + v)) return;
+    Array.prototype.forEach.call(document.querySelectorAll(".side a[data-view]"), function (o) {
+      if (o.getAttribute("data-view") === v) o.setAttribute("aria-current", "page");
+      else o.removeAttribute("aria-current");
+    });
+    Array.prototype.forEach.call(document.querySelectorAll(".view"), function (o) { o.classList.remove("on"); });
+    $("v-" + v).classList.add("on");
+    document.title = TITLES[v] ? TITLES[v] + " · Warda Console" : "Warda Console";
+    window.scrollTo(0, 0);
+  }
+  /* Anything with data-view switches, wherever it is — the sidebar, a card's
+     "All grants →", the Create button under the table. One handler, because
+     two would drift. */
+  document.addEventListener("click", function (e) {
+    var el = e.target.closest ? e.target.closest("[data-view]") : null;
+    if (!el || el.classList.contains("st")) return;
+    e.preventDefault();
+    show(el.getAttribute("data-view"));
+  });
+
+  goStep(1);
+  alertsView();
 })();
 </script>
 

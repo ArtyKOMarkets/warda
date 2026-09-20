@@ -1,0 +1,25 @@
+{
+  "_comment": "Written by agent-002/tools/buy.ts. One file per attempt, refusals included: a purchase log that only records successes is a sales brochure.",
+  "at": "2026-09-20T06:41:00.660Z",
+  "agent": "WARDA-003",
+  "url": "https://warda-demo-api.vercel.app/digest",
+  "proof": {
+    "header": "eyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJ0ZXN0bmV0LTEwIiwicGF5ZXIiOiJrYXNwYXRlc3Q6cHpobXl4ZmNjYzV0OWQ4ODl3M3k5eGZtZmhqbmR1dGV0ZTd1cnc3azJ2d3Fqd3FyM2toNnFucmNqbjd6ZCIsInR4aWQiOiI0MDk5NjQ0ZGUyOTNhMzU5ZWM5MzRjZTY4YmFhYzgzYWIzMGUzYTgzMjQxMGE5MmE2OWFhYmUzMzViZjEzYmI1IiwiYW1vdW50U29tcGkiOiI0MDAwMDAwIiwibm9uY2UiOiIxNzg5ODg2NTgxNzY5LmIwMDcyYjM1Y2RkYzI2NGE3ZjhlN2MxNzhkNzg3YmRlIn0=",
+    "txid": "4099644de293a359ec934ce68baac83ab30e3a832410a92a69aabe335bf13bb5",
+    "amountSompi": "4000000",
+    "payTo": "kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e"
+  },
+  "outcome": "paid-but-refused",
+  "status": 504,
+  "quoted": {
+    "payTo": "kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e",
+    "amountSompi": "4000000"
+  },
+  "txid": "4099644de293a359ec934ce68baac83ab30e3a832410a92a69aabe335bf13bb5",
+  "sellerClaimed": null,
+  "resumedFrom": null,
+  "response": {
+    "notJson": "An error occurred with your deployment\n\nFUNCTION_INVOCATION_TIMEOUT\n\nfra1::gjj7d-1789886463691-2132f06b813e\n",
+    "contentType": "text/plain; charset=utf-8"
+  }
+}
