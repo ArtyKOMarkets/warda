@@ -1,6 +1,6 @@
 {
   "_comment": "Written by agents/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, the purchase log or the chain — none is typed. Each payee's LABEL is re-derived on every run from the artefact agents/known-payees.json names, and a label that stops matching is dropped rather than published: an address with no name is honest, an address with the wrong name is not.",
-  "checkedAt": "2026-09-17T06:24:05.041Z",
+  "checkedAt": "2026-09-18T06:23:49.098Z",
   "network": "testnet-10",
   "identity": {
     "agentId": "WARDA-005",
@@ -42,10 +42,10 @@
   },
   "timelock": {
     "notBefore": "571109377",
-    "virtualDaaScore": "572686512",
+    "virtualDaaScore": "573583996",
     "open": true,
     "lockedFor": "0 seconds",
-    "openedAgo": "44 hours",
+    "openedAgo": "3 days",
     "enforcedBy": "the covenant, on every spend: claimedDaa >= notBefore. Not a scheduler, not this process, and not revocable by whoever issued the grant."
   },
   "authority": {
@@ -112,6 +112,17 @@
       "payTo": "kaspatest:qzlws9lm7uyt0tftzffshnyeu2zcqk4kf7hw5ghk6v0zh093vnkljcy2fl0fh",
       "refusal": null,
       "sellerClaimed": null
+    },
+    {
+      "at": "2026-09-18T06:23:03.849Z",
+      "outcome": "paid-then-failed",
+      "url": "https://demo.kaspa-x402.org/exact",
+      "reason": null,
+      "txid": "285057ed7d6b63e581c3cc17fdc3858fbbf3d2d424267e699d7b505ce6992624",
+      "paid": "0.2 KAS",
+      "payTo": "kaspatest:qzlws9lm7uyt0tftzffshnyeu2zcqk4kf7hw5ghk6v0zh093vnkljcy2fl0fh",
+      "refusal": "the payment was broadcast as 285057ed7d6b63e581c3cc17fdc3858fbbf3d2d424267e699d7b505ce6992624 but the network had not accepted it before the wait ran out, and this vendor's quote requires accepted finality. The spend is on the network: reconcile the grant against the chain rather than re-paying.",
+      "sellerClaimed": null
     }
   ],
   "reconciliation": {
@@ -122,13 +133,13 @@
     "couldAccountForIt": [
       {
         "amount": "0.2 KAS",
-        "txid": "647f648451c864073ba0d9c1ed4de56461ee392f7d5bbbb9bd9c1273a4876474",
-        "daaScore": "571121162"
+        "txid": "7e59e4a13cf0638abebfe5532e1723522975522ba1c93b678c3bcbf14b58c160",
+        "daaScore": "571109533"
       },
       {
         "amount": "0.2 KAS",
-        "txid": "7e59e4a13cf0638abebfe5532e1723522975522ba1c93b678c3bcbf14b58c160",
-        "daaScore": "571109533"
+        "txid": "647f648451c864073ba0d9c1ed4de56461ee392f7d5bbbb9bd9c1273a4876474",
+        "daaScore": "571121162"
       }
     ],
     "note": "The covenant's own accounting says this grant spent 0.8077952 KAS and its purchase log names 0.4 KAS of that. 0.4077952 KAS left this grant without a surviving record of why. spentTotal is part of the state the grant's address is derived from, so it cannot be quietly wrong — the log can, and was. That is the failure this page reports rather than the one it hides."
@@ -137,7 +148,7 @@
     {
       "rule": "start time (not_before)",
       "attempted": "spend before the grant opens",
-      "refusal": "this grant could not spend anything until DAA 571109377. The covenant checks the claimed DAA score against that number on every spend, so the delay was not a policy in the agent's process and could not be brought forward by whoever issued it. It opened 44 hours ago.",
+      "refusal": "this grant could not spend anything until DAA 571109377. The covenant checks the claimed DAA score against that number on every spend, so the delay was not a policy in the agent's process and could not be brought forward by whoever issued it. It opened 3 days ago.",
       "derived": true
     },
     {

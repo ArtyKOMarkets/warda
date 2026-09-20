@@ -15,7 +15,7 @@ diffable; this fills them in. Edit src/, never the output.
 import base64, json, pathlib, re, sys
 
 here = pathlib.Path(__file__).parent
-PAGES = ["index.html", "protocol.html", "build.html", "verify.html", "proof.html", "agents.html", "start.html",
+PAGES = ["index.html", "protocol.html", "app.html", "build.html", "verify.html", "proof.html", "agents.html", "start.html",
          "network.html", "sandbox.html", "rail.html", "agent-001.html"]
 
 # The attack page publishes a live grant's key and terms, so it can only be
