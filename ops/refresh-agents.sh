@@ -43,6 +43,32 @@ set -o pipefail
 
 cd "$(dirname "$0")/.."
 
+# The node's address, the same way every scheduled job here gets it.
+#
+# This script did not read it. None of the commands it runs passes `--rpc`, so
+# it worked only when `WARDA_RPC_JSON` happened to be exported in whatever
+# shell you typed it in — which is the failure `hourly-reading.sh` has a
+# paragraph about, arriving from the other direction: it works when you have
+# just been doing something else, and fails on a fresh terminal with six
+# identical errors about no node.
+if [ -f "ops/node.env" ]; then
+  # shellcheck disable=SC1091
+  . "ops/node.env"
+fi
+
+# Said once, before anything runs, rather than six times after. Every command
+# below reads the UTXO set; without a node none of them can produce a reading,
+# and a run that fails six times looks like six problems.
+if [ -z "${WARDA_RPC_JSON:-}" ] && [ -z "${WARDA_RESOLVER:-}" ]; then
+  echo "no node: WARDA_RPC_JSON is not set and there is no ops/node.env." >&2
+  echo >&2
+  echo "  cp ops/node.env.example ops/node.env     then point it at your kaspad" >&2
+  echo >&2
+  echo "Every reading below is derived from the UTXO set, which cannot be faked" >&2
+  echo "from a local file. Nothing was refreshed." >&2
+  exit 1
+fi
+
 # A padded string rather than an array: bash 3.2 under `set -u` errors on
 # "${empty[@]}", and this has to be runnable with no arguments at all.
 WANT=" $* "
