@@ -1,6 +1,6 @@
 {
   "_comment": "Written by agents/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, the purchase log or the chain — none is typed. Each payee's LABEL is re-derived on every run from the artefact agents/known-payees.json names, and a label that stops matching is dropped rather than published: an address with no name is honest, an address with the wrong name is not.",
-  "checkedAt": "2026-09-20T16:49:59.780Z",
+  "checkedAt": "2026-09-20T16:59:37.247Z",
   "network": "testnet-10",
   "identity": {
     "agentId": "WARDA-002",
@@ -44,13 +44,13 @@
   },
   "timelock": {
     "notBefore": "564258425",
-    "virtualDaaScore": "575906153",
+    "virtualDaaScore": "575912008",
     "open": true,
     "lockedFor": "5 minutes",
     "openedAgo": "13 days",
     "expiresAt": "590178425",
     "expired": false,
-    "expiresInDaa": "14272272",
+    "expiresInDaa": "14266417",
     "expiresIn": "17 days",
     "expiredAgo": null,
     "enforcedBy": "the covenant, on every spend: claimedDaa >= notBefore. Not a scheduler, not this process, and not revocable by whoever issued the grant.",
@@ -155,23 +155,8 @@
     "couldAccountForIt": [
       {
         "amount": "0.04 KAS",
-        "txid": "38d268add351009f410f02fbf3fd47dd1c12837bd6f305e4d2e1e596523ee1c9",
-        "daaScore": "570960248"
-      },
-      {
-        "amount": "0.04 KAS",
-        "txid": "7817e056c9917f0930e204b42d60696411e2afc7c435878b766f9a0fb23bedd6",
-        "daaScore": "566637311"
-      },
-      {
-        "amount": "0.04 KAS",
-        "txid": "a55ab10a6a3c58dbf705bf4c1121de765318f187a6bbbf510fb92bb0b8c9b415",
-        "daaScore": "570093453"
-      },
-      {
-        "amount": "0.04 KAS",
-        "txid": "4791db53737c8544a847a3c54ac8376e24bbd35dd13abf291efdc0fff821c389",
-        "daaScore": "564259713"
+        "txid": "4099644de293a359ec934ce68baac83ab30e3a832410a92a69aabe335bf13bb5",
+        "daaScore": "575540971"
       },
       {
         "amount": "0.04 KAS",
@@ -180,38 +165,13 @@
       },
       {
         "amount": "0.04 KAS",
-        "txid": "f93ca337a9e8496f9a1e7425fd48471885ac478e2c68c806cfa191e93ae44c83",
-        "daaScore": "565773421"
-      },
-      {
-        "amount": "0.04 KAS",
-        "txid": "d67f83053e027ff46ab06aa77edceff4428fed4df6bfbfc2218a1e1651ef90d6",
-        "daaScore": "572697478"
-      },
-      {
-        "amount": "0.04 KAS",
-        "txid": "4099644de293a359ec934ce68baac83ab30e3a832410a92a69aabe335bf13bb5",
-        "daaScore": "575540971"
-      },
-      {
-        "amount": "0.04 KAS",
-        "txid": "f241cd7b62bc23b9170afb98cd8efb50c6fa43fb7a591d1f90a8cf4a384f4fcd",
-        "daaScore": "564406272"
-      },
-      {
-        "amount": "0.04 KAS",
         "txid": "84a5e45803ae1985c91bd837fdf2ac27c53ba2f9e1005dd264493051f7af19bd",
         "daaScore": "564422587"
       },
       {
         "amount": "0.04 KAS",
-        "txid": "68a23f955e60c36c3a14b5a142dedfc217d4fc7e6f3df69a8dbfab94b8781a94",
-        "daaScore": "574557206"
-      },
-      {
-        "amount": "0.04 KAS",
-        "txid": "b619f26015fb1c863028841b28d29b6f00c394bf86abd7f3e35a40e9688b564e",
-        "daaScore": "564996318"
+        "txid": "f93ca337a9e8496f9a1e7425fd48471885ac478e2c68c806cfa191e93ae44c83",
+        "daaScore": "565773421"
       },
       {
         "amount": "0.04 KAS",
@@ -220,13 +180,53 @@
       },
       {
         "amount": "0.04 KAS",
+        "txid": "68a23f955e60c36c3a14b5a142dedfc217d4fc7e6f3df69a8dbfab94b8781a94",
+        "daaScore": "574557206"
+      },
+      {
+        "amount": "0.04 KAS",
+        "txid": "f241cd7b62bc23b9170afb98cd8efb50c6fa43fb7a591d1f90a8cf4a384f4fcd",
+        "daaScore": "564406272"
+      },
+      {
+        "amount": "0.04 KAS",
+        "txid": "d67f83053e027ff46ab06aa77edceff4428fed4df6bfbfc2218a1e1651ef90d6",
+        "daaScore": "572697478"
+      },
+      {
+        "amount": "0.04 KAS",
         "txid": "ea87fc1f1c158417a5b74ccdd7511b74815a6592a9707ed15359e741a98b6585",
         "daaScore": "567502343"
       },
       {
         "amount": "0.04 KAS",
+        "txid": "4791db53737c8544a847a3c54ac8376e24bbd35dd13abf291efdc0fff821c389",
+        "daaScore": "564259713"
+      },
+      {
+        "amount": "0.04 KAS",
+        "txid": "a55ab10a6a3c58dbf705bf4c1121de765318f187a6bbbf510fb92bb0b8c9b415",
+        "daaScore": "570093453"
+      },
+      {
+        "amount": "0.04 KAS",
+        "txid": "7817e056c9917f0930e204b42d60696411e2afc7c435878b766f9a0fb23bedd6",
+        "daaScore": "566637311"
+      },
+      {
+        "amount": "0.04 KAS",
         "txid": "1bde555c4f676f0638f1762035bccf222a9f7bfb2f064117fdad6c0dc3736ce4",
         "daaScore": "573599524"
+      },
+      {
+        "amount": "0.04 KAS",
+        "txid": "38d268add351009f410f02fbf3fd47dd1c12837bd6f305e4d2e1e596523ee1c9",
+        "daaScore": "570960248"
+      },
+      {
+        "amount": "0.04 KAS",
+        "txid": "b619f26015fb1c863028841b28d29b6f00c394bf86abd7f3e35a40e9688b564e",
+        "daaScore": "564996318"
       }
     ],
     "note": "The covenant's own accounting says this grant spent 0.08 KAS and its purchase log names 0.04 KAS of that. 0.04 KAS left this grant without a surviving record of why. spentTotal is part of the state the grant's address is derived from, so it cannot be quietly wrong — the log can, and was. That is the failure this page reports rather than the one it hides."

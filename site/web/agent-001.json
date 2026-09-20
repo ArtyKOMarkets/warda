@@ -1,6 +1,6 @@
 {
   "_comment": "Written by agent/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, or the chain — none is typed. The refusal sentences are produced by running the same explainRefusal the payer calls, except the one marked derived:false, which is consensus's answer quoted from a node's actual rejection.",
-  "checkedAt": "2026-09-20T16:49:59.634Z",
+  "checkedAt": "2026-09-20T16:59:37.105Z",
   "network": "testnet-10",
   "elsewhere": {
     "vendor": "kaspatest:qr50gmc7t3jp33gg68aj63s9av54yc7w9kyjpwqdjhva9tt8j0a7wz2h6cnll",
@@ -22,13 +22,13 @@
   },
   "timelock": {
     "notBefore": "560669431",
-    "virtualDaaScore": "575906152",
+    "virtualDaaScore": "575912007",
     "open": true,
     "lockedFor": "0 seconds",
     "openedAgo": "18 days",
     "expiresAt": "586589431",
     "expired": false,
-    "expiresInDaa": "10683279",
+    "expiresInDaa": "10677424",
     "expiresIn": "12 days",
     "expiredAgo": null,
     "enforcedBy": "the covenant, on every spend: claimedDaa >= notBefore. Not a scheduler, not this process, and not revocable by whoever issued the grant.",

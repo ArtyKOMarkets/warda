@@ -479,6 +479,17 @@
               <div class="feed" id="f-recon"></div>
             </div>
           </div>
+
+          <div class="card">
+            <header>
+              <h2>Where they buy <small>the registry</small></h2>
+              <a class="more" href="/network">Open the registry &rarr;</a>
+            </header>
+            <p class="why">Every endpoint these agents have paid, and how much has gone to each &mdash;
+              counted from the same readings, by the URL the purchase recorded. A listing is a claim
+              somebody made; the payments are what happened.</p>
+            <div class="bars" id="c-endpoints"></div>
+          </div>
         </div>
 
         <div class="rail">
@@ -1071,6 +1082,21 @@ ops/install-cron.sh</pre>
   function live(a) {
     var r = a.d.retired;
     if (r) return r.how === "settled" ? "settled" : "revoked";
+    /* A grant past its term is not live, whatever its budget says.
+       This asked only whether the grant had been ENDED by somebody — revoked
+       or settled — and a term running out is neither. The covenant checks
+       `claimedDaa < expiresAt` on every spend, so such a grant refuses
+       everything while this page called it live and its remaining budget was
+       being added to "still authorised" on the dashboard. That total is the
+       one figure on the Overview that answers "how much can these agents
+       still spend", and the answer was too high by however much was sitting
+       in expired grants.
+
+       Only when the reading actually carries the term. A reading written
+       before `expiresAt` existed says nothing about it, and absence is not
+       evidence that the term is still running. */
+    var t = a.d.timelock || {};
+    if (t.expiresAt != null && t.expired) return "expired";
     return "live";
   }
   function isLive(a) { return live(a) === "live"; }
@@ -1146,7 +1172,7 @@ ops/install-cron.sh</pre>
     var daa = A.map(function (a) { return (a.d.timelock || {}).virtualDaaScore; }).filter(Boolean).sort().pop();
     $("sb-daa").textContent = daa ? "Virtual DAA " + Number(daa).toLocaleString("en-US") + " · read " + ago(newest) : "no chain reading";
 
-    tiles(); spendChart(); agentDonut(); payees();
+    tiles(); spendChart(); agentDonut(); payees(); endpoints();
     grantRows(); allRows(); acts(); notices(); recent(); sources(); deleg(); recon(); refusals();
   }
 
@@ -1327,6 +1353,38 @@ ops/install-cron.sh</pre>
     }).join("");
   }
 
+  /* Where the money actually goes, by endpoint rather than by payee address.
+     /network keys its totals the same way and for the same reason: one payee
+     key often serves several endpoints at different prices, so the address
+     answers "who was paid" and the URL answers "what for". */
+  function endpoints() {
+    var by = {};
+    P_().forEach(function (x) {
+      if (x.p.outcome !== "bought" && x.p.outcome !== "served") return;
+      var u = x.p.url; if (!u) return;
+      by[u] = by[u] || { v: 0, n: 0 };
+      by[u].v += num(x.p.paid);
+      by[u].n += 1;
+    });
+    var rows = Object.keys(by).map(function (k) { return { url: k, v: by[k].v, n: by[k].n }; })
+      .sort(function (a, b) { return b.v - a.v; });
+    if (!rows.length) {
+      $("c-endpoints").innerHTML = '<p class="empty">No settled payment in this range.</p>';
+      return;
+    }
+    var max = rows[0].v;
+    $("c-endpoints").innerHTML = rows.map(function (r, i) {
+      var c = MARKS[i % MARKS.length];
+      return '<div class="brow"><span class="av" style="background:' + c + '22;color:' + c + '">' +
+        esc(path(r.url).replace(/^\//, "").slice(0, 2).toUpperCase() || "??") + '</span>' +
+        '<span class="lab" title="' + esc(r.url) + '">' + esc(host(r.url)) +
+        '<span style="color:var(--chrome-faint)">' + esc(path(r.url)) + '</span></span>' +
+        '<span class="amt">' + kas2(r.v) + ' KAS <span style="color:var(--chrome-faint)">' +
+        r.n + '&times;</span></span>' +
+        '<span class="tr"><i style="width:' + Math.max(2, r.v / max * 100) + '%;background:' + c + '"></i></span></div>';
+    }).join("");
+  }
+
   /* ---- tables ------------------------------------------------------------ */
   function av(a) {
     var c = hue(a.id);
@@ -1334,7 +1392,12 @@ ops/install-cron.sh</pre>
   }
   function stateP(a) {
     var s = live(a);
-    return '<span class="pill ' + (s === "live" ? "live" : "done") + '">' + s + '</span>';
+    /* Three appearances, not two: live, ENDED by somebody (revoked, settled),
+       and simply out of time. The third is the one an operator can still act
+       on — the balance is the principal's to reclaim — so it is amber rather
+       than grey. */
+    var cls = s === "live" ? "live" : s === "expired" ? "warn" : "done";
+    return '<span class="pill ' + cls + '">' + s + '</span>';
   }
 
   function grantRows() {
@@ -1620,9 +1683,10 @@ ops/install-cron.sh</pre>
     SHOWN = id;
     var u = auth(a), t = term(a), c = hue(a.id);
 
-    $("ag-name").innerHTML = 'Agent #' + a.id + ' <span class="pill ' +
-      (isLive(a) ? "live" : "done") + '" style="vertical-align:middle;margin-left:0.5rem">' +
-      live(a) + '</span>';
+    /* The same three-way pill the tables use, rather than a second opinion
+       about the same agent computed a different way. */
+    $("ag-name").innerHTML = 'Agent #' + a.id + ' ' +
+      stateP(a).replace('class="pill', 'style="vertical-align:middle;margin-left:0.5rem" class="pill');
     $("ag-mission").textContent = a.d.mission || "";
 
     /* The two links that let somebody check this page rather than believe it. */
