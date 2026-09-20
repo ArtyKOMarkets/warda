@@ -421,6 +421,17 @@ try {
   const ours = inRange.filter((u) => loggedTxids.has(toHex(u.outpoint.transactionId)));
   const unattributed = inRange.filter((u) => !loggedTxids.has(toHex(u.outpoint.transactionId)));
 
+  /* Read here rather than sixty lines below, where it used to be.
+     The empty-address message quotes the node's DAA score — it is the whole
+     point of that paragraph, because an address holding nothing can mean the
+     node you asked is simply BEHIND — and it referenced `daa` before the
+     `const` that declares it. Reaching that branch threw
+     `ReferenceError: Cannot access 'daa' before initialization` instead of
+     printing the explanation, so the one message written for the most
+     confusing failure in this tool was the one message that could not be
+     printed. Nothing typechecks this workspace, which is why it sat there. */
+  const daa = dag.virtualDaaScore;
+
   /* The manifest's claim about the coin, checked against the coin. Fatal: a
      page arguing that its numbers can be checked must not publish one that
      disagrees with the chain. */
@@ -473,7 +484,6 @@ try {
     }
   }
 
-  const daa = dag.virtualDaaScore;
   const open = daa >= state.notBefore;
 
   refusals.unshift({
@@ -672,6 +682,24 @@ try {
           open,
           lockedFor: daaDuration(state.notBefore - BigInt(m.created_at_daa ?? m.not_before)),
           openedAgo: open ? daaDuration(daa - state.notBefore) : null,
+          /* The other end of the term, which this reading did not carry.
+             `not_before` was published and `expires_at` was not — so nothing
+             downstream could say when a grant stops, and the console had no
+             Expires column because there was nothing to put in it. Both ends
+             are compiled into the same script and the covenant checks both on
+             every spend; publishing one of them was an omission, not a design.
+
+             `expiresIn` is null once the term is over rather than a negative
+             duration, so "expired" and "expires in 3 days" cannot be confused
+             by anything reading this. */
+          expiresAt: state.expiresAt.toString(),
+          expired: daa >= state.expiresAt,
+          expiresInDaa: daa >= state.expiresAt ? null : (state.expiresAt - daa).toString(),
+          expiresIn: daa >= state.expiresAt ? null : daaDuration(state.expiresAt - daa),
+          expiredAgo: daa >= state.expiresAt ? daaDuration(daa - state.expiresAt) : null,
+          termEnforcedBy:
+            "the covenant, on every spend: claimedDaa < expiresAt. After it, the grant refuses " +
+            "everything whatever its budget says, and the balance is the principal's to reclaim.",
           enforcedBy:
             "the covenant, on every spend: claimedDaa >= notBefore. Not a scheduler, not this " +
             "process, and not revocable by whoever issued the grant.",

@@ -139,6 +139,15 @@ if (!agentId || !manifestPath || !recipientsPath || !outDir) {
  * secret — which is the only way anybody runs this for real. WARDA_SK stays
  * the default because a tutorial should not need an HSM.
  */
+/* The guard forty lines below already refuses an empty key — but the compiler
+   cannot see through it, and `?? ""` would satisfy the compiler by signing with
+   nothing if that guard ever moved. This refuses instead, which is what the
+   guard means. */
+const requireSecret = (v: string | undefined): string => {
+  if (!v || !v.trim()) throw new Error("no agent key: WARDA_SK is empty. Refusing to sign with nothing.");
+  return v.trim();
+};
+
 const signerCmd = flag("signer");
 const secretHex = signerCmd ? "" : process.env.WARDA_SK;
 if (!signerCmd && !secretHex) {
@@ -280,7 +289,7 @@ try {
     recipients: members,
     sign: signerCmd
       ? externalSigner({ command: signerCmd, publicKey: m.agent })
-      : fromHex(secretHex.trim()),
+      : fromHex(requireSecret(secretHex)),
     chain: node,
   });
 

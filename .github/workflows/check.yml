@@ -176,3 +176,11 @@ jobs:
         run: |
           npx tsc --noEmit -p ops/tsconfig.json
           node --experimental-strip-types --test ops/test/*.test.ts
+
+      # `agents/` was unchecked too, and it held a live bug: dashboard.ts read
+      # the node's DAA score sixty lines BELOW the empty-address message that
+      # quotes it, so reaching that branch threw a ReferenceError instead of
+      # printing the explanation. The one message written for the most
+      # confusing failure in the tool was the one that could not be printed.
+      - name: agents — the tools that write the published readings
+        run: npx tsc --noEmit -p agents/tsconfig.json

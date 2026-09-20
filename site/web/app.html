@@ -440,7 +440,7 @@
               </header>
               <div style="overflow-x:auto">
               <table id="t-grants"><thead><tr>
-                <th>Agent</th><th>Spent of budget</th><th class="n">Per payment</th><th class="n">Payees</th><th class="n">State</th>
+                <th>Agent</th><th>Spent of budget</th><th class="n">Per payment</th><th class="n">Payees</th><th class="n">Expires</th><th class="n">State</th>
               </tr></thead><tbody></tbody></table>
               </div>
               <p style="margin:1rem 0 0"><button class="go" data-view="create">
@@ -486,6 +486,16 @@
           </div>
 
           <div class="card">
+            <header><h2>Export</h2></header>
+            <p class="why">Every payment in view, as it is on this page &mdash; the same range and the same
+              filter. Nothing is re-derived on the way out, so a row here and a row on screen are the same row.</p>
+            <p style="margin-top:0.8rem"><button class="go gh" id="csv">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v8M5 7.2l3 3 3-3M2.8 13.2h10.4"/></svg>
+              Download CSV</button></p>
+            <p class="out" id="csv-say" style="font-size:0.72rem;color:var(--chrome-faint);margin-top:0.5rem"></p>
+          </div>
+
+          <div class="card">
             <header><h2>The readings themselves</h2></header>
             <p class="why">Nothing on this page is typed in. Each figure comes from one of these, which anybody can fetch and check.</p>
             <div class="feed" id="f-src"></div>
@@ -506,7 +516,7 @@
         <table id="t-all"><thead><tr>
           <th>Agent</th><th class="n">Budget</th><th class="n">Spent</th><th class="n">Left</th>
           <th class="n">On chain</th><th class="n">Per payment</th><th class="n">Per epoch</th>
-          <th class="n">Payees</th><th class="n">Depth</th><th class="n">State</th>
+          <th class="n">Payees</th><th class="n">Depth</th><th class="n">Expires</th><th class="n">State</th>
         </tr></thead><tbody></tbody></table>
         </div>
         <p class="note"><b>Two numbers can end an agent, and the smaller one is the answer.</b>
@@ -953,6 +963,33 @@ ops/install-cron.sh</pre>
   function isLive(a) { return live(a) === "live"; }
   function label(a) { return String(a.d.mission || "").split(".")[0]; }
 
+  /**
+   * The term, as this reading actually carries it.
+   *
+   * `timelock.expiresAt` was added to `agents/tools/dashboard.ts` after these
+   * readings were written, so a reading made before that has no term in it at
+   * all. That is not "no expiry" and it is not "expires soon" — it is a
+   * question this file cannot answer, and it renders as one. The alternative
+   * is a countdown computed from something else, which is how a console starts
+   * lying quietly.
+   */
+  function term(a) {
+    var t = a.d.timelock || {};
+    if (t.expiresAt == null) return { known: false };
+    if (t.expired) return { known: true, expired: true, ago: t.expiredAgo || "" };
+    return { known: true, expired: false, in: t.expiresIn || "", daa: t.expiresInDaa };
+  }
+  function termText(a) {
+    var t = term(a);
+    if (!t.known) return '<span style="color:var(--chrome-faint)" title="This reading predates the field. Run ops/refresh-agents.sh against your node.">not in this reading</span>';
+    if (t.expired) return '<span class="pill warn">expired ' + esc(t.ago) + ' ago</span>';
+    /* The same threshold the notice uses — two days, 1,728,000 blocks at ten a
+       second. A row that raised a notice and does not look urgent in the table
+       is two answers to one question. */
+    var soon = t.daa != null && Number(t.daa) < 1728000;
+    return '<span' + (soon ? ' style="color:var(--amber)"' : '') + '>' + esc(t.in) + '</span>';
+  }
+
   function inRange(iso) {
     if (!RANGE) return true;
     var t = new Date(iso).getTime();
@@ -1194,6 +1231,7 @@ ops/install-cron.sh</pre>
         '<span class="meter' + (pct > 85 ? ' full' : '') + '"><i style="width:' + pct + '%"></i></span></td>' +
         '<td class="n">' + kas(num(u.maxPerPayment)) + '</td>' +
         '<td class="n">' + (u.authorizedPayees || 0) + '</td>' +
+        '<td class="n">' + termText(a) + '</td>' +
         '<td class="n">' + stateP(a) + '</td></tr>';
     }).join("");
   }
@@ -1216,6 +1254,7 @@ ops/install-cron.sh</pre>
         '<td class="n">' + kas(num(u.maxPerPayment)) + '</td><td class="n">' + kas(num(u.epochLimit)) + '</td>' +
         '<td class="n">' + (u.authorizedPayees || 0) + '</td>' +
         '<td class="n">' + (u.delegationDepth == null ? "—" : u.delegationDepth) + '</td>' +
+        '<td class="n">' + termText(a) + '</td>' +
         '<td class="n">' + stateP(a) + '</td></tr>';
     }).join("");
   }
@@ -1266,6 +1305,17 @@ ops/install-cron.sh</pre>
       } else if (coin < left) {
         out.push(evRow("info", id + " holds less than it may spend",
           kas(coin) + " KAS on chain, " + kas(left) + " authorised", kas2(coin)));
+      }
+      /* The term ends an agent with money still in it, which is the failure
+         that surprises people. Only raised when the reading actually carries a
+         term — a missing field is a question, not a reassurance. */
+      var t = term(a);
+      if (t.known && t.expired) {
+        out.push(evRow("warn", id + "'s term is over",
+          "expired " + t.ago + " ago — it refuses every spend whatever its budget says", "reclaim"));
+      } else if (t.known && t.daa != null && Number(t.daa) < 1728000) {
+        out.push(evRow("warn", id + "'s term ends in " + t.in,
+          "after that the balance is the principal's to reclaim", "topup"));
       }
     });
     /* Staleness is one fact about the page, not one fact per agent. Six rows
@@ -1689,6 +1739,37 @@ ops/install-cron.sh</pre>
     $("a-json").textContent = JSON.stringify(rule, null, 2);
   }
 
+  /* ---- export ------------------------------------------------------------
+     Built from the same P_() the tables are built from, so the file and the
+     screen cannot disagree. A second derivation would be a second place to be
+     wrong, which is this repository's oldest recurring bug. */
+  function csvCell(v) {
+    var s = String(v == null ? "" : v);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  function downloadCsv() {
+    var rows = P_();
+    var say = $("csv-say");
+    if (!rows.length) { say.textContent = "Nothing in view to export."; return; }
+    var head = ["at", "agent", "outcome", "paid_kas", "host", "path", "pay_to", "txid", "url"];
+    var body = rows.map(function (x) {
+      return [x.p.at, "#" + x.agent, x.p.outcome, num(x.p.paid), host(x.p.url), path(x.p.url),
+              x.p.payTo, x.p.txid, x.p.url].map(csvCell).join(",");
+    });
+    var text = head.join(",") + "\n" + body.join("\n") + "\n";
+    try {
+      var url = URL.createObjectURL(new Blob([text], { type: "text/csv;charset=utf-8" }));
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = "warda-payments-" + new Date().toISOString().slice(0, 10) + ".csv";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+      say.textContent = rows.length + " payment" + (rows.length === 1 ? "" : "s") + " written.";
+    } catch (e) {
+      say.textContent = "This browser would not take the download. The same data is in the readings below.";
+    }
+  }
+
   /* ---- wiring ------------------------------------------------------------ */
   Array.prototype.forEach.call(document.querySelectorAll("#v-create input, #v-create textarea"),
     function (el) { el.addEventListener("input", createView); });
@@ -1711,6 +1792,7 @@ ops/install-cron.sh</pre>
   });
   $("w-restart").addEventListener("click", function () { SEEN = 1; goStep(1); });
   if ($("watch")) $("watch").addEventListener("click", watchFunder);
+  if ($("csv")) $("csv").addEventListener("click", downloadCsv);
 
   $("q").addEventListener("input", function () { Q = this.value.trim().toLowerCase(); if (A.length) render(); });
   document.addEventListener("keydown", function (e) {
