@@ -1418,10 +1418,6 @@ ops/install-cron.sh</pre>
                 and the one with no custodian is preferred whenever it is open.</p>
               <div class="fa-routes" id="fa-routes" role="radiogroup" aria-label="Route"></div>
               <div class="fa-route" id="fa-route"></div>
-              <label class="fa-ack" id="fa-ack-l" hidden>
-                <input type="checkbox" id="fa-ack">
-                <span id="fa-ack-t">I understand the swap service holds the money until it sends the KAS.</span>
-              </label>
               <div class="grid" style="margin-top:1rem" id="fa-igra-only">
                 <div class="field">
                   <label for="fu-slip">Slippage you will accept &mdash; %</label>
@@ -1445,6 +1441,10 @@ ops/install-cron.sh</pre>
             <div class="card">
               <header><h2>Review <small id="fu-state">&mdash;</small></h2></header>
               <div id="fa-state"></div>
+              <label class="fa-ack" id="fa-ack-l" hidden>
+                <input type="checkbox" id="fa-ack">
+                <span id="fa-ack-t">I understand the swap service holds the money until it sends the KAS.</span>
+              </label>
               <div class="fa-go" style="margin-top:0.9rem">
                 <button class="go" id="fa-go">Fund agent</button>
                 <button class="go gh" id="fa-hold" hidden>Already hold KAS? Use these terms &rarr;</button>
@@ -3809,7 +3809,7 @@ ops/install-cron.sh</pre>
       why.push("≈ " + Math.floor(kasN).toLocaleString("en-US") + " KAS is below the exit bridge's " + exit.minKas.toLocaleString("en-US") +
         " KAS minimum — this route starts at about $" + Math.ceil(exit.minKas * rate).toLocaleString("en-US") + ". The instant swap has no such floor.");
     }
-    if (custodial && !$("fa-ack").checked) why.push("Tick the box on the route step: this route has a custodian.");
+    if (custodial && !$("fa-ack").checked) why.push("Tick the box below: this route has a custodian.");
     if (isCn) {
       var ab = cnMainnet($("fu-addr").value);
       if (ab) why.push(ab);
