@@ -64,3 +64,21 @@ test("the cut is the limit, because each candidate costs a payment", async () =>
   assert.equal(r.candidates.length, 5);
   assert.equal(r.candidates[0]!.fullName, "r/19");
 });
+
+test("reading lists and paper collections are not prospects", async () => {
+  const r = await scout(answers({ x402: { status: 200, items: [repo("n/AgentSafety-Papers", 50), repo("m/awesome-x402", 90), repo("p/paybot", 9)] }, "agent wallet": { status: 200 } }),
+    { since: "2026-08-01", limit: 10 }, Q);
+  assert.deepEqual(r.candidates.map((c) => c.fullName), ["p/paybot"]);
+});
+
+test("a rate-limited search is retried once", async () => {
+  let calls = 0;
+  const f: Fetcher = async (url) => {
+    if (url !== searchUrl(Q[0]!, "2026-08-01")) return { status: 200, body: JSON.stringify({ items: [] }) };
+    calls += 1;
+    return calls === 1 ? { status: 403, body: "" } : { status: 200, body: JSON.stringify({ items: [repo("r/ok", 10)] }) };
+  };
+  const r = await scout(f, { since: "2026-08-01", limit: 10, retryAfterMs: 1 }, Q);
+  assert.equal(calls, 2);
+  assert.equal(r.candidates.length, 1);
+});

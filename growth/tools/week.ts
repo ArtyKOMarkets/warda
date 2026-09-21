@@ -301,7 +301,13 @@ async function main() {
 async function findCandidates() {
   const seen = seenFrom(everyPurchase());
   const since = new Date(Date.now() - 60 * 86_400_000).toISOString().slice(0, 10);
-  return scout(githubFetcher(process.env.GITHUB_TOKEN), { since, seen, limit: RECORDS });
+  const token = process.env.GITHUB_TOKEN;
+  return scout(githubFetcher(token), {
+    since, seen, limit: RECORDS,
+    /* 10 searches a minute without a token, 30 with one. */
+    pauseMs: token ? 2_500 : 7_000,
+    retryAfterMs: 61_000,
+  });
 }
 
 async function notify(text: string) {

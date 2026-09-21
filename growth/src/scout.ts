@@ -63,7 +63,20 @@ export interface ScoutOptions {
   limit: number;
   /** Per query. GitHub allows 100; a week needs far fewer. */
   perQuery?: number;
+  /**
+   * Between searches. GitHub allows 10 search requests a minute without a
+   * token, and six queries back to back got three 403s on the first real run.
+   * The runner passes ~7 s without GITHUB_TOKEN and nothing with one.
+   */
+  pauseMs?: number;
+  /** A 403/429 is retried once after this long. */
+  retryAfterMs?: number;
 }
+
+/* Reading lists, paper collections and "awesome" indexes match every search
+   and are nobody's product. A record about one is money spent on a table of
+   contents. */
+const NOT_A_PROJECT = /(^|[-_/])(awesome|papers?|list|reading|resources|curated|survey)([-_]|$)/i;
 
 export interface ScoutResult {
   candidates: Candidate[];
@@ -89,9 +102,15 @@ export async function scout(fetcher: Fetcher, options: ScoutOptions, queries: Qu
   const byName = new Map<string, Candidate>();
   const searched: ScoutResult["searched"] = [];
 
-  for (const query of queries) {
+  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  for (const [i, query] of queries.entries()) {
+    if (i > 0 && options.pauseMs) await wait(options.pauseMs);
     const url = searchUrl(query, options.since, options.perQuery);
-    const res = await fetcher(url).catch(() => ({ status: 0, body: "" }));
+    let res = await fetcher(url).catch(() => ({ status: 0, body: "" }));
+    if ((res.status === 403 || res.status === 429) && options.retryAfterMs) {
+      await wait(options.retryAfterMs);
+      res = await fetcher(url).catch(() => ({ status: 0, body: "" }));
+    }
     let items: {
       full_name?: string; html_url?: string; description?: string | null;
       stargazers_count?: number; pushed_at?: string; archived?: boolean; fork?: boolean;
@@ -107,6 +126,7 @@ export async function scout(fetcher: Fetcher, options: ScoutOptions, queries: Qu
 
     for (const it of items) {
       if (!it.full_name || !it.html_url || it.archived || it.fork) continue;
+      if (NOT_A_PROJECT.test(it.full_name.split("/")[1] ?? "")) continue;
       if ((it.stargazers_count ?? 0) < minStars) continue;
       const key = it.full_name.toLowerCase();
       if (seen.has(key)) continue;
