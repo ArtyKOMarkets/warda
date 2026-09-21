@@ -154,10 +154,10 @@
     /* The growth fleet: a team of agents working a weekly batch. Shown only
        once a week has finished and its readings exist — a card whose JSON is
        missing is dropped, like every card here. */
-    { id: "009", href: "/agent-009", json: "/agent-009.json",
+    { id: "009", href: "/agent-009", json: "/agent-009.json", weekly: true,
       name: "The growth orchestrator",
       does: "Runs the growth fleet's week: a batch grant that may pay Researcher and nobody else, a piece of it delegated to Scout, the unspent part taken back, and the grant revoked when the week is done." },
-    { id: "010", href: "/agent-010", json: "/agent-010.json",
+    { id: "010", href: "/agent-010", json: "/agent-010.json", weekly: true,
       name: "Scout",
       does: "Finds projects building agents that pay for things and buys one checkable record about each from Researcher — facts with sources, never a score. Hired by #009, not by a person." }
   ];
@@ -183,7 +183,11 @@
     el.className = "card";
     el.href = a.href;
 
-    var retired = !!d.retired;
+    /* The growth fleet gets a new grant every week, so its grant having ended
+       is the week finishing, not the agent retiring. Same facts, said as what
+       they are: the numbers are this week's, and nothing is dimmed or red. */
+    var weekly = !!a.weekly;
+    var retired = !!d.retired && !weekly;
     if (retired) el.className = "card done";
 
     var no = document.createElement("p");
@@ -194,7 +198,7 @@
        when the chain was last read for that agent, and whether its grant still
        exists — so that is what it says, and a retired agent does not get to
        look like a running one. */
-    lbl.textContent = "Agent #" + a.id + " · " + (retired ? "retired" : (d.network || "testnet"));
+    lbl.textContent = "Agent #" + a.id + " · " + (retired ? "retired" : weekly ? "weekly · " + (d.retired ? "this week done" : "running now") : (d.network || "testnet"));
     no.appendChild(lbl);
     el.appendChild(no);
 
@@ -209,7 +213,12 @@
 
     var dl = document.createElement("dl");
     var auth = d.authority || {};
-    var rows = [
+    var rows = weekly ? [
+      ["Budget this week", auth.budget || "—"],
+      ["Spent this week", auth.spent || "—"],
+      ["May pay", (auth.authorizedPayees != null ? auth.authorizedPayees : "—") + (auth.authorizedPayees === 1 ? " address" : " addresses")],
+      ["Runs", "every Monday"]
+    ] : [
       ["Budget", auth.budget || "—"],
       [retired ? "It spent" : "Spent", auth.spent || "—"],
       [retired ? "Could pay" : "May pay",
@@ -236,7 +245,7 @@
 
     var more = document.createElement("p");
     more.className = "more";
-    more.textContent = retired ? "What it did →" : "Details →";
+    more.textContent = retired ? "What it did →" : weekly ? "This week →" : "Details →";
     el.appendChild(more);
     return el;
   }

@@ -131,7 +131,9 @@ function drawGraph(loaded) {
     var d = loaded[id];
     if (!d) return;
     any = true;
-    box(id, "Agent #" + id, POS[id] ? POS[id].role : "", !!d.retired);
+    /* #009 and #010 get a new grant each week: an ended one is a finished
+       week, not a retired agent, so they are not drawn dimmed. */
+    box(id, "Agent #" + id, POS[id] ? POS[id].role : "", !!d.retired && id !== "009" && id !== "010");
   });
   if (!any) return;
 
