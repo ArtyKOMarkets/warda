@@ -1,6 +1,6 @@
 {
   "name": "@warda_protocol/verify",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "An HTTP endpoint that answers a counterparty's question about a Warda grant: are these terms real, where did the grant go, and what would the covenant refuse right now. Reads a node, decides nothing.",
   "type": "module",
   "license": "MIT",
@@ -36,9 +36,9 @@
     "prepublishOnly": "node ../ops/check-releasable.mjs --for verify && npm run typecheck && npm test && npm run build"
   },
   "dependencies": {
-    "@warda_protocol/core": "^0.3.1",
+    "@warda_protocol/core": "^0.3.2",
     "@warda_protocol/kaspa": "^0.6.0",
-    "@warda_protocol/x402": "^0.6.0"
+    "@warda_protocol/x402": "^0.6.1"
   },
   "devDependencies": {
     "@types/node": "^26.4.0"
