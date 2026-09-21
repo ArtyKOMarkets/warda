@@ -53,6 +53,11 @@ test("no grant makes its agent the principal", () => {
  * The count is every grant this repository has ever published, including ones
  * that are revoked, settled or spent — a manifest is a historical record and
  * they are not removed.
+ *
+ * 16 since growth/batches/2026-W39/grant.json: the growth fleet's first week,
+ * issued before tools/week.ts passed --revocation. Genesis warned, the week
+ * ran, and the runner was fixed the same hour — every later week names
+ * growth/keys/growth.key as its revocation key, so this should not move again.
  */
 test("the principal/revocation collapse has not spread further", () => {
   const collapsed = report.findings.filter((f: string) =>
@@ -60,8 +65,8 @@ test("the principal/revocation collapse has not spread further", () => {
   );
   assert.equal(
     collapsed.length,
-    15,
-    `${collapsed.length} grants share a principal and revocation key, and this test knew about 15.\n` +
+    16,
+    `${collapsed.length} grants share a principal and revocation key, and this test knew about 16.\n` +
       "If you added a grant, it inherited the collapse — genesis defaults --revocation to the\n" +
       "principal. Pass a separate key, or raise this number in a commit that explains why.",
   );
