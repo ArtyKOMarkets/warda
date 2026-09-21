@@ -29,7 +29,12 @@ import vm from "node:vm";
 
 const BASE = "https://api.changenow.io/v2";
 const KEY = process.env.CHANGENOW_API_KEY || "";
-const FEE = process.env.CHANGENOW_PARTNER_FEE_PCT || "0";
+/* Shown to the person on every quote, so it is echoed ONLY when it is a
+   percentage. Anything else — a key pasted into the wrong variable, which
+   happened on the first deploy — is withheld, and the page refuses to create
+   a swap until the fee is stated. An environment value is never echoed raw. */
+const FEE_RAW = (process.env.CHANGENOW_PARTNER_FEE_PCT || "").trim();
+const FEE = /^\d{1,2}(\.\d{1,3})?$/.test(FEE_RAW) ? FEE_RAW : null;
 
 /* Both inputs are INLINED by site/build.py when it writes site/web/api/.
    Reading them from disk at runtime depended on the host's bundler noticing
@@ -401,6 +406,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "POST" && op === "create") {
+      if (FEE == null) return fail(res, 503, "fee_not_stated", "This site has not stated what it earns on a swap (CHANGENOW_PARTNER_FEE_PCT is not a percentage), so it will not create one. Nothing was sent anywhere.");
       const b = await body(req);
       const p = pair(b.chain, b.token);
       if (!p) return fail(res, 400, "pair", "That chain and token are not a route this console offers.");

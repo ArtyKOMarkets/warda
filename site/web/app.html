@@ -4241,6 +4241,7 @@ var WardaRouter = (() => {
       if (!CN_Q) why.push("Waiting for ChangeNOW's quote.");
       else if (!CN_Q.ok) why.push(CN_Q.message || "No quote from ChangeNOW.");
       else if (CN_Q.min != null && Number($("fa-usd").value) < Number(CN_Q.min)) why.push("Below ChangeNOW's minimum, " + CN_Q.min + " " + $("fa-tok").value + ".");
+      else if (CN_Q.partnerFeePct == null) why.push("This site has not stated what it earns on a swap, so it will not create one.");
     } else if (!kaspaKey) why.push("No Kaspa key is connected to create the grant with.");
     if (stale) why.push("The route status has not been checked in over two weeks.");
 
@@ -4314,7 +4315,9 @@ var WardaRouter = (() => {
           '<p class="why" style="margin:0">' + (below ? "Below ChangeNOW's minimum for this pair, " + esc(j.min) + " " + esc(tok) + ". "
             : esc(j.says) + " ") + (j.speed ? "Usually " + esc(j.speed) + " minutes. " : "") +
           "Minimum " + esc(j.min) + " " + esc(tok) + (j.max ? ", maximum " + esc(j.max) : "") + ".</p>" +
-          '<p class="why" style="margin:0">ChangeNOW&rsquo;s fee is inside that rate. Warda&rsquo;s share: <b>' + esc(j.partnerFeePct) + '%</b>.</p>' +
+          '<p class="why" style="margin:0">ChangeNOW&rsquo;s fee is inside that rate. Warda&rsquo;s share: ' + (j.partnerFeePct == null
+            ? '<b style="color:var(--amber)">not stated</b> — this site will not create a swap until it says what it earns.'
+            : '<b>' + esc(j.partnerFeePct) + '%</b>.') + '</p>' +
           (j.warning ? '<p class="why" style="margin:0;color:var(--amber)">' + esc(j.warning) + '</p>' : "");
         faView();
       })
