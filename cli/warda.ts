@@ -794,6 +794,16 @@ switch (verb) {
     if (!grant || !payees) {
       die("no grant remembered here. Run `warda grant --payees <file>` first, or pass --grant and --payees.");
     }
+    /* A missing file used to surface as buy.ts's stack trace from inside the
+       npx cache — the first thing a builder with a fresh grant from /grant
+       saw when they ran the command one folder too high. */
+    for (const [what, path, hint] of [
+      ["grant", grant!, "the grant.json your grant page (or `warda grant`) gave you"],
+      ["payees", payees!, "the payees.txt that goes with it"],
+      ...(flag("key") ? [["key", flag("key")!, "the agent key `warda key --out` wrote"]] : []),
+    ] as [string, string, string][]) {
+      if (!existsSync(path)) die(`no ${what} file at ${path} — ${hint}. Run this from the folder that holds it, or pass the full path.`, 2);
+    }
     process.exit(
       run(
         "agents/tools/buy.ts",
