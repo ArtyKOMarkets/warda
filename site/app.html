@@ -4236,7 +4236,8 @@ var WardaRouter = (() => {
     } else if (!kaspaKey) why.push("No Kaspa key is connected to create the grant with.");
     if (stale) why.push("The route status has not been checked in over two weeks.");
 
-    $("fa-go").disabled = why.length > 0;
+    if (isCn && CN_ERR && !CN) why.unshift("ChangeNOW did not create the swap: " + CN_ERR);
+    $("fa-go").disabled = why.length > 0 && !(isCn && CN_ERR && why.length === 1);
     $("fa-go").textContent = isCn ? "Create the swap" : "Fund agent";
     $("fa-go").hidden = isCn && !!CN;
     $("fa-state").innerHTML = why.length
@@ -4269,6 +4270,7 @@ var WardaRouter = (() => {
   var CN = null;          // the swap in progress: { id, chain, token, amount, payin, extraId, to, tokenContract, chainId, network }
   var CN_Q = null;        // the last quote
   var CN_T = null;        // the poll timer
+  var CN_ERR = "";        // why the last "Create the swap" did not create one — shown until something changes
   var CN_STEPS = [
     ["waiting", "Waiting for your deposit"],
     ["confirming", "Deposit seen — waiting for confirmations"],
@@ -4325,12 +4327,16 @@ var WardaRouter = (() => {
       body: JSON.stringify({ chain: src.chain, token: tok, amount: ($("fa-usd").value || "").trim(),
         address: ($("fu-addr").value || "").trim(), refundAddress: ($("cn-refund").value || "").trim() })
     }).then(function (r) { return r.json().catch(function () { return null; }); }).then(function (j) {
-      if (!j || !j.ok) { $("fa-state").innerHTML = '<ul class="fa-why"><li>' + esc(j && j.message || "The swap service did not answer; nothing was created.") + '</li></ul>'; faView(); return; }
+      /* The reason is kept and faView() shows it. Writing it into the panel
+         and then calling faView() — which rewrites that panel — made a
+         refusal look like a button that did nothing. */
+      if (!j || !j.ok) { CN_ERR = (j && j.message) || "The swap service did not answer; nothing was created."; faView(); return; }
+      CN_ERR = "";
       CN = { id: j.id, chain: src.chain, chainId: src.chainId, token: tok, network: j.pair.network, amount: String(j.fromAmount),
         payin: j.payinAddress, extraId: j.payinExtraId, to: j.payoutAddress, toAmount: j.toAmount,
         tokenContract: j.tokenContract, created: new Date().toISOString(), cap: $("fa-cap").value, days: $("fa-days").value, usd: $("fa-usd").value };
       cnSave(); cnRender(); cnPoll(); faView();
-    }).catch(function () { $("fa-state").innerHTML = '<ul class="fa-why"><li>The swap service did not answer; nothing was created.</li></ul>'; faView(); });
+    }).catch(function (e) { CN_ERR = "The swap service did not answer (" + (e && e.message || "no response") + "); nothing was created."; faView(); });
   }
 
   function cnRender(st) {
@@ -5080,8 +5086,9 @@ var WardaRouter = (() => {
   });
   /* Straight on to a grant, carrying the two things this page already knows:
      where the KAS lands, and the rate it was bought at. */
-  ["fa-usd", "fa-cap", "fa-days", "fa-chain", "fa-tok"].forEach(function (id) {
-    $(id).addEventListener("input", faView); $(id).addEventListener("change", faView);
+  ["fa-usd", "fa-cap", "fa-days", "fa-chain", "fa-tok", "fu-addr", "cn-refund"].forEach(function (id) {
+    var f = function () { CN_ERR = ""; faView(); };
+    $(id).addEventListener("input", f); $(id).addEventListener("change", f);
   });
   $("fu-slip").addEventListener("input", faView);
   $("fa-hold").addEventListener("click", faHold);
