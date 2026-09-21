@@ -10,7 +10,7 @@
   "dependencies": {
     "@kluster/kaspa-wasm": "^2.0.1",
     "@warda_protocol/borsh": "^0.4.1",
-    "@warda_protocol/verify": "^0.2.1"
+    "@warda_protocol/verify": "^0.2.3"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
