@@ -2769,7 +2769,7 @@ ops/install-cron.sh</pre>
 
   function walletForget() {
     if (W && WALLETS[W.kind] && WALLETS[W.kind].forget) WALLETS[W.kind].forget();
-    W = null; remember(null); walletChanged();
+    W = null; SCOPE = "mine"; remember(null); walletChanged();
   }
 
   /* The account decides whose grants the other views show, so a change of
@@ -2929,8 +2929,12 @@ ops/install-cron.sh</pre>
      they are. With one, they show the grants whose published reading names
      its key, and nothing else by default: a new wallet opening a dashboard
      full of somebody else's agents is being told those are its own. */
-  var SCOPE_KEY = "warda.console.scope";
-  var SCOPE = (function () { try { return localStorage.getItem(SCOPE_KEY) || "mine"; } catch (e) { return "mine"; } })();
+  /* Looking at Warda's agents is a visit, not a setting. It is not
+     remembered, and it ends the moment you leave the data views: the counts
+     beside "Grants" and "Activity", and the bell, are read as YOURS from
+     anywhere else, and they were showing Warda's six grants on your account
+     page after one click on "Warda's agents". */
+  var SCOPE = "mine";
   function scopeNow() { return W ? SCOPE : "public"; }
 
   function scopeData() {
@@ -2985,7 +2989,7 @@ ops/install-cron.sh</pre>
     return !!v && v.classList.contains("data");
   }
   function scopeSet(s) {
-    SCOPE = s; try { localStorage.setItem(SCOPE_KEY, s); } catch (e) {}
+    SCOPE = s;
     scopeData(); if (ALL.length) render(); scopeRender();
   }
 
@@ -3561,6 +3565,9 @@ ops/install-cron.sh</pre>
     });
     Array.prototype.forEach.call(document.querySelectorAll(".view"), function (o) { o.classList.remove("on"); });
     $("v-" + v).classList.add("on");
+    if (W && SCOPE === "public" && !$("v-" + v).classList.contains("data")) {
+      SCOPE = "mine"; scopeData(); if (ALL.length) render();
+    }
     scopeRender();
     document.title = TITLES[v] ? TITLES[v] + " · Warda Console" : "Warda Console";
     window.scrollTo(0, 0);
