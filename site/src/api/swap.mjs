@@ -31,12 +31,23 @@ const BASE = "https://api.changenow.io/v2";
 const KEY = process.env.CHANGENOW_API_KEY || "";
 const FEE = process.env.CHANGENOW_PARTNER_FEE_PCT || "0";
 
-const ROUTES = JSON.parse(fs.readFileSync(new URL("./_routes.json", import.meta.url), "utf8"));
-const ROUTER = (() => {
+/* Both inputs are INLINED by site/build.py when it writes site/web/api/.
+   Reading them from disk at runtime depended on the host's bundler noticing
+   the read and shipping the files; on Vercel it did not, and every call
+   answered 500 before this line had a chance to say why. The disk read stays
+   as the fallback for running the source file directly. */
+const ROUTES_INLINE = /*@ROUTES*/ null;
+const ROUTER_INLINE = /*@ROUTER*/ null;
+/* Loaded once, and a failure is kept rather than thrown: a module that throws
+   while loading is a host error page, and the page reads that as "no answer"
+   with nothing to say why. This way every call explains itself. */
+let ROUTES = null, ROUTER = null, INIT_ERR = null;
+try {
+  ROUTES = ROUTES_INLINE || JSON.parse(fs.readFileSync(new URL("./_routes.json", import.meta.url), "utf8"));
   const ctx = {};
-  vm.runInNewContext(fs.readFileSync(new URL("./_router.js", import.meta.url), "utf8") + ";this.R=WardaRouter;", ctx);
-  return ctx.R;
-})();
+  vm.runInNewContext((ROUTER_INLINE || fs.readFileSync(new URL("./_router.js", import.meta.url), "utf8")) + ";this.R=WardaRouter;", ctx);
+  ROUTER = ctx.R;
+} catch (e) { INIT_ERR = e; }
 
 function pair(chain, token) {
   const src = ROUTES.networks.mainnet.sources.find((s) => s.chain === chain);
@@ -107,6 +118,7 @@ const STATUS_SAY = {
 export default async function handler(req, res) {
   const url = new URL(req.url, "http://localhost");
   const op = url.searchParams.get("op");
+  if (INIT_ERR) return fail(res, 500, "init", "The swap function could not load its route table: " + INIT_ERR.message);
   if (!KEY) return fail(res, 503, "not_configured", "The swap service is not configured on this site yet (no ChangeNOW API key). Nothing was sent anywhere.");
 
   try {

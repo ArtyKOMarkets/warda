@@ -873,7 +873,11 @@ for outdir, subs in flavours.items():
     if outdir == "web":
         api = d / "api"
         api.mkdir(exist_ok=True)
-        (api / "swap.mjs").write_bytes((here / "src" / "api" / "swap.mjs").read_bytes())
+        fn = (here / "src" / "api" / "swap.mjs").read_text()
+        fn = fn.replace("/*@ROUTES*/ null", (here / "src" / "routes.json").read_text().strip(), 1)
+        fn = fn.replace("/*@ROUTER*/ null", json.dumps((here / "src" / "router-browser.js").read_text()), 1)
+        assert "/*@ROUTES*/" not in fn and "/*@ROUTER*/" not in fn, "api/swap.mjs: an inline marker was not replaced"
+        (api / "swap.mjs").write_text(fn)
         (api / "_routes.json").write_bytes((here / "src" / "routes.json").read_bytes())
         (api / "_router.js").write_bytes((here / "src" / "router-browser.js").read_bytes())
         print(f"{outdir}/api: swap.mjs, with _routes.json and _router.js beside it")
