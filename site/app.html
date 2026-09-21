@@ -1201,17 +1201,8 @@
           <div class="wz-step" data-wz="al" data-n="2" data-label="When">
             <div class="card">
               <header><h2>When it fires</h2></header>
-              <div class="bar" style="margin-bottom:1rem">
-                <div>
-                  <label for="a-rate">Your rate &mdash; $ per KAS</label>
-                  <input id="a-rate" inputmode="decimal" value="0.05">
-                </div>
-                <div class="px">
-                  <label>Market, for context only</label>
-                  <span id="a-px">&mdash;</span>
-                  <i id="a-px-src">not fetched yet</i>
-                </div>
-              </div>
+              <p class="out fa-px" style="margin-bottom:1rem"><span id="a-px">&mdash;</span> <i id="a-px-src">reading the market price&hellip;</i></p>
+              <input id="a-rate" type="hidden" value="">
 
               <div data-kind="balance-at-or-above">
                 <div class="field">
@@ -1533,20 +1524,9 @@ ops/install-cron.sh</pre>
               <p class="say">Type dollars. The line under each field is what goes into the script that unlocks
                 the coin, and that is the only figure any node will ever compare.</p>
 
-              <div class="bar" style="margin-bottom:1.1rem">
-                <div>
-                  <label for="rate">Your rate &mdash; $ per KAS</label>
-                  <input id="rate" inputmode="decimal" value="0.05">
-                </div>
-                <div class="px">
-                  <label>Market</label>
-                  <span id="px">&mdash;</span>
-                  <i id="px-src">not fetched yet</i>
-                </div>
-                <div style="min-width:auto">
-                  <button class="go gh" id="use-px" disabled>Use the market rate</button>
-                </div>
-              </div>
+              <p class="out fa-px" style="margin-bottom:1.1rem"><span id="px">&mdash;</span> <i id="px-src">reading the market price&hellip;</i></p>
+              <input id="rate" type="hidden" value="">
+              <button id="use-px" hidden disabled></button>
 
               <div class="grid">
                 <div class="field">
@@ -1571,9 +1551,9 @@ ops/install-cron.sh</pre>
                 </div>
               </div>
 
-              <p class="note"><b>Two rates, and they are not the same number.</b> Yours sizes the grant, because
-                it is the one you actually traded at &mdash; Warda never fetches it. The market figure carries a
-                source and a time, and nothing is ever enforced against it.</p>
+              <p class="note"><b>The price is only used once.</b> It turns the dollars you type into the KAS the
+                grant carries, and it is named with a source and a time. After that the grant is KAS: if the price
+                moves, the limits do not, and nothing is ever enforced against a price.</p>
             </div>
           </div>
 
@@ -3002,10 +2982,14 @@ var WardaRouter = (() => {
         if (!(v > 0)) return miss("no price in the reply. That is not $0.");
         var t = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
         MARKET = { rate: v, at: t, source: "CoinGecko" };
-        if ($("fu-rate")) {
-          $("fu-rate").value = String(v);
-          FU_RATE_FROM = { value: v, label: "CoinGecko, " + t };
-        }
+        /* Every dollar figure on the console is sized at this one price. The
+           limits a grant carries are KAS; the price only turns the dollars a
+           person typed into those KAS, once, and it is named where it is used. */
+        if ($("fu-rate")) { $("fu-rate").value = String(v); FU_RATE_FROM = { value: v, label: "CoinGecko, " + t }; }
+        if ($("rate")) { $("rate").value = String(v); RATE_FROM = { value: v, label: "CoinGecko, " + t }; }
+        if ($("a-rate")) $("a-rate").value = String(v);
+        if ($("budget")) createView();
+        if ($("a-kind")) alertsView();
         if ($("fa-usd")) { faView(); fundView(); }
         ["px", "a-px", "fu-px"].forEach(function (id) { if ($(id)) $(id).textContent = "$" + v + " per KAS"; });
         ["px-src", "a-px-src", "fu-px-src"].forEach(function (id) {
@@ -3045,7 +3029,7 @@ var WardaRouter = (() => {
      always lit is a form with extra clicks. */
   function blocker(step, p) {
     if (step === 1) {
-      if (p.b == null || p.c == null) return "Enter a rate above zero and a budget.";
+      if (p.b == null || p.c == null) return "Waiting for the market price, and a budget above zero.";
       if (p.b <= 0) return "A budget of nothing is not a grant.";
       if (p.c > p.b) return "A single payment cannot be larger than the whole budget.";
       if (!(isFinite(p.days) && p.days > 0)) return "How long should it run?";
@@ -3114,13 +3098,13 @@ var WardaRouter = (() => {
       : "— none yet";
 
     $("drift").textContent = p.b == null
-      ? "Enter a rate above zero. Until then there is no KAS figure, which is not the same as zero KAS."
+      ? "Waiting for the market price. Until then there is no KAS figure, which is not the same as zero KAS."
       /* Credited to the market only while the box still holds the market's
          number. This cleared on the rate field's own input event, which ran
          AFTER the redraw — so typing your own rate left the panel crediting
          CoinGecko for it. Comparing the value cannot depend on listener order. */
       : "Sized at $" + parseFloat(p.rate) + " per KAS — " +
-        (RATE_FROM && parseFloat(p.rate) === RATE_FROM.value ? RATE_FROM.label : "your own figure") +
+        (RATE_FROM && parseFloat(p.rate) === RATE_FROM.value ? "the market price, " + RATE_FROM.label : "the price carried over from Fund an agent") +
         ". These are KAS figures from here on: if KAS moves, the grant does not. " + kasOf(p.b) +
         " KAS stays " + kasOf(p.b) + " KAS, and what it is worth is somebody else's number.";
 
@@ -3157,7 +3141,7 @@ var WardaRouter = (() => {
   function watchFunder() {
     var p = parts(), out = $("watch-out");
     if (!p.funder) { out.textContent = "Enter the address the KAS will land at."; return; }
-    if (p.b == null) { out.textContent = "Set a rate above zero first — there is no figure to look for."; return; }
+    if (p.b == null) { out.textContent = "Waiting for the market price — there is no figure to look for yet."; return; }
     var need = p.b + 1000000;
     out.textContent = "Looking…";
     fetch(VERIFY + "/v1/grant/" + encodeURIComponent(p.funder))
@@ -4914,7 +4898,7 @@ var WardaRouter = (() => {
 
     if (kind === "balance-at-or-above") {
       var n = toSompi($("a-usd").value, rate);
-      $("a-o-usd").textContent = n == null ? "Set a rate above zero." : "at $" + parseFloat(rate) + " per KAS";
+      $("a-o-usd").textContent = n == null ? "Waiting for the market price." : "at the market price, $" + parseFloat(rate) + " per KAS";
       $("a-o-kas").textContent = n == null ? "—" : kasOf(n) + " KAS — " + n + " sompi, which is the figure stored";
       rule.address = ($("a-addr").value || "").trim() || "kaspatest:…";
       rule.atOrAbove = n == null ? null : String(n);
@@ -4922,7 +4906,7 @@ var WardaRouter = (() => {
         rule.quote = {
           amount: String(parseFloat($("a-usd").value)), asset: "USD",
           perKas: String(parseFloat(rate)),
-          source: "you, " + new Date().toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })
+          source: (MARKET ? MARKET.source : "market") + ", " + new Date().toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })
         };
       }
       what = "what the address holds, in sompi";
@@ -4934,7 +4918,7 @@ var WardaRouter = (() => {
       rule.grant = ($("a-grant").value || "").trim() || "grant.json";
       if (kind === "budget-low") {
         var bl = toSompi($("a-below").value, rate);
-        $("a-o-below").textContent = bl == null ? "Set a rate above zero." : "= " + kasOf(bl) + " KAS";
+        $("a-o-below").textContent = bl == null ? "Waiting for the market price." : "= " + kasOf(bl) + " KAS";
         if (bl != null) rule.below = String(bl);
         var f = ($("a-funder").value || "").trim();
         if (f) rule.funder = f;
