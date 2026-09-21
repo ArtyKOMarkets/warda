@@ -121,5 +121,15 @@
       "derived": true
     }
   ],
-  "mission": "Run the growth fleet for 2026-W39: hire Scout with a piece of this budget that may pay Researcher and nobody else, take back what it did not spend, and end."
+  "mission": "Run the growth fleet for 2026-W39: hire Scout with a piece of this budget that may pay Researcher and nobody else, take back what it did not spend, and end.",
+  "weekly": {
+    "label": "2026-W39",
+    "schedule": "every Monday, 10:13",
+    "role": "orchestrator",
+    "delegatedTo": {
+      "id": "010",
+      "payments": 3,
+      "spent": "0.15 KAS"
+    }
+  }
 }

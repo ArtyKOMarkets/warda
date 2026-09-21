@@ -65,7 +65,25 @@ if (which === "orchestrator") {
   if (c.settle) args.push("--settled-into", c.settle);
 }
 
+/* The dashboard's reading, plus one fact it cannot know: this grant is one
+   week of a job that runs every week. The pages use it to say "this week is
+   done" rather than presenting an ended grant as a retired agent. */
 const child = spawn(process.execPath, ["--experimental-strip-types", join(REPO, "agents/tools/dashboard.ts"), ...args], {
-  cwd: REPO, stdio: ["ignore", "inherit", "inherit"],
+  cwd: REPO, stdio: ["ignore", "pipe", "inherit"],
 });
-child.on("close", (code) => process.exit(code ?? 1));
+let out = "";
+child.stdout.on("data", (d) => (out += String(d)));
+child.on("close", (code) => {
+  if (code !== 0) process.exit(code ?? 1);
+  const reading = JSON.parse(out) as Record<string, unknown>;
+  const r = (c as unknown as { report?: { bought?: number; spentSompi?: string } }).report ?? {};
+  reading.weekly = {
+    label: c.label,
+    schedule: "every Monday, 10:13",
+    role: which,
+    ...(which === "orchestrator"
+      ? { delegatedTo: { id: "010", payments: r.bought ?? 0, spent: `${Number(r.spentSompi ?? 0) / 1e8} KAS` } }
+      : { parent: "009" }),
+  };
+  process.stdout.write(JSON.stringify(reading, null, 2) + "\n");
+});

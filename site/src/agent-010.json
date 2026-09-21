@@ -225,5 +225,11 @@
       "derived": true
     }
   ],
-  "mission": "Find projects building agents that pay for things, buy one checkable record about each from Researcher, and come home."
+  "mission": "Find projects building agents that pay for things, buy one checkable record about each from Researcher, and come home.",
+  "weekly": {
+    "label": "2026-W39",
+    "schedule": "every Monday, 10:13",
+    "role": "scout",
+    "parent": "009"
+  }
 }
