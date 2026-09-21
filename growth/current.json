@@ -18,8 +18,8 @@
     "bought": 3,
     "failed": 2,
     "spentSompi": "15000000",
-    "drafts": 3,
-    "skipped": 0,
+    "drafts": 1,
+    "skipped": 2,
     "transactions": [
       {
         "step": "genesis",

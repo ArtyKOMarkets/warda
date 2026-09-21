@@ -43,7 +43,7 @@ export interface Skipped {
   reason: string;
 }
 
-export type Angle = "sells-over-x402" | "agents-that-pay" | "mcp" | "kaspa";
+export type Angle = "payments-infra" | "sells-over-x402" | "agents-that-pay" | "mcp" | "kaspa";
 
 const LINKS = {
   start: "https://wardaprotocol.com/start",
@@ -55,8 +55,21 @@ function signalHas(record: ProjectRecord, label: string, words: string[]): boole
   return record.signals.some((s) => s.startsWith(label) && words.some((w) => s.includes(w)));
 }
 
+const INFRA = /\b(payments?|billing|checkout|settlement)\b.{0,24}\b(protocol|sdk|api|infrastructure|rails?|gateway|facilitator|library|layer)\b|\bx402\b.{0,24}\b(sdk|facilitator|middleware|server|client|library)\b/i;
+/* It mentions payments because it LISTS things that take them. */
+const DIRECTORY = /\b(list|directory|collection|catalog(ue)?|index|registry) of\b|\baggregat|\bevery public api|\bawesome\b|\bcurated\b/i;
+
+function describedAs(record: ProjectRecord): string | null {
+  const f = record.findings.find((x) => x.fact.startsWith("it describes itself as"));
+  return f ? f.fact.replace(/^it describes itself as "?/, "").replace(/"$/, "") : null;
+}
+
 /** The argument that fits, from the words on their own pages. Most specific first. */
 export function angleFor(record: ProjectRecord): Angle | null {
+  /* A project whose OWN description says it is payments infrastructure is a
+     peer, not a customer: the pitch is "you handle how an agent pays, Warda
+     bounds how much it can", never "you need this". */
+  if (INFRA.test(describedAs(record) ?? "")) return "payments-infra";
   const pays = record.signals.some((s) => s.startsWith("mentions paying for things"));
   const agents = record.signals.some((s) => s.startsWith("mentions agents"));
   const kaspa = record.signals.some((s) => s.startsWith("mentions Kaspa"));
@@ -87,6 +100,14 @@ function nameOf(record: ProjectRecord): string {
 }
 
 const PITCH: { [A in Angle]: { subject: (n: string) => string; line: string; link: string } } = {
+  "payments-infra": {
+    subject: (n) => `${n}: how an agent pays, and how much it may`,
+    line:
+      "Warda looks complementary to what you are building: you handle how an agent pays, and Warda bounds " +
+      "how much it can — a grant with a budget, a per-payment cap and a payee allowlist, enforced by the " +
+      "network rather than by the agent's own code, and revocable by a separate key. It works with x402 today.",
+    link: LINKS.start,
+  },
   "sells-over-x402": {
     subject: (n) => `${n}: buyers whose spending limit you can read`,
     line:
@@ -126,6 +147,9 @@ export function draft(record: ProjectRecord): Draft | Skipped {
   if (record.findings.some((f) => f.fact.includes("ARCHIVED"))) {
     return { project: record.project, reason: "archived — nobody is there to read it" };
   }
+  const self = describedAs(record);
+  if (!self) return { project: record.project, reason: "it does not say what it is — a message would have nothing specific to say" };
+  if (DIRECTORY.test(self)) return { project: record.project, reason: "a directory or list: it mentions payments because it lists things that take them" };
   const angle = angleFor(record);
   if (!angle) return { project: record.project, reason: "no signal on its own pages that it pays or charges for anything" };
   const channel = channelFor(record);
@@ -147,6 +171,25 @@ export function draft(record: ProjectRecord): Draft | Skipped {
   if (signal && signalSource) basis.push({ fact: signal.replace(/ \(https?:[^)]+\)$/, ""), source: signalSource });
 
   const pitch = PITCH[angle];
+  const repo = name.split("/").pop() ?? name;
+
+  /* X is a DM, not a letter: one short paragraph, one question, under ~500
+     characters. Email and a website's contact form get the long form. */
+  if (channel.kind === "x") {
+    const SHORT: { [A in Angle]: string } = {
+      "payments-infra": `It looks complementary to ${repo}: you handle how an agent pays, Warda bounds how much it can. Would comparing notes be useful?`,
+      "sells-over-x402": `If agents pay ${repo} over x402, you could read a buyer's limits before serving. Would that be useful?`,
+      mcp: `Agents paying for ${repo}'s tools could do it under those limits. Would that be useful?`,
+      "agents-that-pay": `If ${repo}'s agents pay for things, a grant caps what a tricked or compromised one can spend. Would that be useful?`,
+      kaspa: `It is built on Toccata covenants, and there is a funded key published at wardaprotocol.com/attack to try to break. Would you take a look?`,
+    };
+    const body =
+      "Hi — I'm building Warda: spending limits for AI agents that the network enforces rather than the agent's own code " +
+      "(budget, per-payment cap, payee allowlist, revocable by a separate key). " +
+      `${SHORT[angle]} Testnet and unaudited for now. ${pitch.link.replace(/^https:\/\//, "")} — no worries if not. Arty`;
+    return { project: record.project, channel, subject: pitch.subject(name), body, basis, angle };
+  }
+
   const opener = described
     ? `I came across ${name} — ${described.fact.replace(/^it describes itself as /, "described as ")}` +
       (words ? `, and its pages mention ${words}.` : ".")
