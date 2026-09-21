@@ -317,6 +317,7 @@ async function main() {
           settle: s.done.settle?.txid ?? null, revoke: s.done.revoke?.txid ?? null,
           report: r,
         }, null, 2) + "\n");
+        writeFileSync(join(REPO, "site/src/growth.json"), JSON.stringify(publicSummary(r), null, 2) + "\n");
         mark(s, step);
         await notify(summary(r));
         console.log(summary(r));
@@ -325,6 +326,34 @@ async function main() {
     }
   }
   if (!nextStep(s)) console.error(`\n${LABEL} is finished. growth/batches/${LABEL}/drafts.md is waiting for you.`);
+}
+
+/**
+ * What the site and the Console show about the week. Counts, costs and
+ * transaction ids — never the drafts, and never which projects were looked at:
+ * a public list of "people we are about to message" is not something they
+ * agreed to be on.
+ */
+function publicSummary(r: ReturnType<typeof report>) {
+  return {
+    _comment: "Written by growth/tools/week.ts when a week finishes. Counts and transaction ids only; the records and drafts stay in growth/batches.",
+    label: r.label,
+    finishedAt: new Date().toISOString(),
+    network: r.network,
+    schedule: "every Monday, 10:13",
+    candidates: r.candidates,
+    bought: r.bought,
+    didNotComplete: r.failed,
+    spentKas: kas(r.spentSompi),
+    drafts: r.drafts,
+    noDraft: r.skipped,
+    searches: r.searched.length,
+    transactions: r.transactions,
+    orchestrator: "009",
+    scout: "010",
+    researcher: { url: RESEARCHER, price: `${kas(PLAN.priceSompi)} KAS per record` },
+    sent: 0,
+  };
 }
 
 async function findCandidates() {

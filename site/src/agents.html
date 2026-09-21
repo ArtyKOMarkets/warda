@@ -5,6 +5,18 @@
 
   /* ---- the index -------------------------------------------------------- */
   .cards { display: grid; gap: 1.1rem; margin-top: 2rem; }
+  .team { margin-top: 2.6rem; border: 1px solid var(--edge-bright); background: var(--ground); padding: clamp(1.2rem, 3vw, 1.8rem); }
+  .team .no { font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.17em; text-transform: uppercase; color: var(--teal); margin: 0; }
+  .team h3 { font-size: clamp(1.35rem, 3vw, 1.75rem); margin: 0.6rem 0 0.5rem; }
+  .team p { color: var(--chrome-dim); margin: 0 0 0.9rem; max-width: 62ch; }
+  .team .flow { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 1rem 0; }
+  .team .flow a, .team .flow span.st { border: 1px solid var(--edge); padding: 0.55rem 0.8rem; color: var(--chrome); text-decoration: none; font-size: 0.92rem; }
+  .team .flow a:hover { border-color: var(--teal-deep); color: var(--teal); }
+  .team .flow span.st { border-style: dashed; color: var(--chrome-dim); }
+  .team .flow i { font-style: normal; font-family: var(--mono); font-size: 0.75rem; color: var(--chrome-faint); }
+  .team dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); gap: 0.8rem; margin: 0; }
+  .team dt { font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--chrome-faint); }
+  .team dd { margin: 0.25rem 0 0; font-family: var(--mono); font-size: 1.15rem; color: var(--chrome); font-variant-numeric: tabular-nums; }
   @media (min-width: 52rem) { .cards { grid-template-columns: 1fr 1fr; } }
 
   .card { border: 1px solid var(--edge-bright); background: var(--ground);
@@ -69,6 +81,21 @@
 {{AGENT_GRAPH}}
 
   <div class="cards" id="g-cards"></div>
+
+  <div class="team" id="gf" hidden>
+    <p class="no">A team, not one agent &middot; <span id="gf-when"></span></p>
+    <h3>The growth fleet</h3>
+    <p>Every Monday the orchestrator is issued a grant that may pay one address, hires Scout with a piece of it,
+      buys a checkable record about each project Scout finds, takes back what was not spent, and is revoked.
+      Outreach turns the records into drafts for a person to read &mdash; it holds no money and sends nothing.</p>
+    <div class="flow">
+      <a href="/agent-009">Orchestrator #009</a><i>delegates &rarr;</i>
+      <a href="/agent-010">Scout #010</a><i>pays &rarr;</i>
+      <a id="gf-res" href="https://warda-growth.vercel.app" rel="noopener">Researcher</a><i>records &rarr;</i>
+      <span class="st">Outreach &middot; no grant</span>
+    </div>
+    <dl id="gf-n"></dl>
+  </div>
 
   <p class="note" style="margin-top:2.4rem">
     <strong>They were all built here, and so were the vendors they buy from.</strong> That makes
@@ -136,6 +163,18 @@
   ];
 
   var PLANNED = [];
+
+  /* The growth fleet's latest finished week. Counts only — which projects
+     were researched stays off the public page. */
+  fetch("/growth.json", { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; }).then(function (g) {
+    if (!g) return;
+    var n = function (k, v) { return "<div><dt>" + k + "</dt><dd>" + String(v).replace(/[<&]/g, "") + "</dd></div>"; };
+    document.getElementById("gf-when").textContent = g.label + " · " + (g.schedule || "weekly");
+    document.getElementById("gf-n").innerHTML = n("Projects found", g.candidates) + n("Records bought", g.bought) +
+      n("Cost on chain", g.spentKas + " KAS") + n("Drafts written", g.drafts) + n("Messages sent by agents", g.sent || 0);
+    if (g.researcher && /^https:\/\//.test(g.researcher.url)) document.getElementById("gf-res").href = g.researcher.url;
+    document.getElementById("gf").hidden = false;
+  }).catch(function () {});
 
   var wrap = document.getElementById("g-cards");
 

@@ -346,6 +346,19 @@
   .fa-route { margin-top: 0.9rem; }
 
   /* ---- fleet --------------------------------------------------------------- */
+  .gf-flow { display: flex; flex-wrap: wrap; align-items: stretch; gap: 0.5rem; margin-top: 0.9rem; }
+  .gf-flow .st { flex: 1 1 11rem; min-width: 0; border: 1px solid var(--edge); border-radius: 10px; background: var(--panel);
+                 padding: 0.7rem 0.85rem; display: flex; flex-direction: column; gap: 0.2rem; color: var(--chrome); text-decoration: none; }
+  .gf-flow a.st:hover { border-color: var(--teal-deep); }
+  .gf-flow .st b { font-size: 0.88rem; }
+  .gf-flow .st span { font-size: 0.74rem; color: var(--chrome-faint); }
+  .gf-flow .st.off { border-style: dashed; }
+  .gf-flow .ar { align-self: center; color: var(--chrome-faint); font-family: var(--mono); font-size: 0.8rem; }
+  .gf-n { display: grid; grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); gap: 0.5rem; margin-top: 0.8rem; }
+  .gf-n div { border-top: 1px solid var(--edge); padding-top: 0.5rem; }
+  .gf-n i { display: block; font-style: normal; font-size: 0.72rem; color: var(--chrome-faint); }
+  .gf-n b { font-family: var(--mono); font-size: 1.05rem; color: var(--chrome); font-weight: 500; }
+  @media (max-width: 720px) { .gf-flow .ar { display: none; } }
   .fl-bar { display: flex; height: 16px; border-radius: 8px; overflow: hidden; background: var(--panel); margin-top: 0.9rem; gap: 2px; }
   .fl-bar i { display: block; min-width: 3px; }
   .fl-legend { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; margin-top: 0.7rem; font-size: 0.76rem; color: var(--chrome-dim); }
@@ -1113,6 +1126,17 @@
         <p class="note" style="margin-top:0.9rem"><b>There is no pause.</b> A covenant has no switch to flip, so
           &ldquo;pause spending&rdquo; is revoke: the balance goes home the next block, and a successor grant restarts
           the agent when you want it back.</p>
+      </div>
+
+      <div class="card" id="gf-card" style="margin-top:0.85rem" hidden>
+        <header><h2>Growth fleet <small id="gf-when">&mdash;</small></h2>
+          <span class="more">Warda&rsquo;s own team &middot; <span id="gf-sched">weekly</span></span></header>
+        <p class="why">Three agents on one weekly budget. The orchestrator is issued a grant that may pay Researcher and
+          nobody else, hires Scout with a piece of it, takes back what Scout did not spend, and is revoked when the
+          week is done. A fourth, Outreach, writes drafts for a person and holds no money at all.</p>
+        <div class="gf-flow" id="gf-flow"></div>
+        <div class="gf-n" id="gf-n"></div>
+        <p class="why" id="gf-tx" style="margin-bottom:0"></p>
       </div>
 
       <div class="two" style="margin-top:0.85rem;align-items:start">
@@ -5119,6 +5143,7 @@ ops/install-cron.sh</pre>
     fleetView.rows = rows;
     tplRender();
     treeRender();
+    growthRender();
   }
 
   function flBulk(k) {
@@ -5132,6 +5157,39 @@ ops/install-cron.sh</pre>
     $("fl-cmds").hidden = false;
     $("fl-cmds-why").textContent = CTL_SAY[k] + (skip ? " " + skip + " selected grant" + (skip === 1 ? " was" : "s were") + " left out: " +
       (k === "reclaim" ? "not past its term, or already ended." : "already ended.") : "") + " File names are placeholders for each grant's manifest.";
+  }
+
+  /* The growth fleet's latest finished week, from /growth.json. Warda's own
+     team, so it shows only when the console is showing Warda's agents. */
+  var GROWTH = null;
+  fetch("/growth.json", { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (g) { GROWTH = g; if ($("v-fleet").classList.contains("on")) growthRender(); }).catch(function () {});
+  function growthRender() {
+    var card = $("gf-card"); if (!card) return;
+    var g = GROWTH, show = !!g && scopeNow() === "public";
+    card.hidden = !show; if (!show) return;
+    var tx = {}; (g.transactions || []).forEach(function (t) { tx[t.step] = t.txid; });
+    var has = function (id) { return A.some(function (a) { return a.id === id; }); };
+    var step = function (id, name, say) {
+      return has(id) ? '<a class="st" data-agent-open="' + id + '"><b>' + name + ' &middot; #' + id + '</b><span>' + say + '</span></a>'
+        : '<div class="st"><b>' + name + '</b><span>' + say + '</span></div>';
+    };
+    $("gf-when").textContent = g.label + " · " + (g.network || "");
+    $("gf-sched").textContent = g.schedule || "weekly";
+    $("gf-flow").innerHTML =
+      step(g.orchestrator || "009", "Orchestrator", "batch grant; may pay Researcher only") + '<span class="ar">delegates &rarr;</span>' +
+      step(g.scout || "010", "Scout", "one payee, one record&rsquo;s price at a time") + '<span class="ar">pays &rarr;</span>' +
+      '<a class="st" href="' + esc(g.researcher && g.researcher.url || "#") + '" target="_blank" rel="noopener"><b>Researcher</b><span>' +
+        esc(g.researcher && g.researcher.price || "") + ' &middot; facts with sources</span></a>' +
+      '<span class="ar">records &rarr;</span>' +
+      '<div class="st off"><b>Outreach</b><span>no grant, no key; drafts for a person</span></div>';
+    var n = function (label, v) { return '<div><i>' + label + '</i><b>' + esc(String(v)) + '</b></div>'; };
+    $("gf-n").innerHTML = n("Projects found", g.candidates) + n("Records bought", g.bought) +
+      n("Cost, on chain", g.spentKas + " KAS") + n("Drafts to read", g.drafts) + n("No draft", g.noDraft) + n("Messages sent", g.sent || 0);
+    var short = function (t) { return t ? t.slice(0, 8) + "…" : "—"; };
+    $("gf-tx").innerHTML = "On chain: genesis <code>" + short(tx.genesis) + "</code> · hire <code>" + short(tx.hire) +
+      "</code> · settle <code>" + short(tx.settle) + "</code> · revoke <code>" + short(tx.revoke) +
+      "</code>. The authority is real and enforced; the money is testnet, and both ends are Warda&rsquo;s.";
   }
 
   function treeRender() {

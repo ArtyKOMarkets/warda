@@ -12,7 +12,7 @@
  * describes. It no-ops on a page that carries none of the elements it fills.
  */
 (function () {
-  var AGENT_IDS = ["001", "002", "003", "004", "005", "006"];
+  var AGENT_IDS = ["001", "002", "003", "004", "005", "006", "009", "010"];
 
 /* ---- the diagram -------------------------------------------------------
    Positions are fixed; everything else — which nodes exist, which are dead,
@@ -29,6 +29,12 @@ var POS = {
      is different about it happened before the grant existed, which is why the
      interesting part of #006 is on /rail and not on this picture. */
   "006": { x: 120, y: 600, role: "bought, not hand-funded" },
+  /* The growth fleet: a batch grant each week (#009) and the sub-agent it
+     hires (#010), which buys records from Researcher. A second tree, drawn
+     below the first, because it is a separate budget with its own principal. */
+  "009": { x: 120, y: 740, role: "growth orchestrator" },
+  "010": { x: 120, y: 870, role: "Scout — buys research" },
+  researcher: { x: 545, y: 870, role: "sells /verify records" },
   vendor:  { x: 545, y: 265, role: "sells /weather /fact" },
   /* The one node on this diagram nobody here operates. It is drawn apart from
      the others for the same reason agent #005 exists: every other arrow on
@@ -54,6 +60,7 @@ function nodeFor(p) {
   var label = p.label || "";
   if (label.indexOf("#001") >= 0) return "001";
   if (label.indexOf("demo vendor") >= 0) return "vendor";
+  if (label.indexOf("Researcher") >= 0) return "researcher";
   /* An agent's own relay key is plumbing, not a counterparty: the grant funds
      it and it pays onward in the same breath. Drawing it would put a node on
      this picture that nobody trades with. */
@@ -135,11 +142,12 @@ function drawGraph(loaded) {
   Object.keys(loaded).forEach(function (id) {
     ((loaded[id] && loaded[id].buysFrom && loaded[id].buysFrom.payees) || []).forEach(function (p) {
       var key = nodeFor(p);
-      if (key === "vendor" || key === "outside") sellers[key] = true;
+      if (key === "vendor" || key === "outside" || key === "researcher") sellers[key] = true;
     });
   });
   if (sellers.vendor) box("vendor", "Demo vendor", POS.vendor.role, false);
   if (sellers.outside) box("outside", "demo.kaspa-x402.org", POS.outside.role, false);
+  if (sellers.researcher) box("researcher", "Growth Researcher", POS.researcher.role, false);
 
   /* Payments, aggregated from the receipts. Only what was actually served:
      an arrow for money that bought nothing would be a different claim. */

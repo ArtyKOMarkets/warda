@@ -582,6 +582,10 @@ if (here / "src" / "interop-status.json").exists():
 # If it is ever absent that is a broken checkout, not a machine that does not
 # run the monitor.
 COPIES.append("services.json")
+# The growth fleet's latest finished week, as counts. Written by
+# growth/tools/week.ts; the Console's Fleet and /agents read it.
+if (here / "src" / "growth.json").exists():
+    COPIES.append("growth.json")
 
 # Written by ops/check-node.sh, and optional for the same reason: silence is
 # the honest default, because "we have not checked" must never render as "it
