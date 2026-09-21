@@ -265,6 +265,19 @@
   .wc-qr:empty { background: var(--panel); }
   .wc-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.8rem; }
   .wc-row > * { flex: 1 1 auto; }
+  a.go { text-decoration: none; text-align: center; }
+  .grp-l { font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--chrome-faint);
+    margin: 1.1rem 0 0; }
+  .grp-l + .acc-ways { margin-top: 0.5rem; }
+  .acc-evm { display: grid; gap: 0.4rem; }
+  .acc-evm button { justify-content: flex-start; }
+  .acc-evm img { width: 18px; height: 18px; border-radius: 4px; }
+  .scope { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem 0.9rem; padding-bottom: 0; }
+  .scope-t { margin: 0; font-size: 0.8rem; color: var(--chrome-dim); flex: 1 1 240px; }
+  .scope-t b { color: var(--chrome); font-weight: 600; }
+  .scope .go { padding: 0.36rem 0.8rem; font-size: 0.78rem; }
+  .scope-empty { padding-bottom: 0; }
+  .main.mine-empty .view.data:not(#v-agent) > :not(.head) { display: none; }
   /* Links that act as buttons wear the button: same box, same weight. */
   a.go { display: inline-block; font-family: var(--body); font-weight: 600; font-size: 0.85rem; padding: 0.52rem 1.1rem;
     border-radius: 9px; border: 1px solid var(--teal); background: var(--teal); color: #05231F; }
@@ -472,12 +485,37 @@
       <span class="chip" id="freshness"><i></i>loading</span>
     </div>
 
+    <!-- Whose grants these views show. Without a wallet they are Warda's own
+         agents, labelled as examples; with one, they are the grants that name
+         your key, and Warda's agents are one switch away. -->
+    <div class="scope pad" id="scope">
+      <p class="scope-t" id="scope-t">Showing Warda&rsquo;s own agents &mdash; public examples.</p>
+      <div class="seg" id="scope-seg" role="group" aria-label="Whose grants" hidden>
+        <button data-scope="mine" aria-pressed="true">Your grants</button>
+        <button data-scope="public" aria-pressed="false">Warda&rsquo;s agents</button>
+      </div>
+      <button class="go gh" id="scope-connect" data-view="account">Connect a wallet to see yours</button>
+    </div>
+    <div class="pad scope-empty" id="scope-empty" hidden>
+      <div class="card">
+        <header><h2>No published grant names this key yet</h2></header>
+        <p class="say" id="scope-empty-t">This console shows a grant when its reading is published and names your key as the
+          principal that funded it, the revocation key that can stop it, or the agent that spends it.</p>
+        <div class="og-a" style="margin-top:0.9rem">
+          <button class="go" data-view="create">Create your first grant</button>
+          <button class="go gh" data-view="account">Track a grant.json</button>
+          <button class="go gh" data-scope="public">See Warda&rsquo;s agents as examples</button>
+        </div>
+        <p class="why" id="scope-own" style="margin-top:0.8rem"></p>
+      </div>
+    </div>
+
     <!-- =========================== OVERVIEW ============================== -->
-    <div class="view on pad" id="v-dash">
+    <div class="view on pad data" id="v-dash">
       <div class="head">
         <div>
           <h1>Overview</h1>
-          <p>Every grant this project has issued, what it spent, and what the covenant would not let it do.</p>
+          <p id="dash-sub">Every grant this project has issued, what it spent, and what the covenant would not let it do.</p>
         </div>
         <div class="seg" id="range" role="group" aria-label="Time range">
           <button data-d="7" aria-pressed="false">7 days</button>
@@ -591,7 +629,7 @@
     </div>
 
     <!-- ============================ GRANTS =============================== -->
-    <div class="view pad" id="v-grants">
+    <div class="view pad data" id="v-grants">
       <div class="head"><div>
         <h1>Grants</h1>
         <p>What the covenant permits each agent, and what is left of it. Budget and cap are fixed at creation and cannot be raised.</p>
@@ -613,7 +651,7 @@
     </div>
 
     <!-- ============================ ONE AGENT ============================ -->
-    <div class="view pad" id="v-agent">
+    <div class="view pad data" id="v-agent">
       <p class="crumb"><a data-view="grants">&larr; All grants</a></p>
       <div class="head">
         <div>
@@ -697,20 +735,38 @@
         <p class="say">Connecting shares your <b>address and public key</b> with this page, and nothing
           else. It cannot move a coin: it never asks your wallet to sign anything, and there is no
           server behind it to send your address to &mdash; it stays in this browser.</p>
+        <p class="grp-l">Kaspa wallets &mdash; can hold a grant&rsquo;s key</p>
         <div class="acc-ways">
           <div class="acc-way">
             <b>KasWare</b>
             <span id="acc-kw-s">the browser extension most Kaspa users already have</span>
             <button class="go" id="acc-connect">Connect KasWare</button>
-            <a class="go gh" id="acc-get-kw" style="text-decoration:none;text-align:center" hidden
+            <a class="go gh" id="acc-get-kw" hidden
               href="https://chromewebstore.google.com/detail/kasware-wallet/hklhheigdmpoolooomdihmhlpjjdbklf" rel="noopener">Get KasWare</a>
           </div>
           <div class="acc-way">
-            <b>WalletConnect</b>
-            <span id="acc-wc-s">a wallet on your phone, by QR code &mdash; Kaspire speaks it for Kaspa today</span>
-            <button class="go gh" id="acc-wc">Connect with WalletConnect</button>
+            <b>Kaspire</b>
+            <span id="acc-wc-s">on your phone, by QR code, over WalletConnect</span>
+            <button class="go gh" id="acc-wc">Connect Kaspire</button>
           </div>
         </div>
+        <p class="grp-l">Any other wallet &mdash; MetaMask, Rabby, Coinbase, Trust&hellip;</p>
+        <div class="acc-ways">
+          <div class="acc-way">
+            <b>In this browser</b>
+            <span id="acc-evm-s">looking for wallet extensions&hellip;</span>
+            <div class="acc-evm" id="acc-evm"></div>
+          </div>
+          <div class="acc-way">
+            <b>On your phone</b>
+            <span id="acc-wce-s">any WalletConnect wallet, by QR code</span>
+            <button class="go gh" id="acc-wc-evm">Connect with WalletConnect</button>
+          </div>
+        </div>
+        <p class="why" style="margin-top:0.8rem">A Warda grant lives on Kaspa, so the key it names is a Kaspa key. An
+          Ethereum-style wallet signs in here all the same: it keeps an account, tracks grants and funds a
+          treasury from USDC on Igra &mdash; it just cannot be the key a grant names. For that, the same
+          person adds a Kaspa wallet.</p>
         <p class="state" id="acc-err"></p>
       </div>
 
@@ -780,13 +836,13 @@
       <div class="wc-veil" id="wc-veil" hidden>
         <div class="wc-box card" role="dialog" aria-modal="true" aria-labelledby="wc-h">
           <header><h2 id="wc-h">Connect a phone wallet</h2></header>
-          <p class="why">Scan with your phone&rsquo;s camera. It opens Kaspire, which asks you to approve
-            sharing your address and public key &mdash; the only two things this page requests. Nothing
-            it asks for can move a coin.</p>
+          <p class="why" id="wc-say">Scan with your phone&rsquo;s camera. It opens Kaspire, which asks you to
+            approve sharing your address and public key &mdash; the only two things this page requests.
+            Nothing it asks for can move a coin.</p>
           <div class="wc-qr" id="wc-qr"></div>
           <p class="state" id="wc-state">Preparing a pairing&hellip;</p>
           <div class="wc-row">
-            <a class="go" id="wc-open" style="text-decoration:none;text-align:center" rel="noopener" hidden>Open Kaspire</a>
+            <a class="go" id="wc-open" rel="noopener" hidden>Open Kaspire</a>
             <button class="go gh" id="wc-copy" hidden>Copy pairing link</button>
             <button class="go gh" id="wc-cancel">Cancel</button>
           </div>
@@ -795,7 +851,7 @@
     </div>
 
     <!-- =========================== ACTIVITY ============================== -->
-    <div class="view pad" id="v-activity">
+    <div class="view pad data" id="v-activity">
       <div class="head"><div>
         <h1>Activity</h1>
         <p>Every payment these agents recorded, newest first, with the outcome each one actually had.</p>
@@ -811,7 +867,7 @@
     </div>
 
     <!-- =========================== REFUSALS =============================== -->
-    <div class="view pad" id="v-refusals">
+    <div class="view pad data" id="v-refusals">
       <div class="head"><div>
         <h1>Refused</h1>
         <p>Two different things, kept apart on purpose &mdash; what actually went wrong, and what the covenant would refuse if anybody tried it.</p>
@@ -1672,7 +1728,8 @@ var WardaRouter = (() => {
   function host(u) { try { return new URL(u).host; } catch (e) { return ""; } }
   function path(u) { try { return new URL(u).pathname; } catch (e) { return u || ""; } }
 
-  var A = [];     // the readings that loaded
+  var ALL = [];   // every reading that loaded
+  var A = [];     // the ones in scope: yours, or Warda's when that is what is asked for
   var P = [];     // every purchase, flattened, with its agent
   var RULES = []; // derived limits — NOT events
   var FAILED = [];// attempts that did not settle — events, with a date
@@ -1696,31 +1753,15 @@ var WardaRouter = (() => {
   }
 
   load().then(function (rows) {
-    A = rows.filter(Boolean);
+    ALL = rows.filter(Boolean);
     /* An index that names more agents than loaded is a different fact from an
        index that names none, and both are different from "no agents". Recorded
        here and rendered by render(), which owns this chip — setting it here as
        well meant two writers and the later one winning, so the warning was
        composed correctly and then replaced by the freshness line a moment
        later. Caught by removing a reading and looking. */
-    MISSING = AGENTS.length - A.length;
-    A.forEach(function (a) {
-      (a.d.purchases || []).forEach(function (p) { P.push({ agent: a.id, p: p }); });
-      /* `refusals` in a reading are almost all `derived: true` — limits the
-         covenant enforces, not attempts anybody made. Counting them as
-         refusals said "26 attempts the network would not sign" when the real
-         number of recorded failures was one. Two different facts, so two
-         different lists. */
-      (a.d.refusals || []).forEach(function (r) {
-        if (typeof r === "string") { RULES.push({ agent: a.id, r: { rule: r } }); return; }
-        (r.derived === false ? FAILED : RULES).push({ agent: a.id, r: r });
-      });
-    });
-    P.sort(function (x, y) { return String(y.p.at).localeCompare(String(x.p.at)); });
-    P.forEach(function (x) {
-      var o = x.p.outcome;
-      if (o && o !== "bought" && o !== "served") FAILED.push({ agent: x.agent, p: x.p });
-    });
+    MISSING = AGENTS.length - ALL.length;
+    scopeData();
     render();
     route();
     walletRestore();
@@ -1806,13 +1847,13 @@ var WardaRouter = (() => {
 
   /* ---------------------------------------------------------------- render */
   function render() {
-    if (!A.length) {
+    if (!ALL.length) {
       $("tiles").innerHTML = '<p class="empty">No readings loaded. This console shows nothing rather than a zero — the two are different, and only one of them is a measurement.</p>';
       $("freshness").className = "chip bad";
       $("freshness").innerHTML = "<i></i>no data";
       return;
     }
-    var newest = A.map(function (a) { return a.d.checkedAt; }).sort().pop();
+    var newest = ALL.map(function (a) { return a.d.checkedAt; }).sort().pop();
     var mins = Math.round((Date.now() - new Date(newest).getTime()) / 60000);
     /* A reading the index named and this page could not fetch outranks how
        fresh the others are: one of them is a hole and the other is a detail. */
@@ -1828,8 +1869,12 @@ var WardaRouter = (() => {
     $("n-acts").textContent = P.length;
     $("n-acts-2").textContent = P.length + " recorded";
 
-    var daa = A.map(function (a) { return (a.d.timelock || {}).virtualDaaScore; }).filter(Boolean).sort().pop();
+    var daa = ALL.map(function (a) { return (a.d.timelock || {}).virtualDaaScore; }).filter(Boolean).sort().pop();
     $("sb-daa").textContent = daa ? "Virtual DAA " + Number(daa).toLocaleString("en-US") + " · read " + ago(newest) : "no chain reading";
+    /* Nothing in scope — a wallet with no published grant. The views are
+       covered by the empty state (scopeRender), and drawing charts of nothing
+       would only leave the last wallet's numbers behind them. */
+    if (!A.length) { $("bell-n").hidden = true; return; }
 
     tiles(); spendChart(); agentDonut(); payees(); endpoints();
     grantRows(); allRows(); acts(); notices(); recent(); sources(); deleg(); recon(); refusals();
@@ -2338,7 +2383,7 @@ var WardaRouter = (() => {
   }
 
   function showAgent(id, fromRoute) {
-    var a = A.filter(function (x) { return x.id === id; })[0];
+    var a = ALL.filter(function (x) { return x.id === id; })[0];
     if (!a) return;
     if (!fromRoute) location.hash = hashFor("agent", id);
     SHOWN = id;
@@ -2708,24 +2753,36 @@ var WardaRouter = (() => {
   var NET_OF = { "testnet-10": "kaspa_testnet_10", mainnet: "kaspa_mainnet" };
 
   /* ---- WalletConnect ---------------------------------------------------------
-     Kaspa has no official WalletConnect namespace. Kaspire publishes one —
-     namespace `kaspa`, chains `kaspa:mainnet` and `kaspa:testnet-10` — and it
-     is the one wallet that speaks it today, so it is the one this follows.
-     The session asks for three READ methods and no signing method at all:
-     a wallet shows the dApp's requested methods on its approval screen, and
+     Two proposals, never one. Kaspa has no official WalletConnect namespace;
+     Kaspire publishes one — `kaspa`, chains `kaspa:mainnet` and
+     `kaspa:testnet-10` — and is the one wallet that speaks it. Every other
+     WalletConnect wallet speaks `eip155`. A single proposal carrying both
+     would be rejected by a wallet that refuses methods it does not know —
+     Kaspire documents that it does — so the modal asks which kind of wallet
+     it is talking to and proposes only that.
+
+     Each proposal asks for READ methods and no signing method at all: a
+     wallet shows the dApp's requested methods on its approval screen, and
      "this page may ask you to sign" would be a false thing to approve.
 
      The client is 480 KB, so it is not in this page. It is fetched from
-     /walletconnect-browser.js the first time somebody presses the button, and
-     never for anybody who does not. The project id is Reown's relay key for
-     this site; it is public in every dApp that uses one, and empty means the
-     site has not been registered — which the button then says, rather than
-     failing inside a QR code nobody can scan. */
+     /walletconnect-browser.js the first time somebody presses a button. */
   var WC_PROJECT_ID = "3faf4226035c9ef9164127dac8f15ae3";
   var WC_CHAIN = { mainnet: "kaspa:mainnet", "testnet-10": "kaspa:testnet-10" };
   var WC_NET = { "kaspa:mainnet": "kaspa_mainnet", "kaspa:testnet-10": "kaspa_testnet_10" };
-  var WC_METHODS = ["kaspa_getAccounts", "kaspa_getPublicKey", "kaspa_getNetwork"];
-  var WC = { lib: null, client: null, session: null, chain: null, listeners: [] };
+  var WC_PROPOSAL = {
+    kaspa: function () {
+      return { kaspa: { chains: [WC_CHAIN[$("net").value] || "kaspa:mainnet"],
+        methods: ["kaspa_getAccounts", "kaspa_getPublicKey", "kaspa_getNetwork"], events: ["accountsChanged"] } };
+    },
+    /* Igra first — the chain a treasury is funded from — and Ethereum so a
+       wallet that insists on a chain it knows still has one to approve. */
+    evm: function () {
+      return { eip155: { chains: ["eip155:" + IGRA_OF[$("net").value].chainId, "eip155:1"],
+        methods: ["eth_accounts", "eth_chainId", "eth_getBalance"], events: ["accountsChanged", "chainChanged"] } };
+    }
+  };
+  var WC = { lib: null, client: null, session: null, chain: null, fam: null, listeners: [] };
 
   function wcLib() {
     if (WC.lib) return WC.lib;
@@ -2747,14 +2804,15 @@ var WardaRouter = (() => {
         projectId: WC_PROJECT_ID,
         metadata: {
           name: "Warda Console",
-          description: "Reads Warda grants. Asks for your address and public key, and never for a signature.",
+          description: "Reads Warda grants. Asks for your address, and never for a signature.",
           url: location.origin,
           icons: [location.origin + "/assets/mark-200.png"]
         }
       });
     }).then(function (c) {
-      c.on("session_delete", function () { WC.session = null; if (W && W.kind === "walletconnect") walletForget(); });
-      c.on("session_expire", function () { WC.session = null; if (W && W.kind === "walletconnect") walletForget(); });
+      var gone = function () { WC.session = null; if (W && W.kind === "walletconnect") walletForget(); };
+      c.on("session_delete", gone);
+      c.on("session_expire", gone);
       c.on("session_event", function (e) {
         var name = e && e.params && e.params.event && e.params.event.name;
         WC.listeners.forEach(function (l) { if (l[0] === name) l[1](); });
@@ -2764,15 +2822,20 @@ var WardaRouter = (() => {
     return WC.client;
   }
 
-  /* CAIP-10: `kaspa:testnet-10:kaspatest:qq…`. The address itself contains a
-     colon, so it is everything after the second one. */
+  /* CAIP-10: `kaspa:testnet-10:kaspatest:qq…` or `eip155:38836:0xab…`. A Kaspa
+     address contains a colon itself, so the address is everything after the
+     second one. A session with a Kaspa account is a Kaspa wallet whatever
+     else it approved. */
   function wcAccounts(s) {
-    var want = WC_CHAIN[$("net").value];
-    var acc = ((s.namespaces && s.namespaces.kaspa && s.namespaces.kaspa.accounts) || []).map(function (a) {
+    var ns = s.namespaces || {};
+    var fam = ns.kaspa && (ns.kaspa.accounts || []).length ? "kaspa" : "evm";
+    var want = fam === "kaspa" ? WC_CHAIN[$("net").value] : "eip155:" + IGRA_OF[$("net").value].chainId;
+    var acc = ((ns[fam === "kaspa" ? "kaspa" : "eip155"] || {}).accounts || []).map(function (a) {
       var p = String(a).split(":");
       return { chain: p[0] + ":" + p[1], address: p.slice(2).join(":") };
     });
     var pick = acc.filter(function (a) { return a.chain === want; })[0] || acc[0];
+    WC.fam = fam;
     WC.chain = pick ? pick.chain : null;
     return pick ? [pick.address] : [];
   }
@@ -2789,27 +2852,38 @@ var WardaRouter = (() => {
     if (!on) { $("wc-qr").innerHTML = ""; $("wc-open").hidden = true; $("wc-copy").hidden = true; }
   }
 
-  function wcConnect() {
-    var cancelled = false;
+  /* One pairing at a time. `WC.try` counts them, so the approval of a pairing
+     the person has already walked away from is ignored rather than
+     connecting behind their back. */
+  var WC_SAY = {
+    kaspa: "Scan with your phone’s camera. It opens Kaspire, which asks you to approve sharing your address and public key — the only two things this page requests. Nothing it asks for can move a coin.",
+    evm: "Open your wallet app and scan this with its WalletConnect scanner — MetaMask, Trust, Rainbow, Coinbase and most others have one. It asks you to share your address and nothing else. Nothing it asks for can move a coin."
+  };
+  function wcConnect(fam) {
+    var attempt = WC.try = (WC.try || 0) + 1, dead = function () { return WC.try !== attempt; };
     wcModal(true);
+    $("wc-h").textContent = fam === "kaspa" ? "Connect Kaspire" : "Connect a phone wallet";
+    $("wc-say").textContent = WC_SAY[fam];
     $("wc-state").textContent = "Preparing a pairing…";
     return new Promise(function (ok, no) {
-      $("wc-cancel").onclick = function () { cancelled = true; wcModal(false); no(new Error("cancelled")); };
+      $("wc-cancel").onclick = function () { WC.try++; wcModal(false); no(new Error("cancelled")); };
       wcClient().then(function (c) {
-        return c.connect({
-          optionalNamespaces: {
-            kaspa: { chains: [WC_CHAIN[$("net").value] || "kaspa:mainnet"], methods: WC_METHODS, events: ["accountsChanged"] }
-          }
-        }).then(function (r) {
-          if (cancelled) return;
-          var link = "https://kaspire.kaslab.space/kaspire/wc?uri=" + encodeURIComponent(r.uri);
-          return wcLib().then(function (L) { return L.qrSvg(link); }).then(function (svg) {
+        return c.connect({ optionalNamespaces: WC_PROPOSAL[fam]() }).then(function (r) {
+          if (dead()) return;
+          /* Kaspire's documented desktop payload is an https link that opens
+             the app from a phone camera; every other wallet scans the bare
+             wc: URI from inside itself. */
+          var kaspire = "https://kaspire.kaslab.space/kaspire/wc?uri=" + encodeURIComponent(r.uri);
+          var shown = fam === "kaspa" ? kaspire : r.uri;
+          return wcLib().then(function (L) { return L.qrSvg(shown); }).then(function (svg) {
+            if (dead()) return;
             $("wc-qr").innerHTML = svg;
-            $("wc-open").href = link; $("wc-open").hidden = false;
+            $("wc-open").hidden = fam !== "kaspa";
+            $("wc-open").href = kaspire;
             $("wc-copy").hidden = false;
             $("wc-copy").onclick = function () {
               (navigator.clipboard ? navigator.clipboard.writeText(r.uri) : Promise.reject())
-                .then(function () { $("wc-state").textContent = "Pairing link copied. Paste it into any WalletConnect wallet that speaks Kaspa."; })
+                .then(function () { $("wc-state").textContent = "Pairing link copied. Paste it into your wallet’s WalletConnect screen."; })
                 .catch(function () { $("wc-state").textContent = r.uri; });
             };
             $("wc-state").textContent = "Waiting for your wallet… the pairing lasts about five minutes.";
@@ -2817,17 +2891,73 @@ var WardaRouter = (() => {
           });
         });
       }).then(function (session) {
-        if (cancelled || !session) return;
+        if (dead() || !session) return;
         WC.session = session;
         wcModal(false);
         ok(wcAccounts(session));
-      }).catch(function (e) { if (!cancelled) { wcModal(false); no(e); } });
+      }).catch(function (e) { if (!dead()) { wcModal(false); no(e); } });
     });
   }
 
+  /* ---- EVM wallets in this browser ---------------------------------------
+     Found by EIP-6963, which every current extension announces itself
+     through, so MetaMask and Rabby side by side are two buttons rather than
+     whichever one won the race for `window.ethereum`. The bare global is the
+     fallback for a wallet too old to announce. */
+  var IGRA_OF = { "testnet-10": WardaRouter.GALLEON_TESTNET, mainnet: WardaRouter.IGRA_MAINNET };
+  var CHAINS = { 1: "Ethereum", 8453: "Base", 10: "Optimism", 42161: "Arbitrum", 137: "Polygon", 56: "BNB Chain",
+    38833: "Igra mainnet", 38836: "Igra Galleon testnet", 202555: "Kasplex" };
+  function chainName(id) { return CHAINS[id] || "chain " + id; }
+  function hexToBig(h) { try { return BigInt(h); } catch (e) { return null; } }
+  /* 18-decimal wei to a two-place figure, by string so a large balance is not
+     rounded inside a double before anybody sees it. */
+  function weiKas(w) {
+    if (w == null) return null;
+    var s = w.toString().padStart(19, "0"), whole = s.slice(0, -18), frac = s.slice(-18, -16);
+    return Number(whole).toLocaleString("en-US") + (frac !== "00" ? "." + frac.replace(/0$/, "") : "");
+  }
+
+  function evmAdapter(info, provider) {
+    var rq = function (method, params) { return provider.request({ method: method, params: params || [] }); };
+    return {
+      name: info.name, icon: info.icon, family: function () { return "evm"; },
+      present: function () { return true; },
+      connect: function () { return rq("eth_requestAccounts"); },
+      restore: function () { return rq("eth_accounts"); },
+      chainId: function () { return rq("eth_chainId").then(function (h) { return Number(h); }); },
+      balance: function (a) { return rq("eth_getBalance", [a, "latest"]).then(hexToBig); },
+      switchTo: function () {
+        var n = IGRA_OF[$("net").value], hex = "0x" + n.chainId.toString(16);
+        return rq("wallet_switchEthereumChain", [{ chainId: hex }]).catch(function (e) {
+          /* 4902: the wallet has never heard of this chain. Adding it is a
+             change to the wallet's settings, so the wallet asks you first. */
+          if (!e || e.code !== 4902) throw e;
+          return rq("wallet_addEthereumChain", [{ chainId: hex, chainName: chainName(n.chainId),
+            nativeCurrency: { name: "iKAS", symbol: "iKAS", decimals: 18 },
+            rpcUrls: [n.rpcUrl], blockExplorerUrls: [n.explorer] }]);
+        });
+      },
+      on: function (ev, fn) { if (provider.on) provider.on(ev === "networkChanged" ? "chainChanged" : ev, fn); }
+    };
+  }
+  var EVM = [];  // wallet keys, in the order they announced
+  function evmFound(info, provider) {
+    var k = "evm:" + (info.rdns || info.name || "injected");
+    if (WALLETS[k]) return;
+    WALLETS[k] = evmAdapter(info, provider);
+    EVM.push(k);
+    WALLETS[k].on("accountsChanged", function () { if (W && W.kind === k) walletRestore(); });
+    WALLETS[k].on("networkChanged", function () { if (W && W.kind === k) walletRestore(); });
+    if ($("acc-evm")) walletRender();
+  }
+  window.addEventListener("eip6963:announceProvider", function (e) {
+    var d = e.detail || {};
+    if (d.info && d.provider) evmFound(d.info, d.provider);
+  });
+
   var WALLETS = {
     kasware: {
-      name: "KasWare",
+      name: "KasWare", family: function () { return "kaspa"; },
       present: function () { return typeof window.kasware !== "undefined"; },
       connect: function () { return window.kasware.requestAccounts(); },
       /* No popup: only succeeds if this origin was already approved. */
@@ -2840,8 +2970,9 @@ var WardaRouter = (() => {
     },
     walletconnect: {
       name: "WalletConnect",
+      family: function () { return WC.fam || "kaspa"; },
       present: function () { return !!WC_PROJECT_ID && WC_PROJECT_ID.indexOf("{{") !== 0; },
-      connect: wcConnect,
+      connect: function (fam) { return wcConnect(fam || "kaspa"); },
       /* The client keeps its sessions itself; restoring is finding one that
          is still alive, with no relay round-trip and no popup. */
       restore: function () {
@@ -2856,12 +2987,10 @@ var WardaRouter = (() => {
           return typeof r === "string" ? r : r && (r.publicKey || r.pubkey) || null;
         });
       },
-      /* The network is the chain the wallet approved the account ON — the
-         session says it, so it is not asked for again. */
       network: function () { return Promise.resolve(WC_NET[WC.chain] || null); },
-      /* No coin list over WalletConnect. The verifier reads the address
-         instead, and the tiles say that is where the figure came from. */
       coins: function () { return Promise.resolve(null); },
+      chainId: function () { return Promise.resolve(WC.chain ? Number(WC.chain.split(":")[1]) : null); },
+      balance: function (a) { return wcRequest("eth_getBalance", [a, "latest"]).then(hexToBig); },
       switchTo: null,
       on: function (ev, fn) { WC.listeners.push([ev, fn]); },
       forget: function () {
@@ -2872,8 +3001,18 @@ var WardaRouter = (() => {
       }
     }
   };
+  window.dispatchEvent(new Event("eip6963:requestProvider"));
+  /* A wallet too old to announce. Only if nothing announced — MetaMask
+     both announces AND sets the global, and one wallet is one button. */
+  setTimeout(function () {
+    if (!EVM.length && window.ethereum && !window.ethereum.isKasware) {
+      var e = window.ethereum;
+      evmFound({ name: e.isMetaMask ? "MetaMask" : e.isRabby ? "Rabby" : e.isCoinbaseWallet ? "Coinbase Wallet" : "Browser wallet",
+        rdns: "injected" }, e);
+    }
+  }, 300);
 
-  var W = null;       // { kind, address, key, network, bal, problem }
+  var W = null;       // { kind, family, address, key, network, chainId, bal, problem }
   var WKEY = "warda.console.wallet";
   function remember(v) { try { v ? localStorage.setItem(WKEY, v) : localStorage.removeItem(WKEY); } catch (e) {} }
   function remembered() { try { return localStorage.getItem(WKEY); } catch (e) { return null; } }
@@ -2912,18 +3051,36 @@ var WardaRouter = (() => {
       .catch(function () { return null; });
   }
 
+  /* An Ethereum-style account: an address, a chain, and what it holds there.
+     No key is derived from it — a 0x address is a hash of an ECDSA key and
+     cannot name a Kaspa Schnorr key — so it is never matched against a grant. */
+  function readEvm(kind, address) {
+    var a = WALLETS[kind];
+    return a.chainId().catch(function () { return null; }).then(function (id) {
+      var w = { kind: kind, family: "evm", address: address, key: null, chainId: id, network: id ? chainName(id) : null,
+        wei: null, problem: null };
+      var want = IGRA_OF[$("net").value].chainId;
+      if (id && id !== want) {
+        w.problem = "Your wallet is on " + chainName(id) + ". Funding a treasury happens on " + chainName(want) +
+          ", which is where this console's router plans from.";
+      }
+      return a.balance(address).catch(function () { return null; }).then(function (b) { w.wei = b; return w; });
+    });
+  }
+
   /* Read everything about the connected account, and refuse to call it
      connected if the pieces disagree. */
   function readWallet(kind, addresses) {
     var a = WALLETS[kind];
     var address = (addresses || [])[0];
     if (!address) return Promise.resolve(null);
+    if (a.family() === "evm") return readEvm(kind, address);
     return Promise.all([
       a.publicKey().catch(function () { return null; }),
       a.network().catch(function () { return null; }),
       a.coins(address).catch(function () { return null; })
     ]).then(function (r) {
-      var w = { kind: kind, address: address, key: null, network: r[1], bal: null, problem: null };
+      var w = { kind: kind, family: "kaspa", address: address, key: null, network: r[1], bal: null, problem: null };
 
       /* The key comes from the ADDRESS, and the wallet's own public key is
          checked against it. A Warda grant names a 32-byte Schnorr key; an
@@ -2967,41 +3124,52 @@ var WardaRouter = (() => {
     });
   }
 
-  function walletConnect(kind) {
+  function walletConnect(kind, fam) {
     var a = WALLETS[kind];
     $("acc-err").textContent = "";
-    if (!a.present()) {
+    if (!a || !a.present()) {
       $("acc-err").textContent = kind === "walletconnect"
-        ? "WalletConnect is not set up on this site yet: it needs a project id from Reown, and none has been added. KasWare works now."
-        : "KasWare is not installed in this browser.";
+        ? "WalletConnect is not set up on this site yet: it needs a project id from Reown."
+        : "That wallet is not installed in this browser.";
       return Promise.resolve();
     }
-    return a.connect().then(function (addrs) { return readWallet(kind, addrs); })
+    return a.connect(fam).then(function (addrs) { return readWallet(kind, addrs); })
       .then(function (w) {
         if (!w) { $("acc-err").textContent = "The wallet returned no address."; return; }
-        W = w; remember(kind); walletRender();
+        W = w; remember(kind); walletChanged();
       })
       .catch(function (e) {
+        var m = String(e && e.message || e);
         /* A person saying no is not an error to be dressed up. */
-        $("acc-err").textContent = /reject|denied|cancel|declin/i.test(String(e && e.message || e))
+        $("acc-err").textContent = /reject|denied|cancel|declin/i.test(m) || (e && e.code === 4001)
           ? "Not connected — you declined, which is always fine."
-          : /expire/i.test(String(e && e.message || e))
+          : /expire/i.test(m)
             ? "The pairing expired before a wallet answered. Try again when your phone is ready."
-            : "The wallet did not connect: " + (e && e.message || e);
+            : "The wallet did not connect: " + m;
       });
   }
 
   function walletRestore() {
     var kind = remembered();
-    if (!kind || !WALLETS[kind] || !WALLETS[kind].present()) { walletRender(); return; }
+    if (!kind || !WALLETS[kind] || !WALLETS[kind].present()) { walletChanged(); return; }
     WALLETS[kind].restore().then(function (addrs) { return readWallet(kind, addrs); })
-      .then(function (w) { W = w; if (!w) remember(null); walletRender(); })
-      .catch(function () { W = null; walletRender(); });
+      .then(function (w) { W = w; if (!w) remember(null); walletChanged(); })
+      .catch(function () { W = null; walletChanged(); });
   }
 
   function walletForget() {
-    if (W && WALLETS[W.kind].forget) WALLETS[W.kind].forget();
-    W = null; remember(null); walletRender();
+    if (W && WALLETS[W.kind] && WALLETS[W.kind].forget) WALLETS[W.kind].forget();
+    W = null; remember(null); walletChanged();
+  }
+
+  /* The account decides whose grants the other views show, so a change of
+     account re-derives them — the dashboard of the wallet that was connected
+     a moment ago is not this wallet's dashboard. */
+  function walletChanged() {
+    scopeData();
+    if (ALL.length) render();
+    walletRender();
+    scopeRender();
   }
 
   function mine(a) {
@@ -3023,10 +3191,15 @@ var WardaRouter = (() => {
     $("acc-connect").hidden = !kw;
     $("acc-get-kw").hidden = kw;
     $("acc-kw-s").textContent = kw ? "installed in this browser" : "not installed in this browser";
-    $("acc-wc-s").textContent = wc
-      ? "a wallet on your phone, by QR code — Kaspire speaks it for Kaspa today"
-      : "not set up on this site yet — it needs a Reown project id";
+    $("acc-wc-s").textContent = wc ? "on your phone, by QR code, over WalletConnect" : "WalletConnect is not set up on this site yet";
+    $("acc-wce-s").textContent = wc ? "any WalletConnect wallet, by QR code" : "WalletConnect is not set up on this site yet";
     $("acc-wc").disabled = !wc;
+    $("acc-wc-evm").disabled = !wc;
+    $("acc-evm-s").textContent = EVM.length ? "found in this browser" : "no Ethereum-style wallet extension found";
+    $("acc-evm").innerHTML = EVM.map(function (k) {
+      var a = WALLETS[k], ic = /^data:image\//.test(String(a.icon || "")) ? '<img alt="" src="' + esc(a.icon) + '">' : "";
+      return '<button class="go gh" data-evm="' + esc(k) + '">' + ic + 'Connect ' + esc(a.name) + '</button>';
+    }).join("");
     ownRender();
 
     if (!W) {
@@ -3035,15 +3208,60 @@ var WardaRouter = (() => {
       $("side-w-s").textContent = "this console reads only";
       return;
     }
+    var evm = W.family === "evm";
     btn.classList.add(W.problem ? "bad" : "on");
     lab.textContent = short(W.address);
     $("side-w-t").textContent = WALLETS[W.kind].name + " connected";
-    $("side-w-s").textContent = "your wallet holds the key; this page still holds none";
+    $("side-w-s").textContent = evm ? "an account here; a grant needs a Kaspa key" : "your wallet holds the key; this page still holds none";
 
     var dis = document.createElement("button");
     dis.className = "go gh"; dis.textContent = "Disconnect";
     dis.addEventListener("click", walletForget);
     $("acc-actions").appendChild(dis);
+
+    if (evm) {
+      var here = W.chainId ? chainName(W.chainId) : "an unreported chain";
+      var sym = W.chainId === 38833 || W.chainId === 38836 ? "iKAS" : W.chainId === 1 ? "ETH" : "native";
+      $("acc-tiles").innerHTML = [
+        tile(I.coin, "#0FA890", "Balance on " + esc(here), W.wei == null ? "—" : weiKas(W.wei) + " " + sym,
+          W.wei == null ? "the wallet did not report one — not zero" : "the chain's own coin, read through your wallet"),
+        tile(I.lock, "#9B6BE8", "Kaspa key", "none", "an Ethereum-style address cannot name the Schnorr key a grant commits to"),
+        tile(I.grid, "#4C8DF6", "What it can do here", "fund · track",
+          "fund a treasury from USDC on Igra, and track any grant.json"),
+        tile(I.shield, W.problem ? "#E8B23A" : "#43C97F", "Status", W.problem ? "check" : "ready",
+          W.problem ? "see Identity" : "on " + here)
+      ].join("");
+      $("acc-id").innerHTML = [
+        kvRow("Wallet", esc(WALLETS[W.kind].name), false),
+        kvRow("Address", esc(W.address), true),
+        kvRow("Chain", esc(here) + (W.chainId ? " · " + W.chainId : ""), true),
+        kvRow("Grants", "A Warda grant names a Kaspa key, and this account has none, so no grant can name it. Connect a Kaspa wallet (KasWare or Kaspire) as well to hold one.", false),
+        W.problem ? kvRow('<span style="color:var(--amber)">Note</span>', esc(W.problem), false) : ""
+      ].join("");
+      if (W.problem && WALLETS[W.kind].switchTo) {
+        var sw = document.createElement("button");
+        sw.className = "go"; sw.textContent = "Switch to " + chainName(IGRA_OF[$("net").value].chainId);
+        sw.addEventListener("click", function () {
+          WALLETS[W.kind].switchTo().then(walletRestore).catch(function (e) {
+            $("acc-err").textContent = "The wallet did not switch: " + (e && e.message || e);
+          });
+        });
+        $("acc-actions").appendChild(sw);
+      }
+      $("acc-n").textContent = "";
+      $("acc-grants").innerHTML = '<p class="empty">None can: a grant names a Kaspa key, and this is an Ethereum-style account. Grants you track by their grant.json are below, and work from any account.</p>';
+      $("acc-create").disabled = true; $("acc-alert").disabled = true;
+      $("acc-create").title = $("acc-alert").title = "needs a Kaspa address";
+      $("acc-fund").textContent = "Fund a treasury from this wallet →";
+      $("acc-create").textContent = "Create a grant — needs a Kaspa address";
+      $("acc-alert").textContent = "Alerts watch Kaspa addresses";
+      return;
+    }
+    $("acc-create").disabled = false; $("acc-alert").disabled = false;
+    $("acc-create").title = $("acc-alert").title = "";
+    $("acc-fund").textContent = "Fund this wallet from USDC →";
+    $("acc-create").textContent = "Create a grant from this wallet →";
+    $("acc-alert").textContent = "Get told when it receives →";
 
     var b = W.bal && typeof W.bal === "object" ? W.bal : null;
     var from = b && b.from === "verifier" ? " · read by the verifier, not the wallet" : "";
@@ -3072,17 +3290,17 @@ var WardaRouter = (() => {
       W.problem ? kvRow('<span style="color:var(--amber)">Problem</span>', esc(W.problem), false) : ""
     ].join("");
     if (W.problem && /is on /.test(W.problem) && WALLETS[W.kind].switchTo) {
-      var sw = document.createElement("button");
-      sw.className = "go"; sw.textContent = "Switch the wallet to " + $("net").value;
-      sw.addEventListener("click", function () {
+      var sw2 = document.createElement("button");
+      sw2.className = "go"; sw2.textContent = "Switch the wallet to " + $("net").value;
+      sw2.addEventListener("click", function () {
         WALLETS[W.kind].switchTo(NET_OF[$("net").value]).then(walletRestore).catch(function (e) {
           $("acc-err").textContent = "The wallet did not switch: " + (e && e.message || e);
         });
       });
-      $("acc-actions").appendChild(sw);
+      $("acc-actions").appendChild(sw2);
     }
 
-    var rows = A.map(function (a) { return { a: a, roles: mine(a) }; })
+    var rows = ALL.map(function (a) { return { a: a, roles: mine(a) }; })
       .filter(function (x) { return x.roles.length; });
     $("acc-n").textContent = rows.length ? rows.length + " found" : "";
     $("acc-grants").innerHTML = rows.map(function (x) {
@@ -3093,7 +3311,72 @@ var WardaRouter = (() => {
         '<i style="font-style:normal;min-width:0"><b>Agent #' + x.a.id + ' · you are its ' + x.roles.join(" and ") + '</b>' +
         '<span>' + esc(label(x.a).slice(0, 70)) + '</span></i>' +
         '<span class="a">' + stateP(x.a) + ' ' + kas2(num(u.remaining)) + ' KAS left</span></div>';
-    }).join("") || '<p class="empty">No published grant names this key. That is not the same as you having none: a grant only appears here if its reading is published by this site. Add your own below.</p>';
+    }).join("") || '<p class="empty">No published grant names this key. That is not the same as you having none: a grant only appears here if its reading is published by this site. Track your own below.</p>';
+  }
+
+  /* ---- whose grants ---------------------------------------------------------
+     Without a wallet, the views show Warda's own agents and say that is what
+     they are. With one, they show the grants whose published reading names
+     its key, and nothing else by default: a new wallet opening a dashboard
+     full of somebody else's agents is being told those are its own. */
+  var SCOPE_KEY = "warda.console.scope";
+  var SCOPE = (function () { try { return localStorage.getItem(SCOPE_KEY) || "mine"; } catch (e) { return "mine"; } })();
+  function scopeNow() { return W ? SCOPE : "public"; }
+
+  function scopeData() {
+    var s = scopeNow();
+    A = s === "public" ? ALL.slice() : ALL.filter(function (a) { return mine(a).length; });
+    P = []; RULES = []; FAILED = [];
+    A.forEach(function (a) {
+      (a.d.purchases || []).forEach(function (p) { P.push({ agent: a.id, p: p }); });
+      /* `refusals` in a reading are almost all `derived: true` — limits the
+         covenant enforces, not attempts anybody made. Counting them as
+         refusals said "26 attempts the network would not sign" when the real
+         number of recorded failures was one. Two different facts, so two
+         different lists. */
+      (a.d.refusals || []).forEach(function (r) {
+        if (typeof r === "string") { RULES.push({ agent: a.id, r: { rule: r } }); return; }
+        (r.derived === false ? FAILED : RULES).push({ agent: a.id, r: r });
+      });
+    });
+    P.sort(function (x, y) { return String(y.p.at).localeCompare(String(x.p.at)); });
+    P.forEach(function (x) {
+      var o = x.p.outcome;
+      if (o && o !== "bought" && o !== "served") FAILED.push({ agent: x.agent, p: x.p });
+    });
+  }
+
+  function scopeRender() {
+    var s = scopeNow(), empty = s === "mine" && ALL.length > 0 && !A.length;
+    $("scope-seg").hidden = !W;
+    $("scope-connect").hidden = !!W;
+    Array.prototype.forEach.call($("scope-seg").querySelectorAll("button"), function (b) {
+      b.setAttribute("aria-pressed", String(b.getAttribute("data-scope") === s));
+    });
+    var who = W ? (W.family === "evm" ? "this account" : "your key") : "";
+    $("scope-t").innerHTML = s === "public"
+      ? "Showing <b>Warda&rsquo;s own agents</b> &mdash; published as live examples, not yours."
+      : "Showing <b>your grants</b> &mdash; every published grant that names " + who + ".";
+    document.querySelector(".main").classList.toggle("mine-empty", empty);
+    $("scope-empty").hidden = !empty || !onData();
+    $("scope-empty-t").textContent = W && W.family === "evm"
+      ? "A grant names a Kaspa key, and this is an Ethereum-style account, so no published grant can name it. You can still create one — with a Kaspa address as its principal — and track any grant by its grant.json."
+      : "This console shows a grant when its reading is published and names your key as the principal that funded it, the revocation key that can stop it, or the agent that spends it. A new wallet has none yet.";
+    $("scope-own").textContent = OWN && OWN.length
+      ? "You track " + OWN.length + " grant" + (OWN.length === 1 ? "" : "s") + " by their grant.json — they are under Your account."
+      : "";
+    $("scope").hidden = !onData();
+    $("dash-sub").textContent = s === "public"
+      ? "Warda’s own agents: what each one spent, and what the covenant would not let it do."
+      : "Your grants: what each one spent, and what the covenant would not let it do.";
+  }
+  function onData() {
+    var v = document.querySelector(".view.on");
+    return !!v && v.classList.contains("data");
+  }
+  function scopeSet(s) {
+    SCOPE = s; try { localStorage.setItem(SCOPE_KEY, s); } catch (e) {}
+    scopeData(); if (ALL.length) render(); scopeRender();
   }
 
   /* ---- grants you track ----------------------------------------------------
@@ -3244,7 +3527,7 @@ var WardaRouter = (() => {
   }
 
   function ownRender() {
-    if (!$("own-list")) return;
+    if (!$("own-list") || !OWN) return;  // a wallet can announce before this list is loaded
     $("own-n").textContent = OWN.length ? OWN.length + " in this browser" : "";
     $("own-refresh").hidden = !OWN.length;
     $("own-list").innerHTML = OWN.length ? OWN.map(ownRow).join("")
@@ -3261,8 +3544,10 @@ var WardaRouter = (() => {
 
   function walletFill(where) {
     if (!W) return;
-    if (where === "create") { $("funder").value = W.address; show("create"); createView(); }
-    if (where === "fund") { $("fu-addr").value = W.address; show("fund"); fundView(); }
+    if (where === "create") { if (W.family === "evm") return; $("funder").value = W.address; show("create"); createView(); }
+    /* An Ethereum-style account is where the USDC comes FROM; the payout
+       address is a Kaspa one, which it does not have, so it is left for you. */
+    if (where === "fund") { if (W.family !== "evm") $("fu-addr").value = W.address; show("fund"); fundView(); }
     if (where === "alert") {
       $("a-kind").value = "balance-at-or-above"; $("a-addr").value = W.address;
       show("alerts"); alertsView();
@@ -3539,7 +3824,15 @@ var WardaRouter = (() => {
   });
   if ($("csv")) $("csv").addEventListener("click", downloadCsv);
   $("acc-connect").addEventListener("click", function () { walletConnect("kasware"); });
-  $("acc-wc").addEventListener("click", function () { walletConnect("walletconnect"); });
+  $("acc-wc").addEventListener("click", function () { walletConnect("walletconnect", "kaspa"); });
+  $("acc-wc-evm").addEventListener("click", function () { walletConnect("walletconnect", "evm"); });
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest) return;
+    var ev = e.target.closest("[data-evm]");
+    if (ev) { walletConnect(ev.getAttribute("data-evm")); return; }
+    var sc = e.target.closest("[data-scope]");
+    if (sc) { scopeSet(sc.getAttribute("data-scope")); if (!onData()) show("dash"); }
+  });
   $("own-pick").addEventListener("click", function () { $("own-file").click(); });
   $("own-file").addEventListener("change", function () { if (this.files && this.files.length) ownFiles(this.files); });
   $("own-paste-t").addEventListener("click", function () { $("own-paste").hidden = !$("own-paste").hidden; if (!$("own-paste").hidden) $("own-text").focus(); });
@@ -3567,7 +3860,7 @@ var WardaRouter = (() => {
      changes: a testnet manifest checked against mainnet derives perfectly
      and finds nothing, which would read as every grant gone. */
   ownLoad(); ownRender(); OWN.forEach(function (x) { ownRead(x.m); });
-  $("net").addEventListener("change", function () { OWN.forEach(function (x) { ownRead(x.m); }); });
+  $("net").addEventListener("change", function () { OWN.forEach(function (x) { ownRead(x.m); }); if (W) walletRestore(); });
   $("acc-create").addEventListener("click", function () { walletFill("create"); });
   $("acc-fund").addEventListener("click", function () { walletFill("fund"); });
   $("acc-alert").addEventListener("click", function () { walletFill("alert"); });
@@ -3578,7 +3871,7 @@ var WardaRouter = (() => {
   /* A wallet that changes account or network under the page is re-read, not
      trusted from memory: the key that was checked a minute ago is not the
      key in the wallet now. */
-  Object.keys(WALLETS).forEach(function (k) {
+  ["kasware", "walletconnect"].forEach(function (k) {
     if (!WALLETS[k].present()) return;
     WALLETS[k].on("accountsChanged", function () { if (W && W.kind === k) walletRestore(); });
     WALLETS[k].on("networkChanged", function () { if (W && W.kind === k) walletRestore(); });
@@ -3602,7 +3895,7 @@ var WardaRouter = (() => {
     createView();
   });
 
-  $("q").addEventListener("input", function () { Q = this.value.trim().toLowerCase(); if (A.length) render(); });
+  $("q").addEventListener("input", function () { Q = this.value.trim().toLowerCase(); if (ALL.length) render(); });
   document.addEventListener("keydown", function (e) {
     if (e.key === "/" && document.activeElement !== $("q") &&
         ["INPUT", "TEXTAREA", "SELECT"].indexOf((document.activeElement || {}).tagName) < 0) {
@@ -3640,7 +3933,7 @@ var WardaRouter = (() => {
     if (m[1] === "agent" && m[2]) {
       /* A link to an agent that did not load is not a blank page: say which,
          and put them somewhere they can act. */
-      if (A.some(function (a) { return a.id === m[2]; })) showAgent(m[2], true);
+      if (ALL.some(function (a) { return a.id === m[2]; })) showAgent(m[2], true);
       else { show("grants", true); }
     } else {
       show(m[1], true);
@@ -3658,6 +3951,7 @@ var WardaRouter = (() => {
     });
     Array.prototype.forEach.call(document.querySelectorAll(".view"), function (o) { o.classList.remove("on"); });
     $("v-" + v).classList.add("on");
+    scopeRender();
     document.title = TITLES[v] ? TITLES[v] + " · Warda Console" : "Warda Console";
     window.scrollTo(0, 0);
   }
