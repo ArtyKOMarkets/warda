@@ -400,6 +400,7 @@
   .fa-arrow svg { width: 30px; height: 30px; padding: 6px; border-radius: 50%; background: var(--raise);
     border: 1px solid var(--edge-bright); color: var(--teal); margin-block: -0.45rem; }
   .fa-kas { font-family: var(--mono); font-size: 1.6rem; margin: 0; color: var(--chrome); }
+  .fa-px { margin: 0; font-size: 0.78rem; } .fa-px span { font-family: var(--mono); color: var(--chrome-dim); } .fa-px i { font-style: normal; color: var(--chrome-faint); }
   .fa-key { font-size: 0.78rem; line-height: 1.5; margin: 0.35rem 0 0; color: var(--chrome-dim); overflow-wrap: anywhere; }
   .fa-route { display: grid; gap: 0.35rem; }
   .fa-leg { display: grid; grid-template-columns: auto 1fr; gap: 0.2rem 0.6rem; align-items: baseline;
@@ -1371,20 +1372,12 @@ ops/install-cron.sh</pre>
                 <p class="fa-kas" id="fa-kas">&mdash;</p>
                 <p class="out" id="fa-kas-s">&mdash;</p>
               </div>
-              <div class="bar">
-                <div>
-                  <label for="fu-rate">Your rate &mdash; $ per KAS</label>
-                  <input id="fu-rate" inputmode="decimal" value="0.05">
-                </div>
-                <div class="px">
-                  <label>Market</label>
-                  <span id="fu-px">&mdash;</span>
-                  <i id="fu-px-src">not fetched yet</i>
-                </div>
-                <div style="min-width:auto">
-                  <button class="go gh" id="fu-use-px" disabled>Use the market rate</button>
-                </div>
-              </div>
+              <!-- The market price only. There is no rate to type: the figure
+                   above is an estimate for a person deciding how much to send,
+                   and the swap itself fills at whatever the venue gives. -->
+              <p class="out fa-px"><span id="fu-px">&mdash;</span> <i id="fu-px-src">reading the market price&hellip;</i></p>
+              <input id="fu-rate" type="hidden" value="">
+              <button id="fu-use-px" hidden disabled></button>
               <input id="fu-usd" type="hidden" value="100">
               <p class="out" id="fu-o-usd" hidden></p>
             </div>
@@ -3018,7 +3011,11 @@ var WardaRouter = (() => {
         if (!(v > 0)) return miss("no price in the reply. That is not $0.");
         var t = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
         MARKET = { rate: v, at: t, source: "CoinGecko" };
-        if ($("fa-usd")) faView();
+        if ($("fu-rate")) {
+          $("fu-rate").value = String(v);
+          FU_RATE_FROM = { value: v, label: "CoinGecko, " + t };
+        }
+        if ($("fa-usd")) { faView(); fundView(); }
         ["px", "a-px", "fu-px"].forEach(function (id) { if ($(id)) $(id).textContent = "$" + v + " per KAS"; });
         ["px-src", "a-px-src", "fu-px-src"].forEach(function (id) {
           if ($(id)) $(id).textContent = "CoinGecko, read at " + t + " — nothing is enforced against it";
@@ -4158,15 +4155,21 @@ var WardaRouter = (() => {
     if (CN && CN.chain === src.chain && src.tokens.indexOf(CN.token) >= 0) tok.value = CN.token;
 
     var usd = parseFloat($("fa-usd").value);
-    var rate = parseFloat($("fu-rate").value);
-    if (!(rate > 0) && MARKET) rate = MARKET.rate;
-    var kasN = usd > 0 && rate > 0 ? usd / rate : null;
+    var rate = MARKET ? MARKET.rate : NaN;
+    /* On the instant swap the venue's own quote is the better figure — it is
+       what ChangeNOW expects to send, fees included — so it replaces the
+       market arithmetic once it has arrived for this amount. */
+    var cnKas = FA_ROUTE === "changenow" && CN_Q && CN_Q.ok && CN_Q.toAmount != null && String(CN_Q.amount) === ($("fa-usd").value || "").trim()
+      ? Number(CN_Q.toAmount) : null;
+    var kasN = cnKas != null ? cnKas : usd > 0 && rate > 0 ? usd / rate : null;
     $("fa-from-s").textContent = W && W.family === "evm"
       ? "from " + WALLETS[W.kind].name + " · " + short(W.address) + (W.chainId && W.chainId !== src.chainId ? " — your wallet is on " + chainName(W.chainId) + ", not " + src.chain : "")
       : "from any wallet on " + src.chain + " — connect one under Your account";
     $("fa-kas").textContent = kasN == null ? "—" : "≈ " + Math.floor(kasN).toLocaleString("en-US") + " KAS";
-    $("fa-kas-s").textContent = kasN == null ? "Enter an amount and a rate above zero."
-      : "at $" + rate + " per KAS. A swap may fill lower; the route step says by how much you allow.";
+    $("fa-kas-s").textContent = kasN == null
+      ? (usd > 0 ? "Waiting for the market price. That is no estimate, not a zero." : "Enter an amount above zero.")
+      : cnKas != null ? "ChangeNOW's own quote for this amount, its fee included. What arrives is what it has when your deposit lands."
+      : "At the market price of $" + rate + " per KAS (" + MARKET.source + ", " + MARKET.at + "). The swap fills at whatever the venue gives.";
     var capN = rate > 0 ? parseFloat($("fa-cap").value) / rate : null;
     $("fa-o-cap").textContent = capN > 0 ? "≈ " + kas2(capN) + " KAS per payment — the figure the covenant compares" : "—";
 
