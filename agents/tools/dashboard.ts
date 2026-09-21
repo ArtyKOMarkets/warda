@@ -376,6 +376,9 @@ try {
             at: p.at,
             outcome: p.outcome,
             url: p.url,
+            /* The operator's label for why it paid (`warda pay --task`). Absent
+               on records written before it existed, and on any not labelled. */
+            task: typeof p.task === "string" && p.task.trim() ? p.task.trim().slice(0, 80) : null,
             reason: p.reason ?? null,
             txid: p.txid ?? null,
             /* `paid` means paid. It was the QUOTE, published under that name on

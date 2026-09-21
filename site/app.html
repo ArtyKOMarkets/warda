@@ -283,7 +283,7 @@
   .an-share i { display: block; min-width: 3px; }
   .an-share i:first-child { border-radius: 7px 0 0 7px; } .an-share i:last-child { border-radius: 0 7px 7px 0; }
   .an-share i:only-child { border-radius: 7px; }
-  #an-ep td, #an-run td { white-space: nowrap; }
+  #an-ep td, #an-run td, #an-task td { white-space: nowrap; }
   @media (max-width: 600px) {
     #an-ep th:nth-child(4), #an-ep td:nth-child(4), #an-ep th:nth-child(6), #an-ep td:nth-child(6) { display: none; }
     #an-ep td:first-child .why { display: block; }
@@ -1031,10 +1031,23 @@
       </div>
 
       <div class="card" style="margin-top:0.85rem">
+        <header><h2>Cost per task <small id="an-task-n"></small></h2></header>
+        <p class="why">Grouped by the label an agent gave each payment with <code>warda pay --task "&hellip;"</code>.
+          The label lives in the agent&rsquo;s purchase log only &mdash; never on chain, never sent to the vendor.
+          Payments without one are counted as untagged, not left out.</p>
+        <div class="an-share" id="an-task-bar"></div>
+        <div style="overflow-x:auto">
+          <table id="an-task"><thead><tr>
+            <th>Task</th><th class="n">Attempts</th><th class="n">Settled</th><th class="n">Total</th>
+            <th class="n">Per settled payment</th><th>Last</th>
+          </tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:0.85rem">
         <header><h2>Not measured yet</h2></header>
-        <p class="why">Cost per task needs agents to tag why they paid, which the SDK does not record yet. An alert
-          for &ldquo;spending twice its normal rate&rdquo; needs something watching continuously &mdash; that arrives
-          with console accounts. Neither is estimated here.</p>
+        <p class="why">An alert for &ldquo;spending twice its normal rate&rdquo; needs something watching continuously
+          &mdash; that arrives with console accounts. It is not estimated here.</p>
       </div>
     </div>
 
@@ -4957,7 +4970,41 @@ var WardaRouter = (() => {
         '<span class="amt">' + kas2(r.v) + ' KAS</span>' +
         '<span class="tr"><i style="width:' + Math.max(1, r.v / tmax * 100) + '%;background:' + c + '"></i></span></div>';
     }).join("") : '<p class="empty">No grant in view.</p>';
+    chartTasks(pays);
     analyticsView.F = F;
+  }
+
+  function chartTasks(pays) {
+    var by = {};
+    pays.forEach(function (x) {
+      var k = x.p.task || "";
+      var r = by[k] = by[k] || { n: 0, ok: 0, v: 0, last: "" };
+      r.n++; if (settled(x)) { r.ok++; r.v += num(x.p.paid); }
+      if (x.p.at > r.last) r.last = x.p.at;
+    });
+    var rows = Object.keys(by).map(function (k) { var r = by[k]; r.k = k; return r; })
+      .sort(function (a, b) { return (a.k ? 0 : 1) - (b.k ? 0 : 1) || b.v - a.v; });
+    var tagged = rows.filter(function (r) { return r.k; });
+    var tot = rows.reduce(function (s, r) { return s + r.v; }, 0);
+    $("an-task-n").textContent = tagged.length ? tagged.length + " task" + (tagged.length === 1 ? "" : "s") : "";
+    if (!tagged.length) {
+      $("an-task-bar").innerHTML = "";
+      $("an-task").querySelector("tbody").innerHTML = '<tr><td colspan="6" class="empty">' +
+        (pays.length ? "None of these " + pays.length + " payments carries a task label yet. Add one with warda pay --task \"what it is for\", and the next payment shows here."
+          : "No payment recorded.") + '</td></tr>';
+      return;
+    }
+    $("an-task-bar").innerHTML = tot > 0 ? rows.filter(function (r) { return r.v > 0; }).map(function (r, i) {
+      var c = r.k ? EP_HUE[i % EP_HUE.length] : "#6E7C97";
+      return '<i class="an-hit" style="flex:' + r.v + ';background:' + c + '" data-tip="' + esc(tipRows(r.k || "untagged", Math.round(r.v / tot * 100) + "% of spend", [[c, "total", kas2(r.v) + " KAS"], [c, "settled", r.ok + " of " + r.n]])) + '"></i>';
+    }).join("") : "";
+    anTip($("an-task-bar").parentNode);
+    $("an-task").querySelector("tbody").innerHTML = rows.map(function (r) {
+      return '<tr><td>' + (r.k ? esc(r.k) : '<span class="why">untagged</span>') + '</td>' +
+        '<td class="n">' + r.n + '</td><td class="n">' + r.ok + ' <span class="why">' + Math.round(r.ok / r.n * 100) + '%</span></td>' +
+        '<td class="n">' + kas2(r.v) + ' KAS</td><td class="n">' + (r.ok ? kas(r.v / r.ok) + " KAS" : "—") + '</td>' +
+        '<td>' + esc(ago(r.last)) + '</td></tr>';
+    }).join("");
   }
 
   function analyticsCsv() {
@@ -5504,9 +5551,9 @@ var WardaRouter = (() => {
     var rows = P_();
     var say = $("csv-say");
     if (!rows.length) { say.textContent = "Nothing in view to export."; return; }
-    var head = ["at", "agent", "outcome", "paid_kas", "host", "path", "pay_to", "txid", "url"];
+    var head = ["at", "agent", "task", "outcome", "paid_kas", "host", "path", "pay_to", "txid", "url"];
     var body = rows.map(function (x) {
-      return [x.p.at, "#" + x.agent, x.p.outcome, num(x.p.paid), host(x.p.url), path(x.p.url),
+      return [x.p.at, "#" + x.agent, x.p.task || "", x.p.outcome, num(x.p.paid), host(x.p.url), path(x.p.url),
               x.p.payTo, x.p.txid, x.p.url].map(csvCell).join(",");
     });
     var text = head.join(",") + "\n" + body.join("\n") + "\n";

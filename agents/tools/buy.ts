@@ -101,6 +101,14 @@ const agentId = flag("id");
 const manifestPath = flag("grant");
 const recipientsPath = flag("recipients");
 const outDir = flag("out");
+/* Why this payment, in the operator's words: "summarise inbox", "nightly crawl".
+   Written into the purchase record and nowhere else — not into the transaction,
+   not to the vendor — so the console can show cost per task. Optional, trimmed,
+   and capped, because it is a label and not a place to put data. */
+const task = (() => {
+  const t = (flag("task") ?? "").replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim();
+  return t ? t.slice(0, 80) : null;
+})();
 if (!agentId || !manifestPath || !recipientsPath || !outDir) {
   /* No defaults. This file used to default to agent #002's grant and #002's
      purchase directory, which was harmless while it lived in agent-002/ and is
@@ -112,6 +120,7 @@ if (!agentId || !manifestPath || !recipientsPath || !outDir) {
       "       [--expect-refusal]  exit 0 when the covenant refuses, for a deliberate probe\n" +
       "       [--data <json|@f>]  POST this body instead of GET. @file reads a file\n" +
       "       [--content-type t]  default application/json, with --data\n" +
+      "       [--task <label>]    why it paid, kept in the purchase record for cost per task\n" +
       "       [--no-resume]       buy again instead of redeeming an unfinished purchase\n" +
       "       [--settle-attempts n]  give up after n presentations. 1 makes exit 4 on\n" +
       "                     purpose, which is how the resume path gets tested\n" +
@@ -194,6 +203,7 @@ const record = (result: Record<string, unknown>) => {
         at: startedAt.toISOString(),
         agent: agentId,
         url,
+        ...(task ? { task } : {}),
         /* The proof rides on every record that has one — see withProof, and
            the failure it exists to prevent. */
         ...withProof(result, seen.proof),

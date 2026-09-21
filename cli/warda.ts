@@ -262,6 +262,9 @@ const HELP = `warda — bounded spending authority for an agent, on Kaspa.
                                 is of the work rather than of the URL
                                 [--signer "<cmd>"] sign in another process, so
                                 no secret is ever in a file this reads
+                                [--task "<label>"] why it paid, for cost per
+                                task in the console. Kept in the purchase log
+                                only; never sent to the vendor or the chain
   warda activity                every attempt, refusals included
   warda find                    the grant moved. Where is it now?
   warda revoke   [grant.json]   STOP IT NOW. Signed by the revocation key,
@@ -825,6 +828,8 @@ switch (verb) {
              a property of the URL. */
           ...(flag("data") ? ["--data", flag("data")!] : []),
           ...(flag("content-type") ? ["--content-type", flag("content-type")!] : []),
+          /* A label for cost per task. It goes into the purchase record only. */
+          ...(flag("task") ? ["--task", flag("task")!] : []),
           ...rpcArgs(cfg),
         ],
         { WARDA_SK: agentSecret(cfg) },
