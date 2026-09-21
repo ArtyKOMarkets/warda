@@ -306,6 +306,16 @@
   .stat span { display: inline-flex; align-items: center; gap: 0.55rem; }
   .stat i { width: 5px; height: 5px; border-radius: 50%; background: var(--teal-deep); flex: none; }
 
+  .contact { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin-top: clamp(1.8rem, 4vw, 2.6rem); }
+  .contact a { display: flex; flex-direction: column; gap: 0.35rem; padding: 1.3rem 1.4rem; border: 1px solid var(--edge);
+               border-radius: 14px; background: var(--ground); color: var(--chrome); text-decoration: none;
+               transition: border-color 0.2s, transform 0.2s; min-width: 0; }
+  .contact a:hover { border-color: var(--teal-deep); transform: translateY(-1px); }
+  .contact a:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
+  .contact b { font-size: 1.05rem; }
+  .contact span { color: var(--chrome-dim); font-size: 0.9rem; }
+  .contact code { color: var(--teal); font-size: 0.88rem; overflow-wrap: anywhere; }
+  @media (max-width: 720px) { .contact { grid-template-columns: 1fr; } }
   footer { border-top: 1px solid var(--edge); padding: 2.4rem 0 3.4rem;
            font-size: 0.82rem; color: var(--chrome-faint); }
   footer .wrap { display: flex; flex-wrap: wrap; gap: 1rem 2rem; justify-content: space-between; }
@@ -542,10 +552,22 @@
   </div>
 </section>
 
+<section class="band" id="contact">
+  <div class="wrap narrow">
+    <p class="eyebrow rise">Contact</p>
+    <h2 class="rise" style="--d:80ms">Talk to us.<span>One person reads every message, usually the same day.</span></h2>
+    <div class="contact rise" style="--d:140ms">
+      <a href="https://t.me/Warda_protocol" rel="noopener"><b>Telegram</b><span>The fastest way to an actual conversation.</span><code>@Warda_protocol</code></a>
+      <a href="https://x.com/warda_protocol" rel="noopener"><b>X</b><span>Where the work is posted as it happens.</span><code>@warda_protocol</code></a>
+      <a href="mailto:aj@wardaprotocol.com"><b>Email</b><span>Investors, partners, anything longer.</span><code>aj@wardaprotocol.com</code></a>
+    </div>
+  </div>
+</section>
+
 <footer>
   <div class="wrap">
     <span>testnet-10 &middot; unaudited &middot; no real money. The limits are real; the coin is not.</span>
-    <span><a href="/protocol">Protocol</a> &middot; <a href="/proof">Proof</a> &middot; <a href="/attack">Attack</a> &middot; <a href="https://github.com/ArtyKOMarkets/warda" rel="noopener">GitHub</a></span>
+    <span><a href="/protocol">Protocol</a> &middot; <a href="/proof">Proof</a> &middot; <a href="/attack">Attack</a> &middot; <a href="https://github.com/ArtyKOMarkets/warda" rel="noopener">GitHub</a> &middot; <a href="https://t.me/Warda_protocol" rel="noopener">Telegram</a> &middot; <a href="https://x.com/warda_protocol" rel="noopener">X</a> &middot; <a href="mailto:aj@wardaprotocol.com">Email</a></span>
   </div>
 </footer>
 
