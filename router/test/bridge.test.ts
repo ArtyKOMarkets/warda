@@ -79,7 +79,9 @@ test("a small funding plan is BLOCKED, not merely unconfigured", () => {
   });
   assert.equal(p.executable, false);
   assert.equal(p.blockers.length, 1);
-  assert.match(p.blockers[0] ?? "", /minimum exit is 100000000000/);
+  /* Was /minimum exit is 100000000000/ — the floor named in sompi, in a
+     sentence the console shows to a person. Same floor, in the unit they read. */
+  assert.match(p.blockers[0] ?? "", /minimum exit is 1,000 KAS/);
   assert.deepEqual([...p.steps[0]!.missing], [], "nothing is missing; the world says no");
 });
 

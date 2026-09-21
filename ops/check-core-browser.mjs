@@ -24,31 +24,42 @@
  * compare.
  */
 import { readFileSync, existsSync } from "node:fs";
-import { bundleText, OUT } from "./build-core-browser.mjs";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { bundleText, BUNDLES } from "./build-core-browser.mjs";
 
-if (!existsSync(OUT)) {
-  console.error("site/src/core-browser.js is missing — /sandbox renders nothing without it.\n");
-  console.error("  node ops/build-core-browser.mjs");
-  process.exit(1);
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
+/* Every bundle, fresh. Same question for each, with a real answer: is the
+   committed file byte-identical to what its source produces now? */
+const WHO = {
+  core: "/sandbox runs this to say what a grant would refuse",
+  router: "/app runs this to plan a funding crossing",
+};
+const onDiskOf = {};
+for (const name of Object.keys(BUNDLES)) {
+  const out = resolve(root, BUNDLES[name].out);
+  if (!existsSync(out)) {
+    console.error(`${BUNDLES[name].out} is missing — ${WHO[name] ?? "a page needs it"}.\n`);
+    console.error("  node ops/build-core-browser.mjs");
+    process.exit(1);
+  }
+  const onDisk = readFileSync(out, "utf8");
+  const rebuilt = await bundleText(name);
+  if (onDisk !== rebuilt) {
+    console.error(`${BUNDLES[name].out} is not what its source produces.\n`);
+    console.error(`  committed: ${onDisk.length} bytes\n  rebuilt:   ${rebuilt.length} bytes\n`);
+    console.error(
+      `${WHO[name] ?? "A page runs it"}. Behind its source, it teaches a stranger\n` +
+        "something the package no longer does, and looks exactly like a page that\n" +
+        "is working.\n\n" +
+        "  node ops/build-core-browser.mjs",
+    );
+    process.exit(1);
+  }
+  onDiskOf[name] = onDisk;
 }
-
-const onDisk = readFileSync(OUT, "utf8");
-const rebuilt = await bundleText();
-
-if (onDisk !== rebuilt) {
-  console.error("the browser bundle of the rules is not what its source produces.\n");
-  console.error(
-    `  committed: ${onDisk.length} bytes\n` +
-      `  rebuilt:   ${rebuilt.length} bytes\n`,
-  );
-  console.error(
-    "/sandbox runs this to say what a grant would refuse. Behind its source, it\n" +
-      "teaches the old rules to a stranger and looks exactly like a page that is\n" +
-      "working.\n\n" +
-      "  node ops/build-core-browser.mjs",
-  );
-  process.exit(1);
-}
+const onDisk = onDiskOf.core;
 
 /* ---- and does it still compute? ------------------------------------------
  * Freshness is not the only way this file can be wrong in public. A bundle
@@ -135,7 +146,43 @@ if (wrong.length > 0) {
   process.exit(1);
 }
 
+/* ---- the router bundle, and the three things the planner shows ----------
+ * The same argument as above: a planner that loads and plans nothing looks
+ * like a crossing with no obstacles. So the three facts the page exists to
+ * show are asserted here, in CI, before a person reads them:
+ *
+ *   custody is "none"             — on every plan, not implied
+ *   the bridge's 1,000 KAS floor  — blocks a crossing below it, and only below
+ *   what is missing is NAMED      — not "not ready"
+ */
+const R = (0, eval)(onDiskOf.router + ";WardaRouter");
+const rate = (perKas) => ({ perKas, asset: "USD", source: "check", observedAt: Date.now() });
+const at = (usd, perKas, slippageBps = 0) =>
+  R.planFunding({
+    quote: R.quote({ price: { asset: "USD", amount: usd }, rate: rate(perKas), slippageBps, expiresAt: Date.now() + 60_000 }),
+    from: { asset: "USDC", layer: "igra" },
+  });
+const rwrong = [];
+const under = at("10", "0.05");   //   200 KAS — below the floor
+const over = at("100", "0.05");   // 2,000 KAS — above it
+if (under.custody !== "none" || over.custody !== "none") rwrong.push("a plan claimed custody");
+if (under.blockers.length === 0) rwrong.push("200 KAS crossed without the bridge's 1,000 KAS floor blocking it");
+if (over.blockers.length !== 0) rwrong.push("2,000 KAS was blocked by a floor it clears");
+if (!R.missingFrom(over).some((m) => /venue/.test(m))) rwrong.push("an unconfigured venue was not named as missing");
+if (over.executable) rwrong.push("a plan with no venue and no bridge called itself executable");
+/* A crossing RECEIVES KAS, so the floor has to hold at the bottom of the
+   slippage range: 1,004 KAS expected at 1% can arrive as 993.96. */
+if (at("50.20", "0.05", 100).blockers.length === 0) {
+  rwrong.push("a crossing that slips under the bridge's floor was shown as clear");
+}
+if (rwrong.length) {
+  console.error("the router bundle is current and does not plan correctly:\n");
+  for (const w of rwrong) console.error(`  ${w}`);
+  console.error("\n/app shows this plan to somebody deciding whether to move money.");
+  process.exit(1);
+}
+
 console.log(
-  `core-browser: the committed bundle is byte-identical to a fresh build, ` +
-    `and judged ${cases.length} spends correctly.`,
+  `browser bundles: ${Object.keys(BUNDLES).length} byte-identical to a fresh build; ` +
+    `core judged ${cases.length} spends and the router planned 3 crossings correctly.`,
 );

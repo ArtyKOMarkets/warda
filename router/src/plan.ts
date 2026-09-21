@@ -14,6 +14,7 @@
  * nobody wrote down is a guarantee nobody can check.
  */
 
+import { formatKas } from "@warda_protocol/core";
 import type { Quote } from "./quote.ts";
 import { verdict, type Hop, type Route, type RouteVerdict } from "./route.ts";
 import { MIN_EXIT_SOMPI, assertPayoutAddress } from "./bridge.ts";
@@ -147,16 +148,29 @@ export function planFunding(input: FundingPlanInput): FundingPlan {
   const bridgeMissing = need(bridge, "bridge", ["withdraw"]);
   if (payoutAddress === undefined) bridgeMissing.push("payoutAddress");
 
-  /* The crossing, not the payment. quote.sompi is what is expected to arrive on
-     L1, and the bridge refuses to move less than a thousand KAS at a time. */
+  /* The crossing, not the payment — and the LEAST that can arrive, not the
+     expected amount. The bridge refuses to move less than a thousand KAS at a
+     time, and what reaches it is whatever the swap produced, so the floor has
+     to hold at the bottom of the slippage range. Checked against `sompi` this
+     passed a crossing whose ordinary outcome cleared the floor and whose
+     worst outcome was a revert. Two messages, because the fixes differ: below
+     the floor even at the quoted rate means cross more; below it only after
+     slippage means cross more OR accept less slippage. */
   const bridgeBlockers =
     quote.sompi < MIN_EXIT_SOMPI
       ? [
-          `the bridge will not move ${quote.sompi} sompi: its minimum exit is ${MIN_EXIT_SOMPI} ` +
-            `(1,000 KAS), so this crossing would revert with ExitAmountBelowMinimum. Crossing is a ` +
-            `treasury operation — cross once, fund many grants from what arrived.`,
+          `the bridge will not move ${formatKas(quote.sompi)} KAS: its minimum exit is 1,000 KAS, ` +
+            `so this crossing would revert with ExitAmountBelowMinimum. Crossing is a treasury ` +
+            `operation — cross once, fund many grants from what arrived.`,
         ]
-      : [];
+      : quote.minSompi < MIN_EXIT_SOMPI
+        ? [
+            `at ${quote.slippageBps / 100}% slippage as little as ${formatKas(quote.minSompi)} KAS ` +
+              `could arrive, under the bridge's 1,000 KAS minimum exit — the crossing would revert ` +
+              `if the pool fills at the bottom of the range you allowed. Cross more, or accept ` +
+              `less slippage.`,
+          ]
+        : [];
 
   const steps: Step[] = [
     {
@@ -166,7 +180,14 @@ export function planFunding(input: FundingPlanInput): FundingPlan {
       ready: swapMissing.length === 0,
       missing: swapMissing,
       blockers: [],
-      describe: `swap ${from.asset} for iKAS on ${venue?.name ?? "a venue"}, worth at most ${quote.maxSompi} sompi`,
+      /* KAS, not sompi. The rail in exchange.ts already holds itself to "no
+         sompi in an instruction to a human", and its test says so; this rail
+         did not, and it showed — the console rendered "worth at most
+         200000000000 sompi" to somebody deciding whether to move money. */
+      describe:
+        `swap ${from.asset} for iKAS on ${venue?.name ?? "a venue"}, receiving ` +
+        `${formatKas(quote.sompi)} KAS at the quoted rate and no less than ` +
+        `${formatKas(quote.minSompi)} KAS`,
     },
     {
       index: 1,

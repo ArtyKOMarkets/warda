@@ -168,3 +168,15 @@ test("the inverse and the forward direction agree at a round figure", () => {
   const forward = quote({ price: back.price, rate: rate("0.05"), expiresAt: SOON });
   assert.equal(forward.sompi, back.sompi);
 });
+
+test("minSompi is the other end of the same range, rounded down", () => {
+  const q = quote({
+    price: { asset: "USD", amount: "10" },
+    rate: { perKas: "0.1", asset: "USD", source: "t", observedAt: 0 },
+    slippageBps: 100,
+    expiresAt: Number.MAX_SAFE_INTEGER,
+  });
+  assert.equal(q.sompi, 10_000_000_000n);
+  assert.equal(q.minSompi, 9_900_000_000n);
+  assert.equal(q.maxSompi, 10_100_000_000n);
+});

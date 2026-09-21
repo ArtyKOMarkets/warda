@@ -78,3 +78,58 @@ test("the irreversible step is called out to whoever is signing", () => {
   const wait = p.steps.find((s) => s.action === "await-confirmation");
   assert.match(wait?.describe ?? "", /not reversible by retrying/);
 });
+
+test("no sompi in an instruction to a human — the same rule the exchange rail holds", () => {
+  /* Caught by rendering the plan in the console, where step 1 read "worth at
+     most 200000000000 sompi". rail.test.ts had this assertion for the other
+     rail and nothing had it for this one. */
+  const q = quote({
+    price: { asset: "USD", amount: "100" },
+    rate: { perKas: "0.05", asset: "USD", source: "test", observedAt: 0 },
+    expiresAt: Number.MAX_SAFE_INTEGER,
+  });
+  const p = planFunding({ quote: q, from: { asset: "USDC", layer: "igra" } });
+  for (const st of p.steps) {
+    assert.ok(!/sompi/.test(st.describe), `step ${st.index} says sompi: ${st.describe}`);
+  }
+  assert.match(p.steps[0]!.describe, /2000 KAS/);
+});
+
+/* The direction bug. A funding crossing RECEIVES KAS, so slippage means less
+   arrives — and the bridge's floor has to hold at the bottom of that range.
+   planFunding checked it against the expected amount and quoted the payer's
+   `maxSompi` as its bound; both were the right numbers for the other trade. */
+const at = (usd: string, perKas: string, slippageBps: number) =>
+  planFunding({
+    quote: quote({
+      price: { asset: "USD", amount: usd },
+      rate: { perKas, asset: "USD", source: "test", observedAt: 0 },
+      slippageBps,
+      expiresAt: Number.MAX_SAFE_INTEGER,
+    }),
+    from: { asset: "USDC", layer: "igra" },
+  });
+
+test("a crossing that clears the floor only before slippage is blocked, and says why", () => {
+  // $50.20 at $0.05 is 1,004 KAS expected; at 1% slippage as little as 993.96 arrives.
+  const p = at("50.20", "0.05", 100);
+  assert.equal(p.blockers.length, 1, "the worst outcome in the range you allowed is a revert");
+  assert.match(p.blockers[0]!, /slippage/);
+  assert.match(p.blockers[0]!, /accept less slippage/);
+});
+
+test("the same crossing at no slippage clears", () => {
+  assert.equal(at("50.20", "0.05", 0).blockers.length, 0);
+});
+
+test("below the floor even at the quoted rate is the other message", () => {
+  const p = at("10", "0.05", 50);
+  assert.match(p.blockers[0]!, /Crossing is a treasury operation/);
+  assert.doesNotMatch(p.blockers[0]!, /accept less slippage/);
+});
+
+test("the swap step names what arrives, including the least of it", () => {
+  const d = at("100", "0.05", 50).steps[0]!.describe;
+  assert.match(d, /receiving 2000 KAS/);
+  assert.match(d, /no less than 1990 KAS/);
+});

@@ -77,6 +77,20 @@ export interface Quote {
    * payment that quotes inside the limit and executes outside it.
    */
   readonly maxSompi: bigint;
+  /**
+   * The LEAST that arrives once slippage is allowed — the other end of the
+   * same range, for the other direction.
+   *
+   * `maxSompi` answers a buyer: the most a payment can cost. A funding
+   * crossing is the opposite trade — you spend USDC and RECEIVE KAS — and
+   * there slippage means getting less. `planFunding` used `maxSompi` anyway,
+   * so the plan quoted the optimistic end as its bound and checked the
+   * bridge's 1,000 KAS floor against the expected amount: a crossing that
+   * cleared the floor on paper and slipped under it in the pool would be shown
+   * as clear, and revert. Rounded down, because what arrives is never more
+   * than the pool gave.
+   */
+  readonly minSompi: bigint;
   readonly slippageBps: number;
   /** `null` when the price was already in KAS and nothing was converted. */
   readonly rate: Rate | null;
@@ -155,6 +169,7 @@ export function quote(input: QuoteInput): Quote {
   }
 
   const maxSompi = ceilDiv(sompi * BigInt(10_000 + slippageBps), 10_000n);
+  const minSompi = (sompi * BigInt(10_000 - slippageBps)) / 10_000n;
 
   /* Against `sompi`, not `maxSompi`. The floor is about the transaction that
      actually gets built, and that is the expected amount. Checking the slippage
@@ -169,7 +184,7 @@ export function quote(input: QuoteInput): Quote {
     );
   }
 
-  return { price, sompi, maxSompi, slippageBps, rate: used, expiresAt, zone: "attested" };
+  return { price, sompi, maxSompi, minSompi, slippageBps, rate: used, expiresAt, zone: "attested" };
 }
 
 /** Why a quote cannot be paid from a particular grant. */
@@ -248,6 +263,7 @@ export function quoteForSompi(input: {
     price: { asset: rate.asset, amount: formatScaled(priceScaled) },
     sompi,
     maxSompi: ceilDiv(sompi * BigInt(10_000 + slippageBps), 10_000n),
+    minSompi: (sompi * BigInt(10_000 - slippageBps)) / 10_000n,
     slippageBps,
     rate,
     expiresAt,

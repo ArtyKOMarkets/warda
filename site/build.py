@@ -149,6 +149,12 @@ VERIFY_CORE = (here / "src" / "verify-core.js").read_text()
 # from. A stale one is green and wrong at the same time, and wrong in public.
 CORE_BROWSER = (here / "src" / "core-browser.js").read_text()
 
+# `@warda_protocol/router`, compiled by the same builder. The console's funding
+# planner renders `planFunding` itself — the steps, what each one still needs,
+# the bridge's floor — rather than a second description of the rail written for
+# a page. Checked by ops/check-core-browser.mjs alongside the core bundle.
+ROUTER_BROWSER = (here / "src" / "router-browser.js").read_text()
+
 # The covenant template, so a browser can derive a grant's address with no node
 # and no server. It carries its own address vectors, which the page re-derives
 # on load and reports on — a verifier nobody can check is not a verifier.
@@ -214,6 +220,7 @@ for _f in flavours.values():
     _f["{{CRYPTO}}"] = CRYPTO
     _f["{{VERIFY_CORE}}"] = VERIFY_CORE
     _f["{{CORE_BROWSER}}"] = CORE_BROWSER
+    _f["{{ROUTER_BROWSER}}"] = ROUTER_BROWSER
     _f["{{COVENANT_TEMPLATE}}"] = TEMPLATE
 
 # Files copied through untouched. They carry no placeholders, but they are

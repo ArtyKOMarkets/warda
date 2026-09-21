@@ -365,6 +365,9 @@
         Alerts</a>
 
       <p class="grp" style="margin-top:0.9rem">Build</p>
+      <a data-view="fund">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 5.5h9.5M8.5 2.5l3 3-3 3"/><path d="M14 10.5H4.5M7.5 7.5l-3 3 3 3"/></svg>
+        Fund your treasury</a>
       <a data-view="create">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2.5v11M2.5 8h11"/></svg>
         Create a grant</a>
@@ -793,6 +796,101 @@ ops/install-cron.sh</pre>
       </div>
     </div>
 
+    <!-- ============================== FUND =============================== -->
+    <div class="view pad" id="v-fund">
+      <div class="head"><div>
+        <h1>Fund your treasury</h1>
+        <p>Turn USDC into KAS you hold, once. Every grant after that is created from it, with no
+          price, no venue and nobody&rsquo;s word involved.</p>
+      </div></div>
+
+      <div class="wrap">
+        <div>
+          <div class="card">
+            <header><h2>What you are crossing</h2></header>
+            <p class="say">Kaspa has no exchange of its own &mdash; Toccata brought covenants, not an EVM
+              &mdash; so the swap happens on Igra, a rollup where USDC already trades, and the result
+              crosses to Kaspa L1 over its bridge. That bridge moves 1,000 KAS or more at a time, which
+              is why this is a treasury step rather than a per-grant one.</p>
+
+            <div class="bar" style="margin-bottom:1.1rem">
+              <div>
+                <label for="fu-rate">Rate &mdash; $ per KAS</label>
+                <input id="fu-rate" inputmode="decimal" value="0.05">
+              </div>
+              <div class="px">
+                <label>Market</label>
+                <span id="fu-px">&mdash;</span>
+                <i id="fu-px-src">not fetched yet</i>
+              </div>
+              <div style="min-width:auto">
+                <button class="go gh" id="fu-use-px" disabled>Use the market rate</button>
+              </div>
+            </div>
+
+            <div class="grid">
+              <div class="field">
+                <label for="fu-usd">USDC to spend</label>
+                <input id="fu-usd" inputmode="decimal" value="100">
+                <p class="out" id="fu-o-usd">&mdash;</p>
+              </div>
+              <div class="field">
+                <label for="fu-slip">Slippage you will accept &mdash; %</label>
+                <input id="fu-slip" inputmode="decimal" value="0.5">
+                <p class="out">A swap fills at whatever the pool gives. This is how far below the quote
+                  you are willing to land, and it sizes the worst case on the right.</p>
+              </div>
+              <div class="field">
+                <label for="fu-net">Where the swap happens</label>
+                <select id="fu-net">
+                  <option value="galleon">Igra Galleon &mdash; testnet</option>
+                  <option value="igra" disabled>Igra mainnet &mdash; when audited</option>
+                </select>
+                <p class="out" id="fu-o-net">&mdash;</p>
+              </div>
+            </div>
+            <div class="field" style="margin-top:1rem">
+              <label for="fu-addr">Where the KAS should land &mdash; your funding address on Kaspa</label>
+              <input id="fu-addr" spellcheck="false" placeholder="kaspatest:qq&hellip;">
+              <p class="out" id="fu-o-addr">Checked here in full, because the bridge checks only the
+                prefix and the character set &mdash; this is the one place a transposed character is
+                caught before the KAS is gone.</p>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:0.85rem">
+            <header><h2>The plan <small id="fu-state">&mdash;</small></h2></header>
+            <p class="why">Built by <code>@warda_protocol/router</code>, the same <code>planFunding</code> its
+              tests exercise. Every step that moves value is handed to you unsigned. This page cannot sign
+              any of them and has no way to.</p>
+            <div class="feed" id="fu-steps"></div>
+            <div id="fu-block"></div>
+          </div>
+        </div>
+
+        <div class="aside">
+          <div class="enforced">
+            <p class="k">What you get, and who can get it wrong</p>
+            <dl id="fu-enf"></dl>
+            <p class="foot" id="fu-foot">&mdash;</p>
+          </div>
+          <div class="card">
+            <header><h2>Custody: none</h2></header>
+            <p class="why">Written on every plan rather than implied. Warda never holds this money, takes
+              no fee on the crossing, and is not a party to the swap &mdash; the venue and the bridge are,
+              and they are named in the plan. The day a router holds the float, its security argument
+              becomes a balance sheet.</p>
+          </div>
+          <div class="card">
+            <header><h2>Already hold KAS?</h2></header>
+            <p class="why">Then there is nothing to cross. Fund a grant directly from your own wallet.</p>
+            <p style="margin-top:0.8rem"><button class="go" id="fu-to-create">Create a grant from it
+              &rarr;</button></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ============================= CREATE ============================== -->
     <div class="view pad" id="v-create">
       <div class="head"><div>
@@ -972,6 +1070,9 @@ ops/install-cron.sh</pre>
   </div><!-- /main -->
 </div><!-- /app -->
 
+<script>
+{{ROUTER_BROWSER}}
+</script>
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); };
@@ -1856,8 +1957,9 @@ ops/install-cron.sh</pre>
     var miss = function (why) {
       MARKET = null;
       if ($("use-px")) $("use-px").disabled = true;
-      ["px", "a-px"].forEach(function (id) { if ($(id)) $(id).textContent = "—"; });
-      ["px-src", "a-px-src"].forEach(function (id) { if ($(id)) $(id).textContent = why; });
+      if ($("fu-use-px")) $("fu-use-px").disabled = true;
+      ["px", "a-px", "fu-px"].forEach(function (id) { if ($(id)) $(id).textContent = "—"; });
+      ["px-src", "a-px-src", "fu-px-src"].forEach(function (id) { if ($(id)) $(id).textContent = why; });
     };
     fetch("https://api.coingecko.com/api/v3/simple/price?ids=kaspa&vs_currencies=usd")
       .then(function (r) { return r.ok ? r.json() : null; })
@@ -1866,11 +1968,12 @@ ops/install-cron.sh</pre>
         if (!(v > 0)) return miss("no price in the reply. That is not $0.");
         var t = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
         MARKET = { rate: v, at: t, source: "CoinGecko" };
-        ["px", "a-px"].forEach(function (id) { if ($(id)) $(id).textContent = "$" + v + " per KAS"; });
-        ["px-src", "a-px-src"].forEach(function (id) {
+        ["px", "a-px", "fu-px"].forEach(function (id) { if ($(id)) $(id).textContent = "$" + v + " per KAS"; });
+        ["px-src", "a-px-src", "fu-px-src"].forEach(function (id) {
           if ($(id)) $(id).textContent = "CoinGecko, read at " + t + " — nothing is enforced against it";
         });
         if ($("use-px")) $("use-px").disabled = false;
+        if ($("fu-use-px")) $("fu-use-px").disabled = false;
       })
       .catch(function () { miss("could not be fetched. That is not $0 — nothing here depends on it."); });
   }
@@ -2039,6 +2142,126 @@ ops/install-cron.sh</pre>
       .catch(function () { out.textContent = "Could not reach the verifier. Nothing was read, so nothing is being reported."; });
   }
 
+  /* ---- fund the treasury --------------------------------------------------
+     Rendered from `WardaRouter.planFunding`, the router's own planner, bundled
+     by ops/build-core-browser.mjs. Nothing here decides anything the router did
+     not decide: what is missing, what the world refuses, which zone each hop
+     sits in and who can make it go wrong are all the router's answers. This
+     function lays them out. */
+  var FU_RATE_FROM = null;
+  var ACTION = {
+    "sign-and-submit": "you sign",
+    "await-confirmation": "you wait",
+    "off-protocol": "happens elsewhere"
+  };
+
+  function fundView() {
+    if (!$("fu-usd")) return;
+    if (typeof WardaRouter === "undefined") {
+      $("fu-steps").innerHTML = '<p class="empty">The router did not load, so there is no plan to show. That is not a plan with no obstacles.</p>';
+      return;
+    }
+    var R = WardaRouter, net = R.GALLEON_TESTNET;
+    var usd = ($("fu-usd").value || "").trim();
+    var rate = ($("fu-rate").value || "").trim();
+    var addr = ($("fu-addr").value || "").trim();
+    var src = FU_RATE_FROM && parseFloat(rate) === FU_RATE_FROM.value ? FU_RATE_FROM.label : "you";
+    /* Percent in, basis points to the router, which refuses anything outside
+       0..10000 and says so — that refusal is shown as the reason there is no
+       quote, rather than clamped into a number somebody did not type. */
+    var slipPct = parseFloat(($("fu-slip").value || "0").trim());
+    var slippageBps = isFinite(slipPct) ? Math.round(slipPct * 100) : NaN;
+    $("fu-o-net").textContent = net.name + " · chain " + net.chainId +
+      " · gas is paid in iKAS on Igra, from your wallet, to the network rather than to Warda";
+
+    var q = null, why = "";
+    try {
+      q = R.quote({
+        price: { asset: "USD", amount: usd },
+        rate: { perKas: rate, asset: "USD", source: src, observedAt: Date.now() },
+        slippageBps: slippageBps,
+        expiresAt: Date.now() + 5 * 60 * 1000
+      });
+    } catch (e) { why = e.message; }
+    if (!q) {
+      $("fu-o-usd").textContent = why || "Enter an amount and a rate above zero.";
+      $("fu-steps").innerHTML = '<p class="empty">No quote, so no plan. ' + esc(why) + '</p>';
+      $("fu-enf").innerHTML = ""; $("fu-block").innerHTML = ""; $("fu-state").textContent = "";
+      $("fu-foot").textContent = "";
+      return;
+    }
+    /* The LEAST that arrives, not the most. `maxSompi` is the buyer's bound —
+       what a payment can cost — and this is the other trade: you receive KAS,
+       and slippage means receiving less. */
+    var expect = Number(q.sompi), least = Number(q.minSompi);
+    $("fu-o-usd").textContent = "≈ " + kas2(expect / SOMPI) + " KAS at $" + parseFloat(rate) + " per KAS — " +
+      (src === "you" ? "your own figure" : src);
+
+    var plan = null;
+    try {
+      plan = R.planFunding({
+        quote: q,
+        from: { asset: "USDC", layer: "igra" },
+        payoutAddress: addr || undefined,
+        expectPrefix: "kaspatest"
+      });
+      $("fu-o-addr").textContent = addr
+        ? "Checks out: a " + addr.split(":")[0] + " address, checksum verified."
+        : "Checked here in full, because the bridge checks only the prefix and the character set — this is the one place a transposed character is caught before the KAS is gone.";
+    } catch (e) {
+      /* The router throws rather than planning around a bad address: a bad
+         payout address is not a plan with a problem, it is a plan that must
+         not exist. So the page shows no steps at all. */
+      $("fu-o-addr").innerHTML = '<span style="color:var(--refuse)">' + esc(e.message) + '</span>';
+      $("fu-steps").innerHTML = '<p class="empty">No plan: the address the KAS would land at does not check out, and a crossing to a mistyped address is the one mistake nobody gets back.</p>';
+      $("fu-block").innerHTML = ""; $("fu-state").textContent = "refused";
+      return;
+    }
+
+    $("fu-state").textContent = plan.executable ? "ready to run" : "not runnable yet";
+    $("fu-steps").innerHTML = plan.steps.map(function (st) {
+      var kind = st.blockers.length ? "bad" : st.ready ? "ok" : "warn";
+      var sub = st.blockers.length
+        ? st.blockers.join(" ")
+        : st.missing.length
+          ? "needs " + st.missing.join(", ")
+          : st.hop.counterparty
+            ? "can be made to go wrong by: " + st.hop.counterparty
+            : "no counterparty — consensus refuses every alternative";
+      return evRow(kind, (st.index + 1) + ". " + esc(st.describe), esc(sub),
+        ACTION[st.action] + " · " + R.zoneOf(st.hop));
+    }).join("");
+
+    var missing = R.missingFrom(plan);
+    var block = [];
+    if (plan.blockers.length) {
+      block.push('<p class="note" style="border-left-color:var(--refuse)"><b>Below the bridge&rsquo;s floor.</b> ' +
+        kasOf(expect) + ' KAS is under the 1,000 KAS minimum exit, so the crossing would revert. Cross a ' +
+        'treasury-sized amount once and fund many grants from what arrives — or, if you already hold ' +
+        'KAS, skip this page.</p>');
+    }
+    if (missing.some(function (m) { return /venue|bridge/.test(m); })) {
+      block.push('<p class="note"><b>Not runnable yet, and this is the honest reason.</b> There is no ' +
+        'verified, published deployment of a swap venue and the bridge on ' + esc(net.name) + ' to point ' +
+        'this at. The router takes those addresses as configuration and never from memory — an address ' +
+        'typed from recall sends money somewhere nobody checked. The steps above are real; the ' +
+        'addresses they need are the gap. Missing: ' + esc(missing.join(", ")) + '.</p>');
+    }
+    $("fu-block").innerHTML = block.join("");
+
+    var v = plan.verdict;
+    $("fu-enf").innerHTML = [
+      ["You should receive", kasOf(expect) + " KAS"],
+      ["At the least, after slippage", kasOf(least) + " KAS"],
+      ["The rate, attested by", src === "you" ? "you" : src],
+      ["Weakest link on the route", v.zone],
+      ["Grant's payees enforced", v.recipientEnforced ? "yes — genesis is last" : "no"],
+      ["Who can make it go wrong", (v.counterparties || []).join(", ") || "nobody"]
+    ].map(function (r) { return "<div><dt>" + r[0] + "</dt><dd>" + esc(String(r[1])) + "</dd></div>"; }).join("");
+    $("fu-foot").textContent = "Once it lands, the covenant enforces " +
+      (v.stillEnforced || []).join(", ") + " on every grant you fund from it — whatever happened on the way in.";
+  }
+
   /* ---- compose an alert rule --------------------------------------------- */
   var KIND_SAY = {
     "balance-at-or-above": "Fires when the coins at an address add up to your figure or more. This is the seller's rule — it tells you the takings are worth doing something about, and then you decide what.",
@@ -2188,6 +2411,24 @@ ops/install-cron.sh</pre>
     createView();
   });
   if ($("csv")) $("csv").addEventListener("click", downloadCsv);
+  Array.prototype.forEach.call(document.querySelectorAll("#v-fund input, #v-fund select"),
+    function (el) { el.addEventListener("input", fundView); });
+  if ($("fu-use-px")) $("fu-use-px").addEventListener("click", function () {
+    if (!MARKET) return;
+    $("fu-rate").value = String(MARKET.rate);
+    FU_RATE_FROM = { value: MARKET.rate, label: MARKET.source + ", " + MARKET.at };
+    fundView();
+  });
+  /* Straight on to a grant, carrying the two things this page already knows:
+     where the KAS lands, and the rate it was bought at. */
+  if ($("fu-to-create")) $("fu-to-create").addEventListener("click", function () {
+    var a = ($("fu-addr").value || "").trim();
+    if (a) $("funder").value = a;
+    $("rate").value = $("fu-rate").value;
+    RATE_FROM = FU_RATE_FROM;
+    show("create");
+    createView();
+  });
 
   $("q").addEventListener("input", function () { Q = this.value.trim().toLowerCase(); if (A.length) render(); });
   document.addEventListener("keydown", function (e) {
@@ -2207,7 +2448,7 @@ ops/install-cron.sh</pre>
   });
 
   var TITLES = { dash: "Overview", grants: "Grants", agent: "Agent", activity: "Activity",
-                 refusals: "Refused", alerts: "Alerts", create: "Create a grant" };
+                 refusals: "Refused", alerts: "Alerts", fund: "Fund your treasury", create: "Create a grant" };
   /* ---- where you are, in the URL ----------------------------------------
      The console had no address. Every view was the same page, so a reload lost
      your place, the browser's Back button left the app entirely, and there was
@@ -2276,5 +2517,6 @@ ops/install-cron.sh</pre>
 
   goStep(1);
   alertsView();
+  fundView();
 })();
 </script>
