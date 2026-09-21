@@ -18,5 +18,10 @@ if [ -f "$REPO/ops/node.env" ]; then
   . "$REPO/ops/node.env"
 fi
 
+# Whether each fund route's probe-able leg is open, read from the chain
+# (Igra's Hyperlane pause today). Never fatal: a failed read leaves
+# site/src/routes.json as it was, and the hourly reading must run regardless.
+( cd "$REPO" && node ops/check-routes.mjs >> "$REPO/ops/check-routes.log" 2>&1 ) || true
+
 cd "$REPO/agent"
 exec node --experimental-strip-types tools/read.ts "$@"
