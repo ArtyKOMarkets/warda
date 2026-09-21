@@ -11,7 +11,11 @@ import { postgresSpent } from "./spent.js";
 
 export function config(origin: string): ResearcherConfig | { missing: string[] } {
   const env = process.env;
-  const missing = ["RESEARCHER_ADDRESS", "GROWTH_QUOTE_SECRET", "DATABASE_URL"].filter((k) => !env[k]);
+  /* Vercel's Neon integration adds POSTGRES_URL beside DATABASE_URL, and a
+     custom prefix renames both — so either name will do. */
+  const db = env.DATABASE_URL ?? env.POSTGRES_URL;
+  const missing = ["RESEARCHER_ADDRESS", "GROWTH_QUOTE_SECRET"].filter((k) => !env[k]);
+  if (!db) missing.push("DATABASE_URL");
   if (missing.length) return { missing };
   const network = env.WARDA_NETWORK ?? "testnet-10";
   return {
@@ -19,7 +23,7 @@ export function config(origin: string): ResearcherConfig | { missing: string[] }
     sompi: BigInt(env.RESEARCHER_PRICE_SOMPI ?? "5000000"),
     network,
     secret: env.GROWTH_QUOTE_SECRET!,
-    spent: postgresSpent(env.DATABASE_URL!),
+    spent: postgresSpent(db!),
     fetcher: githubFetcher(env.GITHUB_TOKEN),
     openNode: () => openNode({ rpc: env.WARDA_RPC_JSON, network }),
     origin,
