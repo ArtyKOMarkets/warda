@@ -273,6 +273,8 @@
   .an-tip .r b { font-family: var(--mono); font-weight: 500; color: var(--chrome); }
   .an-hit { cursor: default; }
   .an-hit:hover, .an-hit.on { filter: brightness(1.25); }
+  .an-x { stroke: var(--chrome-faint); stroke-width: 1; opacity: 0; }
+  .an-hit:hover .an-x, .an-hit.on .an-x { opacity: 1; }
   .an-rings { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 0.9rem 0.6rem; margin-top: 0.9rem; }
   .an-ring { display: grid; justify-items: center; gap: 0.25rem; text-align: center; position: relative; }
   .an-ring svg { width: 84px; height: 84px; display: block; }
@@ -320,6 +322,16 @@
   .al-kind span { font-size: 0.76rem; }
   .al-kind[aria-pressed="true"] { border-color: var(--teal); background: var(--teal-ghost); }
   .al-how { margin: 0.7rem 0 0.6rem; padding-left: 1.2rem; display: grid; gap: 0.35rem; font-size: 0.82rem; color: var(--chrome-dim); }
+  .bill { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.5rem; }
+  .bill > .why { flex-basis: 100%; }
+  .bill .pl { padding: 0.8rem 0.9rem; border-radius: 10px; background: var(--panel); border: 1px solid var(--edge); display: flex; flex-direction: column; gap: 0.3rem; flex: 1 1 200px; }
+  .bill .pl button { margin-top: auto; }
+  .bill .pl.now { border-color: var(--teal); background: var(--teal-ghost); }
+  .bill .pl b { font-size: 0.9rem; } .bill .pl .px { font-family: var(--mono); color: var(--chrome); font-size: 0.85rem; }
+  .bill .pl span { font-size: 0.74rem; color: var(--chrome-faint); }
+  .og-follow { display: grid; grid-template-columns: 1fr auto; gap: 0.4rem; align-items: center; }
+  .og-follow input { font-size: 0.78rem; }
+  .spark { width: 100%; height: 44px; display: block; }
   .fa-routes { display: grid; gap: 0.5rem; margin-top: 0.8rem; }
   .fa-rt { text-align: left; display: grid; grid-template-columns: auto 1fr auto; gap: 0.15rem 0.7rem; align-items: center;
     padding: 0.75rem 0.85rem; border-radius: 10px; cursor: pointer; background: var(--panel);
@@ -448,7 +460,7 @@
   .scope-t b { color: var(--chrome); font-weight: 600; }
   .scope .go { padding: 0.36rem 0.8rem; font-size: 0.78rem; }
   .scope-empty { padding-bottom: 0; }
-  .main.mine-empty .view.data:not(#v-agent):not(#v-fleet) > :not(.head):not(.trk) { display: none; }
+  .main.mine-empty .view.data:not(#v-agent):not(#v-fleet) > :not(.head):not(.trk):not(.keep) { display: none; }
   @media print {
     .side, .top, .tabs, .scrim, .statusbar, .scope, #an-csv, #an-print { display: none !important; }
     .app { display: block; } .main { padding: 0 !important; }
@@ -1043,10 +1055,13 @@
         </div>
       </div>
 
-      <div class="card" style="margin-top:0.85rem">
-        <header><h2>Not measured yet</h2></header>
-        <p class="why">An alert for &ldquo;spending twice its normal rate&rdquo; needs something watching continuously
-          &mdash; that arrives with console accounts. It is not estimated here.</p>
+      <div class="card keep" style="margin-top:0.85rem" id="an-hist-card">
+        <header><h2>Your tracked grants over time <small id="an-hist-n"></small></h2></header>
+        <p class="why">Authority left in each grant you track, one point an hour for the last 30 days. Your account
+          reads them on the server every 15 minutes, so the line keeps going while this page is closed. A step down is
+          spending; a step up is a top-up; a line that stops is a grant that moved and could not be followed.</p>
+        <div class="chart" id="an-hist"></div>
+        <div class="an-leg" id="an-hist-leg"></div>
       </div>
     </div>
 
@@ -1234,6 +1249,8 @@
                 <p style="margin-top:0.6rem"><button class="go gh" id="sess-save">Save</button> <span class="why" id="sess-saved"></span></p>
               </div>
             </div>
+            <p class="grp-l">Plan</p>
+            <div class="bill" id="sess-bill"></div>
             <p class="grp-l">Rules this account runs</p>
             <div class="feed" id="sess-rules"></div>
             <p class="why" style="margin-top:0.9rem">Beta: free while accounts are new. Stored: the wallet addresses
@@ -3631,9 +3648,23 @@ ops/install-cron.sh</pre>
       return r.json().catch(function () { return { ok: false, error: "http", message: "The account service answered " + r.status + "." }; });
     });
   }
+  var SESS_HIST = null;
+  function histLoad() {
+    if (!SESS) return Promise.resolve();
+    return api("history").then(function (j) { if (j.ok) { SESS_HIST = j.history; ownRender(); if ($("v-analytics").classList.contains("on")) analyticsView(); } });
+  }
+  function sparkline(hist, m) {
+    var W = 300, H = 44, vals = hist.map(function (h) { return Number(h.remainingSompi); });
+    var max = Math.max(Number(m.budget || 0), Math.max.apply(null, vals)) || 1, t0 = new Date(hist[0].at).getTime(), t1 = new Date(hist[hist.length - 1].at).getTime() || t0 + 1;
+    var pts = hist.map(function (h, i) { return [(new Date(h.at).getTime() - t0) / Math.max(1, t1 - t0) * (W - 4) + 2, H - 3 - vals[i] / max * (H - 8)]; });
+    var d = pts.map(function (p, i) { return (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1); }).join(" ");
+    return '<svg class="spark" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" role="img" aria-label="Authority left over time">' +
+      '<path d="' + d + ' L' + pts[pts.length - 1][0] + ' ' + H + ' L2 ' + H + ' Z" fill="#0FA890" fill-opacity="0.12"/>' +
+      '<path d="' + d + '" fill="none" stroke="#0FA890" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>';
+  }
   function sessLoad() {
     return api("me").then(function (j) {
-      if (j.ok) { SESS_UP = true; SESS = { account: j.account }; sessSync(); }
+      if (j.ok) { SESS_UP = true; SESS = { account: j.account }; sessSync(); histLoad(); }
       else { SESS = null; SESS_UP = j.error !== "not_configured" && j.error !== "http"; if (j.error === "not_configured") SESS_UP = false; }
       sessRender(); ownRender();
     }).catch(function () { SESS_UP = false; sessRender(); });
@@ -3687,7 +3718,12 @@ ops/install-cron.sh</pre>
     var mine = {};
     OWN.forEach(function (x) { mine[ownKey(x.m)] = true; });
     server.forEach(function (g) {
-      if (!mine[g.key]) { OWN.push({ m: g.manifest, added: g.addedAt, synced: true }); ownRead(g.manifest); }
+      if (!mine[g.key]) { OWN.push({ m: g.manifest, added: g.addedAt, synced: true, payee: g.payee, note: g.followNote }); ownRead(g.manifest); return; }
+      /* The server follows grants that move, so its copy can be ahead of this
+         browser's: the one that has seen more spending wins. */
+      var x = OWN.filter(function (o) { return ownKey(o.m) === g.key; })[0];
+      x.payee = g.payee; x.note = g.followNote; x.movedAt = g.movedAt;
+      if (Number(g.manifest.spent_total || 0) > Number(x.m.spent_total || 0)) { x.m = g.manifest; ownRead(x.m); }
     });
     OWN.forEach(function (x) {
       var k = ownKey(x.m);
@@ -3747,7 +3783,33 @@ ops/install-cron.sh</pre>
         esc(r.lastMessage ? r.lastMessage.split("\n\n").slice(-2, -1)[0] || r.lastMessage : "no message sent yet") + '</span></i>' +
         '<span class="a"><span class="pill ' + w[1] + '">' + w[0] + '</span> <button class="go gh" data-unrule="' + esc(r.id) + '">Remove</button></span></div>';
     }).join("") || '<p class="empty">None yet. Build one on Alerts and choose "Save to my account".</p>';
+    billRender(a);
     alertsSaveState();
+  }
+
+  var PLANS = [
+    { id: "free", name: "Free", px: "$0", say: "Everything in the browser: wallets, tracked grants, analytics, the local alerts script." },
+    { id: "pro", name: "Pro", px: "$29 / month", say: "Grants synced to every device, alerts the console runs, spending spikes, following moved grants, history charts." },
+    { id: "team", name: "Team", px: "$199 / month", say: "Pro, for several people's wallets on one account. Roles are next." }
+  ];
+  function billRender(a) {
+    var b = a.billing || {}, cur = a.plan === "beta" ? "beta" : a.plan;
+    var head = cur === "beta"
+      ? '<div class="pl now"><b>Beta</b><span class="px">free</span><span>Everything in Pro while accounts are new' + (b.enforced ? "" : " — nothing to pay yet") + '.</span></div>' : "";
+    $("sess-bill").innerHTML = head + PLANS.filter(function (p) { return !(cur === "beta" && p.id === "free"); }).map(function (p) {
+      var now = p.id === cur;
+      var btn = !b.enabled || p.id === "free" || now ? "" : '<button class="go' + (p.id === "pro" ? "" : " gh") + '" data-plan="' + p.id + '">' + (cur === "pro" || cur === "team" ? "Switch to " : "Choose ") + p.name + '</button>';
+      return '<div class="pl' + (now ? " now" : "") + '"><b>' + p.name + (now ? " — your plan" + (a.billing && a.billing.status && a.billing.status !== "active" ? " (" + esc(a.billing.status) + ")" : "") : "") + '</b>' +
+        '<span class="px">' + p.px + '</span><span>' + p.say + '</span>' + btn + '</div>';
+    }).join("") + (b.customer ? '<p class="why" style="margin:0"><a id="bill-portal" role="button" tabindex="0">Manage billing, invoices and cancellation</a> — on Stripe&rsquo;s own page. Card details never reach this site.</p>'
+      : b.enabled ? '<p class="why" style="margin:0">Paid by card on Stripe&rsquo;s own page. No percentage of any payment, ever — the plan is the only charge.</p>'
+      : '<p class="why" style="margin:0">Paid plans open when billing is switched on for this site.</p>');
+  }
+  function billGo(op, body) {
+    $("sess-err").textContent = "Opening Stripe…";
+    api(op, body || {}).then(function (j) {
+      if (j.ok && j.url) location.href = j.url; else $("sess-err").textContent = j.message || "Billing did not answer.";
+    });
   }
 
   /* An alert rule, as the server runs it. Grants are named by their tracked
@@ -3926,6 +3988,13 @@ ops/install-cron.sh</pre>
       h += '<p class="og-say">Assumed by the verifier: ' + rd.assumptions.map(function (a) {
         return '<code>' + esc(a.field) + " = " + esc(a.value) + '</code>';
       }).join(", ") + '. A wrong assumption derives a different address, which reads as “not at this state”.</p>';
+    }
+    var hist = SESS_HIST && SESS_HIST[k];
+    if (hist && hist.length > 1) h += '<div>' + sparkline(hist, m) + '<p class="why" style="margin:0">Authority left, hourly, ' + esc(ago(hist[0].at)) + ' to now — kept by your account.</p></div>';
+    if (SESS && !x.local) {
+      h += '<div class="og-follow"><input data-own-payee="' + esc(k) + '" spellcheck="false" placeholder="One address this grant pays — lets the console follow it when it moves" value="' + esc(x.payee || "") + '">' +
+        '<button class="go gh" data-own-follow="' + esc(k) + '">' + (x.payee ? "Find it now" : "Save") + '</button></div>' +
+        (x.note ? '<p class="og-say" style="margin:0">' + esc(x.note) + '</p>' : '');
     }
     h += '<div class="og-a"><button class="go gh" data-own-read="' + esc(k) + '">Read again</button>' +
       '<button class="go gh" data-own-drop="' + esc(k) + '">Stop tracking</button>' +
@@ -4549,6 +4618,64 @@ ops/install-cron.sh</pre>
     mount("an-runway", '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="How long each live grant\'s money lasts at its current rate, against when its term ends">' + g + body + '</svg>');
   }
 
+  /* Tracked grants over time, from the hourly snapshots the account's
+     alert job keeps. One line per grant; the crosshair reads every line at
+     the hovered hour. */
+  var HIST_HUE = ["#0FA890", "#4C8DF6", "#C95FA8", "#B87F2E", "#9B6BE8", "#6BA83C"];
+  function chartHist() {
+    if (!$("an-hist")) return;
+    var leg = $("an-hist-leg"), n = $("an-hist-n");
+    if (!SESS) { n.textContent = ""; leg.innerHTML = ""; $("an-hist").innerHTML = '<p class="empty">Sign in on <a data-view="account">Account</a> and track a grant; the console then keeps its history for you.</p>'; return; }
+    var keys = Object.keys(SESS_HIST || {}).filter(function (k) { return SESS_HIST[k] && SESS_HIST[k].length > 1; });
+    if (!keys.length) { n.textContent = ""; leg.innerHTML = ""; $("an-hist").innerHTML = '<p class="empty">No history yet. It starts with the first server reading of a synced grant; a line needs two hourly points.</p>'; return; }
+    keys = keys.slice(0, HIST_HUE.length);
+    var nameOf = function (k) {
+      var x = OWN.filter(function (o) { return ownKey(o.m) === k; })[0], m = x && x.m;
+      return m ? "Grant " + (m.covenant_id ? String(m.covenant_id).slice(0, 8) + "…" : short(m.principal)) : "Grant " + k.slice(0, 8) + "…";
+    };
+    var ser = keys.map(function (k, i) {
+      return { k: k, c: HIST_HUE[i], name: nameOf(k), pts: SESS_HIST[k].map(function (h) { return { t: new Date(h.at).getTime(), v: Number(h.remainingSompi) / 1e8 }; }).sort(function (a, b) { return a.t - b.t; }) };
+    });
+    var t0 = Infinity, t1 = -Infinity, vmax = 0;
+    ser.forEach(function (s) { s.pts.forEach(function (p) { t0 = Math.min(t0, p.t); t1 = Math.max(t1, p.t); vmax = Math.max(vmax, p.v); }); });
+    if (t1 <= t0) t1 = t0 + 3600000;
+    var W = wOf("an-hist"), H = 210, PL = 48, PR = 10, PT = 10, PB = 22, max = niceMax(vmax);
+    var x = function (t) { return PL + (W - PL - PR) * (t - t0) / (t1 - t0); };
+    var y = function (v) { return PT + (H - PT - PB) * (1 - v / max); };
+    var g = [0, max / 2, max].map(function (v) {
+      return '<line class="grid-l" x1="' + PL + '" x2="' + (W - PR) + '" y1="' + y(v) + '" y2="' + y(v) + '"/>' +
+        '<text class="ax" x="' + (PL - 6) + '" y="' + (y(v) + 3) + '" text-anchor="end">' + kas2(v) + '</text>';
+    }).join("");
+    var fmt = function (t) { return new Date(t).toLocaleDateString("en-US", { month: "short", day: "numeric" }); };
+    var labs = [t0, (t0 + t1) / 2, t1].map(function (t, i) {
+      return '<text class="ax" x="' + x(t) + '" y="' + (H - 6) + '" text-anchor="' + ["start", "middle", "end"][i] + '">' + fmt(t) + '</text>';
+    }).join("");
+    var lines = ser.map(function (s) {
+      var d = s.pts.map(function (p, i) { return (i ? "L" : "M") + x(p.t).toFixed(1) + " " + y(p.v).toFixed(1); }).join(" ");
+      var last = s.pts[s.pts.length - 1];
+      return (ser.length === 1 ? '<path d="' + d + ' L' + x(last.t).toFixed(1) + ' ' + y(0) + ' L' + x(s.pts[0].t).toFixed(1) + ' ' + y(0) + ' Z" fill="' + s.c + '" fill-opacity="0.10"/>' : '') +
+        '<path d="' + d + '" fill="none" stroke="' + s.c + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>' +
+        '<circle cx="' + x(last.t).toFixed(1) + '" cy="' + y(last.v).toFixed(1) + '" r="4" fill="' + s.c + '" stroke="var(--ground)" stroke-width="2"/>';
+    }).join("");
+    /* Hover bands: one per hour that has a reading, reading every line there. */
+    var hours = {}; ser.forEach(function (s) { s.pts.forEach(function (p) { hours[Math.round(p.t / 3600000)] = 1; }); });
+    var hs = Object.keys(hours).map(Number).sort(function (a, b) { return a - b; });
+    var at = function (s, t) { var v = null; s.pts.forEach(function (p) { if (p.t <= t + 1800000) v = p.v; }); return v; };
+    var bands = hs.map(function (h, i) {
+      var t = h * 3600000, xa = i ? (x(hs[i - 1] * 3600000) + x(t)) / 2 : PL, xb = i < hs.length - 1 ? (x(t) + x(hs[i + 1] * 3600000)) / 2 : W - PR;
+      var rows = ser.map(function (s) { var v = at(s, t); return [s.c, s.name, v == null ? "—" : kas2(v) + " KAS"]; });
+      var tip = tipRows(new Date(t).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }), "authority left", rows);
+      return '<g class="an-hit" data-tip="' + esc(tip) + '"><rect x="' + xa.toFixed(1) + '" y="' + PT + '" width="' + Math.max(1, xb - xa).toFixed(1) + '" height="' + (H - PT - PB) + '" fill="transparent"/>' +
+        '<line class="an-x" x1="' + x(t).toFixed(1) + '" x2="' + x(t).toFixed(1) + '" y1="' + PT + '" y2="' + (H - PB) + '"/></g>';
+    }).join("");
+    var total = ser.reduce(function (a, s) { return a + s.pts[s.pts.length - 1].v; }, 0);
+    n.textContent = kas2(total) + " KAS left now";
+    mount("an-hist", '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Authority left in each tracked grant, hourly over the last 30 days">' + g + lines + bands + labs + '</svg>');
+    leg.innerHTML = ser.length < 2 ? "" : ser.map(function (s) {
+      return '<span><i style="background:' + s.c + '"></i>' + esc(s.name) + ' <b>' + kas2(s.pts[s.pts.length - 1].v) + '</b></span>';
+    }).join("");
+  }
+
   /* Budget used: a ring per grant. */
   function chartRings(F) {
     $("an-use").innerHTML = F.map(function (f) {
@@ -4695,6 +4822,7 @@ ops/install-cron.sh</pre>
 
     /* budget used */
     chartRings(F);
+    chartHist();
 
     /* near the cap */
     var capOf = {}; F.forEach(function (f) { capOf[f.a.id] = f.cap; });
@@ -5447,6 +5575,11 @@ ops/install-cron.sh</pre>
     if (!e) { $("own-text").value = ""; $("own-paste").hidden = true; }
     ownRender();
   });
+  $("sess-bill").addEventListener("click", function (e) {
+    var pl = e.target.closest && e.target.closest("[data-plan]");
+    if (pl) { pl.disabled = true; billGo("checkout", { plan: pl.getAttribute("data-plan") }); }
+    if (e.target.closest && e.target.closest("#bill-portal")) billGo("portal");
+  });
   $("own-refresh").addEventListener("click", function () { OWN.forEach(function (x) { ownRead(x.m); }); });
   $("own-list").addEventListener("click", function (e) {
     var r = e.target.closest && e.target.closest("[data-own-read]");
@@ -5456,6 +5589,22 @@ ops/install-cron.sh</pre>
     if (d) {
       var k = d.getAttribute("data-own-drop");
       OWN = OWN.filter(function (x) { return ownKey(x.m) !== k; }); delete OREAD[k]; ownSave(); sessDropGrant(k); ownRender();
+    }
+    var fo = e.target.closest && e.target.closest("[data-own-follow]");
+    if (fo) {
+      var fk = fo.getAttribute("data-own-follow"), fx = find(fk);
+      var inp = document.querySelector('[data-own-payee="' + fk + '"]'), pay = inp ? inp.value.trim() : "";
+      fo.disabled = true; fo.textContent = "Looking…";
+      api("payee", { key: fk, payee: pay }).then(function (j) {
+        if (!j.ok) { fx.note = j.message; ownRender(); return; }
+        fx.payee = pay;
+        if (!pay) { fx.note = ""; ownRender(); return; }
+        return api("follow", { key: fk, network: $("net").value }).then(function (f) {
+          fx.note = f.ok ? f.note : (f.message || "The follow did not run.");
+          if (f.ok && f.found) { fx.m = f.manifest; ownSave(); ownRead(fx.m); }
+          ownRender();
+        });
+      });
     }
     var lo = e.target.closest && e.target.closest("[data-own-local]");
     if (lo) {
@@ -5501,7 +5650,15 @@ ops/install-cron.sh</pre>
       if (j.ok) { SESS = null; OWN.forEach(function (x) { x.synced = false; }); ownSave(); sessRender(); ownRender(); $("sess-err").textContent = "Deleted. Your tracked grants are still in this browser."; }
     });
   });
-  sessLoad();
+  (function () {
+    var q = /[?&]billing=(done|cancelled)/.exec(location.search), was = q && q[1];
+    if (was) try { history.replaceState(null, "", location.pathname + location.hash); } catch (e) {}
+    sessLoad().then(function () {
+      if (was === "done") $("sess-err").textContent = SESS && SESS.account && (SESS.account.plan === "pro" || SESS.account.plan === "team")
+        ? "Thank you — your plan is " + SESS.account.plan + "." : "Payment received. Stripe tells this site within a minute; reload if your plan has not changed yet.";
+      if (was === "cancelled") $("sess-err").textContent = "Checkout cancelled. Nothing was charged.";
+    });
+  })();
   $("net").addEventListener("change", function () { OWN.forEach(function (x) { ownRead(x.m); }); if (W) walletRestore(); });
   $("acc-create").addEventListener("click", function () { walletFill("create"); });
   $("acc-fund").addEventListener("click", function () { walletFill("fund"); });

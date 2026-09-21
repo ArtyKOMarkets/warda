@@ -25,6 +25,54 @@ async function getJson(url, init) {
   if (!r.ok || !j || j.ok === false) throw new Error((j && (j.message || j.error)) || "verifier answered " + r.status);
   return j;
 }
+/* ---- following a grant that moved ------------------------------------------------
+   A grant's address is a hash of its state, so every payment moves it and a
+   synced manifest goes stale. Its payments land at its payee one coin each,
+   with the DAA score that bounds the epoch they claimed; the verifier lists
+   those coins (/v1/grant/<payee> → coinList) and /v1/locate turns them into
+   the grant's current state — confirmed by a coin at the derived address, or
+   not written at all. This is sdk/tools/follow-grant.ts, run for you. */
+const STATE_FIELDS = { spentTotal: "spent_total", reserved: "reserved", epochIndex: "epoch_index", epochSpent: "epoch_spent" };
+export async function follow(q, acc, g, network) {
+  const m = g.manifest || {};
+  if (!g.payee) {
+    return { found: false, note: "Add one address this grant pays and the console can follow it when it moves." };
+  }
+  const coins = await getJson(VERIFY + "/v1/grant/" + encodeURIComponent(g.payee));
+  const list = ((coins.result && coins.result.coinList) || [])
+    .filter((c) => BigInt(c.valueSompi) <= BigInt(m.max_per_spend || 0) && BigInt(c.blockDaaScore) >= BigInt(m.not_before || 0));
+  if (!list.length) {
+    const note = coins.result && coins.result.coinList ? "No coin at that payee could have come from this grant." : "The verifier does not list coins yet (needs @warda_protocol/verify 0.2.3).";
+    await q("update grants set follow_note = $3 where account_id = $1 and key = $2", [acc, g.key, note]);
+    return { found: false, note };
+  }
+  const payments = list.slice(0, 16).map((c) => ({ valueSompi: c.valueSompi, blockDaaScore: c.blockDaaScore, id: c.txid }));
+  let r = null;
+  for (const subsets of [false, true]) {
+    const j = await getJson(VERIFY + "/v1/locate", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ manifest: m, network: network || "testnet-10", payments: subsets ? payments.slice(0, 10) : payments, subsets }),
+    });
+    r = j.result || {};
+    if (r.found) break;
+  }
+  if (!r || !r.found) {
+    const note = "Looked at " + payments.length + " payment" + (payments.length === 1 ? "" : "s") + " at the payee; none leads to a coin. It may have been revoked or reclaimed, or it pays others too.";
+    await q("update grants set follow_note = $3 where account_id = $1 and key = $2", [acc, g.key, note]);
+    return { found: false, note };
+  }
+  const next = { ...m };
+  for (const [k, f] of Object.entries(STATE_FIELDS)) {
+    const v = r.state && r.state[k];
+    if (v != null) next[f] = Number(typeof v === "object" ? v.sompi : v);
+  }
+  if (r.value && r.value.sompi) next.grant_value = Number(r.value.sompi);
+  const note = "Moved: found at " + r.address + " after " + r.paymentsApplied + " more payment" + (r.paymentsApplied === 1 ? "" : "s") + ".";
+  await q("update grants set manifest = $3, moved_at = now(), follow_note = $4 where account_id = $1 and key = $2",
+    [acc, g.key, JSON.stringify(next), note]);
+  return { found: true, address: r.address, manifest: next, note };
+}
+
 const kas = (sompi) => {
   const n = BigInt(sompi), w = n / 100000000n, f = (n % 100000000n).toString().padStart(8, "0").replace(/0+$/, "");
   return w.toString() + (f ? "." + f : "");
@@ -32,12 +80,17 @@ const kas = (sompi) => {
 
 export async function evaluate(q, opts) {
   const started = Date.now();
-  const rules = await q(`select r.account_id, r.id, r.rule, r.state, a.telegram_chat_id
+  const rules = (await q(`select r.account_id, r.id, r.rule, r.state, a.telegram_chat_id, a.plan
                          from rules r join accounts a on a.id = r.account_id
-                         order by r.account_id, r.id limit 1000`);
-  const grants = await q("select account_id, key, manifest from grants");
+                         order by r.account_id, r.id limit 1000`))
+    .filter((r) => process.env.BILLING_ENFORCED !== "1" || r.plan === "pro" || r.plan === "team");
+  const enforced = process.env.BILLING_ENFORCED === "1";
+  const grants = (await q(`select g.account_id, g.key, g.manifest, g.payee, a.plan from grants g join accounts a on a.id = g.account_id`))
+    .filter((g) => !enforced || g.plan === "pro" || g.plan === "team");
   const byKey = new Map(grants.map((g) => [g.account_id + "|" + g.key, g.manifest]));
+  const rowOf = new Map(grants.map((g) => [g.account_id + "|" + g.key, g]));
   const readings = new Map();   // account|grantKey -> { remaining, daa } | Error
+  let followed = 0;
 
   async function readGrant(acc, key, network) {
     const k = acc + "|" + key;
@@ -52,7 +105,20 @@ export async function evaluate(q, opts) {
           body: JSON.stringify({ manifest: m, network: network || "testnet-10" }),
         });
         const r = j.result || {};
-        if (!r.found) v = new Error("nothing at the address this manifest derives — it moved, or ended");
+        if (!r.found) {
+          /* Moved: follow it, once per run, and read it again at its new state. */
+          const g = rowOf.get(k);
+          let f = null;
+          if (g && g.payee && Date.now() - started < 35000) { try { f = await follow(q, acc, g, network); } catch { f = null; } }
+          if (f && f.found) {
+            byKey.set(k, f.manifest); g.manifest = f.manifest; followed++;
+            const j2 = await getJson(VERIFY + "/v1/verify", { method: "POST", headers: { "content-type": "application/json" },
+              body: JSON.stringify({ manifest: f.manifest, network: network || "testnet-10" }) });
+            const r2 = j2.result || {};
+            v = r2.found ? { remaining: BigInt(r2.remaining.sompi), daa: Number((j2.readFrom || {}).virtualDaaScore || 0), expiresAt: Number(f.manifest.expires_at) }
+              : new Error("followed to " + f.address + " but the verifier does not see it yet");
+          } else v = new Error("nothing at the address this manifest derives — it moved, or ended" + (g && !g.payee ? ". Add a payee it pays and the console will follow it" : ""));
+        }
         else v = { remaining: BigInt(r.remaining.sompi), daa: Number((j.readFrom || {}).virtualDaaScore || 0), expiresAt: Number(m.expires_at) };
       } catch (e) { v = e; }
     }
@@ -158,5 +224,5 @@ export async function evaluate(q, opts) {
     await q("update rules set state = $3, state_at = now(), last_message = coalesce($4, last_message) where account_id = $1 and id = $2",
       [row.account_id, row.id, state, text]);
   }
-  return { evaluated, changed, sent, snapshots: seen.size, ms: Date.now() - started };
+  return { evaluated, changed, sent, followed, snapshots: seen.size, ms: Date.now() - started };
 }

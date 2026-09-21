@@ -119,6 +119,10 @@ async function chainAt(
 }
 
 /** Whether the node reported a covenant binding for this coin. */
+function toHexId(id: Uint8Array | string): string {
+  return typeof id === "string" ? id : Array.from(id, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 function covenantHex(utxo: AddressUtxo | null): string | null {
   const id = utxo?.entry.covenantId;
   return id ? toHex(id) : null;
@@ -238,6 +242,20 @@ export async function grantAt(source: ChainSource, address: string): Promise<Rep
         coins: all.length,
         total: amount(total),
         largest: amount(all.reduce((m, u) => (u.entry.value > m ? u.entry.value : m), 0n)),
+        /* Each coin, newest first, capped. A grant's payments land at its payee
+           one coin each, carrying the DAA score that bounds the epoch they
+           claimed — which is exactly what /v1/locate needs to find where a
+           grant moved. Listing them here lets a caller that knows only the
+           payee follow a grant without a node of its own. */
+        coinList: [...all]
+          .sort((x, y) => (y.entry.blockDaaScore > x.entry.blockDaaScore ? 1 : y.entry.blockDaaScore < x.entry.blockDaaScore ? -1 : 0))
+          .slice(0, 200)
+          .map((u) => ({
+            valueSompi: u.entry.value.toString(),
+            blockDaaScore: u.entry.blockDaaScore.toString(),
+            txid: toHexId(u.outpoint.transactionId),
+            index: u.outpoint.index,
+          })),
         covenantId,
         note:
           (all.length > 1

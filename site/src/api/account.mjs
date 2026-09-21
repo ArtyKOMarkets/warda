@@ -8887,18 +8887,63 @@ async function getJson(url, init) {
   if (!r.ok || !j || j.ok === false) throw new Error(j && (j.message || j.error) || "verifier answered " + r.status);
   return j;
 }
+var STATE_FIELDS = { spentTotal: "spent_total", reserved: "reserved", epochIndex: "epoch_index", epochSpent: "epoch_spent" };
+async function follow(q, acc, g, network) {
+  const m2 = g.manifest || {};
+  if (!g.payee) {
+    return { found: false, note: "Add one address this grant pays and the console can follow it when it moves." };
+  }
+  const coins = await getJson(VERIFY + "/v1/grant/" + encodeURIComponent(g.payee));
+  const list = (coins.result && coins.result.coinList || []).filter((c) => BigInt(c.valueSompi) <= BigInt(m2.max_per_spend || 0) && BigInt(c.blockDaaScore) >= BigInt(m2.not_before || 0));
+  if (!list.length) {
+    const note2 = coins.result && coins.result.coinList ? "No coin at that payee could have come from this grant." : "The verifier does not list coins yet (needs @warda_protocol/verify 0.2.3).";
+    await q("update grants set follow_note = $3 where account_id = $1 and key = $2", [acc, g.key, note2]);
+    return { found: false, note: note2 };
+  }
+  const payments = list.slice(0, 16).map((c) => ({ valueSompi: c.valueSompi, blockDaaScore: c.blockDaaScore, id: c.txid }));
+  let r = null;
+  for (const subsets of [false, true]) {
+    const j = await getJson(VERIFY + "/v1/locate", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ manifest: m2, network: network || "testnet-10", payments: subsets ? payments.slice(0, 10) : payments, subsets })
+    });
+    r = j.result || {};
+    if (r.found) break;
+  }
+  if (!r || !r.found) {
+    const note2 = "Looked at " + payments.length + " payment" + (payments.length === 1 ? "" : "s") + " at the payee; none leads to a coin. It may have been revoked or reclaimed, or it pays others too.";
+    await q("update grants set follow_note = $3 where account_id = $1 and key = $2", [acc, g.key, note2]);
+    return { found: false, note: note2 };
+  }
+  const next = { ...m2 };
+  for (const [k, f] of Object.entries(STATE_FIELDS)) {
+    const v2 = r.state && r.state[k];
+    if (v2 != null) next[f] = Number(typeof v2 === "object" ? v2.sompi : v2);
+  }
+  if (r.value && r.value.sompi) next.grant_value = Number(r.value.sompi);
+  const note = "Moved: found at " + r.address + " after " + r.paymentsApplied + " more payment" + (r.paymentsApplied === 1 ? "" : "s") + ".";
+  await q(
+    "update grants set manifest = $3, moved_at = now(), follow_note = $4 where account_id = $1 and key = $2",
+    [acc, g.key, JSON.stringify(next), note]
+  );
+  return { found: true, address: r.address, manifest: next, note };
+}
 var kas = (sompi) => {
   const n = BigInt(sompi), w = n / 100000000n, f = (n % 100000000n).toString().padStart(8, "0").replace(/0+$/, "");
   return w.toString() + (f ? "." + f : "");
 };
 async function evaluate(q, opts) {
   const started = Date.now();
-  const rules = await q(`select r.account_id, r.id, r.rule, r.state, a.telegram_chat_id
+  const rules = (await q(`select r.account_id, r.id, r.rule, r.state, a.telegram_chat_id, a.plan
                          from rules r join accounts a on a.id = r.account_id
-                         order by r.account_id, r.id limit 1000`);
-  const grants = await q("select account_id, key, manifest from grants");
+                         order by r.account_id, r.id limit 1000`)).filter((r) => process.env.BILLING_ENFORCED !== "1" || r.plan === "pro" || r.plan === "team");
+  const enforced = process.env.BILLING_ENFORCED === "1";
+  const grants = (await q(`select g.account_id, g.key, g.manifest, g.payee, a.plan from grants g join accounts a on a.id = g.account_id`)).filter((g) => !enforced || g.plan === "pro" || g.plan === "team");
   const byKey = new Map(grants.map((g) => [g.account_id + "|" + g.key, g.manifest]));
+  const rowOf = new Map(grants.map((g) => [g.account_id + "|" + g.key, g]));
   const readings = /* @__PURE__ */ new Map();
+  let followed = 0;
   async function readGrant(acc, key, network) {
     const k = acc + "|" + key;
     if (readings.has(k)) return readings.get(k);
@@ -8913,8 +8958,29 @@ async function evaluate(q, opts) {
           body: JSON.stringify({ manifest: m2, network: network || "testnet-10" })
         });
         const r = j.result || {};
-        if (!r.found) v2 = new Error("nothing at the address this manifest derives \u2014 it moved, or ended");
-        else v2 = { remaining: BigInt(r.remaining.sompi), daa: Number((j.readFrom || {}).virtualDaaScore || 0), expiresAt: Number(m2.expires_at) };
+        if (!r.found) {
+          const g = rowOf.get(k);
+          let f = null;
+          if (g && g.payee && Date.now() - started < 35e3) {
+            try {
+              f = await follow(q, acc, g, network);
+            } catch {
+              f = null;
+            }
+          }
+          if (f && f.found) {
+            byKey.set(k, f.manifest);
+            g.manifest = f.manifest;
+            followed++;
+            const j2 = await getJson(VERIFY + "/v1/verify", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ manifest: f.manifest, network: network || "testnet-10" })
+            });
+            const r2 = j2.result || {};
+            v2 = r2.found ? { remaining: BigInt(r2.remaining.sompi), daa: Number((j2.readFrom || {}).virtualDaaScore || 0), expiresAt: Number(f.manifest.expires_at) } : new Error("followed to " + f.address + " but the verifier does not see it yet");
+          } else v2 = new Error("nothing at the address this manifest derives \u2014 it moved, or ended" + (g && !g.payee ? ". Add a payee it pays and the console will follow it" : ""));
+        } else v2 = { remaining: BigInt(r.remaining.sompi), daa: Number((j.readFrom || {}).virtualDaaScore || 0), expiresAt: Number(m2.expires_at) };
       } catch (e) {
         v2 = e;
       }
@@ -9018,7 +9084,7 @@ async function evaluate(q, opts) {
       [row.account_id, row.id, state, text]
     );
   }
-  return { evaluated, changed, sent, snapshots: seen.size, ms: Date.now() - started };
+  return { evaluated, changed, sent, followed, snapshots: seen.size, ms: Date.now() - started };
 }
 
 // account.js
@@ -9076,6 +9142,14 @@ var SCHEMA = [
      remaining_sompi numeric not null,
      primary key (account_id, grant_key, at))`
 ];
+SCHEMA.push(
+  `alter table accounts add column if not exists stripe_customer text`,
+  `alter table accounts add column if not exists stripe_subscription text`,
+  `alter table accounts add column if not exists plan_status text`,
+  `alter table grants add column if not exists payee text`,
+  `alter table grants add column if not exists moved_at timestamptz`,
+  `alter table grants add column if not exists follow_note text`
+);
 async function migrate(q) {
   for (const s of SCHEMA) await q(s);
 }
@@ -9201,6 +9275,71 @@ async function proveWallet(req, q, b2) {
   const v2 = kaspaVerify(msg, claimed, b2.signature);
   return { address: claimed, family: "kaspa", key: v2.key };
 }
+async function stripe(method, path, params) {
+  const r = await fetch("https://api.stripe.com" + path, {
+    method,
+    headers: { authorization: "Bearer " + process.env.STRIPE_SECRET_KEY, "content-type": "application/x-www-form-urlencoded" },
+    body: method === "GET" ? void 0 : new URLSearchParams(params || {}).toString(),
+    signal: AbortSignal.timeout(15e3)
+  });
+  const j = await r.json().catch(() => null);
+  if (!r.ok || !j) throw new Refuse(502, "stripe", "Stripe: " + (j && j.error && j.error.message || r.status));
+  return j;
+}
+async function rawBody(req) {
+  const chunks = [];
+  let n = 0;
+  for await (const c of req) {
+    n += c.length;
+    if (n > 262144) throw new Refuse(413, "body", "Too large.");
+    chunks.push(c);
+  }
+  if (n) return Buffer.concat(chunks).toString("utf8");
+  if (typeof req.body === "string") return req.body;
+  if (req.body && Buffer.isBuffer(req.body)) return req.body.toString("utf8");
+  throw new Refuse(400, "body", "The webhook body was already parsed by the host; set NODEJS_HELPERS=0 for this project.");
+}
+function verifyStripe(raw, header) {
+  const secret = process.env.STRIPE_WEBHOOK_SECRET || "";
+  if (!secret) throw new Refuse(503, "billing", "STRIPE_WEBHOOK_SECRET is not set.");
+  const parts = {};
+  header.split(",").forEach((kv) => {
+    const i = kv.indexOf("=");
+    if (i > 0) (parts[kv.slice(0, i)] = parts[kv.slice(0, i)] || []).push(kv.slice(i + 1));
+  });
+  const t = Number((parts.t || [])[0]);
+  if (!t || Math.abs(Date.now() / 1e3 - t) > 300) throw new Refuse(400, "signature", "Stale or missing webhook timestamp.");
+  const want = bytesToHex(hmac(sha256, utf8ToBytes(secret), utf8ToBytes(t + "." + raw)));
+  if (!(parts.v1 || []).some((v2) => v2 === want)) throw new Refuse(400, "signature", "Webhook signature does not verify.");
+  return JSON.parse(raw);
+}
+function planOfPrice(id) {
+  if (id && id === process.env.STRIPE_PRICE_TEAM) return "team";
+  if (id && id === process.env.STRIPE_PRICE_PRO) return "pro";
+  return null;
+}
+async function onStripe(q, ev) {
+  const o = ev.data && ev.data.object || {};
+  if (ev.type === "checkout.session.completed") {
+    const acc = o.client_reference_id || o.metadata && o.metadata.account;
+    if (acc) await q(
+      "update accounts set stripe_customer = coalesce($2, stripe_customer), stripe_subscription = coalesce($3, stripe_subscription) where id = $1",
+      [acc, o.customer || null, o.subscription || null]
+    );
+    return;
+  }
+  if (/^customer\.subscription\.(created|updated|deleted)$/.test(ev.type)) {
+    const acc = o.metadata && o.metadata.account;
+    const price = o.items && o.items.data && o.items.data[0] && o.items.data[0].price && o.items.data[0].price.id;
+    const live = ev.type !== "customer.subscription.deleted" && ["active", "trialing", "past_due"].indexOf(o.status) >= 0;
+    const plan = live ? planOfPrice(price) || "pro" : "free";
+    const where = acc ? ["id = $1", acc] : ["stripe_customer = $1", o.customer];
+    await q(
+      `update accounts set plan = $2, plan_status = $3, stripe_subscription = $4, stripe_customer = coalesce(stripe_customer, $5) where ${where[0]}`,
+      [where[1], plan, o.status || null, live ? o.id : null, o.customer || null]
+    );
+  }
+}
 var SECRETISH = /secret|priv|seed|mnemonic|passphrase|password|^sk$|_sk$|^wif$/i;
 function checkManifest(m2) {
   if (!m2 || typeof m2 !== "object" || Array.isArray(m2)) throw new Refuse(400, "manifest", "A manifest is a JSON object.");
@@ -9218,12 +9357,32 @@ function checkRule(r) {
   if (KINDS.indexOf(r.kind) < 0) throw new Refuse(400, "rule", "kind must be one of " + KINDS.join(", ") + ".");
   if (JSON.stringify(r).length > LIMITS.ruleBytes) throw new Refuse(400, "rule", "Rule too large.");
 }
+var ENFORCED = process.env.BILLING_ENFORCED === "1";
+var PAID = { pro: true, team: true };
+function hasPaid(plan) {
+  return !ENFORCED || !!PAID[plan];
+}
+function billingInfo(a2) {
+  return {
+    enabled: !!(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_PRICE_PRO),
+    enforced: ENFORCED,
+    plan: a2.plan,
+    status: a2.plan_status || null,
+    customer: !!a2.stripe_customer,
+    prices: { pro: "$29 / month", team: "$199 / month" }
+  };
+}
+async function needPaid(q, acc, what) {
+  if (!ENFORCED) return;
+  const [a2] = await q("select plan from accounts where id = $1", [acc]);
+  if (!a2 || !PAID[a2.plan]) throw new Refuse(402, "plan", what + " needs Pro or Team. Everything in the browser stays free.");
+}
 var idOk = (s) => typeof s === "string" && /^[\w.:-]{1,128}$/.test(s);
 async function me(q, acc) {
-  const [a2] = await q("select id, created_at, plan, email, telegram_chat_id from accounts where id = $1", [acc]);
+  const [a2] = await q("select id, created_at, plan, plan_status, stripe_customer, email, telegram_chat_id from accounts where id = $1", [acc]);
   if (!a2) return null;
   const wallets = await q("select address, family, key_hex, added_at from wallets where account_id = $1 order by added_at", [acc]);
-  const grants = await q("select key, manifest, added_at from grants where account_id = $1 order by added_at", [acc]);
+  const grants = await q("select key, manifest, added_at, payee, moved_at, follow_note from grants where account_id = $1 order by added_at", [acc]);
   const rules = await q("select id, rule, state, state_at, last_message from rules where account_id = $1 order by id", [acc]);
   return {
     id: a2.id,
@@ -9232,8 +9391,10 @@ async function me(q, acc) {
     email: a2.email,
     telegramChatId: a2.telegram_chat_id,
     telegramReady: !!process.env.TELEGRAM_BOT_TOKEN,
+    billing: billingInfo(a2),
+    paid: hasPaid(a2.plan),
     wallets: wallets.map((w) => ({ address: w.address, family: w.family, key: w.key_hex, addedAt: w.added_at })),
-    grants: grants.map((g) => ({ key: g.key, manifest: g.manifest, addedAt: g.added_at })),
+    grants: grants.map((g) => ({ key: g.key, manifest: g.manifest, addedAt: g.added_at, payee: g.payee, movedAt: g.moved_at, followNote: g.follow_note })),
     rules: rules.map((r) => ({ id: r.id, rule: r.rule, state: r.state, stateAt: r.state_at, lastMessage: r.last_message }))
   };
 }
@@ -9243,7 +9404,7 @@ async function handler(req, res) {
   if (!SECRET || SECRET.length < 32) return fail(res, 503, "not_configured", "Accounts are not set up on this site yet (SESSION_SECRET). The console works without one.");
   if (!DB_URL && !globalThis.__WARDA_DB__) return fail(res, 503, "not_configured", "Accounts are not set up on this site yet (no database). The console works without one.");
   try {
-    if (req.method === "POST" && op !== "cron" && req.headers["x-warda"] !== "1") throw new Refuse(403, "csrf", "Missing x-warda header.");
+    if (req.method === "POST" && op !== "cron" && op !== "stripe" && req.headers["x-warda"] !== "1") throw new Refuse(403, "csrf", "Missing x-warda header.");
     const q = await db();
     if (req.method === "GET" && op === "nonce") {
       await q("delete from nonces where expires_at < now()");
@@ -9263,6 +9424,12 @@ async function handler(req, res) {
       if (!want || String(req.headers.authorization || "") !== "Bearer " + want) throw new Refuse(401, "cron", "Not authorised.");
       const r = await evaluate(q, { telegramToken: process.env.TELEGRAM_BOT_TOKEN || "" });
       return send(res, 200, { ok: true, ...r });
+    }
+    if (req.method === "POST" && op === "stripe") {
+      const raw = await rawBody(req);
+      const ev = verifyStripe(raw, String(req.headers["stripe-signature"] || ""));
+      await onStripe(q, ev);
+      return send(res, 200, { ok: true, received: ev.type });
     }
     if (req.method === "POST" && op === "signin") {
       const w = await proveWallet(req, q, await body(req));
@@ -9298,6 +9465,7 @@ async function handler(req, res) {
       const b2 = await body(req);
       if (!idOk(b2.key)) throw new Refuse(400, "key", "A grant key is 1\u2013128 letters, digits, and . : _ -");
       checkManifest(b2.manifest);
+      await needPaid(q, acc, "Syncing tracked grants");
       const [{ n }] = await q("select count(*)::int as n from grants where account_id = $1", [acc]);
       if (n >= LIMITS.grants) throw new Refuse(400, "limit", "This account tracks the most grants a beta account can.");
       await q(`insert into grants (account_id, key, manifest) values ($1, $2, $3)
@@ -9314,6 +9482,7 @@ async function handler(req, res) {
       const b2 = await body(req);
       if (!idOk(b2.id)) throw new Refuse(400, "id", "A rule id is 1\u2013128 letters, digits, and . : _ -");
       checkRule(b2.rule);
+      await needPaid(q, acc, "Alerts the console runs for you");
       const [{ n }] = await q("select count(*)::int as n from rules where account_id = $1", [acc]);
       if (n >= LIMITS.rules) throw new Refuse(400, "limit", "This account has the most rules a beta account can.");
       await q(`insert into rules (account_id, id, rule) values ($1, $2, $3)
@@ -9333,6 +9502,64 @@ async function handler(req, res) {
       if (tg && !/^-?\d{1,20}$/.test(tg)) throw new Refuse(400, "telegramChatId", "A Telegram chat id is a number.");
       await q("update accounts set email = $2, telegram_chat_id = $3 where id = $1", [acc, email, tg]);
       return send(res, 200, { ok: true, account: await me(q, acc) });
+    }
+    if (req.method === "POST" && op === "payee") {
+      const b2 = await body(req);
+      const payee = b2.payee == null || b2.payee === "" ? null : String(b2.payee).trim();
+      if (payee) {
+        try {
+          decodeAddress(payee);
+        } catch (e) {
+          throw new Refuse(400, "payee", "That payee address does not decode: " + e.message);
+        }
+      }
+      const r = await q("update grants set payee = $3 where account_id = $1 and key = $2 returning key", [acc, String(b2.key || ""), payee]);
+      if (!r.length) throw new Refuse(404, "key", "No synced grant with that key.");
+      return send(res, 200, { ok: true });
+    }
+    if (req.method === "POST" && op === "follow") {
+      const b2 = await body(req);
+      const [g] = await q("select key, manifest, payee from grants where account_id = $1 and key = $2", [acc, String(b2.key || "")]);
+      if (!g) throw new Refuse(404, "key", "No synced grant with that key.");
+      const r = await follow(q, acc, g, String(b2.network || "testnet-10"));
+      return send(res, 200, { ok: true, ...r });
+    }
+    if (req.method === "GET" && op === "history") {
+      const rows = await q(`select grant_key, at, remaining_sompi from snapshots where account_id = $1
+                            and at > now() - interval '30 days' order by at`, [acc]);
+      const by = {};
+      rows.forEach((r) => {
+        (by[r.grant_key] = by[r.grant_key] || []).push({ at: r.at, remainingSompi: String(r.remaining_sompi).split(".")[0] });
+      });
+      return send(res, 200, { ok: true, history: by });
+    }
+    if (req.method === "POST" && op === "checkout") {
+      const b2 = await body(req);
+      const plan = b2.plan === "team" ? "team" : "pro";
+      const price = plan === "team" ? process.env.STRIPE_PRICE_TEAM : process.env.STRIPE_PRICE_PRO;
+      if (!process.env.STRIPE_SECRET_KEY || !price) throw new Refuse(503, "billing", "Billing is not switched on for this site yet.");
+      const [a2] = await q("select stripe_customer from accounts where id = $1", [acc]);
+      const origin = "https://" + hostsFor(req)[0];
+      const params = {
+        mode: "subscription",
+        "line_items[0][price]": price,
+        "line_items[0][quantity]": "1",
+        success_url: origin + "/app?billing=done#/account",
+        cancel_url: origin + "/app?billing=cancelled#/account",
+        client_reference_id: acc,
+        "metadata[account]": acc,
+        "subscription_data[metadata][account]": acc,
+        allow_promotion_codes: "true"
+      };
+      if (a2 && a2.stripe_customer) params.customer = a2.stripe_customer;
+      const s2 = await stripe("POST", "/v1/checkout/sessions", params);
+      return send(res, 200, { ok: true, url: s2.url });
+    }
+    if (req.method === "POST" && op === "portal") {
+      const [a2] = await q("select stripe_customer from accounts where id = $1", [acc]);
+      if (!a2 || !a2.stripe_customer) throw new Refuse(400, "billing", "This account has no billing yet.");
+      const s2 = await stripe("POST", "/v1/billing_portal/sessions", { customer: a2.stripe_customer, return_url: "https://" + hostsFor(req)[0] + "/app#/account" });
+      return send(res, 200, { ok: true, url: s2.url });
     }
     if (req.method === "GET" && op === "export") {
       const snaps = await q("select grant_key, at, remaining_sompi from snapshots where account_id = $1 order by at", [acc]);

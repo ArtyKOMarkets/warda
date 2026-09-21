@@ -286,6 +286,14 @@ test("an address alone yields the coin and an explicit refusal to guess the term
   assert.equal(r.covenantId, "cf".repeat(32));
 });
 
+test("an address lists its coins, newest first, for following a grant", async () => {
+  const a = remember(stateOf());
+  const reply = await grantAt(chain([utxo(a, 5n), utxo(a, 7n)]), a);
+  const r = result<{ coinList: { valueSompi: string; blockDaaScore: string; txid: string; index: number }[] }>(reply);
+  assert.equal(r.coinList.length, 2);
+  assert.ok(r.coinList.every((c) => /^\d+$/.test(c.valueSompi) && /^\d+$/.test(c.blockDaaScore) && typeof c.txid === "string"));
+});
+
 test("an address holding many coins reports all of them, not the first", async () => {
   // The bug this pins: a funding wallet was reported as holding 1.68 KAS
   // because that was its first coin. It held 9,798, across six — and genesis

@@ -23,6 +23,12 @@
  *   GET  ?op=export                   everything stored about this account
  *   POST ?op=delete                   the account and everything under it
  *   POST ?op=cron                     evaluate every rule; header x-cron-secret
+ *   POST ?op=payee    {key, payee}        a payee the grant pays, so the server can follow it
+ *   POST ?op=follow   {key}               find where a tracked grant moved, now
+ *   GET  ?op=history                      hourly snapshots of every synced grant, 30 days
+ *   POST ?op=checkout {plan}              a Stripe Checkout URL for pro or team
+ *   POST ?op=portal                       a Stripe billing-portal URL
+ *   POST ?op=stripe                       Stripe's webhook (signature-checked)
  *
  * Environment:
  *   DATABASE_URL (or POSTGRES_URL)  Neon / Vercel Postgres
@@ -30,6 +36,11 @@
  *   CRON_SECRET                     required by op=cron
  *   TELEGRAM_BOT_TOKEN              optional; without it alerts are recorded, not sent
  *   ALLOWED_HOSTS                   optional, comma-separated; default: the request's host
+ *   STRIPE_SECRET_KEY               billing; without it every account stays on its plan
+ *   STRIPE_WEBHOOK_SECRET           verifies Stripe's webhook
+ *   STRIPE_PRICE_PRO, STRIPE_PRICE_TEAM   the two subscription prices
+ *   BILLING_ENFORCED                "1" to require a paid plan for sync and server alerts;
+ *                                   until then everybody is on the beta, which has both
  */
 import { neon } from "@neondatabase/serverless";
 import { schnorr, secp256k1 } from "@noble/curves/secp256k1.js";
@@ -39,7 +50,7 @@ import { hmac } from "@noble/hashes/hmac.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex, hexToBytes, utf8ToBytes, randomBytes } from "@noble/hashes/utils.js";
 import { decodeAddress } from "../../sdk/src/address.ts";
-import { evaluate } from "./alerts-server.js";
+import { evaluate, follow } from "./alerts-server.js";
 
 const SECRET = process.env.SESSION_SECRET || "";
 const DB_URL = process.env.DATABASE_URL || process.env.POSTGRES_URL || "";
@@ -96,6 +107,15 @@ const SCHEMA = [
      remaining_sompi numeric not null,
      primary key (account_id, grant_key, at))`,
 ];
+/* Added after the first release; `if not exists` keeps them safe to re-run. */
+SCHEMA.push(
+  `alter table accounts add column if not exists stripe_customer text`,
+  `alter table accounts add column if not exists stripe_subscription text`,
+  `alter table accounts add column if not exists plan_status text`,
+  `alter table grants add column if not exists payee text`,
+  `alter table grants add column if not exists moved_at timestamptz`,
+  `alter table grants add column if not exists follow_note text`,
+);
 async function migrate(q) { for (const s of SCHEMA) await q(s); }
 
 /* ---- replies ------------------------------------------------------------------ */
@@ -215,6 +235,60 @@ async function proveWallet(req, q, b) {
   return { address: claimed, family: "kaspa", key: v.key };
 }
 
+/* ---- Stripe, by its REST API ---------------------------------------------------------
+   No SDK: three calls and a signature check. Card data never reaches this
+   server — Checkout and the portal are Stripe's own pages. */
+async function stripe(method, path, params) {
+  const r = await fetch("https://api.stripe.com" + path, {
+    method, headers: { authorization: "Bearer " + process.env.STRIPE_SECRET_KEY, "content-type": "application/x-www-form-urlencoded" },
+    body: method === "GET" ? undefined : new URLSearchParams(params || {}).toString(), signal: AbortSignal.timeout(15000),
+  });
+  const j = await r.json().catch(() => null);
+  if (!r.ok || !j) throw new Refuse(502, "stripe", "Stripe: " + ((j && j.error && j.error.message) || r.status));
+  return j;
+}
+async function rawBody(req) {
+  const chunks = []; let n = 0;
+  for await (const c of req) { n += c.length; if (n > 262144) throw new Refuse(413, "body", "Too large."); chunks.push(c); }
+  if (n) return Buffer.concat(chunks).toString("utf8");
+  if (typeof req.body === "string") return req.body;
+  if (req.body && Buffer.isBuffer(req.body)) return req.body.toString("utf8");
+  throw new Refuse(400, "body", "The webhook body was already parsed by the host; set NODEJS_HELPERS=0 for this project.");
+}
+function verifyStripe(raw, header) {
+  const secret = process.env.STRIPE_WEBHOOK_SECRET || "";
+  if (!secret) throw new Refuse(503, "billing", "STRIPE_WEBHOOK_SECRET is not set.");
+  const parts = {}; header.split(",").forEach((kv) => { const i = kv.indexOf("="); if (i > 0) (parts[kv.slice(0, i)] = parts[kv.slice(0, i)] || []).push(kv.slice(i + 1)); });
+  const t = Number((parts.t || [])[0]);
+  if (!t || Math.abs(Date.now() / 1000 - t) > 300) throw new Refuse(400, "signature", "Stale or missing webhook timestamp.");
+  const want = bytesToHex(hmac(sha256, utf8ToBytes(secret), utf8ToBytes(t + "." + raw)));
+  if (!(parts.v1 || []).some((v) => v === want)) throw new Refuse(400, "signature", "Webhook signature does not verify.");
+  return JSON.parse(raw);
+}
+function planOfPrice(id) {
+  if (id && id === process.env.STRIPE_PRICE_TEAM) return "team";
+  if (id && id === process.env.STRIPE_PRICE_PRO) return "pro";
+  return null;
+}
+async function onStripe(q, ev) {
+  const o = (ev.data && ev.data.object) || {};
+  if (ev.type === "checkout.session.completed") {
+    const acc = o.client_reference_id || (o.metadata && o.metadata.account);
+    if (acc) await q("update accounts set stripe_customer = coalesce($2, stripe_customer), stripe_subscription = coalesce($3, stripe_subscription) where id = $1",
+      [acc, o.customer || null, o.subscription || null]);
+    return;
+  }
+  if (/^customer\.subscription\.(created|updated|deleted)$/.test(ev.type)) {
+    const acc = o.metadata && o.metadata.account;
+    const price = o.items && o.items.data && o.items.data[0] && o.items.data[0].price && o.items.data[0].price.id;
+    const live = ev.type !== "customer.subscription.deleted" && ["active", "trialing", "past_due"].indexOf(o.status) >= 0;
+    const plan = live ? (planOfPrice(price) || "pro") : "free";
+    const where = acc ? ["id = $1", acc] : ["stripe_customer = $1", o.customer];
+    await q(`update accounts set plan = $2, plan_status = $3, stripe_subscription = $4, stripe_customer = coalesce(stripe_customer, $5) where ${where[0]}`,
+      [where[1], plan, o.status || null, live ? o.id : null, o.customer || null]);
+  }
+}
+
 /* ---- validation of what is stored -------------------------------------------------------- */
 const SECRETISH = /secret|priv|seed|mnemonic|passphrase|password|^sk$|_sk$|^wif$/i;
 function checkManifest(m) {
@@ -233,19 +307,40 @@ function checkRule(r) {
   if (KINDS.indexOf(r.kind) < 0) throw new Refuse(400, "rule", "kind must be one of " + KINDS.join(", ") + ".");
   if (JSON.stringify(r).length > LIMITS.ruleBytes) throw new Refuse(400, "rule", "Rule too large.");
 }
+/* ---- plans -----------------------------------------------------------------------
+   While BILLING_ENFORCED is unset every account is on the beta, which has
+   everything. Once it is set, the beta ends: sync and server alerts need Pro
+   or Team, and a free account keeps everything that runs in the browser. */
+const ENFORCED = process.env.BILLING_ENFORCED === "1";
+const PAID = { pro: true, team: true };
+function hasPaid(plan) { return !ENFORCED || !!PAID[plan]; }
+function billingInfo(a) {
+  return {
+    enabled: !!(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_PRICE_PRO),
+    enforced: ENFORCED, plan: a.plan, status: a.plan_status || null, customer: !!a.stripe_customer,
+    prices: { pro: "$29 / month", team: "$199 / month" },
+  };
+}
+async function needPaid(q, acc, what) {
+  if (!ENFORCED) return;
+  const [a] = await q("select plan from accounts where id = $1", [acc]);
+  if (!a || !PAID[a.plan]) throw new Refuse(402, "plan", what + " needs Pro or Team. Everything in the browser stays free.");
+}
+
 const idOk = (s) => typeof s === "string" && /^[\w.:-]{1,128}$/.test(s);
 
 async function me(q, acc) {
-  const [a] = await q("select id, created_at, plan, email, telegram_chat_id from accounts where id = $1", [acc]);
+  const [a] = await q("select id, created_at, plan, plan_status, stripe_customer, email, telegram_chat_id from accounts where id = $1", [acc]);
   if (!a) return null;
   const wallets = await q("select address, family, key_hex, added_at from wallets where account_id = $1 order by added_at", [acc]);
-  const grants = await q("select key, manifest, added_at from grants where account_id = $1 order by added_at", [acc]);
+  const grants = await q("select key, manifest, added_at, payee, moved_at, follow_note from grants where account_id = $1 order by added_at", [acc]);
   const rules = await q("select id, rule, state, state_at, last_message from rules where account_id = $1 order by id", [acc]);
   return {
     id: a.id, createdAt: a.created_at, plan: a.plan, email: a.email, telegramChatId: a.telegram_chat_id,
     telegramReady: !!process.env.TELEGRAM_BOT_TOKEN,
+    billing: billingInfo(a), paid: hasPaid(a.plan),
     wallets: wallets.map((w) => ({ address: w.address, family: w.family, key: w.key_hex, addedAt: w.added_at })),
-    grants: grants.map((g) => ({ key: g.key, manifest: g.manifest, addedAt: g.added_at })),
+    grants: grants.map((g) => ({ key: g.key, manifest: g.manifest, addedAt: g.added_at, payee: g.payee, movedAt: g.moved_at, followNote: g.follow_note })),
     rules: rules.map((r) => ({ id: r.id, rule: r.rule, state: r.state, stateAt: r.state_at, lastMessage: r.last_message })),
   };
 }
@@ -256,7 +351,7 @@ export default async function handler(req, res) {
   if (!SECRET || SECRET.length < 32) return fail(res, 503, "not_configured", "Accounts are not set up on this site yet (SESSION_SECRET). The console works without one.");
   if (!DB_URL && !globalThis.__WARDA_DB__) return fail(res, 503, "not_configured", "Accounts are not set up on this site yet (no database). The console works without one.");
   try {
-    if (req.method === "POST" && op !== "cron" && req.headers["x-warda"] !== "1") throw new Refuse(403, "csrf", "Missing x-warda header.");
+    if (req.method === "POST" && op !== "cron" && op !== "stripe" && req.headers["x-warda"] !== "1") throw new Refuse(403, "csrf", "Missing x-warda header.");
     const q = await db();
 
     if (req.method === "GET" && op === "nonce") {
@@ -279,6 +374,13 @@ export default async function handler(req, res) {
       if (!want || String(req.headers.authorization || "") !== "Bearer " + want) throw new Refuse(401, "cron", "Not authorised.");
       const r = await evaluate(q, { telegramToken: process.env.TELEGRAM_BOT_TOKEN || "" });
       return send(res, 200, { ok: true, ...r });
+    }
+
+    if (req.method === "POST" && op === "stripe") {
+      const raw = await rawBody(req);
+      const ev = verifyStripe(raw, String(req.headers["stripe-signature"] || ""));
+      await onStripe(q, ev);
+      return send(res, 200, { ok: true, received: ev.type });
     }
 
     if (req.method === "POST" && op === "signin") {
@@ -320,6 +422,7 @@ export default async function handler(req, res) {
       const b = await body(req);
       if (!idOk(b.key)) throw new Refuse(400, "key", "A grant key is 1–128 letters, digits, and . : _ -");
       checkManifest(b.manifest);
+      await needPaid(q, acc, "Syncing tracked grants");
       const [{ n }] = await q("select count(*)::int as n from grants where account_id = $1", [acc]);
       if (n >= LIMITS.grants) throw new Refuse(400, "limit", "This account tracks the most grants a beta account can.");
       await q(`insert into grants (account_id, key, manifest) values ($1, $2, $3)
@@ -337,6 +440,7 @@ export default async function handler(req, res) {
       const b = await body(req);
       if (!idOk(b.id)) throw new Refuse(400, "id", "A rule id is 1–128 letters, digits, and . : _ -");
       checkRule(b.rule);
+      await needPaid(q, acc, "Alerts the console runs for you");
       const [{ n }] = await q("select count(*)::int as n from rules where account_id = $1", [acc]);
       if (n >= LIMITS.rules) throw new Refuse(400, "limit", "This account has the most rules a beta account can.");
       await q(`insert into rules (account_id, id, rule) values ($1, $2, $3)
@@ -357,6 +461,53 @@ export default async function handler(req, res) {
       if (tg && !/^-?\d{1,20}$/.test(tg)) throw new Refuse(400, "telegramChatId", "A Telegram chat id is a number.");
       await q("update accounts set email = $2, telegram_chat_id = $3 where id = $1", [acc, email, tg]);
       return send(res, 200, { ok: true, account: await me(q, acc) });
+    }
+
+    if (req.method === "POST" && op === "payee") {
+      const b = await body(req);
+      const payee = b.payee == null || b.payee === "" ? null : String(b.payee).trim();
+      if (payee) { try { decodeAddress(payee); } catch (e) { throw new Refuse(400, "payee", "That payee address does not decode: " + e.message); } }
+      const r = await q("update grants set payee = $3 where account_id = $1 and key = $2 returning key", [acc, String(b.key || ""), payee]);
+      if (!r.length) throw new Refuse(404, "key", "No synced grant with that key.");
+      return send(res, 200, { ok: true });
+    }
+    if (req.method === "POST" && op === "follow") {
+      const b = await body(req);
+      const [g] = await q("select key, manifest, payee from grants where account_id = $1 and key = $2", [acc, String(b.key || "")]);
+      if (!g) throw new Refuse(404, "key", "No synced grant with that key.");
+      const r = await follow(q, acc, g, String(b.network || "testnet-10"));
+      return send(res, 200, { ok: true, ...r });
+    }
+    if (req.method === "GET" && op === "history") {
+      const rows = await q(`select grant_key, at, remaining_sompi from snapshots where account_id = $1
+                            and at > now() - interval '30 days' order by at`, [acc]);
+      const by = {};
+      rows.forEach((r) => { (by[r.grant_key] = by[r.grant_key] || []).push({ at: r.at, remainingSompi: String(r.remaining_sompi).split(".")[0] }); });
+      return send(res, 200, { ok: true, history: by });
+    }
+
+    if (req.method === "POST" && op === "checkout") {
+      const b = await body(req);
+      const plan = b.plan === "team" ? "team" : "pro";
+      const price = plan === "team" ? process.env.STRIPE_PRICE_TEAM : process.env.STRIPE_PRICE_PRO;
+      if (!process.env.STRIPE_SECRET_KEY || !price) throw new Refuse(503, "billing", "Billing is not switched on for this site yet.");
+      const [a] = await q("select stripe_customer from accounts where id = $1", [acc]);
+      const origin = "https://" + hostsFor(req)[0];
+      const params = {
+        mode: "subscription", "line_items[0][price]": price, "line_items[0][quantity]": "1",
+        success_url: origin + "/app?billing=done#/account", cancel_url: origin + "/app?billing=cancelled#/account",
+        client_reference_id: acc, "metadata[account]": acc, "subscription_data[metadata][account]": acc,
+        allow_promotion_codes: "true",
+      };
+      if (a && a.stripe_customer) params.customer = a.stripe_customer;
+      const s2 = await stripe("POST", "/v1/checkout/sessions", params);
+      return send(res, 200, { ok: true, url: s2.url });
+    }
+    if (req.method === "POST" && op === "portal") {
+      const [a] = await q("select stripe_customer from accounts where id = $1", [acc]);
+      if (!a || !a.stripe_customer) throw new Refuse(400, "billing", "This account has no billing yet.");
+      const s2 = await stripe("POST", "/v1/billing_portal/sessions", { customer: a.stripe_customer, return_url: "https://" + hostsFor(req)[0] + "/app#/account" });
+      return send(res, 200, { ok: true, url: s2.url });
     }
 
     if (req.method === "GET" && op === "export") {

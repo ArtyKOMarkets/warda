@@ -18,19 +18,36 @@ process.env.SESSION_SECRET = "t".repeat(40);
 process.env.CRON_SECRET = "cron-secret";
 process.env.TELEGRAM_BOT_TOKEN = "bot-token";
 process.env.ALLOWED_HOSTS = "console.test";
+process.env.STRIPE_SECRET_KEY = "sk_test_x";
+process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
+process.env.STRIPE_PRICE_PRO = "price_pro";
+process.env.STRIPE_PRICE_TEAM = "price_team";
 
 const pg = new PGlite();
 globalThis.__WARDA_DB__ = async (t, p) => (await pg.query(t, p || [])).rows;
 
 /* The outside world: the verifier and Telegram. */
 const sent = [];
-let verifyRemaining = 500000000n, verifyDaa = 1000;
+let verifyRemaining = 500000000n, verifyDaa = 1000, grantFound = true, locateCalls = [];
+const stripeCalls = [];
 const realFetch = globalThis.fetch;
 globalThis.fetch = async (u, init) => {
   const J = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { "content-type": "application/json" } });
   if (String(u).includes("api.telegram.org")) { sent.push(JSON.parse(init.body)); return J({ ok: true }); }
-  if (String(u).endsWith("/v1/verify")) return J({ ok: true, result: { found: true, remaining: { sompi: verifyRemaining.toString() } }, readFrom: { virtualDaaScore: String(verifyDaa) } });
-  if (String(u).includes("/v1/grant/")) return J({ ok: true, result: { found: true, total: { sompi: "900000000" } } });
+  if (String(u).includes("api.stripe.com")) { stripeCalls.push([String(u), init.body]); return J({ id: "cs_1", url: "https://checkout.stripe.test/cs_1" }); }
+  if (String(u).endsWith("/v1/verify")) {
+    const m = JSON.parse(init.body).manifest;
+    const ok = grantFound || m.spent_total === 30000000;
+    return J({ ok: true, result: ok ? { found: true, remaining: { sompi: verifyRemaining.toString() } } : { found: false }, readFrom: { virtualDaaScore: String(verifyDaa) } });
+  }
+  if (String(u).endsWith("/v1/locate")) {
+    const b = JSON.parse(init.body); locateCalls.push(b);
+    return J({ ok: true, result: { found: true, address: "kaspatest:pmoved", value: { sompi: "170000000" }, paymentsApplied: 2,
+      state: { spentTotal: { sompi: "30000000" }, reserved: { sompi: "0" }, epochIndex: "7", epochSpent: { sompi: "20000000" } } } });
+  }
+  if (String(u).includes("/v1/grant/")) return J({ ok: true, result: { found: true, total: { sompi: "900000000" },
+    coinList: [ { valueSompi: "20000000", blockDaaScore: "5000", txid: "aa", index: 0 }, { valueSompi: "10000000", blockDaaScore: "4000", txid: "bb", index: 0 },
+                { valueSompi: "999999999", blockDaaScore: "4500", txid: "cc", index: 0 } ] } });
   return realFetch(u, init);
 };
 
@@ -164,6 +181,57 @@ await pg.query("insert into snapshots (account_id, grant_key, at, remaining_somp
 const before = sent.length;
 r = await call("POST", "cron", {}, { "x-cron-secret": "cron-secret" });
 t("anomaly fires", sent.length === before + 1 && /usual/.test(sent[sent.length - 1].text), sent.slice(before));
+
+/* 8b. following a grant that moved */
+r = await call("POST", "payee", { key: "g1", payee: "nonsense" });
+t("bad payee refused", r.status === 400, r.j);
+r = await call("POST", "payee", { key: "g1", payee: kaddr });
+t("payee saved", r.status === 200, r.j);
+grantFound = false;
+r = await call("POST", "follow", { key: "g1" });
+t("follow finds the moved grant", r.status === 200 && r.j.found && r.j.manifest.spent_total === 30000000 && r.j.manifest.epoch_index === 7, r.j);
+t("follow sent only coins the grant could have paid", locateCalls[0] && locateCalls[0].payments.length === 1 && locateCalls[0].payments[0].valueSompi === "10000000", locateCalls[0]);
+r = await call("GET", "me");
+t("manifest advanced and noted", r.j.account.grants[0].manifest.spent_total === 30000000 && /Moved/.test(r.j.account.grants[0].followNote) && r.j.account.grants[0].movedAt, r.j.account.grants[0]);
+/* the cron follows on its own */
+await pg.query("update grants set manifest = manifest - 'spent_total'");
+locateCalls = [];
+r = await call("POST", "cron", {}, { "x-cron-secret": "cron-secret" });
+t("cron follows a moved grant", r.j.followed === 1 && locateCalls.length >= 1, r.j);
+grantFound = true;
+
+/* 8c. history */
+r = await call("GET", "history");
+t("history by grant", r.status === 200 && Array.isArray(r.j.history.g1) && r.j.history.g1.length > 0 && /^\d+$/.test(r.j.history.g1[0].remainingSompi), r.j);
+
+/* 8d. billing */
+r = await call("POST", "checkout", { plan: "team" });
+t("checkout gives a url", r.status === 200 && /checkout\.stripe/.test(r.j.url), r.j);
+t("checkout asked for the team price and tagged the account", /price_team/.test(stripeCalls[0][1]) && stripeCalls[0][1].includes("client_reference_id=" + accId), stripeCalls[0]);
+const { hmac } = await import("@noble/hashes/hmac.js"); const { sha256 } = await import("@noble/hashes/sha2.js"); const { bytesToHex, utf8ToBytes } = await import("@noble/hashes/utils.js");
+function hook(ev, secret = "whsec_test", ts = Math.floor(Date.now() / 1000)) {
+  const raw = JSON.stringify(ev);
+  const sig = bytesToHex(hmac(sha256, utf8ToBytes(secret), utf8ToBytes(ts + "." + raw)));
+  return new Promise((ok) => {
+    const res = { statusCode: 0, setHeader() {}, end(s2) { ok({ status: this.statusCode, j: JSON.parse(s2) }); } };
+    const req = (async function* () { yield Buffer.from(raw); })();
+    req.method = "POST"; req.url = "/api/account?op=stripe"; req.headers = { host: "console.test", "stripe-signature": "t=" + ts + ",v1=" + sig };
+    handler(req, res);
+  });
+}
+r = await hook({ type: "checkout.session.completed", data: { object: { client_reference_id: accId, customer: "cus_1", subscription: "sub_1" } } });
+t("webhook: checkout completed", r.status === 200, r.j);
+r = await hook({ type: "customer.subscription.updated", data: { object: { id: "sub_1", customer: "cus_1", status: "active", metadata: { account: accId }, items: { data: [{ price: { id: "price_team" } }] } } } });
+r = await call("GET", "me");
+t("webhook: plan is team", r.j.account.plan === "team" && r.j.account.billing.customer, r.j.account.billing);
+r = await hook({ type: "customer.subscription.updated", data: { object: {} } }, "wrong");
+t("webhook: bad signature refused", r.status === 400, r.j);
+r = await call("POST", "portal", {});
+t("portal url", r.status === 200 && /stripe/.test(r.j.url), r.j);
+r = await hook({ type: "customer.subscription.deleted", data: { object: { id: "sub_1", customer: "cus_1", status: "canceled", metadata: { account: accId }, items: { data: [{ price: { id: "price_team" } }] } } } });
+r = await call("GET", "me");
+t("webhook: cancelled is free", r.j.account.plan === "free", r.j.account.plan);
+process.env.BILLING_ENFORCED = "1";
 
 /* 9. export, unlink, delete */
 r = await call("GET", "export");
