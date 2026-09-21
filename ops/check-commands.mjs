@@ -192,6 +192,25 @@ if (!emit) {
       );
     }
   }
+
+  /* The controls — revoke, reclaim, renew, find — print commands too, and a
+     revoke button whose command carries a flag the CLI ignores is the worst
+     kind of silent. They live between two markers in app.html; every
+     `warda <verb>` string there is checked, verb and flags both. */
+  const block = consoleSrc.match(/\/\* warda-commands \*\/([\s\S]*?)\/\* end warda-commands \*\//);
+  if (!block) {
+    problems.push("site/src/app.html has no /* warda-commands */ block, so the controls' commands are not being checked.");
+  } else {
+    const verbs = new Set([...cliSrc.matchAll(/case "([a-z-]+)":/g)].map((m) => m[1]));
+    for (const m of block[1].matchAll(/"warda ([a-z-]+)([^"]*)"/g)) {
+      if (!verbs.has(m[1])) problems.push(`the console's controls print \`warda ${m[1]}\`, which is not a command cli/warda.ts has.`);
+      for (const f of m[2].matchAll(/--([a-z][\w-]*)/g)) {
+        if (!cliKnown.has(f[1])) {
+          problems.push(`the console's controls print \`warda ${m[1]} --${f[1]}\`, which cli/warda.ts never reads.`);
+        }
+      }
+    }
+  }
 }
 
 if (problems.length === 0) {

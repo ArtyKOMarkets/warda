@@ -95,3 +95,20 @@ no-baked-addresses guard already refuses literals), and a dry run against a fork
 - Hyperlane un-pausing Igra reopens every chain but Igra itself. Until then, only USDC **already on Igra** has a route.
 - Execution adapters (steps 1–5) are the build; the page and the plan model exist.
 - A Kaspa signer in the browser for EVM-first users: the extension, wired to `/app`.
+
+## Around the Hyperlane pause (added 21 September, same day)
+
+Nobody has published why Igra's Hyperlane was paused or when it reopens, so the product cannot wait on it.
+Three changes, all in `/app` and `site/src/routes.json`:
+
+1. **More than one route per chain, chosen per funding.** Each source chain now offers every route it has:
+   *Through Igra* (no custodian), *Instant swap* via ChangeNOW (custodial for the minutes of the swap, native
+   KAS to your L1 address, no 1,000 KAS floor), and *Dymension* (5-of-9 validator escrow, EVM legs
+   experimental). The page preselects the best open route with no custodian, falls back to the best open one,
+   and a custodial route needs a tick in a box that names the custodian.
+2. **The pause is read, not remembered.** `ops/check-routes.mjs` calls `paused()` on Igra's pausable ISM
+   (`0x238b…98e2`) and hook (`0x74B2…37da`) over Igra's RPC and writes the leg's status into `routes.json`. A
+   failed read changes nothing and exits non-zero — "could not reach the RPC" never looks like "open".
+3. **USDC already on Igra keeps a route** (*Already on Igra*): swap and exit, no bridge in.
+
+Next: run `check-routes` from the refresh cron, and move the route table into `router/src/routes.ts`.

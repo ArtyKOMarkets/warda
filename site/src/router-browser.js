@@ -31,6 +31,7 @@ var WardaRouter = (() => {
     decodeAddress: () => decodeAddress,
     missingFrom: () => missingFrom,
     planFunding: () => planFunding,
+    pubkeyToAddress: () => pubkeyToAddress,
     quote: () => quote,
     verdict: () => verdict,
     zoneOf: () => zoneOf
@@ -200,6 +201,11 @@ var WardaRouter = (() => {
 
   // sdk/src/address.ts
   var CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
+  var AddressVersion = {
+    PubKey: 0,
+    PubKeyECDSA: 1,
+    ScriptHash: 8
+  };
   var GENERATORS = [
     0x98f2bc8e61n,
     0x79b76d99e2n,
@@ -224,6 +230,23 @@ var WardaRouter = (() => {
   function checksum(payloadFive, prefix) {
     return polymod([...prefixToFive(prefix), 0, ...payloadFive, 0, 0, 0, 0, 0, 0, 0, 0]);
   }
+  function conv8to5(bytes) {
+    const src = Array.from(bytes);
+    const out = [];
+    let buff = 0;
+    let bits = 0;
+    for (const c of src) {
+      buff = buff << 8 | c;
+      bits += 8;
+      while (bits >= 5) {
+        bits -= 5;
+        out.push(buff >> bits & 31);
+        buff &= (1 << bits) - 1;
+      }
+    }
+    if (bits > 0) out.push(buff << 5 - bits & 31);
+    return out;
+  }
   function conv5to8(five) {
     const out = new Uint8Array(Math.floor(five.length * 5 / 8));
     let at = 0;
@@ -239,6 +262,14 @@ var WardaRouter = (() => {
       }
     }
     return out;
+  }
+  function encodeAddress(prefix, version, payload) {
+    const five = conv8to5([version, ...payload]);
+    const sum = checksum(five, prefix);
+    const sumBytes = new Uint8Array(5);
+    for (let i = 0; i < 5; i++) sumBytes[4 - i] = Number(sum >> BigInt(i * 8) & 0xffn);
+    const body = [...five, ...conv8to5(sumBytes)].map((c) => CHARSET[c]).join("");
+    return `${prefix}:${body}`;
   }
   function decodeAddress(address) {
     const colon = address.indexOf(":");
@@ -260,6 +291,10 @@ var WardaRouter = (() => {
     }
     const bytes = conv5to8(payloadFive);
     return { prefix, version: bytes[0], payload: bytes.slice(1) };
+  }
+  function pubkeyToAddress(xonly, prefix) {
+    if (xonly.length !== 32) throw new Error(`an x-only public key is 32 bytes, got ${xonly.length}`);
+    return encodeAddress(prefix, AddressVersion.PubKey, xonly);
   }
 
   // router/src/bridge.ts

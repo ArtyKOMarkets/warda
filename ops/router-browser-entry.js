@@ -21,4 +21,7 @@ export {
    public key separately and refuses to proceed unless they agree. That check
    needs the real decoder — the one the router already bundles for the payout
    address — not a second one written on the page. */
-export { decodeAddress } from "../sdk/src/address.ts";
+export { decodeAddress, pubkeyToAddress } from "../sdk/src/address.ts";
+/* pubkeyToAddress: the registry lists a service's payee as the 32-byte key a
+   grant commits to. The console shows it as the address a person pastes into
+   an allowlist — derived by the SDK's encoder, not a second one here. */

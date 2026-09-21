@@ -265,6 +265,110 @@
   .wc-qr:empty { background: var(--panel); }
   .wc-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.8rem; }
   .wc-row > * { flex: 1 1 auto; }
+  /* ---- generic wizard (Fund, Alerts) ------------------------------------- */
+  .wz-step { display: none; }
+  .wz-step.on { display: block; }
+  .wz-nav { display: flex; gap: 0.6rem; justify-content: space-between; margin-top: 0.9rem; }
+  .al-kinds { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.6rem; margin-top: 0.9rem; }
+  .al-kind { text-align: left; display: grid; gap: 0.25rem; padding: 0.85rem 0.9rem; border-radius: 10px; cursor: pointer;
+    background: var(--panel); border: 1px solid var(--edge); color: var(--chrome-dim); font-family: var(--body); }
+  .al-kind b { color: var(--chrome); font-size: 0.9rem; }
+  .al-kind span { font-size: 0.76rem; }
+  .al-kind[aria-pressed="true"] { border-color: var(--teal); background: var(--teal-ghost); }
+  .al-how { margin: 0.7rem 0 0.6rem; padding-left: 1.2rem; display: grid; gap: 0.35rem; font-size: 0.82rem; color: var(--chrome-dim); }
+  .fa-routes { display: grid; gap: 0.5rem; margin-top: 0.8rem; }
+  .fa-rt { text-align: left; display: grid; grid-template-columns: auto 1fr auto; gap: 0.15rem 0.7rem; align-items: center;
+    padding: 0.75rem 0.85rem; border-radius: 10px; cursor: pointer; background: var(--panel);
+    border: 1px solid var(--edge); color: var(--chrome-dim); font-family: var(--body); }
+  .fa-rt[aria-checked="true"] { border-color: var(--teal); background: var(--teal-ghost); }
+  .fa-rt .dot { width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid var(--edge-bright); }
+  .fa-rt[aria-checked="true"] .dot { border-color: var(--teal); background: radial-gradient(var(--teal) 45%, transparent 50%); }
+  .fa-rt b { color: var(--chrome); font-size: 0.88rem; }
+  .fa-rt small { grid-column: 2 / 4; font-size: 0.74rem; }
+  .fa-ack { display: flex; gap: 0.55rem; align-items: flex-start; margin-top: 0.9rem; font-size: 0.8rem; color: var(--chrome-dim); }
+  .fa-ack input { width: auto; margin-top: 0.15rem; }
+  .fa-route { margin-top: 0.9rem; }
+
+  /* ---- fleet --------------------------------------------------------------- */
+  .fl-bar { display: flex; height: 16px; border-radius: 8px; overflow: hidden; background: var(--panel); margin-top: 0.9rem; gap: 2px; }
+  .fl-bar i { display: block; min-width: 3px; }
+  .fl-legend { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; margin-top: 0.7rem; font-size: 0.76rem; color: var(--chrome-dim); }
+  .fl-legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
+  .fl-legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .fl-legend b { font-family: var(--mono); font-weight: 500; color: var(--chrome); }
+  th.ck, td.ck { width: 1%; }
+  #fl-t td { white-space: nowrap; }
+  td.ck input, th.ck input { width: auto; }
+  .flag { display: inline-block; font-size: 0.64rem; padding: 0.08rem 0.42rem; border-radius: 5px; margin: 0 0.25rem 0.15rem 0;
+    background: rgba(232,178,58,0.14); color: var(--amber); white-space: nowrap; }
+  .flag.bad { background: rgba(255,107,90,0.14); color: var(--refuse); }
+  .fl-bulk { margin-top: 0.9rem; padding-top: 0.9rem; border-top: 1px solid var(--edge); display: grid; gap: 0.7rem; }
+  .fl-tree ul { list-style: none; margin: 0; padding-left: 1.1rem; border-left: 1px solid var(--edge); }
+  .fl-tree > ul { padding-left: 0; border-left: 0; }
+  .fl-tree li { margin: 0.45rem 0; font-size: 0.82rem; }
+  .fl-tree li > div { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+  .fl-tree .kv { font-family: var(--mono); font-size: 0.72rem; color: var(--chrome-faint); }
+  .fl-new > summary { cursor: pointer; font-size: 0.82rem; color: var(--teal); margin-top: 0.8rem; }
+
+  /* ---- services ------------------------------------------------------------ */
+  .svc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 0.85rem; }
+  .svc { display: grid; gap: 0.6rem; align-content: start; }
+  .svc h3 { margin: 0; font-size: 1rem; }
+  .svc .price { font-family: var(--mono); font-size: 1.05rem; color: var(--chrome); }
+  .svc .chips { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+  .svc .chips span { font-family: var(--mono); font-size: 0.64rem; padding: 0.1rem 0.45rem; border-radius: 5px;
+    background: var(--panel); color: var(--chrome-dim); border: 1px solid var(--edge); }
+  .svc .kv { font-family: var(--mono); font-size: 0.72rem; color: var(--chrome-faint); overflow-wrap: anywhere; }
+  .svc pre { margin: 0; }
+
+  /* ---- controls ------------------------------------------------------------ */
+  .ctl { display: grid; gap: 0.5rem; margin-top: 0.8rem; }
+  .ctl button { justify-content: space-between; text-align: left; width: 100%; }
+  .ctl button small { font-weight: 400; font-size: 0.72rem; color: inherit; opacity: 0.75; }
+  .ctl button.danger { background: rgba(255,107,90,0.12); border-color: rgba(255,107,90,0.5); color: var(--refuse); }
+  .ctl button.danger:hover { background: rgba(255,107,90,0.2); }
+
+  /* ---- phone ----------------------------------------------------------------
+     The sidebar becomes a drawer behind a menu button, and the five things a
+     person does most sit in a tab bar under their thumb. Everything is still
+     one tap from anywhere; nothing is hidden that is not in the drawer. */
+  .menu { display: none; }
+  .tabs { display: none; }
+  @media (max-width: 960px) {
+    .side { position: fixed; inset: 0 auto 0 0; width: min(82vw, 300px); z-index: 60; overflow-y: auto;
+      transform: translateX(-102%); transition: transform 0.2s ease; border-right: 1px solid var(--edge);
+      border-bottom: 0; padding-top: calc(1.1rem + env(safe-area-inset-top, 0px)); }
+    .side.open { transform: none; box-shadow: 0 0 40px rgba(0,0,0,0.5); }
+    .scrim { position: fixed; inset: 0; background: rgba(6,9,16,0.6); z-index: 55; }
+    .menu { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; cursor: pointer;
+      background: var(--panel); border: 1px solid var(--edge-bright); color: var(--chrome); flex: none; }
+    .menu svg { width: 18px; height: 18px; }
+    .tabs { display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+      background: rgba(20,28,46,0.96); backdrop-filter: blur(10px); border-top: 1px solid var(--edge);
+      padding: 0.35rem 0.3rem calc(0.35rem + env(safe-area-inset-bottom, 0px)); }
+    .tabs a { display: grid; justify-items: center; gap: 0.2rem; padding: 0.35rem 0; border-radius: 10px;
+      color: var(--chrome-faint); font-size: 0.64rem; cursor: pointer; min-height: 44px; }
+    .tabs a svg { width: 20px; height: 20px; }
+    .tabs a[aria-current="page"] { color: var(--teal); background: var(--teal-ghost); }
+    .main { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
+    .top { gap: 0.5rem; }
+  }
+  @media (max-width: 600px) {
+    .top .search { order: 10; flex-basis: 100%; }
+    .top #freshness { display: none; }
+    .top .net { flex: 1 1 0; min-width: 0; width: 0; }
+    .top .bell, .top .wbtn, .top .menu { flex: none; }
+    .head h1 { font-size: 1.35rem; }
+    .tiles { grid-template-columns: 1fr 1fr !important; gap: 0.55rem; }
+    .tile .v { font-size: 1.15rem; }
+    .wz-nav { position: sticky; bottom: calc(66px + env(safe-area-inset-bottom, 0px)); z-index: 5;
+      background: var(--void); padding-block: 0.6rem; margin-inline: -0.2rem; }
+    .wz-nav .go, .wz-nav button { flex: 1; justify-content: center; }
+    #w-back, #w-next { flex: 1; justify-content: center; }
+    .seg { flex-wrap: wrap; }
+    button.go { min-height: 42px; }
+    .statusbar { display: none !important; }
+  }
   .fa-wrap { display: grid; gap: 0.85rem; max-width: 880px; }
   .fa { display: grid; gap: 0.9rem; }
   .fa-side { background: var(--panel); border: 1px solid var(--edge); border-radius: 10px; padding: 0.85rem 0.95rem; }
@@ -287,14 +391,6 @@
   .fa-why { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.25rem; font-size: 0.8rem; color: var(--chrome-dim); }
   .fa-why b { color: var(--amber); }
   .fa-ok { margin: 0; font-size: 0.8rem; color: var(--good); }
-  .fa-det { border: 1px solid var(--edge); border-radius: var(--r); background: var(--ground); }
-  .fa-det > summary { cursor: pointer; padding: 0.9rem 1.1rem; font-weight: 600; list-style: none; display: flex;
-    flex-wrap: wrap; gap: 0.3rem 0.7rem; align-items: baseline; }
-  .fa-det > summary::-webkit-details-marker { display: none; }
-  .fa-det > summary::before { content: "▸"; color: var(--chrome-faint); }
-  .fa-det[open] > summary::before { content: "▾"; }
-  .fa-det > summary small { font-family: var(--mono); font-size: 0.72rem; color: var(--chrome-faint); font-weight: 400; }
-  .fa-det > .wrap { padding: 0 1.1rem 1.1rem; }
   a.go { text-decoration: none; text-align: center; }
   .grp-l { font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--chrome-faint);
     margin: 1.1rem 0 0; }
@@ -307,7 +403,7 @@
   .scope-t b { color: var(--chrome); font-weight: 600; }
   .scope .go { padding: 0.36rem 0.8rem; font-size: 0.78rem; }
   .scope-empty { padding-bottom: 0; }
-  .main.mine-empty .view.data:not(#v-agent) > :not(.head):not(.trk) { display: none; }
+  .main.mine-empty .view.data:not(#v-agent):not(#v-fleet) > :not(.head):not(.trk) { display: none; }
   .trk { margin-bottom: 0.85rem; }
   .trk .ev { cursor: pointer; }
   /* Links that act as buttons wear the button: same box, same weight. */
@@ -440,7 +536,7 @@
 
 
 <div class="app">
-  <aside class="side">
+  <aside class="side" id="side">
     <a class="brand" href="/" title="Back to wardaprotocol.com">
       <span class="bm"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1.8 3.4h12.4M3.4 3.4v9.2h9.2V3.4"/><path d="M6.2 7.2h3.6"/></svg></span>
       <i style="font-style:normal"><b>Warda</b><span>console</span></i>
@@ -451,6 +547,9 @@
       <a data-view="dash" aria-current="page">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1.5"/><rect x="9" y="1.5" width="5.5" height="5.5" rx="1.5"/><rect x="1.5" y="9" width="5.5" height="5.5" rx="1.5"/><rect x="9" y="9" width="5.5" height="5.5" rx="1.5"/></svg>
         Overview</a>
+      <a data-view="fleet">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="3.3" r="1.8"/><circle cx="3.3" cy="12.2" r="1.8"/><circle cx="8" cy="12.2" r="1.8"/><circle cx="12.7" cy="12.2" r="1.8"/><path d="M8 5.1v5.3M8 7.8H3.3v2.6M8 7.8h4.7v2.6"/></svg>
+        Fleet</a>
       <a data-view="grants">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2.5" width="12" height="11" rx="2"/><path d="M5 6h6M5 9h6M5 12h3"/></svg>
         Grants<span class="tag" id="n-grants">—</span></a>
@@ -460,9 +559,6 @@
       <a data-view="refusals">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M4.2 4.2l7.6 7.6"/></svg>
         Refused</a>
-      <a data-view="account">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="5.6" r="2.8"/><path d="M2.6 14c.7-2.9 2.9-4.4 5.4-4.4s4.7 1.5 5.4 4.4"/></svg>
-        Your account</a>
       <a data-view="alerts">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3.5 6.5a4.5 4.5 0 0 1 9 0c0 3 1 4 1 4h-11s1-1 1-4z"/><path d="M6.6 13a1.6 1.6 0 0 0 2.8 0"/></svg>
         Alerts</a>
@@ -474,12 +570,14 @@
       <a data-view="create">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2.5v11M2.5 8h11"/></svg>
         Create a grant</a>
-      <a href="/network">
+      <a data-view="registry">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="3.5" r="2"/><circle cx="3.5" cy="12" r="2"/><circle cx="12.5" cy="12" r="2"/><path d="M8 5.5L4.3 10.2M8 5.5l3.7 4.7M5.5 12h5"/></svg>
-        Registry</a>
-      <a href="/proof">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.8l5 2v4.4c0 3-2.1 5-5 6-2.9-1-5-3-5-6V3.8z"/><path d="M5.8 8l1.6 1.6 3-3.2"/></svg>
-        Proof</a>
+        Services<span class="tag" id="n-svc">—</span></a>
+
+      <p class="grp" style="margin-top:0.9rem">You</p>
+      <a data-view="account">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="5.6" r="2.8"/><path d="M2.6 14c.7-2.9 2.9-4.4 5.4-4.4s4.7 1.5 5.4 4.4"/></svg>
+        Your account</a>
     </nav>
 
     <div class="wallet">
@@ -497,6 +595,9 @@
 
   <div class="main">
     <div class="top">
+      <button class="menu" id="menu" aria-label="Menu" aria-expanded="false" aria-controls="side">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/></svg>
+      </button>
       <label class="search">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="4.5"/><path d="M10.4 10.4L14 14"/></svg>
         <input id="q" placeholder="Filter by agent, payee, address or endpoint…" aria-label="Filter">
@@ -625,7 +726,7 @@
           <div class="card">
             <header>
               <h2>Where they buy <small>the registry</small></h2>
-              <a class="more" href="/network">Open the registry &rarr;</a>
+              <a class="more" data-view="registry">All services &rarr;</a>
             </header>
             <p class="why">Every endpoint these agents have paid, and how much has gone to each &mdash;
               counted from the same readings, by the URL the purchase recorded. A listing is a claim
@@ -745,6 +846,14 @@
         </div>
 
         <div class="stack">
+          <div class="card" id="ag-ctl-card">
+            <header><h2>Controls</h2></header>
+            <p class="why" id="ag-ctl-who">&mdash;</p>
+            <div class="ctl" id="ag-ctl"></div>
+            <pre id="ag-cmd" hidden></pre>
+            <p class="why" id="ag-cmd-why"></p>
+          </div>
+
           <div class="enforced">
             <p class="k">What the network enforces</p>
             <dl id="ag-enf"></dl>
@@ -764,6 +873,110 @@
           </div>
 
         </div>
+      </div>
+    </div>
+
+    <!-- ============================== FLEET ============================== -->
+    <div class="view pad data" id="v-fleet">
+      <div class="head"><div>
+        <h1>Fleet</h1>
+        <p>Every agent as one managed system: where the capital sits, who delegated to whom, which ones are close
+          to a limit, and the controls to end, reclaim or renew them &mdash; one at a time or together.</p>
+      </div>
+        <div class="seg" id="fl-filter" role="group" aria-label="Show">
+          <button data-f="all" aria-pressed="true">All</button>
+          <button data-f="live" aria-pressed="false">Live</button>
+          <button data-f="attention" aria-pressed="false">Needs attention</button>
+          <button data-f="ended" aria-pressed="false">Ended</button>
+        </div>
+      </div>
+
+      <div class="tiles" id="fl-tiles"></div>
+
+      <div class="card" style="margin-top:0.85rem">
+        <header><h2>Where the capital sits <small id="fl-alloc-n">&mdash;</small></h2></header>
+        <p class="why">Authority still unspent in each live grant, and what your connected wallet holds outside
+          any grant. Unallocated capital is only counted when a Kaspa wallet is connected; otherwise it is left out,
+          not shown as zero.</p>
+        <div class="fl-bar" id="fl-bar" role="img" aria-label="Capital by agent"></div>
+        <div class="fl-legend" id="fl-legend"></div>
+      </div>
+
+      <div class="card" style="margin-top:0.85rem">
+        <header><h2>Agents <small id="fl-n">&mdash;</small></h2>
+          <span class="more" id="fl-sel-n"></span></header>
+        <div style="overflow-x:auto">
+          <table id="fl-t"><thead><tr>
+            <th class="ck"><input type="checkbox" id="fl-all" aria-label="Select all"></th>
+            <th>Agent</th><th>State</th><th class="n">Left</th><th class="n">Per payment</th><th>Ends</th><th>Flags</th>
+          </tr></thead><tbody></tbody></table>
+        </div>
+        <div class="fl-bulk" id="fl-bulk" hidden>
+          <p class="say" style="margin:0" id="fl-bulk-t">&mdash;</p>
+          <div class="og-a">
+            <button class="go" data-bulk="revoke">Revoke selected</button>
+            <button class="go gh" data-bulk="reclaim">Reclaim the expired ones</button>
+            <button class="go gh" data-bulk="topup">Renew selected</button>
+          </div>
+          <pre id="fl-cmds" hidden></pre>
+          <p class="why" id="fl-cmds-why"></p>
+        </div>
+        <p class="note" style="margin-top:0.9rem"><b>There is no pause.</b> A covenant has no switch to flip, so
+          &ldquo;pause spending&rdquo; is revoke: the balance goes home the next block, and a successor grant restarts
+          the agent when you want it back.</p>
+      </div>
+
+      <div class="two" style="margin-top:0.85rem;align-items:start">
+        <div class="card">
+          <header><h2>Who delegated to whom</h2></header>
+          <p class="why">A child grant is funded out of its parent&rsquo;s budget with a narrower allowlist. Revoking a
+            child returns its remainder to its principal &mdash; that is how funds come back up the tree.</p>
+          <div class="fl-tree" id="fl-tree"></div>
+        </div>
+        <div class="card">
+          <header><h2>Templates <small>kept in this browser</small></h2></header>
+          <p class="why">Common shapes for a new grant. Using one opens Create a grant with its limits filled in.</p>
+          <div class="feed" id="fl-tpl"></div>
+          <details class="fl-new">
+            <summary>New template</summary>
+            <div class="grid" style="margin-top:0.7rem">
+              <div class="field"><label for="tp-name">Name</label><input id="tp-name" value="Nightly crawler"></div>
+              <div class="field"><label for="tp-budget">Budget &mdash; $</label><input id="tp-budget" inputmode="decimal" value="30"></div>
+              <div class="field"><label for="tp-cap">Per payment &mdash; $</label><input id="tp-cap" inputmode="decimal" value="0.5"></div>
+              <div class="field"><label for="tp-epoch">Per hour &mdash; $</label><input id="tp-epoch" inputmode="decimal" value="3"></div>
+              <div class="field"><label for="tp-days">Days</label><input id="tp-days" inputmode="numeric" value="14"></div>
+            </div>
+            <p style="margin-top:0.7rem"><button class="go gh" id="tp-save">Save template</button></p>
+          </details>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:0.85rem">
+        <header><h2>Risk controls</h2></header>
+        <p class="why">The limits that bound the whole fleet are the ones in each grant; nothing here can loosen
+          them. What the console adds is being told before one is reached.</p>
+        <div class="og-a" style="margin-top:0.8rem">
+          <button class="go gh" data-alert="budget-low">Tell me when an agent is running out &rarr;</button>
+          <button class="go gh" data-alert="expiring">Tell me before a term ends &rarr;</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================ SERVICES ============================= -->
+    <div class="view pad" id="v-registry">
+      <div class="head"><div>
+        <h1>Services</h1>
+        <p>What agents can buy, from the Warda registry. Each listing is signed by its operator; paying one is a
+          grant whose allowlist holds its payee, so the agent can pay that service and nobody else.</p>
+      </div>
+        <span class="chip" id="svc-src"><i></i>reading</span>
+      </div>
+      <div class="svc-grid" id="svc-list"></div>
+      <div class="card" style="margin-top:0.85rem" id="svc-unlisted-card" hidden>
+        <header><h2>Known, not listed</h2></header>
+        <p class="why">Services agents here already pay that have never asked to be listed. Shown because a registry
+          that shows only what it recruited hides the size of what it has not.</p>
+        <div class="feed" id="svc-unlisted"></div>
       </div>
     </div>
 
@@ -939,113 +1152,155 @@
     <div class="view pad" id="v-alerts">
       <div class="head"><div>
         <h1>Alerts</h1>
-        <p>Compose a rule here; your own machine evaluates it and Telegram carries the message. Nothing about this is stored on a server.</p>
+        <p>Four steps. Compose a rule here; your own machine evaluates it and Telegram carries the message.
+          Nothing about this is stored on a server.</p>
       </div></div>
+
+      <div class="rail-steps wz-rail" data-wz="al"></div>
 
       <div class="wrap">
         <div>
-          <div class="bar">
-            <div>
-              <label for="a-rate">Your rate &mdash; $ per KAS</label>
-              <input id="a-rate" inputmode="decimal" value="0.05">
-            </div>
-            <div class="px">
-              <label>Market, for context only</label>
-              <span id="a-px">&mdash;</span>
-              <i id="a-px-src">not fetched yet</i>
-            </div>
-          </div>
-
-          <div class="card" style="margin-top:0.85rem">
-            <header><h2>What to watch</h2></header>
-            <p class="why">Three kinds. All of them tell you something; none of them does anything.</p>
-
-            <div class="grid" style="margin-top:1rem">
-              <div class="field">
-                <label for="a-kind">Kind</label>
-                <select id="a-kind">
-                  <option value="balance-at-or-above">An address has received enough to act on</option>
-                  <option value="budget-low">A grant is running out of budget</option>
-                  <option value="expiring">A grant&rsquo;s term is nearly up</option>
-                </select>
+          <div class="wz-step" data-wz="al" data-n="1" data-label="What to watch">
+            <div class="card">
+              <header><h2>What to watch</h2></header>
+              <p class="why">Three kinds. All of them tell you something; none of them does anything.</p>
+              <div class="al-kinds" role="radiogroup" aria-label="Kind">
+                <button class="al-kind" data-k="balance-at-or-above" aria-pressed="true"><b>Money arrived</b>
+                  <span>an address has received enough to act on</span></button>
+                <button class="al-kind" data-k="budget-low" aria-pressed="false"><b>Running out</b>
+                  <span>a grant is close to the end of its budget</span></button>
+                <button class="al-kind" data-k="expiring" aria-pressed="false"><b>Nearly over</b>
+                  <span>a grant&rsquo;s term is nearly up</span></button>
               </div>
-              <div class="field">
+              <select id="a-kind" hidden aria-hidden="true" tabindex="-1">
+                <option value="balance-at-or-above">An address has received enough to act on</option>
+                <option value="budget-low">A grant is running out of budget</option>
+                <option value="expiring">A grant&rsquo;s term is nearly up</option>
+              </select>
+              <p class="out" id="a-kind-say" style="margin-top:0.9rem;font-size:0.79rem;color:var(--chrome-dim)">&mdash;</p>
+              <div class="field" style="margin-top:1rem">
                 <label for="a-id">Name it</label>
                 <input id="a-id" spellcheck="false" value="earnings-worth-converting">
                 <p class="out">How the rule is remembered between runs.</p>
               </div>
             </div>
-            <p class="out" id="a-kind-say" style="margin-top:0.7rem;font-size:0.79rem;color:var(--chrome-dim)">&mdash;</p>
+          </div>
 
-            <div class="field" style="margin-top:1rem">
-              <label for="a-note">What you want to be reminded of</label>
-              <input id="a-note" value="Convert, and top the agent back up.">
-              <p class="out">Sent at the top of the message. Yours, not generated.</p>
-            </div>
+          <div class="wz-step" data-wz="al" data-n="2" data-label="When">
+            <div class="card">
+              <header><h2>When it fires</h2></header>
+              <div class="bar" style="margin-bottom:1rem">
+                <div>
+                  <label for="a-rate">Your rate &mdash; $ per KAS</label>
+                  <input id="a-rate" inputmode="decimal" value="0.05">
+                </div>
+                <div class="px">
+                  <label>Market, for context only</label>
+                  <span id="a-px">&mdash;</span>
+                  <i id="a-px-src">not fetched yet</i>
+                </div>
+              </div>
 
-            <div data-kind="balance-at-or-above">
+              <div data-kind="balance-at-or-above">
+                <div class="field">
+                  <label for="a-addr">The address to watch</label>
+                  <input id="a-addr" spellcheck="false" placeholder="kaspatest:qq&hellip;">
+                  <p class="out">Where your sales land. A public address and nothing else &mdash; this rule cannot
+                    spend from it, and the tool that evaluates it holds no key.</p>
+                </div>
+                <div class="grid" style="margin-top:1rem">
+                  <div class="field">
+                    <label for="a-usd">Tell me when it reaches &mdash; $</label>
+                    <input id="a-usd" inputmode="decimal" value="50">
+                    <p class="out" id="a-o-usd">&mdash;</p>
+                  </div>
+                  <div class="field">
+                    <label>Which is, at your rate</label>
+                    <p class="out" id="a-o-kas" style="margin-top:0.55rem">&mdash;</p>
+                  </div>
+                </div>
+              </div>
+
+              <div data-kind="budget-low expiring">
+                <div class="field">
+                  <label for="a-grant">The grant&rsquo;s manifest, as your machine sees it</label>
+                  <input id="a-grant" spellcheck="false" value="grant.json">
+                  <p class="out">A path, relative to the repository. A grant&rsquo;s address is a hash of its state,
+                    so this file is the only thing that knows where the grant currently is.</p>
+                </div>
+              </div>
+
+              <div data-kind="budget-low">
+                <div class="grid" style="margin-top:1rem">
+                  <div class="field">
+                    <label for="a-below">Warn me below &mdash; $ left</label>
+                    <input id="a-below" inputmode="decimal" value="2">
+                    <p class="out" id="a-o-below">&mdash;</p>
+                  </div>
+                  <div class="field">
+                    <label for="a-funder">Your funding address &mdash; optional</label>
+                    <input id="a-funder" spellcheck="false" placeholder="kaspatest:qq&hellip;">
+                    <p class="out">Given one, the message also says whether the next grant can be paid for, and
+                      whether it is in one coin. Left blank, nothing is claimed about it.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div data-kind="expiring">
+                <div class="field">
+                  <label for="a-days">Warn me this long before the end &mdash; days</label>
+                  <input id="a-days" inputmode="decimal" value="2">
+                  <p class="out" id="a-o-days">&mdash;</p>
+                </div>
+              </div>
+
               <div class="field" style="margin-top:1rem">
-                <label for="a-addr">The address to watch</label>
-                <input id="a-addr" spellcheck="false" placeholder="kaspatest:qq&hellip;">
-                <p class="out">Where your sales land. A public address and nothing else &mdash; this rule cannot
-                  spend from it, and the tool that evaluates it holds no key.</p>
-              </div>
-              <div class="grid" style="margin-top:1rem">
-                <div class="field">
-                  <label for="a-usd">Tell me when it reaches &mdash; $</label>
-                  <input id="a-usd" inputmode="decimal" value="50">
-                  <p class="out" id="a-o-usd">&mdash;</p>
-                </div>
-                <div class="field">
-                  <label>Which is, at your rate</label>
-                  <p class="out" id="a-o-kas" style="margin-top:0.55rem">&mdash;</p>
-                </div>
-              </div>
-            </div>
-
-            <div data-kind="budget-low expiring">
-              <div class="field" style="margin-top:1rem">
-                <label for="a-grant">The grant&rsquo;s manifest, as your machine sees it</label>
-                <input id="a-grant" spellcheck="false" value="grant.json">
-                <p class="out">A path, relative to the repository. A grant&rsquo;s address is a hash of its state,
-                  so this file is the only thing that knows where the grant currently is.</p>
-              </div>
-            </div>
-
-            <div data-kind="budget-low">
-              <div class="grid" style="margin-top:1rem">
-                <div class="field">
-                  <label for="a-below">Warn me below &mdash; $ left</label>
-                  <input id="a-below" inputmode="decimal" value="2">
-                  <p class="out" id="a-o-below">&mdash;</p>
-                </div>
-                <div class="field">
-                  <label for="a-funder">Your funding address &mdash; optional</label>
-                  <input id="a-funder" spellcheck="false" placeholder="kaspatest:qq&hellip;">
-                  <p class="out">Given one, the message also says whether the next grant can be paid for, and
-                    whether it is in one coin. Left blank, nothing is claimed about it.</p>
-                </div>
-              </div>
-            </div>
-
-            <div data-kind="expiring">
-              <div class="field" style="margin-top:1rem">
-                <label for="a-days">Warn me this long before the end &mdash; days</label>
-                <input id="a-days" inputmode="decimal" value="2">
-                <p class="out" id="a-o-days">&mdash;</p>
+                <label for="a-note">What you want to be reminded of</label>
+                <input id="a-note" value="Convert, and top the agent back up.">
+                <p class="out">Sent at the top of the message. Yours, not generated.</p>
               </div>
             </div>
           </div>
 
-          <div class="card" style="margin-top:0.85rem">
-            <header><h2>The rule</h2></header>
-            <p class="why">Add this to <code>ops/alerts.json</code> beside your node. That file is gitignored: a
-              published threshold is a number somebody knows to sit just underneath.</p>
-            <pre id="a-json">&mdash;</pre>
-            <p class="note"><b>Only changes are sent, including the change back.</b> A message every fifteen
-              minutes for a condition that is still true is a message you learn to swipe away. A rule that cannot
-              be <em>read</em> &mdash; the node is down, or the chain holds nothing where the manifest says the
-              grant is &mdash; says so once, and is never reported as &ldquo;fine&rdquo;.</p>
+          <div class="wz-step" data-wz="al" data-n="3" data-label="Where it goes">
+            <div class="card">
+              <header><h2>Where the message goes</h2></header>
+              <p class="say">To Telegram, from a small script on the machine that runs your node. Set it up once;
+                every rule after that is one entry in a file.</p>
+              <ol class="al-how">
+                <li>Create a bot with <b>@BotFather</b> in Telegram and copy its token.</li>
+                <li>Send the bot any message, then put the token and your chat id in <code>ops/alerts.env</code>.</li>
+                <li>Send yourself a test, look at a dry run, and install the schedule:</li>
+              </ol>
+<pre>cp ops/alerts.env.example ops/alerts.env
+ops/alerts.sh --test
+ops/alerts.sh --dry-run
+ops/install-cron.sh</pre>
+              <p class="note" style="margin-top:0.8rem"><b>It notifies. It never acts.</b> Converting for you at your
+                threshold needs a key that can move the coin, held unattended, forever &mdash; the hot wallet this
+                project exists to not be. It holds no key, signs nothing and builds no transaction, and the build
+                fails if that stops being true.</p>
+            </div>
+          </div>
+
+          <div class="wz-step" data-wz="al" data-n="4" data-label="Your rule">
+            <div class="card">
+              <header><h2>The rule</h2></header>
+              <p class="why">Add this to <code>ops/alerts.json</code> beside your node. That file is gitignored: a
+                published threshold is a number somebody knows to sit just underneath.</p>
+              <pre id="a-json">&mdash;</pre>
+              <p style="margin-top:0.8rem"><button class="go gh" id="a-copy">Copy the rule</button>
+                <span class="why" id="a-copied"></span></p>
+              <p class="note"><b>Only changes are sent, including the change back.</b> A message every fifteen
+                minutes for a condition that is still true is a message you learn to swipe away. A rule that cannot
+                be <em>read</em> &mdash; the node is down, or the chain holds nothing where the manifest says the
+                grant is &mdash; says so once, and is never reported as &ldquo;fine&rdquo;.</p>
+            </div>
+          </div>
+
+          <div class="wz-nav" data-wz="al">
+            <button class="go gh" data-wz-back="al">Back</button>
+            <button class="go" data-wz-next="al">Continue</button>
           </div>
         </div>
 
@@ -1059,18 +1314,6 @@
             </dl>
             <p class="foot" id="a-drift">&mdash;</p>
           </div>
-
-          <div class="card">
-            <header><h2>Where it runs</h2></header>
-<pre style="margin-top:0.7rem">cp ops/alerts.env.example ops/alerts.env
-ops/alerts.sh --test
-ops/alerts.sh --dry-run
-ops/install-cron.sh</pre>
-            <p class="note" style="margin-top:0.8rem"><b>It notifies. It never acts.</b> Converting for you at
-              your threshold needs a key that can move the coin, held unattended, forever &mdash; the hot wallet
-              this project exists to not be. It holds no key, signs nothing and builds no transaction, and the
-              build fails if that stops being true.</p>
-          </div>
         </div>
       </div>
     </div>
@@ -1079,115 +1322,137 @@ ops/install-cron.sh</pre>
     <div class="view pad" id="v-fund">
       <div class="head"><div>
         <h1>Fund an agent</h1>
-        <p>Pay with the stablecoin you already hold. It becomes KAS on Kaspa, and the KAS becomes the
-          agent&rsquo;s spending authority &mdash; a budget the network enforces. Warda holds none of it and
+        <p>Four steps. Pay with the stablecoin you already hold; it becomes KAS on Kaspa, and the KAS becomes
+          the agent&rsquo;s spending authority &mdash; a budget the network enforces. Warda holds none of it and
           takes nothing.</p>
       </div></div>
 
-      <div class="fa-wrap">
-        <div class="card fa">
-          <div class="fa-side">
-            <label for="fa-usd">You pay</label>
-            <div class="fa-amt">
-              <input id="fa-usd" inputmode="decimal" value="100" aria-describedby="fa-from-s">
-              <select id="fa-tok" aria-label="Token"></select>
-              <select id="fa-chain" aria-label="From chain"></select>
-            </div>
-            <p class="out" id="fa-from-s">&mdash;</p>
-          </div>
-          <div class="fa-arrow" aria-hidden="true">
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 2.5v11M3.5 9l4.5 4.5L12.5 9"/></svg>
-          </div>
-          <div class="fa-side">
-            <label>Agent spending authority</label>
-            <p class="fa-kas" id="fa-kas">&mdash;</p>
-            <p class="out" id="fa-kas-s">&mdash;</p>
-          </div>
-          <div class="grid fa-terms">
-            <div class="field">
-              <label for="fa-cap">Per payment &mdash; $</label>
-              <input id="fa-cap" inputmode="decimal" value="20">
-            </div>
-            <div class="field">
-              <label for="fa-days">Expires in &mdash; days</label>
-              <input id="fa-days" inputmode="numeric" value="7">
-            </div>
-            <div class="field">
-              <label>Grant key</label>
-              <p class="fa-key" id="fa-key">&mdash;</p>
-            </div>
-          </div>
-          <div class="fa-route" id="fa-route"></div>
-          <div class="fa-go">
-            <button class="go" id="fa-go">Fund agent</button>
-            <button class="go gh" id="fa-hold" hidden>Already hold KAS? Use these terms &rarr;</button>
-          </div>
-          <div id="fa-state"></div>
-        </div>
+      <div class="rail-steps wz-rail" data-wz="fu"></div>
 
-        <details class="fa-det" id="fa-det">
-          <summary><span>Route details</span> <small id="fa-path">&mdash;</small></summary>
       <div class="wrap">
         <div>
-          <div class="card">
-            <header><h2>What you are crossing</h2></header>
-            <p class="say">Kaspa has no exchange of its own &mdash; Toccata brought covenants, not an EVM
-              &mdash; so the swap happens on Igra, a rollup where USDC already trades, and the result
-              crosses to Kaspa L1 over its bridge. That bridge moves 1,000 KAS or more at a time, which
-              is why this is a treasury step rather than a per-grant one.</p>
-
-            <div class="bar" style="margin-bottom:1.1rem">
-              <div>
-                <label for="fu-rate">Rate &mdash; $ per KAS</label>
-                <input id="fu-rate" inputmode="decimal" value="0.05">
+          <div class="wz-step" data-wz="fu" data-n="1" data-label="You pay">
+            <div class="card fa">
+              <header><h2>What you pay with</h2></header>
+              <div class="fa-side">
+                <label for="fa-usd">You pay</label>
+                <div class="fa-amt">
+                  <input id="fa-usd" inputmode="decimal" value="100" aria-describedby="fa-from-s">
+                  <select id="fa-tok" aria-label="Token"></select>
+                  <select id="fa-chain" aria-label="From chain"></select>
+                </div>
+                <p class="out" id="fa-from-s">&mdash;</p>
               </div>
-              <div class="px">
-                <label>Market</label>
-                <span id="fu-px">&mdash;</span>
-                <i id="fu-px-src">not fetched yet</i>
+              <div class="fa-arrow" aria-hidden="true">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 2.5v11M3.5 9l4.5 4.5L12.5 9"/></svg>
               </div>
-              <div style="min-width:auto">
-                <button class="go gh" id="fu-use-px" disabled>Use the market rate</button>
+              <div class="fa-side">
+                <label>Agent spending authority</label>
+                <p class="fa-kas" id="fa-kas">&mdash;</p>
+                <p class="out" id="fa-kas-s">&mdash;</p>
               </div>
-            </div>
-
-            <div class="grid">
-              <div class="field">
-                <label for="fu-usd">USDC to spend</label>
-                <input id="fu-usd" inputmode="decimal" value="100">
-                <p class="out" id="fu-o-usd">&mdash;</p>
+              <div class="bar">
+                <div>
+                  <label for="fu-rate">Your rate &mdash; $ per KAS</label>
+                  <input id="fu-rate" inputmode="decimal" value="0.05">
+                </div>
+                <div class="px">
+                  <label>Market</label>
+                  <span id="fu-px">&mdash;</span>
+                  <i id="fu-px-src">not fetched yet</i>
+                </div>
+                <div style="min-width:auto">
+                  <button class="go gh" id="fu-use-px" disabled>Use the market rate</button>
+                </div>
               </div>
-              <div class="field">
-                <label for="fu-slip">Slippage you will accept &mdash; %</label>
-                <input id="fu-slip" inputmode="decimal" value="0.5">
-                <p class="out">A swap fills at whatever the pool gives. This is how far below the quote
-                  you are willing to land, and it sizes the worst case on the right.</p>
-              </div>
-              <div class="field">
-                <label for="fu-net">Where the swap happens</label>
-                <select id="fu-net">
-                  <option value="galleon">Igra Galleon &mdash; testnet</option>
-                  <option value="igra" disabled>Igra mainnet &mdash; when audited</option>
-                </select>
-                <p class="out" id="fu-o-net">&mdash;</p>
-              </div>
-            </div>
-            <div class="field" style="margin-top:1rem">
-              <label for="fu-addr">Where the KAS should land &mdash; your funding address on Kaspa</label>
-              <input id="fu-addr" spellcheck="false" placeholder="kaspatest:qq&hellip;">
-              <p class="out" id="fu-o-addr">Checked here in full, because the bridge checks only the
-                prefix and the character set &mdash; this is the one place a transposed character is
-                caught before the KAS is gone.</p>
+              <input id="fu-usd" type="hidden" value="100">
+              <p class="out" id="fu-o-usd" hidden></p>
             </div>
           </div>
 
-          <div class="card" style="margin-top:0.85rem">
-            <header><h2>The plan <small id="fu-state">&mdash;</small></h2></header>
-            <p class="why">Built by <code>@warda_protocol/router</code>, the same <code>planFunding</code> its
-              tests exercise. Every step that moves value is handed to you unsigned. This page cannot sign
-              any of them and has no way to.</p>
-            <div class="feed" id="fu-steps"></div>
-            <div id="fu-block"></div>
+          <div class="wz-step" data-wz="fu" data-n="2" data-label="The agent">
+            <div class="card">
+              <header><h2>What the agent may do with it</h2></header>
+              <p class="say">The KAS becomes a grant. These are its limits, in dollars here and in KAS in the
+                script &mdash; the covenant compares KAS, never dollars.</p>
+              <div class="grid">
+                <div class="field">
+                  <label for="fa-cap">Any single payment &mdash; $</label>
+                  <input id="fa-cap" inputmode="decimal" value="20">
+                  <p class="out" id="fa-o-cap">&mdash;</p>
+                </div>
+                <div class="field">
+                  <label for="fa-days">Ends in &mdash; days</label>
+                  <input id="fa-days" inputmode="numeric" value="7">
+                  <p class="out">after that the balance is yours to reclaim</p>
+                </div>
+              </div>
+              <div class="field" style="margin-top:1rem">
+                <label>The key that creates the grant, and can end it</label>
+                <p class="fa-key" id="fa-key">&mdash;</p>
+              </div>
+              <div class="field" style="margin-top:1rem">
+                <label for="fu-addr">Where the KAS lands &mdash; your Kaspa address</label>
+                <input id="fu-addr" spellcheck="false" placeholder="kaspa:qq&hellip;">
+                <p class="out" id="fu-o-addr">Checked here in full, because a bridge or a swap service checks only
+                  the prefix and the character set &mdash; this is the one place a transposed character is caught
+                  before the KAS is gone.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="wz-step" data-wz="fu" data-n="3" data-label="Route">
+            <div class="card">
+              <header><h2>How it gets there <small id="fa-path">&mdash;</small></h2></header>
+              <p class="say">Every route this chain has, best first. A route is only as open as its worst step,
+                and the one with no custodian is preferred whenever it is open.</p>
+              <div class="fa-routes" id="fa-routes" role="radiogroup" aria-label="Route"></div>
+              <div class="fa-route" id="fa-route"></div>
+              <label class="fa-ack" id="fa-ack-l" hidden>
+                <input type="checkbox" id="fa-ack">
+                <span id="fa-ack-t">I understand the swap service holds the money until it sends the KAS.</span>
+              </label>
+              <div class="grid" style="margin-top:1rem" id="fa-igra-only">
+                <div class="field">
+                  <label for="fu-slip">Slippage you will accept &mdash; %</label>
+                  <input id="fu-slip" inputmode="decimal" value="0.5">
+                  <p class="out">A swap fills at whatever the pool gives. This is how far below the quote you are
+                    willing to land.</p>
+                </div>
+                <div class="field">
+                  <label for="fu-net">Where the swap happens</label>
+                  <select id="fu-net">
+                    <option value="galleon">Igra Galleon &mdash; testnet</option>
+                    <option value="igra" disabled>Igra mainnet &mdash; when audited</option>
+                  </select>
+                  <p class="out" id="fu-o-net">&mdash;</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="wz-step" data-wz="fu" data-n="4" data-label="Fund it">
+            <div class="card">
+              <header><h2>Review <small id="fu-state">&mdash;</small></h2></header>
+              <div id="fa-state"></div>
+              <div class="fa-go" style="margin-top:0.9rem">
+                <button class="go" id="fa-go">Fund agent</button>
+                <button class="go gh" id="fa-hold" hidden>Already hold KAS? Use these terms &rarr;</button>
+              </div>
+            </div>
+            <div class="card" style="margin-top:0.85rem" id="fa-plan-card">
+              <header><h2>The steps you sign</h2></header>
+              <p class="why">Built by <code>@warda_protocol/router</code>, the same <code>planFunding</code> its tests
+                exercise, for the route through Igra. Every step that moves value is handed to you unsigned. This
+                page cannot sign any of them and has no way to.</p>
+              <div class="feed" id="fu-steps"></div>
+              <div id="fu-block"></div>
+            </div>
+          </div>
+
+          <div class="wz-nav" data-wz="fu">
+            <button class="go gh" data-wz-back="fu">Back</button>
+            <button class="go" data-wz-next="fu">Continue</button>
           </div>
         </div>
 
@@ -1198,11 +1463,10 @@ ops/install-cron.sh</pre>
             <p class="foot" id="fu-foot">&mdash;</p>
           </div>
           <div class="card">
-            <header><h2>Custody: none</h2></header>
-            <p class="why">Written on every plan rather than implied. Warda never holds this money, takes
-              no fee on the crossing, and is not a party to the swap &mdash; the venue and the bridge are,
-              and they are named in the plan. The day a router holds the float, its security argument
-              becomes a balance sheet.</p>
+            <header><h2>Warda&rsquo;s part: none</h2></header>
+            <p class="why">Warda never holds this money, takes no fee on the crossing, and is not a party to the
+              swap &mdash; the venue, the bridge or the swap service is, and each is named above. The day a router
+              holds the float, its security argument becomes a balance sheet.</p>
           </div>
           <div class="card">
             <header><h2>Already hold KAS?</h2></header>
@@ -1211,8 +1475,6 @@ ops/install-cron.sh</pre>
               &rarr;</button></p>
           </div>
         </div>
-      </div>
-        </details>
       </div>
     </div>
 
@@ -1393,6 +1655,14 @@ ops/install-cron.sh</pre>
       <span id="sb-right">unaudited &middot; bounded by the covenant, not by this page</span>
     </div>
   </div><!-- /main -->
+  <div class="scrim" id="scrim" hidden></div>
+  <nav class="tabs" aria-label="Main">
+    <a data-view="dash"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1.5"/><rect x="9" y="1.5" width="5.5" height="5.5" rx="1.5"/><rect x="1.5" y="9" width="5.5" height="5.5" rx="1.5"/><rect x="9" y="9" width="5.5" height="5.5" rx="1.5"/></svg><span>Overview</span></a>
+    <a data-view="fleet"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="3.3" r="1.8"/><circle cx="3.3" cy="12.2" r="1.8"/><circle cx="8" cy="12.2" r="1.8"/><circle cx="12.7" cy="12.2" r="1.8"/><path d="M8 5.1v5.3M8 7.8H3.3v2.6M8 7.8h4.7v2.6"/></svg><span>Fleet</span></a>
+    <a data-view="fund"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 5.5h9.5M8.5 2.5l3 3-3 3"/><path d="M14 10.5H4.5M7.5 7.5l-3 3 3 3"/></svg><span>Fund</span></a>
+    <a data-view="create"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2.5v11M2.5 8h11"/></svg><span>Create</span></a>
+    <a data-view="account"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="5.6" r="2.8"/><path d="M2.6 14c.7-2.9 2.9-4.4 5.4-4.4s4.7 1.5 5.4 4.4"/></svg><span>Account</span></a>
+  </nav>
 </div><!-- /app -->
 
 <script>
@@ -1429,6 +1699,7 @@ var WardaRouter = (() => {
     decodeAddress: () => decodeAddress,
     missingFrom: () => missingFrom,
     planFunding: () => planFunding,
+    pubkeyToAddress: () => pubkeyToAddress,
     quote: () => quote,
     verdict: () => verdict,
     zoneOf: () => zoneOf
@@ -1598,6 +1869,11 @@ var WardaRouter = (() => {
 
   // sdk/src/address.ts
   var CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
+  var AddressVersion = {
+    PubKey: 0,
+    PubKeyECDSA: 1,
+    ScriptHash: 8
+  };
   var GENERATORS = [
     0x98f2bc8e61n,
     0x79b76d99e2n,
@@ -1622,6 +1898,23 @@ var WardaRouter = (() => {
   function checksum(payloadFive, prefix) {
     return polymod([...prefixToFive(prefix), 0, ...payloadFive, 0, 0, 0, 0, 0, 0, 0, 0]);
   }
+  function conv8to5(bytes) {
+    const src = Array.from(bytes);
+    const out = [];
+    let buff = 0;
+    let bits = 0;
+    for (const c of src) {
+      buff = buff << 8 | c;
+      bits += 8;
+      while (bits >= 5) {
+        bits -= 5;
+        out.push(buff >> bits & 31);
+        buff &= (1 << bits) - 1;
+      }
+    }
+    if (bits > 0) out.push(buff << 5 - bits & 31);
+    return out;
+  }
   function conv5to8(five) {
     const out = new Uint8Array(Math.floor(five.length * 5 / 8));
     let at = 0;
@@ -1637,6 +1930,14 @@ var WardaRouter = (() => {
       }
     }
     return out;
+  }
+  function encodeAddress(prefix, version, payload) {
+    const five = conv8to5([version, ...payload]);
+    const sum = checksum(five, prefix);
+    const sumBytes = new Uint8Array(5);
+    for (let i = 0; i < 5; i++) sumBytes[4 - i] = Number(sum >> BigInt(i * 8) & 0xffn);
+    const body = [...five, ...conv8to5(sumBytes)].map((c) => CHARSET[c]).join("");
+    return `${prefix}:${body}`;
   }
   function decodeAddress(address) {
     const colon = address.indexOf(":");
@@ -1658,6 +1959,10 @@ var WardaRouter = (() => {
     }
     const bytes = conv5to8(payloadFive);
     return { prefix, version: bytes[0], payload: bytes.slice(1) };
+  }
+  function pubkeyToAddress(xonly, prefix) {
+    if (xonly.length !== 32) throw new Error(`an x-only public key is 32 bytes, got ${xonly.length}`);
+    return encodeAddress(prefix, AddressVersion.PubKey, xonly);
   }
 
   // router/src/bridge.ts
@@ -1972,6 +2277,7 @@ var WardaRouter = (() => {
 
     tiles(); spendChart(); agentDonut(); payees(); endpoints();
     grantRows(); allRows(); acts(); notices(); recent(); sources(); deleg(); recon(); refusals();
+    fleetView();
   }
 
   function tile(ic, tint, k, v, s) {
@@ -2482,6 +2788,7 @@ var WardaRouter = (() => {
     if (!fromRoute) location.hash = hashFor("agent", id);
     SHOWN = id;
     var u = auth(a), t = term(a), c = hue(a.id);
+    ctlRender(a);
 
     /* The same three-way pill the tables use, rather than a second opinion
        about the same agent computed a different way. */
@@ -3469,6 +3776,7 @@ var WardaRouter = (() => {
       ? "You track " + OWN.length + " grant" + (OWN.length === 1 ? "" : "s") + " by their grant.json — they are under Your account."
       : "";
     $("scope").hidden = !onData();
+    if ($("v-fleet").classList.contains("on")) fleetView();
     $("dash-sub").textContent = s === "public"
       ? "Warda’s own agents: what each one spent, and what the covenant would not let it do."
       : "Your grants: what each one spent, and what the covenant would not let it do.";
@@ -3687,25 +3995,77 @@ var WardaRouter = (() => {
     }
   }
 
+  /* ---- a wizard, generically ------------------------------------------------
+     Create a grant has its own stepper; Fund and Alerts share this one. The
+     steps are the `.wz-step[data-wz=<id>]` sections already in the page, and
+     the rail is built from their labels, so adding a step is adding a
+     section — not a second list of step names to keep in step with it. */
+  var WZ = {};
+  function wzInit(id, onStep, canLeave) {
+    var steps = Array.prototype.slice.call(document.querySelectorAll('.wz-step[data-wz="' + id + '"]'));
+    var rail = document.querySelector('.wz-rail[data-wz="' + id + '"]');
+    WZ[id] = { n: 1, seen: 1, max: steps.length, steps: steps, rail: rail, onStep: onStep, canLeave: canLeave };
+    rail.innerHTML = steps.map(function (el, i) {
+      return '<button class="st" data-wz-go="' + (i + 1) + '"><span class="n">' + (i + 1) + '</span><i>' +
+        esc(el.getAttribute("data-label")) + '</i>' + (i < steps.length - 1 ? '<span class="bar-l"></span>' : '') + '</button>';
+    }).join("");
+    rail.addEventListener("click", function (e) {
+      var b = e.target.closest && e.target.closest("[data-wz-go]");
+      if (b && !b.disabled) wzGo(id, Number(b.getAttribute("data-wz-go")));
+    });
+    document.querySelector('[data-wz-back="' + id + '"]').addEventListener("click", function () { wzGo(id, WZ[id].n - 1); });
+    document.querySelector('[data-wz-next="' + id + '"]').addEventListener("click", function () {
+      var w = WZ[id];
+      if (w.n < w.max) wzGo(id, w.n + 1);
+      else if (w.onLast) w.onLast();
+    });
+    wzGo(id, 1, true);
+  }
+  function wzGo(id, n, quiet) {
+    var w = WZ[id];
+    w.n = Math.max(1, Math.min(w.max, n));
+    w.seen = Math.max(w.seen, w.n);
+    w.steps.forEach(function (el, i) { el.classList.toggle("on", i + 1 === w.n); });
+    Array.prototype.forEach.call(w.rail.querySelectorAll(".st"), function (el) {
+      var k = Number(el.getAttribute("data-wz-go"));
+      el.setAttribute("data-state", k === w.n ? "now" : k < w.n ? "done" : "next");
+      el.disabled = k > w.seen;
+      el.querySelector(".n").innerHTML = k < w.n
+        ? '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3.6 8.4l3 3 5.8-6.4"/></svg>'
+        : String(k);
+    });
+    var back = document.querySelector('[data-wz-back="' + id + '"]');
+    var next = document.querySelector('[data-wz-next="' + id + '"]');
+    back.style.visibility = w.n === 1 ? "hidden" : "visible";
+    next.textContent = w.n === w.max ? (w.lastLabel || "Done") : "Continue";
+    next.hidden = w.n === w.max && !w.onLast;
+    if (w.onStep) w.onStep(w.n);
+    if (!quiet) window.scrollTo(0, 0);
+  }
+
   /* ---- fund an agent ---------------------------------------------------------
      The product, stated the way a person holding USDC would: I pay this, the
-     agent gets that much authority. The route — bridge, swap, exit — is
-     below, folded, and it is the router's to choose; every leg's status is
-     read from /routes.json, dated, and a route is only as available as its
-     worst leg. Nothing here pretends a leg works because the design says it
-     should: a paused bridge is shown paused, with who paused it and when.
+     agent gets that much authority. Every route a chain has is offered, each
+     leg's status read from /routes.json, dated; a route is only as open as its
+     worst leg, and the one with no custodian is preferred whenever it is open.
 
-     Warda is not in the money path on any leg. Each step is a transaction
-     you sign in your own wallet; the router plans them and holds nothing. */
+     Warda is not in the money path on any route. Where a route has a
+     custodian — a swap service, a bridge's multisig — it is named on the
+     route, and choosing it takes a tick in a box that says so. */
   var ROUTES = null;
   fetch("/routes.json").then(function (r) { return r.ok ? r.json() : null; })
     .then(function (j) { ROUTES = j; faView(); })
     .catch(function () { ROUTES = false; faView(); });
 
   var LEG_PILL = { live: "live", paused: "no", experimental: "warn" };
+  var FA_ROUTE = null;  // the route id the person picked; null = the best open one
   function faStale() {
     if (!ROUTES || !ROUTES.checkedAt) return true;
     return Date.now() - new Date(ROUTES.checkedAt + "T00:00:00Z").getTime() > 14 * 86400000;
+  }
+  function faOpen(main, rid) {
+    var r = main.routes[rid];
+    return !faStale() && r.legs.every(function (l) { return main.legs[l].status === "live"; });
   }
 
   function faView() {
@@ -3718,13 +4078,13 @@ var WardaRouter = (() => {
     var main = ROUTES.networks.mainnet, net = $("net").value, here = ROUTES.networks[net] || {};
     var srcs = main.sources;
 
-    /* The chain picker follows the connected wallet the first time it can,
-       and the person after that. */
     var sel = $("fa-chain");
     if (!sel.options.length) {
       sel.innerHTML = srcs.map(function (x, i) { return '<option value="' + i + '">' + esc(x.chain) + '</option>'; }).join("");
       sel.value = String(srcs.map(function (x) { return x.chain; }).indexOf("Base"));
     }
+    /* The chain picker follows the connected wallet the first time it can,
+       and the person after that. */
     if (W && W.family === "evm" && W.chainId && !faView.followed) {
       var at = srcs.map(function (x) { return x.chainId; }).indexOf(W.chainId);
       if (at >= 0) { sel.value = String(at); faView.followed = true; }
@@ -3734,57 +4094,95 @@ var WardaRouter = (() => {
     tok.innerHTML = src.tokens.map(function (t) { return '<option>' + esc(t) + '</option>'; }).join("");
     if (src.tokens.indexOf(was) >= 0) tok.value = was;
 
-    var usd = parseFloat($("fa-usd").value), rate = MARKET ? MARKET.rate : parseFloat($("fu-rate").value);
+    var usd = parseFloat($("fa-usd").value);
+    var rate = parseFloat($("fu-rate").value);
+    if (!(rate > 0) && MARKET) rate = MARKET.rate;
     var kasN = usd > 0 && rate > 0 ? usd / rate : null;
     $("fa-from-s").textContent = W && W.family === "evm"
       ? "from " + WALLETS[W.kind].name + " · " + short(W.address) + (W.chainId && W.chainId !== src.chainId ? " — your wallet is on " + chainName(W.chainId) + ", not " + src.chain : "")
       : "from any wallet on " + src.chain + " — connect one under Your account";
     $("fa-kas").textContent = kasN == null ? "—" : "≈ " + Math.floor(kasN).toLocaleString("en-US") + " KAS";
-    $("fa-kas-s").textContent = kasN == null ? "Enter an amount above zero."
-      : "at $" + rate + " per KAS (" + (MARKET ? MARKET.source + ", " + MARKET.at : "your figure in Route details") +
-        "). The swap may fill up to " + ($("fu-slip").value || "0") + "% lower; that bound is yours to set below.";
+    $("fa-kas-s").textContent = kasN == null ? "Enter an amount and a rate above zero."
+      : "at $" + rate + " per KAS. A swap may fill lower; the route step says by how much you allow.";
+    var capN = rate > 0 ? parseFloat($("fa-cap").value) / rate : null;
+    $("fa-o-cap").textContent = capN > 0 ? "≈ " + kas2(capN) + " KAS per payment — the figure the covenant compares" : "—";
 
     var kaspaKey = W && W.family === "kaspa" && W.key;
-    $("fa-key").innerHTML = kaspaKey ? "yours — " + esc(short(W.address))
-      : '<span style="color:var(--amber)">none yet</span> — a grant on Kaspa is created and named by a Kaspa key. Connect KasWare or Kaspire under Your account.';
+    $("fa-key").innerHTML = kaspaKey ? "Yours — " + esc(short(W.address)) + ", from " + esc(WALLETS[W.kind].name) + "."
+      : '<span style="color:var(--amber)">None connected yet.</span> A grant on Kaspa is created and named by a Kaspa key. Connect KasWare or Kaspire under Your account &mdash; you can keep paying from ' + (W && W.family === "evm" ? esc(WALLETS[W.kind].name) : "any wallet") + '.';
+    if (kaspaKey && !$("fu-addr").value) { $("fu-addr").value = W.address; fundView(); }
 
-    /* Every leg, in order, with its status. */
-    var legs = src.legs.map(function (id) { return { id: id, l: main.legs[id] }; });
+    /* Routes: every one this chain has, the chosen one first. */
     var stale = faStale();
-    $("fa-route").innerHTML = legs.map(function (x) {
-      var l = x.l, st = stale ? "unchecked" : l.status;
+    var ids = src.routes.slice();
+    var best = ids.filter(function (r) { return faOpen(main, r) && main.routes[r].custody === "none"; })[0]
+      || ids.filter(function (r) { return faOpen(main, r); })[0] || ids[0];
+    var rid = FA_ROUTE && ids.indexOf(FA_ROUTE) >= 0 ? FA_ROUTE : best;
+    var route = main.routes[rid];
+    $("fa-routes").innerHTML = ids.map(function (r) {
+      var R = main.routes[r], open = faOpen(main, r);
+      var worst = R.legs.map(function (l) { return main.legs[l].status; }).filter(function (s) { return s !== "live"; })[0];
+      var pill = stale ? '<span class="pill warn">unchecked</span>' : open ? '<span class="pill live">open</span>'
+        : '<span class="pill ' + (worst === "paused" ? "no" : "warn") + '">' + esc(worst || "closed") + '</span>';
+      return '<button class="fa-rt" role="radio" aria-checked="' + (r === rid) + '" data-route="' + esc(r) + '">' +
+        '<span class="dot"></span><b>' + esc(R.name) + '</b>' + pill +
+        '<small>' + (R.custody === "none" ? "No custodian. " : "Custodian: " + esc(R.custody) + ". ") + esc(R.summary) + '</small></button>';
+    }).join("");
+    $("fa-path").textContent = src.chain + " → " + route.legs.map(function (l) { return main.legs[l].via.split(",")[0]; }).join(" → ") + " → Kaspa L1 → grant";
+
+    $("fa-route").innerHTML = route.legs.map(function (id) {
+      var l = main.legs[id], st = stale ? "unchecked" : l.status;
       var pill = stale ? "warn" : (LEG_PILL[l.status] || "warn");
       return '<div class="fa-leg"><span class="pill ' + pill + '">' + esc(st) + '</span>' +
         '<span><b>' + esc(l.does.charAt(0).toUpperCase() + l.does.slice(1)) + '</b> · ' + esc(l.via) +
         (l.since ? ' · since ' + esc(l.since) : '') + '</span>' +
         '<small>' + esc(l.why) + (/^https:/.test(l.source || "") ? ' <a href="' + esc(l.source) + '" rel="noopener">source</a>' : '') + '</small></div>';
     }).join("") + '<p class="why" style="margin:0.2rem 0 0">Route status checked ' + esc(ROUTES.checkedAt) +
-      (stale ? ' — more than two weeks ago, so it is shown as unchecked rather than repeated.' : '.') + '</p>';
-    $("fa-path").textContent = src.chain + (src.legs.indexOf("hyperlane") >= 0 ? " → Igra" : "") + " → iKAS → Kaspa L1 → grant";
+      (stale ? ' — more than two weeks ago, so every step is shown as unchecked rather than repeated.' : '.') + '</p>';
+    var custodial = route.custody !== "none";
+    $("fa-ack-l").hidden = !custodial;
+    $("fa-ack-t").textContent = "I understand " + route.custody + " holds the money until the KAS is sent, and that Warda is not a party to it.";
+    $("fa-igra-only").hidden = route.legs.indexOf("zealous") < 0;
+    $("fa-plan-card").hidden = route.legs.indexOf("exit") < 0;
 
-    /* What stands between this and a funded agent — every reason, not the first. */
+    /* Everything between this and a funded agent — every reason, not the first. */
     var why = [];
     if (net !== "mainnet" && here.none) why.push("On " + net + ": " + here.none);
-    legs.forEach(function (x) {
-      if (stale) return;
-      if (x.l.status !== "live") why.push(x.l.via + " is " + x.l.status + (x.l.since ? " since " + x.l.since : "") + ".");
+    if (!stale) route.legs.forEach(function (id) {
+      var l = main.legs[id];
+      if (l.status !== "live") why.push(l.via + " is " + l.status + (l.since ? " since " + l.since : "") + ".");
     });
     var exit = main.legs.exit;
-    if (kasN != null && exit && exit.minKas && kasN < exit.minKas) {
+    if (route.legs.indexOf("exit") >= 0 && kasN != null && exit.minKas && kasN < exit.minKas) {
       why.push("≈ " + Math.floor(kasN).toLocaleString("en-US") + " KAS is below the exit bridge's " + exit.minKas.toLocaleString("en-US") +
-        " KAS minimum, so it cannot cross on its own — this route starts at about $" + Math.ceil(exit.minKas * rate).toLocaleString("en-US") + ".");
+        " KAS minimum — this route starts at about $" + Math.ceil(exit.minKas * rate).toLocaleString("en-US") + ". The instant swap has no such floor.");
     }
+    if (custodial && !$("fa-ack").checked) why.push("Tick the box on the route step: this route has a custodian.");
     if (!kaspaKey) why.push("No Kaspa key is connected to create the grant with.");
     if (stale) why.push("The route status has not been checked in over two weeks.");
 
     $("fa-go").disabled = why.length > 0;
+    $("fa-go").textContent = rid === "changenow" ? "Open the swap" : "Fund agent";
     $("fa-state").innerHTML = why.length
       ? '<ul class="fa-why">' + why.map(function (w) { return "<li>" + esc(w) + "</li>"; }).join("") + '</ul>'
-      : '<p class="fa-ok">Every leg is live. You will sign each step in your wallet; nothing is sent until you do.</p>';
+      : '<p class="fa-ok">' + (rid === "changenow"
+          ? "Ready. This opens ChangeNOW for this pair in a new tab. There, check the amount and the network, paste your Kaspa address as the recipient, and send from your wallet. When the KAS arrives, Create a grant finishes it."
+          : "Every step is open. You will sign each one in your wallet; nothing is sent until you do.") + '</p>';
     $("fa-hold").hidden = false;
+    faView.route = rid; faView.src = src;
 
-    /* The planner below plans the Igra legs; keep its amount in step. */
     if ($("fu-usd").value !== $("fa-usd").value) { $("fu-usd").value = $("fa-usd").value; fundView(); }
+  }
+
+  function faGo() {
+    var main = ROUTES.networks.mainnet, src = faView.src, rid = faView.route;
+    if (rid === "changenow") {
+      var t = (src.changenow || {})[$("fa-tok").value] || $("fa-tok").value.toLowerCase();
+      window.open("https://changenow.io/exchange?from=" + encodeURIComponent(t) + "&to=kas&amount=" +
+        encodeURIComponent($("fa-usd").value), "_blank", "noopener");
+      return;
+    }
+    $("fu-steps").scrollIntoView({ block: "start", behavior: "smooth" });
   }
 
   function faHold() {
@@ -3792,8 +4190,312 @@ var WardaRouter = (() => {
     $("budget").value = $("fa-usd").value;
     $("cap").value = $("fa-cap").value;
     $("days").value = $("fa-days").value;
+    $("rate").value = $("fu-rate").value;
     if (W && W.family === "kaspa") $("funder").value = W.address;
     show("create"); createView();
+  }
+
+  /* ---- controls on a grant ---------------------------------------------------
+     This page signs nothing, so a control here is the exact command that does
+     the thing, who must sign it, and whether the chain would allow it now.
+     Every command below is a string literal in this block, and
+     ops/check-commands.mjs checks each of its flags against cli/warda.ts —
+     a control that printed a flag the CLI ignores would be a revoke button
+     that silently does not revoke. */
+  /* warda-commands */
+  var CMDS = {
+    revoke: "warda revoke grant.json --key revocation.key --submit",
+    revokeDry: "warda revoke grant.json --key revocation.key",
+    reclaim: "warda reclaim grant.json --key principal.key --submit",
+    topup: "warda topup --grant grant.json --key funder.key",
+    topupDry: "warda topup --grant grant.json --key funder.key --dry-run",
+    find: "warda find grant.json --vendor PAYEE --write",
+    balance: "warda balance grant.json"
+  };
+  /* end warda-commands */
+
+  function grantFacts(a) {
+    var u = auth(a), t = term(a), st = live(a);
+    return {
+      st: st, ended: st === "revoked" || st === "settled", expired: st === "expired" || !!t.expired,
+      left: num(u.remaining), cap: num(u.maxPerPayment), budget: num(u.budget), onChain: num(u.onChain),
+      t: t, payee: (u.payees || [])[0] || "", id: a.d.identity || {}
+    };
+  }
+
+  function ctlButtons(f) {
+    return [
+      { k: "revoke", label: "Revoke now", sub: "the emergency stop · revocation key", danger: true,
+        ok: !f.ended, why: f.ended ? "Already ended." : "" },
+      { k: "reclaim", label: "Reclaim the remainder", sub: "after the term · principal key",
+        ok: !f.ended && f.expired, why: f.ended ? "Already ended." : f.expired ? "" : "Only after the term ends" + (f.t.in ? " — in " + f.t.in : "") + "." },
+      { k: "topup", label: "Renew it", sub: "a successor grant, same limits · funder key",
+        ok: !f.ended, why: f.ended ? "Issue a new grant instead." : "" },
+      { k: "find", label: "Find it again", sub: "after it moved · no key", ok: true, why: "" }
+    ];
+  }
+
+  function ctlWho(f) {
+    if (!W || !W.key) return "Connect the Kaspa wallet that holds this grant's keys and this says which of these you can sign.";
+    var mine = [];
+    if (f.id.revocation === W.key) mine.push("revoke it");
+    if (f.id.principal === W.key) mine.push("reclaim it", "renew it");
+    return mine.length ? "Your connected key can " + mine.join(", ") + ". Signing happens in the CLI on your machine; this page has no key."
+      : "Your connected key is none of this grant's keys — whoever holds them runs these.";
+  }
+
+  function ctlRender(a) {
+    var f = grantFacts(a);
+    $("ag-ctl-who").textContent = ctlWho(f);
+    $("ag-ctl").innerHTML = ctlButtons(f).map(function (b) {
+      return '<button class="go ' + (b.danger ? "danger" : "gh") + '" data-ctl="' + b.k + '"' + (b.ok ? "" : " disabled") +
+        ' title="' + esc(b.why) + '"><span>' + esc(b.label) + '</span><small>' + esc(b.ok ? b.sub : b.why) + '</small></button>';
+    }).join("");
+    $("ag-cmd").hidden = true; $("ag-cmd-why").textContent = "";
+    ctlRender.f = f;
+  }
+
+  var CTL_SAY = {
+    revoke: "Signed by the revocation key, at any moment. The balance goes back to the principal from the next block. Without --submit it builds the transaction and shows it, and sends nothing.",
+    reclaim: "Signed by the principal, once the chain has passed the grant's expiry.",
+    topup: "Issues a successor from KAS the funder already holds, with this grant's limits unless you say otherwise. It does not end this one — revoke or let it expire.",
+    find: "A grant's address changes with every payment. This follows it through a payment to one of its payees and rewrites the manifest."
+  };
+  function ctlShow(k, f, pre, why) {
+    var cmd = CMDS[k];
+    if (k === "find") cmd = cmd.replace("PAYEE", f.payee || "<a payee it paid>");
+    var lines = k === "revoke" ? CMDS.revokeDry + "        # look first\n" + cmd : k === "topup" ? CMDS.topupDry + "   # look first\n" + cmd : cmd;
+    $(pre).textContent = lines; $(pre).hidden = false;
+    $(why).textContent = CTL_SAY[k] + " grant.json is this grant's manifest on your machine.";
+  }
+
+  /* ---- fleet --------------------------------------------------------------- */
+  var FL_FILTER = "all", FL_SEL = {};
+  function flRows() {
+    var rows = A.map(function (a) { return { a: a, f: grantFacts(a), id: a.id, title: "Agent #" + a.id, kind: "published" }; });
+    if (scopeNow() === "mine" && OWN) OWN.forEach(function (x) {
+      var m = x.m, rd = OREAD[ownKey(m)], r = rd && rd.st === "read" && rd.r.found ? rd.r : null, st = ownState(m, rd)[0];
+      rows.push({ a: null, id: "t:" + ownKey(m), title: "Grant " + String(m.covenant_id || "").slice(0, 8) + "…", kind: "tracked",
+        f: { st: st, ended: false, expired: st === "expired", left: r ? Number(r.remaining.sompi) / SOMPI : null,
+             cap: Number(m.max_per_spend) / SOMPI, budget: Number(m.budget) / SOMPI, onChain: null, t: {}, payee: "", id: m } });
+    });
+    return rows;
+  }
+  function flFlags(f) {
+    var out = [];
+    if (f.ended) return out;
+    if (f.expired) out.push(["expired — reclaim", "bad"]);
+    if (f.left != null && f.budget > 0 && f.left / f.budget < 0.2) out.push(["under 20% left", ""]);
+    var can = f.onChain == null ? f.left : Math.min(f.left, f.onChain);
+    if (can != null && f.cap > 0 && can < f.cap) out.push(["cannot pay a full payment", "bad"]);
+    var days = f.t && f.t.daa != null ? Number(f.t.daa) / 864000 : null;  // ten DAA a second
+    if (days != null && days < 3 && !f.expired) out.push(["ends in under 3 days", ""]);
+    return out;
+  }
+  function fleetView() {
+    if (!$("fl-t")) return;
+    var rows = flRows();
+    var shown = rows.filter(function (x) {
+      if (FL_FILTER === "live") return x.f.st === "live";
+      if (FL_FILTER === "ended") return x.f.ended || x.f.expired;
+      if (FL_FILTER === "attention") return flFlags(x.f).length > 0;
+      return true;
+    });
+    var liveRows = rows.filter(function (x) { return !x.f.ended && x.f.left != null; });
+    var authorised = rows.reduce(function (s, x) { return s + (x.f.budget || 0); }, 0);
+    var left = liveRows.reduce(function (s, x) { return s + x.f.left; }, 0);
+    var big = liveRows.slice().sort(function (p, q) { return q.f.left - p.f.left; })[0];
+    var attention = rows.filter(function (x) { return flFlags(x.f).length; }).length;
+    var free = W && W.family === "kaspa" && W.bal && typeof W.bal === "object" ? W.bal.total / SOMPI : null;
+    $("fl-tiles").innerHTML = [
+      tile(I.grid, "#4C8DF6", "Agents", String(rows.length), rows.filter(function (x) { return x.f.st === "live"; }).length + " live · " +
+        rows.filter(function (x) { return x.f.ended; }).length + " ended"),
+      tile(I.lock, "#9B6BE8", "Unspent authority", kas2(left) + " KAS", "of " + kas2(authorised) + " KAS ever authorised"),
+      tile(I.coin, "#0FA890", "Largest exposure", big ? kas2(big.f.left) + " KAS" : "—",
+        big ? esc(big.title) + (left > 0 ? " · " + Math.round(big.f.left / left * 100) + "% of the unspent" : "") : "no live grant"),
+      tile(I.shield, attention ? "#E8B23A" : "#43C97F", "Needs attention", String(attention), attention ? "see the flags below" : "nothing close to a limit")
+    ].join("");
+
+    var total = left + (free || 0);
+    $("fl-alloc-n").textContent = total > 0 ? kas2(total) + " KAS" + (free != null ? " incl. " + kas2(free) + " unallocated" : "") : "";
+    var segs = liveRows.filter(function (x) { return x.f.left > 0; }).map(function (x, i) {
+      return { name: x.title, v: x.f.left, c: x.a ? hue(x.a.id) : MARKS[(i + 3) % MARKS.length] };
+    });
+    if (free) segs.push({ name: "Unallocated, in your wallet", v: free, c: "#35415E" });
+    $("fl-bar").innerHTML = total > 0 ? segs.map(function (g) {
+      return '<i style="flex:' + g.v + ';background:' + g.c + '" title="' + esc(g.name + " · " + kas2(g.v) + " KAS") + '"></i>';
+    }).join("") : "";
+    $("fl-legend").innerHTML = segs.map(function (g) {
+      return '<span><i style="background:' + g.c + '"></i>' + esc(g.name) + ' <b>' + kas2(g.v) + '</b></span>';
+    }).join("") || '<span>No live grant has authority left.</span>';
+
+    $("fl-n").textContent = shown.length + " of " + rows.length;
+    $("fl-t").querySelector("tbody").innerHTML = shown.map(function (x) {
+      var f = x.f, fl = flFlags(f);
+      return '<tr><td class="ck"><input type="checkbox" data-sel="' + esc(x.id) + '"' + (FL_SEL[x.id] ? " checked" : "") + ' aria-label="Select ' + esc(x.title) + '"></td>' +
+        '<td>' + (x.a ? '<a data-agent-open="' + x.a.id + '">' + esc(x.title) + '</a>' : '<a data-view="account">' + esc(x.title) + '</a> <span class="why">tracked</span>') + '</td>' +
+        '<td><span class="pill ' + (f.st === "live" ? "live" : f.expired ? "warn" : "done") + '">' + esc(f.st) + '</span></td>' +
+        '<td class="n">' + (f.left == null ? "—" : kas2(f.left) + " KAS") + '</td>' +
+        '<td class="n">' + kas2(f.cap) + ' KAS</td>' +
+        '<td>' + esc(f.ended ? "—" : f.expired ? "ended" : f.t && f.t.in ? "in " + f.t.in : "—") + '</td>' +
+        '<td>' + (fl.map(function (g) { return '<span class="flag ' + g[1] + '">' + esc(g[0]) + '</span>'; }).join("") || '<span class="why">—</span>') + '</td></tr>';
+    }).join("") || '<tr><td colspan="7" class="empty">Nothing in this filter.</td></tr>';
+
+    var sel = rows.filter(function (x) { return FL_SEL[x.id]; });
+    $("fl-sel-n").textContent = sel.length ? sel.length + " selected" : "";
+    $("fl-bulk").hidden = !sel.length;
+    $("fl-bulk-t").textContent = sel.length + " selected. Each command ends or renews one grant; run them on the machine with the keys.";
+    fleetView.rows = rows;
+    tplRender();
+    treeRender();
+  }
+
+  function flBulk(k) {
+    var sel = (fleetView.rows || []).filter(function (x) { return FL_SEL[x.id]; });
+    var ok = sel.filter(function (x) { return k === "reclaim" ? x.f.expired && !x.f.ended : !x.f.ended; });
+    var skip = sel.length - ok.length;
+    $("fl-cmds").textContent = ok.map(function (x) {
+      var file = x.a ? "agent-" + x.a.id + "-grant.json" : "grant-" + String(x.f.id.covenant_id || "").slice(0, 8) + ".json";
+      return "# " + x.title + "\n" + CMDS[k].replace("grant.json", file);
+    }).join("\n\n") || "# none of the selected grants can be " + (k === "reclaim" ? "reclaimed yet" : "changed");
+    $("fl-cmds").hidden = false;
+    $("fl-cmds-why").textContent = CTL_SAY[k] + (skip ? " " + skip + " selected grant" + (skip === 1 ? " was" : "s were") + " left out: " +
+      (k === "reclaim" ? "not past its term, or already ended." : "already ended.") : "") + " File names are placeholders for each grant's manifest.";
+  }
+
+  function treeRender() {
+    var byAgentId = {};
+    A.forEach(function (a) { var k = (a.d.identity || {}).agentId; if (k) byAgentId[k] = a; });
+    var kids = {}, roots = [];
+    A.forEach(function (a) {
+      var d = a.d.delegatedBy, p = d && (d.agentId || d.parent || d.from);
+      var parent = p && (byAgentId[p] || ALL.filter(function (x) { return (x.d.identity || {}).agentId === p; })[0]);
+      if (parent) (kids[parent.id] = kids[parent.id] || []).push(a); else roots.push(a);
+    });
+    function node(a) {
+      var f = grantFacts(a);
+      return '<li><div><a data-agent-open="' + a.id + '">Agent #' + a.id + '</a>' + stateP(a) +
+        '<span class="kv">' + kas2(f.left) + ' KAS left · depth ' + (auth(a).delegationDepth == null ? "—" : auth(a).delegationDepth) + '</span></div>' +
+        (kids[a.id] ? '<ul>' + kids[a.id].map(node).join("") + '</ul>' : '') + '</li>';
+    }
+    $("fl-tree").innerHTML = A.length ? '<ul>' + roots.map(node).join("") + '</ul>'
+      : '<p class="empty">No published grant in view, so no tree to draw.</p>';
+  }
+
+  /* Templates. Kept in this browser; the three defaults are shapes, not
+     recommendations, and can be deleted like any other. */
+  var TKEY = "warda.console.templates";
+  var TPL_DEFAULT = [
+    { name: "API buyer", budget: 50, cap: 1, epoch: 5, days: 30 },
+    { name: "Researcher", budget: 200, cap: 5, epoch: 20, days: 30 },
+    { name: "Short-lived worker", budget: 10, cap: 0.5, epoch: 2, days: 1 }
+  ];
+  function tplGet() { try { var t = JSON.parse(localStorage.getItem(TKEY)); return Array.isArray(t) ? t : TPL_DEFAULT.slice(); } catch (e) { return TPL_DEFAULT.slice(); } }
+  function tplSet(t) { try { localStorage.setItem(TKEY, JSON.stringify(t)); } catch (e) {} }
+  function tplRender() {
+    $("fl-tpl").innerHTML = tplGet().map(function (t, i) {
+      return '<div class="ev"><span class="ic" style="background:#4C8DF622;color:#4C8DF6">' + I.grid + '</span>' +
+        '<i style="font-style:normal;min-width:0"><b>' + esc(t.name) + '</b><span>$' + t.budget + ' budget · $' + t.cap +
+        ' a payment · $' + t.epoch + ' an hour · ' + t.days + ' day' + (t.days == 1 ? "" : "s") + '</span></i>' +
+        '<span class="a"><button class="go gh" data-tpl-use="' + i + '">Use</button> <button class="go gh" data-tpl-del="' + i + '" aria-label="Delete ' + esc(t.name) + '">×</button></span></div>';
+    }).join("") || '<p class="empty">No templates. Add one below.</p>';
+  }
+  function tplUse(i) {
+    var t = tplGet()[i]; if (!t) return;
+    $("budget").value = t.budget; $("cap").value = t.cap; $("epoch").value = t.epoch; $("days").value = t.days;
+    if (W && W.family === "kaspa") $("funder").value = W.address;
+    show("create"); createView();
+  }
+
+  /* ---- services, from the registry ------------------------------------------
+     The same two sources /network reads: the hosted registry, which re-checks
+     every listing's signature on each request, and the published file, which
+     is a statement about the last commit. A live answer replaces the list; it
+     never merges with it. */
+  var SVC = null, SVC_FROM = "";
+  function svcLoad() {
+    fetch("/services.json").then(function (r) { return r.ok ? r.json() : null; }).then(function (file) {
+      if (!file) { SVC = false; svcView(); return; }
+      var base = (file.registry || "").replace(/\/+$/, "");
+      var live = base ? fetch(base + "/services").then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }) : Promise.resolve(null);
+      live.then(function (l) {
+        SVC = { services: l && Array.isArray(l.services) ? l.services : file.services, unlisted: file.known_but_unlisted || [] };
+        SVC_FROM = l && Array.isArray(l.services) ? "live from " + base.replace(/^https:\/\//, "") : "the published list — the registry did not answer";
+        svcView();
+      });
+    }).catch(function () { SVC = false; svcView(); });
+  }
+  function payeeAddr(key, network) {
+    try {
+      var hex = String(key || "");
+      if (!/^[0-9a-f]{64}$/i.test(hex)) return null;
+      var u8 = new Uint8Array(32);
+      for (var i = 0; i < 32; i++) u8[i] = parseInt(hex.substr(i * 2, 2), 16);
+      return WardaRouter.pubkeyToAddress(u8, /mainnet$/.test(network || "") && !/testnet/.test(network) ? "kaspa" : "kaspatest");
+    } catch (e) { return null; }
+  }
+  function svcPaid(endpoint) {
+    var n = 0, kasP = 0;
+    ALL.forEach(function (a) { (a.d.purchases || []).forEach(function (p) {
+      if (p.url === endpoint || p.endpoint === endpoint) { n++; kasP += num(p.paid); }
+    }); });
+    return { n: n, kas: kasP };
+  }
+  function svcView() {
+    if (!$("svc-list")) return;
+    if (SVC === null) { $("svc-list").innerHTML = '<p class="why">Reading the registry…</p>'; return; }
+    if (!SVC) { $("svc-list").innerHTML = '<p class="empty">Neither the registry nor the published list answered. That is not "no services".</p>'; return; }
+    $("svc-src").innerHTML = "<i></i>" + esc(SVC_FROM);
+    $("svc-src").className = "chip" + (/live/.test(SVC_FROM) ? "" : " warn");
+    $("n-svc").textContent = SVC.services.length;
+    $("svc-list").innerHTML = SVC.services.map(function (s, i) {
+      var pr = s.pricing || {}, pay = s.payment || {}, addr = payeeAddr(s.payee, pay.network), paid = svcPaid(s.endpoint);
+      return '<div class="card svc"><header><h3>' + esc(s.name || s.id) + '</h3>' +
+        '<span class="pill ' + (pay.warda ? "live" : "done") + '">' + esc(pay.protocol || "—") + (pay.warda ? " · warda" : "") + '</span></header>' +
+        '<p class="why" style="margin:0">' + esc(s.description || "") + '</p>' +
+        '<p class="price">' + esc(pr.amount || "—") + ' ' + esc(pr.asset || "") + ' <span class="why">per ' + esc(pr.unit || "call") + '</span></p>' +
+        '<div class="chips">' + (s.capabilities || []).map(function (c) { return '<span>' + esc(c) + '</span>'; }).join("") + '</div>' +
+        '<p class="kv">' + esc(s.endpoint || "") + '</p>' +
+        '<p class="kv">payee ' + esc(addr || s.payee || "—") + '</p>' +
+        '<p class="why" style="margin:0">' + (paid.n ? "Paid " + paid.n + " times by agents here, " + kas2(paid.kas) + " KAS in all." : "No agent here has paid it yet.") +
+        (s.operator ? " Operated by " + esc(s.operator) + "." : "") + '</p>' +
+        '<div class="og-a"><button class="go" data-svc-fund="' + i + '"' + (addr ? "" : " disabled") + '>Fund an agent for this &rarr;</button>' +
+        '<button class="go gh" data-svc-use="' + i + '">Use it</button></div>' +
+        '<pre data-svc-cmd="' + i + '" hidden></pre></div>';
+    }).join("") || '<p class="empty">The registry lists no services.</p>';
+    $("svc-unlisted-card").hidden = !SVC.unlisted.length;
+    $("svc-unlisted").innerHTML = SVC.unlisted.map(function (u) {
+      return '<div class="ev"><span class="ic" style="background:#E8B23A22;color:#E8B23A">' + I.grid + '</span>' +
+        '<i style="font-style:normal;min-width:0"><b>' + esc(u.name) + '</b><span>' + esc(u.why || "") + '</span></i>' +
+        '<span class="a kv">' + esc(host(u.endpoint)) + '</span></div>';
+    }).join("");
+  }
+  function svcFund(i) {
+    var s = SVC.services[i], pr = s.pricing || {}, pay = s.payment || {};
+    var addr = payeeAddr(s.payee, pay.network); if (!addr) return;
+    var rate = parseFloat($("rate").value) || (MARKET && MARKET.rate) || 0;
+    $("payees").value = addr;
+    if (pr.asset === "KAS" && rate > 0) {
+      var one = parseFloat(pr.amount) * rate;
+      $("cap").value = String(Math.max(0.01, Math.ceil(one * 1.2 * 100) / 100));
+      $("budget").value = String(Math.max(1, Math.ceil(one * 200)));
+      $("epoch").value = String(Math.max(0.05, Math.ceil(one * 20 * 100) / 100));
+    }
+    if (W && W.family === "kaspa") $("funder").value = W.address;
+    show("create"); createView();
+  }
+  function svcUse(i) {
+    var s = SVC.services[i], pre = document.querySelector('[data-svc-cmd="' + i + '"]');
+    pre.textContent = "# from the CLI, with a grant that may pay this service\nwarda pay " + s.endpoint +
+      "\n\n# or give an agent the MCP server, which pays within the same grant\nnpx @warda_protocol/mcp";
+    pre.hidden = !pre.hidden;
+  }
+
+  /* ---- the drawer, on a phone ---------------------------------------------- */
+  function drawer(open) {
+    $("side").classList.toggle("open", open);
+    $("scrim").hidden = !open;
+    $("menu").setAttribute("aria-expanded", String(open));
   }
 
   /* ---- fund the treasury --------------------------------------------------
@@ -4133,7 +4835,75 @@ var WardaRouter = (() => {
   });
   $("fu-slip").addEventListener("input", faView);
   $("fa-hold").addEventListener("click", faHold);
-  $("fa-go").addEventListener("click", function () { $("fa-det").open = true; $("fa-det").scrollIntoView({ block: "start", behavior: "smooth" }); });
+  $("fa-go").addEventListener("click", faGo);
+  $("fa-ack").addEventListener("change", faView);
+  $("fa-routes").addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest("[data-route]");
+    if (b) { FA_ROUTE = b.getAttribute("data-route"); faView(); }
+  });
+  wzInit("fu", function () { faView(); fundView(); });
+  WZ.fu.lastLabel = "Done";
+  wzInit("al", function (n) { alertsView(); });
+  WZ.al.onLast = function () { $("a-copy").click(); };
+  WZ.al.lastLabel = "Copy the rule";
+  wzGo("al", 1, true);
+  Array.prototype.forEach.call(document.querySelectorAll(".al-kind"), function (b) {
+    b.addEventListener("click", function () {
+      $("a-kind").value = b.getAttribute("data-k");
+      Array.prototype.forEach.call(document.querySelectorAll(".al-kind"), function (o) { o.setAttribute("aria-pressed", String(o === b)); });
+      alertsView();
+    });
+  });
+  $("a-copy").addEventListener("click", function () {
+    var t = $("a-json").textContent;
+    (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () {
+      $("a-copied").textContent = " Copied. Paste it into ops/alerts.json.";
+    }, function () { $("a-copied").textContent = " Could not reach the clipboard — select the rule above."; });
+  });
+  /* fleet */
+  $("fl-filter").addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest("[data-f]"); if (!b) return;
+    FL_FILTER = b.getAttribute("data-f");
+    Array.prototype.forEach.call($("fl-filter").querySelectorAll("button"), function (o) { o.setAttribute("aria-pressed", String(o === b)); });
+    fleetView();
+  });
+  $("fl-t").addEventListener("change", function (e) {
+    var c = e.target;
+    if (c.id === "fl-all") { (fleetView.rows || []).forEach(function (x) { if (c.checked) FL_SEL[x.id] = true; else delete FL_SEL[x.id]; }); }
+    else if (c.hasAttribute("data-sel")) { if (c.checked) FL_SEL[c.getAttribute("data-sel")] = true; else delete FL_SEL[c.getAttribute("data-sel")]; }
+    fleetView();
+  });
+  $("fl-bulk").addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest("[data-bulk]"); if (b) flBulk(b.getAttribute("data-bulk"));
+  });
+  $("fl-tpl").addEventListener("click", function (e) {
+    var u = e.target.closest && e.target.closest("[data-tpl-use]"), d = e.target.closest && e.target.closest("[data-tpl-del]");
+    if (u) tplUse(Number(u.getAttribute("data-tpl-use")));
+    if (d) { var t = tplGet(); t.splice(Number(d.getAttribute("data-tpl-del")), 1); tplSet(t); tplRender(); }
+  });
+  $("tp-save").addEventListener("click", function () {
+    var t = tplGet();
+    t.push({ name: ($("tp-name").value || "Unnamed").trim(), budget: parseFloat($("tp-budget").value) || 0,
+      cap: parseFloat($("tp-cap").value) || 0, epoch: parseFloat($("tp-epoch").value) || 0, days: parseInt($("tp-days").value, 10) || 1 });
+    tplSet(t); tplRender();
+  });
+  document.addEventListener("click", function (e) {
+    var al = e.target.closest && e.target.closest("[data-alert]");
+    if (al) {
+      $("a-kind").value = al.getAttribute("data-alert");
+      Array.prototype.forEach.call(document.querySelectorAll(".al-kind"), function (o) { o.setAttribute("aria-pressed", String(o.getAttribute("data-k") === $("a-kind").value)); });
+      show("alerts"); wzGo("al", 2); alertsView();
+    }
+    var sf = e.target.closest && e.target.closest("[data-svc-fund]");
+    if (sf && !sf.disabled) svcFund(Number(sf.getAttribute("data-svc-fund")));
+    var su = e.target.closest && e.target.closest("[data-svc-use]");
+    if (su) svcUse(Number(su.getAttribute("data-svc-use")));
+    var ct = e.target.closest && e.target.closest("[data-ctl]");
+    if (ct && !ct.disabled && ctlRender.f) ctlShow(ct.getAttribute("data-ctl"), ctlRender.f, "ag-cmd", "ag-cmd-why");
+  });
+  $("menu").addEventListener("click", function () { drawer(!$("side").classList.contains("open")); });
+  $("scrim").addEventListener("click", function () { drawer(false); });
+  svcLoad();
   if ($("fu-to-create")) $("fu-to-create").addEventListener("click", function () {
     var a = ($("fu-addr").value || "").trim();
     if (a) $("funder").value = a;
@@ -4162,7 +4932,7 @@ var WardaRouter = (() => {
 
   var TITLES = { dash: "Overview", grants: "Grants", agent: "Agent", activity: "Activity",
                  refusals: "Refused", alerts: "Alerts", fund: "Fund an agent", create: "Create a grant",
-                 account: "Your account" };
+                 account: "Your account", fleet: "Fleet", registry: "Services" };
   /* ---- where you are, in the URL ----------------------------------------
      The console had no address. Every view was the same page, so a reload lost
      your place, the browser's Back button left the app entirely, and there was
@@ -4193,7 +4963,10 @@ var WardaRouter = (() => {
   function show(v, fromRoute) {
     if (!$("v-" + v)) return;
     if (!fromRoute) location.hash = hashFor(v);
-    Array.prototype.forEach.call(document.querySelectorAll(".side a[data-view]"), function (o) {
+    drawer(false);
+    if (v === "fleet") fleetView();
+    if (v === "registry") svcView();
+    Array.prototype.forEach.call(document.querySelectorAll(".side a[data-view], .tabs a[data-view]"), function (o) {
       if (o.getAttribute("data-view") === v) o.setAttribute("aria-current", "page");
       else o.removeAttribute("aria-current");
     });
