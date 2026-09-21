@@ -224,6 +224,47 @@
   .wbtn.on { color: var(--teal); border-color: var(--teal-deep); background: var(--teal-ghost); }
   .wbtn.bad { color: var(--amber); border-color: rgba(232,178,58,0.5); }
   @media (max-width: 560px) { .wbtn span { display: none; } }
+  .acc-ways { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.7rem; margin-top: 0.9rem; }
+  .acc-way { display: grid; gap: 0.45rem; align-content: start; padding: 0.85rem; border: 1px solid var(--edge);
+    border-radius: 10px; background: var(--panel); }
+  .acc-way b { font-size: 0.9rem; }
+  .acc-way span { font-size: 0.76rem; color: var(--chrome-faint); min-height: 2.2em; }
+  .own-btns { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .card > header:has(.own-btns) { flex-wrap: wrap; gap: 0.5rem; }
+  .og { border-top: 1px solid var(--edge); padding: 0.85rem 0 0.2rem; margin-top: 0.7rem; display: grid; gap: 0.55rem; }
+  .og:first-child { border-top: 0; margin-top: 0; }
+  .og-h { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+  .og-h b { font-size: 0.9rem; }
+  .og-h .kv { font-family: var(--mono); font-size: 0.72rem; color: var(--chrome-faint); overflow-wrap: anywhere; }
+  .og-h .sp { flex: 1; }
+  .og-n { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.5rem; }
+  .og-n div { background: var(--panel); border-radius: 8px; padding: 0.55rem 0.7rem; }
+  .og-n i { display: block; font-style: normal; font-size: 0.68rem; color: var(--chrome-faint); }
+  .og-n b { font-family: var(--mono); font-size: 0.9rem; font-weight: 500; }
+  .og-n small { display: block; font-size: 0.66rem; color: var(--chrome-faint); }
+  .og-f { margin: 0; padding-left: 1.1rem; font-size: 0.76rem; color: var(--chrome-dim); display: grid; gap: 0.2rem; }
+  .og-f .warn { color: var(--amber); } .og-f .error { color: var(--refuse); }
+  .og-say { font-size: 0.78rem; color: var(--chrome-dim); margin: 0; }
+  .og-say code, .og-say .cmd { font-family: var(--mono); font-size: 0.74rem; color: var(--chrome); overflow-wrap: anywhere; }
+  .og-a { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .og-a button { padding: 0.3rem 0.7rem; font-size: 0.74rem; }
+  /* `hidden` must win over every display rule below, or a closed veil still
+     covers the page and eats every click. It did, once. */
+  [hidden] { display: none !important; }
+  .wc-veil { position: fixed; inset: 0; background: rgba(6,9,16,0.72); display: grid; place-items: center;
+    padding: 16px; z-index: 50; }
+  .wc-box { width: min(380px, 100%); max-height: 100%; overflow: auto; }
+  .wc-qr { background: #fff; border-radius: 10px; padding: 10px; margin: 0.9rem auto 0; width: min(260px, 100%); aspect-ratio: 1; }
+  .wc-qr svg { width: 100%; height: 100%; display: block; }
+  .wc-qr:empty { background: var(--panel); }
+  .wc-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.8rem; }
+  .wc-row > * { flex: 1 1 auto; }
+  /* Links that act as buttons wear the button: same box, same weight. */
+  a.go { display: inline-block; font-family: var(--body); font-weight: 600; font-size: 0.85rem; padding: 0.52rem 1.1rem;
+    border-radius: 9px; border: 1px solid var(--teal); background: var(--teal); color: #05231F; }
+  a.go:hover { background: var(--teal-bright); border-color: var(--teal-bright); }
+  a.go.gh { background: var(--panel); color: var(--chrome-dim); border-color: var(--edge-bright); }
+  a.go.gh:hover { background: var(--raise); color: var(--chrome); }
   .crumb { margin: 0 0 0.6rem; font-size: 0.8rem; }
   .crumb a { color: var(--chrome-dim); cursor: pointer; }
   .crumb a:hover { color: var(--teal); }
@@ -642,20 +683,25 @@
         <div id="acc-actions"></div>
       </div>
 
-      <div id="acc-none" class="card" hidden>
-        <header><h2>No Kaspa wallet in this browser</h2></header>
-        <p class="say">The console connects to <b>KasWare</b>, the browser wallet most Kaspa users already
-          have. Install it, open this page again, and connect. Nothing else on the console needs it
-          &mdash; every page works read-only without a wallet.</p>
-        <p><a class="go" style="text-decoration:none" href="https://chromewebstore.google.com/detail/kasware-wallet/hklhheigdmpoolooomdihmhlpjjdbklf" rel="noopener">Get KasWare</a></p>
-      </div>
-
       <div id="acc-out" class="card" hidden>
         <header><h2>Not connected</h2></header>
         <p class="say">Connecting shares your <b>address and public key</b> with this page, and nothing
           else. It cannot move a coin: it never asks your wallet to sign anything, and there is no
           server behind it to send your address to &mdash; it stays in this browser.</p>
-        <p><button class="go" id="acc-connect">Connect KasWare</button></p>
+        <div class="acc-ways">
+          <div class="acc-way">
+            <b>KasWare</b>
+            <span id="acc-kw-s">the browser extension most Kaspa users already have</span>
+            <button class="go" id="acc-connect">Connect KasWare</button>
+            <a class="go gh" id="acc-get-kw" style="text-decoration:none;text-align:center" hidden
+              href="https://chromewebstore.google.com/detail/kasware-wallet/hklhheigdmpoolooomdihmhlpjjdbklf" rel="noopener">Get KasWare</a>
+          </div>
+          <div class="acc-way">
+            <b>WalletConnect</b>
+            <span id="acc-wc-s">a wallet on your phone, by QR code &mdash; Kaspire speaks it for Kaspa today</span>
+            <button class="go gh" id="acc-wc">Connect with WalletConnect</button>
+          </div>
+        </div>
         <p class="state" id="acc-err"></p>
       </div>
 
@@ -696,6 +742,44 @@
                 would be a ritual, and it would train you to sign things. When the console gets a server,
                 that will be the time for one.</p>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="own" style="margin-top:0.85rem">
+        <header><h2>Grants you track <small id="own-n"></small></h2>
+          <div class="own-btns">
+            <button class="go gh" id="own-pick">Add grant.json&hellip;</button>
+            <button class="go gh" id="own-paste-t">Paste instead</button>
+            <button class="go gh" id="own-refresh" hidden>Read again</button>
+          </div></header>
+        <p class="why">A grant this site does not publish can still be read. Give this page its manifest
+          &mdash; the <code>grant.json</code> that <code>warda grant</code> wrote &mdash; and it asks the
+          verifier whether the chain agrees with it, now. A manifest carries public keys and limits and
+          never a secret; it is kept in this browser and sent only to the verifier, which reads a node
+          and keeps nothing. No wallet is needed.</p>
+        <input type="file" id="own-file" accept=".json,application/json" multiple hidden>
+        <div id="own-paste" hidden style="margin-top:0.7rem">
+          <label for="own-text">Manifest JSON</label>
+          <textarea id="own-text" rows="6" spellcheck="false" placeholder='{ "covenant_id": "&hellip;", "principal": "&hellip;", "budget": 1000000000, &hellip; }'></textarea>
+          <p style="margin-top:0.5rem"><button class="go" id="own-add">Add this grant</button></p>
+        </div>
+        <p class="state" id="own-err"></p>
+        <div class="feed" id="own-list"></div>
+      </div>
+
+      <div class="wc-veil" id="wc-veil" hidden>
+        <div class="wc-box card" role="dialog" aria-modal="true" aria-labelledby="wc-h">
+          <header><h2 id="wc-h">Connect a phone wallet</h2></header>
+          <p class="why">Scan with your phone&rsquo;s camera. It opens Kaspire, which asks you to approve
+            sharing your address and public key &mdash; the only two things this page requests. Nothing
+            it asks for can move a coin.</p>
+          <div class="wc-qr" id="wc-qr"></div>
+          <p class="state" id="wc-state">Preparing a pairing&hellip;</p>
+          <div class="wc-row">
+            <a class="go" id="wc-open" style="text-decoration:none;text-align:center" rel="noopener" hidden>Open Kaspire</a>
+            <button class="go gh" id="wc-copy" hidden>Copy pairing link</button>
+            <button class="go gh" id="wc-cancel">Cancel</button>
           </div>
         </div>
       </div>
@@ -2613,6 +2697,125 @@ var WardaRouter = (() => {
      ever asked to sign — this console has no reason to, and a page that asks
      for signatures it does not need teaches people to give them. */
   var NET_OF = { "testnet-10": "kaspa_testnet_10", mainnet: "kaspa_mainnet" };
+
+  /* ---- WalletConnect ---------------------------------------------------------
+     Kaspa has no official WalletConnect namespace. Kaspire publishes one —
+     namespace `kaspa`, chains `kaspa:mainnet` and `kaspa:testnet-10` — and it
+     is the one wallet that speaks it today, so it is the one this follows.
+     The session asks for three READ methods and no signing method at all:
+     a wallet shows the dApp's requested methods on its approval screen, and
+     "this page may ask you to sign" would be a false thing to approve.
+
+     The client is 480 KB, so it is not in this page. It is fetched from
+     /walletconnect-browser.js the first time somebody presses the button, and
+     never for anybody who does not. The project id is Reown's relay key for
+     this site; it is public in every dApp that uses one, and empty means the
+     site has not been registered — which the button then says, rather than
+     failing inside a QR code nobody can scan. */
+  var WC_PROJECT_ID = "";
+  var WC_CHAIN = { mainnet: "kaspa:mainnet", "testnet-10": "kaspa:testnet-10" };
+  var WC_NET = { "kaspa:mainnet": "kaspa_mainnet", "kaspa:testnet-10": "kaspa_testnet_10" };
+  var WC_METHODS = ["kaspa_getAccounts", "kaspa_getPublicKey", "kaspa_getNetwork"];
+  var WC = { lib: null, client: null, session: null, chain: null, listeners: [] };
+
+  function wcLib() {
+    if (WC.lib) return WC.lib;
+    WC.lib = new Promise(function (ok, no) {
+      if (window.WardaWalletConnect) return ok(window.WardaWalletConnect);
+      var sc = document.createElement("script");
+      sc.src = "/walletconnect-browser.js";
+      sc.onload = function () { window.WardaWalletConnect ? ok(window.WardaWalletConnect) : no(new Error("the WalletConnect client loaded but did not start")); };
+      sc.onerror = function () { WC.lib = null; no(new Error("could not load the WalletConnect client from this site")); };
+      document.head.appendChild(sc);
+    });
+    return WC.lib;
+  }
+
+  function wcClient() {
+    if (WC.client) return WC.client;
+    WC.client = wcLib().then(function (L) {
+      return L.SignClient.init({
+        projectId: WC_PROJECT_ID,
+        metadata: {
+          name: "Warda Console",
+          description: "Reads Warda grants. Asks for your address and public key, and never for a signature.",
+          url: location.origin,
+          icons: [location.origin + "/assets/mark-200.png"]
+        }
+      });
+    }).then(function (c) {
+      c.on("session_delete", function () { WC.session = null; if (W && W.kind === "walletconnect") walletForget(); });
+      c.on("session_expire", function () { WC.session = null; if (W && W.kind === "walletconnect") walletForget(); });
+      c.on("session_event", function (e) {
+        var name = e && e.params && e.params.event && e.params.event.name;
+        WC.listeners.forEach(function (l) { if (l[0] === name) l[1](); });
+      });
+      return c;
+    }, function (e) { WC.client = null; throw e; });
+    return WC.client;
+  }
+
+  /* CAIP-10: `kaspa:testnet-10:kaspatest:qq…`. The address itself contains a
+     colon, so it is everything after the second one. */
+  function wcAccounts(s) {
+    var want = WC_CHAIN[$("net").value];
+    var acc = ((s.namespaces && s.namespaces.kaspa && s.namespaces.kaspa.accounts) || []).map(function (a) {
+      var p = String(a).split(":");
+      return { chain: p[0] + ":" + p[1], address: p.slice(2).join(":") };
+    });
+    var pick = acc.filter(function (a) { return a.chain === want; })[0] || acc[0];
+    WC.chain = pick ? pick.chain : null;
+    return pick ? [pick.address] : [];
+  }
+
+  function wcRequest(method, params) {
+    return wcClient().then(function (c) {
+      if (!WC.session) throw new Error("no WalletConnect session");
+      return c.request({ topic: WC.session.topic, chainId: WC.chain, request: { method: method, params: params } });
+    });
+  }
+
+  function wcModal(on) {
+    $("wc-veil").hidden = !on;
+    if (!on) { $("wc-qr").innerHTML = ""; $("wc-open").hidden = true; $("wc-copy").hidden = true; }
+  }
+
+  function wcConnect() {
+    var cancelled = false;
+    wcModal(true);
+    $("wc-state").textContent = "Preparing a pairing…";
+    return new Promise(function (ok, no) {
+      $("wc-cancel").onclick = function () { cancelled = true; wcModal(false); no(new Error("cancelled")); };
+      wcClient().then(function (c) {
+        return c.connect({
+          optionalNamespaces: {
+            kaspa: { chains: [WC_CHAIN[$("net").value] || "kaspa:mainnet"], methods: WC_METHODS, events: ["accountsChanged"] }
+          }
+        }).then(function (r) {
+          if (cancelled) return;
+          var link = "https://kaspire.kaslab.space/kaspire/wc?uri=" + encodeURIComponent(r.uri);
+          return wcLib().then(function (L) { return L.qrSvg(link); }).then(function (svg) {
+            $("wc-qr").innerHTML = svg;
+            $("wc-open").href = link; $("wc-open").hidden = false;
+            $("wc-copy").hidden = false;
+            $("wc-copy").onclick = function () {
+              (navigator.clipboard ? navigator.clipboard.writeText(r.uri) : Promise.reject())
+                .then(function () { $("wc-state").textContent = "Pairing link copied. Paste it into any WalletConnect wallet that speaks Kaspa."; })
+                .catch(function () { $("wc-state").textContent = r.uri; });
+            };
+            $("wc-state").textContent = "Waiting for your wallet… the pairing lasts about five minutes.";
+            return r.approval();
+          });
+        });
+      }).then(function (session) {
+        if (cancelled || !session) return;
+        WC.session = session;
+        wcModal(false);
+        ok(wcAccounts(session));
+      }).catch(function (e) { if (!cancelled) { wcModal(false); no(e); } });
+    });
+  }
+
   var WALLETS = {
     kasware: {
       name: "KasWare",
@@ -2625,10 +2828,43 @@ var WardaRouter = (() => {
       coins: function (addr) { return window.kasware.getUtxoEntries([addr]); },
       switchTo: function (n) { return window.kasware.switchNetwork(n); },
       on: function (ev, fn) { if (window.kasware.on) window.kasware.on(ev, fn); }
+    },
+    walletconnect: {
+      name: "WalletConnect",
+      present: function () { return !!WC_PROJECT_ID && WC_PROJECT_ID.indexOf("{{") !== 0; },
+      connect: wcConnect,
+      /* The client keeps its sessions itself; restoring is finding one that
+         is still alive, with no relay round-trip and no popup. */
+      restore: function () {
+        return wcClient().then(function (c) {
+          var all = c.session.getAll().filter(function (s) { return s.expiry * 1000 > Date.now(); });
+          WC.session = all[all.length - 1] || null;
+          return WC.session ? wcAccounts(WC.session) : [];
+        });
+      },
+      publicKey: function () {
+        return wcRequest("kaspa_getPublicKey", {}).then(function (r) {
+          return typeof r === "string" ? r : r && (r.publicKey || r.pubkey) || null;
+        });
+      },
+      /* The network is the chain the wallet approved the account ON — the
+         session says it, so it is not asked for again. */
+      network: function () { return Promise.resolve(WC_NET[WC.chain] || null); },
+      /* No coin list over WalletConnect. The verifier reads the address
+         instead, and the tiles say that is where the figure came from. */
+      coins: function () { return Promise.resolve(null); },
+      switchTo: null,
+      on: function (ev, fn) { WC.listeners.push([ev, fn]); },
+      forget: function () {
+        if (!WC.session || !WC.client) return;
+        var t = WC.session.topic; WC.session = null;
+        WC.client.then(function (c) { return c.disconnect({ topic: t, reason: { code: 6000, message: "disconnected in the console" } }); })
+          .catch(function () {});
+      }
     }
   };
 
-  var W = null;       // { kind, address, key, network, coins, problem }
+  var W = null;       // { kind, address, key, network, bal, problem }
   var WKEY = "warda.console.wallet";
   function remember(v) { try { v ? localStorage.setItem(WKEY, v) : localStorage.removeItem(WKEY); } catch (e) {} }
   function remembered() { try { return localStorage.getItem(WKEY); } catch (e) { return null; } }
@@ -2648,6 +2884,25 @@ var WardaRouter = (() => {
     return Array.prototype.map.call(u8, function (b) { return ("0" + b.toString(16)).slice(-2); }).join("");
   }
 
+  /* The balance, when the wallet will not list its coins: the verifier reads
+     the same address from a node. `null` from here means nobody answered —
+     which is shown as no figure, never as zero. */
+  function verifierBalance(address) {
+    return fetch(VERIFY + "/v1/grant/" + encodeURIComponent(address))
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        var g = j && j.result;
+        if (!g) return null;
+        if (!g.found) return { total: 0, largest: 0, n: 0, from: "verifier" };
+        return {
+          total: parseInt((g.total && g.total.sompi) || "0", 10),
+          largest: parseInt((g.largest && g.largest.sompi) || "0", 10),
+          n: g.coins || 0, from: "verifier"
+        };
+      })
+      .catch(function () { return null; });
+  }
+
   /* Read everything about the connected account, and refuse to call it
      connected if the pieces disagree. */
   function readWallet(kind, addresses) {
@@ -2659,11 +2914,11 @@ var WardaRouter = (() => {
       a.network().catch(function () { return null; }),
       a.coins(address).catch(function () { return null; })
     ]).then(function (r) {
-      var w = { kind: kind, address: address, key: null, network: r[1], coins: null, problem: null };
+      var w = { kind: kind, address: address, key: null, network: r[1], bal: null, problem: null };
 
-      /* The key comes from the ADDRESS, and the wallet's own getPublicKey is
+      /* The key comes from the ADDRESS, and the wallet's own public key is
          checked against it. A Warda grant names a 32-byte Schnorr key; an
-         address of version 0 carries exactly that. The wallet returns the
+         address of version 0 carries exactly that. A wallet may report the
          compressed 33-byte form, whose last 32 bytes must be the same key. */
       try {
         var d = WardaRouter.decodeAddress(address);
@@ -2680,26 +2935,38 @@ var WardaRouter = (() => {
       } catch (e) { w.problem = "The address the wallet gave does not decode: " + e.message; }
 
       var want = NET_OF[$("net").value] || "";
-      if (w.network && want && w.network !== want) {
+      var elsewhere = w.network && want && w.network !== want;
+      if (elsewhere) {
         w.problem = "Your wallet is on " + w.network.replace(/_/g, "-") + " and this console reads " +
           $("net").value + ". Addresses on one are not coins on the other.";
       }
 
       /* Coins read on another network are that network's coins. Showing them
          as this network's balance would be a number about somewhere else. */
-      if (w.network && want && w.network !== want) {
-        w.coins = "elsewhere";
+      if (elsewhere) {
+        w.bal = "elsewhere";
       } else if (Array.isArray(r[2])) {
         var vals = r[2].map(coinValue);
-        w.coins = vals.some(function (v) { return v == null; }) ? "unreadable" : vals;
+        w.bal = vals.some(function (v) { return v == null; }) ? "unreadable" : {
+          total: vals.reduce(function (s, v) { return s + v; }, 0),
+          largest: vals.reduce(function (m, v) { return v > m ? v : m; }, 0),
+          n: vals.length, from: "wallet"
+        };
       }
-      return w;
+      if (w.bal || elsewhere) return w;
+      return verifierBalance(address).then(function (b) { w.bal = b; return w; });
     });
   }
 
   function walletConnect(kind) {
     var a = WALLETS[kind];
     $("acc-err").textContent = "";
+    if (!a.present()) {
+      $("acc-err").textContent = kind === "walletconnect"
+        ? "WalletConnect is not set up on this site yet: it needs a project id from Reown, and none has been added. KasWare works now."
+        : "KasWare is not installed in this browser.";
+      return Promise.resolve();
+    }
     return a.connect().then(function (addrs) { return readWallet(kind, addrs); })
       .then(function (w) {
         if (!w) { $("acc-err").textContent = "The wallet returned no address."; return; }
@@ -2707,9 +2974,11 @@ var WardaRouter = (() => {
       })
       .catch(function (e) {
         /* A person saying no is not an error to be dressed up. */
-        $("acc-err").textContent = /reject|denied|cancel/i.test(String(e && e.message || e))
-          ? "Not connected — you declined in the wallet, which is always fine."
-          : "The wallet did not connect: " + (e && e.message || e);
+        $("acc-err").textContent = /reject|denied|cancel|declin/i.test(String(e && e.message || e))
+          ? "Not connected — you declined, which is always fine."
+          : /expire/i.test(String(e && e.message || e))
+            ? "The pairing expired before a wallet answered. Try again when your phone is ready."
+            : "The wallet did not connect: " + (e && e.message || e);
       });
   }
 
@@ -2721,7 +2990,10 @@ var WardaRouter = (() => {
       .catch(function () { W = null; walletRender(); });
   }
 
-  function walletForget() { W = null; remember(null); walletRender(); }
+  function walletForget() {
+    if (W && WALLETS[W.kind].forget) WALLETS[W.kind].forget();
+    W = null; remember(null); walletRender();
+  }
 
   function mine(a) {
     if (!W || !W.key) return [];
@@ -2733,13 +3005,20 @@ var WardaRouter = (() => {
   }
 
   function walletRender() {
-    var present = Object.keys(WALLETS).some(function (k) { return WALLETS[k].present(); });
     var btn = $("wallet-btn"), lab = $("wallet-label");
+    var kw = WALLETS.kasware.present(), wc = WALLETS.walletconnect.present();
     btn.classList.remove("on", "bad");
-    $("acc-none").hidden = present || !!W;
-    $("acc-out").hidden = !present || !!W;
+    $("acc-out").hidden = !!W;
     $("acc-in").hidden = !W;
     $("acc-actions").innerHTML = "";
+    $("acc-connect").hidden = !kw;
+    $("acc-get-kw").hidden = kw;
+    $("acc-kw-s").textContent = kw ? "installed in this browser" : "not installed in this browser";
+    $("acc-wc-s").textContent = wc
+      ? "a wallet on your phone, by QR code — Kaspire speaks it for Kaspa today"
+      : "not set up on this site yet — it needs a Reown project id";
+    $("acc-wc").disabled = !wc;
+    ownRender();
 
     if (!W) {
       lab.textContent = "Connect wallet";
@@ -2757,29 +3036,27 @@ var WardaRouter = (() => {
     dis.addEventListener("click", walletForget);
     $("acc-actions").appendChild(dis);
 
-    var vals = W.coins, total = null, largest = null, n = null;
-    if (Array.isArray(vals)) {
-      n = vals.length;
-      total = vals.reduce(function (s, v) { return s + v; }, 0);
-      largest = vals.reduce(function (m, v) { return v > m ? v : m; }, 0);
-    }
+    var b = W.bal && typeof W.bal === "object" ? W.bal : null;
+    var from = b && b.from === "verifier" ? " · read by the verifier, not the wallet" : "";
     var FEE = 1000000;
     $("acc-tiles").innerHTML = [
-      tile(I.coin, "#0FA890", "Balance", total == null ? "—" : kas2(total / SOMPI) + " KAS",
-        vals === "elsewhere" ? "not shown: those coins are on " + String(W.network).replace(/_/g, "-")
-          : vals === "unreadable" ? "the wallet returned coins this page could not read — not zero"
-          : n == null ? "the wallet did not list its coins" : "across " + n + " coin" + (n === 1 ? "" : "s")),
-      tile(I.lock, "#9B6BE8", "Largest single coin", largest == null ? "—" : kas2(largest / SOMPI) + " KAS",
+      tile(I.coin, "#0FA890", "Balance", b ? kas2(b.total / SOMPI) + " KAS" : "—",
+        W.bal === "elsewhere" ? "not shown: those coins are on " + String(W.network).replace(/_/g, "-")
+          : W.bal === "unreadable" ? "the wallet returned coins this page could not read — not zero"
+          : !b ? "neither the wallet nor the verifier answered — not zero"
+          : "across " + b.n + " coin" + (b.n === 1 ? "" : "s") + from),
+      tile(I.lock, "#9B6BE8", "Largest single coin", b ? kas2(b.largest / SOMPI) + " KAS" : "—",
         "genesis takes one input, so this — not the balance — bounds a grant"),
       tile(I.grid, "#4C8DF6", "Largest grant you can fund now",
-        largest == null ? "—" : largest > FEE ? kas2((largest - FEE) / SOMPI) + " KAS" : "none",
-        largest != null && total != null && total - largest > FEE
+        !b ? "—" : b.largest > FEE ? kas2((b.largest - FEE) / SOMPI) + " KAS" : "none",
+        b && b.total - b.largest > FEE
           ? "more is possible after consolidating: warda wallet consolidate" : "after the 0.01 KAS genesis fee"),
       tile(I.shield, W.problem ? "#E8B23A" : "#43C97F", "Status", W.problem ? "check" : "ready",
         W.problem ? "see Identity" : "address and key agree, network matches")
     ].join("");
 
     $("acc-id").innerHTML = [
+      kvRow("Wallet", esc(WALLETS[W.kind].name), false),
       kvRow("Address", esc(W.address), true),
       kvRow("Public key", W.key ? esc(W.key) + '<br><span style="color:var(--chrome-faint)">derived from the address, and checked against the key the wallet reports</span>' : "—", true),
       kvRow("Network", esc(String(W.network || "not reported").replace(/_/g, "-")), true),
@@ -2807,7 +3084,170 @@ var WardaRouter = (() => {
         '<i style="font-style:normal;min-width:0"><b>Agent #' + x.a.id + ' · you are its ' + x.roles.join(" and ") + '</b>' +
         '<span>' + esc(label(x.a).slice(0, 70)) + '</span></i>' +
         '<span class="a">' + stateP(x.a) + ' ' + kas2(num(u.remaining)) + ' KAS left</span></div>';
-    }).join("") || '<p class="empty">No published grant names this key. That is not the same as you having none: a grant only appears here if its reading is published by this site.</p>';
+    }).join("") || '<p class="empty">No published grant names this key. That is not the same as you having none: a grant only appears here if its reading is published by this site. Add your own below.</p>';
+  }
+
+  /* ---- grants you track ----------------------------------------------------
+     A grant this site does not publish is read from its MANIFEST, checked
+     against the chain by the verifier. Nothing here guesses a term: an address
+     alone cannot say a grant's limits (the verifier's /v1/grant says so in as
+     many words), so the manifest is the claim and /v1/verify is the check.
+
+     Kept in localStorage because it is a convenience, not a record: clearing
+     the browser loses the list and nothing else — the manifest file is still
+     on your disk and the grant is still on chain. */
+  var OKEY = "warda.console.grants";
+  var OWN = [];          // [{ m, added }]
+  var OREAD = {};        // covenant key -> { at, st, r, err }
+  function ownLoad() { try { OWN = JSON.parse(localStorage.getItem(OKEY) || "[]"); if (!Array.isArray(OWN)) OWN = []; } catch (e) { OWN = []; } }
+  function ownSave() { try { localStorage.setItem(OKEY, JSON.stringify(OWN)); return true; } catch (e) { return false; } }
+  function ownKey(m) { return String(m.covenant_id || m.principal + ":" + m.created_at_daa); }
+
+  var HEX64 = /^[0-9a-f]{64}$/i;
+  /* Names that only a secret has. A manifest never carries one — `warda grant`
+     writes the agent's key to agent.key, beside it — so a file with one of
+     these is not a manifest, and it is refused before it is stored or sent. */
+  var SECRETISH = /secret|priv|seed|mnemonic|passphrase|password|^sk$|_sk$|^wif$/i;
+
+  function ownCheck(m) {
+    if (!m || typeof m !== "object" || Array.isArray(m)) return "that is not a JSON object — a manifest is one";
+    for (var k in m) {
+      if (SECRETISH.test(k) && m[k] != null && m[k] !== "") {
+        return "it has a field called \"" + k + "\", which is where a secret would be. A grant manifest never holds one, so this file was not stored and not sent anywhere. If it is a key file, keep it private.";
+      }
+    }
+    var need = ["principal", "agent", "revocation", "recipients_root"];
+    for (var i = 0; i < need.length; i++) {
+      if (!HEX64.test(String(m[need[i]] || ""))) return need[i] + ": expected 64 hex characters. Is this the grant.json that warda grant wrote?";
+    }
+    var ints = ["budget", "max_per_spend", "epoch_limit", "epoch_length", "expires_at"];
+    for (var j = 0; j < ints.length; j++) {
+      var v = m[ints[j]];
+      if (!(typeof v === "number" && isFinite(v) && v >= 0 && Math.floor(v) === v) && !/^\d+$/.test(String(v))) {
+        return ints[j] + ": expected a whole number, got " + JSON.stringify(v === undefined ? null : v);
+      }
+    }
+    return null;
+  }
+
+  function ownAdd(text, from) {
+    var m;
+    try { m = JSON.parse(text); } catch (e) { return from + ": not valid JSON (" + e.message + ")"; }
+    var bad = ownCheck(m);
+    if (bad) return from + ": " + bad;
+    var k = ownKey(m);
+    OWN = OWN.filter(function (x) { return ownKey(x.m) !== k; });
+    OWN.push({ m: m, added: new Date().toISOString() });
+    delete OREAD[k];
+    if (!ownSave()) return from + ": added for this visit, but this browser would not keep it (storage is blocked here)";
+    ownRead(m);
+    return "";
+  }
+
+  function ownRead(m) {
+    var k = ownKey(m);
+    OREAD[k] = { st: "reading" };
+    ownRender();
+    fetch(VERIFY + "/v1/verify", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ manifest: m, network: $("net").value })
+    }).then(function (r) {
+      return r.json().catch(function () { return null; }).then(function (j) { return { status: r.status, j: j }; });
+    }).then(function (x) {
+      var j = x.j;
+      if (x.status === 503) OREAD[k] = { st: "node", err: (j && j.message) || "the verifier's node cannot be believed right now" };
+      else if (!j || !j.ok) OREAD[k] = { st: "refused", err: j ? (j.field ? j.field + ": " : "") + (j.message || j.error) : "the verifier answered " + x.status + " with nothing readable" };
+      else OREAD[k] = { st: "read", r: j.result, from: j.readFrom || {}, assumptions: j.assumptions || [], at: Date.now() };
+      ownRender();
+    }).catch(function () {
+      OREAD[k] = { st: "none", err: "the verifier did not answer. That is no reading at all — not an empty grant." };
+      ownRender();
+    });
+  }
+
+  function sompiKas(v) { return kas2(Number(String(v)) / SOMPI); }
+  function amt(a) { return a && a.sompi != null ? kas2(Number(a.sompi) / SOMPI) : "—"; }
+  /* Kaspa's DAA score advances ten a second. Stated as a rough duration, and
+     said to be one: the covenant compares scores, not clocks. */
+  function daaSpan(n) {
+    var s = n / 10;
+    if (s < 5400) return Math.max(1, Math.round(s / 60)) + " min";
+    if (s < 172800) return Math.round(s / 3600) + " hours";
+    return Math.round(s / 86400) + " days";
+  }
+  var BOUND = { maxPerSpend: "the per-payment cap", epoch: "this epoch's limit", budget: "what is left of the budget", coin: "the coin itself" };
+
+  function ownState(m, rd) {
+    if (!rd || rd.st === "reading") return ["reading…", "done"];
+    if (rd.st === "none") return ["no reading", "warn"];
+    if (rd.st === "node") return ["verifier unsure", "warn"];
+    if (rd.st === "refused") return ["refused", "no"];
+    var r = rd.r, daa = Number(rd.from.virtualDaaScore || 0);
+    if (!r.found) return ["not at this state", "warn"];
+    if (!r.agrees) return ["disagrees", "no"];
+    if (daa && daa >= Number(m.expires_at)) return ["expired", "warn"];
+    if (daa && m.not_before != null && daa < Number(m.not_before)) return ["not yet", "warn"];
+    return ["live", "live"];
+  }
+
+  function ownRow(x) {
+    var m = x.m, k = ownKey(m), rd = OREAD[k], st = ownState(m, rd);
+    var roles = [];
+    if (W && W.key) {
+      if (m.principal === W.key) roles.push("principal");
+      if (m.revocation === W.key && m.revocation !== m.principal) roles.push("revocation");
+      if (m.agent === W.key) roles.push("agent");
+    }
+    var title = "Grant " + (m.covenant_id ? String(m.covenant_id).slice(0, 8) + "…" : short(m.principal));
+    var h = '<div class="og" data-own="' + esc(k) + '"><div class="og-h"><span class="pill ' + st[1] + '">' + esc(st[0]) + '</span>' +
+      '<b>' + esc(title) + '</b>' + (roles.length ? '<span class="pill done">you are its ' + roles.join(" and ") + '</span>' : "") +
+      '<span class="sp"></span><span class="kv">added ' + esc(day(x.added)) + '</span></div>';
+
+    var daa = rd && rd.from ? Number(rd.from.virtualDaaScore || 0) : 0;
+    var term = daa ? (Number(m.expires_at) > daa ? "ends in ~" + daaSpan(Number(m.expires_at) - daa) : "ended " + daaSpan(daa - Number(m.expires_at)) + " ago")
+      : "at DAA " + esc(m.expires_at);
+    var r = rd && rd.st === "read" ? rd.r : null;
+    h += '<div class="og-n">' +
+      '<div><i>Left to spend</i><b>' + (r && r.found ? amt(r.remaining) + " KAS" : "—") + '</b><small>of a ' + sompiKas(m.budget) + ' KAS budget</small></div>' +
+      '<div><i>Next payment, at most</i><b>' + (r && r.found ? amt(r.maxNextSpend) + " KAS" : "—") + '</b><small>' + (r && r.found ? "bound by " + esc(BOUND[r.boundBy] || r.boundBy) : "cap " + sompiKas(m.max_per_spend) + " KAS each") + '</small></div>' +
+      '<div><i>This epoch</i><b>' + (r && r.found ? amt(r.epochRemaining) + " KAS" : "—") + '</b><small>of ' + sompiKas(m.epoch_limit) + ' KAS per ' + daaSpan(Number(m.epoch_length)) + '</small></div>' +
+      '<div><i>Term</i><b style="font-size:0.8rem">' + term + '</b><small>enforced by the covenant, not by this page</small></div>' +
+      '</div>';
+
+    if (rd && rd.err) h += '<p class="og-say">' + esc(rd.err) + '</p>';
+    if (r && !r.found) {
+      h += '<p class="og-say">Nothing at the address this manifest derives. A grant&rsquo;s address is a hash of its state, so every payment moves it &mdash; a stale manifest looks exactly like this, and so does a grant that was revoked or reclaimed. To bring it up to date, where the manifest lives:<br>' +
+        '<span class="cmd">warda find ' + esc("grant.json") + ' --vendor &lt;a payee it paid&gt; --write</span><br>then add the updated file here; it replaces this one.</p>';
+    }
+    if (r && r.findings && r.findings.length) {
+      h += '<ul class="og-f">' + r.findings.map(function (f) {
+        return '<li class="' + esc(f.level) + '">' + esc(f.text) + '</li>';
+      }).join("") + '</ul>';
+    }
+    if (rd && rd.assumptions && rd.assumptions.length) {
+      h += '<p class="og-say">Assumed by the verifier: ' + rd.assumptions.map(function (a) {
+        return '<code>' + esc(a.field) + " = " + esc(a.value) + '</code>';
+      }).join(", ") + '. A wrong assumption derives a different address, which reads as “not at this state”.</p>';
+    }
+    h += '<div class="og-a"><button class="go gh" data-own-read="' + esc(k) + '">Read again</button>' +
+      '<button class="go gh" data-own-drop="' + esc(k) + '">Stop tracking</button></div></div>';
+    return h;
+  }
+
+  function ownRender() {
+    if (!$("own-list")) return;
+    $("own-n").textContent = OWN.length ? OWN.length + " in this browser" : "";
+    $("own-refresh").hidden = !OWN.length;
+    $("own-list").innerHTML = OWN.length ? OWN.map(ownRow).join("")
+      : '<p class="empty">None yet. Add the grant.json for any grant &mdash; one you funded, one you are an agent of, or one somebody gave you terms for and you want to check.</p>';
+  }
+
+  function ownFiles(files) {
+    var errs = [];
+    Promise.all(Array.prototype.map.call(files, function (f) {
+      if (f.size > 65536) { errs.push(f.name + ": " + Math.round(f.size / 1024) + " KB — a manifest is under 1 KB, so this is not one"); return null; }
+      return f.text().then(function (t) { var e = ownAdd(t, f.name); if (e) errs.push(e); });
+    })).then(function () { $("own-err").textContent = errs.join(" · "); $("own-file").value = ""; ownRender(); });
   }
 
   function walletFill(where) {
@@ -3090,6 +3530,35 @@ var WardaRouter = (() => {
   });
   if ($("csv")) $("csv").addEventListener("click", downloadCsv);
   $("acc-connect").addEventListener("click", function () { walletConnect("kasware"); });
+  $("acc-wc").addEventListener("click", function () { walletConnect("walletconnect"); });
+  $("own-pick").addEventListener("click", function () { $("own-file").click(); });
+  $("own-file").addEventListener("change", function () { if (this.files && this.files.length) ownFiles(this.files); });
+  $("own-paste-t").addEventListener("click", function () { $("own-paste").hidden = !$("own-paste").hidden; if (!$("own-paste").hidden) $("own-text").focus(); });
+  $("own-add").addEventListener("click", function () {
+    var e = ownAdd($("own-text").value, "pasted");
+    $("own-err").textContent = e || "";
+    if (!e) { $("own-text").value = ""; $("own-paste").hidden = true; }
+    ownRender();
+  });
+  $("own-refresh").addEventListener("click", function () { OWN.forEach(function (x) { ownRead(x.m); }); });
+  $("own-list").addEventListener("click", function (e) {
+    var r = e.target.closest && e.target.closest("[data-own-read]");
+    var d = e.target.closest && e.target.closest("[data-own-drop]");
+    var find = function (k) { return OWN.filter(function (x) { return ownKey(x.m) === k; })[0]; };
+    if (r) { var x = find(r.getAttribute("data-own-read")); if (x) ownRead(x.m); }
+    if (d) {
+      var k = d.getAttribute("data-own-drop");
+      OWN = OWN.filter(function (x) { return ownKey(x.m) !== k; }); delete OREAD[k]; ownSave(); ownRender();
+    }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !$("wc-veil").hidden) $("wc-cancel").click();
+  });
+  /* The list is read when the page opens, and read again when the network
+     changes: a testnet manifest checked against mainnet derives perfectly
+     and finds nothing, which would read as every grant gone. */
+  ownLoad(); ownRender(); OWN.forEach(function (x) { ownRead(x.m); });
+  $("net").addEventListener("change", function () { OWN.forEach(function (x) { ownRead(x.m); }); });
   $("acc-create").addEventListener("click", function () { walletFill("create"); });
   $("acc-fund").addEventListener("click", function () { walletFill("fund"); });
   $("acc-alert").addEventListener("click", function () { walletFill("alert"); });

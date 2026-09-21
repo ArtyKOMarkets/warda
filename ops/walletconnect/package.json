@@ -1,0 +1,13 @@
+{
+  "name": "warda-console-walletconnect",
+  "private": true,
+  "description": "The WalletConnect client /app loads on demand. Pinned, with a lockfile, so a rebuild is the same bytes. Build: node ops/walletconnect/build.mjs",
+  "type": "module",
+  "dependencies": {
+    "@walletconnect/sign-client": "2.25.0",
+    "qrcode": "1.5.4"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.10"
+  }
+}
