@@ -87,7 +87,11 @@ function renderWallet(d) {
       "✗",
       "ended",
       retired.endedBy
-        ? "by the revocation key · " + String(retired.endedBy).slice(0, 10) + "…"
+        /* Two endings: a settlement is the PARENT agent collapsing the grant it
+           delegated, not the stop key. This said "revocation key" for both,
+           which on #004 and #010 named the mechanism their pages contrast. */
+        ? (retired.how === "settled" ? "settled into its parent · " : "by the revocation key · ") +
+          String(retired.endedBy).slice(0, 10) + "…"
         : "its authority is over",
       "no",
     );

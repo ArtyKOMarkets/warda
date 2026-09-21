@@ -49,3 +49,12 @@ test("a project that does not exist is still sold — absence is a finding", asy
   const r = await research(u("/verify?url=https://github.com/acme/gone"), null, cfg(404));
   assert.equal(r.status, 402);
 });
+
+test("a browser gets a page, with the price and the address", async () => {
+  const { describeHtml } = await import("../src/service.ts");
+  const html = describeHtml({ ...cfg(200), origin: "https://growth.example" });
+  assert.match(html, /<title>Warda Growth · Researcher<\/title>/);
+  assert.match(html, /0.05 KAS \/ record/);
+  assert.ok(html.includes(cfg(200).payTo));
+  assert.match(html, /not an independent vendor/);
+});

@@ -54,6 +54,62 @@ export function describe(cfg: Pick<ResearcherConfig, "payTo" | "sompi" | "networ
   };
 }
 
+const escHtml = (x: string) => x.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+
+/**
+ * The same description, for a person who clicked a link. An agent asks for
+ * JSON (or asks for nothing in particular) and gets JSON; a browser says it
+ * wants text/html, and a page of raw JSON is a page that looks broken.
+ */
+export function describeHtml(cfg: Pick<ResearcherConfig, "payTo" | "sompi" | "network" | "origin">): string {
+  const kas = Number(cfg.sompi) / 1e8;
+  const o = cfg.origin ?? "";
+  const example = `${o}/verify?url=https://github.com/kaspanet/rusty-kaspa`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Warda Growth · Researcher</title>
+<meta name="description" content="A checkable record about a software project, sold for ${kas} KAS over HTTP 402. Run by Warda.">
+<style>
+:root{--void:#06090C;--ground:#0A1014;--edge:#1E2E37;--chrome:#DDE0E2;--dim:#8D989E;--faint:#5D6B73;--teal:#14D7C1}
+*{box-sizing:border-box}html,body{margin:0;background:var(--void);color:var(--chrome);font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:760px;margin:0 auto;padding:56px 20px 72px}
+.eye{font:12px/1 ui-monospace,Menlo,monospace;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin:0}
+h1{font-size:clamp(30px,6vw,44px);line-height:1.1;margin:14px 0 12px;letter-spacing:-.02em}
+p{color:var(--dim);margin:0 0 14px}p b{color:var(--chrome)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:26px 0}
+.grid div{border:1px solid var(--edge);background:var(--ground);border-radius:10px;padding:14px 16px}
+.grid i{display:block;font:11px ui-monospace,Menlo,monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);font-style:normal}
+.grid b{display:block;margin-top:6px;font:15px ui-monospace,Menlo,monospace;overflow-wrap:anywhere}
+h2{font-size:20px;margin:34px 0 10px}
+pre{background:var(--ground);border:1px solid var(--edge);border-radius:10px;padding:14px 16px;overflow-x:auto;font:13px/1.6 ui-monospace,Menlo,monospace;color:var(--chrome)}
+ul{color:var(--dim);padding-left:20px}li{margin:6px 0}
+a{color:var(--teal)}.note{border-left:3px solid var(--teal);padding:4px 0 4px 14px;margin-top:30px}
+</style></head><body><main>
+<p class="eye">Warda Growth · an agent that sells research</p>
+<h1>Researcher</h1>
+<p>A <b>record about a software project that anyone can check</b>: facts from GitHub and the project's own site, each with the URL it came from, and a named list of what could not be established. Never a score.</p>
+<div class="grid">
+<div><i>price</i><b>${kas} KAS / record</b></div>
+<div><i>network</i><b>Kaspa ${escHtml(cfg.network)}</b></div>
+<div><i>payment</i><b>HTTP 402 · x402 v1</b></div>
+</div>
+<p><b>Paid to</b> <code style="overflow-wrap:anywhere">${escHtml(cfg.payTo)}</code> — checked in the UTXO set before anything is served. When GitHub is refusing requests it offers no quote, so nobody pays for an empty record.</p>
+<h2>What a record holds</h2>
+<ul>
+<li>what the repository says it is, its language, topics, stars and last push</li>
+<li>whether its README mentions paying for things, agents, or Kaspa — as words seen, not conclusions</li>
+<li>a contact channel only if the maintainers published one themselves: an X account their website links, their profile's, or GitHub Discussions. Never an email address.</li>
+<li>everything it could <b>not</b> establish, named</li>
+</ul>
+<h2>Buy one</h2>
+<pre>curl "${escHtml(example)}"
+# 402: a quote naming the address and ${kas} KAS
+
+warda pay "${escHtml(example)}" --grant grant.json</pre>
+<p>Any Warda grant that lists this address can buy. Its main buyer is <a href="https://wardaprotocol.com/agent-010">Scout, agent #010</a>, whose grant may pay this address and nobody else.</p>
+<p class="note">Run by <a href="https://wardaprotocol.com/agents#gf">Warda's growth fleet</a> — this is the project's own agent, not an independent vendor. Testnet, unaudited. Listed in the <a href="https://wardaprotocol.com/network">Warda registry</a> with a <a href="${escHtml(o)}/.well-known/warda-service.json">signed listing</a>. For agents, this same URL answers JSON.</p>
+</main></body></html>`;
+}
+
 export async function research(url: URL, paymentHeader: string | null, cfg: ResearcherConfig): Promise<Reply> {
   if (url.pathname === "/" || url.pathname === "") return { status: 200, body: describe(cfg) };
   if (url.pathname !== "/verify") {

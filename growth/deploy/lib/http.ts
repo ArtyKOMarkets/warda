@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { research } from "./service.js";
+import { describeHtml, research } from "./service.js";
 import { config } from "./config.js";
 
 export async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -19,6 +19,12 @@ export async function handle(req: IncomingMessage, res: ServerResponse): Promise
     return send(503, { error: "this Researcher is not configured", missing: cfg.missing, charged: false });
   }
   try {
+    const u = url.pathname;
+    if ((u === "/" || u === "") && /text\/html/.test(String(req.headers.accept ?? ""))) {
+      res.writeHead(200, { "content-type": "text/html; charset=utf-8", "access-control-allow-origin": "*" });
+      res.end(describeHtml(cfg));
+      return;
+    }
     const header = req.headers["x-payment"];
     const r = await research(url, header === undefined ? null : String(header), cfg);
     send(r.status, r.body);
