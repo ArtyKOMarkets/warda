@@ -1,10 +1,11 @@
 {
-  "checkedAt": "2026-09-20T06:23:07.508Z",
+  "checkedAt": "2026-09-21T06:23:21.504Z",
   "vendor": "https://demo.kaspa-x402.org/exact",
-  "ok": false,
-  "refusedByGrant": false,
-  "error": "no UTXO at kaspatest:pzys8slr4xlgfvzsfghqmllydq27s5vqy0nhv2yrp3ysqwa6wsqfs0r7cqpk7.\nA grant's address is derived from its state, and spending changes that state — so an empty result usually means the grant has moved to its successor address, not that it is gone.\nIf the transaction that created it was submitted moments ago, this is a race rather than a mistake: acceptance is not instant, and the address is empty until it happens.",
-  "txid": null,
-  "paidSompi": null,
-  "remaining": 211220480
+  "ok": true,
+  "httpStatus": 200,
+  "txid": "7caeaec9007a687b22588ed6641a4965c047eb1e8e8b35e27c20ecffe7b674c2",
+  "paidSompi": "20000000",
+  "feeSompi": "2000000",
+  "remaining": 166830720,
+  "body": "{\"ok\":true,\"network\":\"kaspa:testnet-10\",\"profile\":\"exact\",\"resource\":\"https://demo.kaspa-x402.org/exact\",\"requestFingerprint\":\"9fa68a396140be6a666dfdaf7b6da2b4c28517069691439e42c97a3cff7f65ab\",\"paymentIdentifier\":\"7caeaec9007a687b22588ed6641a4965c047eb1e8e8b35e27c20ecffe7b674c2\",\"payment\":{\"scheme\":\"exact\",\"transactionId\":\"7caeaec9007a687b22588ed6641a4965c047eb1e8e8b35e27c20ecffe7b674c2\",\"paymentO"
 }
