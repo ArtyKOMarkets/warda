@@ -265,6 +265,26 @@
   .wc-qr:empty { background: var(--panel); }
   .wc-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.8rem; }
   .wc-row > * { flex: 1 1 auto; }
+  /* ---- the ChangeNOW swap -------------------------------------------------- */
+  .cn-quote { display: grid; gap: 0.35rem; }
+  .cn-quote .big { font-family: var(--mono); font-size: 1.35rem; color: var(--chrome); margin: 0; }
+  .cn-dep { margin-top: 1rem; padding: 0.95rem; border-radius: 10px; background: var(--panel); border: 1px solid var(--teal-deep);
+    display: grid; gap: 0.3rem; }
+  .cn-dep .k { margin: 0; font-size: 0.72rem; color: var(--chrome-faint); text-transform: uppercase; letter-spacing: 0.08em; }
+  .cn-amt { font-family: var(--mono); font-size: 1.3rem; margin: 0 0 0.4rem; color: var(--teal); }
+  .cn-addr { font-family: var(--mono); font-size: 0.85rem; margin: 0 0 0.3rem; overflow-wrap: anywhere; color: var(--chrome); }
+  .cn-track { list-style: none; margin: 1rem 0 0; padding: 0; display: grid; gap: 0.1rem; }
+  .cn-track li { display: grid; grid-template-columns: 18px 1fr; gap: 0.6rem; align-items: start; font-size: 0.82rem;
+    color: var(--chrome-faint); padding: 0.35rem 0; }
+  .cn-track li::before { content: ""; width: 12px; height: 12px; margin-top: 0.2rem; border-radius: 50%;
+    border: 1.5px solid var(--edge-bright); }
+  .cn-track li.done { color: var(--chrome-dim); }
+  .cn-track li.done::before { background: var(--teal-deep); border-color: var(--teal-deep); }
+  .cn-track li.now { color: var(--chrome); font-weight: 500; }
+  .cn-track li.now::before { border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-ghost); }
+  .cn-track li.bad { color: var(--refuse); }
+  .cn-track li.bad::before { border-color: var(--refuse); background: var(--refuse); }
+  .cn-track a { color: var(--chrome-faint); font-family: var(--mono); font-size: 0.72rem; }
   /* ---- generic wizard (Fund, Alerts) ------------------------------------- */
   .wz-step { display: none; }
   .wz-step.on { display: block; }
@@ -1439,6 +1459,34 @@ ops/install-cron.sh</pre>
                 <button class="go" id="fa-go">Fund agent</button>
                 <button class="go gh" id="fa-hold" hidden>Already hold KAS? Use these terms &rarr;</button>
               </div>
+            </div>
+            <div class="card" style="margin-top:0.85rem" id="cn-card" hidden>
+              <header><h2>The swap <small id="cn-id"></small></h2></header>
+              <div id="cn-quote" class="cn-quote"><p class="why">Getting ChangeNOW&rsquo;s quote&hellip;</p></div>
+              <div class="field" style="margin-top:0.9rem" id="cn-refund-f">
+                <label for="cn-refund">If the swap cannot complete, refund to &mdash; your address on this chain</label>
+                <input id="cn-refund" spellcheck="false" placeholder="0x&hellip;">
+                <p class="out">Optional, and strongly recommended. Without it a failed swap is refunded by writing to ChangeNOW&rsquo;s support.</p>
+              </div>
+              <div id="cn-dep" class="cn-dep" hidden>
+                <p class="k">Send exactly</p>
+                <p class="cn-amt" id="cn-amt">&mdash;</p>
+                <p class="k">to ChangeNOW&rsquo;s deposit address</p>
+                <p class="cn-addr" id="cn-payin">&mdash;</p>
+                <p class="why" id="cn-only">&mdash;</p>
+                <div class="og-a">
+                  <button class="go" id="cn-send" hidden>Send from your wallet</button>
+                  <button class="go gh" id="cn-switch" hidden>Switch your wallet to this chain</button>
+                  <button class="go gh" id="cn-copy">Copy the address</button>
+                </div>
+                <p class="state" id="cn-send-s"></p>
+              </div>
+              <ol class="cn-track" id="cn-track" hidden></ol>
+              <p class="why" id="cn-track-s"></p>
+              <div class="og-a" id="cn-done" hidden>
+                <button class="go" id="cn-grant">Create the grant with this KAS &rarr;</button>
+              </div>
+              <p style="margin-top:0.8rem"><button class="go gh" id="cn-reset" hidden>Start a new swap</button></p>
             </div>
             <div class="card" style="margin-top:0.85rem" id="fa-plan-card">
               <header><h2>The steps you sign</h2></header>
@@ -3327,6 +3375,9 @@ var WardaRouter = (() => {
       connect: function () { return rq("eth_requestAccounts"); },
       restore: function () { return rq("eth_accounts"); },
       chainId: function () { return rq("eth_chainId").then(function (h) { return Number(h); }); },
+      /* For a transfer you start yourself — the wallet asks you about each one. */
+      rpc: rq,
+      switchChain: function (id) { return rq("wallet_switchEthereumChain", [{ chainId: "0x" + Number(id).toString(16) }]); },
       balance: function (a) { return rq("eth_getBalance", [a, "latest"]).then(hexToBig); },
       switchTo: function () {
         var n = IGRA_OF[$("net").value], hex = "0x" + n.chainId.toString(16);
@@ -4089,10 +4140,22 @@ var WardaRouter = (() => {
       var at = srcs.map(function (x) { return x.chainId; }).indexOf(W.chainId);
       if (at >= 0) { sel.value = String(at); faView.followed = true; }
     }
+    /* A swap already under way is resumed where it was, on the chain it was
+       made on — a reload must not look like the money went nowhere. */
+    if (CN && !faView.resumed) {
+      faView.resumed = true;
+      var ci = srcs.map(function (x) { return x.chain; }).indexOf(CN.chain);
+      if (ci >= 0) sel.value = String(ci);
+      FA_ROUTE = "changenow";
+      $("fa-usd").value = CN.usd || CN.amount; if (CN.cap) $("fa-cap").value = CN.cap; if (CN.days) $("fa-days").value = CN.days;
+      if (CN.to) $("fu-addr").value = CN.to;
+      setTimeout(function () { WZ.fu.seen = 4; wzGo("fu", 4, true); cnRender(); cnPoll(); }, 0);
+    }
     var src = srcs[Number(sel.value) || 0];
     var tok = $("fa-tok"), was = tok.value;
     tok.innerHTML = src.tokens.map(function (t) { return '<option>' + esc(t) + '</option>'; }).join("");
     if (src.tokens.indexOf(was) >= 0) tok.value = was;
+    if (CN && CN.chain === src.chain && src.tokens.indexOf(CN.token) >= 0) tok.value = CN.token;
 
     var usd = parseFloat($("fa-usd").value);
     var rate = parseFloat($("fu-rate").value);
@@ -4111,6 +4174,7 @@ var WardaRouter = (() => {
     $("fa-key").innerHTML = kaspaKey ? "Yours — " + esc(short(W.address)) + ", from " + esc(WALLETS[W.kind].name) + "."
       : '<span style="color:var(--amber)">None connected yet.</span> A grant on Kaspa is created and named by a Kaspa key. Connect KasWare or Kaspire under Your account &mdash; you can keep paying from ' + (W && W.family === "evm" ? esc(WALLETS[W.kind].name) : "any wallet") + '.';
     if (kaspaKey && !$("fu-addr").value) { $("fu-addr").value = W.address; fundView(); }
+    if (W && W.family === "evm" && !$("cn-refund").value) $("cn-refund").value = W.address;
 
     /* Routes: every one this chain has, the chosen one first. */
     var stale = faStale();
@@ -4119,6 +4183,7 @@ var WardaRouter = (() => {
       || ids.filter(function (r) { return faOpen(main, r); })[0] || ids[0];
     var rid = FA_ROUTE && ids.indexOf(FA_ROUTE) >= 0 ? FA_ROUTE : best;
     var route = main.routes[rid];
+    faView.route = rid; faView.src = src;
     $("fa-routes").innerHTML = ids.map(function (r) {
       var R = main.routes[r], open = faOpen(main, r);
       var worst = R.legs.map(function (l) { return main.legs[l].status; }).filter(function (s) { return s !== "live"; })[0];
@@ -4144,10 +4209,22 @@ var WardaRouter = (() => {
     $("fa-ack-t").textContent = "I understand " + route.custody + " holds the money until the KAS is sent, and that Warda is not a party to it.";
     $("fa-igra-only").hidden = route.legs.indexOf("zealous") < 0;
     $("fa-plan-card").hidden = route.legs.indexOf("exit") < 0;
+    var isCn = rid === "changenow";
+    $("cn-card").hidden = !isCn;
+    /* The panel beside it describes the Igra plan; beside a swap it would be
+       answering a question nobody asked, and it said "refused" to a mainnet
+       address that is exactly right for the swap. */
+    document.querySelector("#v-fund .aside .enforced").hidden = isCn;
+    if (isCn) fundView();
+    var qk = src.chain + "|" + $("fa-tok").value + "|" + ($("fa-usd").value || "").trim();
+    if (isCn && !CN && qk !== faView.qk) { faView.qk = qk; cnQuoteLater(); }
 
     /* Everything between this and a funded agent — every reason, not the first. */
     var why = [];
-    if (net !== "mainnet" && here.none) why.push("On " + net + ": " + here.none);
+    /* The instant swap delivers mainnet KAS whatever network this console is
+       reading, because that is the only KAS it trades. It is said, not
+       blocked: the KAS is yours, at your address, either way. */
+    if (net !== "mainnet" && here.none && !isCn) why.push("On " + net + ": " + here.none);
     if (!stale) route.legs.forEach(function (id) {
       var l = main.legs[id];
       if (l.status !== "live") why.push(l.via + " is " + l.status + (l.since ? " since " + l.since : "") + ".");
@@ -4158,15 +4235,25 @@ var WardaRouter = (() => {
         " KAS minimum — this route starts at about $" + Math.ceil(exit.minKas * rate).toLocaleString("en-US") + ". The instant swap has no such floor.");
     }
     if (custodial && !$("fa-ack").checked) why.push("Tick the box on the route step: this route has a custodian.");
-    if (!kaspaKey) why.push("No Kaspa key is connected to create the grant with.");
+    if (isCn) {
+      var ab = cnMainnet($("fu-addr").value);
+      if (ab) why.push(ab);
+      if (!CN_Q) why.push("Waiting for ChangeNOW's quote.");
+      else if (!CN_Q.ok) why.push(CN_Q.message || "No quote from ChangeNOW.");
+      else if (CN_Q.min != null && Number($("fa-usd").value) < Number(CN_Q.min)) why.push("Below ChangeNOW's minimum, " + CN_Q.min + " " + $("fa-tok").value + ".");
+    } else if (!kaspaKey) why.push("No Kaspa key is connected to create the grant with.");
     if (stale) why.push("The route status has not been checked in over two weeks.");
 
     $("fa-go").disabled = why.length > 0;
-    $("fa-go").textContent = rid === "changenow" ? "Open the swap" : "Fund agent";
+    $("fa-go").textContent = isCn ? "Create the swap" : "Fund agent";
+    $("fa-go").hidden = isCn && !!CN;
     $("fa-state").innerHTML = why.length
       ? '<ul class="fa-why">' + why.map(function (w) { return "<li>" + esc(w) + "</li>"; }).join("") + '</ul>'
-      : '<p class="fa-ok">' + (rid === "changenow"
-          ? "Ready. This opens ChangeNOW for this pair in a new tab. There, check the amount and the network, paste your Kaspa address as the recipient, and send from your wallet. When the KAS arrives, Create a grant finishes it."
+      : '<p class="fa-ok">' + (isCn
+          ? (CN ? "Swap created. Send the deposit below; this page follows it until the KAS lands." :
+            "Ready. Creating the swap gives you ChangeNOW's deposit address for exactly this amount; nothing moves until you send to it." +
+            (net !== "mainnet" ? " It delivers mainnet KAS — this console reads " + net + ", where grants are made today." : "") +
+            (kaspaKey ? "" : " Creating the grant afterwards needs the Kaspa key for that address."))
           : "Every step is open. You will sign each one in your wallet; nothing is sent until you do.") + '</p>';
     $("fa-hold").hidden = false;
     faView.route = rid; faView.src = src;
@@ -4174,14 +4261,176 @@ var WardaRouter = (() => {
     if ($("fu-usd").value !== $("fa-usd").value) { $("fu-usd").value = $("fa-usd").value; fundView(); }
   }
 
+  /* ---- the ChangeNOW swap, end to end ------------------------------------------
+     The page talks to /api/swap (site/src/api/swap.mjs), which holds the
+     ChangeNOW key and nothing else. The flow:
+
+       quote → create (ChangeNOW gives a deposit address) → you send from your
+       wallet → ChangeNOW swaps → native KAS lands at your Kaspa address →
+       Create a grant, with the terms from step 2
+
+     The exchange id is kept in this browser so a reload resumes the tracker;
+     it is also the reference ChangeNOW's support asks for. The page never
+     holds the money and neither does Warda: it moves from your wallet to
+     ChangeNOW's deposit address, and from ChangeNOW to your Kaspa address. */
+  var CN_KEY = "warda.console.swap";
+  var CN = null;          // the swap in progress: { id, chain, token, amount, payin, extraId, to, tokenContract, chainId, network }
+  var CN_Q = null;        // the last quote
+  var CN_T = null;        // the poll timer
+  var CN_STEPS = [
+    ["waiting", "Waiting for your deposit"],
+    ["confirming", "Deposit seen — waiting for confirmations"],
+    ["exchanging", "Swapping"],
+    ["sending", "Sending KAS to your address"],
+    ["finished", "KAS delivered"]
+  ];
+  var CN_EVM_TX = { base: "https://basescan.org/tx/", eth: "https://etherscan.io/tx/", arbitrum: "https://arbiscan.io/tx/",
+    op: "https://optimistic.etherscan.io/tx/", matic: "https://polygonscan.com/tx/", avaxc: "https://snowtrace.io/tx/", bsc: "https://bscscan.com/tx/" };
+  try { CN = JSON.parse(localStorage.getItem(CN_KEY) || "null"); } catch (e) { CN = null; }
+  function cnSave() { try { CN ? localStorage.setItem(CN_KEY, JSON.stringify(CN)) : localStorage.removeItem(CN_KEY); } catch (e) {} }
+
+  function cnMainnet(addr) {
+    try { var d = WardaRouter.decodeAddress(String(addr || "").trim()); return d.prefix === "kaspa" ? "" : "The instant swap delivers mainnet KAS, so the address must start kaspa: — this one is " + d.prefix + ":."; }
+    catch (e) { return addr ? "The Kaspa address does not check out: " + e.message : "Enter the Kaspa address the KAS should land at (step 2)."; }
+  }
+
+  var cnQuoteAt = 0;
+  function cnQuote() {
+    if (CN || !faView.src) return;
+    var at = ++cnQuoteAt, src = faView.src, tok = $("fa-tok").value, amt = ($("fa-usd").value || "").trim();
+    fetch("/api/swap?op=quote&chain=" + encodeURIComponent(src.chain) + "&token=" + encodeURIComponent(tok) + "&amount=" + encodeURIComponent(amt))
+      .then(function (r) { return r.json().catch(function () { return null; }); })
+      .then(function (j) {
+        if (at !== cnQuoteAt) return;
+        CN_Q = j || { ok: false, message: "The swap service did not answer. That is no quote, not a bad one." };
+        if (!j || !j.ok) {
+          $("cn-quote").innerHTML = '<p class="empty">' + esc(j && j.message || "The swap service did not answer. That is no quote, not a bad one.") + '</p>';
+          faView(); return;
+        }
+        var below = j.min != null && Number(amt) < Number(j.min);
+        $("cn-quote").innerHTML =
+          '<p class="k" style="margin:0;font-size:0.72rem;color:var(--chrome-faint)">You send ' + esc(amt) + ' ' + esc(tok) + ' on ' + esc(src.chain) + ', you receive about</p>' +
+          '<p class="big">' + (j.toAmount != null ? "≈ " + Number(j.toAmount).toLocaleString("en-US", { maximumFractionDigits: 2 }) + " KAS" : "—") + '</p>' +
+          '<p class="why" style="margin:0">' + (below ? "Below ChangeNOW's minimum for this pair, " + esc(j.min) + " " + esc(tok) + ". "
+            : esc(j.says) + " ") + (j.speed ? "Usually " + esc(j.speed) + " minutes. " : "") +
+          "Minimum " + esc(j.min) + " " + esc(tok) + (j.max ? ", maximum " + esc(j.max) : "") + ".</p>" +
+          '<p class="why" style="margin:0">ChangeNOW&rsquo;s fee is inside that rate. Warda&rsquo;s share: <b>' + esc(j.partnerFeePct) + '%</b>.</p>' +
+          (j.warning ? '<p class="why" style="margin:0;color:var(--amber)">' + esc(j.warning) + '</p>' : "");
+        faView();
+      })
+      .catch(function () { if (at === cnQuoteAt) { CN_Q = { ok: false, message: "The swap service did not answer. That is no quote, not a bad one." }; $("cn-quote").innerHTML = '<p class="empty">The swap service did not answer. That is no quote, not a bad one.</p>'; faView(); } });
+  }
+  var cnQuoteSoon = null;
+  function cnQuoteLater() { clearTimeout(cnQuoteSoon); cnQuoteSoon = setTimeout(cnQuote, 450); }
+
+  function cnCreate() {
+    var src = faView.src, tok = $("fa-tok").value;
+    $("fa-go").disabled = true; $("fa-go").textContent = "Creating the swap…";
+    fetch("/api/swap?op=create", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ chain: src.chain, token: tok, amount: ($("fa-usd").value || "").trim(),
+        address: ($("fu-addr").value || "").trim(), refundAddress: ($("cn-refund").value || "").trim() })
+    }).then(function (r) { return r.json().catch(function () { return null; }); }).then(function (j) {
+      if (!j || !j.ok) { $("fa-state").innerHTML = '<ul class="fa-why"><li>' + esc(j && j.message || "The swap service did not answer; nothing was created.") + '</li></ul>'; faView(); return; }
+      CN = { id: j.id, chain: src.chain, chainId: src.chainId, token: tok, network: j.pair.network, amount: String(j.fromAmount),
+        payin: j.payinAddress, extraId: j.payinExtraId, to: j.payoutAddress, toAmount: j.toAmount,
+        tokenContract: j.tokenContract, created: new Date().toISOString(), cap: $("fa-cap").value, days: $("fa-days").value, usd: $("fa-usd").value };
+      cnSave(); cnRender(); cnPoll(); faView();
+    }).catch(function () { $("fa-state").innerHTML = '<ul class="fa-why"><li>The swap service did not answer; nothing was created.</li></ul>'; faView(); });
+  }
+
+  function cnRender(st) {
+    var on = !!CN;
+    $("cn-dep").hidden = !on || !!(st && st.status && ["exchanging", "sending", "finished", "failed", "refunded"].indexOf(st.status) >= 0);
+    $("cn-refund-f").hidden = on;
+    $("cn-reset").hidden = !on;
+    $("cn-track").hidden = !on;
+    $("cn-id").textContent = on ? "exchange " + CN.id : "";
+    $("fa-go").hidden = on;
+    if (!on) { $("cn-done").hidden = true; $("cn-track-s").textContent = ""; return; }
+    $("cn-quote").innerHTML = '<p class="why" style="margin:0">' + esc(CN.amount) + " " + esc(CN.token) + " on " + esc(CN.chain) +
+      " → ≈ " + Number(CN.toAmount || 0).toLocaleString("en-US", { maximumFractionDigits: 2 }) + " KAS to " + esc(short(CN.to)) + ". Created " + esc(ago(CN.created)) + ".</p>";
+    $("cn-amt").textContent = CN.amount + " " + CN.token + " on " + CN.chain;
+    $("cn-payin").textContent = CN.payin + (CN.extraId ? "  ·  memo " + CN.extraId : "");
+    $("cn-only").textContent = "Only " + CN.token + " on " + CN.chain + ", and only this amount. Anything else sent here is not converted, and getting it back goes through ChangeNOW's support with the exchange id above.";
+    var evm = W && W.family === "evm" && WALLETS[W.kind].rpc;
+    $("cn-send").hidden = !evm || !CN.tokenContract || W.chainId !== CN.chainId;
+    $("cn-send").textContent = evm ? "Send from " + WALLETS[W.kind].name : "Send from your wallet";
+    $("cn-switch").hidden = !evm || W.chainId === CN.chainId;
+    $("cn-switch").textContent = "Switch " + (evm ? WALLETS[W.kind].name : "your wallet") + " to " + CN.chain;
+
+    var s = st && st.status || "waiting", bad = s === "failed" || s === "refunded" || s === "verifying";
+    var idx = CN_STEPS.map(function (x) { return x[0]; }).indexOf(s === "new" ? "waiting" : s);
+    $("cn-track").innerHTML = CN_STEPS.map(function (x, i) {
+      var cls = bad ? (i === 0 ? "bad" : "") : i < idx || s === "finished" ? "done" : i === idx ? "now" : "";
+      var link = "";
+      if (x[0] === "confirming" && st && st.from && st.from.hash && CN_EVM_TX[CN.network]) link = ' <a href="' + CN_EVM_TX[CN.network] + esc(st.from.hash) + '" rel="noopener">your deposit</a>';
+      if (x[0] === "finished" && st && st.to && st.to.hash) link = ' <a href="https://explorer.kaspa.org/txs/' + esc(st.to.hash) + '" rel="noopener">the KAS payment</a>';
+      return '<li class="' + cls + '"><span>' + esc(bad && i === 0 ? (st.says || s) : x[1]) + link + '</span></li>';
+    }).join("");
+    $("cn-track-s").textContent = st ? (s === "finished"
+      ? (st.to.sent != null ? Number(st.to.sent).toLocaleString("en-US", { maximumFractionDigits: 4 }) + " KAS sent to " + short(st.to.address) + ". " : "") + "Updated " + ago(st.updatedAt) + "."
+      : bad ? "ChangeNOW reports: " + (st.says || s) + ". Quote exchange " + CN.id + " to its support." + (st.refundHash ? " Refund transaction " + st.refundHash + "." : "")
+      : "Checked " + new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) + " · ChangeNOW says: " + (st.says || s) + ". This page checks every 15 seconds while it is open.")
+      : "Reading the exchange…";
+    $("cn-done").hidden = s !== "finished";
+  }
+
+  function cnPoll() {
+    clearTimeout(CN_T);
+    if (!CN) return;
+    fetch("/api/swap?op=status&id=" + encodeURIComponent(CN.id))
+      .then(function (r) { return r.json().catch(function () { return null; }); })
+      .then(function (j) {
+        if (!CN) return;
+        if (j && j.ok) { CN.last = j.status; cnSave(); cnRender(j); }
+        else $("cn-track-s").textContent = "Could not read the exchange just now (" + (j && j.message || "no answer") + "). Trying again.";
+        if (!j || !j.ok || ["finished", "failed", "refunded"].indexOf(j.status) < 0) CN_T = setTimeout(cnPoll, 15000);
+      })
+      .catch(function () { $("cn-track-s").textContent = "Could not reach the swap service just now. Trying again."; CN_T = setTimeout(cnPoll, 15000); });
+  }
+
+  /* ERC-20 transfer(address,uint256), built here and signed in the wallet.
+     The contract is the one ChangeNOW's currency list names for this token on
+     this chain; its decimals are asked of the contract itself, not assumed. */
+  function units(dec, s) {
+    var m = /^(\d+)(?:\.(\d+))?$/.exec(String(s)); if (!m) return null;
+    var frac = (m[2] || "").slice(0, dec).padEnd(dec, "0");
+    return BigInt(m[1] + frac);
+  }
+  function word(hex) { return hex.replace(/^0x/, "").toLowerCase().padStart(64, "0"); }
+  function cnSend() {
+    var a = WALLETS[W.kind];
+    $("cn-send-s").textContent = "Asking the token contract for its decimals…";
+    a.rpc("eth_call", [{ to: CN.tokenContract, data: "0x313ce567" }, "latest"]).then(function (h) {
+      var dec = Number(BigInt(h)); if (!(dec >= 0 && dec <= 36)) throw new Error("the token contract did not report its decimals");
+      var n = units(dec, CN.amount); if (n == null) throw new Error("the amount could not be read");
+      $("cn-send-s").textContent = "Confirm in " + a.name + ": " + CN.amount + " " + CN.token + " to " + short(CN.payin) + ".";
+      return a.rpc("eth_sendTransaction", [{ from: W.address, to: CN.tokenContract, value: "0x0",
+        data: "0xa9059cbb" + word(CN.payin) + word(n.toString(16)) }]);
+    }).then(function (tx) {
+      $("cn-send-s").innerHTML = "Sent: " + (CN_EVM_TX[CN.network] ? '<a href="' + CN_EVM_TX[CN.network] + esc(tx) + '" rel="noopener">' + esc(short(tx)) + '</a>' : esc(tx)) + ". ChangeNOW starts once it confirms.";
+      CN.sentTx = tx; cnSave(); cnPoll();
+    }).catch(function (e) {
+      $("cn-send-s").textContent = e && (e.code === 4001 || /reject|denied/i.test(e.message)) ? "Not sent — you declined, which is always fine." : "Not sent: " + (e && e.message || e);
+    });
+  }
+
+  /* A second press, not a browser dialog: a confirm() blocks the page and
+     trains people to click OK. The first press says what will happen. */
+  function confirmInline(id, say) {
+    var b = $(id);
+    if (b.getAttribute("data-armed") === "1") { b.removeAttribute("data-armed"); b.textContent = b.getAttribute("data-was"); return true; }
+    b.setAttribute("data-armed", "1"); b.setAttribute("data-was", b.textContent);
+    b.textContent = "Press again to forget it";
+    $("cn-track-s").textContent = say;
+    setTimeout(function () { if (b.getAttribute("data-armed") === "1") { b.removeAttribute("data-armed"); b.textContent = b.getAttribute("data-was"); } }, 6000);
+    return false;
+  }
+
   function faGo() {
     var main = ROUTES.networks.mainnet, src = faView.src, rid = faView.route;
-    if (rid === "changenow") {
-      var t = (src.changenow || {})[$("fa-tok").value] || $("fa-tok").value.toLowerCase();
-      window.open("https://changenow.io/exchange?from=" + encodeURIComponent(t) + "&to=kas&amount=" +
-        encodeURIComponent($("fa-usd").value), "_blank", "noopener");
-      return;
-    }
+    if (rid === "changenow") { cnCreate(); return; }
     $("fu-steps").scrollIntoView({ block: "start", behavior: "smooth" });
   }
 
@@ -4513,6 +4762,13 @@ var WardaRouter = (() => {
 
   function fundView() {
     if (!$("fu-usd")) return;
+    /* The Igra planner has nothing to say about an instant swap. */
+    if (faView.route === "changenow") {
+      $("fu-state").textContent = CN ? "swap " + (CN.last || "created") : "";
+      var ab = cnMainnet($("fu-addr").value);
+      $("fu-o-addr").innerHTML = ab ? '<span style="color:var(--refuse)">' + esc(ab) + '</span>' : "Checks out: a kaspa: mainnet address, checksum verified.";
+      return;
+    }
     if (typeof WardaRouter === "undefined") {
       $("fu-steps").innerHTML = '<p class="empty">The router did not load, so there is no plan to show. That is not a plan with no obstacles.</p>';
       return;
@@ -4836,6 +5092,27 @@ var WardaRouter = (() => {
   $("fu-slip").addEventListener("input", faView);
   $("fa-hold").addEventListener("click", faHold);
   $("fa-go").addEventListener("click", faGo);
+  $("cn-send").addEventListener("click", cnSend);
+  $("cn-switch").addEventListener("click", function () {
+    WALLETS[W.kind].switchChain(CN.chainId).then(walletRestore).then(function () { setTimeout(function () { cnRender(); }, 600); })
+      .catch(function (e) { $("cn-send-s").textContent = "The wallet did not switch" + (e && e.code === 4902 ? ": it does not have " + CN.chain + " yet — add it in the wallet and try again." : ": " + (e && e.message || e)); });
+  });
+  $("cn-copy").addEventListener("click", function () {
+    (navigator.clipboard ? navigator.clipboard.writeText(CN.payin) : Promise.reject()).then(function () {
+      $("cn-send-s").textContent = "Deposit address copied. Send exactly " + CN.amount + " " + CN.token + " on " + CN.chain + ".";
+    }, function () { $("cn-send-s").textContent = CN.payin; });
+  });
+  $("cn-reset").addEventListener("click", function () {
+    if (CN && ["finished", "failed", "refunded"].indexOf(CN.last) < 0 &&
+        !confirmInline("cn-reset", "This forgets exchange " + CN.id + " in this browser. Write the id down first if you have sent anything — press again to confirm.")) return;
+    clearTimeout(CN_T); CN = null; cnSave(); faView.qk = null; cnRender(); faView();
+  });
+  $("cn-grant").addEventListener("click", function () {
+    $("budget").value = CN.usd || $("fa-usd").value; $("cap").value = CN.cap || $("fa-cap").value; $("days").value = CN.days || $("fa-days").value;
+    $("rate").value = $("fu-rate").value;
+    $("funder").value = CN.to;
+    show("create"); createView();
+  });
   $("fa-ack").addEventListener("change", faView);
   $("fa-routes").addEventListener("click", function (e) {
     var b = e.target.closest && e.target.closest("[data-route]");

@@ -8,39 +8,193 @@
     },
     "mainnet": {
       "sources": [
-        { "chain": "Base", "chainId": 8453, "tokens": ["USDC"], "routes": ["igra", "changenow", "dymension"], "changenow": { "USDC": "usdcbase" } },
-        { "chain": "Ethereum", "chainId": 1, "tokens": ["USDC", "USDT"], "routes": ["igra", "changenow", "dymension"], "changenow": { "USDC": "usdc", "USDT": "usdterc20" } },
-        { "chain": "Arbitrum", "chainId": 42161, "tokens": ["USDC"], "routes": ["igra", "changenow"], "changenow": { "USDC": "usdcarb" } },
-        { "chain": "Optimism", "chainId": 10, "tokens": ["USDC"], "routes": ["igra", "changenow"], "changenow": { "USDC": "usdcop" } },
-        { "chain": "Polygon", "chainId": 137, "tokens": ["USDC"], "routes": ["igra", "changenow"], "changenow": { "USDC": "usdcmatic" } },
-        { "chain": "Avalanche", "chainId": 43114, "tokens": ["USDC"], "routes": ["igra", "changenow"], "changenow": { "USDC": "usdcarc20" } },
-        { "chain": "BNB Chain", "chainId": 56, "tokens": ["USDT", "USDC"], "routes": ["changenow", "dymension"], "changenow": { "USDT": "usdtbsc", "USDC": "usdcbsc" } },
-        { "chain": "Igra", "chainId": 38833, "tokens": ["USDC"], "routes": ["igra-local"] }
+        {
+          "chain": "Base",
+          "chainId": 8453,
+          "tokens": [
+            "USDC"
+          ],
+          "routes": [
+            "igra",
+            "changenow",
+            "dymension"
+          ],
+          "changenow": {
+            "USDC": {
+              "currency": "usdc",
+              "network": "base",
+              "legacy": "usdcbase"
+            }
+          }
+        },
+        {
+          "chain": "Ethereum",
+          "chainId": 1,
+          "tokens": [
+            "USDC",
+            "USDT"
+          ],
+          "routes": [
+            "igra",
+            "changenow",
+            "dymension"
+          ],
+          "changenow": {
+            "USDC": {
+              "currency": "usdc",
+              "network": "eth",
+              "legacy": "usdc"
+            },
+            "USDT": {
+              "currency": "usdt",
+              "network": "eth",
+              "legacy": "usdterc20"
+            }
+          }
+        },
+        {
+          "chain": "Arbitrum",
+          "chainId": 42161,
+          "tokens": [
+            "USDC"
+          ],
+          "routes": [
+            "igra",
+            "changenow"
+          ],
+          "changenow": {
+            "USDC": {
+              "currency": "usdc",
+              "network": "arbitrum",
+              "legacy": "usdcarb"
+            }
+          }
+        },
+        {
+          "chain": "Optimism",
+          "chainId": 10,
+          "tokens": [
+            "USDC"
+          ],
+          "routes": [
+            "igra",
+            "changenow"
+          ],
+          "changenow": {
+            "USDC": {
+              "currency": "usdc",
+              "network": "op",
+              "legacy": "usdcop"
+            }
+          }
+        },
+        {
+          "chain": "Polygon",
+          "chainId": 137,
+          "tokens": [
+            "USDC"
+          ],
+          "routes": [
+            "igra",
+            "changenow"
+          ],
+          "changenow": {
+            "USDC": {
+              "currency": "usdc",
+              "network": "matic",
+              "legacy": "usdcmatic"
+            }
+          }
+        },
+        {
+          "chain": "Avalanche",
+          "chainId": 43114,
+          "tokens": [
+            "USDC"
+          ],
+          "routes": [
+            "igra",
+            "changenow"
+          ],
+          "changenow": {
+            "USDC": {
+              "currency": "usdc",
+              "network": "avaxc",
+              "legacy": "usdcarc20"
+            }
+          }
+        },
+        {
+          "chain": "BNB Chain",
+          "chainId": 56,
+          "tokens": [
+            "USDT",
+            "USDC"
+          ],
+          "routes": [
+            "changenow",
+            "dymension"
+          ],
+          "changenow": {
+            "USDT": {
+              "currency": "usdt",
+              "network": "bsc",
+              "legacy": "usdtbsc"
+            },
+            "USDC": {
+              "currency": "usdc",
+              "network": "bsc",
+              "legacy": "usdcbsc"
+            }
+          }
+        },
+        {
+          "chain": "Igra",
+          "chainId": 38833,
+          "tokens": [
+            "USDC"
+          ],
+          "routes": [
+            "igra-local"
+          ]
+        }
       ],
       "routes": {
         "igra": {
           "name": "Through Igra",
           "custody": "none",
           "summary": "Bridge to Igra, swap there, cross to Kaspa L1. Every step is a transaction you sign; nobody holds the money in between.",
-          "legs": ["hyperlane", "zealous", "exit"]
+          "legs": [
+            "hyperlane",
+            "zealous",
+            "exit"
+          ]
         },
         "igra-local": {
           "name": "Already on Igra",
           "custody": "none",
           "summary": "Swap on Igra and cross to Kaspa L1. No bridge in, so the Hyperlane pause does not touch it.",
-          "legs": ["zealous", "exit"]
+          "legs": [
+            "zealous",
+            "exit"
+          ]
         },
         "changenow": {
           "name": "Instant swap",
           "custody": "ChangeNOW",
           "summary": "Send the stablecoin to ChangeNOW; it sends native KAS to your Kaspa address. ChangeNOW holds the money for the minutes of the swap, and its fee is inside the rate it quotes. Warda takes nothing and never sees it.",
-          "legs": ["changenow"]
+          "legs": [
+            "changenow"
+          ]
         },
         "dymension": {
           "name": "Dymension bridge",
           "custody": "a validator multisig (5 of 9)",
           "summary": "Swap to wrapped KAS, bridge through Dymension's Hub, released as native KAS on L1. The Kaspa leg is tested; every EVM leg is experimental.",
-          "legs": ["dymension-evm", "dymension-kaspa"]
+          "legs": [
+            "dymension-evm",
+            "dymension-kaspa"
+          ]
         }
       },
       "legs": {
@@ -51,13 +205,20 @@
           "since": "2026-09-20",
           "why": "Igra's Hyperlane pausable ISM and hook were paused on-chain, halting transfers in and out of Igra; Hyperlane removed Igra's routes from its UI and router the same day. No cause or date to resume has been published.",
           "source": "https://github.com/hyperlane-xyz/hyperlane-registry/pull/1713",
-          "probe": { "rpc": "https://rpc.igralabs.com:8545", "chainId": 38833, "paused": ["0x238b3Fc6f3D32102AA655984059A051647DA98e2", "0x74B2b1fC57B28e11A5bAf32a758bbC98FA7837da"] }
+          "probe": {
+            "rpc": "https://rpc.igralabs.com:8545",
+            "chainId": 38833,
+            "paused": [
+              "0x238b3Fc6f3D32102AA655984059A051647DA98e2",
+              "0x74B2b1fC57B28e11A5bAf32a758bbC98FA7837da"
+            ]
+          }
         },
         "zealous": {
           "does": "swap USDC for iKAS on Igra",
           "via": "Zealous Swap, USDC/iKAS pool",
           "status": "live",
-          "why": "Trading, with a thin pool relative to the rest of the venue — a large order moves the price, which is what the slippage bound is for.",
+          "why": "Trading, with a thin pool relative to the rest of the venue \u2014 a large order moves the price, which is what the slippage bound is for.",
           "source": "https://www.coingecko.com/en/exchanges/zealous-swap-igra"
         },
         "exit": {
@@ -72,7 +233,7 @@
           "via": "ChangeNOW",
           "status": "live",
           "custodial": true,
-          "why": "Custodial for the minutes of the swap. A minimum of well under a dollar, so no 1,000 KAS floor. Check the network on its page matches the chain you are sending from.",
+          "why": "Custodial for the minutes of the swap: ChangeNOW receives the stablecoin and sends native KAS to your Kaspa address. Its fee is inside the rate it quotes. No 1,000 KAS floor \u2014 the minimum is under a dollar.",
           "source": "https://changenow.io/currencies/kaspa"
         },
         "dymension-evm": {
@@ -91,5 +252,6 @@
         }
       }
     }
-  }
+  },
+  "_changenow_comment": "ChangeNOW v2 names a currency and a network separately (usdc + base); legacy is the combined ticker its website uses. Verified against GET /v2/exchange/currencies on 21 Sep 2026."
 }

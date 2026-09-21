@@ -865,6 +865,19 @@ for outdir, subs in flavours.items():
         dst.write_bytes(src.read_bytes())
         print(f"{outdir}/{name}: {dst.stat().st_size/1024:>6.1f} KB")
 
+    # The console's one server-side function, and the two files it reads.
+    # Only the web flavour deploys, but the function's inputs are copied from
+    # the same src/ files the page reads, so the route table and the address
+    # decoder the server enforces are the ones the page shows — not copies
+    # that can drift. Underscored names are not turned into functions.
+    if outdir == "web":
+        api = d / "api"
+        api.mkdir(exist_ok=True)
+        (api / "swap.mjs").write_bytes((here / "src" / "api" / "swap.mjs").read_bytes())
+        (api / "_routes.json").write_bytes((here / "src" / "routes.json").read_bytes())
+        (api / "_router.js").write_bytes((here / "src" / "router-browser.js").read_bytes())
+        print(f"{outdir}/api: swap.mjs, with _routes.json and _router.js beside it")
+
 # The download itself, into the web flavour only: the artifact flavour is a
 # self-contained page with no host to serve a file from.
 if CONSOLE_ZIP:
