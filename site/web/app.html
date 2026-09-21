@@ -832,9 +832,12 @@ ops/install-cron.sh</pre>
                   <input id="rate" inputmode="decimal" value="0.05">
                 </div>
                 <div class="px">
-                  <label>Market, for context only</label>
+                  <label>Market</label>
                   <span id="px">&mdash;</span>
                   <i id="px-src">not fetched yet</i>
+                </div>
+                <div style="min-width:auto">
+                  <button class="go gh" id="use-px" disabled>Use the market rate</button>
                 </div>
               </div>
 
@@ -1667,6 +1670,8 @@ ops/install-cron.sh</pre>
      wrong, and until now the only way to ask it was to open the JSON. Every
      figure here comes from the same reading the tables are built from. */
   var SHOWN = null;
+  /* Null means the number in the box is the operator's own. */
+  var RATE_FROM = null;
 
   /* What a purchase cost, and nothing when it cost nothing.
      A row reading "failed · 0.2 KAS" says money moved. It did not — there is
@@ -1856,8 +1861,11 @@ ops/install-cron.sh</pre>
      nothing is ever enforced against it. A fetch that fails says so. It does
      not say $0, and it does not leave a stale value on screen as though it
      were current. */
+  var MARKET = null;
   function market() {
     var miss = function (why) {
+      MARKET = null;
+      if ($("use-px")) $("use-px").disabled = true;
       ["px", "a-px"].forEach(function (id) { if ($(id)) $(id).textContent = "—"; });
       ["px-src", "a-px-src"].forEach(function (id) { if ($(id)) $(id).textContent = why; });
     };
@@ -1867,10 +1875,12 @@ ops/install-cron.sh</pre>
         var v = j && j.kaspa && j.kaspa.usd;
         if (!(v > 0)) return miss("no price in the reply. That is not $0.");
         var t = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+        MARKET = { rate: v, at: t, source: "CoinGecko" };
         ["px", "a-px"].forEach(function (id) { if ($(id)) $(id).textContent = "$" + v + " per KAS"; });
         ["px-src", "a-px-src"].forEach(function (id) {
-          if ($(id)) $(id).textContent = "CoinGecko, read at " + t + " — context only, nothing is enforced against it";
+          if ($(id)) $(id).textContent = "CoinGecko, read at " + t + " — nothing is enforced against it";
         });
+        if ($("use-px")) $("use-px").disabled = false;
       })
       .catch(function () { miss("could not be fetched. That is not $0 — nothing here depends on it."); });
   }
@@ -1973,7 +1983,13 @@ ops/install-cron.sh</pre>
 
     $("drift").textContent = p.b == null
       ? "Enter a rate above zero. Until then there is no KAS figure, which is not the same as zero KAS."
-      : "These are KAS figures from here on. If KAS moves, the grant does not — " + kasOf(p.b) +
+      /* Credited to the market only while the box still holds the market's
+         number. This cleared on the rate field's own input event, which ran
+         AFTER the redraw — so typing your own rate left the panel crediting
+         CoinGecko for it. Comparing the value cannot depend on listener order. */
+      : "Sized at $" + parseFloat(p.rate) + " per KAS — " +
+        (RATE_FROM && parseFloat(p.rate) === RATE_FROM.value ? RATE_FROM.label : "your own figure") +
+        ". These are KAS figures from here on: if KAS moves, the grant does not. " + kasOf(p.b) +
         " KAS stays " + kasOf(p.b) + " KAS, and what it is worth is somebody else's number.";
 
     var need = p.b == null ? null : p.b + 1000000;
@@ -2168,6 +2184,19 @@ ops/install-cron.sh</pre>
   });
   $("w-restart").addEventListener("click", function () { SEEN = 1; goStep(1); });
   if ($("watch")) $("watch").addEventListener("click", watchFunder);
+  /* Using the market rate here is not the thing `warda fund --rate` refuses.
+     That refusal is about a RECEIPT: a rate the tool went and got would be a
+     number Warda vouches for, in a record that should carry the operator's
+     word instead. Nothing on this step reaches a receipt — the rate only turns
+     dollars into the KAS figure the command carries, and the command carries
+     KAS. So the market rate is offered, a person clicks it, and the panel says
+     which rate sized the grant. */
+  if ($("use-px")) $("use-px").addEventListener("click", function () {
+    if (!MARKET) return;
+    $("rate").value = String(MARKET.rate);
+    RATE_FROM = { value: MARKET.rate, label: MARKET.source + ", " + MARKET.at };
+    createView();
+  });
   if ($("csv")) $("csv").addEventListener("click", downloadCsv);
 
   $("q").addEventListener("input", function () { Q = this.value.trim().toLowerCase(); if (A.length) render(); });

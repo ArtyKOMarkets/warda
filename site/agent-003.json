@@ -1,6 +1,6 @@
 {
   "_comment": "Written by agents/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, the purchase log or the chain — none is typed. Each payee's LABEL is re-derived on every run from the artefact agents/known-payees.json names, and a label that stops matching is dropped rather than published: an address with no name is honest, an address with the wrong name is not.",
-  "checkedAt": "2026-09-20T16:59:37.393Z",
+  "checkedAt": "2026-09-21T04:35:25.809Z",
   "network": "testnet-10",
   "identity": {
     "agentId": "WARDA-003",
@@ -53,14 +53,14 @@
   },
   "timelock": {
     "notBefore": "564404779",
-    "virtualDaaScore": "575912009",
+    "virtualDaaScore": "576332061",
     "open": true,
     "lockedFor": "5 minutes",
-    "openedAgo": "13 days",
+    "openedAgo": "14 days",
     "expiresAt": "590324779",
     "expired": false,
-    "expiresInDaa": "14412770",
-    "expiresIn": "17 days",
+    "expiresInDaa": "13992718",
+    "expiresIn": "16 days",
     "expiredAgo": null,
     "enforcedBy": "the covenant, on every spend: claimedDaa >= notBefore. Not a scheduler, not this process, and not revocable by whoever issued the grant.",
     "termEnforcedBy": "the covenant, on every spend: claimedDaa < expiresAt. After it, the grant refuses everything whatever its budget says, and the balance is the principal's to reclaim."
@@ -561,7 +561,7 @@
     {
       "rule": "start time (not_before)",
       "attempted": "spend before the grant opens",
-      "refusal": "this grant could not spend anything until DAA 564404779. The covenant checks the claimed DAA score against that number on every spend, so the delay was not a policy in the agent's process and could not be brought forward by whoever issued it. It opened 13 days ago.",
+      "refusal": "this grant could not spend anything until DAA 564404779. The covenant checks the claimed DAA score against that number on every spend, so the delay was not a policy in the agent's process and could not be brought forward by whoever issued it. It opened 14 days ago.",
       "derived": true
     },
     {
