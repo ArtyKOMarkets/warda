@@ -259,6 +259,37 @@
   .wc-qr:empty { background: var(--panel); }
   .wc-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.8rem; }
   .wc-row > * { flex: 1 1 auto; }
+  /* ---- analytics charts ---------------------------------------------------- */
+  .an-leg { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; margin-top: 0.7rem; font-size: 0.76rem; color: var(--chrome-dim); }
+  .an-leg span { display: inline-flex; align-items: center; gap: 0.4rem; }
+  .an-leg i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .an-leg b { font-family: var(--mono); font-weight: 500; color: var(--chrome); }
+  .an-tip { position: absolute; pointer-events: none; background: var(--raise); border: 1px solid var(--edge-bright);
+    border-radius: 9px; padding: 0.5rem 0.65rem; font-size: 0.72rem; line-height: 1.5; color: var(--chrome-dim);
+    min-width: 150px; max-width: 280px; box-shadow: 0 10px 28px rgba(0,0,0,0.5); z-index: 5; opacity: 0;
+    transition: opacity 100ms; white-space: normal; }
+  .an-tip .v { display: block; font-family: var(--mono); font-size: 0.92rem; color: var(--chrome); }
+  .an-tip .r { display: grid; grid-template-columns: 12px 1fr auto; gap: 0.45rem; align-items: center; }
+  .an-tip .r i { height: 2px; border-radius: 1px; display: block; }
+  .an-tip .r b { font-family: var(--mono); font-weight: 500; color: var(--chrome); }
+  .an-hit { cursor: default; }
+  .an-hit:hover, .an-hit.on { filter: brightness(1.25); }
+  .an-rings { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 0.9rem 0.6rem; margin-top: 0.9rem; }
+  .an-ring { display: grid; justify-items: center; gap: 0.25rem; text-align: center; position: relative; }
+  .an-ring svg { width: 84px; height: 84px; display: block; }
+  .an-ring b { font-size: 0.78rem; color: var(--chrome); font-weight: 600; }
+  .an-ring span { font-size: 0.68rem; color: var(--chrome-faint); font-family: var(--mono); }
+  .an-share { display: flex; height: 14px; gap: 2px; margin-top: 0.8rem; }
+  .an-share i { display: block; min-width: 3px; }
+  .an-share i:first-child { border-radius: 7px 0 0 7px; } .an-share i:last-child { border-radius: 0 7px 7px 0; }
+  .an-share i:only-child { border-radius: 7px; }
+  #an-ep td, #an-run td { white-space: nowrap; }
+  @media (max-width: 600px) {
+    #an-ep th:nth-child(4), #an-ep td:nth-child(4), #an-ep th:nth-child(6), #an-ep td:nth-child(6) { display: none; }
+    #an-ep td:first-child .why { display: block; }
+  }
+  .an-tv > summary { cursor: pointer; font-size: 0.78rem; color: var(--chrome-faint); margin-top: 0.8rem; }
+  .an-tv[open] > summary { margin-bottom: 0.4rem; }
   /* ---- the ChangeNOW swap -------------------------------------------------- */
   .cn-quote { display: grid; gap: 0.35rem; }
   .cn-quote .big { font-family: var(--mono); font-size: 1.35rem; color: var(--chrome); margin: 0; }
@@ -915,15 +946,25 @@
       <div class="tiles" id="an-tiles"></div>
 
       <div class="card" style="margin-top:0.85rem">
+        <header><h2>Daily spend <small id="an-daily-n"></small></h2></header>
+        <p class="why">Settled payments from each agent&rsquo;s purchase log, by the day they settled, stacked by agent.</p>
+        <div class="chart" id="an-daily"></div>
+        <div class="an-leg" id="an-daily-leg"></div>
+      </div>
+
+      <div class="card" style="margin-top:0.85rem">
         <header><h2>Burn rate and runway</h2></header>
-        <p class="why">Rate is what each grant has spent on chain, divided by how long it has been open. Runway is
-          what is left at that rate &mdash; and whichever comes first, the money or the term, is the end.</p>
+        <p class="why">Rate is what each grant has spent on chain, divided by how long it has been open. The bar is how
+          long the money lasts at that rate; the tick is where the term ends. Whichever comes first is the end.</p>
+        <div class="chart" id="an-runway"></div>
+        <details class="an-tv"><summary>Table view</summary>
         <div style="overflow-x:auto">
           <table id="an-run"><thead><tr>
             <th>Agent</th><th class="n">Spent</th><th class="n">Used</th><th class="n">Per day</th>
             <th class="n">Money lasts</th><th class="n">Term ends</th><th>Ends by</th>
           </tr></thead><tbody></tbody></table>
         </div>
+        </details>
       </div>
 
       <div class="two" style="margin-top:0.85rem;align-items:start">
@@ -936,16 +977,16 @@
         <div class="card">
           <header><h2>Budget used</h2></header>
           <p class="why">Of the total each grant may ever spend.</p>
-          <div class="bars" id="an-use"></div>
+          <div class="an-rings" id="an-use"></div>
         </div>
       </div>
 
       <div class="two" style="margin-top:0.85rem;align-items:start">
         <div class="card">
           <header><h2>How close to the limit</h2></header>
-          <p class="why">Each payment as a share of that grant&rsquo;s per-payment cap. A grant whose payments sit near
-            its cap is one price rise away from refusals.</p>
-          <div class="feed" id="an-near"></div>
+          <p class="why">Every settled payment, as a share of its grant&rsquo;s per-payment cap. Dots in the shaded
+            band are within 20% of the cap &mdash; one price rise away from refusals.</p>
+          <div class="chart" id="an-near"></div>
         </div>
         <div class="card">
           <header><h2>Why payments did not go through</h2></header>
@@ -956,8 +997,16 @@
       </div>
 
       <div class="card" style="margin-top:0.85rem">
+        <header><h2>When agents buy <small id="an-punch-n"></small></h2></header>
+        <p class="why">Settled payments by day of week and hour, in your time zone. A bigger dot is more payments.</p>
+        <div class="chart" id="an-punch"></div>
+      </div>
+
+      <div class="card" style="margin-top:0.85rem">
         <header><h2>Cost by endpoint <small id="an-ep-n"></small></h2></header>
         <p class="why" id="an-conc">&mdash;</p>
+        <div class="an-share" id="an-ep-bar"></div>
+        <div class="an-leg" id="an-ep-leg"></div>
         <div style="overflow-x:auto">
           <table id="an-ep"><thead><tr>
             <th>Endpoint</th><th class="n">Payments</th><th class="n">Total</th><th class="n">Average</th>
@@ -4558,6 +4607,204 @@ var WardaRouter = (() => {
   }
   function settled(x) { return x.p.outcome === "bought" || x.p.outcome === "served"; }
 
+  /* ---- analytics: the charts ---------------------------------------------------
+     Hand-drawn SVG, one scale per chart, agent colour = hue(id) and nothing
+     else (the six-hue order validated on this ground: CVD and normal-vision
+     separation pass, contrast >= 3:1). Every mark carries its own tooltip;
+     every figure a tooltip shows is also in a label or a table. */
+  function anTip(host) {
+    if (host._tip) return host._tip;
+    var t = document.createElement("div"); t.className = "an-tip"; host.appendChild(t);
+    var on = null;
+    host.addEventListener("pointermove", function (e) {
+      var el = e.target.closest && e.target.closest("[data-tip]");
+      if (on && on !== el) on.classList.remove("on");
+      if (!el || !host.contains(el)) { t.style.opacity = 0; on = null; return; }
+      on = el; el.classList.add("on");
+      t.innerHTML = el.getAttribute("data-tip");
+      var r = host.getBoundingClientRect(), w = t.offsetWidth, h = t.offsetHeight;
+      var x = e.clientX - r.left + 14, y = e.clientY - r.top - h - 10;
+      if (x + w > r.width) x = e.clientX - r.left - w - 14;
+      if (y < 0) y = e.clientY - r.top + 16;
+      t.style.left = Math.max(0, x) + "px"; t.style.top = y + "px"; t.style.opacity = 1;
+    });
+    host.addEventListener("pointerleave", function () { t.style.opacity = 0; if (on) on.classList.remove("on"); on = null; });
+    host._tip = t;
+    return t;
+  }
+  function tipRows(head, value, rows) {
+    return esc(head) + '<span class="v">' + esc(value) + '</span>' + (rows || []).map(function (r) {
+      return '<span class="r"><i style="background:' + r[0] + '"></i><span>' + esc(r[1]) + '</span><b>' + esc(r[2]) + '</b></span>';
+    }).join("");
+  }
+  function mount(id, svg) { var h = $(id); var t = h._tip; h.innerHTML = svg; if (t) h.appendChild(t); anTip(h); }
+  /* Drawn at the width it is shown at, so 11px text is 11px on a phone and on
+     a wide screen alike. A viewBox scaled to the card made the labels
+     twice their size on a desktop. */
+  function wOf(id, min) { var h = $(id); return Math.max(min || 300, Math.floor((h && h.clientWidth) || 720)); }
+  function niceMax(v) {
+    if (!(v > 0)) return 1;
+    var e = Math.pow(10, Math.floor(Math.log10(v))), f = v / e;
+    return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * e;
+  }
+
+  /* Daily spend: stacked bars, last 30 days that have a payment in reach. */
+  function chartDaily(ok) {
+    var DAYS = 30, now = new Date(); now.setHours(0, 0, 0, 0);
+    var days = [];
+    for (var i = DAYS - 1; i >= 0; i--) { var d = new Date(now.getTime() - i * 86400000); days.push(d.toISOString().slice(0, 10)); }
+    var ids = A.map(function (a) { return a.id; });
+    var cell = {}; days.forEach(function (d) { cell[d] = {}; });
+    ok.forEach(function (x) { var d = day(x.p.at); if (cell[d]) cell[d][x.agent] = (cell[d][x.agent] || 0) + num(x.p.paid); });
+    var totals = days.map(function (d) { return ids.reduce(function (s, id) { return s + (cell[d][id] || 0); }, 0); });
+    var any = totals.some(function (v) { return v > 0; });
+    $("an-daily-n").textContent = any ? kas2(totals.reduce(function (a, b) { return a + b; }, 0)) + " KAS in 30 days" : "";
+    if (!any) { $("an-daily").innerHTML = '<p class="empty">No settled payment in the last 30 days.</p>'; $("an-daily-leg").innerHTML = ""; return; }
+    var W = wOf("an-daily"), H = 200, PL = 40, PR = 6, PT = 10, PB = 22, max = niceMax(Math.max.apply(null, totals));
+    var bw = (W - PL - PR) / DAYS, y = function (v) { return PT + (H - PT - PB) * (1 - v / max); };
+    var g = [0, max / 2, max].map(function (t) {
+      return '<line class="grid-l" x1="' + PL + '" x2="' + (W - PR) + '" y1="' + y(t) + '" y2="' + y(t) + '"/>' +
+        '<text class="ax" x="' + (PL - 6) + '" y="' + (y(t) + 3) + '" text-anchor="end">' + kas2(t) + '</text>';
+    }).join("");
+    var bars = days.map(function (d, i) {
+      var x = PL + i * bw + 1.5, w = Math.max(2, bw - 3), acc = 0, segs = "";
+      var rows = ids.filter(function (id) { return cell[d][id]; }).map(function (id) { return [hue(id), "Agent #" + id, kas(cell[d][id]) + " KAS"]; });
+      ids.forEach(function (id) {
+        var v = cell[d][id]; if (!v) return;
+        var y0 = y(acc), y1 = y(acc + v); acc += v;
+        var hgt = Math.max(1, y0 - y1 - (acc < totals[i] ? 2 : 0));
+        segs += '<rect x="' + x.toFixed(1) + '" y="' + y1.toFixed(1) + '" width="' + w.toFixed(1) + '" height="' + hgt.toFixed(1) + '" rx="' + (acc >= totals[i] ? 3 : 0) + '" fill="' + hue(id) + '"/>';
+      });
+      var tip = tipRows(new Date(d + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }),
+        totals[i] ? kas(totals[i]) + " KAS" : "nothing settled", rows);
+      return '<g class="an-hit" data-tip="' + esc(tip) + '"><rect x="' + (PL + i * bw) + '" y="' + PT + '" width="' + bw + '" height="' + (H - PT - PB) + '" fill="transparent"/>' + segs + '</g>';
+    }).join("");
+    var labs = (W < 520 ? [0, 14, 29] : [0, 7, 14, 21, 29]).map(function (i) {
+      return '<text class="ax" x="' + (PL + i * bw + bw / 2) + '" y="' + (H - 6) + '" text-anchor="middle">' + days[i].slice(5) + '</text>';
+    }).join("");
+    mount("an-daily", '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Settled KAS per day over the last 30 days, stacked by agent">' + g + bars + labs + '</svg>');
+    var seen = ids.filter(function (id) { return days.some(function (d) { return cell[d][id]; }); });
+    $("an-daily-leg").innerHTML = seen.map(function (id) {
+      var t = days.reduce(function (s, d) { return s + (cell[d][id] || 0); }, 0);
+      return '<span><i style="background:' + hue(id) + '"></i>Agent #' + id + ' <b>' + kas2(t) + '</b></span>';
+    }).join("");
+  }
+
+  /* Runway: one row per live grant; bar = money lasts, tick = term ends. */
+  function chartRunway(F) {
+    var rows = F.filter(function (f) { return f.st === "live"; });
+    if (!rows.length) { $("an-runway").innerHTML = '<p class="empty">No live grant.</p>'; return; }
+    /* Scaled to the terms, not to the longest runway: a grant whose money
+       outlasts every term by a year would otherwise squash every tick into
+       the first few pixels. Money that runs past the edge says so. */
+    var terms = rows.map(function (f) { return f.termDays || 0; });
+    var span = niceMax(Math.max(7, Math.max.apply(null, terms) * 1.35));
+    var W = wOf("an-runway"), RH = 36, PL = 84, PR = W < 520 ? 12 : 92, PT = 8, H = PT + rows.length * RH + 24;
+    var x = function (d) { return PL + (W - PL - PR) * Math.min(1, d / span); };
+    var ticks = [0, span / 4, span / 2, span * 3 / 4, span];
+    var g = ticks.map(function (t) {
+      return '<line class="grid-l" x1="' + x(t) + '" x2="' + x(t) + '" y1="' + PT + '" y2="' + (H - 20) + '"/>' +
+        '<text class="ax" x="' + x(t) + '" y="' + (H - 6) + '" text-anchor="middle">' + (t ? dur(t) : "today") + '</text>';
+    }).join("");
+    var body = rows.map(function (f, i) {
+      var cy = PT + i * RH + RH / 2, c = hue(f.a.id);
+      var md = f.moneyDays, td = f.termDays, first = md != null && td != null && md < td;
+      var endLabel = md == null ? "no rate yet" : first ? "money in " + dur(md) : "term in " + dur(td);
+      var tip = tipRows("Agent #" + f.a.id, endLabel, [
+        [c, "money lasts", md == null ? "—" : dur(md)], ["#9AA6BE", "term ends", td == null ? "—" : dur(td)],
+        [c, "per day", f.rate ? kas(f.rate) + " KAS" : "not enough data"], [c, "left", kas2(f.left) + " KAS"]]);
+      return '<g class="an-hit" data-tip="' + esc(tip) + '">' +
+        '<rect x="0" y="' + (cy - RH / 2) + '" width="' + W + '" height="' + RH + '" fill="transparent"/>' +
+        '<text x="0" y="' + (cy + 4) + '" style="font-size:12px;fill:var(--chrome-dim)">Agent #' + f.a.id + '</text>' +
+        '<rect x="' + PL + '" y="' + (cy - 5) + '" width="' + (W - PL - PR) + '" height="10" rx="5" fill="var(--panel)"/>' +
+        (md != null ? '<rect x="' + PL + '" y="' + (cy - 5) + '" width="' + Math.max(4, x(md) - PL).toFixed(1) + '" height="10" rx="5" fill="' + c + '"/>' +
+          (md > span ? '<text x="' + (x(span) - 4) + '" y="' + (cy - 9) + '" text-anchor="end" style="font-size:10px;font-family:var(--mono);fill:var(--chrome-faint)">' + dur(md) + ' →</text>' : '') : '') +
+        (td != null ? '<line x1="' + x(td) + '" x2="' + x(td) + '" y1="' + (cy - 10) + '" y2="' + (cy + 10) + '" stroke="var(--chrome)" stroke-width="2" stroke-linecap="round"/>' : '') +
+        (W < 520 ? '' : '<text x="' + (W - PR + 10) + '" y="' + (cy + 4) + '" style="font-size:11px;font-family:var(--mono);fill:' + (first ? "var(--amber)" : "var(--chrome-faint)") + '">' + esc(md == null ? "—" : first ? "money first" : "term first") + '</text>') + '</g>';
+    }).join("");
+    mount("an-runway", '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="How long each live grant\'s money lasts at its current rate, against when its term ends">' + g + body + '</svg>');
+  }
+
+  /* Budget used: a ring per grant. */
+  function chartRings(F) {
+    $("an-use").innerHTML = F.map(function (f) {
+      var c = hue(f.a.id), pct = f.budget ? Math.min(1, f.spent / f.budget) : 0, R = 34, L = 2 * Math.PI * R;
+      var tip = tipRows("Agent #" + f.a.id + " · " + f.st, Math.round(pct * 100) + "% used", [[c, "spent", kas2(f.spent) + " KAS"], [c, "budget", kas2(f.budget) + " KAS"], [c, "left", kas2(f.left) + " KAS"]]);
+      return '<div class="an-ring an-hit" data-tip="' + esc(tip) + '"><svg viewBox="0 0 84 84" role="img" aria-label="Agent ' + f.a.id + ', ' + Math.round(pct * 100) + ' percent of budget used">' +
+        '<circle cx="42" cy="42" r="' + R + '" fill="none" stroke="var(--panel)" stroke-width="7"/>' +
+        (pct > 0 ? '<circle cx="42" cy="42" r="' + R + '" fill="none" stroke="' + c + '" stroke-width="7" stroke-linecap="round" stroke-dasharray="' + (L * pct).toFixed(1) + ' ' + L.toFixed(1) + '" transform="rotate(-90 42 42)"' + (f.st === "live" ? "" : ' opacity="0.45"') + '/>' : '') +
+        '<text x="42" y="46" text-anchor="middle" style="font-family:var(--mono);font-size:15px;fill:var(--chrome)">' + Math.round(pct * 100) + '%</text></svg>' +
+        '<b>Agent #' + f.a.id + '</b><span>' + esc(f.st) + ' · ' + kas2(f.spent) + '/' + kas2(f.budget) + '</span></div>';
+    }).join("") || '<p class="empty">No grant in view.</p>';
+    anTip($("an-use"));
+  }
+
+  /* Payments against the cap: a strip per agent, 0–100%. */
+  function chartNear(ok, capOf) {
+    var ids = A.map(function (a) { return a.id; }).filter(function (id) { return capOf[id] > 0 && ok.some(function (x) { return x.agent === id; }); });
+    if (!ids.length) { $("an-near").innerHTML = '<p class="empty">No settled payment in the logs to compare with a cap.</p>'; return; }
+    var W = wOf("an-near"), RH = 30, PL = 44, PR = 12, PT = 6, H = PT + ids.length * RH + 22;
+    var x = function (s) { return PL + (W - PL - PR) * Math.min(1, s); };
+    var band = '<rect x="' + x(0.8) + '" y="' + PT + '" width="' + (x(1) - x(0.8)) + '" height="' + (ids.length * RH) + '" fill="rgba(232,178,58,0.13)"/>' +
+      '<line x1="' + x(1) + '" x2="' + x(1) + '" y1="' + PT + '" y2="' + (PT + ids.length * RH) + '" stroke="rgba(232,178,58,0.6)" stroke-width="1" stroke-dasharray="3 3"/>';
+    var g = [0, 0.25, 0.5, 0.75, 1].map(function (t) {
+      return '<text class="ax" x="' + x(t) + '" y="' + (H - 6) + '" text-anchor="middle">' + Math.round(t * 100) + '%</text>';
+    }).join("");
+    var body = ids.map(function (id, i) {
+      var cy = PT + i * RH + RH / 2, c = hue(id);
+      var rows = ok.filter(function (x) { return x.agent === id; });
+      var dots = rows.map(function (r, k) {
+        var sh = num(r.p.paid) / capOf[id], jitter = ((k * 37) % 9 - 4) * 1.2;
+        var tip = tipRows("Agent #" + id + " · " + ago(r.p.at), Math.round(sh * 100) + "% of the cap", [[c, "paid", kas(num(r.p.paid)) + " KAS"], [c, "cap", kas(capOf[id]) + " KAS"], [c, "to", host(r.p.url) || short(r.p.payTo)]]);
+        return '<g class="an-hit" data-tip="' + esc(tip) + '"><circle cx="' + x(sh) + '" cy="' + (cy + jitter) + '" r="12" fill="transparent"/>' +
+          '<circle cx="' + x(sh) + '" cy="' + (cy + jitter) + '" r="4.5" fill="' + c + '" stroke="var(--ground)" stroke-width="2"/></g>';
+      }).join("");
+      return '<line x1="' + PL + '" x2="' + (W - PR) + '" y1="' + cy + '" y2="' + cy + '" stroke="var(--edge)"/>' +
+        '<text x="0" y="' + (cy + 4) + '" style="font-size:11px;font-family:var(--mono);fill:var(--chrome-dim)">#' + id + '</text>' + dots;
+    }).join("");
+    mount("an-near", '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Each settled payment as a share of its grant\'s per-payment cap">' + band + g + body + '</svg>');
+  }
+
+  /* When: day of week x hour, dot area by count. */
+  function chartPunch(ok) {
+    var cnt = {}, max = 0;
+    ok.forEach(function (x) { var d = new Date(x.p.at); if (!isFinite(d)) return; var k = d.getDay() + ":" + d.getHours(); cnt[k] = (cnt[k] || 0) + 1; if (cnt[k] > max) max = cnt[k]; });
+    $("an-punch-n").textContent = ok.length ? ok.length + " payments" : "";
+    if (!max) { $("an-punch").innerHTML = '<p class="empty">No settled payment recorded.</p>'; return; }
+    var DN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], order = [1, 2, 3, 4, 5, 6, 0];
+    var W = wOf("an-punch"), PL = 38, PT = 8, CW = (W - PL - 6) / 24, RH = W < 520 ? 20 : 26, H = PT + 7 * RH + 20;
+    var body = order.map(function (dw, r) {
+      var cy = PT + r * RH + RH / 2;
+      var row = '<text x="0" y="' + (cy + 4) + '" style="font-size:11px;fill:var(--chrome-faint)">' + DN[dw] + '</text>';
+      for (var h = 0; h < 24; h++) {
+        var n = cnt[dw + ":" + h] || 0, cx = PL + h * CW + CW / 2;
+        row += n ? '<g class="an-hit" data-tip="' + esc(tipRows(DN[dw] + " " + String(h).padStart(2, "0") + ":00", n + " payment" + (n === 1 ? "" : "s"))) + '">' +
+          '<circle cx="' + cx + '" cy="' + cy + '" r="11" fill="transparent"/>' +
+          '<circle cx="' + cx + '" cy="' + cy + '" r="' + ((2.5 + 7.5 * Math.sqrt(n / max)) * Math.min(1, CW / 26)).toFixed(1) + '" fill="#0FA890" fill-opacity="' + (0.35 + 0.65 * n / max).toFixed(2) + '"/></g>'
+          : '<circle cx="' + cx + '" cy="' + cy + '" r="1.3" fill="var(--edge-bright)"/>';
+      }
+      return row;
+    }).join("");
+    var labs = [0, 6, 12, 18, 23].map(function (h) { return '<text class="ax" x="' + (PL + h * CW + CW / 2) + '" y="' + (H - 4) + '" text-anchor="middle">' + String(h).padStart(2, "0") + ':00</text>'; }).join("");
+    mount("an-punch", '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Settled payments by day of week and hour">' + body + labs + '</svg>');
+  }
+
+  /* Endpoint share: one 100% bar, fixed endpoint colours by rank of total. */
+  var EP_HUE = ["#0FA890", "#4C8DF6", "#C95FA8", "#B87F2E", "#9B6BE8", "#6BA83C"];
+  function chartShare(er, etot) {
+    if (!er.length) { $("an-ep-bar").innerHTML = ""; $("an-ep-leg").innerHTML = ""; return; }
+    var top = er.slice(0, 5), rest = er.slice(5);
+    var segs = top.map(function (r, i) { return { name: (host(r.k) || short(r.k)) + path(r.k), v: r.v, n: r.n, c: EP_HUE[i] }; });
+    if (rest.length) segs.push({ name: "Other (" + rest.length + ")", v: rest.reduce(function (s, r) { return s + r.v; }, 0), n: rest.reduce(function (s, r) { return s + r.n; }, 0), c: "#6E7C97" });
+    $("an-ep-bar").innerHTML = segs.map(function (g) {
+      return '<i class="an-hit" style="flex:' + g.v + ';background:' + g.c + '" data-tip="' + esc(tipRows(g.name, Math.round(g.v / etot * 100) + "% of spend", [[g.c, "total", kas2(g.v) + " KAS"], [g.c, "payments", String(g.n)]])) + '"></i>';
+    }).join("");
+    $("an-ep-leg").innerHTML = segs.map(function (g) {
+      return '<span><i style="background:' + g.c + '"></i>' + esc(g.name) + ' <b>' + Math.round(g.v / etot * 100) + '%</b></span>';
+    }).join("");
+    anTip($("an-ep-bar").parentNode);
+  }
+
   function analyticsView() {
     if (!$("an-run")) return;
     var F = A.map(anFacts);
@@ -4586,7 +4833,11 @@ var WardaRouter = (() => {
         pays.length ? ok.length + " of " + pays.length + " recorded attempts" : "no attempts recorded")
     ].join("");
 
-    /* runway table */
+    chartDaily(ok);
+    chartRunway(F);
+    chartPunch(ok);
+
+    /* runway table (the chart's table view) */
     $("an-run").querySelector("tbody").innerHTML = F.map(function (f) {
       var ends = f.st !== "live" ? f.st
         : f.moneyDays == null ? (f.termDays == null ? "—" : "term")
@@ -4619,13 +4870,7 @@ var WardaRouter = (() => {
     }).join("") : '<p class="empty">No settled payment in the last two weeks.</p>';
 
     /* budget used */
-    $("an-use").innerHTML = F.length ? F.map(function (f) {
-      var c = hue(f.a.id), pct = f.budget ? f.spent / f.budget * 100 : 0;
-      return '<div class="brow"><span class="av" style="background:' + c + '22;color:' + c + '">' + f.a.id + '</span>' +
-        '<span class="lab">' + esc(f.st) + ' <span style="color:var(--chrome-faint)">· ' + kas2(f.spent) + ' of ' + kas2(f.budget) + ' KAS</span></span>' +
-        '<span class="amt">' + Math.round(pct) + '%</span>' +
-        '<span class="tr"><i style="width:' + Math.max(1, Math.min(100, pct)) + '%;background:' + c + '"></i></span></div>';
-    }).join("") : '<p class="empty">No grant in view.</p>';
+    chartRings(F);
 
     /* near the cap */
     var capOf = {}; F.forEach(function (f) { capOf[f.a.id] = f.cap; });
@@ -4635,13 +4880,7 @@ var WardaRouter = (() => {
       var shares = rows.map(function (x) { return num(x.p.paid) / capOf[id]; });
       return { id: id, n: rows.length, max: Math.max.apply(null, shares), hi: shares.filter(function (s) { return s >= 0.8; }).length };
     }).filter(Boolean);
-    $("an-near").innerHTML = near.length ? near.map(function (r) {
-      var pill = r.max >= 0.8 ? "warn" : "live";
-      return '<div class="ev"><span class="ic" style="background:' + hue(r.id) + '22;color:' + hue(r.id) + '"><b style="font-family:var(--mono);font-size:0.6rem">' + r.id + '</b></span>' +
-        '<i style="font-style:normal;min-width:0"><b>Largest payment ' + Math.round(r.max * 100) + '% of the cap</b>' +
-        '<span>' + r.hi + ' of ' + r.n + ' payment' + (r.n === 1 ? "" : "s") + ' at 80% or more</span></i>' +
-        '<span class="a"><span class="pill ' + pill + '">' + (r.max >= 0.8 ? "close" : "room") + '</span></span></div>';
-    }).join("") : '<p class="empty">No settled payment in the logs to compare with a cap.</p>';
+    chartNear(ok, capOf);
 
     /* refusal reasons */
     var why = {};
@@ -4679,6 +4918,7 @@ var WardaRouter = (() => {
       ? "Everything goes to one endpoint. If it goes down or changes its price, every agent here stops buying at once."
       : "The largest endpoint takes " + Math.round(er[0].v / etot * 100) + "% of spend" +
         (er[0].v / etot >= 0.5 ? " — concentrated: one endpoint going down or repricing moves most of the fleet." : ".");
+    chartShare(er, etot);
     $("an-ep").querySelector("tbody").innerHTML = er.map(function (r) {
       return '<tr><td><span class="kv" title="' + esc(r.k) + '">' + esc(host(r.k) || short(r.k)) + '</span> <span class="why">' + esc(path(r.k)) + '</span></td>' +
         '<td class="n">' + r.n + '</td><td class="n">' + kas2(r.v) + ' KAS</td><td class="n">' + kas(r.v / r.n) + ' KAS</td>' +
@@ -5479,6 +5719,11 @@ var WardaRouter = (() => {
   $("scrim").addEventListener("click", function () { drawer(false); });
   svcLoad();
   $("an-csv").addEventListener("click", analyticsCsv);
+  var anResize = null;
+  window.addEventListener("resize", function () {
+    clearTimeout(anResize);
+    anResize = setTimeout(function () { if ($("v-analytics").classList.contains("on")) analyticsView(); }, 150);
+  });
   $("an-print").addEventListener("click", function () { window.print(); });
   if ($("fu-to-create")) $("fu-to-create").addEventListener("click", function () {
     var a = ($("fu-addr").value || "").trim();
@@ -5541,7 +5786,6 @@ var WardaRouter = (() => {
     if (!fromRoute) location.hash = hashFor(v);
     drawer(false);
     if (v === "fleet") fleetView();
-    if (v === "analytics") analyticsView();
     if (v === "registry") svcView();
     Array.prototype.forEach.call(document.querySelectorAll(".side a[data-view], .tabs a[data-view]"), function (o) {
       if (o.getAttribute("data-view") === v) o.setAttribute("aria-current", "page");
@@ -5549,6 +5793,8 @@ var WardaRouter = (() => {
     });
     Array.prototype.forEach.call(document.querySelectorAll(".view"), function (o) { o.classList.remove("on"); });
     $("v-" + v).classList.add("on");
+    /* After the view is showing: the charts are drawn at their card's width. */
+    if (v === "analytics") analyticsView();
     if (W && SCOPE === "public" && !$("v-" + v).classList.contains("data")) {
       SCOPE = "mine"; scopeData(); if (ALL.length) render();
     }
