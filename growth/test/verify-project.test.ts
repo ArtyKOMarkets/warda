@@ -140,3 +140,21 @@ test("a channel the maintainer published is a finding; no email is ever looked f
   assert.ok(!record.unverified.some((u) => u.startsWith("who to contact")));
   assert.ok(record.signals.some((s) => s.startsWith("mentions paying for things") && s.includes("x402")));
 });
+
+test("the website's X link wins over a stale GitHub profile", async () => {
+  const record = await verifyProject(REPO, answers({
+    [API]: { status: 200, body: JSON.stringify({ ...JSON.parse(META), homepage: "https://nevermined.ai" }) },
+    [`${API}/readme`]: { status: 200, body: README("payments") },
+    "https://api.github.com/users/kaspanet": { status: 200, body: JSON.stringify({ type: "Organization", twitter_username: "nevermined_io" }) },
+    "https://nevermined.ai": { status: 200, body: '<a href="https://x.com/intent/tweet?x=1">share</a><footer><a href="https://x.com/nevermined_ai">X</a></footer>' },
+  }), NOW);
+  const facts = record.findings.map((f) => f.fact);
+  assert.ok(facts.includes("its website links X @nevermined_ai"));
+});
+
+test("a share button is not an account, and a tie is not an answer", async () => {
+  const { siteHandle } = await import("../src/verify-project.ts");
+  assert.equal(siteHandle('<a href="https://twitter.com/share?u=1">x</a>'), null);
+  assert.equal(siteHandle('<a href="https://x.com/a">a</a><a href="https://x.com/b">b</a>'), null);
+  assert.equal(siteHandle('<a href="https://x.com/a">a</a><a href="https://twitter.com/a/">a</a><a href="https://x.com/b">b</a>'), "a");
+});

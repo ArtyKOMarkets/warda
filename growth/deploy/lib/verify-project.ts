@@ -179,9 +179,11 @@ export async function verifyProject(url: string, fetcher: Fetcher, now = new Dat
   const ownerApi = `https://api.github.com/users/${repo.owner}`;
   const owner = await fetcher(ownerApi).catch(() => ({ status: 0, body: "" }));
   let reachable = false;
+  let site: string | null = meta.homepage || null;
   if (owner.status === 200) {
     try {
       const o = JSON.parse(owner.body) as { type?: string; twitter_username?: string | null; blog?: string | null; html_url?: string };
+      if (!site && o.blog) site = o.blog;
       if (o.twitter_username) {
         findings.push({ fact: `the ${o.type === "Organization" ? "organisation" : "maintainer"} lists X/Twitter @${o.twitter_username} on their profile`, source: ownerApi });
         reachable = true;
@@ -195,6 +197,23 @@ export async function verifyProject(url: string, fetcher: Fetcher, now = new Dat
     }
   }
   if (meta.homepage) findings.push({ fact: `the repository names a homepage, ${meta.homepage}`, source: api });
+
+  /* The project's own website, read for the X account it links today. A
+     GitHub profile is filled in once and forgotten: Nevermined's still said
+     @nevermined_io after they had moved to @nevermined_ai, and the first draft
+     this fleet produced went to an account that no longer existed. The site
+     is what they maintain, so what it links is the current answer. */
+  if (site) {
+    const url = /^https?:\/\//i.test(site) ? site : `https://${site}`;
+    const page = await fetcher(url).catch(() => ({ status: 0, body: "" }));
+    if (page.status === 200) {
+      const handle = siteHandle(page.body);
+      if (handle) {
+        findings.push({ fact: `its website links X @${handle}`, source: url });
+        reachable = true;
+      }
+    }
+  }
   if (meta.has_discussions) {
     findings.push({ fact: "GitHub Discussions is switched on, so questions are invited in public", source: api });
     reachable = true;
@@ -204,6 +223,26 @@ export async function verifyProject(url: string, fetcher: Fetcher, now = new Dat
   if (!reachable) unverified.push("who to contact — the profile publishes no channel");
   unverified.push("whether they welcome being contacted");
   return record;
+}
+
+/* Paths on x.com that are not accounts. A share button is not a channel. */
+const NOT_HANDLES = new Set(["intent", "share", "home", "search", "hashtag", "i", "explore", "login", "signup", "settings", "messages", "notifications", "privacy", "tos"]);
+
+/** The X account a web page links, if exactly one stands out; null otherwise. */
+export function siteHandle(html: string): string | null {
+  const counts = new Map<string, number>();
+  const re = /href=["']https?:\/\/(?:www\.)?(?:x|twitter)\.com\/(?:#!\/)?@?([A-Za-z0-9_]{1,15})(?=[/?"'#])/gi;
+  for (let m = re.exec(html); m; m = re.exec(html)) {
+    const h = m[1]!;
+    if (NOT_HANDLES.has(h.toLowerCase())) continue;
+    counts.set(h, (counts.get(h) ?? 0) + 1);
+  }
+  if (!counts.size) return null;
+  /* The one linked most — a footer link usually appears once per layout, a
+     quoted tweet's author once in the body. A tie is not an answer. */
+  const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  if (ranked.length > 1 && ranked[0]![1] === ranked[1]![1]) return null;
+  return ranked[0]![0];
 }
 
 /** Words present, with where they were seen. Never a conclusion. */

@@ -81,6 +81,12 @@ export function angleFor(record: ProjectRecord): Angle | null {
 }
 
 function channelFor(record: ProjectRecord): Draft["channel"] | null {
+  /* The handle the project's own website links first: it is the one they keep
+     current. The GitHub profile's is a fallback. */
+  for (const f of record.findings) {
+    const m = /^its website links X @([A-Za-z0-9_]{1,15})$/.exec(f.fact);
+    if (m) return { kind: "x", target: `https://x.com/${m[1]}`, source: f.source };
+  }
   for (const f of record.findings) {
     const m = /X\/Twitter @([A-Za-z0-9_]{1,15})/.exec(f.fact);
     if (m) return { kind: "x", target: `https://x.com/${m[1]}`, source: f.source };

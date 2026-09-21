@@ -101,3 +101,10 @@ test("the markdown lists drafts and the projects with nothing to send", () => {
   assert.match(md, /1 draft, 1 project with nothing to send/);
   assert.match(md, /Nothing here has been sent/);
 });
+
+test("a DM goes to the handle the website links, not the one on GitHub", () => {
+  const f = [...base().findings, { fact: "its website links X @acme_now", source: "https://acme.dev" }];
+  const d = draft(base({ findings: f }));
+  assert.ok(isDraft(d));
+  assert.equal(d.channel.target, "https://x.com/acme_now");
+});
