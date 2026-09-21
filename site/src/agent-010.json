@@ -1,0 +1,229 @@
+{
+  "_comment": "Written by agents/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, the purchase log or the chain — none is typed. Each payee's LABEL is re-derived on every run from the artefact agents/known-payees.json names, and a label that stops matching is dropped rather than published: an address with no name is honest, an address with the wrong name is not.",
+  "checkedAt": "2026-09-21T12:16:28.818Z",
+  "network": "testnet-10",
+  "identity": {
+    "agentId": "WARDA-010",
+    "agent": "6476d3dc5c61b0d75ecaf1f5d0e84878c9c11ba4f145bba1568dd904875c4c4f",
+    "principal": "0393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34f",
+    "revocation": "0393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34f",
+    "grantAddress": "kaspatest:pqlk8fzkyqq9s4eszyctzh9wvr6j2xsnjmtq6kvruz6yk0znzjydqytqn6tdr",
+    "covenantId": "80d0c3a1141440260ec8c245ffaf2b2d99e1b551e1052cf63f13babebe36f2ff",
+    "template": "b3e5eeefacf2021f"
+  },
+  "buysFrom": {
+    "endpoint": "https://warda-growth.vercel.app/verify",
+    "payees": [
+      {
+        "address": "kaspatest:qqj58pd2qw47lg2wn97srt27dwxp8jj2hfasxrt8tjjeytpelzh5sa2mpucwy",
+        "key": "254385aa03abefa14e997d01ad5e6b8c13ca4aba7b030d675ca5922c39f8af48",
+        "label": "Warda Growth · Researcher",
+        "derivation": "the pay-to-public-key address of growth/keys/researcher.key, which is the address https://warda-growth.vercel.app quotes for /verify and the one payee in every growth batch grant's allowlist",
+        "ours": true
+      }
+    ],
+    "address": "kaspatest:qqj58pd2qw47lg2wn97srt27dwxp8jj2hfasxrt8tjjeytpelzh5sa2mpucwy",
+    "bothEndsAreOurs": true,
+    "disclosure": {
+      "title": "Both ends of this are ours",
+      "paragraphs": [
+        "Every agent on this site was built here, and the vendor this one buys from is ours too. This is therefore NOT a market, and saying otherwise would be the easiest claim on this site to catch out.",
+        "What it is: a payment between independent grants, with different keys, each able to pay a fixed list of addresses, settled on a public chain where anyone can look it up. The demonstration is that the rails work — not that a third party chose to trade with us.",
+        "Agent #001's digest is published free at wardaprotocol.com/agent-001.json, because pretending it was scarce would have traded the checkable claim for a flattering one."
+      ]
+    }
+  },
+  "retired": {
+    "endedBy": "a0adf38725218ccdf67cfd71b200c6a26e9c3d2de82a20d577c2cff4e98754ee",
+    "how": "settled",
+    "grantAddress": "kaspatest:pqlk8fzkyqq9s4eszyctzh9wvr6j2xsnjmtq6kvruz6yk0znzjydqytqn6tdr",
+    "holdsNothing": true,
+    "itSpent": "0.15 KAS",
+    "ofBudget": "0.6 KAS",
+    "note": "This agent's authority is over, and no person ended it. Its parent collapsed the grant it had delegated and was charged for what this agent spent; the unspent remainder went back to the parent AGENT, not to whoever funded it. The address above holds nothing, which anyone can check. What it did while it ran is below and does not change."
+  },
+  "delegatedBy": {
+    "parent": "WARDA-009",
+    "parentAgentKey": "1676cc96c50c6088497a449fd708a2686f89274f45244b48221d2575396b3f3f",
+    "differentKey": true,
+    "narrower": {
+      "budget": "0.9 KAS → 0.6 KAS",
+      "maxPerPayment": "0.05 KAS → 0.05 KAS",
+      "epochLimit": "0.9 KAS → 0.15 KAS",
+      "delegationDepth": "2 → 1",
+      "payees": "the parent's list → 1"
+    },
+    "heldInReserveByTheParent": "0 KAS",
+    "enforcedBy": "the covenant, at delegation time. Every one of these may only ever shrink, and the child's allowlist is a node of the parent's recipients tree with the path proved on every spend — so a sub-agent cannot pay someone its parent could not."
+  },
+  "timelock": {
+    "notBefore": "576599990",
+    "virtualDaaScore": "576603393",
+    "open": true,
+    "lockedFor": "0 seconds",
+    "openedAgo": "6 minutes",
+    "expiresAt": "577464349",
+    "expired": false,
+    "expiresInDaa": "860956",
+    "expiresIn": "24 hours",
+    "expiredAgo": null,
+    "enforcedBy": "the covenant, on every spend: claimedDaa >= notBefore. Not a scheduler, not this process, and not revocable by whoever issued the grant.",
+    "termEnforcedBy": "the covenant, on every spend: claimedDaa < expiresAt. After it, the grant refuses everything whatever its budget says, and the balance is the principal's to reclaim."
+  },
+  "authority": {
+    "budget": "0.6 KAS",
+    "spent": "0.15 KAS",
+    "remaining": "0.45 KAS",
+    "maxPerPayment": "0.05 KAS",
+    "epochLimit": "0.15 KAS",
+    "epochLengthDaa": 1000,
+    "authorizedPayees": 1,
+    "payees": [
+      "kaspatest:qqj58pd2qw47lg2wn97srt27dwxp8jj2hfasxrt8tjjeytpelzh5sa2mpucwy"
+    ],
+    "delegationDepth": 1,
+    "onChain": null,
+    "sompi": {
+      "budget": "60000000",
+      "spent": "15000000",
+      "reserved": "0",
+      "maxPerPayment": "5000000",
+      "epochLimit": "15000000",
+      "onChain": null
+    }
+  },
+  "activity": {
+    "payments": 3,
+    "paid": "0.15 KAS",
+    "paidOutsideTheAllowlist": "0 KAS",
+    "coins": [
+      {
+        "amount": "0.05 KAS",
+        "daaScore": "576600514",
+        "txid": "2aa4bf21c590d5edddeaea5c5b0d756ce23daf4f14ca5b4bf8aebd4bf94714b2",
+        "index": 1
+      },
+      {
+        "amount": "0.05 KAS",
+        "daaScore": "576600562",
+        "txid": "622c3e9ca3703a0d3bb29ff213f34981adc970dad1c3a2e6db72e82e4245e74c",
+        "index": 1
+      },
+      {
+        "amount": "0.05 KAS",
+        "daaScore": "576600623",
+        "txid": "baf2c2af93b27095d682b9c44e9f4959deab2c510641a5bd92b899a331ab34f2",
+        "index": 1
+      }
+    ]
+  },
+  "purchases": [
+    {
+      "at": "2026-09-21T12:11:38.040Z",
+      "outcome": "bought",
+      "url": "https://warda-growth.vercel.app/verify?url=https%3A%2F%2Fgithub.com%2FManavarya09%2Fpublic-apis-live",
+      "task": "research Manavarya09/public-apis-live",
+      "reason": null,
+      "txid": "2aa4bf21c590d5edddeaea5c5b0d756ce23daf4f14ca5b4bf8aebd4bf94714b2",
+      "paid": "0.05 KAS",
+      "quoted": "0.05 KAS",
+      "amountSompi": "5000000",
+      "payTo": "kaspatest:qqj58pd2qw47lg2wn97srt27dwxp8jj2hfasxrt8tjjeytpelzh5sa2mpucwy",
+      "refusal": null,
+      "sellerClaimed": null
+    },
+    {
+      "at": "2026-09-21T12:11:42.306Z",
+      "outcome": "bought",
+      "url": "https://warda-growth.vercel.app/verify?url=https%3A%2F%2Fgithub.com%2Fnevermined-io%2Fpayments-py",
+      "task": "research nevermined-io/payments-py",
+      "reason": null,
+      "txid": "622c3e9ca3703a0d3bb29ff213f34981adc970dad1c3a2e6db72e82e4245e74c",
+      "paid": "0.05 KAS",
+      "quoted": "0.05 KAS",
+      "amountSompi": "5000000",
+      "payTo": "kaspatest:qqj58pd2qw47lg2wn97srt27dwxp8jj2hfasxrt8tjjeytpelzh5sa2mpucwy",
+      "refusal": null,
+      "sellerClaimed": null
+    },
+    {
+      "at": "2026-09-21T12:11:46.863Z",
+      "outcome": "bought",
+      "url": "https://warda-growth.vercel.app/verify?url=https%3A%2F%2Fgithub.com%2FAtoB101%2FKarma",
+      "task": "research AtoB101/Karma",
+      "reason": null,
+      "txid": "baf2c2af93b27095d682b9c44e9f4959deab2c510641a5bd92b899a331ab34f2",
+      "paid": "0.05 KAS",
+      "quoted": "0.05 KAS",
+      "amountSompi": "5000000",
+      "payTo": "kaspatest:qqj58pd2qw47lg2wn97srt27dwxp8jj2hfasxrt8tjjeytpelzh5sa2mpucwy",
+      "refusal": null,
+      "sellerClaimed": null
+    },
+    {
+      "at": "2026-09-21T12:11:49.525Z",
+      "outcome": "failed",
+      "url": "https://warda-growth.vercel.app/verify?url=https%3A%2F%2Fgithub.com%2FScottcjn%2FRustchain",
+      "task": "research Scottcjn/Rustchain",
+      "reason": null,
+      "txid": null,
+      "paid": null,
+      "quoted": "0.05 KAS",
+      "amountSompi": "5000000",
+      "payTo": "kaspatest:qqj58pd2qw47lg2wn97srt27dwxp8jj2hfasxrt8tjjeytpelzh5sa2mpucwy",
+      "refusal": "this invoice is 5000000 sompi and only 0 remains in the current epoch (0). The allowance refreshes as the chain advances — and cannot be refreshed by claiming an earlier epoch, which the covenant refuses.",
+      "sellerClaimed": null
+    },
+    {
+      "at": "2026-09-21T12:11:50.146Z",
+      "outcome": "failed",
+      "url": "https://warda-growth.vercel.app/verify?url=https%3A%2F%2Fgithub.com%2Fopenaccountants%2Fopenaccountants",
+      "task": "research openaccountants/openaccountants",
+      "reason": null,
+      "txid": null,
+      "paid": null,
+      "quoted": "0.05 KAS",
+      "amountSompi": "5000000",
+      "payTo": "kaspatest:qqj58pd2qw47lg2wn97srt27dwxp8jj2hfasxrt8tjjeytpelzh5sa2mpucwy",
+      "refusal": "this invoice is 5000000 sompi and only 0 remains in the current epoch (0). The allowance refreshes as the chain advances — and cannot be refreshed by claiming an earlier epoch, which the covenant refuses.",
+      "sellerClaimed": null
+    }
+  ],
+  "reconciliation": {
+    "spentPerTheCovenant": "0.15 KAS",
+    "namedByTheLog": "0.15 KAS",
+    "stillVisibleAtThePayee": "0.15 KAS",
+    "chargedHomeBySettlement": null,
+    "unrecorded": "0 KAS",
+    "overclaimedByTheLog": null,
+    "couldAccountForIt": [],
+    "note": "Every sompi the covenant says this grant spent is named by a purchase it recorded. The two halves of this page agree."
+  },
+  "refusals": [
+    {
+      "rule": "start time (not_before)",
+      "attempted": "spend before the grant opens",
+      "refusal": "this grant could not spend anything until DAA 576599990. The covenant checks the claimed DAA score against that number on every spend, so the delay was not a policy in the agent's process and could not be brought forward by whoever issued it. It opened 6 minutes ago.",
+      "derived": true
+    },
+    {
+      "rule": "payee allowlist",
+      "attempted": "pay any address other than agent #001",
+      "refusal": "kaspatest:qrxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvc3rysjr0d is not on this grant's allowlist, so no inclusion proof places it in the recipients tree. There is no valid transaction that pays them — not one the network would reject, none at all. A grant's payees are fixed at genesis: to pay this vendor you need a grant that committed to them.",
+      "derived": true
+    },
+    {
+      "rule": "per-payment cap",
+      "attempted": "pay 0.05000001 KAS to agent #001",
+      "refusal": "this invoice is 5000001 sompi and the grant's per-payment cap is 5000000. The cap exists to bound what a single decision can do, so it binds here regardless of how much budget remains.",
+      "derived": true
+    },
+    {
+      "rule": "lifetime budget",
+      "attempted": "pay 0.6 KAS to agent #001",
+      "refusal": "this invoice is 60000000 sompi and the grant's per-payment cap is 5000000. The cap exists to bound what a single decision can do, so it binds here regardless of how much budget remains.",
+      "derived": true
+    }
+  ],
+  "mission": "Find projects building agents that pay for things, buy one checkable record about each from Researcher, and come home."
+}
