@@ -16,3 +16,9 @@ export {
   GALLEON_TESTNET,
   IGRA_MAINNET,
 } from "../router/src/index.ts";
+
+/* The console's wallet connection reads a connected wallet's address and its
+   public key separately and refuses to proceed unless they agree. That check
+   needs the real decoder — the one the router already bundles for the payout
+   address — not a second one written on the page. */
+export { decodeAddress } from "../sdk/src/address.ts";

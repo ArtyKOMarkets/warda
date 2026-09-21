@@ -226,6 +226,10 @@
   .ev .a { font-family: var(--mono); font-size: 0.72rem; white-space: nowrap; color: var(--chrome-dim);
            font-variant-numeric: tabular-nums; }
 
+  .wbtn { padding: 0.36rem 0.8rem; font-size: 0.78rem; border-radius: 999px; white-space: nowrap; }
+  .wbtn.on { color: var(--teal); border-color: var(--teal-deep); background: var(--teal-ghost); }
+  .wbtn.bad { color: var(--amber); border-color: rgba(232,178,58,0.5); }
+  @media (max-width: 560px) { .wbtn span { display: none; } }
   .crumb { margin: 0 0 0.6rem; font-size: 0.8rem; }
   .crumb a { color: var(--chrome-dim); cursor: pointer; }
   .crumb a:hover { color: var(--teal); }
@@ -370,6 +374,9 @@
       <a data-view="refusals">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M4.2 4.2l7.6 7.6"/></svg>
         Refused</a>
+      <a data-view="account">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="5.6" r="2.8"/><path d="M2.6 14c.7-2.9 2.9-4.4 5.4-4.4s4.7 1.5 5.4 4.4"/></svg>
+        Your account</a>
       <a data-view="alerts">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3.5 6.5a4.5 4.5 0 0 1 9 0c0 3 1 4 1 4h-11s1-1 1-4z"/><path d="M6.6 13a1.6 1.6 0 0 0 2.8 0"/></svg>
         Alerts</a>
@@ -392,8 +399,8 @@
     <div class="wallet">
       <span class="ic"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.8" y="4" width="12.4" height="9" rx="2"/><path d="M1.8 6.6h12.4"/><circle cx="11.4" cy="9.8" r="0.9" fill="currentColor" stroke="none"/></svg></span>
       <i style="font-style:normal">
-        <b>No key here</b>
-        <span>this console reads only</span>
+        <b id="side-w-t">No key here</b>
+        <span id="side-w-s">this console reads only</span>
       </i>
     </div>
     <p class="foot">
@@ -413,6 +420,10 @@
         <option value="testnet-10" selected>Kaspa testnet-10</option>
         <option value="mainnet" disabled>Kaspa mainnet &mdash; when audited</option>
       </select>
+      <button class="go gh wbtn" id="wallet-btn" data-view="account">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.8" y="4" width="12.4" height="9" rx="2"/><path d="M1.8 6.6h12.4"/><circle cx="11.4" cy="9.8" r="0.9" fill="currentColor" stroke="none"/></svg>
+        <span id="wallet-label">Connect wallet</span>
+      </button>
       <button class="bell" id="bell" title="Notices" aria-label="Notices">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3.5 6.5a4.5 4.5 0 0 1 9 0c0 3 1 4 1 4h-11s1-1 1-4z"/><path d="M6.6 13a1.6 1.6 0 0 0 2.8 0"/></svg>
         <i id="bell-n" hidden></i>
@@ -625,6 +636,76 @@
             <div class="feed" id="ag-id"></div>
           </div>
 
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================ ACCOUNT ============================== -->
+    <div class="view pad" id="v-account">
+      <div class="head">
+        <div>
+          <h1>Your account</h1>
+          <p>Your account is your key. Connect the wallet that holds it and this console shows the
+            grants you issued, what your wallet can fund, and fills in your addresses everywhere else.</p>
+        </div>
+        <div id="acc-actions"></div>
+      </div>
+
+      <div id="acc-none" class="card" hidden>
+        <header><h2>No Kaspa wallet in this browser</h2></header>
+        <p class="say">The console connects to <b>KasWare</b>, the browser wallet most Kaspa users already
+          have. Install it, open this page again, and connect. Nothing else on the console needs it
+          &mdash; every page works read-only without a wallet.</p>
+        <p><a class="go" style="text-decoration:none" href="https://chromewebstore.google.com/detail/kasware-wallet/hklhheigdmpoolooomdihmhlpjjdbklf" rel="noopener">Get KasWare</a></p>
+      </div>
+
+      <div id="acc-out" class="card" hidden>
+        <header><h2>Not connected</h2></header>
+        <p class="say">Connecting shares your <b>address and public key</b> with this page, and nothing
+          else. It cannot move a coin: it never asks your wallet to sign anything, and there is no
+          server behind it to send your address to &mdash; it stays in this browser.</p>
+        <p><button class="go" id="acc-connect">Connect KasWare</button></p>
+        <p class="state" id="acc-err"></p>
+      </div>
+
+      <div id="acc-in" hidden>
+        <div class="tiles" id="acc-tiles"></div>
+
+        <div class="two" style="margin-top:0.85rem;align-items:start">
+          <div class="stack">
+            <div class="card">
+              <header><h2>Grants you hold a key to <small id="acc-n">&mdash;</small></h2></header>
+              <p class="why">Every published grant where your key is the principal that funded it, the
+                revocation key that can stop it, or the agent that spends it. A grant&rsquo;s address is a
+                hash of its state, so it cannot be looked up from your address &mdash; only a grant whose
+                reading names your key can be found.</p>
+              <div class="feed" id="acc-grants"></div>
+            </div>
+          </div>
+
+          <div class="stack">
+            <div class="card">
+              <header><h2>Identity</h2></header>
+              <div class="feed" id="acc-id"></div>
+            </div>
+            <div class="card">
+              <header><h2>Use it</h2></header>
+              <p class="why">Each of these fills in your address and opens the page. Nothing is sent or
+                signed.</p>
+              <div style="display:grid;gap:0.5rem;margin-top:0.8rem">
+                <button class="go" id="acc-create">Create a grant from this wallet &rarr;</button>
+                <button class="go gh" id="acc-fund">Fund this wallet from USDC &rarr;</button>
+                <button class="go gh" id="acc-alert">Get told when it receives &rarr;</button>
+              </div>
+            </div>
+            <div class="card">
+              <header><h2>What this is not</h2></header>
+              <p class="why">Not a login. A sign-in proves who you are <i>to somebody</i>, and there is
+                nobody here to prove it to &mdash; asking your wallet to sign a challenge nobody checks
+                would be a ritual, and it would train you to sign things. When the console gets a server,
+                that will be the time for one.</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1111,6 +1192,7 @@ var WardaRouter = (() => {
     GALLEON_TESTNET: () => GALLEON_TESTNET,
     IGRA_MAINNET: () => IGRA_MAINNET,
     MIN_EXIT_SOMPI: () => MIN_EXIT_SOMPI,
+    decodeAddress: () => decodeAddress,
     missingFrom: () => missingFrom,
     planFunding: () => planFunding,
     quote: () => quote,
@@ -1557,6 +1639,7 @@ var WardaRouter = (() => {
     });
     render();
     route();
+    walletRestore();
   }).catch(function () {
     $("tiles").innerHTML = '<p class="empty">Could not read /agents.json, which is the list of ' +
       'agents with a published reading. That is not "no agents" — it is no list, and this page ' +
@@ -2531,6 +2614,221 @@ var WardaRouter = (() => {
       .catch(function () { out.textContent = "Could not reach the verifier. Nothing was read, so nothing is being reported."; });
   }
 
+  /* ---- the connected wallet ------------------------------------------------
+     An adapter per wallet, one shape for all of them, so WalletConnect or a
+     second extension is a new entry here rather than a second code path.
+     Every adapter answers the same four questions and nothing else: which
+     addresses, which public key, which network, which coins. None of them is
+     ever asked to sign — this console has no reason to, and a page that asks
+     for signatures it does not need teaches people to give them. */
+  var NET_OF = { "testnet-10": "kaspa_testnet_10", mainnet: "kaspa_mainnet" };
+  var WALLETS = {
+    kasware: {
+      name: "KasWare",
+      present: function () { return typeof window.kasware !== "undefined"; },
+      connect: function () { return window.kasware.requestAccounts(); },
+      /* No popup: only succeeds if this origin was already approved. */
+      restore: function () { return window.kasware.getAccounts(); },
+      publicKey: function () { return window.kasware.getPublicKey(); },
+      network: function () { return window.kasware.getNetwork(); },
+      coins: function (addr) { return window.kasware.getUtxoEntries([addr]); },
+      switchTo: function (n) { return window.kasware.switchNetwork(n); },
+      on: function (ev, fn) { if (window.kasware.on) window.kasware.on(ev, fn); }
+    }
+  };
+
+  var W = null;       // { kind, address, key, network, coins, problem }
+  var WKEY = "warda.console.wallet";
+  function remember(v) { try { v ? localStorage.setItem(WKEY, v) : localStorage.removeItem(WKEY); } catch (e) {} }
+  function remembered() { try { return localStorage.getItem(WKEY); } catch (e) { return null; } }
+
+  /* A coin's value, from whichever shape this wallet version returns. An entry
+     whose amount cannot be read is NOT counted as zero — the total is then
+     reported as unreadable rather than as a smaller number. */
+  function coinValue(e) {
+    var v = e && (e.amount != null ? e.amount : e.entry && e.entry.amount != null ? e.entry.amount
+      : e.utxoEntry && e.utxoEntry.amount != null ? e.utxoEntry.amount : null);
+    if (v == null) return null;
+    var n = typeof v === "bigint" ? Number(v) : Number(String(v));
+    return isFinite(n) ? n : null;
+  }
+
+  function toHexBytes(u8) {
+    return Array.prototype.map.call(u8, function (b) { return ("0" + b.toString(16)).slice(-2); }).join("");
+  }
+
+  /* Read everything about the connected account, and refuse to call it
+     connected if the pieces disagree. */
+  function readWallet(kind, addresses) {
+    var a = WALLETS[kind];
+    var address = (addresses || [])[0];
+    if (!address) return Promise.resolve(null);
+    return Promise.all([
+      a.publicKey().catch(function () { return null; }),
+      a.network().catch(function () { return null; }),
+      a.coins(address).catch(function () { return null; })
+    ]).then(function (r) {
+      var w = { kind: kind, address: address, key: null, network: r[1], coins: null, problem: null };
+
+      /* The key comes from the ADDRESS, and the wallet's own getPublicKey is
+         checked against it. A Warda grant names a 32-byte Schnorr key; an
+         address of version 0 carries exactly that. The wallet returns the
+         compressed 33-byte form, whose last 32 bytes must be the same key. */
+      try {
+        var d = WardaRouter.decodeAddress(address);
+        if (d.version !== 0) {
+          w.problem = "This is not a Schnorr (version 0) address. A Warda grant names a 32-byte Schnorr key, so this account cannot be the principal of one.";
+        } else {
+          w.key = toHexBytes(d.payload);
+          var pk = String(r[0] || "").toLowerCase();
+          if (pk && pk.slice(-64) !== w.key) {
+            w.problem = "The wallet's public key and its address do not describe the same key. Nothing here will use either until they agree.";
+            w.key = null;
+          }
+        }
+      } catch (e) { w.problem = "The address the wallet gave does not decode: " + e.message; }
+
+      var want = NET_OF[$("net").value] || "";
+      if (w.network && want && w.network !== want) {
+        w.problem = "Your wallet is on " + w.network.replace(/_/g, "-") + " and this console reads " +
+          $("net").value + ". Addresses on one are not coins on the other.";
+      }
+
+      /* Coins read on another network are that network's coins. Showing them
+         as this network's balance would be a number about somewhere else. */
+      if (w.network && want && w.network !== want) {
+        w.coins = "elsewhere";
+      } else if (Array.isArray(r[2])) {
+        var vals = r[2].map(coinValue);
+        w.coins = vals.some(function (v) { return v == null; }) ? "unreadable" : vals;
+      }
+      return w;
+    });
+  }
+
+  function walletConnect(kind) {
+    var a = WALLETS[kind];
+    $("acc-err").textContent = "";
+    return a.connect().then(function (addrs) { return readWallet(kind, addrs); })
+      .then(function (w) {
+        if (!w) { $("acc-err").textContent = "The wallet returned no address."; return; }
+        W = w; remember(kind); walletRender();
+      })
+      .catch(function (e) {
+        /* A person saying no is not an error to be dressed up. */
+        $("acc-err").textContent = /reject|denied|cancel/i.test(String(e && e.message || e))
+          ? "Not connected — you declined in the wallet, which is always fine."
+          : "The wallet did not connect: " + (e && e.message || e);
+      });
+  }
+
+  function walletRestore() {
+    var kind = remembered();
+    if (!kind || !WALLETS[kind] || !WALLETS[kind].present()) { walletRender(); return; }
+    WALLETS[kind].restore().then(function (addrs) { return readWallet(kind, addrs); })
+      .then(function (w) { W = w; if (!w) remember(null); walletRender(); })
+      .catch(function () { W = null; walletRender(); });
+  }
+
+  function walletForget() { W = null; remember(null); walletRender(); }
+
+  function mine(a) {
+    if (!W || !W.key) return [];
+    var id = a.d.identity || {}, roles = [];
+    if (id.principal === W.key) roles.push("principal");
+    if (id.revocation === W.key && id.revocation !== id.principal) roles.push("revocation");
+    if (id.agent === W.key) roles.push("agent");
+    return roles;
+  }
+
+  function walletRender() {
+    var present = Object.keys(WALLETS).some(function (k) { return WALLETS[k].present(); });
+    var btn = $("wallet-btn"), lab = $("wallet-label");
+    btn.classList.remove("on", "bad");
+    $("acc-none").hidden = present || !!W;
+    $("acc-out").hidden = !present || !!W;
+    $("acc-in").hidden = !W;
+    $("acc-actions").innerHTML = "";
+
+    if (!W) {
+      lab.textContent = "Connect wallet";
+      $("side-w-t").textContent = "No key here";
+      $("side-w-s").textContent = "this console reads only";
+      return;
+    }
+    btn.classList.add(W.problem ? "bad" : "on");
+    lab.textContent = short(W.address);
+    $("side-w-t").textContent = WALLETS[W.kind].name + " connected";
+    $("side-w-s").textContent = "your wallet holds the key; this page still holds none";
+
+    var dis = document.createElement("button");
+    dis.className = "go gh"; dis.textContent = "Disconnect";
+    dis.addEventListener("click", walletForget);
+    $("acc-actions").appendChild(dis);
+
+    var vals = W.coins, total = null, largest = null, n = null;
+    if (Array.isArray(vals)) {
+      n = vals.length;
+      total = vals.reduce(function (s, v) { return s + v; }, 0);
+      largest = vals.reduce(function (m, v) { return v > m ? v : m; }, 0);
+    }
+    var FEE = 1000000;
+    $("acc-tiles").innerHTML = [
+      tile(I.coin, "#0FA890", "Balance", total == null ? "—" : kas2(total / SOMPI) + " KAS",
+        vals === "elsewhere" ? "not shown: those coins are on " + String(W.network).replace(/_/g, "-")
+          : vals === "unreadable" ? "the wallet returned coins this page could not read — not zero"
+          : n == null ? "the wallet did not list its coins" : "across " + n + " coin" + (n === 1 ? "" : "s")),
+      tile(I.lock, "#9B6BE8", "Largest single coin", largest == null ? "—" : kas2(largest / SOMPI) + " KAS",
+        "genesis takes one input, so this — not the balance — bounds a grant"),
+      tile(I.grid, "#4C8DF6", "Largest grant you can fund now",
+        largest == null ? "—" : largest > FEE ? kas2((largest - FEE) / SOMPI) + " KAS" : "none",
+        largest != null && total != null && total - largest > FEE
+          ? "more is possible after consolidating: warda wallet consolidate" : "after the 0.01 KAS genesis fee"),
+      tile(I.shield, W.problem ? "#E8B23A" : "#43C97F", "Status", W.problem ? "check" : "ready",
+        W.problem ? "see Identity" : "address and key agree, network matches")
+    ].join("");
+
+    $("acc-id").innerHTML = [
+      kvRow("Address", esc(W.address), true),
+      kvRow("Public key", W.key ? esc(W.key) + '<br><span style="color:var(--chrome-faint)">derived from the address, and checked against the key the wallet reports</span>' : "—", true),
+      kvRow("Network", esc(String(W.network || "not reported").replace(/_/g, "-")), true),
+      W.problem ? kvRow('<span style="color:var(--amber)">Problem</span>', esc(W.problem), false) : ""
+    ].join("");
+    if (W.problem && /is on /.test(W.problem) && WALLETS[W.kind].switchTo) {
+      var sw = document.createElement("button");
+      sw.className = "go"; sw.textContent = "Switch the wallet to " + $("net").value;
+      sw.addEventListener("click", function () {
+        WALLETS[W.kind].switchTo(NET_OF[$("net").value]).then(walletRestore).catch(function (e) {
+          $("acc-err").textContent = "The wallet did not switch: " + (e && e.message || e);
+        });
+      });
+      $("acc-actions").appendChild(sw);
+    }
+
+    var rows = A.map(function (a) { return { a: a, roles: mine(a) }; })
+      .filter(function (x) { return x.roles.length; });
+    $("acc-n").textContent = rows.length ? rows.length + " found" : "";
+    $("acc-grants").innerHTML = rows.map(function (x) {
+      var u = auth(x.a);
+      return '<div class="ev" style="cursor:pointer" data-agent-open="' + x.a.id + '">' +
+        '<span class="ic" style="background:' + hue(x.a.id) + '22;color:' + hue(x.a.id) + '">' +
+        '<b style="font-family:var(--mono);font-size:0.6rem">' + x.a.id + '</b></span>' +
+        '<i style="font-style:normal;min-width:0"><b>Agent #' + x.a.id + ' · you are its ' + x.roles.join(" and ") + '</b>' +
+        '<span>' + esc(label(x.a).slice(0, 70)) + '</span></i>' +
+        '<span class="a">' + stateP(x.a) + ' ' + kas2(num(u.remaining)) + ' KAS left</span></div>';
+    }).join("") || '<p class="empty">No published grant names this key. That is not the same as you having none: a grant only appears here if its reading is published by this site.</p>';
+  }
+
+  function walletFill(where) {
+    if (!W) return;
+    if (where === "create") { $("funder").value = W.address; show("create"); createView(); }
+    if (where === "fund") { $("fu-addr").value = W.address; show("fund"); fundView(); }
+    if (where === "alert") {
+      $("a-kind").value = "balance-at-or-above"; $("a-addr").value = W.address;
+      show("alerts"); alertsView();
+    }
+  }
+
   /* ---- fund the treasury --------------------------------------------------
      Rendered from `WardaRouter.planFunding`, the router's own planner, bundled
      by ops/build-core-browser.mjs. Nothing here decides anything the router did
@@ -2800,6 +3098,22 @@ var WardaRouter = (() => {
     createView();
   });
   if ($("csv")) $("csv").addEventListener("click", downloadCsv);
+  $("acc-connect").addEventListener("click", function () { walletConnect("kasware"); });
+  $("acc-create").addEventListener("click", function () { walletFill("create"); });
+  $("acc-fund").addEventListener("click", function () { walletFill("fund"); });
+  $("acc-alert").addEventListener("click", function () { walletFill("alert"); });
+  document.addEventListener("click", function (e) {
+    var el = e.target.closest && e.target.closest("[data-agent-open]");
+    if (el) showAgent(el.getAttribute("data-agent-open"));
+  });
+  /* A wallet that changes account or network under the page is re-read, not
+     trusted from memory: the key that was checked a minute ago is not the
+     key in the wallet now. */
+  Object.keys(WALLETS).forEach(function (k) {
+    if (!WALLETS[k].present()) return;
+    WALLETS[k].on("accountsChanged", function () { if (W && W.kind === k) walletRestore(); });
+    WALLETS[k].on("networkChanged", function () { if (W && W.kind === k) walletRestore(); });
+  });
   Array.prototype.forEach.call(document.querySelectorAll("#v-fund input, #v-fund select"),
     function (el) { el.addEventListener("input", fundView); });
   if ($("fu-use-px")) $("fu-use-px").addEventListener("click", function () {
@@ -2837,7 +3151,8 @@ var WardaRouter = (() => {
   });
 
   var TITLES = { dash: "Overview", grants: "Grants", agent: "Agent", activity: "Activity",
-                 refusals: "Refused", alerts: "Alerts", fund: "Fund your treasury", create: "Create a grant" };
+                 refusals: "Refused", alerts: "Alerts", fund: "Fund your treasury", create: "Create a grant",
+                 account: "Your account" };
   /* ---- where you are, in the URL ----------------------------------------
      The console had no address. Every view was the same page, so a reload lost
      your place, the browser's Back button left the app entirely, and there was
@@ -2907,6 +3222,7 @@ var WardaRouter = (() => {
   goStep(1);
   alertsView();
   fundView();
+  walletRender();
 })();
 </script>
 

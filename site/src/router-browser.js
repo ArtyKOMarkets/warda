@@ -28,6 +28,7 @@ var WardaRouter = (() => {
     GALLEON_TESTNET: () => GALLEON_TESTNET,
     IGRA_MAINNET: () => IGRA_MAINNET,
     MIN_EXIT_SOMPI: () => MIN_EXIT_SOMPI,
+    decodeAddress: () => decodeAddress,
     missingFrom: () => missingFrom,
     planFunding: () => planFunding,
     quote: () => quote,
