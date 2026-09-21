@@ -1,0 +1,197 @@
+<!doctype html><meta charset="utf-8">
+<style>
+@font-face{font-family:CP;src:url("node_modules/@fontsource/chakra-petch/files/chakra-petch-latin-700-normal.woff2")format("woff2");font-weight:700}
+@font-face{font-family:CP;src:url("node_modules/@fontsource/chakra-petch/files/chakra-petch-latin-600-normal.woff2")format("woff2");font-weight:600}
+@font-face{font-family:BA;src:url("node_modules/@fontsource/barlow/files/barlow-latin-400-normal.woff2")format("woff2");font-weight:400}
+@font-face{font-family:BA;src:url("node_modules/@fontsource/barlow/files/barlow-latin-600-normal.woff2")format("woff2");font-weight:600}
+@font-face{font-family:JB;src:url("node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-400-normal.woff2")format("woff2");font-weight:400}
+@font-face{font-family:JB;src:url("node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-700-normal.woff2")format("woff2");font-weight:700}
+:root{--void:#06090C;--ground:#0A1014;--panel:#101A20;--edge:#1E2E37;--edgeb:#2C4350;
+--chrome:#DDE0E2;--dim:#8D989E;--faint:#5D6B73;--teal:#14D7C1;--teald:#06BBA1;
+--ghost:rgba(20,215,193,.10);--refuse:#FF6B5A;--refuseg:rgba(255,107,90,.12);--amber:#E8B23A}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#000}
+.card{width:1600px;height:900px;background:var(--void);color:var(--chrome);font-family:BA,sans-serif;
+ padding:70px 88px 60px;position:relative;overflow:hidden;display:flex;flex-direction:column;margin-bottom:20px}
+.card::after{content:"";position:absolute;inset:auto -300px -420px auto;width:900px;height:900px;border-radius:50%;
+ background:radial-gradient(circle,rgba(20,215,193,.055),transparent 62%);pointer-events:none}
+.eye{font-family:JB,monospace;font-size:19px;letter-spacing:.17em;text-transform:uppercase;color:var(--teal);display:flex;align-items:center;gap:16px}
+.eye::before{content:"";width:38px;height:2px;background:var(--teald)}
+h1{font-family:CP,sans-serif;font-weight:700;font-size:60px;line-height:1.05;letter-spacing:-.025em;margin-top:22px;max-width:30ch}
+h1 span{display:block}.d{color:var(--faint)}.t{color:var(--teal)}.r{color:var(--refuse)}
+.body{flex:1;display:flex;align-items:center;margin-top:30px;min-height:0}
+.foot{display:flex;align-items:center;justify-content:space-between;font-family:JB,monospace;font-size:17px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-top:24px}
+.foot .wm{font-family:CP,sans-serif;font-weight:700;font-size:26px;letter-spacing:.02em;text-transform:none;color:var(--chrome)}
+.foot .wm b{color:var(--teal)}
+.mono{font-family:JB,monospace}
+.pane{background:var(--ground);border:1px solid var(--edge);border-radius:14px;padding:22px 24px}
+.pane.hot{border-color:var(--teald);background:var(--ghost)}
+.pane.no{border:1px dashed var(--edgeb);background:transparent}
+.pl{font-family:JB,monospace;font-size:15px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.pn{font-family:CP,sans-serif;font-weight:700;font-size:34px;margin-top:8px}
+.ps{font-size:21px;color:var(--dim);margin-top:8px;line-height:1.35}
+.arrow{display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:JB,monospace;font-size:15px;color:var(--teal);gap:4px;text-align:center;line-height:1.4}
+.arrow b{font-size:30px;font-weight:400}
+.shot{border:1px solid var(--edgeb);border-radius:14px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.6);background:var(--ground)}
+.shot img{display:block;width:100%;height:100%;object-fit:cover;object-position:top left}
+table{border-collapse:collapse;width:100%}
+td{padding:16px 10px;border-bottom:1px solid var(--edge);font-size:24px}
+td.k{font-family:JB,monospace;font-size:16px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);width:28%}
+td.v{font-family:JB,monospace;font-size:28px}
+td.v .from{color:var(--faint)} td.v .to{color:var(--teal)}
+</style>
+<body>
+
+<!-- G1 — the event -->
+<div class="card" id="g1">
+  <p class="eye">Warda growth fleet · first week</p>
+  <h1>An AI agent hired another to do market research.<span class="t">Nobody approved a single payment.</span></h1>
+  <div class="body"><div style="width:100%">
+    <div style="display:grid;grid-template-columns:1fr 120px 1fr 120px 1fr 120px 1fr;align-items:stretch">
+      <div class="pane"><p class="pl">you</p><p class="pn">Principal</p><p class="ps">issues one grant a week, can end all of it</p></div>
+      <div class="arrow"><b>&rarr;</b>0.9 KAS</div>
+      <div class="pane hot"><p class="pl">agent #009</p><p class="pn">Orchestrator</p><p class="ps">may pay one address</p></div>
+      <div class="arrow"><b>&rarr;</b>hires<br>0.6 KAS</div>
+      <div class="pane hot"><p class="pl">agent #010</p><p class="pn">Scout</p><p class="ps">finds projects, buys research</p></div>
+      <div class="arrow"><b>&rarr;</b>0.05<br>/record</div>
+      <div class="pane"><p class="pl">sells</p><p class="pn">Researcher</p><p class="ps">facts with sources, never a score</p></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 120px 1fr 120px 1fr 120px 1fr;margin-top:26px">
+      <div style="grid-column:7" class="pane no"><p class="pl">no grant · no key</p><p class="pn" style="color:var(--dim)">Outreach</p><p class="ps">writes drafts for a person</p></div>
+    </div>
+  </div></div>
+  <div class="foot"><span class="wm">Warda<b>.</b></span><span>Kaspa testnet · 4 transactions · every Monday</span></div>
+</div>
+
+<!-- G2 — narrowing -->
+<div class="card" id="g2">
+  <p class="eye">How the budget was split</p>
+  <h1>A sub-agent gets a piece of the budget.<span class="d">Every limit can only shrink.</span></h1>
+  <div class="body"><div style="width:100%">
+    <table>
+      <tr><td class="k">Budget</td><td class="v"><span class="from">0.9 KAS</span> &nbsp;&rarr;&nbsp; <span class="to">0.6 KAS</span></td></tr>
+      <tr><td class="k">Per epoch</td><td class="v"><span class="from">0.9 KAS</span> &nbsp;&rarr;&nbsp; <span class="to">0.15 KAS</span></td></tr>
+      <tr><td class="k">May pay</td><td class="v"><span class="from">Researcher</span> &nbsp;&rarr;&nbsp; <span class="to">Researcher, and no one else</span></td></tr>
+      <tr><td class="k">Can hire</td><td class="v"><span class="from">depth 2</span> &nbsp;&rarr;&nbsp; <span class="to">depth 1</span></td></tr>
+      <tr><td class="k">Lives</td><td class="v"><span class="from">3 days</span> &nbsp;&rarr;&nbsp; <span class="to">1 day</span></td></tr>
+    </table>
+    <p style="font-size:24px;color:var(--dim);margin-top:26px">Checked by every node when the child is created. Authority is subdivided, never created.</p>
+  </div></div>
+  <div class="foot"><span class="wm">Warda<b>.</b></span><span>delegation · tx ec9fef93…</span></div>
+</div>
+
+<!-- G3 — rate limit -->
+<div class="card" id="g3">
+  <p class="eye">What happened on the fourth purchase</p>
+  <h1>Our own agent hit its rate limit.<span class="t">The network stopped it, not our code.</span></h1>
+  <div class="body"><div style="width:100%">
+    <div style="display:flex;align-items:flex-end;gap:18px;height:300px;position:relative">
+      <div style="flex:1;display:flex;flex-direction:column;gap:10px"><div class="pane hot" style="height:200px;display:flex;flex-direction:column;justify-content:flex-end"><p class="pn" style="font-size:26px">0.05</p><p class="ps">record 1 · bought</p></div></div>
+      <div style="flex:1"><div class="pane hot" style="height:200px;display:flex;flex-direction:column;justify-content:flex-end"><p class="pn" style="font-size:26px">0.05</p><p class="ps">record 2 · bought</p></div></div>
+      <div style="flex:1"><div class="pane hot" style="height:200px;display:flex;flex-direction:column;justify-content:flex-end"><p class="pn" style="font-size:26px">0.05</p><p class="ps">record 3 · bought</p></div></div>
+      <div style="flex:1"><div class="pane" style="height:200px;border-color:var(--refuse);background:var(--refuseg);display:flex;flex-direction:column;justify-content:flex-end"><p class="pn" style="font-size:26px;color:var(--refuse)">refused</p><p class="ps">0 left this epoch · nothing signed</p></div></div>
+      <div style="width:2px;align-self:stretch;background:repeating-linear-gradient(var(--faint) 0 8px,transparent 8px 16px)"></div>
+      <div style="flex:1"><div class="pane" style="height:200px;display:flex;flex-direction:column;justify-content:flex-end"><p class="pn" style="font-size:26px;color:var(--dim)">next epoch</p><p class="ps">~100 s later, allowance resets</p></div></div>
+    </div>
+    <p style="font-size:24px;color:var(--dim);margin-top:22px">Scout may spend 0.15 KAS per epoch. Three records used it. There was no transaction to reject — the payer could not build one.</p>
+  </div></div>
+  <div class="foot"><span class="wm">Warda<b>.</b></span><span>per-epoch limit · enforced by consensus</span></div>
+</div>
+
+<!-- G4 — outreach -->
+<div class="card" id="g4">
+  <p class="eye">The deliverable</p>
+  <h1>The agent that writes to strangers<span class="t">holds no money and sends nothing.</span></h1>
+  <div class="body"><div style="width:100%;display:grid;grid-template-columns:repeat(4,1fr);gap:22px">
+    <div class="pane"><p class="pl">Scout found</p><p class="pn" style="font-size:72px">12</p><p class="ps">projects building agents that pay, across six searches</p></div>
+    <div class="pane hot"><p class="pl">records bought</p><p class="pn" style="font-size:72px">3</p><p class="ps">0.15 KAS · every fact with the URL it came from</p></div>
+    <div class="pane"><p class="pl">drafts written</p><p class="pn" style="font-size:72px">1</p><p class="ps">2 got “no draft”: a directory, and a repo with no description</p></div>
+    <div class="pane no"><p class="pl">sent by an agent</p><p class="pn" style="font-size:72px;color:var(--dim)">0</p><p class="ps">a person reads every draft and decides</p></div>
+  </div></div>
+  <div class="foot"><span class="wm">Warda<b>.</b></span><span>no grant · no key · no send button</span></div>
+</div>
+
+<!-- G5 — receipts -->
+<div class="card" id="g5">
+  <p class="eye">The whole week, on chain</p>
+  <h1>What it cost is a public fact.<span class="d">So is the fact that it could not cost more.</span></h1>
+  <div class="body"><div style="width:100%">
+    <table>
+      <tr><td class="k">genesis</td><td class="v">0.9 KAS <span class="from">batch grant, one payee</span></td><td class="v" style="text-align:right;color:var(--faint);font-size:22px">6e1df7f5…</td></tr>
+      <tr><td class="k">delegate</td><td class="v">0.6 KAS <span class="from">to Scout</span></td><td class="v" style="text-align:right;color:var(--faint);font-size:22px">ec9fef93…</td></tr>
+      <tr><td class="k">3 payments</td><td class="v"><span class="to">0.15 KAS</span> <span class="from">to Researcher</span></td><td class="v" style="text-align:right;color:var(--faint);font-size:22px">2aa4bf21… +2</td></tr>
+      <tr><td class="k">settle</td><td class="v">Scout home <span class="from">parent charged 0.15</span></td><td class="v" style="text-align:right;color:var(--faint);font-size:22px">a0adf387…</td></tr>
+      <tr><td class="k">revoke</td><td class="v">0.6185 KAS <span class="from">back to the principal</span></td><td class="v" style="text-align:right;color:var(--faint);font-size:22px">997d88d8…</td></tr>
+    </table>
+  </div></div>
+  <div class="foot"><span class="wm">Warda<b>.</b></span><span>testnet · the authority is real, the money is not</span></div>
+</div>
+
+<!-- C1 — console overview -->
+<div class="card" id="c1">
+  <p class="eye">Warda Console</p>
+  <h1>One place to give agents money.<span class="t">And to take it back.</span></h1>
+  <div class="body"><div class="shot" style="width:100%;height:100%"><img src="k-dash.png"></div></div>
+  <div class="foot"><span class="wm">Warda<b>.</b></span><span>wardaprotocol.com/app</span></div>
+</div>
+
+<!-- C2 — create -->
+<div class="card" id="c2">
+  <p class="eye">Create a grant</p>
+  <h1>Type dollars.<span class="t">Every node enforces the limits.</span></h1>
+  <div class="body" style="gap:40px">
+    <div class="shot" style="flex:1.7;height:100%"><img src="k-create.png"></div>
+    <div style="flex:1;display:flex;flex-direction:column;gap:18px">
+      <div class="pane"><p class="pl">budget</p><p class="pn">$100</p></div>
+      <div class="pane"><p class="pl">per payment</p><p class="pn">$5</p></div>
+      <div class="pane"><p class="pl">per hour</p><p class="pn">$20</p></div>
+      <div class="pane hot"><p class="pl">becomes</p><p class="ps" style="color:var(--chrome)">a script that unlocks the coin — not a setting anyone can edit</p></div>
+    </div>
+  </div>
+  <div class="foot"><span class="wm">Warda<b>.</b></span><span>priced once at market · enforced in KAS</span></div>
+</div>
+
+<!-- C3 — fund -->
+<div class="card" id="c3">
+  <p class="eye">Fund an agent</p>
+  <h1>Fund it with the stablecoin you hold.<span class="d">Every route’s custodian, named before you send.</span></h1>
+  <div class="body"><div class="shot" style="width:100%;height:100%"><img src="k-fund.png"></div></div>
+  <div class="foot"><span class="wm">Warda<b>.</b></span><span>USDC · USDT → agent authority · Warda’s part: none</span></div>
+</div>
+
+<!-- C4 — controls -->
+<div class="card" id="c4">
+  <p class="eye">Every grant, its controls</p>
+  <h1>There is no pause button.<span class="t">Revoke is the pause.</span></h1>
+  <div class="body" style="gap:40px">
+    <div class="shot" style="flex:1.7;height:100%"><img src="k-agent.png"></div>
+    <div style="flex:1;display:flex;flex-direction:column;gap:18px">
+      <div class="pane" style="border-color:var(--refuse)"><p class="pn" style="font-size:26px;color:var(--refuse)">Revoke</p><p class="ps">now · balance goes home, not to whoever pressed it</p></div>
+      <div class="pane"><p class="pn" style="font-size:26px">Reclaim</p><p class="ps">after the term ends</p></div>
+      <div class="pane"><p class="pn" style="font-size:26px">Renew</p><p class="ps">a successor, same limits</p></div>
+      <div class="pane"><p class="pn" style="font-size:26px">Find</p><p class="ps">a grant that moved</p></div>
+    </div>
+  </div>
+  <div class="foot"><span class="wm">Warda<b>.</b></span><span>signed in your wallet · never on our server</span></div>
+</div>
+
+<!-- C5 — watch -->
+<div class="card" id="c5">
+  <p class="eye">Fleet · analytics · alerts</p>
+  <h1>Burn rate, runway, what was refused.<span class="d">Read from the chain, not from logs.</span></h1>
+  <div class="body"><div class="shot" style="width:100%;height:100%"><img src="k-analytics.png"></div></div>
+  <div class="foot"><span class="wm">Warda<b>.</b></span><span>alerts to Telegram · every 15 minutes</span></div>
+</div>
+
+<!-- C6 — principles -->
+<div class="card" id="c6">
+  <p class="eye">What the console will never do</p>
+  <h1>Never a key. Never a coin.<span class="t">Never a cut.</span></h1>
+  <div class="body"><div style="width:100%;display:grid;grid-template-columns:repeat(3,1fr);gap:26px">
+    <div class="pane"><p class="pl">keys</p><p class="pn">Your wallet signs</p><p class="ps">The console builds the transaction and prints the command. It holds no key and cannot move anything.</p></div>
+    <div class="pane"><p class="pl">money</p><p class="pn">Nothing held</p><p class="ps">Not the grant, not the funding, not a float. There is no Warda account between you and the chain.</p></div>
+    <div class="pane hot"><p class="pl">pricing</p><p class="pn">No percentage</p><p class="ps">Free while in beta. Paid plans later — a subscription, never a share of what your agents spend.</p></div>
+  </div></div>
+  <div class="foot"><span class="wm">Warda<b>.</b></span><span>testnet · unaudited · wardaprotocol.com/app</span></div>
+</div>
+</body>
