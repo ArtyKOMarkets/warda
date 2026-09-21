@@ -1,0 +1,5 @@
+# Who grant 9a8350b067e9 may pay, fixed at creation. The first three are Warda's own
+# registry services; the rest were asked for by the builder.
+16e6af2030f7e4510d1a417391a7ff7ccad21864f17eef7ee035f0453e21a033
+3c693f61fbc35d1fd4dcec2bbbab692be38656e6fd5a4077ee495afcb23535a1
+254385aa03abefa14e997d01ad5e6b8c13ca4aba7b030d675ca5922c39f8af48
