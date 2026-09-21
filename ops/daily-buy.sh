@@ -55,7 +55,8 @@ WARDA_SK="$(cat "$KEY")" node --experimental-strip-types agents/tools/buy.ts \
   --id WARDA-003 \
   --grant x402/demo/agent-003-grant.json \
   --recipients x402/demo/agent-003-recipients.txt \
-  --out agent-003/purchases
+  --out agent-003/purchases \
+  --task "daily digest"
 rc=$?
 
 case $rc in

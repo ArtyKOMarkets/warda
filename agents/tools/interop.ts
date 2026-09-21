@@ -64,6 +64,11 @@ const statusPath = flag("status");
  * would be false in the most unflattering possible direction.
  */
 const outDir = flag("out");
+/* Same label as buy.ts --task: why it paid, kept in the purchase record only. */
+const task = (() => {
+  const t = (flag("task") ?? "").replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim();
+  return t ? t.slice(0, 80) : null;
+})();
 const secretHex = process.env.WARDA_AGENT_SK;
 
 if (!manifestPath || !recipientsPath) {
@@ -135,6 +140,7 @@ const record = (outcome: Record<string, unknown>): void => {
         at: startedAt.toISOString(),
         agent: "WARDA-005",
         url,
+        ...(task ? { task } : {}),
         /* `quoted` and `txid`, in the shape dashboard.ts reads them.
          *
          * It was `amountSompi` and `feeSompi` at the top level, which is a

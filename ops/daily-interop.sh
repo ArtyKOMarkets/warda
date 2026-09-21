@@ -70,7 +70,8 @@ WARDA_AGENT_SK="$(cat "$KEY")" node --experimental-strip-types agents/tools/inte
   --recipients agent-005/payees.txt \
   --url https://demo.kaspa-x402.org/exact \
   --status site/src/interop-status.json \
-  --out agent-005/purchases
+  --out agent-005/purchases \
+  --task "morning x402 buy"
 rc=$?
 set -e
 
