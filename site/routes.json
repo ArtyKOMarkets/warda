@@ -1,0 +1,46 @@
+{
+  "_comment": "Which ways into KAS exist, leg by leg, and whether each is working. Read by /app's Fund an agent. A route is only as available as its worst leg. Update checkedAt whenever a status is checked; /app says a route status older than 14 days has not been checked recently rather than repeating it.",
+  "checkedAt": "2026-09-21",
+  "networks": {
+    "testnet-10": {
+      "none": "Igra's Galleon testnet has no USDC venue and no published exit bridge to Kaspa testnet-10, so there is no way in from a stablecoin on testnet. Testnet KAS comes from a faucet.",
+      "faucet": "https://faucet.zealousswap.com/"
+    },
+    "mainnet": {
+      "sources": [
+        { "chain": "Ethereum", "chainId": 1, "tokens": ["USDC", "USDT"], "legs": ["hyperlane", "zealous", "exit"] },
+        { "chain": "Base", "chainId": 8453, "tokens": ["USDC"], "legs": ["hyperlane", "zealous", "exit"] },
+        { "chain": "Arbitrum", "chainId": 42161, "tokens": ["USDC"], "legs": ["hyperlane", "zealous", "exit"] },
+        { "chain": "Optimism", "chainId": 10, "tokens": ["USDC"], "legs": ["hyperlane", "zealous", "exit"] },
+        { "chain": "Polygon", "chainId": 137, "tokens": ["USDC"], "legs": ["hyperlane", "zealous", "exit"] },
+        { "chain": "Avalanche", "chainId": 43114, "tokens": ["USDC"], "legs": ["hyperlane", "zealous", "exit"] },
+        { "chain": "Igra", "chainId": 38833, "tokens": ["USDC"], "legs": ["zealous", "exit"] }
+      ],
+      "legs": {
+        "hyperlane": {
+          "does": "bridge the stablecoin to Igra",
+          "via": "Hyperlane warp route",
+          "status": "paused",
+          "since": "2026-09-20",
+          "why": "Igra's Hyperlane pausable ISM and hook were paused on-chain, halting transfers in and out of Igra; Hyperlane removed Igra's routes from its bridge UI the same day.",
+          "source": "https://github.com/hyperlane-xyz/hyperlane-registry/pull/1713"
+        },
+        "zealous": {
+          "does": "swap USDC for iKAS on Igra",
+          "via": "Zealous Swap, USDC/iKAS pool",
+          "status": "live",
+          "why": "Trading, with a thin pool relative to the rest of the venue — a large order moves the price, which is what the slippage bound is for.",
+          "source": "https://www.coingecko.com/en/exchanges/zealous-swap-igra"
+        },
+        "exit": {
+          "does": "cross iKAS from Igra to KAS on Kaspa L1",
+          "via": "Igra KasExitBridge",
+          "status": "live",
+          "minKas": 1000,
+          "why": "Moves 1,000 KAS or more per exit, so a smaller funding cannot cross on its own.",
+          "source": "router/DESIGN.md"
+        }
+      }
+    }
+  }
+}

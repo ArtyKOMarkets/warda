@@ -96,6 +96,11 @@ converts later holds a Kaspa address, so they sit in the allowlist, so
   Hyperlane, and `KasExitBridge.requestExit` has a **1,000 KAS minimum exit**
   with `msg.value == (unlockAmountSompi + feeAmountSompi) * 1e10`. Treasury-
   sized funding clears that floor; per-payment crossing never could.
+- **21 September 2026: Igra's Hyperlane routes are paused.** Igra's pausable ISM and hook were paused
+  on-chain on 20 September, halting warp-route transfers in and out; Hyperlane removed Igra's routes from
+  its UI and router allowlist the same day (hyperlane-registry #1713). Zealous's USDC/iKAS pool and the exit
+  bridge are unaffected, so only USDC already on Igra has a route. The leg-by-leg table is
+  `site/src/routes.json`; the v1 stack is `router/FUND-AGENT.md`.
 - **Published deployments, checked 21 September 2026** against Igra's own
   contract-addresses page (igra-labs.gitbook.io/igralabs-docs/for-developers/
   contract-addresses). Mainnet (chain 38833): `KasExitBridge` proxy

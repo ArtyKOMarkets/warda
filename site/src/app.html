@@ -258,6 +258,36 @@
   .wc-qr:empty { background: var(--panel); }
   .wc-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.8rem; }
   .wc-row > * { flex: 1 1 auto; }
+  .fa-wrap { display: grid; gap: 0.85rem; max-width: 880px; }
+  .fa { display: grid; gap: 0.9rem; }
+  .fa-side { background: var(--panel); border: 1px solid var(--edge); border-radius: 10px; padding: 0.85rem 0.95rem; }
+  .fa-side label { display: block; margin-bottom: 0.45rem; }
+  .fa-amt { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .fa-amt input { flex: 1 1 140px; width: auto; min-width: 0; font-size: 1.35rem; }
+  .fa-amt select { flex: 0 0 auto; width: auto; }
+  .fa-arrow { display: grid; place-items: center; height: 0; position: relative; z-index: 1; }
+  .fa-arrow svg { width: 30px; height: 30px; padding: 6px; border-radius: 50%; background: var(--raise);
+    border: 1px solid var(--edge-bright); color: var(--teal); margin-block: -0.45rem; }
+  .fa-kas { font-family: var(--mono); font-size: 1.6rem; margin: 0; color: var(--chrome); }
+  .fa-key { font-size: 0.78rem; line-height: 1.5; margin: 0.35rem 0 0; color: var(--chrome-dim); overflow-wrap: anywhere; }
+  .fa-route { display: grid; gap: 0.35rem; }
+  .fa-leg { display: grid; grid-template-columns: auto 1fr; gap: 0.2rem 0.6rem; align-items: baseline;
+    font-size: 0.8rem; color: var(--chrome-dim); }
+  .fa-leg .pill { justify-self: start; }
+  .fa-leg small { grid-column: 2; color: var(--chrome-faint); font-size: 0.72rem; }
+  .fa-leg a { color: var(--chrome-faint); }
+  .fa-go { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.9rem; }
+  .fa-why { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.25rem; font-size: 0.8rem; color: var(--chrome-dim); }
+  .fa-why b { color: var(--amber); }
+  .fa-ok { margin: 0; font-size: 0.8rem; color: var(--good); }
+  .fa-det { border: 1px solid var(--edge); border-radius: var(--r); background: var(--ground); }
+  .fa-det > summary { cursor: pointer; padding: 0.9rem 1.1rem; font-weight: 600; list-style: none; display: flex;
+    flex-wrap: wrap; gap: 0.3rem 0.7rem; align-items: baseline; }
+  .fa-det > summary::-webkit-details-marker { display: none; }
+  .fa-det > summary::before { content: "▸"; color: var(--chrome-faint); }
+  .fa-det[open] > summary::before { content: "▾"; }
+  .fa-det > summary small { font-family: var(--mono); font-size: 0.72rem; color: var(--chrome-faint); font-weight: 400; }
+  .fa-det > .wrap { padding: 0 1.1rem 1.1rem; }
   a.go { text-decoration: none; text-align: center; }
   .grp-l { font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--chrome-faint);
     margin: 1.1rem 0 0; }
@@ -270,7 +300,9 @@
   .scope-t b { color: var(--chrome); font-weight: 600; }
   .scope .go { padding: 0.36rem 0.8rem; font-size: 0.78rem; }
   .scope-empty { padding-bottom: 0; }
-  .main.mine-empty .view.data:not(#v-agent) > :not(.head) { display: none; }
+  .main.mine-empty .view.data:not(#v-agent) > :not(.head):not(.trk) { display: none; }
+  .trk { margin-bottom: 0.85rem; }
+  .trk .ev { cursor: pointer; }
   /* Links that act as buttons wear the button: same box, same weight. */
   a.go { display: inline-block; font-family: var(--body); font-weight: 600; font-size: 0.85rem; padding: 0.52rem 1.1rem;
     border-radius: 9px; border: 1px solid var(--teal); background: var(--teal); color: #05231F; }
@@ -428,7 +460,7 @@
       <p class="grp" style="margin-top:0.9rem">Build</p>
       <a data-view="fund">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 5.5h9.5M8.5 2.5l3 3-3 3"/><path d="M14 10.5H4.5M7.5 7.5l-3 3 3 3"/></svg>
-        Fund your treasury</a>
+        Fund an agent</a>
       <a data-view="create">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2.5v11M2.5 8h11"/></svg>
         Create a grant</a>
@@ -512,6 +544,14 @@
           <button data-d="30" aria-pressed="false">30 days</button>
           <button data-d="0" aria-pressed="true">All time</button>
         </div>
+      </div>
+
+      <div class="card trk" hidden>
+        <header><h2>Grants you track <small class="trk-n"></small></h2>
+          <a class="more" data-view="account">Manage &rarr;</a></header>
+        <p class="why">Read from their grant.json and checked against the chain by the verifier just now &mdash;
+          not published readings, so they carry no payment history here.</p>
+        <div class="feed trk-list"></div>
       </div>
 
       <div class="dash">
@@ -624,6 +664,14 @@
         <h1>Grants</h1>
         <p>What the covenant permits each agent, and what is left of it. Budget and cap are fixed at creation and cannot be raised.</p>
       </div></div>
+      <div class="card trk" hidden>
+        <header><h2>Grants you track <small class="trk-n"></small></h2>
+          <a class="more" data-view="account">Manage &rarr;</a></header>
+        <p class="why">Read from their grant.json and checked against the chain by the verifier just now &mdash;
+          not published readings, so they carry no payment history here.</p>
+        <div class="feed trk-list"></div>
+      </div>
+
       <div class="card">
         <header><h2>Every grant <small id="n-grants-2">&mdash;</small></h2></header>
         <div style="overflow-x:auto">
@@ -1020,11 +1068,55 @@ ops/install-cron.sh</pre>
     <!-- ============================== FUND =============================== -->
     <div class="view pad" id="v-fund">
       <div class="head"><div>
-        <h1>Fund your treasury</h1>
-        <p>Turn USDC into KAS you hold, once. Every grant after that is created from it, with no
-          price, no venue and nobody&rsquo;s word involved.</p>
+        <h1>Fund an agent</h1>
+        <p>Pay with the stablecoin you already hold. It becomes KAS on Kaspa, and the KAS becomes the
+          agent&rsquo;s spending authority &mdash; a budget the network enforces. Warda holds none of it and
+          takes nothing.</p>
       </div></div>
 
+      <div class="fa-wrap">
+        <div class="card fa">
+          <div class="fa-side">
+            <label for="fa-usd">You pay</label>
+            <div class="fa-amt">
+              <input id="fa-usd" inputmode="decimal" value="100" aria-describedby="fa-from-s">
+              <select id="fa-tok" aria-label="Token"></select>
+              <select id="fa-chain" aria-label="From chain"></select>
+            </div>
+            <p class="out" id="fa-from-s">&mdash;</p>
+          </div>
+          <div class="fa-arrow" aria-hidden="true">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 2.5v11M3.5 9l4.5 4.5L12.5 9"/></svg>
+          </div>
+          <div class="fa-side">
+            <label>Agent spending authority</label>
+            <p class="fa-kas" id="fa-kas">&mdash;</p>
+            <p class="out" id="fa-kas-s">&mdash;</p>
+          </div>
+          <div class="grid fa-terms">
+            <div class="field">
+              <label for="fa-cap">Per payment &mdash; $</label>
+              <input id="fa-cap" inputmode="decimal" value="20">
+            </div>
+            <div class="field">
+              <label for="fa-days">Expires in &mdash; days</label>
+              <input id="fa-days" inputmode="numeric" value="7">
+            </div>
+            <div class="field">
+              <label>Grant key</label>
+              <p class="fa-key" id="fa-key">&mdash;</p>
+            </div>
+          </div>
+          <div class="fa-route" id="fa-route"></div>
+          <div class="fa-go">
+            <button class="go" id="fa-go">Fund agent</button>
+            <button class="go gh" id="fa-hold" hidden>Already hold KAS? Use these terms &rarr;</button>
+          </div>
+          <div id="fa-state"></div>
+        </div>
+
+        <details class="fa-det" id="fa-det">
+          <summary><span>Route details</span> <small id="fa-path">&mdash;</small></summary>
       <div class="wrap">
         <div>
           <div class="card">
@@ -1109,6 +1201,8 @@ ops/install-cron.sh</pre>
               &rarr;</button></p>
           </div>
         </div>
+      </div>
+        </details>
       </div>
     </div>
 
@@ -2179,6 +2273,7 @@ ops/install-cron.sh</pre>
         if (!(v > 0)) return miss("no price in the reply. That is not $0.");
         var t = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
         MARKET = { rate: v, at: t, source: "CoinGecko" };
+        if ($("fa-usd")) faView();
         ["px", "a-px", "fu-px"].forEach(function (id) { if ($(id)) $(id).textContent = "$" + v + " per KAS"; });
         ["px-src", "a-px-src", "fu-px-src"].forEach(function (id) {
           if ($(id)) $(id).textContent = "CoinGecko, read at " + t + " — nothing is enforced against it";
@@ -2776,6 +2871,7 @@ ops/install-cron.sh</pre>
      account re-derives them — the dashboard of the wallet that was connected
      a moment ago is not this wallet's dashboard. */
   function walletChanged() {
+    if ($("fa-usd") && typeof ROUTES !== "undefined") faView();
     scopeData();
     if (ALL.length) render();
     walletRender();
@@ -2970,9 +3066,12 @@ ops/install-cron.sh</pre>
     var who = W ? (W.family === "evm" ? "this account" : "your key") : "";
     $("scope-t").innerHTML = s === "public"
       ? "Showing <b>Warda&rsquo;s own agents</b> &mdash; published as live examples, not yours."
-      : "Showing <b>your grants</b> &mdash; every published grant that names " + who + ".";
+      : "Showing <b>your grants</b> &mdash; every published grant that names " + who + ", and every grant you track.";
     document.querySelector(".main").classList.toggle("mine-empty", empty);
-    $("scope-empty").hidden = !empty || !onData();
+    /* Tracked grants are grants too: a wallet with none published but some
+       tracked sees those, not "you have nothing". */
+    $("scope-empty").hidden = !empty || !onData() || (!!OWN && OWN.length > 0);
+    trkRender();
     $("scope-empty-t").textContent = W && W.family === "evm"
       ? "A grant names a Kaspa key, and this is an Ethereum-style account, so no published grant can name it. You can still create one — with a Kaspa address as its principal — and track any grant by its grant.json."
       : "This console shows a grant when its reading is published and names your key as the principal that funded it, the revocation key that can stop it, or the agent that spends it. A new wallet has none yet.";
@@ -3146,6 +3245,36 @@ ops/install-cron.sh</pre>
     $("own-refresh").hidden = !OWN.length;
     $("own-list").innerHTML = OWN.length ? OWN.map(ownRow).join("")
       : '<p class="empty">None yet. Add the grant.json for any grant &mdash; one you funded, one you are an agent of, or one somebody gave you terms for and you want to check.</p>';
+    trkRender();
+  }
+
+  /* The same tracked grants, on Overview and Grants, when those views are
+     showing yours. Compact: state, what is left, what the next payment can
+     be. The full reading — findings, assumptions, the command to bring a
+     stale manifest up to date — stays under Your account, one click away. */
+  function trkRender() {
+    var on = scopeNow() === "mine" && !!OWN && OWN.length > 0;
+    var left = 0, read = 0;
+    var rows = !on ? "" : OWN.map(function (x) {
+      var m = x.m, rd = OREAD[ownKey(m)], st = ownState(m, rd);
+      var r = rd && rd.st === "read" && rd.r.found ? rd.r : null;
+      if (r && r.agrees) { left += Number(r.remaining.sompi); read++; }
+      var title = "Grant " + (m.covenant_id ? String(m.covenant_id).slice(0, 8) + "…" : short(m.principal));
+      return '<div class="ev" data-view="account" tabindex="0">' +
+        '<span class="pill ' + st[1] + '">' + esc(st[0]) + '</span>' +
+        '<i style="font-style:normal;min-width:0"><b>' + esc(title) + '</b>' +
+        '<span>' + (r ? "next payment up to " + amt(r.maxNextSpend) + " KAS · this epoch " + amt(r.epochRemaining) + " KAS"
+          : "budget " + sompiKas(m.budget) + " KAS · cap " + sompiKas(m.max_per_spend) + " KAS each") + '</span></i>' +
+        '<span class="a">' + (r ? amt(r.remaining) + " KAS left" : "—") + '</span></div>';
+    }).join("");
+    var n = !on ? "" : OWN.length + " tracked" + (read ? " · " + kas2(left / SOMPI) + " KAS left across " + read + " read" : "");
+    /* The sidebar count is of YOUR grants, and a tracked one is one. */
+    if ($("n-grants")) $("n-grants").textContent = A.length + (on ? OWN.length : 0);
+    Array.prototype.forEach.call(document.querySelectorAll(".trk"), function (c) {
+      c.hidden = !on;
+      c.querySelector(".trk-list").innerHTML = rows;
+      c.querySelector(".trk-n").textContent = n;
+    });
   }
 
   function ownFiles(files) {
@@ -3166,6 +3295,115 @@ ops/install-cron.sh</pre>
       $("a-kind").value = "balance-at-or-above"; $("a-addr").value = W.address;
       show("alerts"); alertsView();
     }
+  }
+
+  /* ---- fund an agent ---------------------------------------------------------
+     The product, stated the way a person holding USDC would: I pay this, the
+     agent gets that much authority. The route — bridge, swap, exit — is
+     below, folded, and it is the router's to choose; every leg's status is
+     read from /routes.json, dated, and a route is only as available as its
+     worst leg. Nothing here pretends a leg works because the design says it
+     should: a paused bridge is shown paused, with who paused it and when.
+
+     Warda is not in the money path on any leg. Each step is a transaction
+     you sign in your own wallet; the router plans them and holds nothing. */
+  var ROUTES = null;
+  fetch("/routes.json").then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (j) { ROUTES = j; faView(); })
+    .catch(function () { ROUTES = false; faView(); });
+
+  var LEG_PILL = { live: "live", paused: "no", experimental: "warn" };
+  function faStale() {
+    if (!ROUTES || !ROUTES.checkedAt) return true;
+    return Date.now() - new Date(ROUTES.checkedAt + "T00:00:00Z").getTime() > 14 * 86400000;
+  }
+
+  function faView() {
+    if (!$("fa-usd")) return;
+    if (ROUTES === null) { $("fa-route").innerHTML = '<p class="why">Reading the route table…</p>'; $("fa-go").disabled = true; return; }
+    if (!ROUTES) {
+      $("fa-route").innerHTML = '<p class="empty">The route table did not load, so no route is shown — that is not the same as there being none.</p>';
+      $("fa-go").disabled = true; return;
+    }
+    var main = ROUTES.networks.mainnet, net = $("net").value, here = ROUTES.networks[net] || {};
+    var srcs = main.sources;
+
+    /* The chain picker follows the connected wallet the first time it can,
+       and the person after that. */
+    var sel = $("fa-chain");
+    if (!sel.options.length) {
+      sel.innerHTML = srcs.map(function (x, i) { return '<option value="' + i + '">' + esc(x.chain) + '</option>'; }).join("");
+      sel.value = String(srcs.map(function (x) { return x.chain; }).indexOf("Base"));
+    }
+    if (W && W.family === "evm" && W.chainId && !faView.followed) {
+      var at = srcs.map(function (x) { return x.chainId; }).indexOf(W.chainId);
+      if (at >= 0) { sel.value = String(at); faView.followed = true; }
+    }
+    var src = srcs[Number(sel.value) || 0];
+    var tok = $("fa-tok"), was = tok.value;
+    tok.innerHTML = src.tokens.map(function (t) { return '<option>' + esc(t) + '</option>'; }).join("");
+    if (src.tokens.indexOf(was) >= 0) tok.value = was;
+
+    var usd = parseFloat($("fa-usd").value), rate = MARKET ? MARKET.rate : parseFloat($("fu-rate").value);
+    var kasN = usd > 0 && rate > 0 ? usd / rate : null;
+    $("fa-from-s").textContent = W && W.family === "evm"
+      ? "from " + WALLETS[W.kind].name + " · " + short(W.address) + (W.chainId && W.chainId !== src.chainId ? " — your wallet is on " + chainName(W.chainId) + ", not " + src.chain : "")
+      : "from any wallet on " + src.chain + " — connect one under Your account";
+    $("fa-kas").textContent = kasN == null ? "—" : "≈ " + Math.floor(kasN).toLocaleString("en-US") + " KAS";
+    $("fa-kas-s").textContent = kasN == null ? "Enter an amount above zero."
+      : "at $" + rate + " per KAS (" + (MARKET ? MARKET.source + ", " + MARKET.at : "your figure in Route details") +
+        "). The swap may fill up to " + ($("fu-slip").value || "0") + "% lower; that bound is yours to set below.";
+
+    var kaspaKey = W && W.family === "kaspa" && W.key;
+    $("fa-key").innerHTML = kaspaKey ? "yours — " + esc(short(W.address))
+      : '<span style="color:var(--amber)">none yet</span> — a grant on Kaspa is created and named by a Kaspa key. Connect KasWare or Kaspire under Your account.';
+
+    /* Every leg, in order, with its status. */
+    var legs = src.legs.map(function (id) { return { id: id, l: main.legs[id] }; });
+    var stale = faStale();
+    $("fa-route").innerHTML = legs.map(function (x) {
+      var l = x.l, st = stale ? "unchecked" : l.status;
+      var pill = stale ? "warn" : (LEG_PILL[l.status] || "warn");
+      return '<div class="fa-leg"><span class="pill ' + pill + '">' + esc(st) + '</span>' +
+        '<span><b>' + esc(l.does.charAt(0).toUpperCase() + l.does.slice(1)) + '</b> · ' + esc(l.via) +
+        (l.since ? ' · since ' + esc(l.since) : '') + '</span>' +
+        '<small>' + esc(l.why) + (/^https:/.test(l.source || "") ? ' <a href="' + esc(l.source) + '" rel="noopener">source</a>' : '') + '</small></div>';
+    }).join("") + '<p class="why" style="margin:0.2rem 0 0">Route status checked ' + esc(ROUTES.checkedAt) +
+      (stale ? ' — more than two weeks ago, so it is shown as unchecked rather than repeated.' : '.') + '</p>';
+    $("fa-path").textContent = src.chain + (src.legs.indexOf("hyperlane") >= 0 ? " → Igra" : "") + " → iKAS → Kaspa L1 → grant";
+
+    /* What stands between this and a funded agent — every reason, not the first. */
+    var why = [];
+    if (net !== "mainnet" && here.none) why.push("On " + net + ": " + here.none);
+    legs.forEach(function (x) {
+      if (stale) return;
+      if (x.l.status !== "live") why.push(x.l.via + " is " + x.l.status + (x.l.since ? " since " + x.l.since : "") + ".");
+    });
+    var exit = main.legs.exit;
+    if (kasN != null && exit && exit.minKas && kasN < exit.minKas) {
+      why.push("≈ " + Math.floor(kasN).toLocaleString("en-US") + " KAS is below the exit bridge's " + exit.minKas.toLocaleString("en-US") +
+        " KAS minimum, so it cannot cross on its own — this route starts at about $" + Math.ceil(exit.minKas * rate).toLocaleString("en-US") + ".");
+    }
+    if (!kaspaKey) why.push("No Kaspa key is connected to create the grant with.");
+    if (stale) why.push("The route status has not been checked in over two weeks.");
+
+    $("fa-go").disabled = why.length > 0;
+    $("fa-state").innerHTML = why.length
+      ? '<ul class="fa-why">' + why.map(function (w) { return "<li>" + esc(w) + "</li>"; }).join("") + '</ul>'
+      : '<p class="fa-ok">Every leg is live. You will sign each step in your wallet; nothing is sent until you do.</p>';
+    $("fa-hold").hidden = false;
+
+    /* The planner below plans the Igra legs; keep its amount in step. */
+    if ($("fu-usd").value !== $("fa-usd").value) { $("fu-usd").value = $("fa-usd").value; fundView(); }
+  }
+
+  function faHold() {
+    /* Already holding KAS: the same terms, straight into the grant wizard. */
+    $("budget").value = $("fa-usd").value;
+    $("cap").value = $("fa-cap").value;
+    $("days").value = $("fa-days").value;
+    if (W && W.family === "kaspa") $("funder").value = W.address;
+    show("create"); createView();
   }
 
   /* ---- fund the treasury --------------------------------------------------
@@ -3500,6 +3738,12 @@ ops/install-cron.sh</pre>
   });
   /* Straight on to a grant, carrying the two things this page already knows:
      where the KAS lands, and the rate it was bought at. */
+  ["fa-usd", "fa-cap", "fa-days", "fa-chain", "fa-tok"].forEach(function (id) {
+    $(id).addEventListener("input", faView); $(id).addEventListener("change", faView);
+  });
+  $("fu-slip").addEventListener("input", faView);
+  $("fa-hold").addEventListener("click", faHold);
+  $("fa-go").addEventListener("click", function () { $("fa-det").open = true; $("fa-det").scrollIntoView({ block: "start", behavior: "smooth" }); });
   if ($("fu-to-create")) $("fu-to-create").addEventListener("click", function () {
     var a = ($("fu-addr").value || "").trim();
     if (a) $("funder").value = a;
@@ -3527,7 +3771,7 @@ ops/install-cron.sh</pre>
   });
 
   var TITLES = { dash: "Overview", grants: "Grants", agent: "Agent", activity: "Activity",
-                 refusals: "Refused", alerts: "Alerts", fund: "Fund your treasury", create: "Create a grant",
+                 refusals: "Refused", alerts: "Alerts", fund: "Fund an agent", create: "Create a grant",
                  account: "Your account" };
   /* ---- where you are, in the URL ----------------------------------------
      The console had no address. Every view was the same page, so a reload lost
