@@ -16,7 +16,7 @@ import base64, json, pathlib, re, sys
 
 here = pathlib.Path(__file__).parent
 PAGES = ["index.html", "protocol.html", "app.html", "build.html", "verify.html", "proof.html", "agents.html", "start.html",
-         "network.html", "sandbox.html", "rail.html", "agent-001.html"]
+         "network.html", "sandbox.html", "rail.html", "agent-001.html", "grant.html"]
 
 # The attack page publishes a live grant's key and terms, so it can only be
 # built when there IS one. src/demo-grant.json is written by

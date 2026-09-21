@@ -1,0 +1,269 @@
+<title>Get a funded testnet grant for your agent — Warda</title>
+<meta name="description" content="Send your agent's public key. We fund a bounded Warda grant on Kaspa testnet so it can pay for APIs under limits the network enforces. Free, usually within a day.">
+<style>
+  :root {
+    --void: #06090C; --ground: #0A1014; --panel: #101A20;
+    --edge: #1E2E37; --edge-bright: #2C4350;
+    --chrome: #DDE0E2; --chrome-dim: #8D989E; --chrome-faint: #5D6B73;
+    --teal: #14D7C1; --teal-deep: #06BBA1; --teal-ghost: rgba(20,215,193,0.10);
+    --refuse: #FF6B5A; --refuse-ghost: rgba(255,107,90,0.08);
+    --display: "Chakra Petch", "Arial Narrow", sans-serif;
+    --body: "Barlow", "Helvetica Neue", Arial, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    --gutter: clamp(1.15rem, 4vw, 3.4rem);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--void); color: var(--chrome);
+         font-family: var(--body); line-height: 1.6; }
+  .wrap { max-width: 62rem; margin: 0 auto; padding: 0 var(--gutter); }
+  header { border-bottom: 1px solid var(--edge); padding: 2.6rem 0 2.4rem; }
+  .home { font-family: var(--mono); font-size: 0.72rem; color: var(--chrome-faint);
+          text-decoration: none; letter-spacing: 0.08em; }
+  .home:hover { color: var(--teal); }
+  h1 { font-family: var(--display); font-size: clamp(1.9rem, 5vw, 3rem); line-height: 1.06;
+       margin: 1.3rem 0 0; font-weight: 600; letter-spacing: -0.01em; }
+  .lede { color: var(--chrome-dim); max-width: 56ch; margin-top: 1.1rem; }
+  .eyebrow { font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.18em;
+             text-transform: uppercase; color: var(--teal); margin: 0; }
+  section { border-bottom: 1px solid var(--edge); padding: 2.4rem 0; }
+  h2 { font-family: var(--display); font-size: clamp(1.3rem, 3vw, 1.8rem); margin: 0.7rem 0 0;
+       font-weight: 600; }
+  label { display: block; font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.12em;
+          text-transform: uppercase; color: var(--chrome-faint); margin: 1.2rem 0 0.5rem; }
+  textarea, input { width: 100%; background: var(--ground); color: var(--chrome);
+                    border: 1px solid var(--edge); padding: 0.8rem 0.9rem;
+                    font-family: var(--mono); font-size: 0.76rem; line-height: 1.7; }
+  textarea { min-height: 12rem; resize: vertical; }
+  textarea:focus, input:focus { outline: none; border-color: var(--teal-deep); }
+  button { font-family: var(--mono); font-size: 0.76rem; letter-spacing: 0.06em;
+           background: var(--teal); color: #04121; border: 0; padding: 0.7rem 1.3rem;
+           cursor: pointer; margin-top: 1rem; }
+  button.alt { background: transparent; color: var(--chrome-dim); border: 1px solid var(--edge);
+               margin-left: 0.5rem; }
+  button:hover { filter: brightness(1.08); }
+
+  .out { margin-top: 1.4rem; border: 1px solid; padding: 1.2rem 1.2rem; display: none;
+         font-family: var(--mono); font-size: 0.78rem; }
+  .out.on { display: block; }
+  .out.ok { border-color: var(--teal-deep); background: var(--teal-ghost); }
+  .out.no { border-color: var(--refuse); background: var(--refuse-ghost); }
+  .out .head { display: block; text-transform: uppercase; letter-spacing: 0.14em;
+               font-size: 0.7rem; margin-bottom: 0.7rem; }
+  .out.ok .head { color: var(--teal); }
+  .out.no .head { color: var(--refuse); }
+  .out .addr { word-break: break-all; color: var(--chrome); }
+
+  .terms { margin-top: 1.4rem; border-top: 1px solid var(--edge); display: none; }
+  .terms.on { display: block; }
+  .terms .row { display: grid; grid-template-columns: 12rem 1fr; gap: 1rem;
+                padding: 0.75rem 0; border-bottom: 1px solid var(--edge); }
+  .terms .k { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.1em;
+              text-transform: uppercase; color: var(--chrome-faint); }
+  .terms .v { font-size: 0.92rem; word-break: break-all; }
+  .terms .v .n { color: var(--chrome-faint); font-size: 0.82rem; display: block; margin-top: 0.2rem; }
+  @media (max-width: 620px) { .terms .row { grid-template-columns: 1fr; gap: 0.2rem; } }
+
+  .selftest { font-family: var(--mono); font-size: 0.72rem; padding: 0.8rem 1rem;
+              border: 1px solid var(--edge); color: var(--chrome-dim); margin-top: 1.4rem; }
+  .selftest b { color: var(--teal); font-weight: 500; }
+  .selftest.bad { border-color: var(--refuse); color: var(--refuse); }
+  footer { padding: 2.4rem 0 3.4rem; }
+  footer p { font-family: var(--mono); font-size: 0.7rem; color: var(--chrome-faint);
+             line-height: 1.75; max-width: 64ch; }
+  code { font-family: var(--mono); font-size: 0.92em; color: var(--chrome-dim); }
+
+
+  .steps { display: grid; gap: 1rem; margin-top: 1.4rem; }
+  .step { border: 1px solid var(--edge); background: var(--ground); padding: 1.1rem 1.2rem; }
+  .step b { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--teal); }
+  .step p { margin: 0.4rem 0 0; color: var(--chrome-dim); }
+  pre { background: var(--ground); border: 1px solid var(--edge); padding: 0.9rem 1rem; overflow-x: auto;
+        font-family: var(--mono); font-size: 0.76rem; line-height: 1.7; color: var(--chrome); white-space: pre; }
+  .grid2 { display: grid; gap: 0 1.2rem; grid-template-columns: 1fr 1fr; }
+  @media (max-width: 700px) { .grid2 { grid-template-columns: 1fr; } }
+  .hint { font-size: 0.86rem; color: var(--chrome-faint); margin: 0.4rem 0 0; }
+  .msg { margin-top: 1.2rem; padding: 0.9rem 1rem; border: 1px solid var(--edge); font-size: 0.92rem; color: var(--chrome-dim); }
+  .msg.ok { border-color: var(--teal-deep); background: var(--teal-ghost); color: var(--chrome); }
+  .msg.bad { border-color: var(--refuse); background: var(--refuse-ghost); color: var(--refuse); }
+  .kv { display: grid; grid-template-columns: 11rem 1fr; gap: 0.35rem 1rem; margin-top: 1.1rem; font-size: 0.92rem; }
+  .kv dt { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--chrome-faint); padding-top: 0.2rem; }
+  .kv dd { margin: 0; overflow-wrap: anywhere; }
+  @media (max-width: 620px) { .kv { grid-template-columns: 1fr; } .kv dd { margin-bottom: 0.5rem; } }
+  .terms-list { color: var(--chrome-dim); padding-left: 1.2rem; max-width: 62ch; }
+  .terms-list li { margin: 0.4rem 0; }
+  button:disabled { opacity: 0.5; cursor: wait; }
+  a { color: var(--teal); }
+{{NAV_CSS}}
+</style>
+
+{{NAV}}
+
+<header>
+  <div class="wrap">
+    <p class="eyebrow" style="margin-top:1.4rem">For builders · free · Kaspa testnet</p>
+    <h1>Get a funded grant<br>for your agent.</h1>
+    <p class="lede">
+      Send us your agent&rsquo;s <strong style="color:var(--chrome);font-weight:500">public key</strong>. We fund a
+      Warda grant for it &mdash; 5 testnet KAS, a per-payment cap, a rate limit and an allowlist, all enforced by the
+      network &mdash; usually within a day. It can pay the services in the <a href="/network">Warda registry</a> the
+      minute it lands, and up to six addresses of your own.
+    </p>
+    <p class="lede">No faucet, no bridge, no account. Your agent&rsquo;s secret never leaves your machine.</p>
+  </div>
+</header>
+
+<section id="status-sec" hidden>
+  <div class="wrap">
+    <p class="eyebrow">Your request</p>
+    <h2 id="st-h">&mdash;</h2>
+    <div id="st-body"></div>
+  </div>
+</section>
+
+<section id="ask">
+  <div class="wrap">
+    <p class="eyebrow">Two steps</p>
+    <h2>Make a key, then ask.</h2>
+    <div class="steps">
+      <div class="step"><b>1 · on your machine</b>
+        <p>Generate the key your agent will sign with. It prints the public half; the secret stays in the file.</p>
+        <pre>npx -p @warda_protocol/cli warda key --out agent.key</pre>
+      </div>
+    </div>
+
+    <form id="f" novalidate>
+      <label for="agentKey">2 · Your agent&rsquo;s public key</label>
+      <input id="agentKey" name="agentKey" spellcheck="false" autocomplete="off" placeholder="64 hex characters — the PUBLIC key, never the secret" required>
+      <p class="hint">If you paste a secret by mistake, we cannot tell it from a public key. Paste what <code>warda key</code> printed as public.</p>
+
+      <div class="grid2">
+        <div>
+          <label for="project">What you are building</label>
+          <input id="project" name="project" maxlength="120" placeholder="An agent that buys market data" required>
+        </div>
+        <div>
+          <label for="contact">Where to tell you it is funded</label>
+          <input id="contact" name="contact" maxlength="120" placeholder="@handle on X or Telegram, or email" required>
+        </div>
+      </div>
+
+      <label for="payees">Addresses it may pay, besides the registry <span style="text-transform:none;letter-spacing:0">— optional, up to six</span></label>
+      <input id="payees" name="payees" spellcheck="false" autocomplete="off" placeholder="kaspatest:… or 64-hex public keys, separated by spaces or commas">
+      <p class="hint">Fixed when the grant is created. Leave it empty to pay only the registry&rsquo;s services.</p>
+
+      <label for="about">Anything we should know <span style="text-transform:none;letter-spacing:0">— optional</span></label>
+      <textarea id="about" name="about" maxlength="600" style="min-height:5rem" placeholder="What the agent pays for, which framework, what you want to try."></textarea>
+
+      <button id="send" type="submit">Request a funded grant</button>
+      <div class="msg" id="msg" hidden></div>
+    </form>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">The terms, plainly</p>
+    <h2>What you get, and what we keep.</h2>
+    <ul class="terms-list">
+      <li><b style="color:var(--chrome)">Your agent key spends</b>, inside the grant&rsquo;s limits: 5 KAS in total, at most 0.5 per payment, at most 2 in any ~100 seconds, for 30 days.</li>
+      <li><b style="color:var(--chrome)">We are the principal.</b> This is testnet money we lend: whatever your agent does not spend comes back to us when the grant ends.</li>
+      <li><b style="color:var(--chrome)">A separate key of ours can stop it</b> and receives nothing when it does &mdash; the balance goes home, not to whoever pressed stop.</li>
+      <li>We keep your contact to tell you the grant is ready and to ask how it went. We will not name your project publicly without asking you first.</li>
+      <li>Testnet, unaudited, no real money. When mainnet comes, you will be the first to hear.</li>
+    </ul>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>Questions: <a href="https://t.me/Warda_protocol">Telegram @Warda_protocol</a> · <a href="mailto:aj@wardaprotocol.com">aj@wardaprotocol.com</a>. The grant is created with <code>sdk/tools/genesis.ts</code>; its manifest is public by construction and you can check it at <a href="/verify">/verify</a>.</p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var API = "/api/account";
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
+  var kas = function (s) { return s == null ? "—" : (Number(s) / 1e8).toString() + " KAS"; };
+
+  function download(name, text, type) {
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([text], { type: type }));
+    a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  }
+
+  function renderStatus(r) {
+    $("status-sec").hidden = false;
+    var body = $("st-body");
+    if (r.status === "pending") {
+      $("st-h").textContent = "Queued — we fund these by hand, usually within a day.";
+      body.innerHTML = '<p class="lede">Keep this page: <code>' + esc(location.origin + "/grant?r=" + r.id) +
+        '</code>. It shows the grant as soon as it exists, with everything your agent needs to spend from it.</p>' +
+        '<dl class="kv"><dt>Project</dt><dd>' + esc(r.project) + '</dd><dt>Agent key</dt><dd><code>' + esc(r.agentKey) + '</code></dd></dl>';
+      $("ask").hidden = true;
+      return;
+    }
+    if (r.status === "declined") {
+      $("st-h").textContent = "Not funded this time.";
+      body.innerHTML = '<p class="lede">' + esc(r.note || "Write to aj@wardaprotocol.com and we will talk it through.") + '</p>';
+      return;
+    }
+    var g = r.grant || {}, m = g.manifest || {};
+    $("st-h").textContent = "Funded. Your agent can pay now.";
+    $("ask").hidden = true;
+    body.innerHTML =
+      '<dl class="kv">' +
+      '<dt>Grant address</dt><dd><code>' + esc(g.address) + '</code></dd>' +
+      '<dt>Budget</dt><dd>' + kas(m.budget) + '</dd>' +
+      '<dt>Per payment</dt><dd>' + kas(m.max_per_spend) + '</dd>' +
+      '<dt>Per epoch</dt><dd>' + kas(m.epoch_limit) + ' every ' + esc(m.epoch_length || 1000) + ' blocks</dd>' +
+      '<dt>May pay</dt><dd>' + (g.payees || []).length + ' addresses, fixed</dd>' +
+      (g.txid ? '<dt>Created by</dt><dd><code>' + esc(g.txid) + '</code></dd>' : '') +
+      '</dl>' +
+      '<p style="margin-top:1.3rem"><button type="button" id="dl-m">Download grant.json</button> <button type="button" class="alt" id="dl-p">Download payees.txt</button></p>' +
+      '<p class="lede" style="margin-top:1.4rem">Put both next to <code>agent.key</code> and buy something from the registry:</p>' +
+      '<pre>npx -p @warda_protocol/cli warda pay https://warda-demo-api.vercel.app/fact \\\n  --grant grant.json --payees payees.txt --key agent.key</pre>' +
+      '<p class="lede">Or give your agent the MCP server and let it pay for tools itself: <a href="/start">/start</a>. ' +
+      'Every spend moves the grant to a new address; the tools follow it for you. Watch it in the <a href="/app">console</a>.</p>';
+    $("dl-m").onclick = function () { download("grant.json", JSON.stringify(m, null, 2) + "\n", "application/json"); };
+    $("dl-p").onclick = function () { download("payees.txt", (g.payees || []).join("\n") + "\n", "text/plain"); };
+  }
+
+  function load(id) {
+    fetch(API + "?op=request&id=" + encodeURIComponent(id), { cache: "no-store" })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!j.ok) { $("status-sec").hidden = false; $("st-h").textContent = "No request with that id."; return; }
+        renderStatus(j.request);
+        if (j.request.status === "pending") setTimeout(function () { load(id); }, 60000);
+      })
+      .catch(function () {});
+  }
+
+  var rid = new URLSearchParams(location.search).get("r");
+  if (rid) load(rid);
+
+  $("f").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var msg = $("msg"), btn = $("send");
+    var key = $("agentKey").value.trim().toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(key)) { msg.hidden = false; msg.className = "msg bad"; msg.textContent = "The public key is 64 hex characters (0-9, a-f)."; return; }
+    btn.disabled = true; msg.hidden = true;
+    fetch(API + "?op=request", {
+      method: "POST", headers: { "content-type": "application/json", "x-warda": "1" },
+      body: JSON.stringify({ agentKey: key, project: $("project").value, contact: $("contact").value,
+        payees: $("payees").value, about: $("about").value }),
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      btn.disabled = false;
+      if (!j.ok) { msg.hidden = false; msg.className = "msg bad"; msg.textContent = j.message || "That did not go through."; return; }
+      history.replaceState(null, "", "/grant?r=" + j.request.id);
+      renderStatus(j.request);
+      $("status-sec").scrollIntoView({ behavior: "smooth" });
+    }).catch(function () {
+      btn.disabled = false; msg.hidden = false; msg.className = "msg bad";
+      msg.textContent = "Could not reach the site. Try again, or write to aj@wardaprotocol.com.";
+    });
+  });
+})();
+</script>

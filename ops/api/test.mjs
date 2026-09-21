@@ -247,5 +247,32 @@ t("delete removes every row", Object.values(left).every((v) => Number(v) === 0),
 r = await call("GET", "me");
 t("signed out after delete", r.status === 401);
 
+/* 10. funded testnet grants: public request, operator issue */
+process.env.GRANT_REQUESTS_CHAT = "999";
+cookie = "";
+const AK = "ab".repeat(32);
+r = await call("POST", "request", { agentKey: "nothex", project: "x", contact: "y" });
+t("request: a bad agent key is refused", r.status === 400 && r.j.error === "agentKey", r.j);
+r = await call("POST", "request", { agentKey: AK, project: "Paybot", contact: "@me", payees: "kaspatest:" + "q".repeat(61) + " " + "cd".repeat(32) }, { "x-forwarded-for": "1.2.3.4" });
+t("request: accepted without an account", r.status === 200 && r.j.request.status === "pending" && r.j.request.payeesAsked.length === 2, r.j);
+const rid = r.j.request.id;
+t("request: the operator is told on Telegram", sent.some((m) => m.chat_id === "999" && m.text.includes(rid)), sent.slice(-1));
+t("request: the public reply never carries the contact", !JSON.stringify(r.j).includes("@me"), r.j);
+r = await call("POST", "request", { agentKey: AK, project: "Paybot again", contact: "@me" });
+t("request: one per agent key", r.j.existing === true && r.j.request.id === rid, r.j);
+for (let i = 0; i < 3; i++) r = await call("POST", "request", { agentKey: String(i + 1).repeat(64), project: "p", contact: "c" }, { "x-forwarded-for": "1.2.3.4" });
+t("request: three a day from one place", r.status === 429, r.j);
+r = await call("GET", "requests");
+t("requests: operator only", r.status === 401, r.j);
+r = await call("GET", "requests", undefined, { "x-admin-secret": "cron-secret" });
+t("requests: the operator sees contacts", r.status === 200 && r.j.requests.some((x) => x.contact === "@me"), r.j);
+const man = { principal: "01".repeat(32), agent: AK, revocation: "02".repeat(32), recipients_root: "03".repeat(32), budget_total: 500000000 };
+r = await call("POST", "issue", { id: rid, manifest: man, payees: ["16e6af2030f7e4510d1a417391a7ff7ccad21864f17eef7ee035f0453e21a033"], address: "kaspatest:p" + "q".repeat(61), txid: "ef".repeat(32) }, { "x-admin-secret": "cron-secret" });
+t("issue: marks it issued", r.status === 200 && r.j.request.status === "issued", r.j);
+r = await call("GET", "request&id=" + rid);
+t("request: status shows the grant, not the contact", r.j.request.grant && r.j.request.grant.manifest.agent === AK && !JSON.stringify(r.j).includes("@me"), r.j);
+r = await call("POST", "issue", { id: rid, manifest: { ...man, agent_secret: "00" }, address: "kaspatest:p" + "q".repeat(61) }, { "x-admin-secret": "cron-secret" });
+t("issue: a manifest with a secret-named field is refused", r.status === 400, r.j);
+
 console.log(`api: ${pass} passed, ${failN} failed`);
 process.exit(failN ? 1 : 0);

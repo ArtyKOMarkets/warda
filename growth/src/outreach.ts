@@ -49,6 +49,9 @@ const LINKS = {
   start: "https://wardaprotocol.com/start",
   console: "https://wardaprotocol.com/app",
   attack: "https://wardaprotocol.com/attack",
+  /* The offer: we fund their agent's first testnet grant. An invitation to
+     try it beats a description of it. */
+  grant: "https://wardaprotocol.com/grant",
 };
 
 function signalHas(record: ProjectRecord, label: string, words: string[]): boolean {
@@ -192,7 +195,7 @@ export function draft(record: ProjectRecord): Draft | Skipped {
     const body =
       "Hi — I'm building Warda: spending limits for AI agents that the network enforces rather than the agent's own code " +
       "(budget, per-payment cap, payee allowlist, revocable by a separate key). " +
-      `${SHORT[angle]} Testnet and unaudited for now. ${pitch.link.replace(/^https:\/\//, "")} — no worries if not. Arty`;
+      `${SHORT[angle]} Worth a try? We'll fund a grant for your agent on testnet (unaudited, no real money): wardaprotocol.com/grant — no worries if not. Arty`;
     return { project: record.project, channel, subject: pitch.subject(name), body, basis, angle };
   }
 
@@ -208,7 +211,7 @@ export function draft(record: ProjectRecord): Draft | Skipped {
     "",
     pitch.line,
     "",
-    `If it is useful: ${pitch.link}. It runs on Kaspa testnet today and is unaudited, so there is no real money in it yet.`,
+    `If it is worth a try, we will fund a testnet grant for your agent — send its public key at ${LINKS.grant} and it can pay within a day. More on how it works: ${pitch.link}. It is testnet and unaudited, so there is no real money in it yet.`,
     "",
     "No reply needed if it is not relevant — I will not follow up.",
     "",

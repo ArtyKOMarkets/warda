@@ -30,6 +30,14 @@
  *   POST ?op=portal                       a Stripe billing-portal URL
  *   POST ?op=stripe                       Stripe's webhook (signature-checked)
  *
+ * Funded testnet grants — public, no account needed:
+ *   POST ?op=request  {agentKey, payees?, project, contact, about?}   ask for one
+ *   GET  ?op=request&id=…                 its status, and the grant once issued
+ * and for the operator (header x-admin-secret = ADMIN_SECRET, else CRON_SECRET):
+ *   GET  ?op=requests                     every request, contacts included
+ *   POST ?op=issue    {id, manifest, payees, address, txid}
+ *   POST ?op=decline  {id, note}
+ *
  * Environment:
  *   DATABASE_URL (or POSTGRES_URL)  Neon / Vercel Postgres
  *   SESSION_SECRET                  32+ random characters; signs the cookie
@@ -39,6 +47,8 @@
  *   STRIPE_SECRET_KEY               billing; without it every account stays on its plan
  *   STRIPE_WEBHOOK_SECRET           verifies Stripe's webhook
  *   STRIPE_PRICE_PRO, STRIPE_PRICE_TEAM   the two subscription prices
+ *   GRANT_REQUESTS_CHAT             optional Telegram chat told about each new grant request
+ *   ADMIN_SECRET                    optional; the operator's header for op=requests/issue/decline
  *   BILLING_ENFORCED                "1" to require a paid plan for sync and server alerts;
  *                                   until then everybody is on the beta, which has both
  */
@@ -115,6 +125,25 @@ SCHEMA.push(
   `alter table grants add column if not exists payee text`,
   `alter table grants add column if not exists moved_at timestamptz`,
   `alter table grants add column if not exists follow_note text`,
+);
+SCHEMA.push(
+  `create table if not exists grant_requests (
+     id text primary key,
+     created_at timestamptz not null default now(),
+     agent_key text not null,
+     payees jsonb not null default '[]',
+     project text not null,
+     contact text not null,
+     about text,
+     ip_hash text,
+     status text not null default 'pending',
+     decided_at timestamptz,
+     note text,
+     manifest jsonb,
+     grant_address text,
+     txid text,
+     grant_payees jsonb)`,
+  `create index if not exists grant_requests_agent on grant_requests(agent_key)`,
 );
 async function migrate(q) { for (const s of SCHEMA) await q(s); }
 
@@ -345,6 +374,102 @@ async function me(q, acc) {
   };
 }
 
+/* ---- funded testnet grants ---------------------------------------------------
+   A builder sends the PUBLIC half of an agent key they generated; the operator
+   funds a small testnet grant for it by hand and the page they were given
+   shows the manifest. Nothing here signs, holds or moves anything: the grant is
+   issued on the operator's machine by sdk/tools/genesis.ts and only its
+   manifest — public by construction — comes back. The contact is for the
+   operator and is never returned to the public status call. */
+const HEX64 = /^[0-9a-f]{64}$/;
+const ADDR = /^kaspa(test)?:[a-z0-9]{61,63}$/;
+const clean = (v, max) => String(v == null ? "" : v).replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, max);
+function adminOk(req) {
+  const want = process.env.ADMIN_SECRET || process.env.CRON_SECRET || "";
+  return !!want && String(req.headers["x-admin-secret"] || "") === want;
+}
+function publicRequest(r) {
+  return {
+    id: r.id, status: r.status, createdAt: r.created_at, decidedAt: r.decided_at, project: r.project,
+    agentKey: r.agent_key, payeesAsked: r.payees, note: r.status === "declined" ? r.note : undefined,
+    grant: r.status === "issued" ? { address: r.grant_address, txid: r.txid, manifest: r.manifest, payees: r.grant_payees } : undefined,
+  };
+}
+async function grantRequests(req, res, q, op, url) {
+  if (op === "request" && req.method === "GET") {
+    const id = clean(url.searchParams.get("id"), 32);
+    const [r] = await q("select * from grant_requests where id = $1", [id]);
+    if (!r) throw new Refuse(404, "request", "No request with that id.");
+    return send(res, 200, { ok: true, request: publicRequest(r) });
+  }
+  if (op === "request" && req.method === "POST") {
+    const b = await body(req);
+    const agentKey = clean(b.agentKey, 80).toLowerCase();
+    if (!HEX64.test(agentKey)) throw new Refuse(400, "agentKey", "agentKey: the 64-hex PUBLIC key your agent will sign with (warda key prints it). Never the secret.");
+    const payees = (Array.isArray(b.payees) ? b.payees : String(b.payees || "").split(/[\s,]+/))
+      .map((x) => clean(x, 80).toLowerCase()).filter(Boolean);
+    if (payees.length > 6) throw new Refuse(400, "payees", "At most six payees of your own.");
+    for (const x of payees) if (!HEX64.test(x) && !ADDR.test(x)) throw new Refuse(400, "payees", x.slice(0, 20) + "… is neither a kaspa address nor a 64-hex public key.");
+    if (payees.includes(agentKey)) throw new Refuse(400, "payees", "The agent's own key cannot be one of its payees.");
+    const project = clean(b.project, 120), contact = clean(b.contact, 120), about = clean(b.about, 600);
+    if (!project) throw new Refuse(400, "project", "Say what you are building, in a line.");
+    if (!contact) throw new Refuse(400, "contact", "Leave an X handle, Telegram or email so we can tell you it is funded.");
+
+    const [again] = await q("select * from grant_requests where agent_key = $1 and status <> 'declined' order by created_at desc limit 1", [agentKey]);
+    if (again) return send(res, 200, { ok: true, request: publicRequest(again), existing: true });
+
+    const ip = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
+    const ipHash = ip ? bytesToHex(sha256(utf8ToBytes(SECRET + ip))).slice(0, 32) : null;
+    if (ipHash) {
+      const [n] = await q("select count(*)::int as n from grant_requests where ip_hash = $1 and created_at > now() - interval '1 day'", [ipHash]);
+      if (n && n.n >= 3) throw new Refuse(429, "rate", "Three requests a day from one place is plenty. Write to aj@wardaprotocol.com if you need more.");
+    }
+    const [pend] = await q("select count(*)::int as n from grant_requests where status = 'pending'");
+    if (pend && pend.n >= 100) throw new Refuse(429, "queue", "The queue is full right now. Try again tomorrow, or write to aj@wardaprotocol.com.");
+
+    const id = bytesToHex(randomBytes(6));
+    await q("insert into grant_requests (id, agent_key, payees, project, contact, about, ip_hash) values ($1,$2,$3,$4,$5,$6,$7)",
+      [id, agentKey, JSON.stringify(payees), project, contact, about || null, ipHash]);
+    const chat = process.env.GRANT_REQUESTS_CHAT, token = process.env.TELEGRAM_BOT_TOKEN;
+    if (chat && token) {
+      const text = "New testnet grant request " + id + "\n" + project + "\ncontact: " + contact +
+        (about ? "\n" + about : "") + "\npayees of their own: " + payees.length + "\n\nnode --experimental-strip-types ops/grants.ts issue " + id;
+      await fetch("https://api.telegram.org/bot" + token + "/sendMessage", {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ chat_id: chat, text }),
+      }).catch(() => {});
+    }
+    const [r] = await q("select * from grant_requests where id = $1", [id]);
+    return send(res, 200, { ok: true, request: publicRequest(r) });
+  }
+
+  if (!adminOk(req)) throw new Refuse(401, "admin", "Not authorised.");
+  if (op === "requests" && req.method === "GET") {
+    const rows = await q("select * from grant_requests order by created_at desc limit 200");
+    return send(res, 200, { ok: true, requests: rows.map((r) => ({ ...publicRequest(r), contact: r.contact, about: r.about })) });
+  }
+  if (op === "issue" && req.method === "POST") {
+    const b = await body(req);
+    const id = clean(b.id, 32);
+    checkManifest(b.manifest);
+    const address = clean(b.address, 80), txid = clean(b.txid, 64).toLowerCase();
+    if (!ADDR.test(address)) throw new Refuse(400, "address", "address: the grant's kaspa address.");
+    if (txid && !HEX64.test(txid)) throw new Refuse(400, "txid", "txid: 64 hex.");
+    const payees = Array.isArray(b.payees) ? b.payees.map((x) => clean(x, 80)).slice(0, 16) : [];
+    const rows = await q("update grant_requests set status = 'issued', decided_at = now(), manifest = $2, grant_address = $3, txid = $4, grant_payees = $5 where id = $1 returning *",
+      [id, JSON.stringify(b.manifest), address, txid || null, JSON.stringify(payees)]);
+    if (!rows.length) throw new Refuse(404, "request", "No request with that id.");
+    return send(res, 200, { ok: true, request: publicRequest(rows[0]) });
+  }
+  if (op === "decline" && req.method === "POST") {
+    const b = await body(req);
+    const rows = await q("update grant_requests set status = 'declined', decided_at = now(), note = $2 where id = $1 returning *",
+      [clean(b.id, 32), clean(b.note, 300) || null]);
+    if (!rows.length) throw new Refuse(404, "request", "No request with that id.");
+    return send(res, 200, { ok: true, request: publicRequest(rows[0]) });
+  }
+  throw new Refuse(404, "op", "Unknown operation.");
+}
+
 export default async function handler(req, res) {
   const url = new URL(req.url, "http://localhost");
   const op = url.searchParams.get("op") || "";
@@ -392,6 +517,10 @@ export default async function handler(req, res) {
         row = { account_id: a.id };
       }
       return send(res, 200, { ok: true, account: await me(q, row.account_id) }, makeSession(row.account_id));
+    }
+
+    if (op === "request" || op === "requests" || op === "issue" || op === "decline") {
+      return await grantRequests(req, res, q, op, url);
     }
 
     const acc = sessionOf(req);
