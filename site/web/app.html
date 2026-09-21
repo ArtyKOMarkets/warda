@@ -425,6 +425,12 @@
   .scope .go { padding: 0.36rem 0.8rem; font-size: 0.78rem; }
   .scope-empty { padding-bottom: 0; }
   .main.mine-empty .view.data:not(#v-agent):not(#v-fleet) > :not(.head):not(.trk) { display: none; }
+  @media print {
+    .side, .top, .tabs, .scrim, .statusbar, .scope, #an-csv, #an-print { display: none !important; }
+    .app { display: block; } .main { padding: 0 !important; }
+    body, .card, .tile { background: #fff !important; color: #111 !important; }
+    .card, .tile { border-color: #ccc !important; break-inside: avoid; }
+  }
   .trk { margin-bottom: 0.85rem; }
   .trk .ev { cursor: pointer; }
   /* Links that act as buttons wear the button: same box, same weight. */
@@ -571,6 +577,9 @@
       <a data-view="fleet">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="3.3" r="1.8"/><circle cx="3.3" cy="12.2" r="1.8"/><circle cx="8" cy="12.2" r="1.8"/><circle cx="12.7" cy="12.2" r="1.8"/><path d="M8 5.1v5.3M8 7.8H3.3v2.6M8 7.8h4.7v2.6"/></svg>
         Fleet</a>
+      <a data-view="analytics">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 13.5h12"/><path d="M4 11V8M7 11V4.5M10 11V6.5M13 11V2.5"/></svg>
+        Analytics</a>
       <a data-view="grants">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2.5" width="12" height="11" rx="2"/><path d="M5 6h6M5 9h6M5 12h3"/></svg>
         Grants<span class="tag" id="n-grants">—</span></a>
@@ -894,6 +903,98 @@
           </div>
 
         </div>
+      </div>
+    </div>
+
+    <!-- ============================ ANALYTICS ============================ -->
+    <div class="view pad data" id="v-analytics">
+      <div class="head"><div>
+        <h1>Analytics</h1>
+        <p>How fast each grant is being spent, where it goes, how close agents run to their limits, and what the
+          covenant turned down. Figures are from on-chain spend and each agent&rsquo;s own purchase log; where there
+          is too little data to call something a rate, it says so instead of drawing one.</p>
+      </div>
+        <div class="og-a">
+          <button class="go gh" id="an-csv">Export summary CSV</button>
+          <button class="go gh" id="an-print">Print report</button>
+        </div>
+      </div>
+      <p class="why" id="an-csv-say"></p>
+
+      <div class="tiles" id="an-tiles"></div>
+
+      <div class="card" style="margin-top:0.85rem">
+        <header><h2>Burn rate and runway</h2></header>
+        <p class="why">Rate is what each grant has spent on chain, divided by how long it has been open. Runway is
+          what is left at that rate &mdash; and whichever comes first, the money or the term, is the end.</p>
+        <div style="overflow-x:auto">
+          <table id="an-run"><thead><tr>
+            <th>Agent</th><th class="n">Spent</th><th class="n">Used</th><th class="n">Per day</th>
+            <th class="n">Money lasts</th><th class="n">Term ends</th><th>Ends by</th>
+          </tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+
+      <div class="two" style="margin-top:0.85rem;align-items:start">
+        <div class="card">
+          <header><h2>This week against last <small id="an-wk-n"></small></h2></header>
+          <p class="why">From each agent&rsquo;s purchase log, settled payments only. The coloured bar is this week,
+            the grey one under it last week.</p>
+          <div class="bars" id="an-wk"></div>
+        </div>
+        <div class="card">
+          <header><h2>Budget used</h2></header>
+          <p class="why">Of the total each grant may ever spend.</p>
+          <div class="bars" id="an-use"></div>
+        </div>
+      </div>
+
+      <div class="two" style="margin-top:0.85rem;align-items:start">
+        <div class="card">
+          <header><h2>How close to the limit</h2></header>
+          <p class="why">Each payment as a share of that grant&rsquo;s per-payment cap. A grant whose payments sit near
+            its cap is one price rise away from refusals.</p>
+          <div class="feed" id="an-near"></div>
+        </div>
+        <div class="card">
+          <header><h2>Why payments did not go through</h2></header>
+          <p class="why">Attempts that did not settle, grouped by the reason recorded. The covenant&rsquo;s standing
+            rules are on Refused, not counted here.</p>
+          <div class="bars" id="an-ref"></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:0.85rem">
+        <header><h2>Cost by endpoint <small id="an-ep-n"></small></h2></header>
+        <p class="why" id="an-conc">&mdash;</p>
+        <div style="overflow-x:auto">
+          <table id="an-ep"><thead><tr>
+            <th>Endpoint</th><th class="n">Payments</th><th class="n">Total</th><th class="n">Average</th>
+            <th class="n">Share</th><th>Last</th>
+          </tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+
+      <div class="two" style="margin-top:0.85rem;align-items:start">
+        <div class="card">
+          <header><h2>Active and idle authority</h2></header>
+          <p class="why">Live grants that paid in the last seven days, against live grants that did not. Idle
+            authority is capital sitting in a grant doing nothing &mdash; the first candidate to reclaim.</p>
+          <div class="fl-bar" id="an-idle-bar"></div>
+          <div class="fl-legend" id="an-idle"></div>
+        </div>
+        <div class="card">
+          <header><h2>Cost by delegation tree</h2></header>
+          <p class="why">What each top-level grant and everything it delegated to has spent, together.</p>
+          <div class="bars" id="an-tree"></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:0.85rem">
+        <header><h2>Not measured yet</h2></header>
+        <p class="why">Cost per task needs agents to tag why they paid, which the SDK does not record yet. An alert
+          for &ldquo;spending twice its normal rate&rdquo; needs something watching continuously &mdash; that arrives
+          with console accounts. Neither is estimated here.</p>
       </div>
     </div>
 
@@ -2299,6 +2400,7 @@ var WardaRouter = (() => {
     tiles(); spendChart(); agentDonut(); payees(); endpoints();
     grantRows(); allRows(); acts(); notices(); recent(); sources(); deleg(); recon(); refusals();
     fleetView();
+    if ($("v-analytics").classList.contains("on")) analyticsView();
   }
 
   function tile(ic, tint, k, v, s) {
@@ -4440,6 +4542,213 @@ var WardaRouter = (() => {
     show("create"); createView();
   }
 
+  /* ---- analytics --------------------------------------------------------------
+     Two sources, kept apart: on-chain spend per grant (authority.spent, the
+     covenant's own accounting) for rates and runway, and each agent's purchase
+     log for what was bought, from whom, and what failed. A figure computed from
+     too little is shown as "not enough data", not as a trend. */
+  var DAY_DAA = 864000;   // ten DAA a second
+  function anFacts(a) {
+    var u = auth(a), tl = a.d.timelock || {}, st = live(a);
+    var now = Number(tl.virtualDaaScore || 0), nb = Number(tl.notBefore || 0);
+    var openDays = now && nb && now > nb ? (now - nb) / DAY_DAA : null;
+    var termDays = tl.expiresInDaa != null ? Number(tl.expiresInDaa) / DAY_DAA : null;
+    var spent = num(u.spent), left = num(u.remaining), budget = num(u.budget);
+    var rate = openDays && openDays >= 1 && spent > 0 ? spent / openDays : null;
+    return { a: a, st: st, spent: spent, left: left, budget: budget, cap: num(u.maxPerPayment),
+      openDays: openDays, termDays: st === "live" ? termDays : null, rate: rate,
+      moneyDays: rate ? left / rate : null };
+  }
+  function dur(d) {
+    if (d == null) return "—";
+    if (d < 1) return Math.max(1, Math.round(d * 24)) + " h";
+    if (d < 60) return Math.round(d) + " d";
+    return Math.round(d / 30) + " mo";
+  }
+  function settled(x) { return x.p.outcome === "bought" || x.p.outcome === "served"; }
+
+  function analyticsView() {
+    if (!$("an-run")) return;
+    var F = A.map(anFacts);
+    var liveF = F.filter(function (f) { return f.st === "live"; });
+    var pays = P.filter(function (x) { return payHit(x); });
+    var ok = pays.filter(settled);
+    var WEEK = 7 * 86400000, now = Date.now();
+    var thisW = ok.filter(function (x) { return now - new Date(x.p.at) <= WEEK; });
+    var lastW = ok.filter(function (x) { var t = now - new Date(x.p.at); return t > WEEK && t <= 2 * WEEK; });
+    var sum = function (rows) { return rows.reduce(function (s, x) { return s + num(x.p.paid); }, 0); };
+    var fleetRate = liveF.reduce(function (s, f) { return s + (f.rate || 0); }, 0);
+    var fleetLeft = liveF.reduce(function (s, f) { return s + f.left; }, 0);
+    var enough = liveF.some(function (f) { return f.rate; });
+    var tw = sum(thisW), lw = sum(lastW);
+    var delta = lw > 0 ? (tw - lw) / lw * 100 : null;
+
+    $("an-tiles").innerHTML = [
+      tile(I.coin, "#0FA890", "Fleet burn rate", enough ? kas2(fleetRate) + " KAS/day" : "—",
+        enough ? "across " + liveF.filter(function (f) { return f.rate; }).length + " live grant(s), from on-chain spend" : "not enough data yet — no live grant has been open a day and spent"),
+      tile(I.lock, "#9B6BE8", "Fleet runway", enough && fleetRate > 0 ? dur(fleetLeft / fleetRate) : "—",
+        enough ? kas2(fleetLeft) + " KAS left at the current rate" : "needs a rate first"),
+      tile(I.grid, "#4C8DF6", "This week", kas2(tw) + " KAS",
+        ok.length < 3 ? "not enough payments to compare yet" : delta == null ? "nothing the week before to compare with"
+          : (delta >= 0 ? "+" : "") + Math.round(delta) + "% against the week before (" + kas2(lw) + " KAS)"),
+      tile(I.shield, "#43C97F", "Settled", pays.length ? Math.round(ok.length / pays.length * 100) + "%" : "—",
+        pays.length ? ok.length + " of " + pays.length + " recorded attempts" : "no attempts recorded")
+    ].join("");
+
+    /* runway table */
+    $("an-run").querySelector("tbody").innerHTML = F.map(function (f) {
+      var ends = f.st !== "live" ? f.st
+        : f.moneyDays == null ? (f.termDays == null ? "—" : "term")
+        : f.termDays == null ? "money" : f.moneyDays < f.termDays ? "money first" : "term first";
+      var warn = f.st === "live" && f.moneyDays != null && f.termDays != null && f.moneyDays < f.termDays;
+      return '<tr><td><a data-agent-open="' + f.a.id + '">Agent #' + f.a.id + '</a></td>' +
+        '<td class="n">' + kas2(f.spent) + ' KAS</td>' +
+        '<td class="n">' + (f.budget ? Math.round(f.spent / f.budget * 100) + "%" : "—") + '</td>' +
+        '<td class="n">' + (f.rate ? (f.rate < 0.01 ? kas(f.rate) : kas2(f.rate)) + " KAS" : '<span class="why">not enough data</span>') + '</td>' +
+        '<td class="n">' + (f.st === "live" ? dur(f.moneyDays) : "—") + '</td>' +
+        '<td class="n">' + (f.st === "live" ? dur(f.termDays) : "—") + '</td>' +
+        '<td>' + (warn ? '<span class="flag">' + ends + '</span>' : esc(ends)) + '</td></tr>';
+    }).join("") || '<tr><td colspan="7" class="empty">No grant in view.</td></tr>';
+
+    /* week vs week, per agent */
+    var ids = A.map(function (a) { return a.id; });
+    var wk = ids.map(function (id) {
+      var t = sum(thisW.filter(function (x) { return x.agent === id; })), l = sum(lastW.filter(function (x) { return x.agent === id; }));
+      return { id: id, t: t, l: l };
+    }).filter(function (r) { return r.t || r.l; });
+    var wmax = wk.reduce(function (m, r) { return Math.max(m, r.t, r.l); }, 0) || 1;
+    $("an-wk-n").textContent = kas2(tw) + " vs " + kas2(lw) + " KAS";
+    $("an-wk").innerHTML = wk.length ? wk.map(function (r) {
+      var c = hue(r.id);
+      return '<div class="brow"><span class="av" style="background:' + c + '22;color:' + c + '">' + r.id + '</span>' +
+        '<span class="lab">Agent #' + r.id + ' <span style="color:var(--chrome-faint)">· last week ' + kas2(r.l) + ' KAS</span></span>' +
+        '<span class="amt">' + kas2(r.t) + ' KAS</span>' +
+        '<span class="tr"><i style="width:' + Math.max(1, r.t / wmax * 100) + '%;background:' + c + '"></i></span>' +
+        '<span class="tr" style="height:3px;opacity:0.9"><i style="width:' + Math.max(r.l ? 1 : 0, r.l / wmax * 100) + '%;background:var(--edge-bright)"></i></span></div>';
+    }).join("") : '<p class="empty">No settled payment in the last two weeks.</p>';
+
+    /* budget used */
+    $("an-use").innerHTML = F.length ? F.map(function (f) {
+      var c = hue(f.a.id), pct = f.budget ? f.spent / f.budget * 100 : 0;
+      return '<div class="brow"><span class="av" style="background:' + c + '22;color:' + c + '">' + f.a.id + '</span>' +
+        '<span class="lab">' + esc(f.st) + ' <span style="color:var(--chrome-faint)">· ' + kas2(f.spent) + ' of ' + kas2(f.budget) + ' KAS</span></span>' +
+        '<span class="amt">' + Math.round(pct) + '%</span>' +
+        '<span class="tr"><i style="width:' + Math.max(1, Math.min(100, pct)) + '%;background:' + c + '"></i></span></div>';
+    }).join("") : '<p class="empty">No grant in view.</p>';
+
+    /* near the cap */
+    var capOf = {}; F.forEach(function (f) { capOf[f.a.id] = f.cap; });
+    var near = ids.map(function (id) {
+      var rows = ok.filter(function (x) { return x.agent === id && capOf[id] > 0; });
+      if (!rows.length) return null;
+      var shares = rows.map(function (x) { return num(x.p.paid) / capOf[id]; });
+      return { id: id, n: rows.length, max: Math.max.apply(null, shares), hi: shares.filter(function (s) { return s >= 0.8; }).length };
+    }).filter(Boolean);
+    $("an-near").innerHTML = near.length ? near.map(function (r) {
+      var pill = r.max >= 0.8 ? "warn" : "live";
+      return '<div class="ev"><span class="ic" style="background:' + hue(r.id) + '22;color:' + hue(r.id) + '"><b style="font-family:var(--mono);font-size:0.6rem">' + r.id + '</b></span>' +
+        '<i style="font-style:normal;min-width:0"><b>Largest payment ' + Math.round(r.max * 100) + '% of the cap</b>' +
+        '<span>' + r.hi + ' of ' + r.n + ' payment' + (r.n === 1 ? "" : "s") + ' at 80% or more</span></i>' +
+        '<span class="a"><span class="pill ' + pill + '">' + (r.max >= 0.8 ? "close" : "room") + '</span></span></div>';
+    }).join("") : '<p class="empty">No settled payment in the logs to compare with a cap.</p>';
+
+    /* refusal reasons */
+    var why = {};
+    pays.filter(function (x) { return !settled(x); }).forEach(function (x) {
+      /* Grouped by the SHAPE of the reason: ids, addresses and numbers are
+         what differ between two occurrences of the same failure. */
+      var k = String(x.p.refusal || x.p.reason || x.p.outcome || "unrecorded")
+        .replace(/kaspa(test)?:[a-z0-9]{20,}/g, "an address")
+        .replace(/\b[0-9a-f]{16,}\b/gi, "…")
+        .replace(/\d[\d,.]*/g, "N")
+        .split(/\. |\s—\s|\n/)[0].trim().slice(0, 90) || "unrecorded";
+      why[k] = (why[k] || 0) + 1;
+    });
+    var wr = Object.keys(why).map(function (k) { return { k: k, n: why[k] }; }).sort(function (a, b) { return b.n - a.n; });
+    var wn = wr.reduce(function (s, r) { return s + r.n; }, 0);
+    $("an-ref").innerHTML = wr.length ? wr.map(function (r, i) {
+      var c = MARKS[(i + 2) % MARKS.length];
+      return '<div class="brow"><span class="av" style="background:' + c + '22;color:' + c + '">' + r.n + '</span>' +
+        '<span class="lab" title="' + esc(r.k) + '">' + esc(r.k) + '</span>' +
+        '<span class="amt">' + Math.round(r.n / wn * 100) + '%</span>' +
+        '<span class="tr"><i style="width:' + (r.n / wr[0].n * 100) + '%;background:' + c + '"></i></span></div>';
+    }).join("") : '<p class="empty">Every recorded attempt settled.</p>';
+
+    /* endpoints */
+    var ep = {};
+    ok.forEach(function (x) {
+      var k = x.p.url || x.p.payTo || "unknown";
+      ep[k] = ep[k] || { n: 0, v: 0, last: "" };
+      ep[k].n++; ep[k].v += num(x.p.paid); if (x.p.at > ep[k].last) ep[k].last = x.p.at;
+    });
+    var er = Object.keys(ep).map(function (k) { return { k: k, n: ep[k].n, v: ep[k].v, last: ep[k].last }; }).sort(function (a, b) { return b.v - a.v; });
+    var etot = er.reduce(function (s, r) { return s + r.v; }, 0);
+    $("an-ep-n").textContent = er.length ? er.length + " endpoint" + (er.length === 1 ? "" : "s") : "";
+    $("an-conc").textContent = !er.length ? "No settled payment recorded." : er.length === 1
+      ? "Everything goes to one endpoint. If it goes down or changes its price, every agent here stops buying at once."
+      : "The largest endpoint takes " + Math.round(er[0].v / etot * 100) + "% of spend" +
+        (er[0].v / etot >= 0.5 ? " — concentrated: one endpoint going down or repricing moves most of the fleet." : ".");
+    $("an-ep").querySelector("tbody").innerHTML = er.map(function (r) {
+      return '<tr><td><span class="kv" title="' + esc(r.k) + '">' + esc(host(r.k) || short(r.k)) + '</span> <span class="why">' + esc(path(r.k)) + '</span></td>' +
+        '<td class="n">' + r.n + '</td><td class="n">' + kas2(r.v) + ' KAS</td><td class="n">' + kas(r.v / r.n) + ' KAS</td>' +
+        '<td class="n">' + Math.round(r.v / etot * 100) + '%</td><td>' + esc(ago(r.last)) + '</td></tr>';
+    }).join("") || '<tr><td colspan="6" class="empty">No settled payment recorded.</td></tr>';
+
+    /* active vs idle */
+    var paidRecently = {}; thisW.forEach(function (x) { paidRecently[x.agent] = true; });
+    var act = liveF.filter(function (f) { return paidRecently[f.a.id] || (f.a.d.activity && f.rate && f.openDays < 7); });
+    var idle = liveF.filter(function (f) { return act.indexOf(f) < 0; });
+    var av = act.reduce(function (s, f) { return s + f.left; }, 0), iv = idle.reduce(function (s, f) { return s + f.left; }, 0);
+    $("an-idle-bar").innerHTML = av + iv > 0 ? '<i style="flex:' + av + ';background:#0FA890" title="active"></i><i style="flex:' + iv + ';background:#E8B23A" title="idle"></i>' : "";
+    $("an-idle").innerHTML = liveF.length
+      ? '<span><i style="background:#0FA890"></i>Active <b>' + kas2(av) + ' KAS</b> · ' + act.length + ' grant' + (act.length === 1 ? "" : "s") + '</span>' +
+        '<span><i style="background:#E8B23A"></i>Idle <b>' + kas2(iv) + ' KAS</b> · ' + (idle.map(function (f) { return "#" + f.a.id; }).join(", ") || "none") + '</span>'
+      : '<span>No live grant.</span>';
+
+    /* delegation tree cost */
+    var byAgentId = {}; ALL.forEach(function (a) { var k = (a.d.identity || {}).agentId; if (k) byAgentId[k] = a; });
+    var rootOf = function (a) {
+      var seen = 0;
+      while (a && a.d.delegatedBy && seen++ < 10) {
+        var d = a.d.delegatedBy, p = byAgentId[d.agentId || d.parent || d.from];
+        if (!p || A.indexOf(p) < 0) break; a = p;
+      }
+      return a;
+    };
+    var tree = {};
+    F.forEach(function (f) { var r = rootOf(f.a); tree[r.id] = tree[r.id] || { v: 0, n: 0 }; tree[r.id].v += f.spent; tree[r.id].n++; });
+    var tr = Object.keys(tree).map(function (k) { return { id: k, v: tree[k].v, n: tree[k].n }; }).sort(function (a, b) { return b.v - a.v; });
+    var tmax = tr.length ? tr[0].v || 1 : 1;
+    $("an-tree").innerHTML = tr.length ? tr.map(function (r) {
+      var c = hue(r.id);
+      return '<div class="brow"><span class="av" style="background:' + c + '22;color:' + c + '">' + r.id + '</span>' +
+        '<span class="lab">Agent #' + r.id + (r.n > 1 ? ' <span style="color:var(--chrome-faint)">and ' + (r.n - 1) + ' below it</span>' : '') + '</span>' +
+        '<span class="amt">' + kas2(r.v) + ' KAS</span>' +
+        '<span class="tr"><i style="width:' + Math.max(1, r.v / tmax * 100) + '%;background:' + c + '"></i></span></div>';
+    }).join("") : '<p class="empty">No grant in view.</p>';
+    analyticsView.F = F;
+  }
+
+  function analyticsCsv() {
+    var F = analyticsView.F || [];
+    if (!F.length) { $("an-csv-say").textContent = "Nothing in view to export."; return; }
+    var head = ["agent", "state", "budget_kas", "spent_kas", "left_kas", "used_pct", "per_day_kas", "money_lasts_days", "term_ends_days", "per_payment_cap_kas"];
+    var r2 = function (n) { return n == null ? "" : String(Math.round(n * 1e4) / 1e4); };
+    var body = F.map(function (f) {
+      return ["#" + f.a.id, f.st, r2(f.budget), r2(f.spent), r2(f.left), f.budget ? r2(f.spent / f.budget * 100) : "",
+        r2(f.rate), r2(f.moneyDays), r2(f.termDays), r2(f.cap)].map(csvCell).join(",");
+    });
+    var text = head.join(",") + "\n" + body.join("\n") + "\n";
+    try {
+      var url = URL.createObjectURL(new Blob([text], { type: "text/csv;charset=utf-8" }));
+      var a = document.createElement("a");
+      a.href = url; a.download = "warda-summary-" + new Date().toISOString().slice(0, 10) + ".csv";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+      $("an-csv-say").textContent = F.length + " grant" + (F.length === 1 ? "" : "s") + " written. The payment-level export is on Activity.";
+    } catch (e) { $("an-csv-say").textContent = "This browser would not take the download."; }
+  }
+
   /* ---- controls on a grant ---------------------------------------------------
      This page signs nothing, so a control here is the exact command that does
      the thing, who must sign it, and whether the chain would allow it now.
@@ -5178,6 +5487,8 @@ var WardaRouter = (() => {
   $("menu").addEventListener("click", function () { drawer(!$("side").classList.contains("open")); });
   $("scrim").addEventListener("click", function () { drawer(false); });
   svcLoad();
+  $("an-csv").addEventListener("click", analyticsCsv);
+  $("an-print").addEventListener("click", function () { window.print(); });
   if ($("fu-to-create")) $("fu-to-create").addEventListener("click", function () {
     var a = ($("fu-addr").value || "").trim();
     if (a) $("funder").value = a;
@@ -5206,7 +5517,7 @@ var WardaRouter = (() => {
 
   var TITLES = { dash: "Overview", grants: "Grants", agent: "Agent", activity: "Activity",
                  refusals: "Refused", alerts: "Alerts", fund: "Fund an agent", create: "Create a grant",
-                 account: "Your account", fleet: "Fleet", registry: "Services" };
+                 account: "Your account", fleet: "Fleet", registry: "Services", analytics: "Analytics" };
   /* ---- where you are, in the URL ----------------------------------------
      The console had no address. Every view was the same page, so a reload lost
      your place, the browser's Back button left the app entirely, and there was
@@ -5239,6 +5550,7 @@ var WardaRouter = (() => {
     if (!fromRoute) location.hash = hashFor(v);
     drawer(false);
     if (v === "fleet") fleetView();
+    if (v === "analytics") analyticsView();
     if (v === "registry") svcView();
     Array.prototype.forEach.call(document.querySelectorAll(".side a[data-view], .tabs a[data-view]"), function (o) {
       if (o.getAttribute("data-view") === v) o.setAttribute("aria-current", "page");
