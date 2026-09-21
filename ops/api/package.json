@@ -1,0 +1,17 @@
+{
+  "name": "warda-console-api",
+  "private": true,
+  "description": "The console's account API, bundled into site/src/api/account.mjs. Pinned, with a lockfile. Build: node ops/api/build.mjs",
+  "type": "module",
+  "dependencies": {
+    "@neondatabase/serverless": "1.1.0",
+    "@noble/curves": "2.4.0",
+    "@noble/hashes": "2.4.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "@electric-sql/pglite": "0.5.8",
+    "@kluster/kaspa-wasm": "2.0.1",
+    "viem": "2.56.8"
+  }
+}

@@ -1217,6 +1217,40 @@
 
       <div id="acc-in" hidden>
         <div class="tiles" id="acc-tiles"></div>
+        <div class="card sess" id="sess" style="margin-top:0.85rem">
+          <header><h2>Console account <small id="sess-plan"></small></h2>
+            <div class="og-a" id="sess-actions"></div></header>
+          <p class="why" id="sess-say">&mdash;</p>
+          <p class="state" id="sess-err"></p>
+          <div id="sess-in" hidden>
+            <div class="two" style="margin-top:0.7rem;align-items:start">
+              <div>
+                <p class="grp-l" style="margin-top:0">Wallets on this account</p>
+                <div class="feed" id="sess-wallets"></div>
+                <p style="margin-top:0.6rem"><button class="go gh" id="sess-link" hidden>Add the connected wallet to this account</button></p>
+              </div>
+              <div>
+                <p class="grp-l" style="margin-top:0">Where alerts go</p>
+                <div class="field" style="margin-top:0.5rem">
+                  <label for="sess-tg">Telegram chat id</label>
+                  <input id="sess-tg" inputmode="numeric" spellcheck="false" placeholder="123456789">
+                  <p class="out" id="sess-tg-s">Message the Warda bot, then paste the chat id it replies with.</p>
+                </div>
+                <div class="field" style="margin-top:0.7rem">
+                  <label for="sess-email">Email &mdash; optional</label>
+                  <input id="sess-email" type="email" spellcheck="false" placeholder="you@example.com">
+                  <p class="out">Kept for receipts and a later email channel. Not needed to sign in.</p>
+                </div>
+                <p style="margin-top:0.6rem"><button class="go gh" id="sess-save">Save</button> <span class="why" id="sess-saved"></span></p>
+              </div>
+            </div>
+            <p class="grp-l">Rules this account runs</p>
+            <div class="feed" id="sess-rules"></div>
+            <p class="why" style="margin-top:0.9rem">Beta: free while accounts are new. Stored: the wallet addresses
+              above, the grants you sync, your rules and where alerts go. Never stored: a key, a seed, or money.
+              <a id="sess-export">Export everything</a> &middot; <a id="sess-delete">Delete this account</a></p>
+          </div>
+        </div>
 
         <div class="two" style="margin-top:0.85rem;align-items:start">
           <div class="stack">
@@ -1246,11 +1280,10 @@
               </div>
             </div>
             <div class="card">
-              <header><h2>What this is not</h2></header>
-              <p class="why">Not a login. A sign-in proves who you are <i>to somebody</i>, and there is
-                nobody here to prove it to &mdash; asking your wallet to sign a challenge nobody checks
-                would be a ritual, and it would train you to sign things. When the console gets a server,
-                that will be the time for one.</p>
+              <header><h2>What signing in is not</h2></header>
+              <p class="why">Not a transaction. The only thing the console ever asks a wallet to sign is a
+                plain-text sign-in message, checked by this site&rsquo;s server and used once. If a page on this
+                site ever asks your wallet to sign anything else, do not.</p>
             </div>
           </div>
         </div>
@@ -1355,11 +1388,14 @@
                   <span>a grant is close to the end of its budget</span></button>
                 <button class="al-kind" data-k="expiring" aria-pressed="false"><b>Nearly over</b>
                   <span>a grant&rsquo;s term is nearly up</span></button>
+                <button class="al-kind" data-k="spending-anomaly" aria-pressed="false"><b>Spending spike</b>
+                  <span>an agent spends far faster than usual &mdash; runs in your account</span></button>
               </div>
               <select id="a-kind" hidden aria-hidden="true" tabindex="-1">
                 <option value="balance-at-or-above">An address has received enough to act on</option>
                 <option value="budget-low">A grant is running out of budget</option>
                 <option value="expiring">A grant&rsquo;s term is nearly up</option>
+                <option value="spending-anomaly">An agent is spending far faster than usual</option>
               </select>
               <p class="out" id="a-kind-say" style="margin-top:0.9rem;font-size:0.79rem;color:var(--chrome-dim)">&mdash;</p>
               <div class="field" style="margin-top:1rem">
@@ -1396,6 +1432,22 @@
                 </div>
               </div>
 
+              <div data-kind="budget-low expiring spending-anomaly">
+                <div class="field" style="margin-bottom:1rem">
+                  <label for="a-gkey">Watched by your account &mdash; one of your tracked grants</label>
+                  <select id="a-gkey"></select>
+                  <p class="out">What the console watches when it runs this rule for you. The path below is only for
+                    running it on your own machine.</p>
+                </div>
+              </div>
+              <div data-kind="spending-anomaly">
+                <div class="field">
+                  <label for="a-factor">Tell me when the last 24 hours is this many times the usual day</label>
+                  <input id="a-factor" inputmode="decimal" value="2">
+                  <p class="out">&ldquo;Usual&rdquo; is the grant&rsquo;s own spending over the week before, from hourly readings.
+                    It needs three days of them before it says anything, and says nothing rather than guess.</p>
+                </div>
+              </div>
               <div data-kind="budget-low expiring">
                 <div class="field">
                   <label for="a-grant">The grant&rsquo;s manifest, as your machine sees it</label>
@@ -1464,8 +1516,10 @@ ops/install-cron.sh</pre>
               <p class="why">Add this to <code>ops/alerts.json</code> beside your node. That file is gitignored: a
                 published threshold is a number somebody knows to sit just underneath.</p>
               <pre id="a-json">&mdash;</pre>
-              <p style="margin-top:0.8rem"><button class="go gh" id="a-copy">Copy the rule</button>
+              <p style="margin-top:0.8rem"><button class="go" id="a-save">Save to my account</button>
+                <button class="go gh" id="a-copy">Copy the rule</button>
                 <span class="why" id="a-copied"></span></p>
+              <p class="why" id="a-save-s" style="margin-top:0.4rem"></p>
               <p class="note"><b>Only changes are sent, including the change back.</b> A message every fifteen
                 minutes for a condition that is still true is a message you learn to swipe away. A rule that cannot
                 be <em>read</em> &mdash; the node is down, or the chain holds nothing where the manifest says the
@@ -3368,13 +3422,13 @@ var WardaRouter = (() => {
   var WC_PROPOSAL = {
     kaspa: function () {
       return { kaspa: { chains: [WC_CHAIN[$("net").value] || "kaspa:mainnet"],
-        methods: ["kaspa_getAccounts", "kaspa_getPublicKey", "kaspa_getNetwork"], events: ["accountsChanged"] } };
+        methods: ["kaspa_getAccounts", "kaspa_getPublicKey", "kaspa_getNetwork", "kaspa_signPersonal"], events: ["accountsChanged"] } };
     },
     /* Igra first — the chain a treasury is funded from — and Ethereum so a
        wallet that insists on a chain it knows still has one to approve. */
     evm: function () {
       return { eip155: { chains: ["eip155:" + IGRA_OF[$("net").value].chainId, "eip155:1"],
-        methods: ["eth_accounts", "eth_chainId", "eth_getBalance"], events: ["accountsChanged", "chainChanged"] } };
+        methods: ["eth_accounts", "eth_chainId", "eth_getBalance", "personal_sign"], events: ["accountsChanged", "chainChanged"] } };
     }
   };
   var WC = { lib: null, client: null, session: null, chain: null, fam: null, listeners: [] };
@@ -3451,8 +3505,8 @@ var WardaRouter = (() => {
      the person has already walked away from is ignored rather than
      connecting behind their back. */
   var WC_SAY = {
-    kaspa: "Scan with your phone’s camera. It opens Kaspire, which asks you to approve sharing your address and public key — the only two things this page requests. Nothing it asks for can move a coin.",
-    evm: "Open your wallet app and scan this with its WalletConnect scanner — MetaMask, Trust, Rainbow, Coinbase and most others have one. It asks you to share your address and nothing else. Nothing it asks for can move a coin."
+    kaspa: "Scan with your phone’s camera. It opens Kaspire, which asks you to approve sharing your address and public key, and signing a plain-text sign-in message if you choose to sign in. Nothing it asks for can move a coin.",
+    evm: "Open your wallet app and scan this with its WalletConnect scanner — MetaMask, Trust, Rainbow, Coinbase and most others have one. It asks you to share your address, and to sign a plain-text sign-in message if you choose to sign in. Nothing it asks for can move a coin."
   };
   function wcConnect(fam) {
     var attempt = WC.try = (WC.try || 0) + 1, dead = function () { return WC.try !== attempt; };
@@ -3764,6 +3818,7 @@ var WardaRouter = (() => {
      account re-derives them — the dashboard of the wallet that was connected
      a moment ago is not this wallet's dashboard. */
   function walletChanged() {
+    if (typeof sessRender === "function") setTimeout(sessRender, 0);
     if ($("fa-usd") && typeof ROUTES !== "undefined") faView();
     scopeData();
     if (ALL.length) render();
@@ -3986,6 +4041,173 @@ var WardaRouter = (() => {
     scopeData(); if (ALL.length) render(); scopeRender();
   }
 
+  /* ---- console accounts ------------------------------------------------------
+     Signing in is a message signature, checked by /api/account
+     (site/src/api/account.mjs). The message says, in words, that it cannot
+     move funds — and no method that could is ever requested for it. With no
+     server configured, the console works exactly as before and this card
+     says accounts are not set up. */
+  var SESS = null;          // { account } when signed in
+  var SESS_UP = null;       // null = unknown, true = the service answers, false = not configured
+  function api(op, body) {
+    var init = body === undefined ? { credentials: "same-origin" }
+      : { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json", "x-warda": "1" }, body: JSON.stringify(body) };
+    return fetch("/api/account?op=" + op, init).then(function (r) {
+      return r.json().catch(function () { return { ok: false, error: "http", message: "The account service answered " + r.status + "." }; });
+    });
+  }
+  function sessLoad() {
+    return api("me").then(function (j) {
+      if (j.ok) { SESS_UP = true; SESS = { account: j.account }; sessSync(); }
+      else { SESS = null; SESS_UP = j.error !== "not_configured" && j.error !== "http"; if (j.error === "not_configured") SESS_UP = false; }
+      sessRender(); ownRender();
+    }).catch(function () { SESS_UP = false; sessRender(); });
+  }
+
+  function signinMessage(address, nonce, host, chainId) {
+    return host + " wants you to sign in to Warda Console with your account:\n" + address + "\n\n" +
+      "Sign in to Warda Console. This proves you hold this address. It cannot move funds and costs nothing.\n\n" +
+      "URI: https://" + host + "/app\nVersion: 1\nChain ID: " + (chainId || 1) + "\nNonce: " + nonce + "\nIssued At: " + new Date().toISOString();
+  }
+  function utf8Hex(s) { return "0x" + Array.prototype.map.call(new TextEncoder().encode(s), function (b) { return ("0" + b.toString(16)).slice(-2); }).join(""); }
+  /* The wallet signs; which call depends on the wallet. */
+  function walletSign(message) {
+    var a = WALLETS[W.kind];
+    if (W.kind === "kasware") {
+      return window.kasware.signMessage(message, { type: "schnorr" })
+        .catch(function () { return window.kasware.signMessage(message); });
+    }
+    if (W.kind === "walletconnect") {
+      return W.family === "kaspa"
+        ? wcRequest("kaspa_signPersonal", { address: W.address, message: message }).then(function (r) { return typeof r === "string" ? r : r && (r.signature || r.sig); })
+        : wcRequest("personal_sign", [utf8Hex(message), W.address]);
+    }
+    return a.rpc("personal_sign", [utf8Hex(message), W.address]);
+  }
+  function sessProve(op) {
+    if (!W || W.problem) { $("sess-err").textContent = "Connect a wallet with no problems showing first."; return; }
+    $("sess-err").textContent = "Asking your wallet to sign the sign-in message…";
+    api("nonce").then(function (n) {
+      if (!n.ok) throw new Error(n.message || "no nonce");
+      var msg = signinMessage(W.address, n.nonce, n.host, W.family === "evm" ? W.chainId : 1);
+      return walletSign(msg).then(function (sig) {
+        return api(op, { kind: W.family, address: W.address, message: msg, signature: sig });
+      });
+    }).then(function (j) {
+      if (!j.ok) { $("sess-err").textContent = j.message || "Not signed in."; return; }
+      SESS = { account: j.account }; SESS_UP = true;
+      $("sess-err").textContent = op === "link" ? "Wallet added." : "Signed in.";
+      sessSync(); sessRender(); ownRender();
+    }).catch(function (e) {
+      var m = String(e && e.message || e);
+      $("sess-err").textContent = /reject|denied|cancel/i.test(m) || (e && e.code === 4001) ? "Not signed in — you declined, which is always fine." : "Not signed in: " + m;
+    });
+  }
+
+  /* Tracked grants follow the account unless marked "this browser only". */
+  function sessSync() {
+    if (!SESS) return;
+    var server = SESS.account.grants || [], have = {};
+    server.forEach(function (g) { have[g.key] = true; });
+    var mine = {};
+    OWN.forEach(function (x) { mine[ownKey(x.m)] = true; });
+    server.forEach(function (g) {
+      if (!mine[g.key]) { OWN.push({ m: g.manifest, added: g.addedAt, synced: true }); ownRead(g.manifest); }
+    });
+    OWN.forEach(function (x) {
+      var k = ownKey(x.m);
+      if (!x.local && !have[k]) api("grant", { key: k, manifest: x.m });
+      if (!x.local) x.synced = true;
+    });
+    ownSave();
+  }
+  function sessPushGrant(x) {
+    if (!SESS || x.local) return;
+    api("grant", { key: ownKey(x.m), manifest: x.m }).then(function (j) { if (j.ok) { x.synced = true; ownSave(); ownRender(); } });
+  }
+  function sessDropGrant(k) { if (SESS) api("ungrant", { key: k }); }
+
+  var RULE_WORD = { firing: ["firing", "warn"], clear: ["clear", "live"], undecided: ["no reading", "no"], insufficient: ["learning", "done"] };
+  function sessRender() {
+    if (!$("sess")) return;
+    var up = SESS_UP;
+    $("sess-in").hidden = !SESS;
+    $("sess-actions").innerHTML = "";
+    $("sess-plan").textContent = SESS ? SESS.account.plan : "";
+    if (up === false) {
+      $("sess-say").textContent = "Accounts are not set up on this site yet. Everything above still works, kept in this browser.";
+      return;
+    }
+    if (!SESS) {
+      $("sess-say").textContent = W
+        ? "Sign in with " + WALLETS[W.kind].name + " to keep your tracked grants and alert rules on every device, and to have the console run your alerts for you. Signing in is a plain-text message: it cannot move funds and costs nothing."
+        : "Connect a wallet above, then sign in with it.";
+      if (W) {
+        var b = document.createElement("button"); b.className = "go"; b.textContent = "Sign in with " + WALLETS[W.kind].name;
+        b.addEventListener("click", function () { sessProve("signin"); }); $("sess-actions").appendChild(b);
+      }
+      return;
+    }
+    var a = SESS.account;
+    $("sess-say").textContent = "You are signed in. Your tracked grants and rules are kept with your account on every device; anything marked \"this browser only\" stays here.";
+    var out = document.createElement("button"); out.className = "go gh"; out.textContent = "Sign out";
+    out.addEventListener("click", function () { api("signout", {}).then(function () { SESS = null; sessRender(); ownRender(); }); });
+    $("sess-actions").appendChild(out);
+    $("sess-wallets").innerHTML = a.wallets.map(function (w) {
+      return '<div class="ev"><span class="ic" style="background:#4C8DF622;color:#4C8DF6">' + I.lock + '</span>' +
+        '<i style="font-style:normal;min-width:0"><b>' + esc(short(w.address)) + '</b><span>' + (w.family === "kaspa" ? "Kaspa — can hold a grant's key" : "Ethereum-style") + '</span></i>' +
+        '<span class="a">' + (W && W.address.toLowerCase() === w.address.toLowerCase() ? '<span class="pill live">connected</span>' : "") + '</span></div>';
+    }).join("");
+    var here = W && a.wallets.some(function (w) { return w.address.toLowerCase() === W.address.toLowerCase(); });
+    $("sess-link").hidden = !W || here;
+    $("sess-link").textContent = W ? "Add " + short(W.address) + " to this account" : "";
+    if (document.activeElement !== $("sess-tg")) $("sess-tg").value = a.telegramChatId || "";
+    if (document.activeElement !== $("sess-email")) $("sess-email").value = a.email || "";
+    $("sess-tg-s").textContent = a.telegramReady ? "Message the Warda bot on Telegram, then paste the chat id it replies with."
+      : "Telegram delivery is not switched on for this site yet — rules still run, and what they would have sent is kept below.";
+    $("sess-rules").innerHTML = (a.rules || []).map(function (r) {
+      var w = RULE_WORD[r.state] || ["not run yet", "done"];
+      return '<div class="ev"><span class="ic" style="background:#E8B23A22;color:#E8B23A">' + I.shield + '</span>' +
+        '<i style="font-style:normal;min-width:0"><b>' + esc(r.id) + ' · ' + esc(r.rule.kind) + '</b><span>' +
+        esc(r.lastMessage ? r.lastMessage.split("\n\n").slice(-2, -1)[0] || r.lastMessage : "no message sent yet") + '</span></i>' +
+        '<span class="a"><span class="pill ' + w[1] + '">' + w[0] + '</span> <button class="go gh" data-unrule="' + esc(r.id) + '">Remove</button></span></div>';
+    }).join("") || '<p class="empty">None yet. Build one on Alerts and choose "Save to my account".</p>';
+    alertsSaveState();
+  }
+
+  /* An alert rule, as the server runs it. Grants are named by their tracked
+     key, not a path, because the server has no disk — it has the manifest. */
+  function serverRule() {
+    var kind = $("a-kind").value, note = ($("a-note").value || "").trim(), rate = $("a-rate").value;
+    var r = { kind: kind }; if (note) r.note = note;
+    if (kind === "balance-at-or-above") {
+      var n = toSompi($("a-usd").value, rate); if (n == null) return null;
+      r.address = ($("a-addr").value || "").trim(); if (!r.address) return null;
+      r.atOrAbove = String(n); return r;
+    }
+    var k = $("a-gkey").value; if (!k) return null;
+    var x = OWN.filter(function (o) { return ownKey(o.m) === k; })[0]; if (!x) return null;
+    r.grantKey = k; r.network = $("net").value;
+    if (kind === "budget-low") { var bl = toSompi($("a-below").value, rate); r.below = String(bl != null ? bl : x.m.max_per_spend); }
+    if (kind === "expiring") r.days = parseFloat($("a-days").value) || 2;
+    if (kind === "spending-anomaly") r.factor = parseFloat($("a-factor").value) || 2;
+    return r;
+  }
+  function alertsSaveState() {
+    if (!$("a-save")) return;
+    var sel = $("a-gkey"), was = sel.value;
+    sel.innerHTML = OWN.filter(function (x) { return !x.local; }).map(function (x) {
+      var k = ownKey(x.m); return '<option value="' + esc(k) + '">Grant ' + esc(String(x.m.covenant_id || k).slice(0, 10)) + '…</option>';
+    }).join("") || '<option value="">no tracked grant — add one under Your account</option>';
+    if (was) sel.value = was;
+    var r = serverRule();
+    $("a-save").disabled = !SESS || !r;
+    $("a-save-s").textContent = SESS_UP === false ? "Accounts are not set up on this site, so rules run on your own machine only."
+      : !SESS ? "Sign in under Your account and the console runs this rule for you, every 15 minutes."
+      : !r ? ($("a-kind").value === "balance-at-or-above" ? "Needs an address and the market price." : "Needs a tracked grant to watch.")
+      : "The console runs it every 15 minutes and messages you only when it changes.";
+  }
+
   /* ---- grants you track ----------------------------------------------------
      A grant this site does not publish is read from its MANIFEST, checked
      against the chain by the verifier. Nothing here guesses a term: an address
@@ -4036,8 +4258,10 @@ var WardaRouter = (() => {
     if (bad) return from + ": " + bad;
     var k = ownKey(m);
     OWN = OWN.filter(function (x) { return ownKey(x.m) !== k; });
-    OWN.push({ m: m, added: new Date().toISOString() });
+    var entry = { m: m, added: new Date().toISOString() };
+    OWN.push(entry);
     delete OREAD[k];
+    sessPushGrant(entry);
     if (!ownSave()) return from + ": added for this visit, but this browser would not keep it (storage is blocked here)";
     ownRead(m);
     return "";
@@ -4129,7 +4353,10 @@ var WardaRouter = (() => {
       }).join(", ") + '. A wrong assumption derives a different address, which reads as “not at this state”.</p>';
     }
     h += '<div class="og-a"><button class="go gh" data-own-read="' + esc(k) + '">Read again</button>' +
-      '<button class="go gh" data-own-drop="' + esc(k) + '">Stop tracking</button></div></div>';
+      '<button class="go gh" data-own-drop="' + esc(k) + '">Stop tracking</button>' +
+      (SESS ? '<button class="go gh" data-own-local="' + esc(k) + '">' + (x.local ? "Sync to my account" : "Keep in this browser only") + '</button>' +
+        '<span class="why" style="align-self:center">' + (x.local ? "this browser only" : x.synced ? "synced to your account" : "syncing…") + '</span>' : '') +
+      '</div></div>';
     return h;
   }
 
@@ -5470,17 +5697,20 @@ var WardaRouter = (() => {
   var KIND_SAY = {
     "balance-at-or-above": "Fires when the coins at an address add up to your figure or more. This is the seller's rule — it tells you the takings are worth doing something about, and then you decide what.",
     "budget-low": "Fires when what the grant can still pay drops to your figure. That is the smaller of two numbers: the authority left in the covenant, and the coin actually there. Either one alone reports an agent as healthy when it cannot pay for anything.",
-    "expiring": "Fires when the term is nearly up. A grant past it refuses every spend whatever its budget says, so this is the one that ends an agent with money still in it."
+    "expiring": "Fires when the term is nearly up. A grant past it refuses every spend whatever its budget says, so this is the one that ends an agent with money still in it.",
+    "spending-anomaly": "Fires when a grant spends much faster in the last 24 hours than it usually does. It does not stop anything — the covenant's limits do that — it tells you something changed while it is still small."
   };
   var ID_DEFAULT = {
     "balance-at-or-above": "earnings-worth-converting",
     "budget-low": "agent-running-low",
-    "expiring": "grant-term-ending"
+    "expiring": "grant-term-ending",
+    "spending-anomaly": "spending-spike"
   };
   var NOTE_DEFAULT = {
     "balance-at-or-above": "Convert, and top the agent back up.",
     "budget-low": "Issue the successor before it stops: warda topup",
-    "expiring": "Reclaim what is left, or issue the successor."
+    "expiring": "Reclaim what is left, or issue the successor.",
+    "spending-anomaly": "Check what the agent is buying. Revoke it if that is not what you meant."
   };
   var idIsMine = false, noteIsMine = false;
   if ($("a-id")) $("a-id").addEventListener("input", function () { idIsMine = true; });
@@ -5531,6 +5761,13 @@ var WardaRouter = (() => {
         against = bl == null ? "the grant's own per-payment cap" : kasOf(bl) + " KAS";
         drift = "Leave the threshold empty and it defaults to the grant's own per-payment cap — below that it " +
           "can no longer make a payment of the size it was authorised for, whatever the counters say.";
+      } else if (kind === "spending-anomaly") {
+        delete rule.grant;
+        rule.factor = parseFloat($("a-factor").value) || 2;
+        what = "KAS spent in the last 24 hours";
+        against = rule.factor + "× the grant's usual day";
+        drift = "Runs in your console account only: it needs a history of hourly readings, which the account keeps. " +
+          "The rule below is for reference — ops/alerts.ts on your machine does not evaluate this kind.";
       } else {
         var d = parseFloat($("a-days").value);
         var blocks = isFinite(d) && d > 0 ? Math.round(d * 24 * 60 * 60 * 10) : null;
@@ -5546,6 +5783,7 @@ var WardaRouter = (() => {
     $("a-e-against").textContent = against;
     $("a-drift").textContent = drift;
     $("a-json").textContent = JSON.stringify(rule, null, 2);
+    alertsSaveState();
   }
 
   /* ---- export ------------------------------------------------------------
@@ -5642,7 +5880,12 @@ var WardaRouter = (() => {
     if (r) { var x = find(r.getAttribute("data-own-read")); if (x) ownRead(x.m); }
     if (d) {
       var k = d.getAttribute("data-own-drop");
-      OWN = OWN.filter(function (x) { return ownKey(x.m) !== k; }); delete OREAD[k]; ownSave(); ownRender();
+      OWN = OWN.filter(function (x) { return ownKey(x.m) !== k; }); delete OREAD[k]; ownSave(); sessDropGrant(k); ownRender();
+    }
+    var lo = e.target.closest && e.target.closest("[data-own-local]");
+    if (lo) {
+      var y = find(lo.getAttribute("data-own-local"));
+      if (y) { y.local = !y.local; if (y.local) { y.synced = false; sessDropGrant(ownKey(y.m)); } else sessPushGrant(y); ownSave(); ownRender(); }
     }
   });
   document.addEventListener("keydown", function (e) {
@@ -5652,6 +5895,38 @@ var WardaRouter = (() => {
      changes: a testnet manifest checked against mainnet derives perfectly
      and finds nothing, which would read as every grant gone. */
   ownLoad(); ownRender(); OWN.forEach(function (x) { ownRead(x.m); });
+  $("sess-link").addEventListener("click", function () { sessProve("link"); });
+  $("sess-save").addEventListener("click", function () {
+    api("settings", { telegramChatId: $("sess-tg").value.trim(), email: $("sess-email").value.trim() }).then(function (j) {
+      $("sess-saved").textContent = j.ok ? "Saved." : (j.message || "Not saved.");
+      if (j.ok) { SESS.account = j.account; sessRender(); }
+    });
+  });
+  $("sess-rules").addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest("[data-unrule]"); if (!b) return;
+    api("unrule", { id: b.getAttribute("data-unrule") }).then(function () { sessLoad(); });
+  });
+  $("sess-export").addEventListener("click", function () {
+    api("export").then(function (j) {
+      try {
+        var url = URL.createObjectURL(new Blob([JSON.stringify(j, null, 2)], { type: "application/json" }));
+        var a = document.createElement("a"); a.href = url; a.download = "warda-account-" + new Date().toISOString().slice(0, 10) + ".json";
+        document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+      } catch (e2) { $("sess-err").textContent = "This browser would not take the download."; }
+    });
+  });
+  $("sess-delete").addEventListener("click", function () {
+    var b = $("sess-delete");
+    if (b.getAttribute("data-armed") !== "1") {
+      b.setAttribute("data-armed", "1"); b.textContent = "Press again to delete it — this cannot be undone";
+      setTimeout(function () { b.removeAttribute("data-armed"); b.textContent = "Delete this account"; }, 6000);
+      return;
+    }
+    api("delete", {}).then(function (j) {
+      if (j.ok) { SESS = null; OWN.forEach(function (x) { x.synced = false; }); ownSave(); sessRender(); ownRender(); $("sess-err").textContent = "Deleted. Your tracked grants are still in this browser."; }
+    });
+  });
+  sessLoad();
   $("net").addEventListener("change", function () { OWN.forEach(function (x) { ownRead(x.m); }); if (W) walletRestore(); });
   $("acc-create").addEventListener("click", function () { walletFill("create"); });
   $("acc-fund").addEventListener("click", function () { walletFill("fund"); });
@@ -5724,6 +5999,16 @@ var WardaRouter = (() => {
       alertsView();
     });
   });
+  $("a-save").addEventListener("click", function () {
+    var r = serverRule(); if (!r || !SESS) return;
+    var id = (($("a-id").value || "").trim() || r.kind).replace(/[^\w.:-]/g, "-").slice(0, 128);
+    api("rule", { id: id, rule: r }).then(function (j) {
+      var say = j.ok ? "Saved to your account as \"" + id + "\". It shows under Your account with its state." : (j.message || "Not saved.");
+      $("a-save-s").textContent = say;
+      if (j.ok) sessLoad().then(function () { $("a-save-s").textContent = say; });
+    });
+  });
+  $("a-gkey").addEventListener("change", alertsSaveState);
   $("a-copy").addEventListener("click", function () {
     var t = $("a-json").textContent;
     (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () {

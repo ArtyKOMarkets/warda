@@ -880,7 +880,9 @@ for outdir, subs in flavours.items():
         (api / "swap.mjs").write_text(fn)
         (api / "_routes.json").write_bytes((here / "src" / "routes.json").read_bytes())
         (api / "_router.js").write_bytes((here / "src" / "router-browser.js").read_bytes())
-        print(f"{outdir}/api: swap.mjs, with _routes.json and _router.js beside it")
+        # The account API: one self-contained bundle, built by ops/api/build.mjs.
+        (api / "account.mjs").write_bytes((here / "src" / "api" / "account.mjs").read_bytes())
+        print(f"{outdir}/api: swap.mjs, account.mjs")
 
 # The download itself, into the web flavour only: the artifact flavour is a
 # self-contained page with no host to serve a file from.

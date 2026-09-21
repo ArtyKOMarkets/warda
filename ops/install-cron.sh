@@ -93,6 +93,12 @@ ALERTS="$OPS/alerts.sh"
 ALERTSLOG="$HOME/Library/Logs/warda-alerts.log"
 ALERTSENTRY="8,23,38,53 * * * * $ALERTS --quiet >> $ALERTSLOG 2>&1"
 
+# Console accounts' rules, evaluated on the server; this is only the clock.
+# Installed when ops/alerts.env has CONSOLE_CRON_SECRET. Minutes 11/26/41/56.
+CONSOLEAL="$OPS/console-alerts.sh"
+CONSOLEALLOG="$HOME/Library/Logs/warda-console-alerts.log"
+CONSOLEALENTRY="11,26,41,56 * * * * $CONSOLEAL --quiet >> $CONSOLEALLOG 2>&1"
+
 VENDOR="$OPS/check-vendor.sh"
 VENDORLOG="$HOME/Library/Logs/warda-vendor.log"
 VENDORENTRY="*/15 * * * * $VENDOR --quiet >> $VENDORLOG 2>&1"
@@ -136,7 +142,7 @@ fi
 # So: fix it if we can, refuse if we cannot. Installing a schedule of commands
 # that cannot run is worse than installing nothing, because the crontab then
 # says the job exists.
-for f in "$SCRIPT" "$BUY" "$INTEROP" "$VENDOR" "$VERIFY" "$CONTACT" "$PROXY" "$NODECHK" "$ALERTS"; do
+for f in "$SCRIPT" "$BUY" "$INTEROP" "$VENDOR" "$VERIFY" "$CONTACT" "$PROXY" "$NODECHK" "$ALERTS" "$CONSOLEAL"; do
   [ -f "$f" ] || continue
   [ -x "$f" ] && continue
   chmod +x "$f" 2>/dev/null || true
@@ -192,6 +198,7 @@ printf '%s\n' "$PROXYENTRY" >> /tmp/warda-cron.$$
 printf '%s\n' "$NODEENTRY" >> /tmp/warda-cron.$$
 printf '%s\n' "$VERIFYENTRY" >> /tmp/warda-cron.$$
 if [ -f "$OPS/alerts.json" ]; then printf '%s\n' "$ALERTSENTRY" >> /tmp/warda-cron.$$; fi
+if [ -f "$OPS/alerts.env" ] && grep -q '^CONSOLE_CRON_SECRET=.' "$OPS/alerts.env"; then printf '%s\n' "$CONSOLEALENTRY" >> /tmp/warda-cron.$$; fi
 if [ -n "$WANT_BUY" ]; then printf '%s\n' "$BUYENTRY" >> /tmp/warda-cron.$$; fi
 if [ -n "$WANT_INTEROP" ]; then printf '%s\n' "$INTEROPENTRY" >> /tmp/warda-cron.$$; fi
 crontab /tmp/warda-cron.$$
