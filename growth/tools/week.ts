@@ -51,6 +51,14 @@ const NETWORK = process.env.WARDA_NETWORK ?? "testnet-10";
 const RESEARCHER = (process.env.GROWTH_RESEARCHER_URL ?? "https://warda-growth.vercel.app").replace(/\/$/, "");
 const RECORDS = Number(flag("records", process.env.GROWTH_RECORDS ?? "12"));
 const FUNDER = process.env.GROWTH_FUNDER_KEY ?? join(REPO, "covenant/deploy/warda-testnet.key");
+/* A key that can STOP the batch and receives nothing — not the funder. With one
+   key for both, whoever can stop a grant can also take it; genesis warns, and
+   refuses on mainnet. growth.key holds nothing and needs nothing: a revocation
+   is paid for out of the grant's own coin. */
+const REVOKER = process.env.GROWTH_REVOCATION_KEY ?? join(KEYS, "growth.key");
+/* One epoch is 1000 DAA, about 100 s. Scout may spend a quarter of its budget
+   per epoch, so a week of twelve records waits a few epochs by design. */
+const EPOCH_WAIT_MS = Number(process.env.GROWTH_EPOCH_WAIT_MS ?? 110_000);
 const PLAN = plan(RECORDS);
 
 const B = join(GROWTH, "batches", LABEL);
@@ -117,6 +125,16 @@ function stop(s: WeekState, step: Step, reason: string, code = 1): never {
   die(`\nstopped at ${step}: ${reason}\nRe-run to resume from here; nothing already done is repeated.`, code);
 }
 
+/** Whichever key this week's grant names as its revocation key. */
+function revoker(s: WeekState): string {
+  if (existsSync(P.grant)) {
+    const m = JSON.parse(readFileSync(P.grant, "utf8")) as { revocation?: string };
+    if (m.revocation && m.revocation === key("growth.key.pub")) return secret(REVOKER);
+  }
+  void s;
+  return secret(FUNDER);
+}
+
 function purchases(dir: string): Purchase[] {
   if (!existsSync(dir)) return [];
   return readdirSync(dir).filter((f) => f.endsWith(".json")).flatMap((f) => {
@@ -168,7 +186,7 @@ async function main() {
       case "genesis": {
         if (existsSync(P.grant)) stop(s, step, `${P.grant} exists but genesis is not recorded. Check the chain for it before anything else; do not delete it.`, 2);
         const r = await run(join(SDK, "tools/genesis.ts"), [
-          "--agent", orchPub, "--recipients", P.payees,
+          "--agent", orchPub, "--recipients", P.payees, "--revocation", key("growth.key.pub"),
           "--budget", String(PLAN.parentBudget), "--max-per-spend", String(PLAN.maxPerSpendParent),
           "--epoch-limit", String(PLAN.parentBudget), "--depth", "2",
           "--window", String(PLAN.parentWindowDaa), "--out", P.grant, "--submit",
@@ -220,7 +238,9 @@ async function main() {
         const { candidates } = JSON.parse(readFileSync(P.candidates, "utf8")) as { candidates: Candidate[] };
         mkdirSync(P.purchases, { recursive: true });
         let misses = 0;
-        for (const c of candidates) {
+        let epochWaits = 0;
+        for (let i = 0; i < candidates.length; i++) {
+          const c = candidates[i]!;
           const url = `${RESEARCHER}/verify?url=${encodeURIComponent(c.url)}`;
           const already = purchases(P.purchases).filter((p) => p.url === url);
           if (already.some(bought)) continue;
@@ -230,6 +250,15 @@ async function main() {
             "--out", P.purchases, "--task", `research ${c.fullName}`,
           ], REPO, { WARDA_SK: key("scout.key") });
           if (r.code === 0) { misses = 0; continue; }
+          /* The rate limit doing its job, not a failure: this epoch's allowance
+             is spent. Wait for the next one and buy the same record. */
+          if (/remains in the current epoch/.test(r.stderr) && epochWaits < 12) {
+            epochWaits += 1;
+            console.error(`Scout's allowance for this epoch is spent — waiting ${Math.round(EPOCH_WAIT_MS / 1000)} s for the next one.`);
+            await sleep(EPOCH_WAIT_MS);
+            i -= 1;
+            continue;
+          }
           if (r.code === 3) { console.error(`the covenant refused ${c.fullName}; Scout's budget or rate is spent. Stopping purchases.`); break; }
           if (r.code === 4) stop(s, step, `PAID AND NOT SERVED for ${c.fullName}. The money is gone; do not re-run to compensate.`, 4);
           misses += 1;
@@ -242,7 +271,7 @@ async function main() {
       }
       case "settle": {
         const r = await run(join(GROWTH, "tools/batch.ts"), ["settle", "scout", "--batch", P.batch, "--sdk", SDK, "--submit"], GROWTH,
-          { WARDA_SK: key("orchestrator.key"), WARDA_REVOCATION_SK: secret(FUNDER) });
+          { WARDA_SK: key("orchestrator.key"), WARDA_REVOCATION_SK: revoker(s) });
         if (r.code !== 0) stop(s, step, "settlement refused. Scout's grant also expires on its own a day after it was hired; nothing is lost by waiting.");
         mark(s, step, { txid: txidFrom(r) ?? undefined, note: "Scout came home; the parent is charged what it spent" });
         await sleep(15_000);
@@ -255,7 +284,7 @@ async function main() {
         break;
       }
       case "revoke": {
-        const r = await run(join(SDK, "tools/build-exit.ts"), [P.grant, "--revoke", "--submit"], SDK, { WARDA_SK: secret(FUNDER) });
+        const r = await run(join(SDK, "tools/build-exit.ts"), [P.grant, "--revoke", "--submit"], SDK, { WARDA_SK: revoker(s) });
         if (r.code !== 0) stop(s, step, "the revocation was refused. The batch grant also ends on its own three days after genesis.");
         mark(s, step, { txid: txidFrom(r) ?? undefined, note: "the batch grant ended; the remainder went home to the principal" });
         break;

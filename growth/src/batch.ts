@@ -109,6 +109,12 @@ export function runTool(toolPath: string, args: string[], cwd: string): Promise<
 
 /** The transaction id a tool reports, or null if it did not broadcast one. */
 export function txidFrom(result: RunResult): string | null {
-  const m = /\b([0-9a-f]{64})\b/.exec(result.stderr) ?? /\b([0-9a-f]{64})\b/.exec(result.stdout);
+  /* The SDK tools print keys, covenant ids and addresses' hashes before the
+     transaction id — all 64 hex characters. The first such run in stderr was
+     the agent key, and the first real week recorded three keys as txids. The
+     id is the one after SUBMITTED:. */
+  const submitted = /SUBMITTED:\s*([0-9a-f]{64})\b/.exec(result.stderr) ?? /SUBMITTED:\s*([0-9a-f]{64})\b/.exec(result.stdout);
+  if (submitted) return submitted[1]!;
+  const m = /\btxid\s*:?\s*([0-9a-f]{64})\b/i.exec(result.stderr);
   return m?.[1] ?? null;
 }

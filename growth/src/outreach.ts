@@ -135,12 +135,16 @@ export function draft(record: ProjectRecord): Draft | Skipped {
   const described = record.findings.find((f) => f.fact.startsWith("it describes itself as"));
   const signal = record.signals.find((s) =>
     angle === "kaspa" ? s.startsWith("mentions Kaspa") : s.startsWith("mentions paying for things") || s.startsWith("mentions agents"));
-  const words = signal ? signal.replace(/^mentions [^:]+: /, "").replace(/ \(.*\)$/, "") : "";
+  /* Three words at most, the most specific first. A list of nine reads as a
+     keyword scan, which is what it is, and the reader should not have to know. */
+  const PRIORITY = ["x402", "http 402", "402 payment", "payment required", "stablecoin", "usdc", "usdt", "micropayment", "pay-per-call", "mcp server", "ai agent", "kaspa"];
+  const all = signal ? signal.replace(/^mentions [^:]+: /, "").replace(/ \(.*\)$/, "").split(", ") : [];
+  const words = [...all].sort((x, y) => (PRIORITY.indexOf(x) + 1 || 99) - (PRIORITY.indexOf(y) + 1 || 99)).slice(0, 3).join(", ");
 
   const basis: Finding[] = [];
   if (described) basis.push(described);
   const signalSource = /\((https?:[^)]+)\)$/.exec(signal ?? "")?.[1];
-  if (signal && signalSource) basis.push({ fact: signal, source: signalSource });
+  if (signal && signalSource) basis.push({ fact: signal.replace(/ \(https?:[^)]+\)$/, ""), source: signalSource });
 
   const pitch = PITCH[angle];
   const opener = described

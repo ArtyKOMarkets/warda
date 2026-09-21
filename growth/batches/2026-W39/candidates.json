@@ -1,0 +1,180 @@
+{
+  "candidates": [
+    {
+      "url": "https://github.com/Manavarya09/public-apis-live",
+      "fullName": "Manavarya09/public-apis-live",
+      "description": "Every public API in one place — aggregated, deduped, and auto-checked for reachability. Refreshed daily. npm + Claude plugin + live search.",
+      "stars": 146,
+      "pushedAt": "2026-09-21T12:10:46Z",
+      "matched": [
+        "x402",
+        "paid MCP server",
+        "agent wallet",
+        "AI agent + stablecoin"
+      ],
+      "source": "https://api.github.com/search/repositories?q=x402%20in%3Aname%2Cdescription%2Creadme%20pushed%3A%3E%3D2026-07-23%20archived%3Afalse%20fork%3Afalse&sort=updated&order=desc&per_page=30"
+    },
+    {
+      "url": "https://github.com/nevermined-io/payments-py",
+      "fullName": "nevermined-io/payments-py",
+      "description": "🐍 Python SDK to interact with the Nevermined Payments Protocol",
+      "stars": 11,
+      "pushedAt": "2026-09-21T12:07:33Z",
+      "matched": [
+        "x402",
+        "agent payments",
+        "AI agent + stablecoin"
+      ],
+      "source": "https://api.github.com/search/repositories?q=x402%20in%3Aname%2Cdescription%2Creadme%20pushed%3A%3E%3D2026-07-23%20archived%3Afalse%20fork%3Afalse&sort=updated&order=desc&per_page=30"
+    },
+    {
+      "url": "https://github.com/AtoB101/Karma",
+      "fullName": "AtoB101/Karma",
+      "description": null,
+      "stars": 5,
+      "pushedAt": "2026-09-21T12:09:10Z",
+      "matched": [
+        "x402",
+        "AI agent + stablecoin"
+      ],
+      "source": "https://api.github.com/search/repositories?q=x402%20in%3Aname%2Cdescription%2Creadme%20pushed%3A%3E%3D2026-07-23%20archived%3Afalse%20fork%3Afalse&sort=updated&order=desc&per_page=30"
+    },
+    {
+      "url": "https://github.com/Scottcjn/Rustchain",
+      "fullName": "Scottcjn/Rustchain",
+      "description": "Sybil-resistant AI agent network with hardware-attested identity. Proof-of-Antiquity blockchain: physical machines across 15+ CPU architectures prove they are real silicon, not VM farms. Agent economy, micropayments, Solana bridge (wRTC). $0 VC.",
+      "stars": 811,
+      "pushedAt": "2026-09-21T11:14:01Z",
+      "matched": [
+        "agent wallet"
+      ],
+      "source": "https://api.github.com/search/repositories?q=%22agent%20wallet%22%20in%3Adescription%2Creadme%20pushed%3A%3E%3D2026-07-23%20archived%3Afalse%20fork%3Afalse&sort=updated&order=desc&per_page=30"
+    },
+    {
+      "url": "https://github.com/openaccountants/openaccountants",
+      "fullName": "openaccountants/openaccountants",
+      "description": "Open-source Tax Guides for AI agents, reviewed by named CPAs/CAs/EAs. 1,000+ Guides across 190+ jurisdictions. MCP server included. Works with Claude, ChatGPT, Cursor.",
+      "stars": 397,
+      "pushedAt": "2026-09-21T12:06:54Z",
+      "matched": [
+        "paid MCP server"
+      ],
+      "source": "https://api.github.com/search/repositories?q=%22mcp%20server%22%20payments%20in%3Adescription%2Creadme%20pushed%3A%3E%3D2026-07-23%20archived%3Afalse%20fork%3Afalse&sort=updated&order=desc&per_page=30"
+    },
+    {
+      "url": "https://github.com/hoilc/scoop-lemon",
+      "fullName": "hoilc/scoop-lemon",
+      "description": "🍋Yet Another Personal Bucket for Scoop",
+      "stars": 276,
+      "pushedAt": "2026-09-21T12:04:06Z",
+      "matched": [
+        "x402"
+      ],
+      "source": "https://api.github.com/search/repositories?q=x402%20in%3Aname%2Cdescription%2Creadme%20pushed%3A%3E%3D2026-07-23%20archived%3Afalse%20fork%3Afalse&sort=updated&order=desc&per_page=30"
+    },
+    {
+      "url": "https://github.com/anolilab/lunora",
+      "fullName": "anolilab/lunora",
+      "description": "Type-safe, real-time backend framework on your own Cloudflare account — Workers, Durable Objects, D1, R2, Queues. Convex-style DX, Vite-first.",
+      "stars": 271,
+      "pushedAt": "2026-09-21T11:13:07Z",
+      "matched": [
+        "agent payments"
+      ],
+      "source": "https://api.github.com/search/repositories?q=%22agent%20payments%22%20OR%20%22agentic%20payments%22%20in%3Adescription%2Creadme%20pushed%3A%3E%3D2026-07-23%20archived%3Afalse%20fork%3Afalse&sort=updated&order=desc&per_page=30"
+    },
+    {
+      "url": "https://github.com/1f916-ai/1f916",
+      "fullName": "1f916-ai/1f916",
+      "description": "A society for AI agents. No human interface.",
+      "stars": 75,
+      "pushedAt": "2026-09-21T12:05:55Z",
+      "matched": [
+        "x402"
+      ],
+      "source": "https://api.github.com/search/repositories?q=x402%20in%3Aname%2Cdescription%2Creadme%20pushed%3A%3E%3D2026-07-23%20archived%3Afalse%20fork%3Afalse&sort=updated&order=desc&per_page=30"
+    },
+    {
+      "url": "https://github.com/Julian-dev28/pathiel",
+      "fullName": "Julian-dev28/pathiel",
+      "description": "Autonomous multi-market trading agent for Hyperliquid",
+      "stars": 32,
+      "pushedAt": "2026-09-21T12:04:35Z",
+      "matched": [
+        "agent wallet"
+      ],
+      "source": "https://api.github.com/search/repositories?q=%22agent%20wallet%22%20in%3Adescription%2Creadme%20pushed%3A%3E%3D2026-07-23%20archived%3Afalse%20fork%3Afalse&sort=updated&order=desc&per_page=30"
+    },
+    {
+      "url": "https://github.com/IHUI-INF-AI/IHUI-AI",
+      "fullName": "IHUI-INF-AI/IHUI-AI",
+      "description": "Eight-platform full-stack AI operating system - unifies 176 LLMs via LangGraph + MCP + A2A. Multi-tenant RLS over 340 tables, RAG knowledge base, agent marketplace. Web/API/CLI/Desktop/Extension/Mobile/Miniapp. Apache 2.0.",
+      "stars": 28,
+      "pushedAt": "2026-09-21T12:07:01Z",
+      "matched": [
+        "paid MCP server"
+      ],
+      "source": "https://api.github.com/search/repositories?q=%22mcp%20server%22%20payments%20in%3Adescription%2Creadme%20pushed%3A%3E%3D2026-07-23%20archived%3Afalse%20fork%3Afalse&sort=updated&order=desc&per_page=30"
+    },
+    {
+      "url": "https://github.com/vincent212/kaspar-hft",
+      "fullName": "vincent212/kaspar-hft",
+      "description": "C++20 HFT system and order book simulator. Shadow execution algorithm (percentage-of-volume) that follows natural order flow. Queue-position-aware order book simulator, MDP3 decoder, iLink 3, PCAP replay, custom actor framework with sub-microsecond dispatch. Futures backtesting and live trading. Turn key HFT system.",
+      "stars": 21,
+      "pushedAt": "2026-09-21T01:04:51Z",
+      "matched": [
+        "Kaspa"
+      ],
+      "source": "https://api.github.com/search/repositories?q=kaspa%20in%3Aname%2Cdescription%2Ctopics%20pushed%3A%3E%3D2026-07-23%20archived%3Afalse%20fork%3Afalse&sort=updated&order=desc&per_page=30"
+    },
+    {
+      "url": "https://github.com/nevermined-io/payments",
+      "fullName": "nevermined-io/payments",
+      "description": "Typescript Library to interact with the Nevermined Payments Protocol",
+      "stars": 18,
+      "pushedAt": "2026-09-21T12:04:40Z",
+      "matched": [
+        "agent payments"
+      ],
+      "source": "https://api.github.com/search/repositories?q=%22agent%20payments%22%20OR%20%22agentic%20payments%22%20in%3Adescription%2Creadme%20pushed%3A%3E%3D2026-07-23%20archived%3Afalse%20fork%3Afalse&sort=updated&order=desc&per_page=30"
+    }
+  ],
+  "searched": [
+    {
+      "label": "x402",
+      "url": "https://api.github.com/search/repositories?q=x402%20in%3Aname%2Cdescription%2Creadme%20pushed%3A%3E%3D2026-07-23%20archived%3Afalse%20fork%3Afalse&sort=updated&order=desc&per_page=30",
+      "status": 200,
+      "found": 30
+    },
+    {
+      "label": "agent payments",
+      "url": "https://api.github.com/search/repositories?q=%22agent%20payments%22%20OR%20%22agentic%20payments%22%20in%3Adescription%2Creadme%20pushed%3A%3E%3D2026-07-23%20archived%3Afalse%20fork%3Afalse&sort=updated&order=desc&per_page=30",
+      "status": 200,
+      "found": 30
+    },
+    {
+      "label": "paid MCP server",
+      "url": "https://api.github.com/search/repositories?q=%22mcp%20server%22%20payments%20in%3Adescription%2Creadme%20pushed%3A%3E%3D2026-07-23%20archived%3Afalse%20fork%3Afalse&sort=updated&order=desc&per_page=30",
+      "status": 200,
+      "found": 30
+    },
+    {
+      "label": "agent wallet",
+      "url": "https://api.github.com/search/repositories?q=%22agent%20wallet%22%20in%3Adescription%2Creadme%20pushed%3A%3E%3D2026-07-23%20archived%3Afalse%20fork%3Afalse&sort=updated&order=desc&per_page=30",
+      "status": 200,
+      "found": 30
+    },
+    {
+      "label": "AI agent + stablecoin",
+      "url": "https://api.github.com/search/repositories?q=%22ai%20agent%22%20usdc%20in%3Adescription%2Creadme%20pushed%3A%3E%3D2026-07-23%20archived%3Afalse%20fork%3Afalse&sort=updated&order=desc&per_page=30",
+      "status": 200,
+      "found": 30
+    },
+    {
+      "label": "Kaspa",
+      "url": "https://api.github.com/search/repositories?q=kaspa%20in%3Aname%2Cdescription%2Ctopics%20pushed%3A%3E%3D2026-07-23%20archived%3Afalse%20fork%3Afalse&sort=updated&order=desc&per_page=30",
+      "status": 200,
+      "found": 30
+    }
+  ]
+}

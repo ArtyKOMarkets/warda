@@ -1,0 +1,35 @@
+{
+  "name": "2026-W39",
+  "network": "testnet-10",
+  "manifest": "/Users/artautasjasinskas/Desktop/warda/growth/batches/2026-W39/grant.json",
+  "openedAt": "2026-09-21T12:11:01.186Z",
+  "closedAt": "2026-09-21T12:12:17.622Z",
+  "outstanding": [],
+  "log": [
+    {
+      "at": "2026-09-21T12:11:01.187Z",
+      "what": "open",
+      "who": "2026-W39",
+      "detail": "/Users/artautasjasinskas/Desktop/warda/growth/batches/2026-W39/grant.json"
+    },
+    {
+      "at": "2026-09-21T12:11:22.920Z",
+      "what": "hire",
+      "who": "scout",
+      "sompi": "60000000",
+      "txid": "ec9fef935f47190ebd690d3f21a0a71995cc63af58e60d0fc439946aa21d7118",
+      "detail": "may pay 254385aa03abefa1\u2026 and nothing else"
+    },
+    {
+      "at": "2026-09-21T12:12:02.507Z",
+      "what": "settle",
+      "who": "scout",
+      "txid": "a0adf38725218ccdf67cfd71b200c6a26e9c3d2de82a20d577c2cff4e98754ee"
+    },
+    {
+      "at": "2026-09-21T12:12:17.623Z",
+      "what": "close",
+      "who": "2026-W39"
+    }
+  ]
+}

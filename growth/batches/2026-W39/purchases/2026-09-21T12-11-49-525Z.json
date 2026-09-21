@@ -1,0 +1,14 @@
+{
+  "_comment": "Written by agent-002/tools/buy.ts. One file per attempt, refusals included: a purchase log that only records successes is a sales brochure.",
+  "at": "2026-09-21T12:11:49.525Z",
+  "agent": "GROWTH-SCOUT",
+  "url": "https://warda-growth.vercel.app/verify?url=https%3A%2F%2Fgithub.com%2FScottcjn%2FRustchain",
+  "task": "research Scottcjn/Rustchain",
+  "outcome": "failed",
+  "txid": null,
+  "quoted": {
+    "payTo": "kaspatest:qqj58pd2qw47lg2wn97srt27dwxp8jj2hfasxrt8tjjeytpelzh5sa2mpucwy",
+    "amountSompi": "5000000"
+  },
+  "error": "this invoice is 5000000 sompi and only 0 remains in the current epoch (0). The allowance refreshes as the chain advances — and cannot be refreshed by claiming an earlier epoch, which the covenant refuses."
+}

@@ -1,0 +1,74 @@
+{
+  "_comment": "The latest finished growth week. growth/tools/reading.ts turns it into the readings for agents #009 (the batch grant) and #010 (Scout).",
+  "label": "2026-W39",
+  "network": "testnet-10",
+  "grant": "/sessions/rcw-01xqrkb5hrzbkbb8yvqg5bty/mnt/warda/growth/batches/2026-W39/grant.json",
+  "child": "/sessions/rcw-01xqrkb5hrzbkbb8yvqg5bty/mnt/warda/growth/batches/2026-W39/grant-child-6476d3dc.json",
+  "purchases": "/sessions/rcw-01xqrkb5hrzbkbb8yvqg5bty/mnt/warda/growth/batches/2026-W39/purchases",
+  "payees": "/sessions/rcw-01xqrkb5hrzbkbb8yvqg5bty/mnt/warda/growth/payees.txt",
+  "scoutPayees": "/sessions/rcw-01xqrkb5hrzbkbb8yvqg5bty/mnt/warda/growth/batches/2026-W39/scout-payees.txt",
+  "genesis": "6e1df7f55ec81a206de78641b0c69b89978773772d3575c8fd0e46f2a6eb59bf",
+  "hire": "ec9fef935f47190ebd690d3f21a0a71995cc63af58e60d0fc439946aa21d7118",
+  "settle": "a0adf38725218ccdf67cfd71b200c6a26e9c3d2de82a20d577c2cff4e98754ee",
+  "revoke": "997d88d8045de27dc49af3ac9308669471ae0801d34524b12cc536ce008d24ea",
+  "report": {
+    "label": "2026-W39",
+    "network": "testnet-10",
+    "candidates": 12,
+    "bought": 3,
+    "failed": 2,
+    "spentSompi": "15000000",
+    "drafts": 3,
+    "skipped": 0,
+    "transactions": [
+      {
+        "step": "genesis",
+        "txid": "6e1df7f55ec81a206de78641b0c69b89978773772d3575c8fd0e46f2a6eb59bf"
+      },
+      {
+        "step": "hire",
+        "txid": "ec9fef935f47190ebd690d3f21a0a71995cc63af58e60d0fc439946aa21d7118"
+      },
+      {
+        "step": "settle",
+        "txid": "a0adf38725218ccdf67cfd71b200c6a26e9c3d2de82a20d577c2cff4e98754ee"
+      },
+      {
+        "step": "revoke",
+        "txid": "997d88d8045de27dc49af3ac9308669471ae0801d34524b12cc536ce008d24ea"
+      }
+    ],
+    "searched": [
+      {
+        "label": "x402",
+        "status": 200,
+        "found": 30
+      },
+      {
+        "label": "agent payments",
+        "status": 200,
+        "found": 30
+      },
+      {
+        "label": "paid MCP server",
+        "status": 200,
+        "found": 30
+      },
+      {
+        "label": "agent wallet",
+        "status": 200,
+        "found": 30
+      },
+      {
+        "label": "AI agent + stablecoin",
+        "status": 200,
+        "found": 30
+      },
+      {
+        "label": "Kaspa",
+        "status": 200,
+        "found": 30
+      }
+    ]
+  }
+}

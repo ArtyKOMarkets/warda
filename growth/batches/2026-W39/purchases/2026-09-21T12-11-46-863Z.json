@@ -1,0 +1,61 @@
+{
+  "_comment": "Written by agent-002/tools/buy.ts. One file per attempt, refusals included: a purchase log that only records successes is a sales brochure.",
+  "at": "2026-09-21T12:11:46.863Z",
+  "agent": "GROWTH-SCOUT",
+  "url": "https://warda-growth.vercel.app/verify?url=https%3A%2F%2Fgithub.com%2FAtoB101%2FKarma",
+  "task": "research AtoB101/Karma",
+  "proof": {
+    "header": "eyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJ0ZXN0bmV0LTEwIiwicGF5ZXIiOiJrYXNwYXRlc3Q6cHJkMjN5YTM3NjhqM2E5OGZ2dWZyaDV2NWRlamM4a3VyZWFnY2ozcGx5MnBjOTRxNWsyNXloN2ZmbGQ5ZiIsInR4aWQiOiJiYWYyYzJhZjkzYjI3MDk1ZDY4MmI5YzQ0ZTlmNDk1OWRlYWIyYzUxMDY0MWE1YmQ5MmI4OTlhMzMxYWIzNGYyIiwiYW1vdW50U29tcGkiOiI1MDAwMDAwIiwibm9uY2UiOiIxNzg5OTkyODI3ODk5Ljg0NjZhNDMzMDU1Y2FlZTQzYjM0YjM2NGZhMjUxNTA0In0=",
+    "txid": "baf2c2af93b27095d682b9c44e9f4959deab2c510641a5bd92b899a331ab34f2",
+    "amountSompi": "5000000",
+    "payTo": "kaspatest:qqj58pd2qw47lg2wn97srt27dwxp8jj2hfasxrt8tjjeytpelzh5sa2mpucwy"
+  },
+  "outcome": "bought",
+  "status": 200,
+  "quoted": {
+    "payTo": "kaspatest:qqj58pd2qw47lg2wn97srt27dwxp8jj2hfasxrt8tjjeytpelzh5sa2mpucwy",
+    "amountSompi": "5000000"
+  },
+  "txid": "baf2c2af93b27095d682b9c44e9f4959deab2c510641a5bd92b899a331ab34f2",
+  "sellerClaimed": null,
+  "resumedFrom": null,
+  "response": {
+    "project": "https://github.com/AtoB101/Karma",
+    "checkedAt": "2026-09-21T12:11:49.315Z",
+    "findings": [
+      {
+        "fact": "the repository AtoB101/Karma is public",
+        "source": "https://api.github.com/repos/AtoB101/Karma"
+      },
+      {
+        "fact": "its main language is Python",
+        "source": "https://api.github.com/repos/AtoB101/Karma"
+      },
+      {
+        "fact": "5 stars",
+        "source": "https://api.github.com/repos/AtoB101/Karma"
+      },
+      {
+        "fact": "last pushed 2026-09-21, which is 0 days ago",
+        "source": "https://api.github.com/repos/AtoB101/Karma"
+      },
+      {
+        "fact": "the repository names a homepage, https://atob101.github.io/Karma/",
+        "source": "https://api.github.com/repos/AtoB101/Karma"
+      }
+    ],
+    "unverified": [
+      "whether anyone there wants to pay for anything, which only they can say",
+      "who to contact — the profile publishes no channel",
+      "whether they welcome being contacted"
+    ],
+    "signals": [
+      "mentions paying for things: x402, usdc, wallet (https://github.com/AtoB101/Karma/blob/main/README.md)",
+      "mentions agents: ai agent (https://github.com/AtoB101/Karma/blob/main/README.md)"
+    ],
+    "paidTo": "kaspatest:qqj58pd2qw47lg2wn97srt27dwxp8jj2hfasxrt8tjjeytpelzh5sa2mpucwy",
+    "settledBy": "baf2c2af93b27095d682b9c44e9f4959deab2c510641a5bd92b899a331ab34f2",
+    "verified": "a UTXO at this endpoint's payee address, from that transaction, for exactly the quoted amount",
+    "readFrom": "a public node found by a resolver, over borsh, because this vendor's own node could not be reached. A node this vendor does not control is answering whether you paid it."
+  }
+}

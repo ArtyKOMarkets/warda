@@ -1,0 +1,72 @@
+{
+  "_comment": "Written by agent-002/tools/buy.ts. One file per attempt, refusals included: a purchase log that only records successes is a sales brochure.",
+  "at": "2026-09-21T12:11:38.040Z",
+  "agent": "GROWTH-SCOUT",
+  "url": "https://warda-growth.vercel.app/verify?url=https%3A%2F%2Fgithub.com%2FManavarya09%2Fpublic-apis-live",
+  "task": "research Manavarya09/public-apis-live",
+  "proof": {
+    "header": "eyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJ0ZXN0bmV0LTEwIiwicGF5ZXIiOiJrYXNwYXRlc3Q6cHE3ZzNma3o5ODU5dDhrdjZ2eGxyNTVzdnNzZjJybGp0bGV1emU1ZjZrZmpzY3RoODB5ZnVsbDc0djZ3ZSIsInR4aWQiOiIyYWE0YmYyMWM1OTBkNWVkZGRlYWVhNWM1YjBkNzU2Y2UyM2RhZjRmMTRjYTViNGJmOGFlYmQ0YmY5NDcxNGIyIiwiYW1vdW50U29tcGkiOiI1MDAwMDAwIiwibm9uY2UiOiIxNzg5OTkyODE5Mjk2LjJjOTljMDg2NWE4OTQxNjZmZjgzOWI1NDc2Y2M3YzEzIn0=",
+    "txid": "2aa4bf21c590d5edddeaea5c5b0d756ce23daf4f14ca5b4bf8aebd4bf94714b2",
+    "amountSompi": "5000000",
+    "payTo": "kaspatest:qqj58pd2qw47lg2wn97srt27dwxp8jj2hfasxrt8tjjeytpelzh5sa2mpucwy"
+  },
+  "outcome": "bought",
+  "status": 200,
+  "quoted": {
+    "payTo": "kaspatest:qqj58pd2qw47lg2wn97srt27dwxp8jj2hfasxrt8tjjeytpelzh5sa2mpucwy",
+    "amountSompi": "5000000"
+  },
+  "txid": "2aa4bf21c590d5edddeaea5c5b0d756ce23daf4f14ca5b4bf8aebd4bf94714b2",
+  "sellerClaimed": null,
+  "resumedFrom": null,
+  "response": {
+    "project": "https://github.com/Manavarya09/public-apis-live",
+    "checkedAt": "2026-09-21T12:11:42.006Z",
+    "findings": [
+      {
+        "fact": "the repository Manavarya09/public-apis-live is public",
+        "source": "https://api.github.com/repos/Manavarya09/public-apis-live"
+      },
+      {
+        "fact": "it describes itself as \"Every public API in one place — aggregated, deduped, and auto-checked for reachability. Refreshed daily. npm + Claude plugin + live search.\"",
+        "source": "https://api.github.com/repos/Manavarya09/public-apis-live"
+      },
+      {
+        "fact": "its main language is TypeScript",
+        "source": "https://api.github.com/repos/Manavarya09/public-apis-live"
+      },
+      {
+        "fact": "its topics are api, api-list, apis, claude, developer-tools, free-apis, mcp, nextjs",
+        "source": "https://api.github.com/repos/Manavarya09/public-apis-live"
+      },
+      {
+        "fact": "146 stars",
+        "source": "https://api.github.com/repos/Manavarya09/public-apis-live"
+      },
+      {
+        "fact": "last pushed 2026-09-21, which is 0 days ago",
+        "source": "https://api.github.com/repos/Manavarya09/public-apis-live"
+      },
+      {
+        "fact": "their profile links www.manavaryasingh.com",
+        "source": "https://api.github.com/users/Manavarya09"
+      },
+      {
+        "fact": "the repository names a homepage, https://manavarya09.github.io/public-apis-live/",
+        "source": "https://api.github.com/repos/Manavarya09/public-apis-live"
+      }
+    ],
+    "unverified": [
+      "whether anyone there wants to pay for anything, which only they can say",
+      "whether they welcome being contacted"
+    ],
+    "signals": [
+      "mentions paying for things: x402, micropayment, pay-per-call, pay-per-use, stripe, stablecoin, usdc, wallet, budget (https://github.com/Manavarya09/public-apis-live/blob/main/README.md)",
+      "mentions agents: autonomous agent, ai agent, ai agents, agentic, mcp server, model context protocol, langchain, crewai, autogen (https://github.com/Manavarya09/public-apis-live/blob/main/README.md)"
+    ],
+    "paidTo": "kaspatest:qqj58pd2qw47lg2wn97srt27dwxp8jj2hfasxrt8tjjeytpelzh5sa2mpucwy",
+    "settledBy": "2aa4bf21c590d5edddeaea5c5b0d756ce23daf4f14ca5b4bf8aebd4bf94714b2",
+    "verified": "a UTXO at this endpoint's payee address, from that transaction, for exactly the quoted amount",
+    "readFrom": "a public node found by a resolver, over borsh, because this vendor's own node could not be reached. A node this vendor does not control is answering whether you paid it."
+  }
+}

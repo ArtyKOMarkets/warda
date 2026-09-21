@@ -1,0 +1,72 @@
+{
+  "_comment": "Written by agent-002/tools/buy.ts. One file per attempt, refusals included: a purchase log that only records successes is a sales brochure.",
+  "at": "2026-09-21T12:11:42.306Z",
+  "agent": "GROWTH-SCOUT",
+  "url": "https://warda-growth.vercel.app/verify?url=https%3A%2F%2Fgithub.com%2Fnevermined-io%2Fpayments-py",
+  "task": "research nevermined-io/payments-py",
+  "proof": {
+    "header": "eyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJ0ZXN0bmV0LTEwIiwicGF5ZXIiOiJrYXNwYXRlc3Q6cHJtN3NobHNxemEydXF0Y3g5ZmxraDQ1ejdkMGU5NHlybXVlc2h6MGptczN5enhzZTdqbXE0NWhxcTl0NSIsInR4aWQiOiI2MjJjM2U5Y2EzNzAzYTBkM2JiMjlmZjIxM2YzNDk4MWFkYzk3MGRhZDFjM2EyZTZkYjcyZTgyZTQyNDVlNzRjIiwiYW1vdW50U29tcGkiOiI1MDAwMDAwIiwibm9uY2UiOiIxNzg5OTkyODIzMzg4LjI0ZGMwN2RhZmM1ZDFhOGNhMmY3ZDY5MTMyOWQ2ZWJmIn0=",
+    "txid": "622c3e9ca3703a0d3bb29ff213f34981adc970dad1c3a2e6db72e82e4245e74c",
+    "amountSompi": "5000000",
+    "payTo": "kaspatest:qqj58pd2qw47lg2wn97srt27dwxp8jj2hfasxrt8tjjeytpelzh5sa2mpucwy"
+  },
+  "outcome": "bought",
+  "status": 200,
+  "quoted": {
+    "payTo": "kaspatest:qqj58pd2qw47lg2wn97srt27dwxp8jj2hfasxrt8tjjeytpelzh5sa2mpucwy",
+    "amountSompi": "5000000"
+  },
+  "txid": "622c3e9ca3703a0d3bb29ff213f34981adc970dad1c3a2e6db72e82e4245e74c",
+  "sellerClaimed": null,
+  "resumedFrom": null,
+  "response": {
+    "project": "https://github.com/nevermined-io/payments-py",
+    "checkedAt": "2026-09-21T12:11:46.561Z",
+    "findings": [
+      {
+        "fact": "the repository nevermined-io/payments-py is public",
+        "source": "https://api.github.com/repos/nevermined-io/payments-py"
+      },
+      {
+        "fact": "it describes itself as \"🐍 Python SDK to interact with the Nevermined Payments Protocol\"",
+        "source": "https://api.github.com/repos/nevermined-io/payments-py"
+      },
+      {
+        "fact": "its main language is Python",
+        "source": "https://api.github.com/repos/nevermined-io/payments-py"
+      },
+      {
+        "fact": "11 stars",
+        "source": "https://api.github.com/repos/nevermined-io/payments-py"
+      },
+      {
+        "fact": "last pushed 2026-09-21, which is 0 days ago",
+        "source": "https://api.github.com/repos/nevermined-io/payments-py"
+      },
+      {
+        "fact": "the organisation lists X/Twitter @nevermined_io on their profile",
+        "source": "https://api.github.com/users/nevermined-io"
+      },
+      {
+        "fact": "their profile links https://nevermined.io",
+        "source": "https://api.github.com/users/nevermined-io"
+      },
+      {
+        "fact": "the repository names a homepage, https://nevermined-io.github.io/payments-py/",
+        "source": "https://api.github.com/repos/nevermined-io/payments-py"
+      }
+    ],
+    "unverified": [
+      "whether anyone there wants to pay for anything, which only they can say",
+      "whether they welcome being contacted"
+    ],
+    "signals": [
+      "mentions paying for things: x402, stripe, usdc (https://github.com/nevermined-io/payments-py/blob/main/README.md)",
+      "mentions agents: ai agent, ai agents, langchain (https://github.com/nevermined-io/payments-py/blob/main/README.md)"
+    ],
+    "paidTo": "kaspatest:qqj58pd2qw47lg2wn97srt27dwxp8jj2hfasxrt8tjjeytpelzh5sa2mpucwy",
+    "settledBy": "622c3e9ca3703a0d3bb29ff213f34981adc970dad1c3a2e6db72e82e4245e74c",
+    "verified": "a UTXO at this endpoint's payee address, from that transaction, for exactly the quoted amount",
+    "readFrom": "a public node found by a resolver, over borsh, because this vendor's own node could not be reached. A node this vendor does not control is answering whether you paid it."
+  }
+}
