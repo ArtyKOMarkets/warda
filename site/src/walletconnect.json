@@ -1,4 +1,4 @@
 {
   "_comment": "Reown (WalletConnect) project id for the console. Create one at https://cloud.reown.com, add this site's domain to its allowlist, and paste the id here. Public by design. Empty = the WalletConnect button says it is not set up.",
-  "projectId": ""
+  "projectId": "3faf4226035c9ef9164127dac8f15ae3"
 }
