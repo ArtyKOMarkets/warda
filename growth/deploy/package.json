@@ -1,0 +1,20 @@
+{
+  "name": "warda-growth",
+  "private": true,
+  "type": "module",
+  "description": "Warda Growth, hosted: Researcher selling checkable project records over HTTP 402. Deploys the published packages, plus two files synced from growth/src by sync.mjs.",
+  "engines": {
+    "node": "22.x"
+  },
+  "dependencies": {
+    "@kluster/kaspa-wasm": "^2.0.1",
+    "@neondatabase/serverless": "1.1.0",
+    "@warda_protocol/borsh": "^0.4.1",
+    "@warda_protocol/kaspa": "^0.6.0",
+    "@warda_protocol/vendor": "^0.3.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.3"
+  }
+}

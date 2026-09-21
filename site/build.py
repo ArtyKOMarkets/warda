@@ -132,6 +132,10 @@ AGENT_PAGES = {
            "that the one thing hardest to fake about this protocol can be checked rather than believed.",
     "006": "An agent that was bought rather than funded by hand: an asset sold once, a grant "
            "bounded from what arrived, and three powers held by three different keys.",
+    "009": "The growth fleet's orchestrator: a batch grant issued each week, subdivided to hire a "
+           "sub-agent, charged for what it spent, and revoked when the week is done.",
+    "010": "Scout, the growth fleet's buyer: a sub-agent that may pay one address, buys one "
+           "checkable record per project from Researcher, and settles home.",
 }
 
 CRYPTO = (here / "src" / "_crypto.js").read_text()
@@ -459,6 +463,15 @@ AGENTS = [
      "    --endpoint https://warda-demo-api.vercel.app/fact \\\n"
      "    --mission \"Be bought rather than funded: an asset sold once, a grant bounded from what arrived, and every power held by a different key.\" \\\n"
      "    > site/src/agent-006.json.new && mv site/src/agent-006.json.new site/src/agent-006.json"),
+    # The growth fleet. A new batch grant every week, so not one fixed grant:
+    # growth/tools/reading.ts reads the latest finished week from
+    # growth/current.json and runs dashboard.ts with that week's flags.
+    ("agent-009.json", "agent-009.html",
+     "node --experimental-strip-types growth/tools/reading.ts orchestrator \\\n"
+     "    > site/src/agent-009.json.new && mv site/src/agent-009.json.new site/src/agent-009.json"),
+    ("agent-010.json", "agent-010.html",
+     "node --experimental-strip-types growth/tools/reading.ts scout \\\n"
+     "    > site/src/agent-010.json.new && mv site/src/agent-010.json.new site/src/agent-010.json"),
 ]
 
 

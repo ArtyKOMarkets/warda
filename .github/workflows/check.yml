@@ -151,6 +151,7 @@ jobs:
         run: |
           node ops/check-core-browser.mjs
           node ops/build-registry-sources.mjs --check
+          node growth/deploy/sync.mjs --check
           node ops/check-deploys.mjs
           node ops/check-releasable.mjs
           python3 site/build.py

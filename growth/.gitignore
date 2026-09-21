@@ -1,0 +1,7 @@
+# Settings with a path to a key in them.
+weekly.env
+# A run in progress.
+batches/*/.lock
+# Drafts are messages to named people, for Arty to read — not for a public repo.
+batches/*/drafts.md
+batches/*/drafts.json

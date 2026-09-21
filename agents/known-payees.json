@@ -21,6 +21,13 @@
       "derivation": "the pay-to-public-key address of the agent key named in agent #005's published manifest. It is on the allowlist because x402 `exact` cannot take a covenant spend, so the grant pays this key and this key pays the vendor \u2014 see x402/RELAY.md.",
       "checkAgainst": "x402/demo/agent-005-grant.json#agent",
       "ours": true
+    },
+    {
+      "key": "254385aa03abefa14e997d01ad5e6b8c13ca4aba7b030d675ca5922c39f8af48",
+      "label": "Warda Growth \u00b7 Researcher",
+      "derivation": "the pay-to-public-key address of growth/keys/researcher.key, which is the address https://warda-growth.vercel.app quotes for /verify and the one payee in every growth batch grant's allowlist",
+      "checkAgainst": "growth/keys/researcher.key.pub",
+      "ours": true
     }
   ]
 }

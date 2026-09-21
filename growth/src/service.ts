@@ -1,0 +1,126 @@
+/**
+ * Researcher, as a request handler: one function for the local process and
+ * for the hosted one, so the two cannot drift.
+ *
+ * `tools/researcher.ts` wraps it in `node:http` for a laptop; `deploy/api/verify.ts`
+ * wraps it for Vercel. Neither re-states a price, an address or a rule.
+ *
+ * ## It will not take money for a record it cannot produce
+ *
+ * Every finding comes from GitHub. When GitHub is rate-limiting or down, a
+ * record bought now would be "GitHub answered 403" — true, and worth nothing.
+ * So before QUOTING, it asks GitHub about the project once. If the answer is
+ * anything but the repository or a clean 404, it says so with a 503 and no
+ * quote, and nothing is charged. The buyer's grant keeps its money; the check
+ * costs the seller one request.
+ */
+import { settle, type SettleInput, type SpentStore } from "@warda_protocol/vendor";
+import { repoOf, verifyProject, type Fetcher } from "./verify-project.ts";
+
+export interface ResearcherConfig {
+  payTo: string;
+  sompi: bigint;
+  network: string;
+  secret: string;
+  spent: SpentStore;
+  fetcher: Fetcher;
+  openNode: SettleInput["openNode"];
+  /** Where the signed listing and the free description live, for the index. */
+  origin?: string;
+}
+
+export interface Reply {
+  status: number;
+  body: unknown;
+}
+
+/** KIP-9 storage mass puts a floor of roughly 0.02 KAS under any payment. */
+export const FLOOR_SOMPI = 2_000_000n;
+
+export function describe(cfg: Pick<ResearcherConfig, "payTo" | "sompi" | "network" | "origin">): unknown {
+  return {
+    service: "Warda Growth · Researcher",
+    sells: "/verify?url=<a project url>",
+    what:
+      "A record about a software project that anyone can check: facts, each with the URL it came from, " +
+      "and a named list of what could not be established. Never a score.",
+    price: `${Number(cfg.sompi) / 1e8} KAS per record`,
+    payTo: cfg.payTo,
+    network: cfg.network,
+    payment: "HTTP 402 (x402 v1). The payment is checked in the UTXO set before anything is served.",
+    listing: cfg.origin ? `${cfg.origin}/.well-known/warda-service.json` : undefined,
+    operator: "Warda — this is the project's own agent, not an independent vendor.",
+  };
+}
+
+export async function research(url: URL, paymentHeader: string | null, cfg: ResearcherConfig): Promise<Reply> {
+  if (url.pathname === "/" || url.pathname === "") return { status: 200, body: describe(cfg) };
+  if (url.pathname !== "/verify") {
+    return { status: 404, body: { error: "this agent sells one thing", resource: "/verify?url=<a project url>" } };
+  }
+  if (cfg.sompi < FLOOR_SOMPI) {
+    return { status: 500, body: { error: `priced below Kaspa's ~${FLOOR_SOMPI} sompi floor; no buyer could pay it` } };
+  }
+
+  const project = url.searchParams.get("url");
+  if (!project) {
+    /* Refused BEFORE a quote: quoting for a request that cannot be served
+       takes money for nothing. */
+    return { status: 400, body: { error: "give me ?url=<a project url> to verify" } };
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(project);
+  } catch {
+    return { status: 400, body: { error: `${JSON.stringify(project)} is not a URL` } };
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    return { status: 400, body: { error: "only http(s) projects" } };
+  }
+
+  if (!paymentHeader) {
+    const repo = repoOf(project);
+    if (repo) {
+      const probe = await cfg.fetcher(`https://api.github.com/repos/${repo.owner}/${repo.name}`).catch(() => ({ status: 0, body: "" }));
+      if (probe.status !== 200 && probe.status !== 404) {
+        return {
+          status: 503,
+          body: {
+            error: "GitHub is not answering properly right now",
+            github: probe.status,
+            charged: false,
+            note: "A record bought now would say only that GitHub refused, so no quote is offered. Try again later.",
+          },
+        };
+      }
+    }
+  }
+
+  const result = await settle({
+    /* The resource is the PATH: one price, any project, and the spent store
+       keys on the transaction so one payment buys one record. */
+    terms: { payTo: cfg.payTo, sompi: cfg.sompi, network: cfg.network, resource: "/verify" },
+    paymentHeader,
+    quote: { secret: cfg.secret },
+    spent: cfg.spent,
+    openNode: cfg.openNode,
+    deliver: async () => verifyProject(project, cfg.fetcher),
+  });
+  return { status: result.status, body: result.body };
+}
+
+/** The fetch Researcher uses. A token, if given, only raises GitHub's rate limit. */
+export function githubFetcher(token?: string): Fetcher {
+  return async (u) => {
+    const gh = u.includes("api.github.com");
+    const res = await fetch(u, {
+      headers: {
+        "user-agent": "warda-growth-researcher",
+        accept: gh ? "application/vnd.github+json" : "text/html",
+        ...(gh && token ? { authorization: `Bearer ${token}` } : {}),
+      },
+      signal: AbortSignal.timeout(15_000),
+    });
+    return { status: res.status, body: await res.text() };
+  };
+}

@@ -125,3 +125,18 @@ test("a url that answers nothing at all does not throw", async () => {
   const r = await verifyProject("https://nowhere.invalid", async () => { throw new Error("ENOTFOUND"); }, NOW);
   assert.ok(r.findings.some((f) => /could not be reached at all/.test(f.fact)));
 });
+
+test("a channel the maintainer published is a finding; no email is ever looked for", async () => {
+  const record = await verifyProject(REPO, answers({
+    [API]: { status: 200, body: JSON.stringify({ ...JSON.parse(META), topics: ["x402", "ai-agents"], has_discussions: true }) },
+    [`${API}/readme`]: { status: 200, body: README("An AI agent that pays per call.") },
+    "https://api.github.com/users/kaspanet": { status: 200, body: JSON.stringify({ type: "Organization", twitter_username: "kaspanet", email: "x@y.z" }) },
+  }), NOW);
+  const facts = record.findings.map((f) => f.fact).join("\n");
+  assert.match(facts, /X\/Twitter @kaspanet/);
+  assert.match(facts, /Discussions is switched on/);
+  assert.match(facts, /its topics are x402, ai-agents/);
+  assert.doesNotMatch(facts, /x@y\.z/);
+  assert.ok(!record.unverified.some((u) => u.startsWith("who to contact")));
+  assert.ok(record.signals.some((s) => s.startsWith("mentions paying for things") && s.includes("x402")));
+});

@@ -293,7 +293,10 @@ async function main() {
          the only record of which child may be settled next, and the chain will
          not reproduce it — the reserve is a hash chain, so it proves how much
          is reserved and not by whom. */
-      batch.outstanding.push({
+      /* Once per child. A second `hire --submit` after a success used to push
+         the same child twice, and settling then popped only one of them —
+         which is how the first loop's batch.json still lists a settled Scout. */
+      if (!batch.outstanding.some((c) => c.agentKey === terms.agentKey)) batch.outstanding.push({
         name,
         agentKey: terms.agentKey,
         manifest: childManifestPath(batch.manifest, terms.agentKey),

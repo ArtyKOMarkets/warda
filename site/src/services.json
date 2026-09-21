@@ -50,6 +50,30 @@
       "operator": "warda",
       "operatorNote": "Run by this project, for the quickstart.",
       "listedAt": "2026-09-16"
+    },
+    {
+      "id": "warda-growth-research",
+      "name": "Warda Growth \u00b7 Researcher",
+      "description": "A checkable record about a software project: facts from GitHub, each with the URL it came from, and a named list of what could not be established. Never a score. Bought every week by Warda's own growth agents, and sold to anyone.",
+      "endpoint": "https://warda-growth.vercel.app/verify",
+      "capabilities": [
+        "research.project",
+        "github.repo.facts"
+      ],
+      "pricing": {
+        "asset": "KAS",
+        "amount": "0.05",
+        "unit": "request"
+      },
+      "payment": {
+        "protocol": "x402",
+        "network": "kaspa:testnet-10",
+        "warda": true
+      },
+      "payee": "254385aa03abefa14e997d01ad5e6b8c13ca4aba7b030d675ca5922c39f8af48",
+      "operator": "warda",
+      "operatorNote": "Run by this project. The growth fleet's Scout is its main buyer, through a grant that may pay this address and nothing else.",
+      "listedAt": "2026-09-21"
     }
   ],
   "known_but_unlisted": [
@@ -62,6 +86,7 @@
   ],
   "_sources_comment": "Signed manifests, at their operators' own domains. THIS is the registry's index and the list above is what it has read: a service is listed by publishing a signed manifest at /.well-known/warda-service.json on the host its endpoint runs on, and the registry stores only the URL. ops/build-registry-sources.mjs generates registry/deploy/sources.json from this, so the hosted endpoint and this file cannot drift.",
   "sources": [
-    "https://warda-demo-api.vercel.app/.well-known/warda-service.json"
+    "https://warda-demo-api.vercel.app/.well-known/warda-service.json",
+    "https://warda-growth.vercel.app/.well-known/warda-service.json"
   ]
 }

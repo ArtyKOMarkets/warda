@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "name": "Warda Growth · Researcher",
+  "description": "A checkable record about a software project: facts from GitHub, each with the URL it came from, and a named list of what could not be established. Never a score. Run by Warda's growth agents, and sold to anyone.",
+  "endpoint": "https://warda-growth.vercel.app/verify",
+  "capabilities": ["research.project", "github.repo.facts"],
+  "pricing": { "asset": "KAS", "amount": "0.05", "unit": "request" },
+  "payment": { "protocol": "x402", "network": "kaspa:testnet-10", "warda": true },
+  "payee": "254385aa03abefa14e997d01ad5e6b8c13ca4aba7b030d675ca5922c39f8af48"
+}

@@ -35,13 +35,35 @@ A then B outstanding, B must settle before A, and no builder can be persuaded
 otherwise. That is an operational constraint on how a tree is *run*, which is
 why `checkSettle` lives here and not in the SDK.
 
+## The fleet
+
+| agent | holds | does |
+|---|---|---|
+| **Orchestrator** (#009) | a batch grant each week, one payee: Researcher | hires Scout with a piece of it, takes the rest back |
+| **Scout** (#010) | a child grant: one payee, one record's price per spend, a quarter per epoch, one day | searches GitHub (free) and buys one record per candidate |
+| **Researcher** | nothing to spend; it is paid | sells `/verify?url=…`: facts with sources, never a score — hosted at `warda-growth.vercel.app`, listed in the registry |
+| **Outreach** | **no grant, no key, no send button** | turns records into drafts for a person to read |
+
+Prospects are not only Kaspa projects: x402 sellers and buyers, paid MCP
+servers, agent wallets, agents that hold stablecoins. `src/scout.ts` has the
+searches; edit them there.
+
 ## The shape
 
 | | |
 |---|---|
+| `src/scout.ts` | GitHub searches → a shortlist, each entry with the search that found it |
+| `src/verify-project.ts` | what Researcher sells: facts with sources, what could not be established, and a channel only if the maintainer published one |
+| `src/service.ts` | Researcher as one request handler, for the laptop and for Vercel — no quote when GitHub is refusing, so nobody pays for an empty record |
+| `src/outreach.ts` | a draft only from what the record established, to a channel they published — or no draft, and why |
+| `src/week.ts` | the week's plan, steps and report |
 | `src/hiring.ts` | what a parent may hand over, and every reason it may not — all of them at once, not the first |
 | `src/batch.ts` | one unit of work: one grant tree, one settlement stack, one log |
+| `tools/week.ts` | the week, unattended and resumable — run by `ops/weekly-growth.sh` |
 | `tools/batch.ts` | `open`, `hire`, `settle`, `status`, `close` |
+| `tools/researcher.ts` | Researcher on a laptop |
+| `tools/reading.ts` | the published readings for #009 and #010 |
+| `deploy/` | Researcher on its own Vercel project; `deploy/sync.mjs` keeps its copy of `src/` honest |
 
 Every refusal in `hiring.ts` is one the chain would also make — in a script
 error, on chain, after a fee, usually about a hash. The value of the module is
@@ -75,3 +97,17 @@ node --experimental-strip-types tools/batch.ts settle scout --submit
 Without `--submit` nothing is broadcast, which is the safer order the first few
 times. The sub-agent generates its own key and hands over the public half;
 nothing here ever holds it.
+
+## Weekly
+
+```
+source ops/node.env
+node --experimental-strip-types growth/tools/week.ts --dry-run   # the searches and the plan; nothing on chain
+node --experimental-strip-types growth/tools/week.ts             # this week's batch, or resume it
+ops/install-cron.sh --growth                                     # every Monday at 10:13
+```
+
+A week: genesis → open → scout → hire → buy → settle → close → revoke → drafts →
+report. Each step is written to `batches/<week>/week.json` before the next
+starts, so a run that stops resumes rather than paying twice. The drafts are in
+`batches/<week>/drafts.md` (gitignored: they name people). Nothing is sent.

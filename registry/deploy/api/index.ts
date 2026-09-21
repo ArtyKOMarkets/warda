@@ -129,7 +129,8 @@ import type { IncomingMessage, ServerResponse } from "node:http";
  */
 /* BEGIN GENERATED sources — ops/build-registry-sources.mjs from site/src/services.json */
 const sources: string[] = [
-  "https://warda-demo-api.vercel.app/.well-known/warda-service.json"
+  "https://warda-demo-api.vercel.app/.well-known/warda-service.json",
+  "https://warda-growth.vercel.app/.well-known/warda-service.json"
 ];
 /* END GENERATED sources */
 

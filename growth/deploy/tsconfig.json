@@ -1,0 +1,24 @@
+{
+  "_comment": [
+    "Copied from registry/deploy: this directory is not a workspace and inherits no tsconfig.",
+    "moduleResolution nodenext is what makes `./service.js` resolve to service.ts."
+  ],
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": [
+      "ES2023"
+    ],
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": [
+      "node"
+    ]
+  },
+  "include": [
+    "api/**/*.ts",
+    "lib/**/*.ts"
+  ]
+}

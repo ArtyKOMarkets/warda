@@ -232,3 +232,50 @@ every limit enforced by the network rather than by the program that ran it.
 Everything here has run in tests and most of it has never run against a chain
 in this order. The repo's own record is six covenant vulnerabilities found, none
 by reading code. Read the refusal reason, not just the verdict.
+
+---
+
+# Weekly
+
+The first loop, run by a machine every Monday. `tools/week.ts` does steps 1–7
+above in order, plus the parts a person did by hand: Scout's shortlist from
+GitHub, one purchase per candidate, revoking the batch grant so the remainder
+goes home, and drafts from the records.
+
+## Before the first week
+
+1. **Researcher is hosted.** `growth/deploy/README.md`. The week buys from
+   `https://warda-growth.vercel.app` unless `GROWTH_RESEARCHER_URL` says otherwise.
+2. **The funder has one coin big enough.** About 0.9 KAS for 12 records — genesis
+   takes a single input. `warda wallet --key <funder>`; merge with
+   `sdk/tools/consolidate.ts` if the faucet left several small ones. The funder
+   is `covenant/deploy/warda-testnet.key` unless `growth/weekly.env` names
+   another (see `weekly.env.example`).
+3. **Look first:** `node --experimental-strip-types growth/tools/week.ts --dry-run`
+   prints the shortlist and the grant it would issue. Nothing on chain.
+
+## Run it
+
+```
+source ops/node.env
+node --experimental-strip-types growth/tools/week.ts
+```
+
+Then, once one has worked: `ops/install-cron.sh --growth`.
+
+## When it stops
+
+It says which step and why, and a re-run resumes there. Two stops deserve care:
+
+- **exit 4, paid and not served.** Money moved and no record came back. Do not
+  re-run to compensate; `agents/tools/buy.ts` with the same URL resumes that
+  proof without paying again.
+- **"grant.json exists but genesis is not recorded".** A genesis may have
+  broadcast. Find it on chain before touching the file.
+
+## After
+
+- `batches/<week>/drafts.md` — read, edit, send or don't. Nothing was sent.
+- `batches/<week>/report.md` — what it cost and what it found.
+- `ops/refresh-agents.sh 009 010` and a site build publish the week as agents
+  #009 and #010, and the Console's Fleet shows the tree.

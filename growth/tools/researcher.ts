@@ -29,9 +29,9 @@
  * limitation rather than a hidden one; a seller taking real money wants a
  * durable `SpentStore`, and the interface exists for that.
  */
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { inMemorySpent, openNode, settle } from "@warda_protocol/vendor";
-import { verifyProject, type Fetcher } from "../src/verify-project.ts";
+import { createServer } from "node:http";
+import { inMemorySpent, openNode } from "@warda_protocol/vendor";
+import { FLOOR_SOMPI, githubFetcher, research, type ResearcherConfig } from "../src/service.ts";
 
 const flag = (name: string, fallback?: string) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -60,90 +60,37 @@ if (!SECRET) {
   );
   process.exit(2);
 }
-
-/* KIP-9 storage mass puts a floor of roughly 0.02 KAS under any payment, so a
-   price below it is not cheap, it is unpayable. Checked at startup rather than
-   discovered by the first buyer. */
-const FLOOR = 2_000_000n;
-if (PRICE < FLOOR) {
-  console.error(`--price ${PRICE} is below Kaspa's ~${FLOOR} sompi storage-mass floor; no buyer could pay it.`);
+if (PRICE < FLOOR_SOMPI) {
+  console.error(`--price ${PRICE} is below Kaspa's ~${FLOOR_SOMPI} sompi storage-mass floor; no buyer could pay it.`);
   process.exit(2);
 }
 
-/** One store for the process. See the header for why this is not per request. */
-const spent = inMemorySpent();
-
-const fetcher: Fetcher = async (url) => {
-  const res = await fetch(url, {
-    headers: {
-      // GitHub refuses anonymous requests without one, and an agent that does
-      // not say what it is deserves the rate limit it gets.
-      "user-agent": "warda-growth-researcher",
-      accept: url.includes("api.github.com") ? "application/vnd.github+json" : "text/html",
-    },
-    signal: AbortSignal.timeout(15_000),
-  });
-  return { status: res.status, body: await res.text() };
+/* One store for the process: in memory, so a restart forgets which payments
+   were spent. Fine for a laptop; the hosted Researcher (growth/deploy) keeps
+   them in Postgres. */
+const cfg: ResearcherConfig = {
+  payTo: PAY_TO,
+  sompi: PRICE,
+  network: NETWORK,
+  secret: SECRET,
+  spent: inMemorySpent(),
+  fetcher: githubFetcher(process.env.GITHUB_TOKEN),
+  openNode: () => openNode({ rpc: process.env.WARDA_RPC_JSON, network: NETWORK }),
 };
 
-async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  const url = new URL(req.url ?? "/", "http://researcher");
-  if (url.pathname !== "/verify") {
-    res.writeHead(404, { "content-type": "application/json" });
-    res.end(JSON.stringify({
-      error: "this agent sells one thing",
-      resource: "/verify?url=<a project url>",
-      price_sompi: PRICE.toString(),
-      pay_to: PAY_TO,
-      network: NETWORK,
-    }, null, 2));
-    return;
-  }
-
-  const project = url.searchParams.get("url");
-  if (!project) {
-    /* Refused BEFORE a quote. Quoting for a request that cannot be served
-       takes money for nothing, and the buyer's grant would have spent it. */
-    res.writeHead(400, { "content-type": "application/json" });
-    res.end(JSON.stringify({ error: "give me ?url=<a project url> to verify" }, null, 2));
-    return;
-  }
-
-  const header = req.headers["x-payment"];
-  const result = await settle({
-    /* The resource is the PATH, not the path plus the query: one price, any
-       project. A resource that varied per project would quote separately for
-       every url and a buyer could never reuse a quote it had already paid. */
-    terms: { payTo: PAY_TO!, sompi: PRICE, network: NETWORK, resource: "/verify" },
-    paymentHeader: header === undefined ? null : String(header),
-    quote: { secret: SECRET! },
-    spent,
-    openNode: () => openNode({ rpc: process.env.WARDA_RPC_JSON, network: NETWORK }),
-    deliver: async () => {
-      const record = await verifyProject(project, fetcher);
-      console.error(
-        `sold: ${project} — ${record.findings.length} findings, ` +
-          `${record.unverified.length} unverified, ${record.signals.length} signals`,
-      );
-      return record;
-    },
-  });
-
-  res.writeHead(result.status, {
-    "content-type": "application/json",
-    "access-control-allow-origin": "*",
-  });
-  res.end(JSON.stringify(result.body, null, 2));
-}
-
 createServer((req, res) => {
-  handle(req, res).catch((e: Error) => {
-    console.error(`researcher: ${e.message}`);
-    if (!res.headersSent) res.writeHead(500, { "content-type": "application/json" });
-    res.end(JSON.stringify({ error: "the researcher failed while working", detail: e.message }, null, 2));
-  });
-}).listen(PORT, () => {
-  console.error(`researcher selling /verify at ${PRICE} sompi on ${NETWORK}`);
-  console.error(`  paid at : ${PAY_TO}`);
-  console.error(`  listening on http://127.0.0.1:${PORT}`);
+  const url = new URL(req.url ?? "/", "http://researcher");
+  const header = req.headers["x-payment"];
+  research(url, header === undefined ? null : String(header), cfg)
+    .then((r) => {
+      res.writeHead(r.status, { "content-type": "application/json", "access-control-allow-origin": "*" });
+      res.end(JSON.stringify(r.body, null, 2));
+    })
+    .catch((e: Error) => {
+      console.error(e);
+      res.writeHead(500, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: e.message }));
+    });
+}).listen(PORT, "127.0.0.1", () => {
+  console.error(`researcher selling /verify at ${Number(PRICE) / 1e8} KAS on 127.0.0.1:${PORT}, paid to ${PAY_TO}`);
 });

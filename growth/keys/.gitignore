@@ -1,2 +1,4 @@
 *
 !.gitignore
+# Public halves are public: the site and the known-payee list check labels against them.
+!*.pub

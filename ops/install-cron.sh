@@ -5,6 +5,7 @@
 #   ops/install-cron.sh            the hourly reading
 #   ops/install-cron.sh --buy      that, and agent #003's daily purchase
 #   ops/install-cron.sh --interop  and agent #005 buying from a third party
+#   ops/install-cron.sh --growth   and the growth fleet's weekly batch
 #
 # This script exists because a crontab LINE and a shell COMMAND look identical
 # in a chat window, and pasting one where the other belongs does nothing
@@ -41,6 +42,14 @@ INTEROPLOG="$HOME/Library/Logs/warda-interop.log"
 # 09:23: after first-contact at :07 and before #003's buy at :41, so three jobs
 # that all touch the chain are not queued behind each other.
 INTEROPENTRY="23 9 * * * $INTEROP >> $INTEROPLOG 2>&1"
+
+# The growth fleet's week: a batch grant, Scout buying records from
+# Researcher, drafts for a person to read. Opt-in, because it SPENDS — about
+# 0.05 KAS a record plus fees, from the funder key. Monday 10:13, after the
+# morning buys, so three chain jobs are not queued behind each other.
+GROWTH="$OPS/weekly-growth.sh"
+GROWTHLOG="$HOME/Library/Logs/warda-growth.log"
+GROWTHENTRY="13 10 * * 1 $GROWTH >> $GROWTHLOG 2>&1"
 
 # Is the endpoint /start sends a stranger at actually answering? Not opt-in:
 # it costs nothing, it touches no key and moves no coin, and the failure it
@@ -106,11 +115,15 @@ WANT_BUY=""
 NO_BUY=""
 WANT_INTEROP=""
 NO_INTEROP=""
+WANT_GROWTH=""
+NO_GROWTH=""
 for a in "$@"; do
   [ "$a" = "--buy" ] && WANT_BUY=1
   [ "$a" = "--no-buy" ] && NO_BUY=1
   [ "$a" = "--interop" ] && WANT_INTEROP=1
   [ "$a" = "--no-interop" ] && NO_INTEROP=1
+  [ "$a" = "--growth" ] && WANT_GROWTH=1
+  [ "$a" = "--no-growth" ] && NO_GROWTH=1
 done
 
 if [ ! -x "$SCRIPT" ]; then
@@ -142,7 +155,7 @@ fi
 # So: fix it if we can, refuse if we cannot. Installing a schedule of commands
 # that cannot run is worse than installing nothing, because the crontab then
 # says the job exists.
-for f in "$SCRIPT" "$BUY" "$INTEROP" "$VENDOR" "$VERIFY" "$CONTACT" "$PROXY" "$NODECHK" "$ALERTS" "$CONSOLEAL"; do
+for f in "$SCRIPT" "$BUY" "$INTEROP" "$GROWTH" "$VENDOR" "$VERIFY" "$CONTACT" "$PROXY" "$NODECHK" "$ALERTS" "$CONSOLEAL"; do
   [ -f "$f" ] || continue
   [ -x "$f" ] && continue
   chmod +x "$f" 2>/dev/null || true
@@ -180,8 +193,17 @@ if printf '%s\n' "$current" | grep -q -F "daily-interop.sh"; then
   fi
 fi
 
+if printf '%s\n' "$current" | grep -q -F "weekly-growth.sh"; then
+  if [ -n "$NO_GROWTH" ]; then
+    echo "removing the growth fleet's weekly batch, as asked."
+  else
+    WANT_GROWTH=1
+  fi
+fi
+
 printf '%s\n' "$current" \
   | grep -v -F "hourly-reading.sh" \
+  | grep -v -F "weekly-growth.sh" \
   | grep -v -F "daily-buy.sh" \
   | grep -v -F "daily-interop.sh" \
   | grep -v -F "check-vendor.sh" \
@@ -201,6 +223,7 @@ if [ -f "$OPS/alerts.json" ]; then printf '%s\n' "$ALERTSENTRY" >> /tmp/warda-cr
 if [ -f "$OPS/alerts.env" ] && grep -q '^CONSOLE_CRON_SECRET=.' "$OPS/alerts.env"; then printf '%s\n' "$CONSOLEALENTRY" >> /tmp/warda-cron.$$; fi
 if [ -n "$WANT_BUY" ]; then printf '%s\n' "$BUYENTRY" >> /tmp/warda-cron.$$; fi
 if [ -n "$WANT_INTEROP" ]; then printf '%s\n' "$INTEROPENTRY" >> /tmp/warda-cron.$$; fi
+if [ -n "$WANT_GROWTH" ]; then printf '%s\n' "$GROWTHENTRY" >> /tmp/warda-cron.$$; fi
 crontab /tmp/warda-cron.$$
 rm -f /tmp/warda-cron.$$
 

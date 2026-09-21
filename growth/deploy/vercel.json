@@ -1,0 +1,44 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "outputDirectory": "public",
+  "functions": {
+    "api/*.ts": {
+      "maxDuration": 30,
+      "includeFiles": "node_modules/@kluster/kaspa-wasm/**"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/verify",
+      "destination": "/api/verify"
+    },
+    {
+      "source": "/",
+      "destination": "/api/index"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "content-type, x-payment"
+        }
+      ]
+    },
+    {
+      "source": "/.well-known/warda-service.json",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        }
+      ]
+    }
+  ]
+}
