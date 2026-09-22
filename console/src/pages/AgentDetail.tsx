@@ -8,13 +8,14 @@ import { ruleWords, type AgentView } from "@/lib/model";
 import { AgentMark, ActivityList, AuthorityBlock, BlockedCard } from "@/components/agent";
 import { Badge, Card, CardHeader, Copy, Empty, External, LinkButton, Skeleton, StatusBadge, Tabs } from "@/components/ui";
 import { agentName } from "./shared";
+import { ApprovalsBanner, JobsTab, useHostedAgent } from "@/components/jobs";
 
-type T = "overview" | "payments" | "blocked" | "proof";
+type T = "overview" | "jobs" | "payments" | "blocked" | "proof";
 
 export function AgentDetail({ id, tab }: { id: string; tab?: string }) {
   const { agents, loading } = useData();
   const a = agents.find((x) => x.key === id) ?? agents.find((x) => x.id === id);
-  const [t, setT] = useState<T>((["overview", "payments", "blocked", "proof"].includes(tab ?? "") ? tab : "overview") as T);
+  const [t, setT] = useState<T>((["overview", "jobs", "payments", "blocked", "proof"].includes(tab ?? "") ? tab : "overview") as T);
 
   if (!a) {
     return loading ? (
@@ -51,7 +52,7 @@ export function AgentDetail({ id, tab }: { id: string; tab?: string }) {
         <div className="flex shrink-0 flex-wrap gap-2">
           {a.source === "hosted" ? (
             <>
-              <LinkButton href="/app#/hagents"><Settings2 className="size-4" /> Jobs &amp; approvals</LinkButton>
+              <LinkButton href={href("agents", a.key, "jobs")} onClick={() => setT("jobs")}><Settings2 className="size-4" /> Jobs</LinkButton>
               {a.status !== "ended" && <LinkButton variant="primary" href={href("fund", a.id)}><Wallet className="size-4" /> Top up</LinkButton>}
             </>
           ) : (
@@ -60,10 +61,12 @@ export function AgentDetail({ id, tab }: { id: string; tab?: string }) {
         </div>
       </div>
 
+      {a.source === "hosted" ? <Hosted agent={a.id} t={t} setT={setT} /> : null}
       <AuthorityBlock a={a} />
 
       <Tabs className="mt-8" value={t} onChange={setT} items={[
         { value: "overview", label: "Overview" },
+        ...(a.source === "hosted" ? [{ value: "jobs" as T, label: "Jobs" }] : []),
         { value: "payments", label: "Payments", count: paid.length },
         { value: "blocked", label: "Blocked", count: blocked.length },
         { value: "proof", label: "Proof" },
@@ -94,6 +97,7 @@ export function AgentDetail({ id, tab }: { id: string; tab?: string }) {
         )}
 
         {t === "blocked" && <Blocked a={a} />}
+        {t === "jobs" && a.source === "hosted" && <HostedJobs agent={a.id} />}
         {t === "proof" && <Proof a={a} />}
       </div>
     </>
@@ -186,4 +190,14 @@ function Proof({ a }: { a: AgentView }) {
       </Card>
     </div>
   );
+}
+
+function Hosted({ agent }: { agent: string; t: T; setT: (t: T) => void }) {
+  const h = useHostedAgent(agent);
+  return <ApprovalsBanner runner={h.runner} approvals={h.approvals} onDone={h.reload} />;
+}
+
+function HostedJobs({ agent }: { agent: string }) {
+  const h = useHostedAgent(agent);
+  return <JobsTab agent={agent} h={h} />;
 }

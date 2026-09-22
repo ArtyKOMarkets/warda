@@ -53,8 +53,8 @@ export function Account() {
           </form>
         </Card>
         <Card className="p-5">
-          <div className="flex items-center gap-2 text-[15px] font-semibold"><Server className="size-4 text-accent" /> Wallet, Telegram and invites</div>
-          <p className="mt-2 text-[13px] leading-relaxed text-fg-2">Connecting a wallet, Telegram approvals and redeeming an invite code are still in the classic console.</p>
+          <div className="flex items-center gap-2 text-[15px] font-semibold"><Server className="size-4 text-accent" /> Wallet and invite codes</div>
+          <p className="mt-2 text-[13px] leading-relaxed text-fg-2">Connecting a wallet and redeeming an invite code are still in the classic console. Telegram is under <a className="text-fg hover:text-accent" href="#/alerts">Alerts</a>.</p>
           <LinkButton className="mt-4" href="/app#/account">Open account settings <ExternalLink className="size-4" /></LinkButton>
         </Card>
       </div>

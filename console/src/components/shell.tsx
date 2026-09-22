@@ -23,7 +23,7 @@ const NAV: { title: string; items: Item[] }[] = [
   { title: "Network", items: [{ id: "services", label: "Services", icon: Store }] },
   { title: "Settings", items: [
     { id: "account", label: "Account", icon: UserRound },
-    { id: "alerts", label: "Alerts", icon: BellRing, classic: "alerts" },
+    { id: "alerts", label: "Alerts", icon: BellRing },
   ] },
 ];
 
