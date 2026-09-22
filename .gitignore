@@ -66,3 +66,8 @@ site/src/usage.json
 ops/alerts.json
 ops/alerts-state.json
 ops/alerts.env
+
+# Turnkey spike: local install only
+runner/spike/package.json
+runner/spike/package-lock.json
+runner/spike/node_modules/
