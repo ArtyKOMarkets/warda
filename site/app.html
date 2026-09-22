@@ -6,9 +6,13 @@
     /* Surfaces. Three steps, not two: the page, the card, and the inset a
        control or a meter sits in. A single flat ground with borders reads as a
        wireframe — the card has to be lighter than what it sits on. */
-    --void: #0C1220; --ground: #141C2E; --panel: #1A2338; --raise: #212C45;
-    --edge: #222D45; --edge-bright: #35415E;
-    --chrome: #E8ECF5; --chrome-dim: #9AA6BE; --chrome-faint: #6E7C97;
+    /* The site's own palette (wardaprotocol.com): near-black with a green
+       cast and one teal. The console had drifted to a navy of its own, and a
+       product that looks like a different company from its homepage reads as
+       one. */
+    --void: #06090C; --ground: #0A1014; --panel: #101A20; --raise: #16232B;
+    --edge: #1E2E37; --edge-bright: #2C4350;
+    --chrome: #DDE0E2; --chrome-dim: #8D989E; --chrome-faint: #66747C;
 
     --teal: #14D7C1; --teal-bright: #38F9E9; --teal-deep: #0BB6A2;
     --teal-ghost: rgba(20,215,193,0.11);
@@ -80,7 +84,7 @@
   .statusbar { margin-top: auto; }
   .top { display: flex; flex-wrap: wrap; gap: 0.7rem; align-items: center;
          padding: 0.7rem clamp(0.9rem, 2.4vw, 1.5rem); border-bottom: 1px solid var(--edge);
-         background: rgba(12,18,32,0.88); backdrop-filter: blur(8px);
+         background: rgba(6,9,12,0.88); backdrop-filter: blur(8px);
          position: sticky; top: 0; z-index: 20; }
   .search { flex: 1 1 18rem; min-width: 0; position: relative; display: flex; align-items: center; }
   .search svg { position: absolute; left: 0.65rem; width: 14px; height: 14px; color: var(--chrome-faint); }
@@ -258,6 +262,15 @@
   .wc-qr svg { width: 100%; height: 100%; display: block; }
   .wc-qr:empty { background: var(--panel); }
   .wc-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.8rem; }
+  /* On a phone there is nothing to scan: the pairing is handed straight to
+     the wallet app by its own link, the way every mobile dapp does it. */
+  .wc-apps { display: grid; gap: 0.5rem; margin-top: 0.9rem; }
+  .wc-apps a { display: flex; align-items: center; justify-content: space-between; padding: 0.85rem 1rem;
+               border: 1px solid var(--edge-bright); border-radius: 12px; background: var(--panel); color: var(--chrome);
+               font-weight: 600; cursor: pointer; }
+  .wc-apps a:hover { border-color: var(--teal-deep); }
+  .wc-apps a span { color: var(--chrome-faint); font-weight: 400; font-size: 0.78rem; }
+  .wc-qrtoggle { margin-top: 0.8rem; font-size: 0.78rem; color: var(--chrome-faint); cursor: pointer; background: none; border: 0; padding: 0; text-decoration: underline; }
   .wc-row > * { flex: 1 1 auto; }
   /* ---- analytics charts ---------------------------------------------------- */
   .an-leg { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; margin-top: 0.7rem; font-size: 0.76rem; color: var(--chrome-dim); }
@@ -347,6 +360,19 @@
   .fa-route { margin-top: 0.9rem; }
 
   /* ---- fleet --------------------------------------------------------------- */
+  .gf-flow { display: flex; flex-wrap: wrap; align-items: stretch; gap: 0.5rem; margin-top: 0.9rem; }
+  .gf-flow .st { flex: 1 1 11rem; min-width: 0; border: 1px solid var(--edge); border-radius: 10px; background: var(--panel);
+                 padding: 0.7rem 0.85rem; display: flex; flex-direction: column; gap: 0.2rem; color: var(--chrome); text-decoration: none; }
+  .gf-flow a.st:hover { border-color: var(--teal-deep); }
+  .gf-flow .st b { font-size: 0.88rem; }
+  .gf-flow .st span { font-size: 0.74rem; color: var(--chrome-faint); }
+  .gf-flow .st.off { border-style: dashed; }
+  .gf-flow .ar { align-self: center; color: var(--chrome-faint); font-family: var(--mono); font-size: 0.8rem; }
+  .gf-n { display: grid; grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); gap: 0.5rem; margin-top: 0.8rem; }
+  .gf-n div { border-top: 1px solid var(--edge); padding-top: 0.5rem; }
+  .gf-n i { display: block; font-style: normal; font-size: 0.72rem; color: var(--chrome-faint); }
+  .gf-n b { font-family: var(--mono); font-size: 1.05rem; color: var(--chrome); font-weight: 500; }
+  @media (max-width: 720px) { .gf-flow .ar { display: none; } }
   .fl-bar { display: flex; height: 16px; border-radius: 8px; overflow: hidden; background: var(--panel); margin-top: 0.9rem; gap: 2px; }
   .fl-bar i { display: block; min-width: 3px; }
   .fl-legend { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; margin-top: 0.7rem; font-size: 0.76rem; color: var(--chrome-dim); }
@@ -385,6 +411,79 @@
   .ctl button.danger { background: rgba(255,107,90,0.12); border-color: rgba(255,107,90,0.5); color: var(--refuse); }
   .ctl button.danger:hover { background: rgba(255,107,90,0.2); }
 
+  /* ---- phone, as its own surface ----------------------------------------------
+     Desktop is the operator's console. The phone answers four questions — how
+     much, which agents, what did they spend, can I stop one — and everything
+     else is one tap further: cards instead of tables, explanations behind
+     "Why", the full view still there below. */
+  .mb-only { display: none; }
+  .whyb { display: none; }
+  .mlist { display: grid; gap: 0.5rem; }
+  .mrow { display: grid; gap: 0.15rem; padding: 0.9rem 1rem; border: 1px solid var(--edge); border-radius: var(--r);
+          background: var(--ground); color: var(--chrome); cursor: pointer; }
+  .mrow b { font-weight: 600; font-size: 0.98rem; }
+  .mrow span { color: var(--chrome-faint); font-size: 0.8rem; }
+  .mrow:hover { border-color: var(--edge-bright); }
+  .go.wide { width: 100%; justify-content: center; padding-block: 0.8rem; }
+  .mhero { border: 1px solid var(--edge-bright); border-radius: 16px; padding: 1.1rem 1.1rem 1rem;
+           background: radial-gradient(120% 90% at 100% 0%, rgba(20,215,193,0.10), transparent 60%), var(--ground); }
+  .mhero .lbl { font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--chrome-faint); }
+  .mhero .big { font-family: var(--display); font-weight: 700; font-size: 2.1rem; line-height: 1.05; margin-top: 0.3rem; font-variant-numeric: tabular-nums; }
+  .mhero .big small { font-size: 0.95rem; color: var(--chrome-dim); font-weight: 600; margin-left: 0.3rem; }
+  .mhero .sub { color: var(--chrome-dim); font-size: 0.85rem; margin-top: 0.15rem; }
+  .mbar { height: 8px; border-radius: 6px; background: var(--panel); overflow: hidden; margin-top: 0.8rem; }
+  .mbar i { display: block; height: 100%; background: var(--teal); border-radius: 6px; }
+  .mrow2 { display: flex; justify-content: space-between; gap: 0.6rem; font-size: 0.8rem; color: var(--chrome-faint); margin-top: 0.4rem; }
+  .enf { display: inline-flex; align-items: center; gap: 0.4rem; margin-top: 0.85rem; padding: 0.35rem 0.7rem;
+         border: 1px solid rgba(20,215,193,0.35); background: var(--teal-ghost); color: var(--teal); border-radius: 999px;
+         font-size: 0.76rem; font-weight: 500; }
+  .enf svg { width: 13px; height: 13px; }
+  .mstats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; margin-top: 0.7rem; }
+  .mstats div { border: 1px solid var(--edge); border-radius: 12px; padding: 0.65rem 0.7rem; background: var(--ground); }
+  .mstats i { display: block; font-style: normal; font-size: 0.68rem; color: var(--chrome-faint); }
+  .mstats b { font-family: var(--mono); font-weight: 500; font-size: 1rem; }
+  .msec { display: flex; justify-content: space-between; align-items: baseline; margin: 1.3rem 0 0.55rem; }
+  .msec h2 { font-size: 1rem; margin: 0; }
+  .acard { display: block; border: 1px solid var(--edge); border-radius: 14px; padding: 0.9rem 1rem; background: var(--ground);
+           margin-bottom: 0.55rem; cursor: pointer; color: var(--chrome); }
+  .acard:hover, .acard:focus-visible { border-color: var(--edge-bright); outline: none; }
+  .acard .t { display: flex; align-items: center; gap: 0.5rem; }
+  .acard .t b { font-family: var(--display); font-size: 1.02rem; }
+  .acard .t .pill { margin-left: auto; }
+  .acard .m { color: var(--chrome-faint); font-size: 0.78rem; margin-top: 0.15rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .acard .amt { font-family: var(--mono); font-size: 0.95rem; margin-top: 0.55rem; }
+  .acard .amt span { color: var(--chrome-faint); font-size: 0.8rem; }
+  .acard .mbar { margin-top: 0.45rem; height: 6px; }
+  .chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.35rem; margin-top: 0.65rem; }
+  .chips span { border: 1px solid var(--edge); border-radius: 9px; padding: 0.35rem 0.4rem; font-size: 0.7rem; color: var(--chrome-faint); text-align: center; line-height: 1.25; }
+  .chips span b { display: block; color: var(--chrome); font-family: var(--mono); font-weight: 500; font-size: 0.82rem; }
+  .mlim { display: grid; gap: 0; margin-top: 0.4rem; }
+  .mlim div { display: flex; justify-content: space-between; padding: 0.55rem 0; border-bottom: 1px solid var(--edge); font-size: 0.9rem; }
+  .mlim div:last-child { border-bottom: 0; }
+  .mlim dt { color: var(--chrome-dim); } .mlim dd { margin: 0; font-family: var(--mono); }
+  .mchk { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem 0.8rem; margin-top: 0.5rem; font-size: 0.85rem; color: var(--chrome-dim); }
+  .mchk span::before { content: "✓"; color: var(--teal); margin-right: 0.45rem; font-weight: 700; }
+  .mact { display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem; margin-top: 1rem; }
+  .mact .go { justify-content: center; padding-block: 0.75rem; }
+  @media (max-width: 720px) {
+    .mb-only { display: block; }
+    .dk-only { display: none !important; }
+    #range, #dash-sub, #v-grants .head p, #v-activity .head p, #v-refusals .head p { display: none; }
+    .mseg { display: flex; width: 100%; margin-bottom: 0.8rem; }
+    .mseg button { flex: 1; }
+    /* Explanations stay, one tap away. */
+    .card:not(.explain) > p.why { display: none; }
+    .whyb { display: inline-flex; margin-left: auto; font: 500 0.7rem var(--body); color: var(--chrome-faint);
+            background: transparent; border: 1px solid var(--edge); border-radius: 999px; padding: 0.15rem 0.55rem; cursor: pointer; }
+    .card.explain .whyb { color: var(--teal); border-color: rgba(20,215,193,0.4); }
+    /* The top bar is for finding things; a phone only needs that where there
+       is a list to search. */
+    body:not([data-screen="grants"]):not([data-screen="activity"]) .top .search { display: none; }
+    #scope.scope { gap: 0.4rem 0.6rem; flex-wrap: nowrap; }
+    #scope .scope-t { font-size: 0.72rem; flex: 1 1 auto; line-height: 1.35; }
+    #scope .go { padding: 0.3rem 0.65rem; font-size: 0.7rem; flex: none; white-space: nowrap; }
+  }
+
   /* ---- phone ----------------------------------------------------------------
      The sidebar becomes a drawer behind a menu button, and the five things a
      person does most sit in a tab bar under their thumb. Everything is still
@@ -401,7 +500,7 @@
       background: var(--panel); border: 1px solid var(--edge-bright); color: var(--chrome); flex: none; }
     .menu svg { width: 18px; height: 18px; }
     .tabs { display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
-      background: rgba(20,28,46,0.96); backdrop-filter: blur(10px); border-top: 1px solid var(--edge);
+      background: rgba(10,16,20,0.96); backdrop-filter: blur(10px); border-top: 1px solid var(--edge);
       padding: 0.35rem 0.3rem calc(0.35rem + env(safe-area-inset-bottom, 0px)); }
     .tabs a { display: grid; justify-items: center; gap: 0.2rem; padding: 0.35rem 0; border-radius: 10px;
       color: var(--chrome-faint); font-size: 0.64rem; cursor: pointer; min-height: 44px; }
@@ -567,6 +666,48 @@
   .st[data-state="done"] .n { border-color: var(--teal-deep); background: var(--teal-deep); color: #05231F; }
   @media (max-width: 760px) { .st i { display: none; } }
 
+  .hot { font-family: var(--mono); font-size: 0.58rem; letter-spacing: 0.1em; text-transform: uppercase;
+         color: #1a0d00; background: linear-gradient(90deg, #FFB547, #FF6B3D); border-radius: 999px;
+         padding: 0.12rem 0.45rem; vertical-align: middle; font-weight: 600; }
+  h1 .hot { font-size: 0.62rem; margin-left: 0.4rem; position: relative; top: -0.2em; }
+  .side a .tag.hot, .side a[aria-current] .tag.hot { border: 0; color: #1a0d00; opacity: 1;
+    background: linear-gradient(90deg, #FFB547, #FF6B3D); }
+  .promo { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.1rem;
+           border: 1px solid rgba(255,140,60,0.45); border-radius: 12px; padding: 0.95rem 1.1rem;
+           background: linear-gradient(110deg, rgba(255,120,50,0.12), rgba(20,215,193,0.06) 60%); }
+  .promo .fire { font-size: 1.6rem; line-height: 1; }
+  .promo b { display: block; font-size: 0.95rem; }
+  .promo span { color: var(--chrome-dim); font-size: 0.8rem; }
+  .promo .go { margin-left: auto; }
+  .mrow.hot-row { border-color: rgba(255,140,60,0.45); background: linear-gradient(110deg, rgba(255,120,50,0.12), transparent 70%); }
+  /* A job drawn as what it is: when, if, then. */
+  .flow { display: flex; flex-wrap: wrap; align-items: stretch; row-gap: 0.7rem; padding: 0.4rem 0 0.2rem; }
+  .fnode { flex: 0 0 auto; min-width: 9.5rem; max-width: 14rem; border: 1px solid var(--edge-bright); border-radius: 12px;
+           background: var(--raise); padding: 0.85rem 0.9rem; text-align: center; }
+  .fnode .i { font-size: 1.25rem; line-height: 1; }
+  .fnode b { display: block; font-size: 0.86rem; margin-top: 0.45rem; }
+  .fnode span { display: block; font-size: 0.72rem; color: var(--chrome-dim); margin-top: 0.25rem; word-break: break-word; }
+  .fnode .k { font-family: var(--mono); font-size: 0.56rem; letter-spacing: 0.14em; color: var(--chrome-faint); margin-top: 0.55rem; }
+  .fnode.t { border-color: var(--teal-deep); background: rgba(20,215,193,0.08); }
+  .fnode.c { border-color: rgba(232,178,58,0.55); background: rgba(232,178,58,0.06); }
+  .fline { flex: 0 0 1.6rem; align-self: center; border-top: 1px dashed var(--edge-bright); }
+  @media (max-width: 720px) {
+    .flow { flex-direction: column; align-items: center; }
+    .fnode { width: 100%; max-width: none; }
+    .fline { flex: 0 0 1rem; border-top: 0; border-left: 1px dashed var(--edge-bright); }
+  }
+  .draft-box { display: flex; gap: 0.6rem; align-items: stretch; flex-wrap: wrap; }
+  .draft-box textarea { flex: 1 1 18rem; min-height: 3.2rem; font-family: var(--body); }
+  .prompts { display: grid; gap: 0.45rem; margin-top: 0.8rem; }
+  .prompts button { text-align: left; background: var(--panel); border: 1px solid var(--edge); border-radius: 9px;
+                    color: var(--chrome-dim); padding: 0.55rem 0.75rem; font: inherit; font-size: 0.8rem; cursor: pointer; }
+  .prompts button:hover { border-color: var(--teal-deep); color: var(--chrome); }
+  .dcard { margin-top: 1rem; border: 1px solid var(--teal-deep); border-radius: 12px; padding: 1rem; background: var(--ground); }
+  .dcard .sum { font-size: 0.9rem; margin: 0 0 0.7rem; }
+  .tabs-mini { display: flex; gap: 0.4rem; flex-wrap: wrap; margin: 0.7rem 0 0; }
+  .tabs-mini button { background: var(--panel); border: 1px solid var(--edge); border-radius: 8px; color: var(--chrome-dim);
+                      padding: 0.35rem 0.7rem; font: inherit; font-size: 0.78rem; cursor: pointer; }
+  .tabs-mini button[aria-pressed="true"] { border-color: var(--teal); color: var(--chrome); }
   .wstep { display: none; }
   .wstep.on { display: block; }
   .wstep h2 { font-family: var(--display); font-size: 1.2rem; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
@@ -628,6 +769,12 @@
         Alerts</a>
 
       <p class="grp" style="margin-top:0.9rem">Build</p>
+      <a data-view="hosted">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="4.5" width="10" height="8" rx="2"/><path d="M8 4.5V2.2M5.8 8.2h.01M10.2 8.2h.01M6 10.6h4"/></svg>
+        &#128293; New agent<span class="tag hot">new</span></a>
+      <a data-view="hagents">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="3" width="12" height="4" rx="1.2"/><rect x="2" y="9" width="12" height="4" rx="1.2"/><path d="M4.5 5h.01M4.5 11h.01"/></svg>
+        Your agents<span class="tag" id="n-hagents">&mdash;</span></a>
       <a data-view="fund">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 5.5h9.5M8.5 2.5l3 3-3 3"/><path d="M14 10.5H4.5M7.5 7.5l-3 3 3 3"/></svg>
         Fund an agent</a>
@@ -691,7 +838,7 @@
         <button data-scope="mine" aria-pressed="true">Your grants</button>
         <button data-scope="public" aria-pressed="false">Warda&rsquo;s agents</button>
       </div>
-      <button class="go gh" id="scope-connect" data-view="account">Connect a wallet to see yours</button>
+      <button class="go gh" id="scope-connect" data-view="account">Connect a wallet<span class="dk-only"> to see yours</span></button>
     </div>
     <div class="pad scope-empty" id="scope-empty" hidden>
       <div class="card">
@@ -721,6 +868,13 @@
         </div>
       </div>
 
+      <div class="promo" id="promo-hosted">
+        <span class="fire">&#128293;</span>
+        <div><b>New: agents the runner hosts for you</b>
+          <span>Create an agent, fund it from any wallet, give it a job &mdash; about two minutes, no keys or command line.</span></div>
+        <button class="go" data-view="hosted">Create an agent &rarr;</button>
+      </div>
+
       <div class="card trk" hidden>
         <header><h2>Grants you track <small class="trk-n"></small></h2>
           <a class="more" data-view="account">Manage &rarr;</a></header>
@@ -729,7 +883,9 @@
         <div class="feed trk-list"></div>
       </div>
 
-      <div class="dash">
+      <div class="mb-only" id="m-home"></div>
+
+      <div class="dash dk-only">
         <div class="stack">
           <div class="tiles" id="tiles"></div>
 
@@ -847,7 +1003,16 @@
         <div class="feed trk-list"></div>
       </div>
 
-      <div class="card">
+      <div class="mb-only">
+        <div class="seg mseg" id="m-gf" role="group" aria-label="Show">
+          <button data-f="all" aria-pressed="true">All</button>
+          <button data-f="live" aria-pressed="false">Live</button>
+          <button data-f="ended" aria-pressed="false">Ended</button>
+        </div>
+        <div id="m-grants"></div>
+        <p style="margin-top:0.9rem"><button class="go wide" data-view="create">+ Create grant</button></p>
+      </div>
+      <div class="card dk-only">
         <header><h2>Every grant <small id="n-grants-2">&mdash;</small></h2></header>
         <div style="overflow-x:auto">
         <table id="t-all"><thead><tr>
@@ -873,7 +1038,8 @@
         </div>
         <div id="ag-links"></div>
       </div>
-      <div class="tiles" id="ag-tiles"></div>
+      <div class="mb-only" id="m-agent"></div>
+      <div class="tiles dk-only" id="ag-tiles"></div>
 
       <div class="two" style="margin-top:0.85rem;align-items:start">
         <div class="stack">
@@ -1116,6 +1282,17 @@
           the agent when you want it back.</p>
       </div>
 
+      <div class="card" id="gf-card" style="margin-top:0.85rem" hidden>
+        <header><h2>Growth fleet <small id="gf-when">&mdash;</small></h2>
+          <span class="more">Warda&rsquo;s own team &middot; <span id="gf-sched">weekly</span></span></header>
+        <p class="why">Three agents on one weekly budget. The orchestrator is issued a grant that may pay Researcher and
+          nobody else, hires Scout with a piece of it, takes back what Scout did not spend, and is revoked when the
+          week is done. A fourth, Outreach, writes drafts for a person and holds no money at all.</p>
+        <div class="gf-flow" id="gf-flow"></div>
+        <div class="gf-n" id="gf-n"></div>
+        <p class="why" id="gf-tx" style="margin-bottom:0"></p>
+      </div>
+
       <div class="two" style="margin-top:0.85rem;align-items:start">
         <div class="card">
           <header><h2>Who delegated to whom</h2></header>
@@ -1325,6 +1502,8 @@
           <p class="why" id="wc-say">Scan with your phone&rsquo;s camera. It opens Kaspire, which asks you to
             approve sharing your address and public key &mdash; the only two things this page requests.
             Nothing it asks for can move a coin.</p>
+          <div class="wc-apps" id="wc-apps" hidden></div>
+          <button type="button" class="wc-qrtoggle" id="wc-qrt" hidden>Show a QR code instead</button>
           <div class="wc-qr" id="wc-qr"></div>
           <p class="state" id="wc-state">Preparing a pairing&hellip;</p>
           <div class="wc-row">
@@ -1342,7 +1521,14 @@
         <h1>Activity</h1>
         <p>Every payment these agents recorded, newest first, with the outcome each one actually had.</p>
       </div></div>
-      <div class="card">
+      <div class="mb-only">
+        <div class="seg mseg" role="group" aria-label="Show">
+          <button data-view="activity" aria-pressed="true">Payments</button>
+          <button data-view="refusals" aria-pressed="false">Refused</button>
+        </div>
+        <div class="card"><div class="feed" id="m-acts"></div></div>
+      </div>
+      <div class="card dk-only">
         <header><h2>Payments <small id="n-acts-2">&mdash;</small></h2></header>
         <div style="overflow-x:auto">
         <table id="t-acts"><thead><tr>
@@ -1358,6 +1544,10 @@
         <h1>Refused</h1>
         <p>Two different things, kept apart on purpose &mdash; what actually went wrong, and what the covenant would refuse if anybody tried it.</p>
       </div></div>
+      <div class="seg mseg mb-only" role="group" aria-label="Show">
+        <button data-view="activity" aria-pressed="false">Payments</button>
+        <button data-view="refusals" aria-pressed="true">Refused</button>
+      </div>
       <div class="two" style="align-items:start">
         <div class="card">
           <header><h2>Attempts that did not settle <small id="n-fail">&mdash;</small></h2></header>
@@ -1894,6 +2084,267 @@ ops/install-cron.sh</pre>
       </div>
     </div>
 
+    <!-- ============================== MORE ============================== -->
+    <div class="view pad" id="v-hosted">
+      <div class="head"><div>
+        <h1>&#128293; New agent <span class="hot">new</span></h1>
+        <p>Five steps. The runner holds the agent&rsquo;s key and runs its jobs, inside a grant every Kaspa node
+          enforces. You fund it from any wallet and keep the key that can stop it and take the money back.</p>
+      </div></div>
+
+      <div class="rail-steps" id="h-rail">
+        <button class="st" data-go="1" data-state="now"><span class="n">1</span><i>Runner</i><span class="bar-l"></span></button>
+        <button class="st" data-go="2"><span class="n">2</span><i>Limits</i><span class="bar-l"></span></button>
+        <button class="st" data-go="3"><span class="n">3</span><i>Payees and your key</i><span class="bar-l"></span></button>
+        <button class="st" data-go="4"><span class="n">4</span><i>Fund it</i><span class="bar-l"></span></button>
+        <button class="st" data-go="5"><span class="n">5</span><i>Put it to work</i></button>
+      </div>
+
+      <div class="wrap">
+        <div>
+          <div class="wstep hstep on" data-hstep="1">
+            <div class="card">
+              <header><h2>Connect to the runner</h2></header>
+              <p class="say">The runner holds your agent&rsquo;s key and runs its jobs, every minute, whether or not
+                you are here. Its key can create agents and run their jobs; it can never move your funds. (You can also
+                run one yourself: <code>runner/tools/serve.ts</code>.)</p>
+              <div class="grid">
+                <div class="field"><label for="h-url">Runner</label><input id="h-url" value="https://warda-runner.vercel.app" spellcheck="false"></div>
+                <div class="field"><label for="h-key">Runner key</label><input id="h-key" placeholder="wk_&hellip; &mdash; or create an account" spellcheck="false" autocomplete="off"></div>
+                <div class="field"><label for="h-code">Invite code &mdash; to create an account</label><input id="h-code" placeholder="from the Warda team" spellcheck="false" autocomplete="off"></div>
+              </div>
+              <p style="margin-top:0.9rem;display:flex;gap:0.6rem;flex-wrap:wrap">
+                <button class="go" id="h-connect">Connect</button>
+                <button class="go gh" id="h-signup">Create a runner account</button>
+              </p>
+              <p class="state" id="h-runner-s"></p>
+            </div>
+          </div>
+
+          <div class="wstep hstep" data-hstep="2">
+            <div class="card">
+              <header><h2>What it may spend</h2></header>
+              <p class="say">These become the grant. Once it exists they cannot be raised &mdash; not by the agent, the
+                runner, or you. A new grant is the only way to change them.</p>
+              <div class="grid">
+                <div class="field"><label for="h-name">Agent name</label><input id="h-name" value="my-agent" spellcheck="false">
+                  <p class="out">letters, digits, - and _</p></div>
+                <div class="field"><label for="h-budget">Total budget &mdash; KAS</label><input id="h-budget" inputmode="decimal" value="1">
+                  <p class="out" id="h-o-budget"></p></div>
+                <div class="field"><label for="h-cap">Any single payment &mdash; KAS</label><input id="h-cap" inputmode="decimal" value="0.1"></div>
+                <div class="field"><label for="h-days">Ends in &mdash; days</label><input id="h-days" inputmode="numeric" value="30">
+                  <p class="out">after that, what is left is yours to take back</p></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="wstep hstep" data-hstep="3">
+            <div class="card">
+              <header><h2>Who it may pay</h2></header>
+              <p class="say">One address per line. This list is compiled into the grant and can never be added to.</p>
+              <div class="field">
+                <label for="h-payees">The allowlist</label>
+                <textarea id="h-payees" rows="3" spellcheck="false">kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4</textarea>
+                <p class="out">The first line is the Warda demo vendor, so the agent has something to buy. The runner
+                  adds its own fee address; nothing else can ever be paid.</p>
+              </div>
+            </div>
+            <div class="card" style="margin-top:0.85rem">
+              <header><h2>Your key</h2></header>
+              <p class="say">It can stop the grant at any moment and takes back whatever is left. It never leaves your
+                wallet; the runner only learns its public half.</p>
+              <div class="field">
+                <label for="h-owner">Your Kaspa address or public key</label>
+                <input id="h-owner" placeholder="kaspatest:&hellip;" spellcheck="false">
+                <p class="out" id="h-owner-s">Connect a Kaspa wallet, or paste your Kaspa address.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="wstep hstep" data-hstep="4">
+            <div class="card">
+              <header><h2>Fund it</h2></header>
+              <p class="say">Send exactly this, in one payment, from any Kaspa wallet or exchange.</p>
+              <div style="display:grid;grid-template-columns:auto 1fr;gap:1rem;align-items:center">
+                <div id="h-qr" style="width:150px;height:150px;background:#fff;border-radius:8px;padding:6px"></div>
+                <div style="min-width:0">
+                  <p class="kv" style="font-size:1.4rem;color:var(--chrome)" id="h-amt">&mdash;</p>
+                  <p class="kv" id="h-addr" style="margin-top:0.4rem"></p>
+                  <p style="margin-top:0.7rem;display:flex;gap:0.5rem;flex-wrap:wrap">
+                    <a class="go" id="h-open">Open in wallet</a>
+                    <button class="go gh" id="h-copy">Copy address</button>
+                  </p>
+                </div>
+              </div>
+              <p class="note"><b>The one moment you trust us.</b> The runner turns your payment into the grant in a
+                single transaction. All of it goes into the grant, and the grant&rsquo;s stop-and-reclaim key is yours.
+                Between your payment arriving and that transaction confirming &mdash; usually under a minute &mdash; the
+                runner controls the deposit. After that, it cannot take a single sompi back out.</p>
+              <p class="state" id="h-fund-s">Waiting for your payment&hellip;</p>
+              <p style="margin-top:0.6rem"><button class="go gh" id="h-refund">Changed your mind? Send it back</button></p>
+            </div>
+          </div>
+
+          <div class="wstep hstep" data-hstep="5">
+            <div class="card">
+              <header><h2>Give it a job</h2></header>
+              <p class="say">Say it in a sentence. You get a card to check before anything is added &mdash; and whatever
+                you write, it can only ever do what the grant allows.</p>
+              <div class="draft-box">
+                <textarea id="h-say" rows="2" placeholder="Buy a fact from the Warda demo API every morning at 8, never more than 0.05 KAS"></textarea>
+                <button class="go" id="h-draft">Draft it</button>
+              </div>
+              <div class="prompts" id="h-prompts">
+                <button data-p="Buy a fact from the Warda demo API every morning at 8 UTC, never more than 0.05 KAS">&#10022; Buy a fact every morning at 8 UTC, never more than 0.05 KAS</button>
+                <button data-p="Message me on Telegram when less than 25% of the budget is left">&#10022; Message me on Telegram when less than 25% of the budget is left</button>
+                <button data-p="Two days before the grant ends, tell me on Telegram and ask me to renew it">&#10022; Two days before the grant ends, tell me and ask me to renew it</button>
+              </div>
+              <div class="dcard" id="h-dcard" hidden>
+                <p class="sum" id="h-dsum"></p>
+                <div class="flow" id="h-dflow"></div>
+                <p class="state" id="h-dnotes"></p>
+                <p style="margin-top:0.8rem;display:flex;gap:0.5rem;flex-wrap:wrap">
+                  <button class="go" id="h-dadd">Add this job</button>
+                  <button class="go gh" id="h-dagain">Try again</button>
+                </p>
+              </div>
+              <p class="state" id="h-draft-s"></p>
+              <details style="margin-top:1rem"><summary class="kv" style="cursor:pointer">Or pick a template</summary>
+              <div class="grid" style="margin-top:0.8rem">
+                <div class="field">
+                  <label for="h-tpl">What it does</label>
+                  <select id="h-tpl">
+                    <option value="once">Buy from an API, once, now</option>
+                    <option value="buy">Buy from an API, every day</option>
+                    <option value="hook">Pay a payee when a webhook fires</option>
+                    <option value="low">Tell me when its budget runs low</option>
+                    <option value="end">Tell me a day before its grant ends</option>
+                  </select>
+                </div>
+                <div class="field" id="h-f-url"><label for="h-jurl">API</label><input id="h-jurl" value="https://warda-demo-api.vercel.app/fact" spellcheck="false"></div>
+                <div class="field" id="h-f-max"><label for="h-jmax">At most per call &mdash; KAS</label><input id="h-jmax" inputmode="decimal" value="0.05"></div>
+                <div class="field" id="h-f-hour"><label for="h-jhour">At (UTC hour)</label><input id="h-jhour" inputmode="numeric" value="9"></div>
+                <div class="field" id="h-f-to" hidden><label for="h-jto">Pay</label><input id="h-jto" spellcheck="false"></div>
+                <div class="field" id="h-f-kas" hidden><label for="h-jkas">Amount &mdash; KAS</label><input id="h-jkas" inputmode="decimal" value="0.05"></div>
+                <div class="field" id="h-f-tg" hidden><label for="h-jtg">Telegram chat &mdash; optional</label><input id="h-jtg" placeholder="empty: your connected Telegram" spellcheck="false"></div>
+              </div>
+              <p style="margin-top:1rem"><button class="go wide" id="h-job">Add this job</button></p>
+              </details>
+              <p class="state" id="h-job-s"></p>
+              <pre id="h-job-out" hidden></pre>
+            </div>
+            <div class="card" style="margin-top:0.85rem">
+              <header><h2>Tell me on Telegram</h2></header>
+              <p class="say">Low budgets, a grant about to end, anything that needs your signature &mdash; to your phone.
+                The bot can only send you messages; it can never move your funds.</p>
+              <p><button class="go gh tg-connect">Connect Telegram</button></p>
+              <p class="state tg-state"></p>
+            </div>
+            <div class="card" style="margin-top:0.85rem">
+              <header><h2>Let the agent pay by itself</h2></header>
+              <p class="say">Paste this into Claude, Cursor or any MCP client. The agent can then check its authority
+                and pay inside its grant &mdash; with a key it never sees.</p>
+              <p><button class="go gh" id="h-mcp">Create the MCP connection</button></p>
+              <div id="h-mcp-tabs" class="tabs-mini" hidden>
+                <button data-c="code" aria-pressed="true">Claude Code</button>
+                <button data-c="desktop" aria-pressed="false">Claude Desktop</button>
+                <button data-c="cursor" aria-pressed="false">Cursor</button>
+                <button data-c="raw" aria-pressed="false">Any MCP client</button>
+              </div>
+              <pre id="h-mcp-out" hidden></pre>
+              <p class="state" id="h-mcp-s"></p>
+            </div>
+            <div class="card" style="margin-top:0.85rem">
+              <header><h2>What it has done</h2></header>
+              <div id="h-runs">Nothing yet.</div>
+              <p style="margin-top:0.8rem"><button class="go gh" id="h-refresh">Refresh</button></p>
+            </div>
+          </div>
+
+          <div class="nav-w">
+            <button class="go gh" id="h-back">Back</button>
+            <button class="go" id="h-next">Continue</button>
+            <button class="go gh" id="h-restart" hidden>Make another agent</button>
+            <span class="sp" id="h-hint"></span>
+          </div>
+        </div>
+
+        <div class="aside">
+          <div class="enforced">
+            <p class="k">What the network will enforce</p>
+            <dl>
+              <div><dt>Agent</dt><dd id="h-e-name">&mdash;</dd></div>
+              <div><dt>Total it may ever spend</dt><dd id="h-e-budget">&mdash;</dd></div>
+              <div><dt>Any single payment</dt><dd id="h-e-cap">&mdash;</dd></div>
+              <div><dt>Term</dt><dd id="h-e-days">&mdash;</dd></div>
+              <div><dt>Who it may pay</dt><dd id="h-e-payees">&mdash;</dd></div>
+              <div><dt>Stopped and reclaimed by</dt><dd id="h-e-owner">&mdash;</dd></div>
+            </dl>
+            <p class="foot" id="h-e-status">not created yet</p>
+          </div>
+          <div class="card">
+            <header><h2>Who holds what</h2></header>
+            <p class="why"><b>The runner</b> holds the agent&rsquo;s key (in Turnkey), which can only pay inside these
+              limits, and a one-time deposit key that can only create this grant or send your deposit back to you.
+              <b>You</b> hold the key that stops the grant and takes back what is left. Nobody can raise a limit.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="view pad" id="v-hagents">
+      <div class="head"><div>
+        <h1>Your agents</h1>
+        <p>Every agent the runner hosts for you: what it may still spend, what it does, and what it last did.
+          Pausing a job is instant. Stopping the grant itself takes your key, and only yours.</p>
+      </div>
+      <div><button class="go" data-view="hosted">&#128293; New agent</button></div></div>
+
+      <p class="state" id="ha-s"></p>
+      <p style="display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap;margin:0 0 0.9rem">
+        <button class="go gh tg-connect">Connect Telegram</button><span class="state tg-state" style="margin:0"></span></p>
+      <div class="card" id="ha-list-c">
+        <header><h2>Agents <small id="ha-n"></small></h2><a class="more" id="ha-reload">Refresh</a></header>
+        <div style="overflow-x:auto">
+          <table id="ha-t"><thead><tr>
+            <th>Agent</th><th>State</th><th class="n">May still spend</th><th class="n">Spent</th><th class="n">Jobs</th><th>Last run</th>
+          </tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+
+      <div id="ha-d" hidden style="margin-top:1rem">
+        <div class="card">
+          <header><h2 id="ha-d-name">&mdash;</h2><a class="more" id="ha-d-close">Close</a></header>
+          <dl class="kvs" id="ha-d-kv" style="display:grid;grid-template-columns:auto 1fr;gap:0.35rem 1rem;font-size:0.8rem"></dl>
+          <p style="margin-top:0.9rem;display:flex;gap:0.5rem;flex-wrap:wrap">
+            <button class="go" id="ha-d-job">Give it a job</button>
+            <button class="go gh" id="ha-d-mcp">MCP connection</button>
+            <button class="go gh" id="ha-d-refund">Send back deposit leftovers</button>
+          </p>
+          <pre id="ha-d-out" hidden></pre>
+        </div>
+        <div class="card" style="margin-top:0.85rem">
+          <header><h2>Jobs</h2></header>
+          <div id="ha-d-jobs"></div>
+        </div>
+        <div class="card" style="margin-top:0.85rem">
+          <header><h2>What it has done</h2></header>
+          <div id="ha-d-runs"></div>
+        </div>
+        <div class="card" style="margin-top:0.85rem">
+          <header><h2>Stopping it for good</h2></header>
+          <p class="why">The runner cannot end a grant &mdash; by design, it never holds the key that can. Your key can,
+            at any moment, and the balance comes back to you:</p>
+          <pre id="ha-d-revoke"></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="view pad" id="v-more">
+      <div class="head"><div><h1>More</h1></div></div>
+      <div class="mlist"><a class="mrow hot-row" data-view="hosted"><b>&#128293; New agent</b><span>Hosted, funded from any wallet, working in two minutes</span></a><a class="mrow" data-view="hagents"><b>Your agents</b><span>Hosted agents: money left, jobs, runs</span></a><a class="mrow" data-view="fleet"><b>Fleet</b><span>Every agent as one system · delegation · bulk controls</span></a><a class="mrow" data-view="analytics"><b>Analytics</b><span>Burn rate · runway · cost per task</span></a><a class="mrow" data-view="fund"><b>Fund an agent</b><span>From USDC or USDT you already hold</span></a><a class="mrow" data-view="create"><b>Create a grant</b><span>Budget, cap, rate, payees — four steps</span></a><a class="mrow" data-view="refusals"><b>Refused</b><span>What the covenant would not let through</span></a><a class="mrow" data-view="registry"><b>Services</b><span>The registry: who an agent can buy from</span></a><a class="mrow" data-view="account"><b>Your account</b><span>Wallets, synced grants, alert delivery</span></a><a class="mrow" href="/proof"><b>Proof</b><span>Every claim, and what would refute it</span></a><a class="mrow" href="/grant"><b>Get a funded testnet grant</b><span>We fund your agent, free</span></a></div>
+    </div>
+
     <div class="statusbar">
       <span><i class="d"></i>Network: <b id="sb-net">Kaspa testnet-10</b></span>
       <span id="sb-daa">&mdash;</span>
@@ -1903,11 +2354,11 @@ ops/install-cron.sh</pre>
   </div><!-- /main -->
   <div class="scrim" id="scrim" hidden></div>
   <nav class="tabs" aria-label="Main">
-    <a data-view="dash"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1.5"/><rect x="9" y="1.5" width="5.5" height="5.5" rx="1.5"/><rect x="1.5" y="9" width="5.5" height="5.5" rx="1.5"/><rect x="9" y="9" width="5.5" height="5.5" rx="1.5"/></svg><span>Overview</span></a>
-    <a data-view="fleet"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="3.3" r="1.8"/><circle cx="3.3" cy="12.2" r="1.8"/><circle cx="8" cy="12.2" r="1.8"/><circle cx="12.7" cy="12.2" r="1.8"/><path d="M8 5.1v5.3M8 7.8H3.3v2.6M8 7.8h4.7v2.6"/></svg><span>Fleet</span></a>
-    <a data-view="fund"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 5.5h9.5M8.5 2.5l3 3-3 3"/><path d="M14 10.5H4.5M7.5 7.5l-3 3 3 3"/></svg><span>Fund</span></a>
-    <a data-view="create"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2.5v11M2.5 8h11"/></svg><span>Create</span></a>
-    <a data-view="account"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="5.6" r="2.8"/><path d="M2.6 14c.7-2.9 2.9-4.4 5.4-4.4s4.7 1.5 5.4 4.4"/></svg><span>Account</span></a>
+    <a data-view="dash"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 7.2 8 2.5l6 4.7V14H9.8v-4H6.2v4H2z"/></svg><span>Home</span></a>
+    <a data-view="grants"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="3.3" r="1.8"/><circle cx="3.3" cy="12.2" r="1.8"/><circle cx="8" cy="12.2" r="1.8"/><circle cx="12.7" cy="12.2" r="1.8"/><path d="M8 5.1v5.3M8 7.8H3.3v2.6M8 7.8h4.7v2.6"/></svg><span>Agents</span></a>
+    <a data-view="activity"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.5 8.5h3l2-5 3 9 2-4h3"/></svg><span>Activity</span></a>
+    <a data-view="alerts"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 11V7.5a4 4 0 0 1 8 0V11l1.3 1.5H2.7zM6.6 14h2.8"/></svg><span>Alerts</span></a>
+    <a data-view="more"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg><span>More</span></a>
   </nav>
 </div><!-- /app -->
 
@@ -2490,6 +2941,123 @@ var WardaRouter = (() => {
   function P_() { return P.filter(function (x) { return inRange(x.p.at) && payHit(x); }); }
   function A_() { return A.filter(agentHit); }
 
+  /* ---- the phone's own surfaces --------------------------------------------
+     Built from the same readings as every other view; nothing here is a
+     second opinion. Hrefs are never concatenated into markup (check-links
+     reads the built page), so agent cards open through data-agent-open and
+     the public-page link is set as a property. */
+  var M_FILTER = "all";
+  var SHIELD = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 1.8 13 3.6v4.1c0 3-2.1 5.2-5 6.5-2.9-1.3-5-3.5-5-6.5V3.6z"/><path d="m5.6 8 1.7 1.7 3.2-3.3"/></svg>';
+  function usd(k) { return MARKET && MARKET.rate ? "≈ $" + (k * MARKET.rate).toLocaleString("en-US", { maximumFractionDigits: k * MARKET.rate < 10 ? 2 : 0 }) : ""; }
+  function pct(a, b) { return b > 0 ? Math.max(0, Math.min(100, Math.round(a / b * 100))) : 0; }
+  function mAgentCard(a) {
+    var u = auth(a), f = grantFacts(a), spent = num(u.spent), budget = num(u.budget);
+    var t = f.t, ends = !t.known ? "—" : t.expired ? "ended" : (t.in || "—").replace(/ days?$/, "d").replace(/ hours?$/, "h");
+    return '<div class="acard" tabindex="0" data-agent-open="' + esc(a.id) + '">' +
+      '<div class="t"><b>Agent #' + esc(a.id) + '</b>' + stateP(a) + '</div>' +
+      (a.d.mission ? '<p class="m">' + esc(a.d.mission) + '</p>' : '') +
+      '<p class="amt">' + kas2(spent) + ' <span>/ ' + kas2(budget) + ' KAS spent · ' + pct(spent, budget) + '%</span></p>' +
+      '<div class="mbar"><i style="width:' + pct(spent, budget) + '%"></i></div>' +
+      '<div class="chips"><span><b>' + kas2(num(u.maxPerPayment)) + '</b>per payment</span><span><b>' + kas2(num(u.epochLimit)) + '</b>per epoch</span>' +
+      '<span><b>' + (u.authorizedPayees || 0) + '</b>payees</span><span><b>' + esc(ends) + '</b>' + (f.ended ? 'status' : 'left') + '</span></div>' +
+      '</div>';
+  }
+  function mobileRender() {
+    if (!$("m-home")) return;
+    var list = A_();
+    var liveA = list.filter(function (a) { return live(a) === "live"; });
+    var left = liveA.reduce(function (s, a) { return s + Math.min(num(auth(a).remaining), num(auth(a).onChain) || num(auth(a).remaining)); }, 0);
+    var budget = liveA.reduce(function (s, a) { return s + num(auth(a).budget); }, 0);
+    var spentLive = liveA.reduce(function (s, a) { return s + num(auth(a).spent); }, 0);
+    var day = Date.now() - 86400000;
+    var today = P.filter(function (x) { return new Date(x.p.at).getTime() > day; });
+    var okP = function (x) { return x.p.outcome === "bought" || x.p.outcome === "served"; };
+    var paidToday = today.filter(okP).reduce(function (s, x) { return s + num(x.p.paid); }, 0);
+    var feed = function (xs) {
+      return xs.map(function (x) {
+        var ok = okP(x);
+        return evRow(ok ? "ok" : "bad", "#" + x.agent + " → " + esc(host(x.p.url)),
+          (ok ? "" : '<span style="color:var(--refuse)">' + esc(x.p.outcome || "refused") + '</span> · ') + ago(x.p.at),
+          ok ? esc(x.p.paid || "") : "—");
+      }).join("") || '<p class="empty">Nothing recorded yet.</p>';
+    };
+    var ordered = liveA.concat(list.filter(function (a) { return live(a) !== "live"; }));
+    $("m-home").innerHTML =
+      '<div class="mhero">' +
+        '<p class="lbl">Authority available · ' + liveA.length + ' live agent' + (liveA.length === 1 ? '' : 's') + '</p>' +
+        '<p class="big">' + kas2(left) + '<small>KAS</small></p>' +
+        '<p class="sub">' + (usd(left) || "&nbsp;") + '</p>' +
+        '<div class="mbar"><i style="width:' + pct(spentLive, budget) + '%"></i></div>' +
+        '<div class="mrow2"><span>' + kas2(spentLive) + ' KAS spent</span><span>of ' + kas2(budget) + ' KAS authorised</span></div>' +
+        '<a class="enf" href="/proof">' + SHIELD + 'Network enforced — not by this app</a>' +
+      '</div>' +
+      '<div class="mstats"><div><i>Spent today</i><b>' + kas2(paidToday) + '</b></div>' +
+        '<div><i>Payments today</i><b>' + today.filter(okP).length + '</b></div>' +
+        '<div><i>Refused today</i><b>' + today.filter(function (x) { return !okP(x); }).length + '</b></div></div>' +
+      '<div class="msec"><h2>Your agents</h2><a data-view="grants">View all</a></div>' +
+      ordered.slice(0, 3).map(mAgentCard).join("") +
+      '<p><button class="go wide" data-view="create">+ Create grant</button></p>' +
+      '<div class="msec"><h2>Recent activity</h2><a data-view="activity">View all</a></div>' +
+      '<div class="card"><div class="feed">' + feed(P.slice(0, 5)) + '</div></div>';
+
+    var shown = list.filter(function (a) {
+      var st = live(a);
+      return M_FILTER === "all" || (M_FILTER === "live" ? st === "live" : st !== "live");
+    });
+    $("m-grants").innerHTML = shown.map(mAgentCard).join("") || '<p class="empty">Nothing here.</p>';
+    $("m-acts").innerHTML = feed(P.slice(0, 60));
+  }
+  function mAgent(a) {
+    var box = $("m-agent"); if (!box) return;
+    var u = auth(a), f = grantFacts(a), spent = num(u.spent), budget = num(u.budget), rem = num(u.remaining);
+    var t = f.t;
+    box.innerHTML =
+      '<div class="mhero">' +
+        '<div class="mrow2" style="margin:0;color:var(--chrome-dim)"><span class="lbl">Spent</span><span class="lbl">Remaining</span></div>' +
+        '<div class="mrow2" style="margin:0.2rem 0 0;color:var(--chrome)"><span class="big" style="font-size:1.7rem">' + kas2(spent) + '</span><span class="big" style="font-size:1.7rem">' + kas2(rem) + '</span></div>' +
+        '<div class="mrow2" style="margin:0"><span>KAS ' + usd(spent) + '</span><span>KAS ' + usd(rem) + '</span></div>' +
+        '<div class="mbar"><i style="width:' + pct(spent, budget) + '%"></i></div>' +
+        '<a class="enf" href="/proof">' + SHIELD + 'Network enforced</a>' +
+      '</div>' +
+      '<div class="msec"><h2>Spending limits</h2></div>' +
+      '<div class="card"><dl class="mlim">' +
+        '<div><dt>Total budget</dt><dd>' + kas2(budget) + ' KAS</dd></div>' +
+        '<div><dt>Max per payment</dt><dd>' + kas2(num(u.maxPerPayment)) + ' KAS</dd></div>' +
+        '<div><dt>Per epoch (' + esc(u.epochLengthDaa || "—") + ' blocks)</dt><dd>' + kas2(num(u.epochLimit)) + ' KAS</dd></div>' +
+        '<div><dt>' + (t.expired ? "Expired" : "Expires") + '</dt><dd>' + esc(!t.known ? "—" : t.expired ? (t.ago || "") + " ago" : "in " + (t.in || "—")) + '</dd></div>' +
+        '<div><dt>Approved payees</dt><dd>' + (u.authorizedPayees || 0) + '</dd></div>' +
+      '</dl></div>' +
+      '<div class="msec"><h2>Checked by every node</h2></div>' +
+      '<div class="card"><div class="mchk"><span>Budget</span><span>Payment cap</span><span>Epoch limit</span><span>Allowlist</span><span>Expiry</span><span>Delegation depth</span></div></div>' +
+      '<div class="mact"><a class="go gh" id="m-proof">Public page</a>' +
+        '<button class="go danger" id="m-stop"' + (f.ended ? ' disabled' : '') + '>' + (f.ended ? 'Ended' : 'Revoke') + '</button></div>';
+    var pub = $("m-proof"); pub.href = ["", "agent-" + a.id].join("/");
+    $("m-stop").onclick = function () {
+      var c = $("ag-ctl"); if (!c) return;
+      c.scrollIntoView({ behavior: "smooth", block: "center" });
+      var b = c.querySelector('[data-ctl="revoke"]'); if (b && !b.disabled) b.click();
+    };
+  }
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest("#m-gf button");
+    if (!b) return;
+    M_FILTER = b.getAttribute("data-f");
+    Array.prototype.forEach.call(document.querySelectorAll("#m-gf button"), function (o) { o.setAttribute("aria-pressed", o === b ? "true" : "false"); });
+    mobileRender();
+  });
+  /* "Why" on every card that explains itself: hidden on a phone until asked. */
+  Array.prototype.forEach.call(document.querySelectorAll(".card"), function (card) {
+    var hdr = card.querySelector(":scope > header"), why = card.querySelector(":scope > p.why");
+    if (!hdr || !why) return;
+    /* A dialog's one sentence is the point of the dialog, not a footnote. */
+    if (card.closest(".wc-veil")) { card.classList.add("explain"); return; }
+    var btn = document.createElement("button");
+    btn.type = "button"; btn.className = "whyb"; btn.textContent = "Why";
+    btn.setAttribute("aria-expanded", "false");
+    btn.onclick = function () { var on = card.classList.toggle("explain"); btn.setAttribute("aria-expanded", on ? "true" : "false"); };
+    hdr.appendChild(btn);
+  });
+
   /* ---------------------------------------------------------------- render */
   function render() {
     if (!ALL.length) {
@@ -2524,6 +3092,7 @@ var WardaRouter = (() => {
     tiles(); spendChart(); agentDonut(); payees(); endpoints();
     grantRows(); allRows(); acts(); notices(); recent(); sources(); deleg(); recon(); refusals();
     fleetView();
+    mobileRender();
     if ($("v-analytics").classList.contains("on")) analyticsView();
   }
 
@@ -2737,9 +3306,17 @@ var WardaRouter = (() => {
   }
 
   /* ---- tables ------------------------------------------------------------ */
+  /* Warda's agents are numbered and fit the badge; a hosted agent has a name,
+     so the badge takes its initials (my-agent -> MA). */
+  function avText(id) {
+    id = String(id);
+    if (/^\d{1,3}$/.test(id)) return id;
+    var parts = id.split(/[^A-Za-z0-9]+/).filter(Boolean);
+    return (parts.length > 1 ? parts[0][0] + parts[1][0] : id.slice(0, 2)).toUpperCase();
+  }
   function av(a) {
     var c = hue(a.id);
-    return '<span class="av" style="background:' + c + '22;color:' + c + '">' + a.id + '</span>';
+    return '<span class="av" style="background:' + c + '22;color:' + c + '">' + esc(avText(a.id)) + '</span>';
   }
   function stateP(a) {
     var s = live(a);
@@ -2915,8 +3492,8 @@ var WardaRouter = (() => {
     mid.style.fontStyle = "normal"; mid.style.minWidth = "0";
     var b = document.createElement("b");
     var j = document.createElement("a");
-    j.href = "/agent-" + a.id + ".json";
-    j.textContent = "agent-" + a.id + ".json";
+    j.href = a.hosted ? "#/hagents" : "/agent-" + a.id + ".json";
+    j.textContent = a.hosted ? a.id + " \u00b7 hosted" : "agent-" + a.id + ".json";
     b.appendChild(j);
     var sub = document.createElement("span");
     sub.textContent = "read " + ago(a.d.checkedAt);
@@ -2924,8 +3501,8 @@ var WardaRouter = (() => {
     var right = document.createElement("span");
     right.className = "a";
     var pg = document.createElement("a");
-    pg.href = "/agent-" + a.id;
-    pg.textContent = "page";
+    pg.href = a.hosted ? "#/hagents" : "/agent-" + a.id;
+    pg.textContent = a.hosted ? "manage" : "page";
     right.appendChild(pg);
     row.appendChild(ic); row.appendChild(mid); row.appendChild(right);
     return row;
@@ -3034,8 +3611,10 @@ var WardaRouter = (() => {
     if (!a) return;
     if (!fromRoute) location.hash = hashFor("agent", id);
     SHOWN = id;
+    document.body.setAttribute("data-screen", "agent");
     var u = auth(a), t = term(a), c = hue(a.id);
     ctlRender(a);
+    mAgent(a);
 
     /* The same three-way pill the tables use, rather than a second opinion
        about the same agent computed a different way. */
@@ -3045,7 +3624,7 @@ var WardaRouter = (() => {
 
     /* The two links that let somebody check this page rather than believe it. */
     var links = document.createElement("span");
-    [["the reading", "/agent-" + a.id + ".json"], ["its public page", "/agent-" + a.id]]
+    (a.hosted ? [["manage it in Your agents", "#/hagents"]] : [["the reading", "/agent-" + a.id + ".json"], ["its public page", "/agent-" + a.id]])
       .forEach(function (pair, i) {
         if (i) links.appendChild(document.createTextNode(" · "));
         var el = document.createElement("a");
@@ -3286,7 +3865,7 @@ var WardaRouter = (() => {
   function goStep(n) {
     STEP = Math.max(1, Math.min(4, n));
     SEEN = Math.max(SEEN, STEP);
-    Array.prototype.forEach.call(document.querySelectorAll(".wstep"), function (el) {
+    Array.prototype.forEach.call(document.querySelectorAll("#v-create .wstep"), function (el) {
       el.classList.toggle("on", Number(el.getAttribute("data-step")) === STEP);
     });
     Array.prototype.forEach.call(document.querySelectorAll("#w-rail .st"), function (el) {
@@ -3500,13 +4079,38 @@ var WardaRouter = (() => {
   function wcRequest(method, params) {
     return wcClient().then(function (c) {
       if (!WC.session) throw new Error("no WalletConnect session");
-      return c.request({ topic: WC.session.topic, chainId: WC.chain, request: { method: method, params: params } });
+      var pending = c.request({ topic: WC.session.topic, chainId: WC.chain, request: { method: method, params: params } });
+      wcNudge();
+      return pending;
     });
   }
 
   function wcModal(on) {
     $("wc-veil").hidden = !on;
-    if (!on) { $("wc-qr").innerHTML = ""; $("wc-open").hidden = true; $("wc-copy").hidden = true; }
+    if (!on) { $("wc-qr").innerHTML = ""; $("wc-open").hidden = true; $("wc-copy").hidden = true;
+               $("wc-apps").hidden = true; $("wc-apps").textContent = ""; $("wc-qrt").hidden = true; $("wc-qr").hidden = false; }
+  }
+
+  /* A phone, where a QR code is the one thing that cannot work. */
+  var PHONE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
+  /* Each wallet's own universal link for a WalletConnect pairing. Opening
+     one hands the wc: URI to the app, which asks to connect; the page keeps
+     waiting and picks up the approval when you come back. */
+  var WC_APPS = {
+    evm: [
+      { name: "MetaMask", base: "https://metamask.app.link/" },
+      { name: "Trust Wallet", base: "https://link.trustwallet.com/" },
+      { name: "Rainbow", base: "https://rnbwapp.com/" },
+      { name: "Coinbase Wallet", base: "https://go.cb-w.com/" }
+    ],
+    kaspa: [{ name: "Kaspire", base: "https://kaspire.kaslab.space/kaspire/" }]
+  };
+  /* Once connected, a signature request has to bring the wallet forward
+     too, or it sits unseen in an app nobody is looking at. */
+  function wcNudge() {
+    if (!PHONE || !WC.app) return;
+    try { window.open(WC.app, "_self"); } catch (e) {}
   }
 
   /* One pairing at a time. `WC.try` counts them, so the approval of a pairing
@@ -3535,7 +4139,29 @@ var WardaRouter = (() => {
           return wcLib().then(function (L) { return L.qrSvg(shown); }).then(function (svg) {
             if (dead()) return;
             $("wc-qr").innerHTML = svg;
-            $("wc-open").hidden = fam !== "kaspa";
+            if (PHONE) {
+              var box = $("wc-apps"); box.textContent = "";
+              WC_APPS[fam].forEach(function (w) {
+                var a = document.createElement("a");
+                a.href = w.base + "wc?uri=" + encodeURIComponent(r.uri);
+                a.rel = "noopener";
+                a.appendChild(document.createTextNode(w.name));
+                var sp = document.createElement("span"); sp.textContent = "Open app →"; a.appendChild(sp);
+                a.addEventListener("click", function () {
+                  WC.app = w.base;
+                  $("wc-state").textContent = "Approve in " + w.name + ", then come back to this page.";
+                });
+                box.appendChild(a);
+              });
+              box.hidden = false;
+              $("wc-qr").hidden = true;
+              $("wc-qrt").hidden = false;
+              $("wc-qrt").onclick = function () { $("wc-qr").hidden = false; $("wc-qrt").hidden = true; };
+              $("wc-say").textContent = fam === "kaspa"
+                ? "Opens Kaspire on this phone. It asks to share your address and public key. Nothing it asks for can move a coin."
+                : "Pick your wallet. It opens, asks to share your address, and you come back here. Nothing it asks for can move a coin.";
+            }
+            $("wc-open").hidden = fam !== "kaspa" || PHONE;
             $("wc-open").href = kaspire;
             $("wc-copy").hidden = false;
             $("wc-copy").onclick = function () {
@@ -3543,7 +4169,8 @@ var WardaRouter = (() => {
                 .then(function () { $("wc-state").textContent = "Pairing link copied. Paste it into your wallet’s WalletConnect screen."; })
                 .catch(function () { $("wc-state").textContent = r.uri; });
             };
-            $("wc-state").textContent = "Waiting for your wallet… the pairing lasts about five minutes.";
+            if (!PHONE) $("wc-state").textContent = "Waiting for your wallet… the pairing lasts about five minutes.";
+            else $("wc-state").textContent = "Waiting for your wallet…";
             return r.approval();
           });
         });
@@ -3835,6 +4462,10 @@ var WardaRouter = (() => {
   }
 
   function mine(a) {
+    /* An agent the runner hosts for this browser's runner account is yours by
+       construction: its key came from your runner account, its grant from
+       your deposit. No wallet needed to say so. */
+    if (a.hosted) return ["owner"];
     if (!W || !W.key) return [];
     var id = a.d.identity || {}, roles = [];
     if (id.principal === W.key) roles.push("principal");
@@ -3853,15 +4484,26 @@ var WardaRouter = (() => {
     $("acc-connect").hidden = !kw;
     $("acc-get-kw").hidden = kw;
     $("acc-kw-s").textContent = kw ? "installed in this browser" : "not installed in this browser";
-    $("acc-wc-s").textContent = wc ? "on your phone, by QR code, over WalletConnect" : "WalletConnect is not set up on this site yet";
-    $("acc-wce-s").textContent = wc ? "any WalletConnect wallet, by QR code" : "WalletConnect is not set up on this site yet";
+    $("acc-wc-s").textContent = !wc ? "WalletConnect is not set up on this site yet" : PHONE ? "opens the Kaspire app on this phone" : "on your phone, by QR code, over WalletConnect";
+    $("acc-wce-s").textContent = !wc ? "WalletConnect is not set up on this site yet" : PHONE ? "MetaMask, Trust, Rainbow, Coinbase — opens the app to approve" : "any WalletConnect wallet, by QR code";
+    if (PHONE) { $("acc-wc").textContent = "Open Kaspire"; $("acc-wc-evm").textContent = "Connect a wallet app"; }
     $("acc-wc").disabled = !wc;
     $("acc-wc-evm").disabled = !wc;
-    $("acc-evm-s").textContent = EVM.length ? "found in this browser" : "no Ethereum-style wallet extension found";
+    $("acc-evm-s").textContent = EVM.length ? "found in this browser" : PHONE
+      ? "or open this page inside your wallet app’s own browser, where it connects directly"
+      : "no Ethereum-style wallet extension found";
     $("acc-evm").innerHTML = EVM.map(function (k) {
       var a = WALLETS[k], ic = /^data:image\//.test(String(a.icon || "")) ? '<img alt="" src="' + esc(a.icon) + '">' : "";
       return '<button class="go gh" data-evm="' + esc(k) + '">' + ic + 'Connect ' + esc(a.name) + '</button>';
     }).join("");
+    if (PHONE && !EVM.length) {
+      /* MetaMask's in-app browser injects the wallet like an extension. */
+      var mm = document.createElement("a");
+      mm.className = "go gh";
+      mm.href = "https://metamask.app.link/dapp/" + location.host + location.pathname;
+      mm.textContent = "Open in MetaMask’s browser";
+      $("acc-evm").appendChild(mm);
+    }
     ownRender();
 
     if (!W) {
@@ -3874,6 +4516,7 @@ var WardaRouter = (() => {
     btn.classList.add(W.problem ? "bad" : "on");
     lab.textContent = short(W.address);
     $("side-w-t").textContent = WALLETS[W.kind].name + " connected";
+    if ($("h-owner")) hOwner();
     $("side-w-s").textContent = evm ? "an account here; a grant needs a Kaspa key" : "your wallet holds the key; this page still holds none";
 
     var dis = document.createElement("button");
@@ -3987,11 +4630,14 @@ var WardaRouter = (() => {
      anywhere else, and they were showing Warda's six grants on your account
      page after one click on "Warda's agents". */
   var SCOPE = "mine";
-  function scopeNow() { return W ? SCOPE : "public"; }
+  function hasHosted() { return ALL.some(function (a) { return a.hosted; }); }
+  /* A runner account makes "yours" meaningful without a wallet: its agents
+     are yours whether or not a key is connected. */
+  function scopeNow() { return W || hasHosted() ? SCOPE : "public"; }
 
   function scopeData() {
     var s = scopeNow();
-    A = s === "public" ? ALL.slice() : ALL.filter(function (a) { return mine(a).length; });
+    A = s === "public" ? ALL.filter(function (a) { return !a.hosted; }) : ALL.filter(function (a) { return mine(a).length; });
     P = []; RULES = []; FAILED = [];
     A.forEach(function (a) {
       (a.d.purchases || []).forEach(function (p) { P.push({ agent: a.id, p: p }); });
@@ -4014,15 +4660,16 @@ var WardaRouter = (() => {
 
   function scopeRender() {
     var s = scopeNow(), empty = s === "mine" && ALL.length > 0 && !A.length;
-    $("scope-seg").hidden = !W;
-    $("scope-connect").hidden = !!W;
+    $("scope-seg").hidden = !W && !hasHosted();
+    $("scope-connect").hidden = !!W || hasHosted();
     Array.prototype.forEach.call($("scope-seg").querySelectorAll("button"), function (b) {
       b.setAttribute("aria-pressed", String(b.getAttribute("data-scope") === s));
     });
     var who = W ? (W.family === "evm" ? "this account" : "your key") : "";
     $("scope-t").innerHTML = s === "public"
       ? "Showing <b>Warda&rsquo;s own agents</b> &mdash; published as live examples, not yours."
-      : "Showing <b>your grants</b> &mdash; every published grant that names " + who + ", and every grant you track.";
+      : "Showing <b>your grants</b> &mdash; " + (hasHosted() ? "the agents the runner hosts for you, " : "") +
+        (W ? "every published grant that names " + who + ", " : "") + "and every grant you track.";
     document.querySelector(".main").classList.toggle("mine-empty", empty);
     /* Tracked grants are grants too: a wallet with none published but some
        tracked sees those, not "you have nothing". */
@@ -4276,6 +4923,15 @@ var WardaRouter = (() => {
   function ownLoad() { try { OWN = JSON.parse(localStorage.getItem(OKEY) || "[]"); if (!Array.isArray(OWN)) OWN = []; } catch (e) { OWN = []; } }
   function ownSave() { try { localStorage.setItem(OKEY, JSON.stringify(OWN)); return true; } catch (e) { return false; } }
   function ownKey(m) { return String(m.covenant_id || m.principal + ":" + m.created_at_daa); }
+  /* A tracked grant.json that is also one of your hosted agents is the same
+     grant twice; the hosted reading carries its history, so it wins
+     everywhere but Your account, where the file itself is managed. */
+  function ownShown() {
+    if (!OWN) return [];
+    var cov = {};
+    ALL.forEach(function (a) { if (a.hosted) { var c = ((a.d || {}).identity || {}).covenantId; if (c) cov[String(c)] = true; } });
+    return OWN.filter(function (x) { return !(x.m && cov[String(x.m.covenant_id)]); });
+  }
 
   var HEX64 = /^[0-9a-f]{64}$/i;
   /* Names that only a secret has. A manifest never carries one — `warda grant`
@@ -4434,23 +5090,24 @@ var WardaRouter = (() => {
      be. The full reading — findings, assumptions, the command to bring a
      stale manifest up to date — stays under Your account, one click away. */
   function trkRender() {
-    var on = scopeNow() === "mine" && !!OWN && OWN.length > 0;
+    var SH = ownShown();
+    var on = scopeNow() === "mine" && SH.length > 0;
     var left = 0, read = 0;
-    var rows = !on ? "" : OWN.map(function (x) {
+    var rows = !on ? "" : SH.map(function (x) {
       var m = x.m, rd = OREAD[ownKey(m)], st = ownState(m, rd);
       var r = rd && rd.st === "read" && rd.r.found ? rd.r : null;
       if (r && r.agrees) { left += Number(r.remaining.sompi); read++; }
-      var title = "Grant " + (m.covenant_id ? String(m.covenant_id).slice(0, 8) + "…" : short(m.principal));
-      return '<div class="ev" data-view="account" tabindex="0">' +
+      var title = x.hosted ? x.hosted + " \u00b7 hosted" : "Grant " + (m.covenant_id ? String(m.covenant_id).slice(0, 8) + "…" : short(m.principal));
+      return '<div class="ev" data-view="' + (x.hosted ? "hagents" : "account") + '" tabindex="0">' +
         '<span class="pill ' + st[1] + '">' + esc(st[0]) + '</span>' +
         '<i style="font-style:normal;min-width:0"><b>' + esc(title) + '</b>' +
         '<span>' + (r ? "next payment up to " + amt(r.maxNextSpend) + " KAS · this epoch " + amt(r.epochRemaining) + " KAS"
           : "budget " + sompiKas(m.budget) + " KAS · cap " + sompiKas(m.max_per_spend) + " KAS each") + '</span></i>' +
         '<span class="a">' + (r ? amt(r.remaining) + " KAS left" : "—") + '</span></div>';
     }).join("");
-    var n = !on ? "" : OWN.length + " tracked" + (read ? " · " + kas2(left / SOMPI) + " KAS left across " + read + " read" : "");
+    var n = !on ? "" : SH.length + " tracked" + (read ? " · " + kas2(left / SOMPI) + " KAS left across " + read + " read" : "");
     /* The sidebar count is of YOUR grants, and a tracked one is one. */
-    if ($("n-grants")) $("n-grants").textContent = A.length + (on ? OWN.length : 0);
+    if ($("n-grants")) $("n-grants").textContent = A.length + (on ? SH.length : 0);
     Array.prototype.forEach.call(document.querySelectorAll(".trk"), function (c) {
       c.hidden = !on;
       c.querySelector(".trk-list").innerHTML = rows;
@@ -5229,7 +5886,7 @@ var WardaRouter = (() => {
     $("an-wk-n").textContent = kas2(tw) + " vs " + kas2(lw) + " KAS";
     $("an-wk").innerHTML = wk.length ? wk.map(function (r) {
       var c = hue(r.id);
-      return '<div class="brow"><span class="av" style="background:' + c + '22;color:' + c + '">' + r.id + '</span>' +
+      return '<div class="brow"><span class="av" style="background:' + c + '22;color:' + c + '">' + esc(avText(r.id)) + '</span>' +
         '<span class="lab">Agent #' + r.id + ' <span style="color:var(--chrome-faint)">· last week ' + kas2(r.l) + ' KAS</span></span>' +
         '<span class="amt">' + kas2(r.t) + ' KAS</span>' +
         '<span class="tr"><i style="width:' + Math.max(1, r.t / wmax * 100) + '%;background:' + c + '"></i></span>' +
@@ -5320,7 +5977,7 @@ var WardaRouter = (() => {
     var tmax = tr.length ? tr[0].v || 1 : 1;
     $("an-tree").innerHTML = tr.length ? tr.map(function (r) {
       var c = hue(r.id);
-      return '<div class="brow"><span class="av" style="background:' + c + '22;color:' + c + '">' + r.id + '</span>' +
+      return '<div class="brow"><span class="av" style="background:' + c + '22;color:' + c + '">' + esc(avText(r.id)) + '</span>' +
         '<span class="lab">Agent #' + r.id + (r.n > 1 ? ' <span style="color:var(--chrome-faint)">and ' + (r.n - 1) + ' below it</span>' : '') + '</span>' +
         '<span class="amt">' + kas2(r.v) + ' KAS</span>' +
         '<span class="tr"><i style="width:' + Math.max(1, r.v / tmax * 100) + '%;background:' + c + '"></i></span></div>';
@@ -5460,7 +6117,7 @@ var WardaRouter = (() => {
   var FL_FILTER = "all", FL_SEL = {};
   function flRows() {
     var rows = A.map(function (a) { return { a: a, f: grantFacts(a), id: a.id, title: "Agent #" + a.id, kind: "published" }; });
-    if (scopeNow() === "mine" && OWN) OWN.forEach(function (x) {
+    if (scopeNow() === "mine") ownShown().forEach(function (x) {
       var m = x.m, rd = OREAD[ownKey(m)], r = rd && rd.st === "read" && rd.r.found ? rd.r : null, st = ownState(m, rd)[0];
       rows.push({ a: null, id: "t:" + ownKey(m), title: "Grant " + String(m.covenant_id || "").slice(0, 8) + "…", kind: "tracked",
         f: { st: st, ended: false, expired: st === "expired", left: r ? Number(r.remaining.sompi) / SOMPI : null,
@@ -5535,6 +6192,7 @@ var WardaRouter = (() => {
     fleetView.rows = rows;
     tplRender();
     treeRender();
+    growthRender();
   }
 
   function flBulk(k) {
@@ -5548,6 +6206,39 @@ var WardaRouter = (() => {
     $("fl-cmds").hidden = false;
     $("fl-cmds-why").textContent = CTL_SAY[k] + (skip ? " " + skip + " selected grant" + (skip === 1 ? " was" : "s were") + " left out: " +
       (k === "reclaim" ? "not past its term, or already ended." : "already ended.") : "") + " File names are placeholders for each grant's manifest.";
+  }
+
+  /* The growth fleet's latest finished week, from /growth.json. Warda's own
+     team, so it shows only when the console is showing Warda's agents. */
+  var GROWTH = null;
+  fetch("/growth.json", { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (g) { GROWTH = g; if ($("v-fleet").classList.contains("on")) growthRender(); }).catch(function () {});
+  function growthRender() {
+    var card = $("gf-card"); if (!card) return;
+    var g = GROWTH, show = !!g && scopeNow() === "public";
+    card.hidden = !show; if (!show) return;
+    var tx = {}; (g.transactions || []).forEach(function (t) { tx[t.step] = t.txid; });
+    var has = function (id) { return A.some(function (a) { return a.id === id; }); };
+    var step = function (id, name, say) {
+      return has(id) ? '<a class="st" data-agent-open="' + id + '"><b>' + name + ' &middot; #' + id + '</b><span>' + say + '</span></a>'
+        : '<div class="st"><b>' + name + '</b><span>' + say + '</span></div>';
+    };
+    $("gf-when").textContent = g.label + " · " + (g.network || "");
+    $("gf-sched").textContent = g.schedule || "weekly";
+    $("gf-flow").innerHTML =
+      step(g.orchestrator || "009", "Orchestrator", "batch grant; may pay Researcher only") + '<span class="ar">delegates &rarr;</span>' +
+      step(g.scout || "010", "Scout", "one payee, one record&rsquo;s price at a time") + '<span class="ar">pays &rarr;</span>' +
+      '<a class="st" href="' + esc(g.researcher && g.researcher.url || "#") + '" target="_blank" rel="noopener"><b>Researcher</b><span>' +
+        esc(g.researcher && g.researcher.price || "") + ' &middot; facts with sources</span></a>' +
+      '<span class="ar">records &rarr;</span>' +
+      '<div class="st off"><b>Outreach</b><span>no grant, no key; drafts for a person</span></div>';
+    var n = function (label, v) { return '<div><i>' + label + '</i><b>' + esc(String(v)) + '</b></div>'; };
+    $("gf-n").innerHTML = n("Projects found", g.candidates) + n("Records bought", g.bought) +
+      n("Cost, on chain", g.spentKas + " KAS") + n("Drafts to read", g.drafts) + n("No draft", g.noDraft) + n("Messages sent", g.sent || 0);
+    var short = function (t) { return t ? t.slice(0, 8) + "…" : "—"; };
+    $("gf-tx").innerHTML = "On chain: genesis <code>" + short(tx.genesis) + "</code> · hire <code>" + short(tx.hire) +
+      "</code> · settle <code>" + short(tx.settle) + "</code> · revoke <code>" + short(tx.revoke) +
+      "</code>. The authority is real and enforced; the money is testnet, and both ends are Warda&rsquo;s.";
   }
 
   function treeRender() {
@@ -5677,6 +6368,700 @@ var WardaRouter = (() => {
       "\n\n# or give an agent the MCP server, which pays within the same grant\nnpx @warda_protocol/mcp";
     pre.hidden = !pre.hidden;
   }
+
+  /* ---- a hosted agent, through the runner -----------------------------------
+     A five-step wizard, the same shape as Create a grant. The console never
+     holds a key: the runner holds the agent's (in Turnkey) and a one-time
+     deposit key; the owner's stays in the owner's wallet and only its public
+     half is sent. The runner key kept in this browser can create agents and
+     run jobs and cannot move funds, which is why a convenience store is an
+     acceptable place for it. */
+  var HR = { agent: null, poll: null, step: 1, seen: 1, connected: false, funding: null };
+  var HKEY = "warda.runner";
+  var TN_TX = "https://explorer-tn10.kaspa.org/txs/";
+  function hLoad() {
+    try {
+      var v = JSON.parse(localStorage.getItem(HKEY) || "{}");
+      /* The old default was a runner on this machine. Now the hosted one is,
+         so a saved localhost that was only ever the default does not strand
+         anyone on a runner that is no longer running. */
+      if (v.url && v.url !== "http://localhost:8787") $("h-url").value = v.url;
+      if (v.key) $("h-key").value = v.key;
+      if (v.agent) HR.agent = v.agent;
+    } catch (e) {}
+  }
+  function hSave() {
+    try { localStorage.setItem(HKEY, JSON.stringify({ url: $("h-url").value.trim(), key: $("h-key").value.trim(), agent: HR.agent })); } catch (e) {}
+  }
+  function hApi(method, path, body, extra) {
+    var base = $("h-url").value.trim().replace(/\/+$/, "");
+    var h = { "Content-Type": "application/json" };
+    var k = $("h-key").value.trim();
+    if (k) h.Authorization = "Bearer " + k;
+    Object.keys(extra || {}).forEach(function (x) { h[x] = extra[x]; });
+    var init = { method: method, headers: h };
+    if (body !== undefined) init.body = JSON.stringify(body);
+    return fetch(base + path, init).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        if (!r.ok) throw new Error(j.error || "the runner answered " + r.status);
+        return j;
+      });
+    }, function () {
+      throw new Error("the runner did not answer at " + base + "." +
+        (/localhost|127\.0\.0\.1/.test(base) ? " Is runner/tools/serve.ts running? The hosted runner is https://warda-runner.vercel.app." : ""));
+    });
+  }
+  function hState(id, text, bad) { var el = $(id); el.textContent = text; el.style.color = bad ? "var(--refuse)" : ""; }
+  function hTx(parent, label, txid) {
+    var a = document.createElement("a");
+    a.href = TN_TX + txid; a.rel = "noopener"; a.target = "_blank";
+    a.textContent = label || txid.slice(0, 10) + "…";
+    parent.appendChild(a);
+  }
+  /* The owner's key: from a connected Kaspa wallet, or typed as a Kaspa
+     address or a public key. An Ethereum wallet has no Kaspa key, and saying
+     "connect a wallet" to someone who has one connected is no help at all. */
+  function hOwner() {
+    if ($("h-owner").value.trim()) return;
+    var s = $("h-owner-s");
+    if (W && W.family === "kaspa" && W.key) {
+      $("h-owner").value = W.address;
+      s.textContent = "From your connected " + WALLETS[W.kind].name + ". Only its public key is sent.";
+    } else if (W && W.family === "evm") {
+      s.textContent = "Your connected wallet is " + WALLETS[W.kind].name + ", an Ethereum wallet, and a grant’s stop key " +
+        "must be a Kaspa key. Connect a Kaspa wallet (KasWare, Kaspire), or paste your Kaspa address here.";
+    } else if (W && W.problem) {
+      s.textContent = W.problem + " You can also paste your Kaspa address here.";
+    }
+    hView();
+  }
+  function hOwnerKey(v) {
+    v = String(v || "").trim();
+    if (v.indexOf(":") > 0) {
+      try {
+        var d = WardaRouter.decodeAddress(v);
+        return d.version === 0 && d.payload.length === 32 ? toHexBytes(d.payload) : null;
+      } catch (e) { return null; }
+    }
+    v = v.toLowerCase();
+    return /^(0[23])?[0-9a-f]{64}$/.test(v) ? v.slice(-64) : null;
+  }
+  function hNum(id) { var v = String($(id).value).trim(); return /^\d+(\.\d{1,8})?$/.test(v) && Number(v) > 0 ? Number(v) : null; }
+  function hPayees() { return $("h-payees").value.split(/\n/).map(function (l) { return l.trim(); }).filter(Boolean); }
+  /* Why Continue is disabled, said out loud — or null when it is not. */
+  function hBlocker(n) {
+    if (n === 1) return HR.connected ? null : "Connect to a runner first.";
+    if (n === 2) {
+      if (!/^[A-Za-z0-9][A-Za-z0-9_-]{2,39}$/.test($("h-name").value.trim())) return "Name it: 3–40 letters, digits, - or _.";
+      var b = hNum("h-budget"), c = hNum("h-cap"), d = Number($("h-days").value);
+      if (b == null) return "Set a budget in KAS.";
+      if (c == null || c > b) return "A single payment must be positive and at most the budget.";
+      if (!(d >= 1 && d <= 365)) return "A grant lasts 1–365 days.";
+      return null;
+    }
+    if (n === 3) {
+      if (!hPayees().length) return "List at least one address it may pay.";
+      if (!hOwnerKey($("h-owner").value)) return $("h-owner").value.trim()
+        ? "That is not a Kaspa address or public key (a Kaspa address starts with kaspa: or kaspatest:)."
+        : "Add your Kaspa address — it is the key that can stop the grant.";
+      return null;
+    }
+    if (n === 4) return HR.funding && HR.funding.status === "funded" ? null : "Waiting for the grant to exist.";
+    return null;
+  }
+  function hView() {
+    var b = hNum("h-budget"), c = hNum("h-cap"), d = Number($("h-days").value), pay = hPayees(), own = hOwnerKey($("h-owner").value);
+    $("h-e-name").textContent = $("h-name").value.trim() || "—";
+    $("h-e-budget").textContent = b == null ? "—" : b + " KAS";
+    $("h-e-cap").textContent = c == null ? "—" : c + " KAS";
+    $("h-e-days").textContent = d > 0 ? d + " days" : "—";
+    $("h-e-payees").textContent = pay.length ? pay.length + " address" + (pay.length === 1 ? "" : "es") + " + the runner’s fee" : "—";
+    $("h-e-owner").textContent = own ? own.slice(0, 10) + "…" + own.slice(-6) + " (you)" : "—";
+    var f = HR.funding;
+    $("h-e-status").textContent = !f ? "not created yet" : f.status === "funded" ? "live on chain" :
+      f.status === "refunded" ? "refunded; nothing was created" : "created; waiting for your deposit";
+    $("h-o-budget").textContent = b == null ? "" : "you will send about " + (b + Math.max(0.1, b / 10) + 0.01).toFixed(2) +
+      " KAS: the budget, plus what its payments’ network fees come out of";
+    var why = hBlocker(HR.step);
+    $("h-next").disabled = !!why;
+    $("h-hint").textContent = why || "";
+  }
+  function hGo(n) {
+    HR.step = Math.max(1, Math.min(5, n));
+    HR.seen = Math.max(HR.seen, HR.step);
+    Array.prototype.forEach.call(document.querySelectorAll("#v-hosted .hstep"), function (el) {
+      el.classList.toggle("on", Number(el.getAttribute("data-hstep")) === HR.step);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("#h-rail .st"), function (el) {
+      var k = Number(el.getAttribute("data-go"));
+      el.setAttribute("data-state", k === HR.step ? "now" : k < HR.step ? "done" : "next");
+      /* Once an agent exists, its limits are fixed: steps 2 and 3 are
+         read-only history, and the rail no longer leads back into them. */
+      el.disabled = k > HR.seen || (!!HR.funding && k >= 2 && k <= 3);
+      el.querySelector(".n").innerHTML = k < HR.step
+        ? '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3.6 8.4l3 3 5.8-6.4"/></svg>'
+        : String(k);
+    });
+    $("h-back").style.visibility = HR.step === 1 || (HR.funding && HR.step >= 4) ? "hidden" : "visible";
+    $("h-next").hidden = HR.step === 5;
+    $("h-restart").hidden = HR.step !== 5;
+    $("h-next").textContent = HR.step === 3 ? "Create the agent" : "Continue";
+    ["h-budget", "h-cap", "h-days", "h-name", "h-payees", "h-owner"].forEach(function (id) { $(id).disabled = !!HR.funding; });
+    if (HR.step === 3) hOwner();
+    if (HR.step === 5) { hRuns(); tgCheck(); }
+    hView();
+    window.scrollTo(0, 0);
+  }
+  function hConnect() {
+    hState("h-runner-s", "Connecting…");
+    return hApi("GET", "/v1/agents").then(function (r) {
+      hSave();
+      HR.connected = true;
+      hState("h-runner-s", "Connected · " + r.agents.length + " agent" + (r.agents.length === 1 ? "" : "s") + " on this account.");
+      if (HR.agent && r.agents.indexOf(HR.agent) >= 0) return hResume();
+      hView();
+    }).catch(function (e) { HR.connected = false; hState("h-runner-s", e.message, true); hView(); });
+  }
+  function hResume() {
+    return hApi("GET", "/v1/agents/" + encodeURIComponent(HR.agent)).then(function (a) {
+      $("h-name").value = a.agent;
+      if (!a.funding) { hGo(1); return; }
+      hFund(a.funding);
+      HR.seen = 5;
+      hGo(a.funding.status === "funded" ? 5 : 4);
+    }).catch(function () { hView(); });
+  }
+  function hCreate() {
+    var owner = hOwnerKey($("h-owner").value);
+    hState("h-hint", "Creating the agent and its keys…");
+    $("h-next").disabled = true;
+    return hApi("POST", "/v1/agents", { id: $("h-name").value.trim(), funding: {
+      principal: owner, payees: hPayees(),
+      limits: { budgetKas: $("h-budget").value.trim(), maxPerPaymentKas: $("h-cap").value.trim(), days: Number($("h-days").value) || 30 },
+    } }).then(function (r) {
+      HR.agent = r.agent;
+      hSave();
+      hFund(r.deposit);
+      hGo(4);
+    }).catch(function (e) { hView(); $("h-hint").textContent = e.message; $("h-hint").style.color = "var(--refuse)"; });
+  }
+  function hFund(f) {
+    HR.funding = f;
+    $("h-amt").textContent = f.amountKas + " KAS";
+    $("h-addr").textContent = f.address;
+    $("h-open").href = f.uri;
+    $("h-copy").onclick = function () {
+      try { navigator.clipboard.writeText(f.address); hState("h-fund-s", "Address copied. Waiting for your payment…"); } catch (e) {}
+    };
+    wcLib().then(function (L) { return L.qrSvg(f.uri); }).then(function (svg) { $("h-qr").innerHTML = svg; }).catch(function () { $("h-qr").hidden = true; });
+    if (f.status === "funded") return hLive(f);
+    hWatch();
+  }
+  function hWatch() {
+    if (HR.poll) clearInterval(HR.poll);
+    var tick = function () {
+      hApi("GET", "/v1/agents/" + encodeURIComponent(HR.agent)).then(function (a) {
+        var f = a.funding;
+        if (!f) return;
+        HR.funding = f;
+        if (f.status === "awaiting-deposit") {
+          hState("h-fund-s", (f.seenKas && f.seenKas !== "0" ? "Seen " + f.seenKas + " KAS so far. " : "") +
+            (f.note || "Waiting for your payment…"), !!f.note);
+        } else if (f.status === "submitting") {
+          hState("h-fund-s", "Payment arrived. Creating the grant…" + (f.note ? " (" + f.note + ")" : ""));
+        } else if (f.status === "funded") {
+          clearInterval(HR.poll); HR.poll = null;
+          hLive(f);
+        } else {
+          clearInterval(HR.poll); HR.poll = null;
+          hState("h-fund-s", f.status === "refunded" ? "Sent back to your key. Nothing was created." : (f.note || f.status), f.status !== "refunded");
+        }
+        hView();
+      }).catch(function (e) { hState("h-fund-s", e.message, true); });
+    };
+    tick();
+    HR.poll = setInterval(tick, 5000);
+  }
+  function hLive(f) {
+    setTimeout(hSync, 0);
+    var el = $("h-fund-s");
+    el.textContent = "Live. The grant exists, and its limits are now enforced by every Kaspa node. ";
+    el.style.color = "var(--teal-bright)";
+    if (f && f.genesisTxid) hTx(el, "The transaction that created it", f.genesisTxid);
+    $("h-refund").textContent = "Send back anything left at the deposit address";
+    hView();
+  }
+  function hTpl() {
+    var t = $("h-tpl").value;
+    $("h-f-url").hidden = $("h-f-max").hidden = !(t === "buy" || t === "once");
+    $("h-f-hour").hidden = t !== "buy";
+    $("h-f-to").hidden = $("h-f-kas").hidden = t !== "hook";
+    $("h-f-tg").hidden = t !== "low" && t !== "end";
+  }
+  function hJob() {
+    var t = $("h-tpl").value, agent = HR.agent, wf;
+    var url = $("h-jurl").value.trim(), host = url.replace(/^https?:\/\//, "").split("/")[0];
+    if (t === "buy") {
+      var hr = Math.max(0, Math.min(23, parseInt($("h-jhour").value, 10) || 0));
+      wf = { agent: agent, name: "Buy from " + host + " daily", trigger: { type: "schedule", cron: "0 " + hr + " * * *" },
+             then: [{ type: "pay-x402", url: url, maxKas: $("h-jmax").value.trim() }] };
+    } else if (t === "once") {
+      wf = { agent: agent, name: "Buy from " + host, trigger: { type: "manual" },
+             then: [{ type: "pay-x402", url: url, maxKas: $("h-jmax").value.trim() }] };
+    } else if (t === "hook") {
+      wf = { agent: agent, name: "Pay on webhook", trigger: { type: "webhook" },
+             then: [{ type: "send", to: $("h-jto").value.trim(), kas: $("h-jkas").value.trim() }] };
+    } else if (t === "end") {
+      wf = { agent: agent, name: "Grant ending", trigger: { type: "grant", when: "expiring-within", hours: 24 },
+             then: [{ type: "notify", channel: "telegram", to: $("h-jtg").value.trim(),
+                      text: "{{agent}}'s grant ends in {{grant.hoursToExpiry}} hours, with {{grant.availableKas}} KAS left. After that it can pay no one, and what is left is yours to take back." }] };
+    } else {
+      wf = { agent: agent, name: "Budget low", trigger: { type: "grant", when: "budget-below", percent: 20 },
+             then: [{ type: "notify", channel: "telegram", to: $("h-jtg").value.trim(), text: "{{agent}} has {{grant.availableKas}} KAS left." }] };
+    }
+    hState("h-job-s", "Adding…");
+    $("h-job-out").hidden = true;
+    hApi("POST", "/v1/workflows", wf).then(function (r) {
+      if (r.webhook) {
+        $("h-job-out").textContent = "POST " + r.webhook.url + "\n" + r.webhook.header + ": " + r.webhook.secret +
+          "\nIdempotency-Key: <one per event>\n\nThe secret is shown once. Store it where the sender can read it.";
+        $("h-job-out").hidden = false;
+      }
+      if (t === "once") {
+        hState("h-job-s", "Added. Running it now…");
+        return hApi("POST", "/v1/workflows/" + r.workflow.id + "/run", {}, { "Idempotency-Key": "console-" + Date.now() })
+          .then(function () { hState("h-job-s", "Done — see what it did below."); hRuns(); });
+      }
+      hState("h-job-s", "Added: " + r.workflow.name + ".");
+    }).catch(function (e) { hState("h-job-s", e.message, true); });
+  }
+  function hRuns() {
+    if (!HR.agent || !HR.connected) return;
+    hApi("GET", "/v1/agents/" + encodeURIComponent(HR.agent) + "/runs?limit=10").then(function (r) {
+      var box = $("h-runs");
+      box.textContent = "";
+      if (!r.runs.length) { box.textContent = "Nothing yet."; return; }
+      r.runs.forEach(function (run) {
+        var row = document.createElement("div");
+        row.className = "kv";
+        row.style.cssText = "padding:0.5rem 0;border-bottom:1px solid var(--edge)";
+        var when = new Date(run.startedAt).toISOString().slice(5, 16).replace("T", " ");
+        row.appendChild(document.createTextNode(when + "  " + run.status.toUpperCase() + "  " + run.trigger + "  "));
+        run.steps.forEach(function (st) {
+          row.appendChild(document.createTextNode("· " + (st.detail || st.action + " " + st.status) + " "));
+          if (st.txid) hTx(row, null, st.txid);
+        });
+        if (run.note) row.appendChild(document.createTextNode(" — " + run.note));
+        box.appendChild(row);
+      });
+    }).catch(function (e) { $("h-runs").textContent = e.message; });
+  }
+  $("h-connect").addEventListener("click", hConnect);
+  $("h-signup").addEventListener("click", function () {
+    hState("h-runner-s", "Creating an account…");
+    hApi("POST", "/v1/accounts", { code: $("h-code").value.trim() }).then(function (r) {
+      $("h-key").value = r.apiKey;
+      hSave();
+      return hConnect().then(function () {
+        hState("h-runner-s", "Account created and connected. This browser remembers the key; copy it somewhere too — it is shown once.");
+      });
+    }).catch(function (e) { hState("h-runner-s", e.message, true); });
+  });
+  $("h-back").addEventListener("click", function () { hGo(HR.step - 1); });
+  $("h-next").addEventListener("click", function () {
+    if (hBlocker(HR.step)) return;
+    if (HR.step === 3 && !HR.funding) { hCreate(); return; }
+    hGo(HR.step + 1);
+  });
+  $("h-restart").addEventListener("click", function () {
+    if (HR.poll) clearInterval(HR.poll);
+    HR.agent = null; HR.funding = null; HR.seen = 1;
+    hSave();
+    $("h-name").value = "my-agent-" + Math.floor(Math.random() * 900 + 100);
+    $("h-runs").textContent = "Nothing yet.";
+    $("h-mcp-out").hidden = true;
+    $("h-job-s").textContent = "";
+    $("h-fund-s").textContent = "Waiting for your payment…"; $("h-fund-s").style.color = "";
+    $("h-refund").textContent = "Changed your mind? Send it back";
+    hGo(2);
+  });
+  Array.prototype.forEach.call(document.querySelectorAll("#h-rail .st"),
+    function (el) { el.addEventListener("click", function () { hGo(Number(el.getAttribute("data-go"))); }); });
+  Array.prototype.forEach.call(document.querySelectorAll("#v-hosted input, #v-hosted textarea"),
+    function (el) { el.addEventListener("input", hView); });
+  $("h-refund").addEventListener("click", function () {
+    hState("h-fund-s", "Sending it back…");
+    hApi("POST", "/v1/agents/" + encodeURIComponent(HR.agent) + "/refund", {}).then(function (r) {
+      var el = $("h-fund-s");
+      el.textContent = "Sent back to your key: ";
+      el.style.color = "";
+      r.refunded.forEach(function (x) { el.appendChild(document.createTextNode(x.kas + " KAS ")); hTx(el, null, x.txid); });
+    }).catch(function (e) { hState("h-fund-s", e.message, true); });
+  });
+  /* MCP, one snippet per client: the same URL and token, in the shape each
+     client wants. The token is shown once; it acts as this one agent. */
+  var MCP = null;
+  function mcpShow(c) {
+    if (!MCP) return;
+    var name = "warda-" + MCP.agent, url = MCP.url, auth = "Bearer " + MCP.token;
+    var server = { url: url, headers: { Authorization: auth } };
+    var cfg = {}; cfg[name] = server;
+    var out = {
+      code: "claude mcp add --transport http " + name + " " + url + " \\\n  --header \"Authorization: " + auth + "\"",
+      desktop: "Settings \u2192 Connectors \u2192 Add custom connector, or in claude_desktop_config.json:\n\n" +
+        JSON.stringify({ mcpServers: cfg }, null, 2),
+      cursor: "~/.cursor/mcp.json:\n\n" + JSON.stringify({ mcpServers: cfg }, null, 2),
+      raw: "URL     " + url + "\nHeader  Authorization: " + auth + "\nTools   get_authority, pay, list_workflows, run_workflow, list_runs",
+    }[c];
+    $("h-mcp-out").textContent = out;
+    $("h-mcp-out").hidden = false;
+    Array.prototype.forEach.call($("h-mcp-tabs").querySelectorAll("button"), function (b) {
+      b.setAttribute("aria-pressed", String(b.getAttribute("data-c") === c));
+    });
+  }
+  $("h-mcp").addEventListener("click", function () {
+    hApi("POST", "/v1/agents/" + encodeURIComponent(HR.agent) + "/token", {}).then(function (r) {
+      MCP = { agent: HR.agent, url: r.mcp.url, token: r.mcp.token };
+      $("h-mcp-tabs").hidden = false;
+      $("h-mcp").textContent = "Make a new token";
+      hState("h-mcp-s", "Shown once. Then ask your agent: \u201cWhat can you spend?\u201d \u2014 it will call get_authority.");
+      mcpShow("code");
+    }).catch(function (e) { hState("h-mcp-s", e.message, true); });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll("#h-mcp-tabs button"), function (b) {
+    b.addEventListener("click", function () { mcpShow(b.getAttribute("data-c")); });
+  });
+
+  /* A job, drawn: when → if → then. Used for drafts and for jobs in the list. */
+  function flowOf(wf) {
+    var box = document.createElement("div");
+    box.className = "flow";
+    var nodes = [];
+    var t = wf.trigger || {};
+    var hostOf = function (u) { try { return new URL(u).host; } catch (e) { return u; } };
+    var tn;
+    if (t.type === "schedule") {
+      var f = String(t.cron || "").split(" ");
+      tn = /^\d+$/.test(f[0]) && /^\d+$/.test(f[1]) && f[2] === "*" && f[3] === "*" && f[4] === "*"
+        ? ["\u23f0", "Every day", ("0" + f[1]).slice(-2) + ":" + ("0" + f[0]).slice(-2) + " UTC"]
+        : ["\u23f0", "On a schedule", t.cron];
+    } else if (t.type === "webhook") tn = ["\u26a1", "When a webhook fires", "a secret URL"];
+    else if (t.type === "grant" && t.when === "budget-below") tn = ["\ud83d\udcc9", "Budget running low", "under " + t.percent + "% left"];
+    else if (t.type === "grant") tn = ["\u231b", "Grant ending", t.hours + " h before it ends"];
+    else tn = ["\u25b6", "When you run it", "by hand or over MCP"];
+    nodes.push(["t", tn, "TRIGGER"]);
+    (wf.if || []).forEach(function (c) {
+      var nice = { "grant.availableKas": ["KAS left", ""], "grant.spentPercent": ["Budget spent", "%"], "grant.hoursToExpiry": ["Hours left", " h"] }[c.field];
+      nodes.push(["c", ["\u2696", nice ? nice[0] : String(c.field).replace("trigger.body.", "webhook "), c.op + " " + c.value + (nice ? nice[1] : "")], "CONDITION"]);
+    });
+    (wf.then || []).forEach(function (a) {
+      var n;
+      if (a.type === "pay-x402") n = ["\ud83d\udcb3", "Buy from " + hostOf(a.url), "at most " + a.maxKas + " KAS"];
+      else if (a.type === "send") n = ["\u2197", "Pay " + (String(a.to).length > 20 ? String(a.to).slice(0, 14) + "\u2026" : a.to), a.kas + " KAS"];
+      else if (a.type === "notify") {
+        /* Placeholders read as what they will say, and the text is cut at a
+           word — "{{grant.availa" helps nobody. */
+        var names = { "grant.availableKas": "KAS left", "grant.spentPercent": "% spent", "grant.hoursToExpiry": "hours left",
+                      "grant.address": "grant address", "agent": "agent name", "run.lastTxid": "transaction", "workflow.name": "job name" };
+        var txt = String(a.text || "").replace(/\{\{\s*([\w.]+)\s*\}\}/g, function (_m, k) { return "\u2039" + (names[k] || k) + "\u203a"; });
+        if (txt.length > 90) txt = txt.slice(0, 90).replace(/\s+\S*$/, "") + "\u2026";
+        n = ["\ud83d\udcac", a.channel === "telegram" ? "Message you on Telegram" : "Call your webhook", "\u201c" + txt + "\u201d"];
+      }
+      else if (a.type === "http") n = ["\ud83c\udf10", "Call " + hostOf(a.url), a.method || "POST"];
+      else if (a.type === "approval") n = ["\u270d", "Ask you to " + a.op, "you sign it; the runner cannot"];
+      else n = ["\u2022", a.type, ""];
+      nodes.push(["a", n, "ACTION"]);
+    });
+    nodes.forEach(function (x, i) {
+      if (i) { var l = document.createElement("i"); l.className = "fline"; box.appendChild(l); }
+      var d = document.createElement("div");
+      d.className = "fnode" + (x[0] === "t" ? " t" : x[0] === "c" ? " c" : "");
+      var ic = document.createElement("div"); ic.className = "i"; ic.textContent = x[1][0];
+      var b = document.createElement("b"); b.textContent = x[1][1];
+      var sp = document.createElement("span"); sp.textContent = x[1][2] || "";
+      var k = document.createElement("div"); k.className = "k"; k.textContent = x[2];
+      d.appendChild(ic); d.appendChild(b); d.appendChild(sp); d.appendChild(k);
+      box.appendChild(d);
+    });
+    return box;
+  }
+
+  var DRAFT = null;
+  function hDraft() {
+    var text = $("h-say").value.trim();
+    if (text.length < 8) { hState("h-draft-s", "Say what it should do, in a sentence.", true); return; }
+    hState("h-draft-s", "Drafting\u2026");
+    $("h-draft").disabled = true;
+    $("h-dcard").hidden = true;
+    hApi("POST", "/v1/workflows/draft", { agent: HR.agent, text: text }).then(function (r) {
+      if (!r.ok) { hState("h-draft-s", "Not possible as asked: " + r.reason, true); return; }
+      DRAFT = r.workflow;
+      $("h-dsum").textContent = r.summary || r.workflow.name;
+      var fl = $("h-dflow"); fl.textContent = ""; fl.appendChild(flowOf(r.workflow));
+      hState("h-dnotes", r.notes && r.notes.length ? "\u26a0 " + r.notes.join(" \u00b7 ") : "\u2713 Inside this agent\u2019s grant.", !!(r.notes && r.notes.length));
+      $("h-dcard").hidden = false;
+      hState("h-draft-s", "");
+    }).catch(function (e) { hState("h-draft-s", e.message, true); })
+      .then(function () { $("h-draft").disabled = false; });
+  }
+  $("h-draft").addEventListener("click", hDraft);
+  $("h-say").addEventListener("keydown", function (e) { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) hDraft(); });
+  Array.prototype.forEach.call(document.querySelectorAll("#h-prompts button"), function (b) {
+    b.addEventListener("click", function () { $("h-say").value = b.getAttribute("data-p"); hDraft(); });
+  });
+  $("h-dagain").addEventListener("click", hDraft);
+  $("h-dadd").addEventListener("click", function () {
+    if (!DRAFT) return;
+    $("h-dadd").disabled = true;
+    hApi("POST", "/v1/workflows", DRAFT).then(function (r) {
+      $("h-dcard").hidden = true;
+      DRAFT = null;
+      if (r.webhook) {
+        $("h-job-out").textContent = "POST " + r.webhook.url + "\n" + r.webhook.header + ": " + r.webhook.secret +
+          "\nIdempotency-Key: <one per event>\n\nThe secret is shown once. Store it where the sender can read it.";
+        $("h-job-out").hidden = false;
+      }
+      hState("h-job-s", "\u2713 Added: " + r.workflow.name + ". It runs from now on, inside the grant.");
+      hRuns();
+    }).catch(function (e) { hState("h-dnotes", e.message, true); })
+      .then(function () { $("h-dadd").disabled = false; });
+  });
+  $("h-tpl").addEventListener("change", hTpl);
+  $("h-job").addEventListener("click", hJob);
+  $("h-refresh").addEventListener("click", hRuns);
+  hLoad();
+  hTpl();
+  hGo(1);
+
+  /* ---- your hosted agents ----------------------------------------------------
+     Every agent on this runner account, from the same runner key the New
+     agent wizard keeps. Nothing here can end a grant: the runner never holds
+     the key that can, so the page hands the owner the command instead. */
+  var HA = { open: null };
+  function haAgo(t) { return t ? ago(t) : "never"; }
+  function haPill(state) {
+    /* "undecided" is not a fault: a grant moves with every payment, and a
+       read in that instant finds its old address empty. Said as what it is. */
+    var m = { active: ["live", "live"], "awaiting-deposit": ["warn", "awaiting deposit"], submitting: ["warn", "creating grant"],
+              paying: ["warn", "paying now"], refunded: ["done", "refunded"], expired: ["done", "ended"], revoked: ["done", "revoked"],
+              undecided: ["warn", "checking chain"] };
+    var x = m[state] || ["done", state];
+    var sp = document.createElement("span"); sp.className = "pill " + x[0]; sp.textContent = x[1]; return sp;
+  }
+  function haList() {
+    if (!$("h-key").value.trim()) {
+      hState("ha-s", "No runner key in this browser yet. Create your first agent to get one.");
+      $("ha-list-c").hidden = true;
+      return;
+    }
+    $("ha-list-c").hidden = false;
+    hState("ha-s", "Reading your agents and their grants from the chain…");
+    hApi("GET", "/v1/agents?detail=1").then(function (r) {
+      hSync();
+      hState("ha-s", "");
+      HR.connected = true;
+      $("ha-n").textContent = r.agents.length;
+      $("n-hagents").textContent = r.agents.length;
+      var tb = $("ha-t").querySelector("tbody");
+      tb.textContent = "";
+      if (!r.agents.length) {
+        var tr0 = document.createElement("tr"), td0 = document.createElement("td");
+        td0.colSpan = 6; td0.textContent = "None yet — 🔥 New agent makes one in about two minutes.";
+        tr0.appendChild(td0); tb.appendChild(tr0);
+      }
+      r.agents.forEach(function (a) {
+        var tr = document.createElement("tr");
+        tr.className = "hpick";
+        tr.style.cursor = "pointer";
+        tr.tabIndex = 0;
+        var cells = [a.agent, null, a.spendableKas != null ? a.spendableKas + " KAS" : "—",
+          a.spentKas != null ? a.spentKas + " of " + a.budgetKas + " KAS" : a.budgetKas ? "budget " + a.budgetKas + " KAS" : "—",
+          a.jobsOn + " of " + a.jobs + " on",
+          a.lastRun ? a.lastRun.status + " · " + haAgo(a.lastRun.at) : "never"];
+        cells.forEach(function (c, i) {
+          var td = document.createElement("td");
+          if (i >= 2 && i <= 4) td.className = "n";
+          if (i === 1) td.appendChild(haPill(a.state)); else td.textContent = c;
+          if (i === 0) td.style.fontWeight = "600";
+          tr.appendChild(td);
+        });
+        var go = function () { haOpen(a.agent); };
+        tr.addEventListener("click", go);
+        tr.addEventListener("keydown", function (e) { if (e.key === "Enter") go(); });
+        tb.appendChild(tr);
+      });
+    }).catch(function (e) { hState("ha-s", e.message, true); });
+  }
+  function haKv(k, v, link) {
+    var dt = document.createElement("dt"); dt.style.color = "var(--chrome-faint)"; dt.textContent = k;
+    var dd = document.createElement("dd"); dd.className = "kv"; dd.style.margin = "0";
+    if (link) hTx(dd, v, link); else dd.textContent = v;
+    $("ha-d-kv").appendChild(dt); $("ha-d-kv").appendChild(dd);
+  }
+  function haOpen(agent) {
+    HA.open = agent;
+    $("ha-d").hidden = false;
+    $("ha-d-name").textContent = agent;
+    $("ha-d-out").hidden = true;
+    $("ha-d-kv").textContent = "";
+    hApi("GET", "/v1/agents/" + encodeURIComponent(agent)).then(function (a) {
+      var g = a.grant || {};
+      haKv("Agent key", a.agentKey ? a.agentKey.slice(0, 16) + "… (held by the runner’s vault)" : "—");
+      if (g.address) haKv("Grant", g.address);
+      if (g.budgetTotal) haKv("Spent", (Number(g.spentTotal) / 1e8) + " of " + (Number(g.budgetTotal) / 1e8) + " KAS");
+      if (g.maxPerSpend) haKv("Any single payment", (Number(g.maxPerSpend) / 1e8) + " KAS");
+      if (g.expiresAtMs) haKv("Ends", new Date(g.expiresAtMs).toISOString().slice(0, 16).replace("T", " ") + " UTC");
+      if (g.payees) haKv("May pay", g.payees.length + " addresses");
+      if (g.undecided) haKv("Grant", g.undecided);
+      haKv("Runner fees owed", a.feesOwed + " KAS");
+      if (a.funding && a.funding.genesisTxid) haKv("Created by", "the genesis transaction", a.funding.genesisTxid);
+      else if (a.funding) haKv("Funding", a.funding.status + (a.funding.note ? " — " + a.funding.note : ""));
+      $("ha-d-refund").hidden = !a.funding;
+      haJobs(a.workflows || []);
+      haRevoke(a);
+    }).catch(function (e) { hState("ha-s", e.message, true); });
+    haRuns(agent);
+    $("ha-d").scrollIntoView({ block: "start", behavior: "smooth" });
+  }
+  function haJobs(wfs) {
+    var box = $("ha-d-jobs"); box.textContent = "";
+    if (!wfs.length) { box.textContent = "No jobs yet."; return; }
+    wfs.forEach(function (w) {
+      var row = document.createElement("div");
+      row.style.cssText = "display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap;padding:0.55rem 0;border-bottom:1px solid var(--edge)";
+      var t = document.createElement("span"); t.style.flex = "1"; t.style.minWidth = "12rem";
+      t.textContent = w.name + " · " + (w.trigger.type === "schedule" ? "every day at " + w.trigger.cron.split(" ")[1] + ":00 UTC" : w.trigger.type) +
+        (w.enabled ? "" : " · paused");
+      var run = document.createElement("button"); run.className = "go gh"; run.textContent = "Run now";
+      run.onclick = function () {
+        run.disabled = true;
+        hApi("POST", "/v1/workflows/" + w.id + "/run", {}, { "Idempotency-Key": "console-" + Date.now() })
+          .then(function () { haRuns(HA.open); }).catch(function (e) { hState("ha-s", e.message, true); })
+          .then(function () { run.disabled = false; });
+      };
+      var tog = document.createElement("button"); tog.className = "go gh"; tog.textContent = w.enabled ? "Pause" : "Resume";
+      tog.onclick = function () {
+        hApi("PATCH", "/v1/workflows/" + w.id, { enabled: !w.enabled }).then(function () { haOpen(HA.open); haList(); })
+          .catch(function (e) { hState("ha-s", e.message, true); });
+      };
+      row.appendChild(t); row.appendChild(run); row.appendChild(tog);
+      box.appendChild(row);
+    });
+  }
+  function haRuns(agent) {
+    hApi("GET", "/v1/agents/" + encodeURIComponent(agent) + "/runs?limit=15").then(function (r) {
+      var box = $("ha-d-runs"); box.textContent = "";
+      if (!r.runs.length) { box.textContent = "Nothing yet."; return; }
+      r.runs.forEach(function (run) {
+        var row = document.createElement("div");
+        row.className = "kv";
+        row.style.cssText = "padding:0.5rem 0;border-bottom:1px solid var(--edge)";
+        row.appendChild(document.createTextNode(new Date(run.startedAt).toISOString().slice(5, 16).replace("T", " ") + "  " +
+          run.status.toUpperCase() + "  " + run.trigger + "  "));
+        run.steps.forEach(function (st) {
+          row.appendChild(document.createTextNode("· " + (st.detail || st.action + " " + st.status) + " "));
+          if (st.txid) hTx(row, null, st.txid);
+        });
+        if (run.note) row.appendChild(document.createTextNode(" — " + run.note));
+        box.appendChild(row);
+      });
+    }).catch(function () {});
+  }
+  function haRevoke(a) {
+    var pre = $("ha-d-revoke");
+    pre.textContent = "";
+    if (!a.manifest) { pre.textContent = "This agent has no grant yet, so there is nothing to stop."; return; }
+    var dl = document.createElement("a");
+    dl.textContent = "Download this grant’s current grant.json";
+    dl.href = URL.createObjectURL(new Blob([JSON.stringify(a.manifest, null, 2) + "\n"], { type: "application/json" }));
+    dl.download = "grant.json";
+    pre.appendChild(dl);
+    pre.appendChild(document.createTextNode(
+      "\n\nThen, with the key you gave as the revocation key:\n\n  npx @warda_protocol/cli revoke grant.json --key your-revocation.key\n\n" +
+      "Download it just before you run it: the grant moves after every payment, and an old copy points at an\n" +
+      "address that no longer holds anything."));
+  }
+  /* Hosted agents' grants are the owner's grants: tracked like any grant.json
+     you add by hand, so Overview, Grants and the verifier's reading all count
+     them. The runner's copy is the current one — a grant moves with every
+     payment — so a tracked copy is replaced whenever it differs. */
+  function hSync() {
+    if (!$("h-key").value.trim()) return Promise.resolve();
+    return hApi("GET", "/v1/agents").then(function (r) {
+      if ($("n-hagents")) $("n-hagents").textContent = r.agents.length;
+      return Promise.all(r.agents.map(function (id) {
+        return hApi("GET", "/v1/agents/" + encodeURIComponent(id) + "/reading")
+          .then(function (d) { return { id: id, d: d, hosted: true }; })
+          .catch(function () { return null; });
+      }));
+    }).then(function (rows) {
+      rows = (rows || []).filter(Boolean);
+      if (!rows.length) return;
+      var ids = rows.map(function (x) { return x.id; });
+      ALL = ALL.filter(function (x) { return !x.hosted && ids.indexOf(x.id) < 0; }).concat(rows);
+      /* They used to be tracked as bare grant.json files, which carry no
+         history; the reading does, so the tracked copies would only count
+         the same grant twice. */
+      var before = OWN.length;
+      OWN = OWN.filter(function (x) { return !x.hosted; });
+      if (OWN.length !== before) ownSave();
+      scopeData(); render(); ownRender(); scopeRender();
+    }).catch(function () {});
+  }
+  setTimeout(hSync, 800);
+
+  /* Telegram: one tap. The runner makes a one-time /start link; the owner
+     presses Start in Telegram and the bot learns their chat. No chat ids. */
+  var TG = { poll: null };
+  function tgState(text, bad) {
+    Array.prototype.forEach.call(document.querySelectorAll(".tg-state"), function (el) {
+      el.textContent = text; el.style.color = bad ? "var(--refuse)" : "";
+    });
+  }
+  function tgCheck() {
+    if (!$("h-key").value.trim()) return Promise.resolve(false);
+    return hApi("GET", "/v1/telegram").then(function (r) {
+      Array.prototype.forEach.call(document.querySelectorAll(".tg-connect"), function (b) {
+        b.hidden = r.connected || !r.available;
+      });
+      tgState(r.connected ? "✓ Telegram connected — alerts come to your phone." : r.available ? "" : "This runner has no Telegram bot yet.");
+      return r.connected;
+    }).catch(function () { return false; });
+  }
+  Array.prototype.forEach.call(document.querySelectorAll(".tg-connect"), function (b) {
+    b.addEventListener("click", function () {
+      var w = window.open("about:blank", "_blank");
+      hApi("POST", "/v1/telegram/link", {}).then(function (r) {
+        if (w) w.location = r.url; else location.href = r.url;
+        tgState("Press Start in Telegram, then come back here…");
+        if (TG.poll) clearInterval(TG.poll);
+        var n = 0;
+        TG.poll = setInterval(function () {
+          if (++n > 60) { clearInterval(TG.poll); return; }
+          tgCheck().then(function (ok) { if (ok) clearInterval(TG.poll); });
+        }, 3000);
+      }).catch(function (e) { if (w) w.close(); tgState(e.message, true); });
+    });
+  });
+
+  $("ha-reload").addEventListener("click", haList);
+  $("ha-d-close").addEventListener("click", function () { $("ha-d").hidden = true; HA.open = null; });
+  $("ha-d-job").addEventListener("click", function () {
+    HR.agent = HA.open; HR.funding = { status: "funded" }; HR.seen = 5; hSave();
+    show("hosted"); hGo(5);
+  });
+  $("ha-d-mcp").addEventListener("click", function () {
+    hApi("POST", "/v1/agents/" + encodeURIComponent(HA.open) + "/token", {}).then(function (r) {
+      $("ha-d-out").textContent = JSON.stringify(r.mcp.config, null, 2) + "\n\n" + r.note;
+      $("ha-d-out").hidden = false;
+    }).catch(function (e) { $("ha-d-out").textContent = e.message; $("ha-d-out").hidden = false; });
+  });
+  $("ha-d-refund").addEventListener("click", function () {
+    hApi("POST", "/v1/agents/" + encodeURIComponent(HA.open) + "/refund", {}).then(function (r) {
+      $("ha-d-out").textContent = "Sent back to your key: " + r.refunded.map(function (x) { return x.kas + " KAS (" + x.txid.slice(0, 10) + "…)"; }).join(", ");
+      $("ha-d-out").hidden = false;
+    }).catch(function (e) { $("ha-d-out").textContent = e.message; $("ha-d-out").hidden = false; });
+  });
 
   /* ---- the drawer, on a phone ---------------------------------------------- */
   function drawer(open) {
@@ -6241,8 +7626,8 @@ var WardaRouter = (() => {
   });
 
   var TITLES = { dash: "Overview", grants: "Grants", agent: "Agent", activity: "Activity",
-                 refusals: "Refused", alerts: "Alerts", fund: "Fund an agent", create: "Create a grant",
-                 account: "Your account", fleet: "Fleet", registry: "Services", analytics: "Analytics" };
+                 refusals: "Refused", alerts: "Alerts", fund: "Fund an agent", create: "Create a grant", hosted: "New agent", hagents: "Your agents",
+                 account: "Your account", fleet: "Fleet", registry: "Services", analytics: "Analytics", more: "More" };
   /* ---- where you are, in the URL ----------------------------------------
      The console had no address. Every view was the same page, so a reload lost
      your place, the browser's Back button left the app entirely, and there was
@@ -6255,7 +7640,7 @@ var WardaRouter = (() => {
 
   var routing = false;
   function route() {
-    var m = /^#\/([a-z]+)(?:\/(\w+))?$/.exec(location.hash || "");
+    var m = /^#\/([a-z]+)(?:\/([\w-]+))?$/.exec(location.hash || "");
     if (!m) { show("dash", true); return; }
     routing = true;
     if (m[1] === "agent" && m[2]) {
@@ -6274,8 +7659,11 @@ var WardaRouter = (() => {
     if (!$("v-" + v)) return;
     if (!fromRoute) location.hash = hashFor(v);
     drawer(false);
+    document.body.setAttribute("data-screen", v);
     if (v === "fleet") fleetView();
     if (v === "registry") svcView();
+    if (v === "hosted") { if ($("h-key").value && !HR.connected) hConnect(); hView(); }
+    if (v === "hagents") { haList(); tgCheck(); }
     Array.prototype.forEach.call(document.querySelectorAll(".side a[data-view], .tabs a[data-view]"), function (o) {
       if (o.getAttribute("data-view") === v) o.setAttribute("aria-current", "page");
       else o.removeAttribute("aria-current");
@@ -6301,7 +7689,9 @@ var WardaRouter = (() => {
     var row = e.target.closest("tr.pick");
     if (row) { showAgent(row.getAttribute("data-agent")); return; }
     var el = e.target.closest("[data-view]");
-    if (!el || el.classList.contains("st")) return;
+    /* The page itself is never a link: body carries data-screen, not
+       data-view, and this guard keeps it that way if someone forgets. */
+    if (!el || el === document.body || el.classList.contains("st")) return;
     e.preventDefault();
     show(el.getAttribute("data-view"));
   });

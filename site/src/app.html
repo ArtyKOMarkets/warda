@@ -2890,9 +2890,17 @@ ops/install-cron.sh</pre>
   }
 
   /* ---- tables ------------------------------------------------------------ */
+  /* Warda's agents are numbered and fit the badge; a hosted agent has a name,
+     so the badge takes its initials (my-agent -> MA). */
+  function avText(id) {
+    id = String(id);
+    if (/^\d{1,3}$/.test(id)) return id;
+    var parts = id.split(/[^A-Za-z0-9]+/).filter(Boolean);
+    return (parts.length > 1 ? parts[0][0] + parts[1][0] : id.slice(0, 2)).toUpperCase();
+  }
   function av(a) {
     var c = hue(a.id);
-    return '<span class="av" style="background:' + c + '22;color:' + c + '">' + a.id + '</span>';
+    return '<span class="av" style="background:' + c + '22;color:' + c + '">' + esc(avText(a.id)) + '</span>';
   }
   function stateP(a) {
     var s = live(a);
@@ -4499,6 +4507,15 @@ ops/install-cron.sh</pre>
   function ownLoad() { try { OWN = JSON.parse(localStorage.getItem(OKEY) || "[]"); if (!Array.isArray(OWN)) OWN = []; } catch (e) { OWN = []; } }
   function ownSave() { try { localStorage.setItem(OKEY, JSON.stringify(OWN)); return true; } catch (e) { return false; } }
   function ownKey(m) { return String(m.covenant_id || m.principal + ":" + m.created_at_daa); }
+  /* A tracked grant.json that is also one of your hosted agents is the same
+     grant twice; the hosted reading carries its history, so it wins
+     everywhere but Your account, where the file itself is managed. */
+  function ownShown() {
+    if (!OWN) return [];
+    var cov = {};
+    ALL.forEach(function (a) { if (a.hosted) { var c = ((a.d || {}).identity || {}).covenantId; if (c) cov[String(c)] = true; } });
+    return OWN.filter(function (x) { return !(x.m && cov[String(x.m.covenant_id)]); });
+  }
 
   var HEX64 = /^[0-9a-f]{64}$/i;
   /* Names that only a secret has. A manifest never carries one — `warda grant`
@@ -4657,9 +4674,10 @@ ops/install-cron.sh</pre>
      be. The full reading — findings, assumptions, the command to bring a
      stale manifest up to date — stays under Your account, one click away. */
   function trkRender() {
-    var on = scopeNow() === "mine" && !!OWN && OWN.length > 0;
+    var SH = ownShown();
+    var on = scopeNow() === "mine" && SH.length > 0;
     var left = 0, read = 0;
-    var rows = !on ? "" : OWN.map(function (x) {
+    var rows = !on ? "" : SH.map(function (x) {
       var m = x.m, rd = OREAD[ownKey(m)], st = ownState(m, rd);
       var r = rd && rd.st === "read" && rd.r.found ? rd.r : null;
       if (r && r.agrees) { left += Number(r.remaining.sompi); read++; }
@@ -4671,9 +4689,9 @@ ops/install-cron.sh</pre>
           : "budget " + sompiKas(m.budget) + " KAS · cap " + sompiKas(m.max_per_spend) + " KAS each") + '</span></i>' +
         '<span class="a">' + (r ? amt(r.remaining) + " KAS left" : "—") + '</span></div>';
     }).join("");
-    var n = !on ? "" : OWN.length + " tracked" + (read ? " · " + kas2(left / SOMPI) + " KAS left across " + read + " read" : "");
+    var n = !on ? "" : SH.length + " tracked" + (read ? " · " + kas2(left / SOMPI) + " KAS left across " + read + " read" : "");
     /* The sidebar count is of YOUR grants, and a tracked one is one. */
-    if ($("n-grants")) $("n-grants").textContent = A.length + (on ? OWN.length : 0);
+    if ($("n-grants")) $("n-grants").textContent = A.length + (on ? SH.length : 0);
     Array.prototype.forEach.call(document.querySelectorAll(".trk"), function (c) {
       c.hidden = !on;
       c.querySelector(".trk-list").innerHTML = rows;
@@ -5452,7 +5470,7 @@ ops/install-cron.sh</pre>
     $("an-wk-n").textContent = kas2(tw) + " vs " + kas2(lw) + " KAS";
     $("an-wk").innerHTML = wk.length ? wk.map(function (r) {
       var c = hue(r.id);
-      return '<div class="brow"><span class="av" style="background:' + c + '22;color:' + c + '">' + r.id + '</span>' +
+      return '<div class="brow"><span class="av" style="background:' + c + '22;color:' + c + '">' + esc(avText(r.id)) + '</span>' +
         '<span class="lab">Agent #' + r.id + ' <span style="color:var(--chrome-faint)">· last week ' + kas2(r.l) + ' KAS</span></span>' +
         '<span class="amt">' + kas2(r.t) + ' KAS</span>' +
         '<span class="tr"><i style="width:' + Math.max(1, r.t / wmax * 100) + '%;background:' + c + '"></i></span>' +
@@ -5543,7 +5561,7 @@ ops/install-cron.sh</pre>
     var tmax = tr.length ? tr[0].v || 1 : 1;
     $("an-tree").innerHTML = tr.length ? tr.map(function (r) {
       var c = hue(r.id);
-      return '<div class="brow"><span class="av" style="background:' + c + '22;color:' + c + '">' + r.id + '</span>' +
+      return '<div class="brow"><span class="av" style="background:' + c + '22;color:' + c + '">' + esc(avText(r.id)) + '</span>' +
         '<span class="lab">Agent #' + r.id + (r.n > 1 ? ' <span style="color:var(--chrome-faint)">and ' + (r.n - 1) + ' below it</span>' : '') + '</span>' +
         '<span class="amt">' + kas2(r.v) + ' KAS</span>' +
         '<span class="tr"><i style="width:' + Math.max(1, r.v / tmax * 100) + '%;background:' + c + '"></i></span></div>';
@@ -5683,7 +5701,7 @@ ops/install-cron.sh</pre>
   var FL_FILTER = "all", FL_SEL = {};
   function flRows() {
     var rows = A.map(function (a) { return { a: a, f: grantFacts(a), id: a.id, title: "Agent #" + a.id, kind: "published" }; });
-    if (scopeNow() === "mine" && OWN) OWN.forEach(function (x) {
+    if (scopeNow() === "mine") ownShown().forEach(function (x) {
       var m = x.m, rd = OREAD[ownKey(m)], r = rd && rd.st === "read" && rd.r.found ? rd.r : null, st = ownState(m, rd)[0];
       rows.push({ a: null, id: "t:" + ownKey(m), title: "Grant " + String(m.covenant_id || "").slice(0, 8) + "…", kind: "tracked",
         f: { st: st, ended: false, expired: st === "expired", left: r ? Number(r.remaining.sompi) / SOMPI : null,
@@ -6554,6 +6572,7 @@ ops/install-cron.sh</pre>
   function hSync() {
     if (!$("h-key").value.trim()) return Promise.resolve();
     return hApi("GET", "/v1/agents").then(function (r) {
+      if ($("n-hagents")) $("n-hagents").textContent = r.agents.length;
       return Promise.all(r.agents.map(function (id) {
         return hApi("GET", "/v1/agents/" + encodeURIComponent(id) + "/reading")
           .then(function (d) { return { id: id, d: d, hosted: true }; })
