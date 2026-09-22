@@ -2703,7 +2703,15 @@ ops/install-cron.sh</pre>
      this list and never cycled. Colour follows the entity: a range filter that
      hides an agent must not repaint the ones that remain. */
   var MARKS = ["#0FA890", "#4C8DF6", "#C95FA8", "#B87F2E", "#9B6BE8", "#6BA83C"];
-  var hue = function (id) { return MARKS[AGENTS.indexOf(id) % MARKS.length]; };
+  /* Warda's agents take their colour from their place in the index; a hosted
+     agent (not in it) from its name, so it has one too — and the same one on
+     every screen. Without this, indexOf gave -1 and every hosted agent was
+     drawn in no colour at all: an empty bar, dots missing from the legend. */
+  var hue = function (id) {
+    var i = AGENTS.indexOf(id);
+    if (i < 0) { var h = 0; String(id).split("").forEach(function (c) { h = (h * 31 + c.charCodeAt(0)) >>> 0; }); i = AGENTS.length + h; }
+    return MARKS[i % MARKS.length];
+  };
 
   /* ---- reading the real thing ------------------------------------------
      Every figure on this console comes from the agent readings this project
