@@ -21,6 +21,7 @@ function bench(o: { signupCode?: string } = {}) {
   let now = Date.parse("2026-09-22T09:00:00Z");
   const sent: string[] = [];
   const tg: [string, string][] = [];
+  const siteLinks: [string, string][] = [];
   const view: GrantView = {
     address: "kaspatest:grant", status: "ACTIVE", budgetTotal: 200_000_000n, spentTotal: 0n, reserved: 0n,
     maxPerSpend: 50_000_000n, epochRemaining: null, coin: 200_000_000n, payees: [VENDOR, RUNNER], expiresAtMs: now + 7 * 86_400_000,
@@ -45,7 +46,8 @@ function bench(o: { signupCode?: string } = {}) {
     store, registry, vault, engine, grants, fees, tickSecret: "t".repeat(32), baseUrl: BASE, now: () => now,
     mcp: createMcp({ store, registry, engine, grants, fees, now: () => now }),
     drafter: { async draft({ agent }) { return { ok: true, workflow: { agent, name: "x", trigger: { type: "manual" }, then: [{ type: "send", to: "ff".repeat(32), kas: "0.9" }] }, summary: "s", notes: [] }; } },
-    telegram: { hookSecret: "hooksecret", username: async () => "warda_test_bot", send: async (chat, text) => void tg.push([chat, text]) },
+    telegram: { hookSecret: "hooksecret", username: async () => "warda_test_bot", send: async (chat, text) => void tg.push([chat, text]),
+      site: async (code, chat) => { siteLinks.push([code, chat]); return code === "s-0123456789ab" ? { ok: true, rules: 2 } : { ok: false }; } },
     ...(o.signupCode ? { signupCode: o.signupCode } : {}),
   });
   const call = async (method: string, path: string, opts: { key?: string; body?: unknown; headers?: Record<string, string> } = {}) => {
@@ -57,7 +59,7 @@ function bench(o: { signupCode?: string } = {}) {
     const text = await res.text();
     return { status: res.status, body: (text ? JSON.parse(text) : {}) as Record<string, any>, headers: res.headers };
   };
-  return { call, sent, tg, registry, advance: (ms: number) => void (now += ms) };
+  return { call, sent, tg, siteLinks, registry, advance: (ms: number) => void (now += ms) };
 }
 
 async function onboarded(recipients = [VENDOR, RUNNER]) {
@@ -260,6 +262,14 @@ test("Telegram: a one-time /start link connects the owner's chat, and nothing el
   assert.match(b.tg.at(-1)![1], /expired or was already used/);
   const acct = await b.registry.ownerOf("shop-bot");
   assert.equal(await b.registry.telegramOf(acct!), "42");
+
+  /* A code the console's account API made is handed to the site, not read here. */
+  await hook({ message: { chat: { id: 7 }, text: "/start s-0123456789ab" } });
+  assert.deepEqual(b.siteLinks.at(-1), ["s-0123456789ab", "7"]);
+  assert.match(b.tg.at(-1)![1], /console account's alerts come here — 2 rules/);
+  await hook({ message: { chat: { id: 7 }, text: "/start s-ffffffffffff" } });
+  assert.match(b.tg.at(-1)![1], /expired or was already used/);
+  assert.equal(await b.registry.telegramOf(acct!), "42", "a site code never touches the runner's own link");
 });
 
 test("a draft is checked against the grant before the owner sees it, and is rate-limited", async () => {

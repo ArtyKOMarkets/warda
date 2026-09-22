@@ -5234,6 +5234,9 @@ var export_escapeIdentifier = ct.escapeIdentifier;
 var export_escapeLiteral = ct.escapeLiteral;
 var export_types = ct.types;
 
+// ops/api/account.js
+import { timingSafeEqual } from "node:crypto";
+
 // ops/api/node_modules/@noble/hashes/_u64.js
 var U32_MASK64 = /* @__PURE__ */ (() => BigInt(2 ** 32 - 1))();
 var _32n = /* @__PURE__ */ BigInt(32);
@@ -9169,6 +9172,12 @@ SCHEMA.push(
      grant_payees jsonb)`,
   `create index if not exists grant_requests_agent on grant_requests(agent_key)`
 );
+SCHEMA.push(
+  `create table if not exists tg_links (
+     code_hash text primary key,
+     account_id uuid not null references accounts(id) on delete cascade,
+     expires_at timestamptz not null)`
+);
 async function migrate(q) {
   for (const s of SCHEMA) await q(s);
 }
@@ -9557,6 +9566,20 @@ async function handler(req, res) {
       }
       return send(res, 200, { ok: true, account: await me(q, row.account_id) }, makeSession(row.account_id));
     }
+    if (req.method === "POST" && op === "tglinked") {
+      const token = process.env.TELEGRAM_BOT_TOKEN || "";
+      const want = token ? bytesToHex(sha256(utf8ToBytes("warda-site-telegram:" + token))).slice(0, 48) : "";
+      const got = String(req.headers["x-warda-telegram"] || "");
+      if (!want || got.length !== want.length || !timingSafeEqual(Buffer.from(got), Buffer.from(want))) throw new Refuse(401, "telegram", "Not authorised.");
+      const b2 = await body(req);
+      const code = String(b2.code || ""), chat = String(b2.chat || "");
+      if (!/^s-[\w-]{8,60}$/.test(code) || !/^-?\d{1,20}$/.test(chat)) throw new Refuse(400, "telegram", "code and chat, please.");
+      const [row] = await q("delete from tg_links where code_hash = $1 and expires_at > now() returning account_id", [bytesToHex(sha256(utf8ToBytes(code)))]);
+      if (!row) return send(res, 200, { ok: false, reason: "expired" });
+      await q("update accounts set telegram_chat_id = $2 where id = $1", [row.account_id, chat]);
+      const [{ n }] = await q("select count(*)::int as n from rules where account_id = $1", [row.account_id]);
+      return send(res, 200, { ok: true, rules: n });
+    }
     if (op === "request" || op === "requests" || op === "issue" || op === "decline") {
       return await grantRequests(req, res, q, op, url);
     }
@@ -9617,10 +9640,24 @@ async function handler(req, res) {
       const b2 = await body(req);
       const email = b2.email == null || b2.email === "" ? null : String(b2.email).trim();
       if (email && !/^[^@\s]{1,64}@[^@\s]{1,190}\.[^@\s]{2,}$/.test(email)) throw new Refuse(400, "email", "That does not look like an email address.");
-      const tg = b2.telegramChatId == null || b2.telegramChatId === "" ? null : String(b2.telegramChatId).trim();
-      if (tg && !/^-?\d{1,20}$/.test(tg)) throw new Refuse(400, "telegramChatId", "A Telegram chat id is a number.");
-      await q("update accounts set email = $2, telegram_chat_id = $3 where id = $1", [acc, email, tg]);
+      await q("update accounts set email = $2 where id = $1", [acc, email]);
+      if ("telegramChatId" in b2) {
+        const tg = b2.telegramChatId == null || b2.telegramChatId === "" ? null : String(b2.telegramChatId).trim();
+        if (tg && !/^-?\d{1,20}$/.test(tg)) throw new Refuse(400, "telegramChatId", "A Telegram chat id is a number.");
+        await q("update accounts set telegram_chat_id = $2 where id = $1", [acc, tg]);
+      }
       return send(res, 200, { ok: true, account: await me(q, acc) });
+    }
+    if (req.method === "POST" && op === "tglink") {
+      const token = process.env.TELEGRAM_BOT_TOKEN || "";
+      if (!token) throw new Refuse(501, "telegram", "Telegram is not switched on for this site yet.");
+      const bot = await fetch("https://api.telegram.org/bot" + token + "/getMe").then((r) => r.json()).catch(() => null);
+      const name = bot && bot.result && bot.result.username;
+      if (!name) throw new Refuse(502, "telegram", "Telegram did not answer just now. Try again in a moment.");
+      await q("delete from tg_links where expires_at < now()");
+      const code = "s-" + bytesToHex(randomBytes(12));
+      await q("insert into tg_links (code_hash, account_id, expires_at) values ($1, $2, now() + interval '15 minutes')", [bytesToHex(sha256(utf8ToBytes(code))), acc]);
+      return send(res, 200, { ok: true, url: "https://t.me/" + name + "?start=" + code });
     }
     if (req.method === "POST" && op === "payee") {
       const b2 = await body(req);

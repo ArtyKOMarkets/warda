@@ -105,6 +105,20 @@ export async function boot(e: NodeJS.ProcessEnv = process.env, defaults: { baseU
           return botName;
         },
         send: (chat: string, text: string) => raw.notify("telegram", chat, text),
+        /* The console's own account API links its alerts through this same
+           bot. Both sides derive the shared secret from the bot token. */
+        async site(code: string, chat: string) {
+          const siteUrl = (e.WARDA_SITE_URL ?? "https://www.wardaprotocol.com").replace(/\/$/, "");
+          const secret = createHash("sha256").update("warda-site-telegram:" + token).digest("hex").slice(0, 48);
+          const r = await fetch(`${siteUrl}/api/account?op=tglinked`, {
+            method: "POST",
+            headers: { "content-type": "application/json", "x-warda": "1", "x-warda-telegram": secret },
+            body: JSON.stringify({ code, chat }),
+          });
+          const j = (await r.json().catch(() => null)) as { ok?: boolean; rules?: number } | null;
+          if (!r.ok || !j) throw new Error(`site answered ${r.status}`);
+          return { ok: !!j.ok, ...(j.rules != null ? { rules: j.rules } : {}) };
+        },
       }
     : undefined;
   const grants = liveGrants(openAgent);

@@ -622,6 +622,7 @@
   .wsel-list li .h { color: var(--chrome-faint); font-size: 0.72rem; margin-left: 1.2rem; }
   .wsel-list li[aria-selected="true"] .h, .wsel-list li.hi .h { color: var(--chrome-dim); }
   .hold { display: grid; gap: 0.45rem; }
+  .sess-tg-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin: 0; }
   .acc-side { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.6rem 1rem;
     margin-bottom: 0.85rem; padding: 0.7rem 0.9rem; border: 1px solid var(--edge-bright); border-radius: 10px; background: var(--panel); }
   .acc-side p { margin: 0; font-size: 0.8rem; color: var(--chrome-dim); flex: 1 1 22rem; line-height: 1.5; }
@@ -1489,9 +1490,11 @@
               <div>
                 <p class="grp-l" style="margin-top:0">Where alerts go</p>
                 <div class="field" style="margin-top:0.5rem">
-                  <label for="sess-tg">Telegram chat id</label>
-                  <input id="sess-tg" inputmode="numeric" spellcheck="false" placeholder="123456789">
-                  <p class="out" id="sess-tg-s">Message the Warda bot, then paste the chat id it replies with.</p>
+                  <label>Telegram</label>
+                  <p class="sess-tg-row"><span class="pill" id="sess-tg-pill">not connected</span>
+                    <button class="go" type="button" id="sess-tg-go">Connect Telegram</button>
+                    <button class="go gh" type="button" id="sess-tg-off" hidden>Disconnect</button></p>
+                  <p class="out" id="sess-tg-s">One tap: Telegram opens, you press Start, and alerts from the rules below come to your phone.</p>
                 </div>
                 <div class="field" style="margin-top:0.7rem">
                   <label for="sess-email">Email &mdash; optional</label>
@@ -4782,6 +4785,7 @@ var WardaRouter = (() => {
      says accounts are not set up. */
   var SESS = null;          // { account } when signed in
   var SESS_UP = null;       // null = unknown, true = the service answers, false = not configured
+  var SESS_TG = { poll: null };   // the one-tap Telegram link, while it waits for Start
   function api(op, body) {
     var init = body === undefined ? { credentials: "same-origin" }
       : { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json", "x-warda": "1" }, body: JSON.stringify(body) };
@@ -4913,10 +4917,19 @@ var WardaRouter = (() => {
     var here = W && a.wallets.some(function (w) { return w.address.toLowerCase() === W.address.toLowerCase(); });
     $("sess-link").hidden = !W || here;
     $("sess-link").textContent = W ? "Add " + short(W.address) + " to this account" : "";
-    if (document.activeElement !== $("sess-tg")) $("sess-tg").value = a.telegramChatId || "";
+    var tgOn = !!a.telegramChatId;
+    $("sess-tg-pill").className = "pill " + (tgOn ? "live" : "");
+    $("sess-tg-pill").textContent = tgOn ? "connected" : "not connected";
+    $("sess-tg-go").hidden = tgOn || !a.telegramReady;
+    $("sess-tg-go").textContent = "Connect Telegram";
+    $("sess-tg-off").hidden = !tgOn;
+    if (tgOn && SESS_TG.poll) { clearInterval(SESS_TG.poll); SESS_TG.poll = null; }
     if (document.activeElement !== $("sess-email")) $("sess-email").value = a.email || "";
-    $("sess-tg-s").textContent = a.telegramReady ? "Message the Warda bot on Telegram, then paste the chat id it replies with."
-      : "Telegram delivery is not switched on for this site yet — rules still run, and what they would have sent is kept below.";
+    $("sess-tg-s").textContent = !a.telegramReady ? "Telegram delivery"
+      : tgOn ? "Alerts from the rules below come to your Telegram. The bot can only send you messages — it can never move funds."
+      : SESS_TG.poll ? "Press Start in Telegram, then come back — this updates by itself."
+      : "One tap: Telegram opens, you press Start, and alerts from the rules below come to your phone.";
+    if (!a.telegramReady) $("sess-tg-s").textContent = "Telegram delivery is not switched on for this site yet — rules still run, and what they would have sent is kept below.";
     $("sess-rules").innerHTML = (a.rules || []).map(function (r) {
       var w = RULE_WORD[r.state] || ["not run yet", "done"];
       return '<div class="ev"><span class="ic" style="background:#E8B23A22;color:#E8B23A">' + I.shield + '</span>' +
@@ -7539,8 +7552,32 @@ var WardaRouter = (() => {
      and finds nothing, which would read as every grant gone. */
   ownLoad(); ownRender(); OWN.forEach(function (x) { ownRead(x.m); });
   $("sess-link").addEventListener("click", function () { sessProve("link"); });
+  /* Telegram for the console account: the same one-tap /start link as the
+     runner's, made by the account API; the runner's bot hands it back. */
+  $("sess-tg-go").addEventListener("click", function () {
+    var w = window.open("about:blank", "_blank");
+    $("sess-tg-go").disabled = true; $("sess-tg-go").textContent = "Opening Telegram…";
+    api("tglink", {}).then(function (j) {
+      $("sess-tg-go").disabled = false;
+      if (!j.ok) { if (w) w.close(); $("sess-tg-go").textContent = "Connect Telegram"; $("sess-tg-s").textContent = j.message || "Could not make a link just now."; return; }
+      if (w) w.location = j.url; else location.href = j.url;
+      if (SESS_TG.poll) clearInterval(SESS_TG.poll);
+      var n = 0;
+      SESS_TG.poll = setInterval(function () {
+        if (++n > 60) { clearInterval(SESS_TG.poll); SESS_TG.poll = null; sessRender(); return; }
+        sessLoad();
+      }, 3000);
+      sessRender();
+    });
+  });
+  $("sess-tg-off").addEventListener("click", function () {
+    if (!confirmInline("sess-tg-off", "Stop alerts to Telegram? Press again to confirm.")) return;
+    api("settings", { telegramChatId: null, email: $("sess-email").value.trim() }).then(function (j) {
+      if (j.ok) { SESS.account = j.account; sessRender(); }
+    });
+  });
   $("sess-save").addEventListener("click", function () {
-    api("settings", { telegramChatId: $("sess-tg").value.trim(), email: $("sess-email").value.trim() }).then(function (j) {
+    api("settings", { email: $("sess-email").value.trim() }).then(function (j) {
       $("sess-saved").textContent = j.ok ? "Saved." : (j.message || "Not saved.");
       if (j.ok) { SESS.account = j.account; sessRender(); }
     });

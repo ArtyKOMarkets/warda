@@ -59,6 +59,9 @@ export interface ApiDeps {
     hookSecret: string;
     username(): Promise<string>;
     send(chat: string, text: string): Promise<void>;
+    /** A /start code the console's account API made ("s-…"): handed to the
+     *  site, which links that account's alerts to this chat. */
+    site?(code: string, chat: string): Promise<{ ok: boolean; rules?: number }>;
   };
   /** Sentence → workflow draft (Claude). */
   drafter?: Drafter;
@@ -515,6 +518,14 @@ export function createApi(d: ApiDeps): (req: Request) => Promise<Response> {
       if (chat === undefined) return json(200, { ok: true });
       if (!m) {
         await tg.send(String(chat), "This bot tells you about your Warda agents. Connect it from the console: New agent → Put it to work → Connect Telegram.").catch(() => {});
+        return json(200, { ok: true });
+      }
+      if (m[1]!.startsWith("s-")) {
+        const r = tg.site ? await tg.site(m[1]!, String(chat)).catch(() => null) : null;
+        await tg.send(String(chat), r?.ok
+          ? `Connected. Your Warda console account's alerts come here${r.rules ? ` — ${r.rules} rule${r.rules === 1 ? "" : "s"} watching` : ""}. It can never move your funds.`
+          : r ? "That link has expired or was already used. Make a new one on Your account in the console."
+          : "Could not reach the console just now. Press the link again in a minute.").catch(() => {});
         return json(200, { ok: true });
       }
       const acct = await d.registry.consumeTelegramLink(m[1]!, now());

@@ -33,6 +33,7 @@ const stripeCalls = [];
 const realFetch = globalThis.fetch;
 globalThis.fetch = async (u, init) => {
   const J = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { "content-type": "application/json" } });
+  if (String(u).includes("api.telegram.org") && String(u).endsWith("/getMe")) return J({ ok: true, result: { username: "warda_bot" } });
   if (String(u).includes("api.telegram.org")) { sent.push(JSON.parse(init.body)); return J({ ok: true }); }
   if (String(u).includes("api.stripe.com")) { stripeCalls.push([String(u), init.body]); return J({ id: "cs_1", url: "https://checkout.stripe.test/cs_1" }); }
   if (String(u).endsWith("/v1/verify")) {
@@ -152,6 +153,24 @@ r = await call("POST", "settings", { telegramChatId: "12345", email: "" });
 t("settings saved", r.status === 200 && r.j.account.telegramChatId === "12345", r.j);
 r = await call("POST", "settings", { telegramChatId: "abc" });
 t("bad chat id refused", r.status === 400, r.j);
+r = await call("POST", "settings", { email: "a@b.co" });
+t("settings without a chat id leave it alone", r.status === 200 && r.j.account.telegramChatId === "12345", r.j);
+
+/* 6b. one-tap Telegram: the site makes the code, the runner hands it back */
+r = await call("POST", "tglink", {});
+t("tglink: a t.me link with a site code", r.status === 200 && /^https:\/\/t\.me\/warda_bot\?start=s-[0-9a-f]{24}$/.test(r.j.url), r.j);
+const code = r.j.url.split("start=")[1];
+const { createHash } = await import("node:crypto");
+const tgSecret = createHash("sha256").update("warda-site-telegram:bot-token").digest("hex").slice(0, 48);
+r = await call("POST", "tglinked", { code, chat: "777" }, { "x-warda-telegram": "wrong".padEnd(48, "x") });
+t("tglinked: needs the secret", r.status === 401, r.j);
+r = await call("POST", "tglinked", { code, chat: "777" }, { "x-warda-telegram": tgSecret });
+t("tglinked: links the chat", r.status === 200 && r.j.ok === true, r.j);
+r = await call("POST", "tglinked", { code, chat: "888" }, { "x-warda-telegram": tgSecret });
+t("tglinked: a code works once", r.status === 200 && r.j.ok === false, r.j);
+r = await call("GET", "me");
+t("tglinked: the account has the chat", r.j.account.telegramChatId === "777", r.j);
+await call("POST", "settings", { telegramChatId: "12345", email: "" });
 
 /* 7. cron: not firing, then firing, then no repeat, then back */
 r = await call("POST", "cron", {}, { "x-cron-secret": "nope" });
