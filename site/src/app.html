@@ -2080,7 +2080,7 @@ ops/install-cron.sh</pre>
           </div>
           <div class="field" style="margin-top:0.9rem">
             <label for="h-owner">Your key &mdash; stops the grant and takes back what is left</label>
-            <input id="h-owner" placeholder="connect a Kaspa wallet, or paste its public key" spellcheck="false">
+            <input id="h-owner" placeholder="your Kaspa address (kaspatest:…) or public key" spellcheck="false">
             <p class="out" id="h-owner-s">This key never leaves your wallet. The runner only learns its public half.</p>
           </div>
           <p style="margin-top:1rem"><button class="go wide" id="h-create" disabled>Create the agent</button></p>
@@ -3889,6 +3889,7 @@ ops/install-cron.sh</pre>
     btn.classList.add(W.problem ? "bad" : "on");
     lab.textContent = short(W.address);
     $("side-w-t").textContent = WALLETS[W.kind].name + " connected";
+    if ($("h-owner")) hOwner();
     $("side-w-s").textContent = evm ? "an account here; a grant needs a Kaspa key" : "your wallet holds the key; this page still holds none";
 
     var dis = document.createElement("button");
@@ -5769,11 +5770,34 @@ ops/install-cron.sh</pre>
     a.textContent = label || txid.slice(0, 10) + "…";
     parent.appendChild(a);
   }
+  /* The owner's key: from a connected Kaspa wallet, or typed as a Kaspa
+     address or a public key. An Ethereum wallet has no Kaspa key, and saying
+     "connect a wallet" to someone who has one connected is no help at all. */
   function hOwner() {
-    if (!$("h-owner").value && W && W.family === "kaspa" && W.key) {
+    if ($("h-owner").value.trim()) return;
+    var s = $("h-owner-s");
+    if (W && W.family === "kaspa" && W.key) {
       $("h-owner").value = W.key;
-      $("h-owner-s").textContent = "From your connected " + WALLETS[W.kind].name + ". Only the public half is sent.";
+      s.textContent = "From your connected " + WALLETS[W.kind].name + " (" + short(W.address) + "). Only the public half is sent.";
+    } else if (W && W.family === "evm") {
+      s.textContent = "Your connected wallet is " + WALLETS[W.kind].name + ", an Ethereum wallet, and a grant’s stop key " +
+        "must be a Kaspa key. Connect a Kaspa wallet (KasWare, Kaspire), or paste your Kaspa address here.";
+    } else if (W && W.problem) {
+      s.textContent = W.problem + " You can also paste your Kaspa address here.";
+    } else {
+      s.textContent = "Connect a Kaspa wallet, or paste your Kaspa address. Only its public key is sent.";
     }
+  }
+  function hOwnerKey(v) {
+    v = v.trim();
+    if (v.indexOf(":") > 0) {
+      try {
+        var d = WardaRouter.decodeAddress(v);
+        return d.version === 0 && d.payload.length === 32 ? toHexBytes(d.payload) : null;
+      } catch (e) { return null; }
+    }
+    v = v.toLowerCase();
+    return /^(0[23])?[0-9a-f]{64}$/.test(v) ? v.slice(-64) : null;
   }
   function hConnect() {
     hState("h-runner-s", "Connecting…");
@@ -5905,9 +5929,15 @@ ops/install-cron.sh</pre>
     }).catch(function (e) { hState("h-runner-s", e.message, true); });
   });
   $("h-create").addEventListener("click", function () {
-    var name = $("h-name").value.trim(), owner = $("h-owner").value.trim().toLowerCase();
+    hOwner();
+    var name = $("h-name").value.trim(), owner = hOwnerKey($("h-owner").value);
     var payees = $("h-payees").value.split(/\n/).map(function (l) { return l.trim(); }).filter(Boolean);
-    if (!/^(0[23])?[0-9a-f]{64}$/.test(owner)) { hState("h-create-s", "Your key must be a Kaspa public key (64 hex characters). Connect a Kaspa wallet to fill it in.", true); return; }
+    if (!owner) {
+      hState("h-create-s", $("h-owner").value.trim()
+        ? "That is not a Kaspa address or public key. A Kaspa address starts with kaspa: or kaspatest:."
+        : "Add your key: paste your Kaspa address, or connect a Kaspa wallet. " + $("h-owner-s").textContent, true);
+      return;
+    }
     hState("h-create-s", "Creating the agent and its keys…");
     $("h-create").disabled = true;
     hApi("POST", "/v1/agents", { id: name, funding: {
