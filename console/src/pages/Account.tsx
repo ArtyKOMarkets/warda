@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Eye, EyeOff, CircleCheck, CircleAlert, ExternalLink, Server } from "lucide-react";
 import { useData } from "@/lib/data";
 import { api, DEFAULT_RUNNER } from "@/lib/runner";
-import { Button, Card, CardHeader, LinkButton, PageHeader } from "@/components/ui";
+import { Button, Card, CardHeader, Copy, LinkButton, PageHeader } from "@/components/ui";
 
 export function Account() {
   const { runner, setRunner, errors, agents } = useData();
@@ -23,6 +23,17 @@ export function Account() {
     } catch (e) {
       setMsg({ ok: false, text: (e as Error).message });
     } finally { setBusy(false); }
+  };
+
+  const [code, setCode] = useState("");
+  const [fresh, setFresh] = useState<string | null>(null);
+  const redeem = async () => {
+    setBusy(true); setMsg(null);
+    try {
+      const c = { ...runner, url: url.trim() || DEFAULT_RUNNER, key: "" };
+      const r = await api<{ apiKey: string }>(c, "POST", "/v1/accounts", { code: code.trim() });
+      setRunner({ ...c, key: r.apiKey }); setKey(r.apiKey); setFresh(r.apiKey); setCode("");
+    } catch (e) { setMsg({ ok: false, text: (e as Error).message }); } finally { setBusy(false); }
   };
 
   const input = "h-10 w-full rounded-lg border border-line-strong bg-bg px-3 text-[14px] placeholder:text-fg-3 focus:border-accent/60 focus:outline-none";
@@ -52,11 +63,33 @@ export function Account() {
             </div>
           </form>
         </Card>
+        <div className="space-y-4">
+        {!runner.key || fresh ? (
+          <Card className="p-5">
+            <div className="text-[15px] font-semibold">New here?</div>
+            {fresh ? (
+              <div className="rise">
+                <p className="mt-2 text-[13px] text-ok">Account created, and you're signed in.</p>
+                <p className="mt-2 text-[12.5px] text-fg-2">This is your account key. It is shown once — keep a copy somewhere safe.</p>
+                <div className="mt-2 flex items-center gap-2 rounded-lg border border-line-strong bg-bg px-3 py-2"><span className="num min-w-0 flex-1 break-all text-[12px]">{fresh}</span><Copy text={fresh} label="Copy key" /></div>
+              </div>
+            ) : (
+              <>
+                <p className="mt-2 text-[13px] text-fg-2">Redeem an invite code to make an account.</p>
+                <div className="mt-3 flex gap-2">
+                  <input className={input} value={code} onChange={(e) => setCode(e.target.value)} placeholder="Invite code" autoCapitalize="off" spellCheck={false} />
+                  <Button disabled={!code.trim() || busy} onClick={redeem}>Redeem</Button>
+                </div>
+              </>
+            )}
+          </Card>
+        ) : null}
         <Card className="p-5">
-          <div className="flex items-center gap-2 text-[15px] font-semibold"><Server className="size-4 text-accent" /> Wallet and invite codes</div>
-          <p className="mt-2 text-[13px] leading-relaxed text-fg-2">Connecting a wallet and redeeming an invite code are still in the classic console. Telegram is under <a className="text-fg hover:text-accent" href="#/alerts">Alerts</a>.</p>
+          <div className="flex items-center gap-2 text-[15px] font-semibold"><Server className="size-4 text-accent" /> Your wallet</div>
+          <p className="mt-2 text-[13px] leading-relaxed text-fg-2">Connecting a wallet to see its balances is still in the classic console. Telegram is under <a className="text-fg hover:text-accent" href="#/alerts">Alerts</a>.</p>
           <LinkButton className="mt-4" href="/app#/account">Open account settings <ExternalLink className="size-4" /></LinkButton>
         </Card>
+        </div>
       </div>
     </>
   );

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Play, Pause, Sparkles, CircleCheck, CircleAlert, Ban, Clock, Hand, Loader2, Plus, Zap, ExternalLink } from "lucide-react";
+import { Share2, Copy as CopyIco, Play, Pause, Sparkles, CircleCheck, CircleAlert, Ban, Clock, Hand, Loader2, Plus, Zap, ExternalLink } from "lucide-react";
 import { api, type RunnerConfig } from "@/lib/runner";
 import { useData } from "@/lib/data";
 import { dateTime, ago } from "@/lib/format";
@@ -40,14 +40,15 @@ export function useHostedAgent(agent: string) {
   const [wfs, setWfs] = useState<Workflow[] | null>(null);
   const [runs, setRuns] = useState<Run[] | null>(null);
   const [approvals, setApprovals] = useState<Approval[]>([]);
+  const [detail, setDetail] = useState<any>(null);
   const load = useCallback(() => {
     const e = encodeURIComponent(agent);
-    api<{ workflows?: Workflow[] }>(runner, "GET", `/v1/agents/${e}`).then((a) => setWfs(a.workflows ?? [])).catch(() => setWfs([]));
+    api<{ workflows?: Workflow[] }>(runner, "GET", `/v1/agents/${e}`).then((a) => { setWfs(a.workflows ?? []); setDetail(a); }).catch(() => setWfs([]));
     api<{ runs: Run[] }>(runner, "GET", `/v1/agents/${e}/runs?limit=15`).then((r) => setRuns(r.runs)).catch(() => setRuns([]));
     api<{ approvals?: Approval[] }>(runner, "GET", `/v1/agents/${e}/approvals`).then((r) => setApprovals((r.approvals ?? []).filter((x) => x.status === "pending"))).catch(() => {});
   }, [agent, runner]);
   useEffect(() => { load(); const t = setInterval(load, 20_000); return () => clearInterval(t); }, [load]);
-  return { runner, wfs, runs, approvals, reload: load };
+  return { runner, wfs, runs, approvals, detail, reload: load };
 }
 
 export function ApprovalsBanner({ runner, approvals, onDone }: { runner: RunnerConfig; approvals: Approval[]; onDone: () => void }) {
@@ -90,6 +91,7 @@ export function JobsTab({ agent, h }: { agent: string; h: ReturnType<typeof useH
   const { runner, wfs, runs, reload } = h;
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [sharing, setSharing] = useState<string | null>(null);
 
   const act = async (key: string, fn: () => Promise<unknown>) => {
     setBusy(key); setErr(null);
@@ -108,7 +110,7 @@ export function JobsTab({ agent, h }: { agent: string; h: ReturnType<typeof useH
             ) : (
               <ul className="divide-y divide-line">
                 {wfs.map((w) => (
-                  <li key={w.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center">
+                  <li key={w.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:flex-wrap sm:items-center">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2"><span className="truncate text-[14px] font-medium">{w.name}</span>{!w.enabled && <Badge tone="warn">Paused</Badge>}</div>
                       <div className="mt-0.5 text-[12.5px] text-fg-3">{triggerWords(w.trigger)}</div>
@@ -120,7 +122,9 @@ export function JobsTab({ agent, h }: { agent: string; h: ReturnType<typeof useH
                       <Button size="sm" variant="ghost" disabled={!!busy} onClick={() => act("tog" + w.id, () => api(runner, "PATCH", `/v1/workflows/${w.id}`, { enabled: !w.enabled }))}>
                         {w.enabled ? <><Pause className="size-3.5" /> Pause</> : <><Play className="size-3.5" /> Resume</>}
                       </Button>
+                      <Button size="sm" variant="ghost" aria-label="Share as template" title="Share as template" onClick={() => setSharing(sharing === w.id ? null : w.id)}><Share2 className="size-3.5" /></Button>
                     </div>
+                    {sharing === w.id && <ShareTemplate runner={runner} workflowId={w.id} onDone={() => setSharing(null)} />}
                   </li>
                 ))}
               </ul>
@@ -160,6 +164,7 @@ export function JobsTab({ agent, h }: { agent: string; h: ReturnType<typeof useH
       <div className="space-y-4">
         <DraftJob agent={agent} runner={runner} onAdded={reload} />
         <QuickJob agent={agent} runner={runner} onAdded={reload} />
+        <Templates agent={agent} runner={runner} onAdded={reload} />
       </div>
     </div>
   );
@@ -265,6 +270,58 @@ function QuickJob({ agent, runner, onAdded }: { agent: string; runner: RunnerCon
         {msg ? <span className={cn("text-[12.5px]", msg.bad ? "text-bad" : "text-ok")}>{msg.text}</span> : <a href="/app#/hagents" className="inline-flex items-center gap-1 text-[12.5px] text-fg-3 hover:text-fg">Templates &amp; alerts <ExternalLink className="size-3" /></a>}
         <Button size="sm" variant="primary" disabled={!ok || busy} onClick={add}><Plus className="size-3.5" /> Add job</Button>
       </div>
+    </Card>
+  );
+}
+
+function ShareTemplate({ runner, workflowId, onDone }: { runner: RunnerConfig; workflowId: string; onDone: () => void }) {
+  const [title, setTitle] = useState("");
+  const [msg, setMsg] = useState<{ bad?: boolean; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const go = async () => {
+    setBusy(true);
+    try { await api(runner, "POST", "/v1/templates", { workflowId, title: title.trim(), description: "" }); setMsg({ text: "Published. Anyone with a runner account can copy it now." }); setTimeout(onDone, 1800); }
+    catch (e) { setMsg({ bad: true, text: (e as Error).message }); } finally { setBusy(false); }
+  };
+  return (
+    <div className="rise flex w-full flex-col gap-2 sm:basis-full">
+      <div className="flex gap-2">
+        <input autoFocus maxLength={80} className={cn(inputCls, "h-9 text-[13px]")} placeholder="A title others will understand" value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => e.key === "Enter" && title.trim() && go()} />
+        <Button size="md" variant="primary" disabled={!title.trim() || busy} onClick={go}>Publish</Button>
+      </div>
+      {msg && <span className={cn("text-[12px]", msg.bad ? "text-bad" : "text-ok")}>{msg.text}</span>}
+    </div>
+  );
+}
+
+interface Template { id: string; title: string; description?: string; author?: string; featured?: boolean; copies?: number; job: Workflow }
+
+function Templates({ agent, runner, onAdded }: { agent: string; runner: RunnerConfig; onAdded: () => void }) {
+  const [list, setList] = useState<Template[] | null>(null);
+  const [done, setDone] = useState<Record<string, boolean>>({});
+  const [err, setErr] = useState<string | null>(null);
+  useEffect(() => { api<{ templates?: Template[] }>(runner, "GET", "/v1/templates").then((r) => setList(r.templates ?? [])).catch((e) => { setErr((e as Error).message); setList([]); }); }, [runner]);
+  const copy = async (t: Template) => {
+    setErr(null);
+    try { await api(runner, "POST", `/v1/templates/${encodeURIComponent(t.id)}/copy`, { agent }); setDone((d) => ({ ...d, [t.id]: true })); onAdded(); }
+    catch (e) { setErr((e as Error).message); }
+  };
+  if (list && !list.length && !err) return null;
+  return (
+    <Card>
+      <CardHeader title="Templates" sub="Jobs other people shared" />
+      <ul className="mt-3 divide-y divide-line">
+        {list === null ? <li className="p-5"><Loader2 className="size-4 animate-spin text-fg-3" /></li> : list.map((t) => (
+          <li key={t.id} className="flex items-start gap-3 px-5 py-3.5">
+            <div className="min-w-0 flex-1">
+              <div className="text-[13.5px] font-medium">{t.title}</div>
+              <div className="mt-0.5 text-[12px] text-fg-3">{t.job?.trigger ? triggerWords(t.job.trigger) + " · " : ""}{t.featured ? "by Warda" : `shared by ${t.author ?? "someone"}`}{t.copies ? ` · copied ${t.copies}×` : ""}</div>
+            </div>
+            <Button size="sm" disabled={done[t.id]} onClick={() => copy(t)}>{done[t.id] ? "Added" : <><CopyIco className="size-3.5" /> Use</>}</Button>
+          </li>
+        ))}
+      </ul>
+      {err && <p className="border-t border-line px-5 py-2.5 text-[12px] text-bad">{err}</p>}
     </Card>
   );
 }

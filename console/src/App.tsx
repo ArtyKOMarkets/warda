@@ -11,6 +11,7 @@ import { Account } from "@/pages/Account";
 import { NewAgent } from "@/pages/NewAgent";
 import { Fund } from "@/pages/Fund";
 import { Alerts } from "@/pages/Alerts";
+import { Receipt } from "@/pages/Receipt";
 
 export function App() {
   const [page = "overview", a, b] = useRoute();
@@ -25,6 +26,7 @@ export function App() {
       case "new": return <NewAgent />;
       case "fund": return <Fund key={a ?? ""} agent={a} />;
       case "alerts": return <Alerts />;
+      case "r": return a ? <Receipt key={a} id={a} /> : <Overview />;
       default: return <Overview />;
     }
   })();

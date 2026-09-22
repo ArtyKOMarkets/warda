@@ -9,13 +9,14 @@ import { AgentMark, ActivityList, AuthorityBlock, BlockedCard } from "@/componen
 import { Badge, Card, CardHeader, Copy, Empty, External, LinkButton, Skeleton, StatusBadge, Tabs } from "@/components/ui";
 import { agentName } from "./shared";
 import { ApprovalsBanner, JobsTab, useHostedAgent } from "@/components/jobs";
+import { ManageTab } from "@/components/manage";
 
-type T = "overview" | "jobs" | "payments" | "blocked" | "proof";
+type T = "overview" | "jobs" | "manage" | "payments" | "blocked" | "proof";
 
 export function AgentDetail({ id, tab }: { id: string; tab?: string }) {
   const { agents, loading } = useData();
   const a = agents.find((x) => x.key === id) ?? agents.find((x) => x.id === id);
-  const [t, setT] = useState<T>((["overview", "jobs", "payments", "blocked", "proof"].includes(tab ?? "") ? tab : "overview") as T);
+  const [t, setT] = useState<T>((["overview", "jobs", "manage", "payments", "blocked", "proof"].includes(tab ?? "") ? tab : "overview") as T);
 
   if (!a) {
     return loading ? (
@@ -66,7 +67,7 @@ export function AgentDetail({ id, tab }: { id: string; tab?: string }) {
 
       <Tabs className="mt-8" value={t} onChange={setT} items={[
         { value: "overview", label: "Overview" },
-        ...(a.source === "hosted" ? [{ value: "jobs" as T, label: "Jobs" }] : []),
+        ...(a.source === "hosted" ? [{ value: "jobs" as T, label: "Jobs" }, { value: "manage" as T, label: "Manage" }] : []),
         { value: "payments", label: "Payments", count: paid.length },
         { value: "blocked", label: "Blocked", count: blocked.length },
         { value: "proof", label: "Proof" },
@@ -98,6 +99,7 @@ export function AgentDetail({ id, tab }: { id: string; tab?: string }) {
 
         {t === "blocked" && <Blocked a={a} />}
         {t === "jobs" && a.source === "hosted" && <HostedJobs agent={a.id} />}
+        {t === "manage" && a.source === "hosted" && <HostedManage agent={a.id} />}
         {t === "proof" && <Proof a={a} />}
       </div>
     </>
@@ -200,4 +202,9 @@ function Hosted({ agent }: { agent: string; t: T; setT: (t: T) => void }) {
 function HostedJobs({ agent }: { agent: string }) {
   const h = useHostedAgent(agent);
   return <JobsTab agent={agent} h={h} />;
+}
+
+function HostedManage({ agent }: { agent: string }) {
+  const h = useHostedAgent(agent);
+  return <ManageTab agent={agent} runner={h.runner} detail={h.detail} reload={h.reload} />;
 }
