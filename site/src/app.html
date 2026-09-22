@@ -665,6 +665,20 @@
   .st[data-state="done"] .n { border-color: var(--teal-deep); background: var(--teal-deep); color: #05231F; }
   @media (max-width: 760px) { .st i { display: none; } }
 
+  .hot { font-family: var(--mono); font-size: 0.58rem; letter-spacing: 0.1em; text-transform: uppercase;
+         color: #1a0d00; background: linear-gradient(90deg, #FFB547, #FF6B3D); border-radius: 999px;
+         padding: 0.12rem 0.45rem; vertical-align: middle; font-weight: 600; }
+  h1 .hot { font-size: 0.62rem; margin-left: 0.4rem; position: relative; top: -0.2em; }
+  .side a .tag.hot, .side a[aria-current] .tag.hot { border: 0; color: #1a0d00; opacity: 1;
+    background: linear-gradient(90deg, #FFB547, #FF6B3D); }
+  .promo { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.1rem;
+           border: 1px solid rgba(255,140,60,0.45); border-radius: 12px; padding: 0.95rem 1.1rem;
+           background: linear-gradient(110deg, rgba(255,120,50,0.12), rgba(20,215,193,0.06) 60%); }
+  .promo .fire { font-size: 1.6rem; line-height: 1; }
+  .promo b { display: block; font-size: 0.95rem; }
+  .promo span { color: var(--chrome-dim); font-size: 0.8rem; }
+  .promo .go { margin-left: auto; }
+  .mrow.hot-row { border-color: rgba(255,140,60,0.45); background: linear-gradient(110deg, rgba(255,120,50,0.12), transparent 70%); }
   .wstep { display: none; }
   .wstep.on { display: block; }
   .wstep h2 { font-family: var(--display); font-size: 1.2rem; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
@@ -728,7 +742,7 @@
       <p class="grp" style="margin-top:0.9rem">Build</p>
       <a data-view="hosted">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="4.5" width="10" height="8" rx="2"/><path d="M8 4.5V2.2M5.8 8.2h.01M10.2 8.2h.01M6 10.6h4"/></svg>
-        New agent<span class="tag">beta</span></a>
+        &#128293; New agent<span class="tag hot">new</span></a>
       <a data-view="fund">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 5.5h9.5M8.5 2.5l3 3-3 3"/><path d="M14 10.5H4.5M7.5 7.5l-3 3 3 3"/></svg>
         Fund an agent</a>
@@ -820,6 +834,13 @@
           <button data-d="30" aria-pressed="false">30 days</button>
           <button data-d="0" aria-pressed="true">All time</button>
         </div>
+      </div>
+
+      <div class="promo" id="promo-hosted">
+        <span class="fire">&#128293;</span>
+        <div><b>New: agents the runner hosts for you</b>
+          <span>Create an agent, fund it from any wallet, give it a job &mdash; about two minutes, no keys or command line.</span></div>
+        <button class="go" data-view="hosted">Create an agent &rarr;</button>
       </div>
 
       <div class="card trk" hidden>
@@ -2034,115 +2055,175 @@ ops/install-cron.sh</pre>
     <!-- ============================== MORE ============================== -->
     <div class="view pad" id="v-hosted">
       <div class="head"><div>
-        <h1>New agent</h1>
-        <p>Hosted by the Warda runner: it holds the agent&rsquo;s key and runs its jobs, inside a grant every
-          Kaspa node enforces. You fund it from any wallet and keep the keys that can stop it or take the money back.</p>
+        <h1>&#128293; New agent <span class="hot">new</span></h1>
+        <p>Five steps. The runner holds the agent&rsquo;s key and runs its jobs, inside a grant every Kaspa node
+          enforces. You fund it from any wallet and keep the key that can stop it and take the money back.</p>
       </div></div>
 
-      <div class="wrap" style="display:block;max-width:760px">
-        <div class="card" id="h-c-runner">
-          <header><h2>1 &middot; Connect to the runner</h2></header>
-          <p class="why">During the beta the runner can run on your own machine (<code>runner/tools/serve.ts</code>).
-            The key below is the runner account&rsquo;s: it can create agents and run their jobs, and it can never
-            move your funds.</p>
-          <div class="grid">
-            <div class="field">
-              <label for="h-url">Runner</label>
-              <input id="h-url" value="http://localhost:8787" spellcheck="false">
-            </div>
-            <div class="field">
-              <label for="h-key">Runner key</label>
-              <input id="h-key" placeholder="wk_&hellip; &mdash; or create an account" spellcheck="false" autocomplete="off">
-            </div>
-          </div>
-          <p style="margin-top:0.9rem;display:flex;gap:0.6rem;flex-wrap:wrap">
-            <button class="go" id="h-connect">Connect</button>
-            <button class="go gh" id="h-signup">Create a runner account</button>
-          </p>
-          <p class="state" id="h-runner-s"></p>
-        </div>
+      <div class="rail-steps" id="h-rail">
+        <button class="st" data-go="1" data-state="now"><span class="n">1</span><i>Runner</i><span class="bar-l"></span></button>
+        <button class="st" data-go="2"><span class="n">2</span><i>Limits</i><span class="bar-l"></span></button>
+        <button class="st" data-go="3"><span class="n">3</span><i>Payees and your key</i><span class="bar-l"></span></button>
+        <button class="st" data-go="4"><span class="n">4</span><i>Fund it</i><span class="bar-l"></span></button>
+        <button class="st" data-go="5"><span class="n">5</span><i>Put it to work</i></button>
+      </div>
 
-        <div class="card" id="h-c-agent" style="margin-top:1rem">
-          <header><h2>2 &middot; The agent and its limits</h2></header>
-          <p class="say">These become the grant. Once it exists they cannot be raised &mdash; not by the agent, the
-            runner, or you. A new grant is the only way to change them.</p>
-          <div class="grid">
-            <div class="field"><label for="h-name">Agent name</label><input id="h-name" value="my-agent" spellcheck="false"></div>
-            <div class="field"><label for="h-budget">Total budget &mdash; KAS</label><input id="h-budget" inputmode="decimal" value="1"></div>
-            <div class="field"><label for="h-cap">Any single payment &mdash; KAS</label><input id="h-cap" inputmode="decimal" value="0.1"></div>
-            <div class="field"><label for="h-days">Ends in &mdash; days</label><input id="h-days" inputmode="numeric" value="30"></div>
-          </div>
-          <div class="field" style="margin-top:0.9rem">
-            <label for="h-payees">Who it may pay &mdash; one address per line</label>
-            <textarea id="h-payees" rows="3" spellcheck="false">kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4</textarea>
-            <p class="out">The first line is the Warda demo vendor, so the agent has something to buy. The runner adds its
-              own fee address; nothing else can ever be paid.</p>
-          </div>
-          <div class="field" style="margin-top:0.9rem">
-            <label for="h-owner">Your key &mdash; stops the grant and takes back what is left</label>
-            <input id="h-owner" placeholder="your Kaspa address (kaspatest:…) or public key" spellcheck="false">
-            <p class="out" id="h-owner-s">This key never leaves your wallet. The runner only learns its public half.</p>
-          </div>
-          <p style="margin-top:1rem"><button class="go wide" id="h-create" disabled>Create the agent</button></p>
-          <p class="state" id="h-create-s"></p>
-        </div>
-
-        <div class="card" id="h-c-fund" style="margin-top:1rem" hidden>
-          <header><h2>3 &middot; Fund it</h2></header>
-          <p class="say">Send exactly this, in one payment, from any Kaspa wallet or exchange.</p>
-          <div class="fund-box" style="display:grid;grid-template-columns:auto 1fr;gap:1rem;align-items:center">
-            <div id="h-qr" style="width:150px;height:150px;background:#fff;border-radius:8px;padding:6px"></div>
-            <div>
-              <p class="kv" style="font-size:1.4rem;color:var(--chrome)" id="h-amt">&mdash;</p>
-              <p class="kv" id="h-addr" style="margin-top:0.4rem"></p>
-              <p style="margin-top:0.7rem;display:flex;gap:0.5rem;flex-wrap:wrap">
-                <a class="go" id="h-open">Open in wallet</a>
-                <button class="go gh" id="h-copy">Copy address</button>
+      <div class="wrap">
+        <div>
+          <div class="wstep hstep on" data-hstep="1">
+            <div class="card">
+              <header><h2>Connect to the runner</h2></header>
+              <p class="say">The runner holds your agent&rsquo;s key and runs its jobs. During the beta it can run on
+                your own machine (<code>runner/tools/serve.ts</code>). The runner key below can create agents and run
+                their jobs; it can never move your funds.</p>
+              <div class="grid">
+                <div class="field"><label for="h-url">Runner</label><input id="h-url" value="http://localhost:8787" spellcheck="false"></div>
+                <div class="field"><label for="h-key">Runner key</label><input id="h-key" placeholder="wk_&hellip; &mdash; or create an account" spellcheck="false" autocomplete="off"></div>
+              </div>
+              <p style="margin-top:0.9rem;display:flex;gap:0.6rem;flex-wrap:wrap">
+                <button class="go" id="h-connect">Connect</button>
+                <button class="go gh" id="h-signup">Create a runner account</button>
               </p>
+              <p class="state" id="h-runner-s"></p>
             </div>
           </div>
-          <p class="note"><b>What happens next, and the one moment you trust us.</b> The runner turns your payment into the
-            grant in a single transaction. All of it goes into the grant, and the grant&rsquo;s stop and reclaim key is
-            yours. Between your payment arriving and that transaction confirming &mdash; usually under a minute &mdash; the
-            runner controls the deposit. After that, it cannot take a single sompi back out.</p>
-          <p class="state" id="h-fund-s">Waiting for your payment&hellip;</p>
-        </div>
 
-        <div class="card" id="h-c-job" style="margin-top:1rem" hidden>
-          <header><h2>4 &middot; Give it a job</h2></header>
-          <div class="grid">
-            <div class="field">
-              <label for="h-tpl">What it does</label>
-              <select id="h-tpl">
-                <option value="buy">Buy from an API, every day</option>
-                <option value="once">Buy from an API, once, now</option>
-                <option value="hook">Pay a payee when a webhook fires</option>
-                <option value="low">Tell me when its budget runs low</option>
-              </select>
+          <div class="wstep hstep" data-hstep="2">
+            <div class="card">
+              <header><h2>What it may spend</h2></header>
+              <p class="say">These become the grant. Once it exists they cannot be raised &mdash; not by the agent, the
+                runner, or you. A new grant is the only way to change them.</p>
+              <div class="grid">
+                <div class="field"><label for="h-name">Agent name</label><input id="h-name" value="my-agent" spellcheck="false">
+                  <p class="out">letters, digits, - and _</p></div>
+                <div class="field"><label for="h-budget">Total budget &mdash; KAS</label><input id="h-budget" inputmode="decimal" value="1">
+                  <p class="out" id="h-o-budget"></p></div>
+                <div class="field"><label for="h-cap">Any single payment &mdash; KAS</label><input id="h-cap" inputmode="decimal" value="0.1"></div>
+                <div class="field"><label for="h-days">Ends in &mdash; days</label><input id="h-days" inputmode="numeric" value="30">
+                  <p class="out">after that, what is left is yours to take back</p></div>
+              </div>
             </div>
-            <div class="field" id="h-f-url"><label for="h-jurl">API</label><input id="h-jurl" value="https://warda-demo-api.vercel.app/fact" spellcheck="false"></div>
-            <div class="field" id="h-f-max"><label for="h-jmax">At most per call &mdash; KAS</label><input id="h-jmax" inputmode="decimal" value="0.05"></div>
-            <div class="field" id="h-f-hour"><label for="h-jhour">At (UTC hour)</label><input id="h-jhour" inputmode="numeric" value="9"></div>
-            <div class="field" id="h-f-to" hidden><label for="h-jto">Pay</label><input id="h-jto" spellcheck="false"></div>
-            <div class="field" id="h-f-kas" hidden><label for="h-jkas">Amount &mdash; KAS</label><input id="h-jkas" inputmode="decimal" value="0.05"></div>
-            <div class="field" id="h-f-tg" hidden><label for="h-jtg">Telegram chat id</label><input id="h-jtg" spellcheck="false"></div>
           </div>
-          <p style="margin-top:1rem"><button class="go wide" id="h-job">Add this job</button></p>
-          <p class="state" id="h-job-s"></p>
-          <pre id="h-job-out" hidden></pre>
+
+          <div class="wstep hstep" data-hstep="3">
+            <div class="card">
+              <header><h2>Who it may pay</h2></header>
+              <p class="say">One address per line. This list is compiled into the grant and can never be added to.</p>
+              <div class="field">
+                <label for="h-payees">The allowlist</label>
+                <textarea id="h-payees" rows="3" spellcheck="false">kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4</textarea>
+                <p class="out">The first line is the Warda demo vendor, so the agent has something to buy. The runner
+                  adds its own fee address; nothing else can ever be paid.</p>
+              </div>
+            </div>
+            <div class="card" style="margin-top:0.85rem">
+              <header><h2>Your key</h2></header>
+              <p class="say">It can stop the grant at any moment and takes back whatever is left. It never leaves your
+                wallet; the runner only learns its public half.</p>
+              <div class="field">
+                <label for="h-owner">Your Kaspa address or public key</label>
+                <input id="h-owner" placeholder="kaspatest:&hellip;" spellcheck="false">
+                <p class="out" id="h-owner-s">Connect a Kaspa wallet, or paste your Kaspa address.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="wstep hstep" data-hstep="4">
+            <div class="card">
+              <header><h2>Fund it</h2></header>
+              <p class="say">Send exactly this, in one payment, from any Kaspa wallet or exchange.</p>
+              <div style="display:grid;grid-template-columns:auto 1fr;gap:1rem;align-items:center">
+                <div id="h-qr" style="width:150px;height:150px;background:#fff;border-radius:8px;padding:6px"></div>
+                <div style="min-width:0">
+                  <p class="kv" style="font-size:1.4rem;color:var(--chrome)" id="h-amt">&mdash;</p>
+                  <p class="kv" id="h-addr" style="margin-top:0.4rem"></p>
+                  <p style="margin-top:0.7rem;display:flex;gap:0.5rem;flex-wrap:wrap">
+                    <a class="go" id="h-open">Open in wallet</a>
+                    <button class="go gh" id="h-copy">Copy address</button>
+                  </p>
+                </div>
+              </div>
+              <p class="note"><b>The one moment you trust us.</b> The runner turns your payment into the grant in a
+                single transaction. All of it goes into the grant, and the grant&rsquo;s stop-and-reclaim key is yours.
+                Between your payment arriving and that transaction confirming &mdash; usually under a minute &mdash; the
+                runner controls the deposit. After that, it cannot take a single sompi back out.</p>
+              <p class="state" id="h-fund-s">Waiting for your payment&hellip;</p>
+              <p style="margin-top:0.6rem"><button class="go gh" id="h-refund">Changed your mind? Send it back</button></p>
+            </div>
+          </div>
+
+          <div class="wstep hstep" data-hstep="5">
+            <div class="card">
+              <header><h2>Give it a job</h2></header>
+              <div class="grid">
+                <div class="field">
+                  <label for="h-tpl">What it does</label>
+                  <select id="h-tpl">
+                    <option value="once">Buy from an API, once, now</option>
+                    <option value="buy">Buy from an API, every day</option>
+                    <option value="hook">Pay a payee when a webhook fires</option>
+                    <option value="low">Tell me when its budget runs low</option>
+                  </select>
+                </div>
+                <div class="field" id="h-f-url"><label for="h-jurl">API</label><input id="h-jurl" value="https://warda-demo-api.vercel.app/fact" spellcheck="false"></div>
+                <div class="field" id="h-f-max"><label for="h-jmax">At most per call &mdash; KAS</label><input id="h-jmax" inputmode="decimal" value="0.05"></div>
+                <div class="field" id="h-f-hour"><label for="h-jhour">At (UTC hour)</label><input id="h-jhour" inputmode="numeric" value="9"></div>
+                <div class="field" id="h-f-to" hidden><label for="h-jto">Pay</label><input id="h-jto" spellcheck="false"></div>
+                <div class="field" id="h-f-kas" hidden><label for="h-jkas">Amount &mdash; KAS</label><input id="h-jkas" inputmode="decimal" value="0.05"></div>
+                <div class="field" id="h-f-tg" hidden><label for="h-jtg">Telegram chat id</label><input id="h-jtg" spellcheck="false"></div>
+              </div>
+              <p style="margin-top:1rem"><button class="go wide" id="h-job">Add this job</button></p>
+              <p class="state" id="h-job-s"></p>
+              <pre id="h-job-out" hidden></pre>
+            </div>
+            <div class="card" style="margin-top:0.85rem">
+              <header><h2>Let the agent pay by itself</h2></header>
+              <p class="say">Paste this into Claude, Cursor or any MCP client. The agent can then check its authority
+                and pay inside its grant &mdash; with a key it never sees.</p>
+              <p><button class="go gh" id="h-mcp">Create the MCP connection</button></p>
+              <pre id="h-mcp-out" hidden></pre>
+            </div>
+            <div class="card" style="margin-top:0.85rem">
+              <header><h2>What it has done</h2></header>
+              <div id="h-runs">Nothing yet.</div>
+              <p style="margin-top:0.8rem"><button class="go gh" id="h-refresh">Refresh</button></p>
+            </div>
+          </div>
+
+          <div class="nav-w">
+            <button class="go gh" id="h-back">Back</button>
+            <button class="go" id="h-next">Continue</button>
+            <button class="go gh" id="h-restart" hidden>Make another agent</button>
+            <span class="sp" id="h-hint"></span>
+          </div>
         </div>
 
-        <div class="card" id="h-c-runs" style="margin-top:1rem" hidden>
-          <header><h2>What it has done</h2></header>
-          <div id="h-runs"></div>
-          <p style="margin-top:0.8rem"><button class="go gh" id="h-refresh">Refresh</button></p>
+        <div class="aside">
+          <div class="enforced">
+            <p class="k">What the network will enforce</p>
+            <dl>
+              <div><dt>Agent</dt><dd id="h-e-name">&mdash;</dd></div>
+              <div><dt>Total it may ever spend</dt><dd id="h-e-budget">&mdash;</dd></div>
+              <div><dt>Any single payment</dt><dd id="h-e-cap">&mdash;</dd></div>
+              <div><dt>Term</dt><dd id="h-e-days">&mdash;</dd></div>
+              <div><dt>Who it may pay</dt><dd id="h-e-payees">&mdash;</dd></div>
+              <div><dt>Stopped and reclaimed by</dt><dd id="h-e-owner">&mdash;</dd></div>
+            </dl>
+            <p class="foot" id="h-e-status">not created yet</p>
+          </div>
+          <div class="card">
+            <header><h2>Who holds what</h2></header>
+            <p class="why"><b>The runner</b> holds the agent&rsquo;s key (in Turnkey), which can only pay inside these
+              limits, and a one-time deposit key that can only create this grant or send your deposit back to you.
+              <b>You</b> hold the key that stops the grant and takes back what is left. Nobody can raise a limit.</p>
+          </div>
         </div>
       </div>
     </div>
 
     <div class="view pad" id="v-more">
       <div class="head"><div><h1>More</h1></div></div>
-      <div class="mlist"><a class="mrow" data-view="hosted"><b>New agent</b><span>Hosted by the runner · funded from any wallet</span></a><a class="mrow" data-view="fleet"><b>Fleet</b><span>Every agent as one system · delegation · bulk controls</span></a><a class="mrow" data-view="analytics"><b>Analytics</b><span>Burn rate · runway · cost per task</span></a><a class="mrow" data-view="fund"><b>Fund an agent</b><span>From USDC or USDT you already hold</span></a><a class="mrow" data-view="create"><b>Create a grant</b><span>Budget, cap, rate, payees — four steps</span></a><a class="mrow" data-view="refusals"><b>Refused</b><span>What the covenant would not let through</span></a><a class="mrow" data-view="registry"><b>Services</b><span>The registry: who an agent can buy from</span></a><a class="mrow" data-view="account"><b>Your account</b><span>Wallets, synced grants, alert delivery</span></a><a class="mrow" href="/proof"><b>Proof</b><span>Every claim, and what would refute it</span></a><a class="mrow" href="/grant"><b>Get a funded testnet grant</b><span>We fund your agent, free</span></a></div>
+      <div class="mlist"><a class="mrow hot-row" data-view="hosted"><b>&#128293; New agent</b><span>Hosted, funded from any wallet, working in two minutes</span></a><a class="mrow" data-view="fleet"><b>Fleet</b><span>Every agent as one system · delegation · bulk controls</span></a><a class="mrow" data-view="analytics"><b>Analytics</b><span>Burn rate · runway · cost per task</span></a><a class="mrow" data-view="fund"><b>Fund an agent</b><span>From USDC or USDT you already hold</span></a><a class="mrow" data-view="create"><b>Create a grant</b><span>Budget, cap, rate, payees — four steps</span></a><a class="mrow" data-view="refusals"><b>Refused</b><span>What the covenant would not let through</span></a><a class="mrow" data-view="registry"><b>Services</b><span>The registry: who an agent can buy from</span></a><a class="mrow" data-view="account"><b>Your account</b><span>Wallets, synced grants, alert delivery</span></a><a class="mrow" href="/proof"><b>Proof</b><span>Every claim, and what would refute it</span></a><a class="mrow" href="/grant"><b>Get a funded testnet grant</b><span>We fund your agent, free</span></a></div>
     </div>
 
     <div class="statusbar">
@@ -3242,7 +3323,7 @@ ops/install-cron.sh</pre>
   function goStep(n) {
     STEP = Math.max(1, Math.min(4, n));
     SEEN = Math.max(SEEN, STEP);
-    Array.prototype.forEach.call(document.querySelectorAll(".wstep"), function (el) {
+    Array.prototype.forEach.call(document.querySelectorAll("#v-create .wstep"), function (el) {
       el.classList.toggle("on", Number(el.getAttribute("data-step")) === STEP);
     });
     Array.prototype.forEach.call(document.querySelectorAll("#w-rail .st"), function (el) {
@@ -5729,12 +5810,13 @@ ops/install-cron.sh</pre>
   }
 
   /* ---- a hosted agent, through the runner -----------------------------------
-     The console never holds a key here either. The runner holds the agent's
-     (in Turnkey) and a single-use deposit key; the owner's key stays in the
-     owner's wallet and only its public half is sent. The runner key kept in
-     this browser can create agents and run jobs and cannot move funds, which
-     is why a convenience store is an acceptable place for it. */
-  var HR = { agent: null, poll: null };
+     A five-step wizard, the same shape as Create a grant. The console never
+     holds a key: the runner holds the agent's (in Turnkey) and a one-time
+     deposit key; the owner's stays in the owner's wallet and only its public
+     half is sent. The runner key kept in this browser can create agents and
+     run jobs and cannot move funds, which is why a convenience store is an
+     acceptable place for it. */
+  var HR = { agent: null, poll: null, step: 1, seen: 1, connected: false, funding: null };
   var HKEY = "warda.runner";
   var TN_TX = "https://explorer-tn10.kaspa.org/txs/";
   function hLoad() {
@@ -5777,19 +5859,18 @@ ops/install-cron.sh</pre>
     if ($("h-owner").value.trim()) return;
     var s = $("h-owner-s");
     if (W && W.family === "kaspa" && W.key) {
-      $("h-owner").value = W.key;
-      s.textContent = "From your connected " + WALLETS[W.kind].name + " (" + short(W.address) + "). Only the public half is sent.";
+      $("h-owner").value = W.address;
+      s.textContent = "From your connected " + WALLETS[W.kind].name + ". Only its public key is sent.";
     } else if (W && W.family === "evm") {
       s.textContent = "Your connected wallet is " + WALLETS[W.kind].name + ", an Ethereum wallet, and a grant’s stop key " +
         "must be a Kaspa key. Connect a Kaspa wallet (KasWare, Kaspire), or paste your Kaspa address here.";
     } else if (W && W.problem) {
       s.textContent = W.problem + " You can also paste your Kaspa address here.";
-    } else {
-      s.textContent = "Connect a Kaspa wallet, or paste your Kaspa address. Only its public key is sent.";
     }
+    hView();
   }
   function hOwnerKey(v) {
-    v = v.trim();
+    v = String(v || "").trim();
     if (v.indexOf(":") > 0) {
       try {
         var d = WardaRouter.decodeAddress(v);
@@ -5799,24 +5880,107 @@ ops/install-cron.sh</pre>
     v = v.toLowerCase();
     return /^(0[23])?[0-9a-f]{64}$/.test(v) ? v.slice(-64) : null;
   }
+  function hNum(id) { var v = String($(id).value).trim(); return /^\d+(\.\d{1,8})?$/.test(v) && Number(v) > 0 ? Number(v) : null; }
+  function hPayees() { return $("h-payees").value.split(/\n/).map(function (l) { return l.trim(); }).filter(Boolean); }
+  /* Why Continue is disabled, said out loud — or null when it is not. */
+  function hBlocker(n) {
+    if (n === 1) return HR.connected ? null : "Connect to a runner first.";
+    if (n === 2) {
+      if (!/^[A-Za-z0-9][A-Za-z0-9_-]{2,39}$/.test($("h-name").value.trim())) return "Name it: 3–40 letters, digits, - or _.";
+      var b = hNum("h-budget"), c = hNum("h-cap"), d = Number($("h-days").value);
+      if (b == null) return "Set a budget in KAS.";
+      if (c == null || c > b) return "A single payment must be positive and at most the budget.";
+      if (!(d >= 1 && d <= 365)) return "A grant lasts 1–365 days.";
+      return null;
+    }
+    if (n === 3) {
+      if (!hPayees().length) return "List at least one address it may pay.";
+      if (!hOwnerKey($("h-owner").value)) return $("h-owner").value.trim()
+        ? "That is not a Kaspa address or public key (a Kaspa address starts with kaspa: or kaspatest:)."
+        : "Add your Kaspa address — it is the key that can stop the grant.";
+      return null;
+    }
+    if (n === 4) return HR.funding && HR.funding.status === "funded" ? null : "Waiting for the grant to exist.";
+    return null;
+  }
+  function hView() {
+    var b = hNum("h-budget"), c = hNum("h-cap"), d = Number($("h-days").value), pay = hPayees(), own = hOwnerKey($("h-owner").value);
+    $("h-e-name").textContent = $("h-name").value.trim() || "—";
+    $("h-e-budget").textContent = b == null ? "—" : b + " KAS";
+    $("h-e-cap").textContent = c == null ? "—" : c + " KAS";
+    $("h-e-days").textContent = d > 0 ? d + " days" : "—";
+    $("h-e-payees").textContent = pay.length ? pay.length + " address" + (pay.length === 1 ? "" : "es") + " + the runner’s fee" : "—";
+    $("h-e-owner").textContent = own ? own.slice(0, 10) + "…" + own.slice(-6) + " (you)" : "—";
+    var f = HR.funding;
+    $("h-e-status").textContent = !f ? "not created yet" : f.status === "funded" ? "live on chain" :
+      f.status === "refunded" ? "refunded; nothing was created" : "created; waiting for your deposit";
+    $("h-o-budget").textContent = b == null ? "" : "you will send about " + (b + Math.max(0.1, b / 10) + 0.01).toFixed(2) +
+      " KAS: the budget, plus what its payments’ network fees come out of";
+    var why = hBlocker(HR.step);
+    $("h-next").disabled = !!why;
+    $("h-hint").textContent = why || "";
+  }
+  function hGo(n) {
+    HR.step = Math.max(1, Math.min(5, n));
+    HR.seen = Math.max(HR.seen, HR.step);
+    Array.prototype.forEach.call(document.querySelectorAll("#v-hosted .hstep"), function (el) {
+      el.classList.toggle("on", Number(el.getAttribute("data-hstep")) === HR.step);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("#h-rail .st"), function (el) {
+      var k = Number(el.getAttribute("data-go"));
+      el.setAttribute("data-state", k === HR.step ? "now" : k < HR.step ? "done" : "next");
+      /* Once an agent exists, its limits are fixed: steps 2 and 3 are
+         read-only history, and the rail no longer leads back into them. */
+      el.disabled = k > HR.seen || (!!HR.funding && k >= 2 && k <= 3);
+      el.querySelector(".n").innerHTML = k < HR.step
+        ? '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3.6 8.4l3 3 5.8-6.4"/></svg>'
+        : String(k);
+    });
+    $("h-back").style.visibility = HR.step === 1 || (HR.funding && HR.step >= 4) ? "hidden" : "visible";
+    $("h-next").hidden = HR.step === 5;
+    $("h-restart").hidden = HR.step !== 5;
+    $("h-next").textContent = HR.step === 3 ? "Create the agent" : "Continue";
+    ["h-budget", "h-cap", "h-days", "h-name", "h-payees", "h-owner"].forEach(function (id) { $(id).disabled = !!HR.funding; });
+    if (HR.step === 3) hOwner();
+    if (HR.step === 5) hRuns();
+    hView();
+    window.scrollTo(0, 0);
+  }
   function hConnect() {
     hState("h-runner-s", "Connecting…");
     return hApi("GET", "/v1/agents").then(function (r) {
       hSave();
+      HR.connected = true;
       hState("h-runner-s", "Connected · " + r.agents.length + " agent" + (r.agents.length === 1 ? "" : "s") + " on this account.");
-      $("h-create").disabled = false;
-      if (HR.agent && r.agents.indexOf(HR.agent) >= 0) hResume();
-    }).catch(function (e) { hState("h-runner-s", e.message, true); $("h-create").disabled = true; });
+      if (HR.agent && r.agents.indexOf(HR.agent) >= 0) return hResume();
+      hView();
+    }).catch(function (e) { HR.connected = false; hState("h-runner-s", e.message, true); hView(); });
   }
   function hResume() {
     return hApi("GET", "/v1/agents/" + encodeURIComponent(HR.agent)).then(function (a) {
       $("h-name").value = a.agent;
-      if (a.funding) hFund(a.funding);
-      if (!a.funding || a.funding.status === "funded") hLive(a.funding);
-    }).catch(function () {});
+      if (!a.funding) { hGo(1); return; }
+      hFund(a.funding);
+      HR.seen = 5;
+      hGo(a.funding.status === "funded" ? 5 : 4);
+    }).catch(function () { hView(); });
+  }
+  function hCreate() {
+    var owner = hOwnerKey($("h-owner").value);
+    hState("h-hint", "Creating the agent and its keys…");
+    $("h-next").disabled = true;
+    return hApi("POST", "/v1/agents", { id: $("h-name").value.trim(), funding: {
+      principal: owner, payees: hPayees(),
+      limits: { budgetKas: $("h-budget").value.trim(), maxPerPaymentKas: $("h-cap").value.trim(), days: Number($("h-days").value) || 30 },
+    } }).then(function (r) {
+      HR.agent = r.agent;
+      hSave();
+      hFund(r.deposit);
+      hGo(4);
+    }).catch(function (e) { hView(); $("h-hint").textContent = e.message; $("h-hint").style.color = "var(--refuse)"; });
   }
   function hFund(f) {
-    $("h-c-fund").hidden = false;
+    HR.funding = f;
     $("h-amt").textContent = f.amountKas + " KAS";
     $("h-addr").textContent = f.address;
     $("h-open").href = f.uri;
@@ -5824,6 +5988,7 @@ ops/install-cron.sh</pre>
       try { navigator.clipboard.writeText(f.address); hState("h-fund-s", "Address copied. Waiting for your payment…"); } catch (e) {}
     };
     wcLib().then(function (L) { return L.qrSvg(f.uri); }).then(function (svg) { $("h-qr").innerHTML = svg; }).catch(function () { $("h-qr").hidden = true; });
+    if (f.status === "funded") return hLive(f);
     hWatch();
   }
   function hWatch() {
@@ -5832,6 +5997,7 @@ ops/install-cron.sh</pre>
       hApi("GET", "/v1/agents/" + encodeURIComponent(HR.agent)).then(function (a) {
         var f = a.funding;
         if (!f) return;
+        HR.funding = f;
         if (f.status === "awaiting-deposit") {
           hState("h-fund-s", (f.seenKas && f.seenKas !== "0" ? "Seen " + f.seenKas + " KAS so far. " : "") +
             (f.note || "Waiting for your payment…"), !!f.note);
@@ -5841,8 +6007,10 @@ ops/install-cron.sh</pre>
           clearInterval(HR.poll); HR.poll = null;
           hLive(f);
         } else {
-          hState("h-fund-s", f.note || f.status, true);
+          clearInterval(HR.poll); HR.poll = null;
+          hState("h-fund-s", f.status === "refunded" ? "Sent back to your key. Nothing was created." : (f.note || f.status), f.status !== "refunded");
         }
+        hView();
       }).catch(function (e) { hState("h-fund-s", e.message, true); });
     };
     tick();
@@ -5853,9 +6021,8 @@ ops/install-cron.sh</pre>
     el.textContent = "Live. The grant exists, and its limits are now enforced by every Kaspa node. ";
     el.style.color = "var(--teal-bright)";
     if (f && f.genesisTxid) hTx(el, "The transaction that created it", f.genesisTxid);
-    $("h-c-job").hidden = false;
-    $("h-c-runs").hidden = false;
-    hRuns();
+    $("h-refund").textContent = "Send back anything left at the deposit address";
+    hView();
   }
   function hTpl() {
     var t = $("h-tpl").value;
@@ -5898,7 +6065,7 @@ ops/install-cron.sh</pre>
     }).catch(function (e) { hState("h-job-s", e.message, true); });
   }
   function hRuns() {
-    if (!HR.agent) return;
+    if (!HR.agent || !HR.connected) return;
     hApi("GET", "/v1/agents/" + encodeURIComponent(HR.agent) + "/runs?limit=10").then(function (r) {
       var box = $("h-runs");
       box.textContent = "";
@@ -5924,38 +6091,54 @@ ops/install-cron.sh</pre>
     hApi("POST", "/v1/accounts", {}).then(function (r) {
       $("h-key").value = r.apiKey;
       hSave();
-      hState("h-runner-s", "Account created. This browser remembers the key; copy it somewhere too — it is shown once.");
-      return hConnect();
+      return hConnect().then(function () {
+        hState("h-runner-s", "Account created and connected. This browser remembers the key; copy it somewhere too — it is shown once.");
+      });
     }).catch(function (e) { hState("h-runner-s", e.message, true); });
   });
-  $("h-create").addEventListener("click", function () {
-    hOwner();
-    var name = $("h-name").value.trim(), owner = hOwnerKey($("h-owner").value);
-    var payees = $("h-payees").value.split(/\n/).map(function (l) { return l.trim(); }).filter(Boolean);
-    if (!owner) {
-      hState("h-create-s", $("h-owner").value.trim()
-        ? "That is not a Kaspa address or public key. A Kaspa address starts with kaspa: or kaspatest:."
-        : "Add your key: paste your Kaspa address, or connect a Kaspa wallet. " + $("h-owner-s").textContent, true);
-      return;
-    }
-    hState("h-create-s", "Creating the agent and its keys…");
-    $("h-create").disabled = true;
-    hApi("POST", "/v1/agents", { id: name, funding: {
-      principal: owner, payees: payees,
-      limits: { budgetKas: $("h-budget").value.trim(), maxPerPaymentKas: $("h-cap").value.trim(), days: Number($("h-days").value) || 30 },
-    } }).then(function (r) {
-      HR.agent = r.agent;
-      hSave();
-      hState("h-create-s", "Created " + r.agent + ". Its key is held by the runner’s vault; the grant will name it." +
-        (r.grant.warning ? " Note: " + r.grant.warning : ""));
-      hFund(r.deposit);
-    }).catch(function (e) { hState("h-create-s", e.message, true); $("h-create").disabled = false; });
+  $("h-back").addEventListener("click", function () { hGo(HR.step - 1); });
+  $("h-next").addEventListener("click", function () {
+    if (hBlocker(HR.step)) return;
+    if (HR.step === 3 && !HR.funding) { hCreate(); return; }
+    hGo(HR.step + 1);
+  });
+  $("h-restart").addEventListener("click", function () {
+    if (HR.poll) clearInterval(HR.poll);
+    HR.agent = null; HR.funding = null; HR.seen = 1;
+    hSave();
+    $("h-name").value = "my-agent-" + Math.floor(Math.random() * 900 + 100);
+    $("h-runs").textContent = "Nothing yet.";
+    $("h-mcp-out").hidden = true;
+    $("h-job-s").textContent = "";
+    $("h-fund-s").textContent = "Waiting for your payment…"; $("h-fund-s").style.color = "";
+    $("h-refund").textContent = "Changed your mind? Send it back";
+    hGo(2);
+  });
+  Array.prototype.forEach.call(document.querySelectorAll("#h-rail .st"),
+    function (el) { el.addEventListener("click", function () { hGo(Number(el.getAttribute("data-go"))); }); });
+  Array.prototype.forEach.call(document.querySelectorAll("#v-hosted input, #v-hosted textarea"),
+    function (el) { el.addEventListener("input", hView); });
+  $("h-refund").addEventListener("click", function () {
+    hState("h-fund-s", "Sending it back…");
+    hApi("POST", "/v1/agents/" + encodeURIComponent(HR.agent) + "/refund", {}).then(function (r) {
+      var el = $("h-fund-s");
+      el.textContent = "Sent back to your key: ";
+      el.style.color = "";
+      r.refunded.forEach(function (x) { el.appendChild(document.createTextNode(x.kas + " KAS ")); hTx(el, null, x.txid); });
+    }).catch(function (e) { hState("h-fund-s", e.message, true); });
+  });
+  $("h-mcp").addEventListener("click", function () {
+    hApi("POST", "/v1/agents/" + encodeURIComponent(HR.agent) + "/token", {}).then(function (r) {
+      $("h-mcp-out").textContent = JSON.stringify(r.mcp.config, null, 2) + "\n\n" + r.note;
+      $("h-mcp-out").hidden = false;
+    }).catch(function (e) { $("h-mcp-out").textContent = e.message; $("h-mcp-out").hidden = false; });
   });
   $("h-tpl").addEventListener("change", hTpl);
   $("h-job").addEventListener("click", hJob);
   $("h-refresh").addEventListener("click", hRuns);
   hLoad();
   hTpl();
+  hGo(1);
 
   /* ---- the drawer, on a phone ---------------------------------------------- */
   function drawer(open) {
@@ -6556,7 +6739,7 @@ ops/install-cron.sh</pre>
     document.body.setAttribute("data-screen", v);
     if (v === "fleet") fleetView();
     if (v === "registry") svcView();
-    if (v === "hosted") { hOwner(); if ($("h-key").value && $("h-create").disabled) hConnect(); }
+    if (v === "hosted") { if ($("h-key").value && !HR.connected) hConnect(); hView(); }
     Array.prototype.forEach.call(document.querySelectorAll(".side a[data-view], .tabs a[data-view]"), function (o) {
       if (o.getAttribute("data-view") === v) o.setAttribute("aria-current", "page");
       else o.removeAttribute("aria-current");
