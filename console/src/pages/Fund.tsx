@@ -6,7 +6,7 @@ import { kas } from "@/lib/format";
 import { href, go } from "@/lib/router";
 import { cn } from "@/lib/cn";
 import { AgentMark } from "@/components/agent";
-import { Button, Card, CardHeader, Copy, Empty, LinkButton, PageHeader, Row, Skeleton, Tabs } from "@/components/ui";
+import { Badge, Button, Card, CardHeader, Copy, Empty, LinkButton, PageHeader, Row, Skeleton, Tabs } from "@/components/ui";
 import { CMDS } from "@/lib/commands";
 import { Stablecoin } from "./Stablecoin";
 import { Field, KasInput, inputCls, kasOk } from "@/components/form";
@@ -79,6 +79,7 @@ function TopUp({ agent, current, onDone }: { agent: string; current: { budget: n
   const [budget, setBudget] = useState(current.budget ? String(current.budget) : "1");
   const [cap, setCap] = useState(current.cap ? String(current.cap) : "0.1");
   const [days, setDays] = useState("30");
+  const [round, setRound] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [pending, setPending] = useState<Funding | null>(null);
@@ -90,6 +91,10 @@ function TopUp({ agent, current, onDone }: { agent: string; current: { budget: n
       .then((r) => {
         if (r.funding && (r.funding.round ?? 1) > 1 && !["funded", "refunded"].includes(r.funding.status)) setPending(r.funding);
         if (r.previousGrant) setPrev(r.previousGrant);
+        // The runner's own plan is what this agent is on; its limits are the ones to offer again.
+        const lim = (r.funding as any)?.limits;
+        if (lim) { setBudget(String(lim.budgetKas ?? budget)); setCap(String(lim.maxPerPaymentKas ?? cap)); setDays(String(lim.days ?? 30)); }
+        if (r.funding?.round) setRound(r.funding.round);
       })
       .catch(() => {}).finally(() => setChecked(true));
   }, [agent, runner]);
@@ -112,7 +117,8 @@ function TopUp({ agent, current, onDone }: { agent: string; current: { budget: n
   return (
     <>
     <Card>
-      <CardHeader title={`Top up ${agent}`} sub={`Now ${kas(current.remaining)} KAS left${current.expiresIn ? ` · ends in ${current.expiresIn}` : ""}`} />
+      <CardHeader title={<span className="flex items-center gap-2">Top up {agent}{round && round > 1 ? <Badge>grant {round}</Badge> : null}</span>}
+        sub={`Now ${kas(current.remaining)} KAS left${current.expiresIn ? ` · ends in ${current.expiresIn}` : ""}`} />
       <div className="grid gap-5 p-5 sm:grid-cols-3">
         <Field label="New budget" hint="For the new grant."><KasInput value={budget} onChange={(e) => setBudget(e.target.value)} /></Field>
         <Field label="Max per payment"><KasInput value={cap} onChange={(e) => setCap(e.target.value)} /></Field>

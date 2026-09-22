@@ -66,7 +66,10 @@ export function AgentCard({ a }: { a: AgentView }) {
 
         <div className="mt-4 flex items-center justify-between text-[12px] text-fg-3">
           <span className="flex items-center gap-1.5">
-            {blocked > 0 ? <><Ban className="size-3.5 text-bad/80" /> {blocked} blocked</> : <><ShieldCheck className="size-3.5 text-accent/80" /> Enforced on-chain</>}
+            {a.hosted ? <>{a.hosted.jobsOn} of {a.hosted.jobs} job{a.hosted.jobs === 1 ? "" : "s"} on
+              {a.hosted.lastRunStatus && <span className={cn("ml-1", a.hosted.lastRunStatus === "waiting" ? "text-warn" : a.hosted.lastRunStatus === "ok" ? "text-ok" : "text-fg-3")}>
+                · {a.hosted.lastRunStatus === "waiting" ? "waiting for your OK" : `last run ${a.hosted.lastRunStatus}`}{a.hosted.lastRunAt ? ` ${ago(a.hosted.lastRunAt)}` : ""}</span>}</>
+              : blocked > 0 ? <><Ban className="size-3.5 text-bad/80" /> {blocked} blocked</> : <><ShieldCheck className="size-3.5 text-accent/80" /> Enforced on-chain</>}
           </span>
           <span className="flex items-center gap-1 transition group-hover:text-fg-2">Open <ArrowUpRight className="size-3.5" /></span>
         </div>
@@ -163,10 +166,13 @@ export function ActivityList({ rows, showAgent, empty }: { rows: { p: Payment; a
                 <span className="font-medium">{p.outcome === "blocked" ? ruleWords(p.rule) : o.words}</span>
                 {showAgent && <a href={href("agents", a.key)} className="truncate text-fg-3 hover:text-fg-2">{a.source === "hosted" ? a.label : `Agent ${a.label}`}</a>}
               </div>
-              <div className="mt-0.5 truncate text-[12px] text-fg-3">{p.host ?? (p.payTo ? short(p.payTo, 14, 6) : "—")} · {dateTime(p.at)}</div>
+              <div className="mt-0.5 truncate text-[12px] text-fg-3">
+                {p.host ? <>{p.host}<span className="text-fg-3/70">{p.path}</span></> : p.payTo ? short(p.payTo, 14, 6) : "—"} · {dateTime(p.at)}{p.task ? ` · ${p.task}` : ""}
+              </div>
             </div>
             <div className="text-right">
-              {p.amount !== null && <div className={cn("num text-[13.5px]", p.outcome === "blocked" ? "text-fg-3 line-through" : "text-fg")}>−{kas(p.amount)} <span className="text-[11px] text-fg-3">KAS</span></div>}
+              {p.amount !== null ? <div className={cn("num text-[13.5px]", p.outcome === "blocked" ? "text-fg-3 line-through" : "text-fg")}>−{kas(p.amount)} <span className="text-[11px] text-fg-3">KAS</span></div>
+                : p.quoted !== null ? <div className="num text-[13.5px] text-fg-3">quoted {kas(p.quoted)} <span className="text-[11px]">KAS</span></div> : null}
               {p.txid ? (
                 <a href={explorerTx(p.txid, a.network)} target="_blank" rel="noopener" className="num text-[11.5px] text-fg-3 hover:text-accent">{p.txid.slice(0, 8)}…</a>
               ) : <div className="text-[11.5px] text-fg-3">{p.outcome === "blocked" ? "never broadcast" : ""}</div>}

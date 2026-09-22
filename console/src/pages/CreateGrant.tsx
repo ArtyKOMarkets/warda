@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useMarket } from "@/lib/account";
 import { ArrowLeft, ArrowRight, Check, Copy as CopyIco, Download, Plus, ShieldCheck, Store, Trash2, Terminal } from "lucide-react";
 import { useData } from "@/lib/data";
 import { useWallet, VERIFY } from "@/lib/connect";
@@ -17,16 +18,19 @@ const SOMPI = 100_000_000;
 const toS = (v: string) => (kasOk(v) ? Math.round(Number(v) * SOMPI) : null);
 const kasStr = (n: number) => { const w = Math.floor(n / SOMPI), f = String(n % SOMPI).padStart(8, "0").replace(/0+$/, ""); return w + (f ? "." + f : ""); };
 
-export function CreateGrant() {
+export function CreateGrant({ payee, budget0, cap0 }: { payee?: string; budget0?: string; cap0?: string }) {
   const { services } = useData();
   const { wallet } = useWallet();
   const [step, setStep] = useState(0);
-  const [budget, setBudget] = useState("10");
-  const [cap, setCap] = useState("1");
-  const [epoch, setEpoch] = useState("2");
+  const [budget, setBudget] = useState(budget0 && kasOk(budget0) ? budget0 : "10");
+  const [cap, setCap] = useState(cap0 && kasOk(cap0) ? cap0 : "1");
+  const [epoch, setEpoch] = useState(cap0 && kasOk(cap0) ? String(+(Number(cap0) * 5).toFixed(8)) : "2");
   const [days, setDays] = useState("30");
-  const [picked, setPicked] = useState<string[]>([]);
+  const [picked, setPicked] = useState<string[]>(payee && payee.includes(":") ? [payee] : []);
   const [custom, setCustom] = useState<string[]>([]);
+  const mk = useMarket();
+  const rate = mk && "rate" in mk ? mk.rate : null;
+  const usd = (v: string) => (rate && kasOk(v) ? `≈ $${(Number(v) * rate).toLocaleString("en-US", { maximumFractionDigits: 2 })}` : null);
   const [add, setAdd] = useState("");
   const [relay, setRelay] = useState(false);
   const [revoke, setRevoke] = useState("");
@@ -107,9 +111,9 @@ export function CreateGrant() {
         <Card className="p-6">
           {step === 0 && (
             <div className="grid gap-5 sm:grid-cols-2">
-              <Field label="Total budget" hint="The most it can ever spend from this grant."><KasInput value={budget} onChange={(x) => setBudget(x.target.value)} /></Field>
-              <Field label="Max per payment" hint="Any single payment above this is refused."><KasInput value={cap} onChange={(x) => setCap(x.target.value)} /></Field>
-              <Field label="Limit per period" hint="How much it may spend per ~100 s of network time (1,000 DAA)."><KasInput value={epoch} onChange={(x) => setEpoch(x.target.value)} /></Field>
+              <Field label="Total budget" hint={usd(budget) ? `${usd(budget)} at the market price — the grant is in KAS, and nothing is enforced against a price.` : "The most it can ever spend from this grant."}><KasInput value={budget} onChange={(x) => setBudget(x.target.value)} /></Field>
+              <Field label="Max per payment" hint={usd(cap) ? `${usd(cap)} · any single payment above this is refused.` : "Any single payment above this is refused."}><KasInput value={cap} onChange={(x) => setCap(x.target.value)} /></Field>
+              <Field label="Limit per period" hint={`${usd(epoch) ? usd(epoch) + " · " : ""}per ~100 s of network time (1,000 DAA).`}><KasInput value={epoch} onChange={(x) => setEpoch(x.target.value)} /></Field>
               <Field label="Lasts" hint={d > 0 ? `${Math.round(d * 864000).toLocaleString("en-US")} blocks, at ten a second — then what's left is the principal's to reclaim` : undefined}>
                 <span className="relative block"><input inputMode="numeric" className={cn(inputCls, "num pr-14")} value={days} onChange={(x) => setDays(x.target.value.replace(/[^\d.]/g, ""))} /><span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[12px] text-fg-3">days</span></span>
               </Field>

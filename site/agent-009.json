@@ -1,0 +1,135 @@
+{
+  "_comment": "Written by agents/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, the purchase log or the chain — none is typed. Each payee's LABEL is re-derived on every run from the artefact agents/known-payees.json names, and a label that stops matching is dropped rather than published: an address with no name is honest, an address with the wrong name is not.",
+  "checkedAt": "2026-09-21T12:16:28.634Z",
+  "network": "testnet-10",
+  "identity": {
+    "agentId": "WARDA-009",
+    "agent": "1676cc96c50c6088497a449fd708a2686f89274f45244b48221d2575396b3f3f",
+    "principal": "0393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34f",
+    "revocation": "0393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34f",
+    "grantAddress": "kaspatest:ppgvzk72p6jct70lrcg9d5kpvn5y4y2uwgp7wc3zqr4vl3kaqmqpj9ddzv9jy",
+    "covenantId": "80d0c3a1141440260ec8c245ffaf2b2d99e1b551e1052cf63f13babebe36f2ff",
+    "template": "b3e5eeefacf2021f"
+  },
+  "buysFrom": {
+    "endpoint": "https://warda-growth.vercel.app/verify",
+    "payees": [
+      {
+        "address": "kaspatest:qqj58pd2qw47lg2wn97srt27dwxp8jj2hfasxrt8tjjeytpelzh5sa2mpucwy",
+        "key": "254385aa03abefa14e997d01ad5e6b8c13ca4aba7b030d675ca5922c39f8af48",
+        "label": "Warda Growth · Researcher",
+        "derivation": "the pay-to-public-key address of growth/keys/researcher.key, which is the address https://warda-growth.vercel.app quotes for /verify and the one payee in every growth batch grant's allowlist",
+        "ours": true
+      }
+    ],
+    "address": "kaspatest:qqj58pd2qw47lg2wn97srt27dwxp8jj2hfasxrt8tjjeytpelzh5sa2mpucwy",
+    "bothEndsAreOurs": true,
+    "disclosure": {
+      "title": "Both ends of this are ours",
+      "paragraphs": [
+        "Every agent on this site was built here, and the vendor this one buys from is ours too. This is therefore NOT a market, and saying otherwise would be the easiest claim on this site to catch out.",
+        "What it is: a payment between independent grants, with different keys, each able to pay a fixed list of addresses, settled on a public chain where anyone can look it up. The demonstration is that the rails work — not that a third party chose to trade with us.",
+        "Agent #001's digest is published free at wardaprotocol.com/agent-001.json, because pretending it was scarce would have traded the checkable claim for a flattering one."
+      ]
+    }
+  },
+  "retired": {
+    "endedBy": "997d88d8045de27dc49af3ac9308669471ae0801d34524b12cc536ce008d24ea",
+    "how": "revoked",
+    "grantAddress": "kaspatest:ppgvzk72p6jct70lrcg9d5kpvn5y4y2uwgp7wc3zqr4vl3kaqmqpj9ddzv9jy",
+    "holdsNothing": true,
+    "itSpent": "0.15 KAS",
+    "ofBudget": "0.9 KAS",
+    "note": "This agent's authority is over. Its grant was ended by a transaction the revocation key signed, and the address above holds nothing — which anyone can check. What it did while it ran is below and does not change."
+  },
+  "timelock": {
+    "notBefore": "576599990",
+    "virtualDaaScore": "576603392",
+    "open": true,
+    "lockedFor": "0 seconds",
+    "openedAgo": "6 minutes",
+    "expiresAt": "579191990",
+    "expired": false,
+    "expiresInDaa": "2588598",
+    "expiresIn": "3 days",
+    "expiredAgo": null,
+    "enforcedBy": "the covenant, on every spend: claimedDaa >= notBefore. Not a scheduler, not this process, and not revocable by whoever issued the grant.",
+    "termEnforcedBy": "the covenant, on every spend: claimedDaa < expiresAt. After it, the grant refuses everything whatever its budget says, and the balance is the principal's to reclaim."
+  },
+  "authority": {
+    "budget": "0.9 KAS",
+    "spent": "0.15 KAS",
+    "remaining": "0.75 KAS",
+    "maxPerPayment": "0.05 KAS",
+    "epochLimit": "0.9 KAS",
+    "epochLengthDaa": 1000,
+    "authorizedPayees": 1,
+    "payees": [
+      "kaspatest:qqj58pd2qw47lg2wn97srt27dwxp8jj2hfasxrt8tjjeytpelzh5sa2mpucwy"
+    ],
+    "delegationDepth": 2,
+    "onChain": null,
+    "sompi": {
+      "budget": "90000000",
+      "spent": "15000000",
+      "reserved": "0",
+      "maxPerPayment": "5000000",
+      "epochLimit": "90000000",
+      "onChain": null
+    }
+  },
+  "activity": {
+    "payments": 0,
+    "paid": "0 KAS",
+    "paidOutsideTheAllowlist": "0 KAS",
+    "coins": []
+  },
+  "purchases": [],
+  "reconciliation": {
+    "spentPerTheCovenant": "0.15 KAS",
+    "namedByTheLog": "0 KAS",
+    "stillVisibleAtThePayee": "0 KAS",
+    "chargedHomeBySettlement": "0.15 KAS",
+    "unrecorded": "0 KAS",
+    "overclaimedByTheLog": null,
+    "couldAccountForIt": [],
+    "note": "Every sompi the covenant says this grant spent is accounted for: 0 KAS by purchases it recorded, and 0.15 KAS charged home when a sub-agent it had funded settled back. That second figure is spending this grant paid for and did not do — the receipts are the child's."
+  },
+  "refusals": [
+    {
+      "rule": "start time (not_before)",
+      "attempted": "spend before the grant opens",
+      "refusal": "this grant could not spend anything until DAA 576599990. The covenant checks the claimed DAA score against that number on every spend, so the delay was not a policy in the agent's process and could not be brought forward by whoever issued it. It opened 6 minutes ago.",
+      "derived": true
+    },
+    {
+      "rule": "payee allowlist",
+      "attempted": "pay any address other than agent #001",
+      "refusal": "kaspatest:qrxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvc3rysjr0d is not on this grant's allowlist, so no inclusion proof places it in the recipients tree. There is no valid transaction that pays them — not one the network would reject, none at all. A grant's payees are fixed at genesis: to pay this vendor you need a grant that committed to them.",
+      "derived": true
+    },
+    {
+      "rule": "per-payment cap",
+      "attempted": "pay 0.05000001 KAS to agent #001",
+      "refusal": "this invoice is 5000001 sompi and the grant's per-payment cap is 5000000. The cap exists to bound what a single decision can do, so it binds here regardless of how much budget remains.",
+      "derived": true
+    },
+    {
+      "rule": "lifetime budget",
+      "attempted": "pay 0.9 KAS to agent #001",
+      "refusal": "this invoice is 90000000 sompi and the grant's per-payment cap is 5000000. The cap exists to bound what a single decision can do, so it binds here regardless of how much budget remains.",
+      "derived": true
+    }
+  ],
+  "mission": "Run the growth fleet for 2026-W39: hire Scout with a piece of this budget that may pay Researcher and nobody else, take back what it did not spend, and end.",
+  "weekly": {
+    "label": "2026-W39",
+    "schedule": "every Monday, 10:13",
+    "role": "orchestrator",
+    "delegatedTo": {
+      "id": "010",
+      "payments": 3,
+      "spent": "0.15 KAS"
+    }
+  }
+}

@@ -13,18 +13,18 @@ import { agentName } from "./shared";
 interface Wf { id: string; name: string; enabled: boolean; trigger: { type: string; when?: string; percent?: number; hours?: number } }
 type Kind = "low" | "end";
 
-const RULES: Record<Kind, { label: string; hint: string; wf: (agent: string) => object; match: (w: Wf) => boolean }> = {
+const RULES: Record<Kind, { label: string; hint: string; wf: (agent: string, to: string) => object; match: (w: Wf) => boolean }> = {
   low: {
     label: "Running low", hint: "Under 20% of its budget left",
     match: (w) => w.trigger.type === "grant" && w.trigger.when === "budget-below",
-    wf: (agent) => ({ agent, name: "Budget low", trigger: { type: "grant", when: "budget-below", percent: 20 },
-      then: [{ type: "notify", channel: "telegram", to: "", text: "{{agent}} has {{grant.availableKas}} KAS left." }] }),
+    wf: (agent, to) => ({ agent, name: "Budget low", trigger: { type: "grant", when: "budget-below", percent: 20 },
+      then: [{ type: "notify", channel: "telegram", to, text: "{{agent}} has {{grant.availableKas}} KAS left." }] }),
   },
   end: {
     label: "Nearly over", hint: "Its grant ends within 24 hours",
     match: (w) => w.trigger.type === "grant" && w.trigger.when === "expiring-within",
-    wf: (agent) => ({ agent, name: "Grant ending", trigger: { type: "grant", when: "expiring-within", hours: 24 },
-      then: [{ type: "notify", channel: "telegram", to: "", text: "{{agent}}'s grant ends in {{grant.hoursToExpiry}} hours, with {{grant.availableKas}} KAS left. After that it can pay no one, and what is left is yours to take back." }] }),
+    wf: (agent, to) => ({ agent, name: "Grant ending", trigger: { type: "grant", when: "expiring-within", hours: 24 },
+      then: [{ type: "notify", channel: "telegram", to, text: "{{agent}}'s grant ends in {{grant.hoursToExpiry}} hours, with {{grant.availableKas}} KAS left. After that it can pay no one, and what is left is yours to take back." }] }),
   },
 };
 
@@ -45,6 +45,7 @@ function HostedAlerts() {
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [linking, setLinking] = useState(false);
+  const [chat, setChat] = useState("");
 
   const loadTg = useCallback(() => api<{ available: boolean; connected: boolean }>(runner, "GET", "/v1/telegram").then((r) => { setTg(r); return r.connected; }).catch(() => false), [runner]);
   const ids = hosted.map((a) => a.id).join(",");
@@ -70,7 +71,7 @@ function HostedAlerts() {
     const found = (wfs[agent] ?? []).find(RULES[kind].match);
     setBusy(agent + kind); setErr(null);
     try {
-      if (!found) await api(runner, "POST", "/v1/workflows", RULES[kind].wf(agent));
+      if (!found) await api(runner, "POST", "/v1/workflows", RULES[kind].wf(agent, chat.trim()));
       else await api(runner, "PATCH", `/v1/workflows/${found.id}`, { enabled: !found.enabled });
       const a = await api<{ workflows?: Wf[] }>(runner, "GET", `/v1/agents/${encodeURIComponent(agent)}`);
       setWfs((m) => ({ ...m, [agent]: a.workflows ?? [] }));
@@ -116,7 +117,14 @@ function HostedAlerts() {
               </ul>
             )}
           </div>
-          <p className="border-t border-line px-5 py-3 text-[12px] text-fg-3">Jobs that ask you first always message you on Telegram, whatever is set here.</p>
+          <div className="border-t border-line px-5 py-3">
+            <p className="text-[12px] text-fg-3">Jobs that ask you first always message you on Telegram, whatever is set here.</p>
+            <label className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-fg-3">
+              Send new alerts to another Telegram chat instead
+              <input value={chat} onChange={(e) => setChat(e.target.value.replace(/[^\d-]/g, ""))} placeholder="chat id — blank: yours"
+                className="num h-7 w-40 rounded-md border border-line-strong bg-bg px-2 text-[12px] text-fg placeholder:text-fg-3 focus:border-accent/60 focus:outline-none" />
+            </label>
+          </div>
         </Card>
 
         <div className="space-y-4">

@@ -3,7 +3,9 @@ import { Globe } from "lucide-react";
 import { useData } from "@/lib/data";
 import { fromReading, type AgentView } from "@/lib/model";
 import { AgentMark, ActivityList, AuthorityBlock, BlockedCard } from "@/components/agent";
-import { Badge, Card, CardHeader, Empty, Skeleton, StatusBadge } from "@/components/ui";
+import { Badge, Card, CardHeader, Empty, External, Row, Skeleton, StatusBadge } from "@/components/ui";
+import { explorerAddress } from "@/lib/kaspa";
+import { short } from "@/lib/format";
 
 /** #/r/<agent>: a hosted agent its owner chose to share. Read-only, no sign-in. */
 export function Receipt({ id }: { id: string }) {
@@ -31,7 +33,20 @@ export function Receipt({ id }: { id: string }) {
         </div>
       </div>
       <AuthorityBlock a={a} />
-      <div className="mt-6 grid items-start gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+      <Card className="mt-6 p-5">
+        <div className="text-[15px] font-semibold">Check it yourself</div>
+        <p className="mt-1.5 text-[13px] leading-relaxed text-fg-2">Every figure here is read from the Kaspa network, not from this page.</p>
+        <dl className="mt-3 divide-y divide-line">
+          <Row label="Grant address"><span className="num text-[12px]">{a.grantAddress ? short(a.grantAddress, 16, 8) : "—"}</span></Row>
+          <Row label="Agent key"><span className="num text-[12px]">{a.agentKey ? short(a.agentKey, 12, 6) : "—"}</span></Row>
+        </dl>
+        <div className="mt-3 flex flex-wrap gap-4 text-[13px]">
+          {a.grantAddress && <External href={explorerAddress(a.grantAddress, a.network)}>On the explorer</External>}
+          <External href={`${runner.url.replace(/\/+$/, "")}/v1/public/agents/${encodeURIComponent(id)}/reading`}>The raw reading</External>
+        </div>
+      </Card>
+
+      <div className="mt-4 grid items-start gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <Card><CardHeader title="Payments" /><div className="mt-3"><ActivityList rows={a.payments.filter((p) => p.outcome !== "blocked").map((p) => ({ p, a }))} empty={<Empty title="No payments yet" className="py-10" />} /></div></Card>
         <Card><CardHeader title="Blocked" sub="Attempts outside the grant" /><div className="space-y-3 p-5">{blocked.length ? blocked.map((p, i) => <BlockedCard key={i} p={p} a={a} />) : <p className="text-[13px] text-fg-3">Nothing refused so far.</p>}</div></Card>
       </div>

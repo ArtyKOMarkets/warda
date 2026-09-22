@@ -102,7 +102,10 @@ function Tile({ label, value, sub }: { label: string; value: React.ReactNode; su
 }
 
 export function WalletCard() {
-  const { wallet: w, forget, switchKaspa, switchChain, hasKasware } = useWallet();
+  const { wallet: w, forget, switchKaspa, switchChain, hasKasware, evm, connect } = useWallet();
+  // KasWare announces an Ethereum-style provider as well as its Kaspa one.
+  const kasEvm = evm.find((e) => /kasware/i.test(e.name) || /kasware/i.test(e.key));
+  const dual = hasKasware && !!kasEvm && (w?.kind === "kasware" || w?.kind === kasEvm?.key);
   const [err, setErr] = useState<string | null>(null);
   if (!w) return <ConnectOptions />;
   const b = typeof w.bal === "object" ? w.bal : null;
@@ -140,6 +143,20 @@ export function WalletCard() {
           <Button size="sm" variant="ghost" onClick={forget}>Disconnect</Button>
         </div>
       </div>
+      {dual && (
+        <div className="mx-5 mb-4 rounded-xl border border-line-strong p-3.5">
+          <div className="text-[13px] font-medium">This wallet has two accounts</div>
+          <div className="mt-2 flex rounded-lg border border-line-strong bg-surface p-0.5">
+            {([["kasware", `Kaspa · ${NET}`], [kasEvm!.key, "Igra · 0x account"]] as const).map(([k, label]) => (
+              <button key={k} onClick={() => connect(k)} className={cn("h-8 flex-1 rounded-md px-2 text-[12.5px] font-medium transition", w.kind === k ? "bg-raised text-fg" : "text-fg-3 hover:text-fg-2")}>{label}</button>
+            ))}
+          </div>
+          <p className="mt-2 text-[12px] leading-relaxed text-fg-3">
+            {w.family === "kaspa" ? "You are on its Kaspa account — your KAS, and the key a grant names. Switch to the 0x account to pay with USDC or USDT."
+              : `You are on its 0x account — for paying with USDC or USDT. Your ${NET} KAS and the key a grant needs are on its Kaspa account.`}
+          </p>
+        </div>
+      )}
       {w.problem && <p className="mx-5 mb-4 rounded-lg bg-warn/10 px-3 py-2.5 text-[12.5px] leading-relaxed text-warn">{w.problem}</p>}
       {err && <p className="mx-5 mb-4 rounded-lg bg-bad/10 px-3 py-2 text-[12.5px] text-bad">{err}</p>}
       <div className="grid border-t border-line sm:grid-cols-3 [&>*+*]:border-t [&>*+*]:border-line sm:[&>*+*]:border-l sm:[&>*+*]:border-t-0">

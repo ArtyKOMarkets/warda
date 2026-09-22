@@ -2,11 +2,12 @@ import { useState } from "react";
 import { ArrowLeft, Ban, ExternalLink, FileJson, ShieldCheck, Settings2, Wallet } from "lucide-react";
 import { useData } from "@/lib/data";
 import { ago, kas, short } from "@/lib/format";
-import { explorerAddress } from "@/lib/kaspa";
+import { explorerAddress, explorerTx } from "@/lib/kaspa";
+import { cn } from "@/lib/cn";
 import { href } from "@/lib/router";
 import { ruleWords, type AgentView } from "@/lib/model";
 import { AgentMark, ActivityList, AuthorityBlock, BlockedCard } from "@/components/agent";
-import { Badge, Card, CardHeader, Copy, Empty, External, LinkButton, Skeleton, StatusBadge, Tabs } from "@/components/ui";
+import { Badge, Card, CardHeader, Copy, Empty, External, LinkButton, Row, Skeleton, StatusBadge, Tabs } from "@/components/ui";
 import { agentName } from "./shared";
 import { ApprovalsBanner, JobsTab, useHostedAgent } from "@/components/jobs";
 import { ManageTab } from "@/components/manage";
@@ -82,6 +83,7 @@ export function AgentDetail({ id, tab }: { id: string; tab?: string }) {
               <div className="mt-3"><ActivityList rows={a.payments.slice(0, 6).map((p) => ({ p, a }))} empty={<Empty title="No payments yet" className="py-10">This agent has not paid for anything.</Empty>} /></div>
             </Card>
             <div className="space-y-4">
+              <Counters a={a} />
               <Payees a={a} />
               <Reconciliation a={a} />
               <Card>
@@ -108,6 +110,25 @@ export function AgentDetail({ id, tab }: { id: string; tab?: string }) {
   );
 }
 
+/** Coins this grant has paid, still sitting where they landed. */
+function Coins({ a }: { a: AgentView }) {
+  if (!a.activity.coins.length) return null;
+  return (
+    <Card>
+      <CardHeader title="Coins it has paid" sub="Still visible at the payee, by transaction" />
+      <ul className="mt-2 divide-y divide-line">
+        {a.activity.coins.map((c) => (
+          <li key={c.txid} className="flex items-center gap-3 px-5 py-2.5 text-[13px]">
+            <span className="num flex-1">{kas(c.amount)} <span className="text-[11.5px] text-fg-3">KAS</span></span>
+            {c.daa && <span className="num text-[12px] text-fg-3">DAA {c.daa}</span>}
+            <a className="num text-[12px] text-fg-3 hover:text-accent" href={explorerTx(c.txid, a.network)} target="_blank" rel="noopener">{c.txid.slice(0, 10)}…</a>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
 function Payees({ a }: { a: AgentView }) {
   return (
     <Card>
@@ -116,7 +137,7 @@ function Payees({ a }: { a: AgentView }) {
         {a.payees.length ? a.payees.map((p) => (
           <li key={p.address} className="flex items-center gap-3 px-5 py-3">
             <div className="min-w-0 flex-1">
-              <div className="text-[13.5px] font-medium">{p.label ?? <span className="text-fg-2">Unlisted</span>}</div>
+              <div className="flex items-center gap-2 text-[13.5px] font-medium">{p.label ?? <span className="text-fg-2">Unlisted</span>}{p.ours !== undefined && <Badge tone={p.ours ? "info" : "muted"}>{p.ours ? "ours" : "not ours"}</Badge>}</div>
               <div className="num truncate text-[11.5px] text-fg-3">{short(p.address, 16, 8)}</div>
             </div>
             <Copy text={p.address} label="Copy address" />
@@ -159,11 +180,14 @@ function Blocked({ a }: { a: AgentView }) {
 }
 
 function Proof({ a }: { a: AgentView }) {
+  const same = !!a.principalKey && a.principalKey === a.ownerKey;
   const rows: [string, string | null, string?][] = [
     ["Grant address", a.grantAddress, a.grantAddress ? explorerAddress(a.grantAddress, a.network) : undefined],
     ["Covenant", a.covenantId],
+    ["Template", a.template],
     ["Agent key", a.agentKey],
-    ["Owner key", a.ownerKey],
+    ["Principal — funded it, and it returns there", a.principalKey],
+    ["Revocation — can stop it, and receives nothing", a.ownerKey],
   ];
   return (
     <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
@@ -182,7 +206,12 @@ function Proof({ a }: { a: AgentView }) {
             </div>
           ))}
         </dl>
+        <p className={cn("border-t border-line px-5 py-3 text-[12px] leading-relaxed", same ? "text-warn" : "text-fg-3")}>
+          {same ? "The revocation key is the same key as the principal: one thing to keep and one thing to lose. A separate stop key can end a grant and cannot take a sompi of it."
+            : "The stop key is separate from the funding key: whoever holds it can end this grant and cannot take a sompi of it."}
+        </p>
       </Card>
+      <Coins a={a} />
       <Controls a={a} />
       </div>
       <Card className="p-5">
@@ -213,4 +242,20 @@ function HostedJobs({ agent }: { agent: string }) {
 function HostedManage({ agent }: { agent: string }) {
   const h = useHostedAgent(agent);
   return <ManageTab agent={agent} runner={h.runner} detail={h.detail} reload={h.reload} />;
+}
+
+/** What the reading's own counters say, beside what its log holds. */
+function Counters({ a }: { a: AgentView }) {
+  if (a.activity.payments === null && a.activity.paid === null) return null;
+  const logged = a.payments.filter((p) => p.outcome === "paid" || p.outcome === "paid-not-served").length;
+  return (
+    <Card>
+      <CardHeader title="What it has paid" sub="The covenant's count, beside its own log" />
+      <dl className="divide-y divide-line px-5 pb-2 pt-1">
+        <Row label="Payments">{a.activity.payments ?? "—"}{a.activity.payments !== null && a.activity.payments !== logged && <span className="text-fg-3"> · {logged} in its own log</span>}</Row>
+        <Row label="Paid"><span className="num">{kas(a.activity.paid)} KAS</span></Row>
+        <Row label="Outside the allowlist"><span className={cn("num", (a.activity.outside ?? 0) > 0 && "text-bad")}>{kas(a.activity.outside)} KAS</span></Row>
+      </dl>
+    </Card>
+  );
 }

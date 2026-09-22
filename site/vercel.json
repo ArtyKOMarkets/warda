@@ -100,5 +100,17 @@
       "path": "/api/account?op=cron",
       "schedule": "0 7 * * *"
     }
+  ],
+  "redirects": [
+    {
+      "source": "/app-next",
+      "destination": "/app",
+      "permanent": true
+    },
+    {
+      "source": "/app-next/",
+      "destination": "/app",
+      "permanent": true
+    }
   ]
 }

@@ -62,3 +62,17 @@
 @keyframes rise { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 @utility rise { animation: rise .28s ease-out both; }
 @media (prefers-reduced-motion: reduce) { .skeleton, .rise { animation: none; } }
+
+/* A printed page is somebody's record of what the console said. Chrome is the
+   printer, so the page just stops being an app: no rails, no buttons, ink on
+   white, and every card visible at once. */
+@media print {
+  aside, header, nav, button { display: none !important; }
+  body { background: #fff !important; color: #111 !important; }
+  main { max-width: none !important; padding: 0 !important; }
+  .lg\:pl-\[248px\] { padding-left: 0 !important; }
+  [class*="bg-surface"], [class*="bg-raised"], [class*="bg-bg"] { background: #fff !important; }
+  [class*="border-line"] { border-color: #ccc !important; }
+  [class*="text-fg"] { color: #111 !important; }
+  .rise, .skeleton { animation: none !important; }
+}

@@ -4,6 +4,7 @@ import { useWallet, chainName } from "@/lib/connect";
 import { useMarket } from "@/lib/account";
 import { useRoutes, routeOpen, stale, useHoldings, money, units, word, type Routes, type Source, type Token } from "@/lib/routes";
 import { decodeAddress } from "@/lib/kaspa";
+import { planIgra, ACTION } from "@/lib/router-plan";
 import { href } from "@/lib/router";
 import { ago, short } from "@/lib/format";
 import { cn } from "@/lib/cn";
@@ -222,6 +223,10 @@ function Funder({ routes, chain0, token0, usd0 }: { routes: Routes; chain0?: str
               <p className="mt-2 text-[11.5px] text-fg-3">Route status checked {routes.checkedAt}{stale(routes) ? " — more than two weeks ago, so every step shows as unchecked." : "."}</p>
             </div>
 
+            {!isCn && route.legs.includes("exit") && (
+              <IgraPlan usd={usd} rate={rate} to={to} />
+            )}
+
             {isCn && (
               <div className="border-t border-line p-5 sm:p-6">
                 {quote ? (
@@ -272,6 +277,54 @@ function Funder({ routes, chain0, token0, usd0 }: { routes: Routes; chain0?: str
           <LinkButton size="sm" className="mt-3" href={href("new")}>New agent</LinkButton>
         </Card>
       </div>
+    </div>
+  );
+}
+
+/* The route through Igra, as steps. The addresses its venue and bridge need
+   are configuration, never remembered — so the plan says what it cannot do
+   rather than guessing. */
+function IgraPlan({ usd, rate, to }: { usd: string; rate: number | null; to: string }) {
+  const [slip, setSlip] = useState("0.5");
+  const [out, setOut] = useState<{ plan: any } | { error: string } | null>(null);
+  useEffect(() => {
+    if (!rate || !(Number(usd) > 0)) { setOut(null); return; }
+    let live = true;
+    planIgra({ usd, rate, slippagePct: slip, payoutAddress: to.trim() || "kaspatest:qq", source: "CoinGecko" }).then((r) => { if (live) setOut(r as any); });
+    return () => { live = false; };
+  }, [usd, rate, slip, to]);
+  return (
+    <div className="border-t border-line p-5 sm:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="text-[14px] font-semibold">The steps you sign</div>
+        <label className="flex items-center gap-2 text-[12.5px] text-fg-3">Slippage
+          <input inputMode="decimal" value={slip} onChange={(e) => setSlip(e.target.value)} className="num h-7 w-16 rounded-md border border-line-strong bg-bg px-2 text-[12.5px] text-fg focus:border-accent/60 focus:outline-none" />%
+        </label>
+      </div>
+      <p className="mt-1.5 text-[12.5px] text-fg-3">Built by the router this site ships. Every step that moves value is handed to you unsigned; this page cannot sign one and has no way to.</p>
+      {!out ? <p className="mt-3 text-[12.5px] text-fg-3">{rate ? "Enter an amount above zero." : "Waiting for the market price."}</p>
+        : "error" in out ? <p className="mt-3 text-[12.5px] text-warn">No plan: {out.error}</p> : (
+        <>
+          <ol className="mt-3 space-y-2">
+            {(out.plan.steps ?? []).map((st: any, i: number) => (
+              <li key={i} className="rounded-xl border border-line-strong p-3.5">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <span className="text-[13px]">{i + 1}. {st.describe}</span>
+                  <span className="text-[11.5px] text-fg-3">{ACTION[st.action] ?? st.action}{st.hop ? ` · ${st.hop}` : ""}</span>
+                </div>
+                {st.blockers?.length ? <div className="mt-1 text-[12px] text-warn">{st.blockers.join(" · ")}</div>
+                  : st.missing?.length ? <div className="mt-1 text-[12px] text-warn">needs {st.missing.join(", ")}</div>
+                  : <div className="mt-1 text-[12px] text-fg-3">{st.counterparty ? `can be made to go wrong by: ${st.counterparty}` : "no counterparty — consensus refuses every alternative"}</div>}
+              </li>
+            ))}
+          </ol>
+          {!out.plan.executable && (
+            <p className="mt-3 rounded-lg bg-warn/10 px-3 py-2.5 text-[12.5px] leading-relaxed text-warn">
+              Not runnable yet, and this is the honest reason: there is no verified, published deployment of a swap venue and the exit bridge to point this at. The router takes those addresses as configuration and never from memory — an address typed from recall sends money somewhere nobody checked. The steps are real; the addresses they need are the gap.
+            </p>
+          )}
+        </>
+      )}
     </div>
   );
 }

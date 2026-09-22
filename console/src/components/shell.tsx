@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
-  LayoutGrid, Bot, FileKey2, Activity, BarChart3, Plus, Wallet, Store, UserRound, BellRing, Menu, X, RefreshCw, Check, ChevronDown, Unplug, KeyRound,
+  LayoutGrid, Bot, FileKey2, Activity, BarChart3, Plus, Wallet, Store, UserRound, BellRing, Menu, X, RefreshCw, Check, ChevronDown, Unplug, KeyRound, Search, Layers,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { href } from "@/lib/router";
@@ -14,6 +14,7 @@ const NAV: { title: string; items: Item[] }[] = [
   { title: "Workspace", items: [
     { id: "overview", label: "Overview", icon: LayoutGrid },
     { id: "agents", label: "Agents", icon: Bot },
+    { id: "fleet", label: "Fleet", icon: Layers },
     { id: "grants", label: "Grants", icon: FileKey2 },
     { id: "activity", label: "Activity", icon: Activity },
     { id: "analytics", label: "Analytics", icon: BarChart3 },
@@ -107,6 +108,25 @@ function NetworkPill() {
   );
 }
 
+/* What the chain was at when these readings were taken. A DAA score is the
+   only clock the covenant has, so it is the one worth showing. */
+function StatusBar() {
+  const { agents, readAt } = useData();
+  const daa = agents.map((a) => a.daaNow).filter((x): x is number => !!x).sort((a, b) => b - a)[0] ?? null;
+  const net = agents[0]?.network ?? "testnet-10";
+  return (
+    <div className="mx-auto mb-10 w-full max-w-[1240px] px-4 text-[11.5px] text-fg-3 sm:px-6 lg:px-10">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-line pt-3">
+        <span>Kaspa {net}</span>
+        {daa && <span className="num">virtual DAA {daa.toLocaleString("en-US")}</span>}
+        {readAt && <span>read {ago(readAt)}</span>}
+        <span className="flex-1" />
+        <span>This page holds no key and signs nothing.</span>
+      </div>
+    </div>
+  );
+}
+
 function WalletFoot({ onPick }: { onPick?: () => void }) {
   const { wallet, forget } = useWallet();
   if (!wallet) return (
@@ -135,7 +155,17 @@ function WalletChip() {
 
 export function Shell({ active, children }: { active: string; children: ReactNode }) {
   const [open, setOpen] = useState(false);
-  const { reload, loading, readAt, missing } = useData();
+  const { reload, loading, readAt, missing, range, setRange, filter, setFilter } = useData();
+  const box = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const on = (e: KeyboardEvent) => {
+      const el = document.activeElement;
+      if (e.key === "/" && !(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) { e.preventDefault(); box.current?.focus(); }
+      if (e.key === "Escape" && document.activeElement === box.current) { setFilter(""); box.current?.blur(); }
+    };
+    addEventListener("keydown", on);
+    return () => removeEventListener("keydown", on);
+  }, [setFilter]);
   const [, tick] = useState(0);
   useEffect(() => { const t = setInterval(() => tick((x) => x + 1), 30_000); return () => clearInterval(t); }, []);
   useEffect(() => { document.body.style.overflow = open ? "hidden" : ""; }, [open]);
@@ -163,7 +193,20 @@ export function Shell({ active, children }: { active: string; children: ReactNod
         <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-line bg-bg/80 px-4 backdrop-blur-xl sm:px-6 lg:h-16 lg:px-10">
           <button className="-ml-1 grid size-9 place-items-center rounded-lg text-fg-2 hover:bg-raised lg:hidden" onClick={() => setOpen(true)} aria-label="Open menu"><Menu className="size-5" /></button>
           <div className="lg:hidden"><Logo /></div>
-          <div className="flex-1" />
+          <label className="relative ml-1 hidden min-w-0 flex-1 items-center sm:flex">
+            <Search className="pointer-events-none absolute left-2.5 size-3.5 text-fg-3" />
+            <input ref={box} value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter by agent, payee, address or endpoint  ( / )"
+              className="h-8 w-full max-w-sm rounded-lg border border-line-strong bg-surface pl-8 pr-3 text-[12.5px] placeholder:text-fg-3 focus:border-accent/60 focus:outline-none" />
+            {filter && <button onClick={() => setFilter("")} aria-label="Clear the filter" className="absolute right-2 text-fg-3 hover:text-fg"><X className="size-3.5" /></button>}
+          </label>
+          <div className="flex-1 sm:hidden" />
+          <div className="hidden rounded-lg border border-line-strong bg-surface p-0.5 md:flex">
+            {(["7", "30", "all"] as const).map((r) => (
+              <button key={r} onClick={() => setRange(r)} className={cn("h-7 rounded-md px-2 text-[12px] font-medium transition", range === r ? "bg-raised text-fg" : "text-fg-3 hover:text-fg-2")}>
+                {r === "all" ? "All" : `${r}d`}
+              </button>
+            ))}
+          </div>
           <span className={cn("hidden text-[12px] sm:inline", missing ? "text-bad" : "text-fg-3")} title={readAt ? `Chain read ${new Date(readAt).toLocaleString("en-US")}` : ""}>
             {missing ? `${missing} reading${missing === 1 ? "" : "s"} did not load` : readAt ? `Read ${ago(readAt)}` : ""}
           </span>
@@ -173,7 +216,8 @@ export function Shell({ active, children }: { active: string; children: ReactNod
           <div className="hidden sm:block"><NetworkPill /></div>
           <WalletChip />
         </header>
-        <main className="mx-auto w-full max-w-[1240px] px-4 pb-24 pt-8 sm:px-6 lg:px-10 lg:pt-10">{children}</main>
+        <main className="mx-auto w-full max-w-[1240px] px-4 pb-8 pt-8 sm:px-6 lg:px-10 lg:pt-10">{children}</main>
+        <StatusBar />
       </div>
     </div>
   );

@@ -31,6 +31,19 @@ export function Agents() {
     (f === "all" || (f === "live" && isLive(a.status)) || (f === "ended" && !isLive(a.status)) || a.source === f) &&
     (!q || `${a.label} ${a.mission ?? ""}`.toLowerCase().includes(q.toLowerCase()))), [agents, f, q]);
 
+  // Parents first, each followed by its helpers.
+  const ordered = useMemo(() => {
+    const kids = new Map<string, typeof list>();
+    for (const a of list) if (a.parent) kids.set(a.parent, [...(kids.get(a.parent) ?? []), a]);
+    const out: { a: (typeof list)[number]; child: boolean }[] = [];
+    for (const a of list) {
+      if (a.parent && list.some((p) => p.label === a.parent || p.id === a.parent)) continue;
+      out.push({ a, child: false });
+      for (const k of kids.get(a.label) ?? kids.get(a.id) ?? []) out.push({ a: k, child: true });
+    }
+    return out;
+  }, [list]);
+
   return (
     <>
       <ScopeBanner />
@@ -63,7 +76,15 @@ export function Agents() {
       ) : !list.length ? (
         <Card><Empty icon={<Bot className="size-5" />} title={q ? "No agents match" : "Nothing here"}>{q ? "Try another name." : "Agents in this group will show up here."}</Empty></Card>
       ) : grid ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{list.map((a, i) => <div key={a.key} className="rise" style={{ animationDelay: `${Math.min(i, 8) * 30}ms` }}><AgentCard a={a} /></div>)}</div>
+        // Helpers sit under the parent they were delegated from, not beside it.
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {ordered.map(({ a, child }, i) => (
+            <div key={a.key} className={cn("rise", child && "sm:col-span-1")} style={{ animationDelay: `${Math.min(i, 8) * 30}ms` }}>
+              {child && <div className="mb-1 flex items-center gap-1.5 pl-1 text-[11.5px] text-fg-3">↳ helper of {a.parent}</div>}
+              <AgentCard a={a} />
+            </div>
+          ))}
+        </div>
       ) : (
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">

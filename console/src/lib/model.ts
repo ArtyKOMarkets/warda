@@ -7,12 +7,18 @@ import { kasOf } from "./format";
 export type Source = "published" | "hosted";
 export type Status = "active" | "scheduled" | "waiting" | "paused" | "expired" | "ended" | "unknown";
 
-export interface Payee { address: string; label: string | null }
+export interface Payee { address: string; label: string | null; ours?: boolean }
+export interface Coin { amount: number | null; txid: string; daa: string | null }
 
 export type Outcome = "paid" | "blocked" | "failed" | "paid-not-served";
 
 export interface Payment {
   at: string;
+  /** What it was asked to do, from `warda pay --task`. */
+  task: string | null;
+  /** What the vendor quoted, when nothing moved. */
+  quoted: number | null;
+  path: string | null;
   outcome: Outcome;
   amount: number | null;
   url: string | null;
@@ -63,6 +69,13 @@ export interface AgentView {
   ownerKey: string | null;
   principalKey: string | null;
 
+  /** What the reading's own counters say, whatever its purchase log holds. */
+  activity: { payments: number | null; paid: number | null; outside: number | null; coins: Coin[] };
+  /** Who this grant descends from, and what it replaced. */
+  parentKey: string | null;
+  narrower: Record<string, string> | null;
+  replaced: string | null;
+  template: string | null;
   payments: Payment[];
   /** Limits worked out from the grant's terms: examples, not events. */
   derived: DerivedLimit[];
@@ -73,7 +86,7 @@ export interface AgentView {
   checkedAt: string | null;
   lastActive: string | null;
 
-  hosted?: { state: string; jobs: number; jobsOn: number; lastRunStatus: string | null };
+  hosted?: { state: string; jobs: number; jobsOn: number; lastRunStatus: string | null; lastRunAt: number | null };
 }
 
 const RULE_WORDS: Record<string, string> = {
@@ -117,8 +130,13 @@ function payment(p: Json): Payment {
     : o === "refused" || (o === "failed" && COVENANT.test(String(p.reason ?? "")) ) ? "blocked"
     : o === "paid-but-refused" || o === "paid-then-failed" ? "paid-not-served"
     : "failed";
+  let path: string | null = null;
+  try { path = p.url ? new URL(p.url).pathname : null; } catch { path = null; }
   return {
     at: p.at,
+    task: p.task ?? null,
+    quoted: kasOf(p.quoted),
+    path,
     outcome,
     amount: kasOf(p.paid),
     url: p.url ?? null,
@@ -165,7 +183,11 @@ export function fromReading(r: Json, source: Source, id: string, labels: Map<str
     maxPerPayment: kasOf(a.maxPerPayment),
     periodLimit: kasOf(a.epochLimit),
     periodSeconds: epochDaa ? epochDaa / 10 : null,
-    payees: ((a.payees ?? []) as string[]).map((address) => ({ address, label: labels.get(address) ?? null })),
+    payees: ((a.payees ?? []) as string[]).map((address) => {
+      // The registry names a payee; the reading may also label it, and says whether it is ours.
+      const said = ((r.buysFrom?.payees ?? []) as Json[]).find((p) => p.address === address);
+      return { address, label: labels.get(address) ?? said?.label ?? null, ours: said?.ours };
+    }),
     delegationDepth: a.delegationDepth ?? null,
     parent: r.delegatedBy?.parent ? String(r.delegatedBy.parent).replace(/^WARDA-/, "#") : null,
     expiresIn: t.expiresIn ?? null,
@@ -179,6 +201,16 @@ export function fromReading(r: Json, source: Source, id: string, labels: Map<str
     agentKey: r.identity?.agent ?? null,
     ownerKey: r.identity?.revocation ?? r.identity?.principal ?? null,
     principalKey: r.identity?.principal ?? null,
+    activity: {
+      payments: r.activity?.payments ?? null,
+      paid: kasOf(r.activity?.paid),
+      outside: kasOf(r.activity?.paidOutsideTheAllowlist),
+      coins: ((r.activity?.coins ?? []) as Json[]).map((c) => ({ amount: kasOf(c.amount), txid: String(c.txid), daa: c.blockDaaScore ?? null })),
+    },
+    parentKey: r.delegatedBy?.parentAgentKey ?? null,
+    narrower: r.delegatedBy?.narrower ?? null,
+    replaced: r.succession?.replaced ? String(r.succession.replaced).replace(/^WARDA-/, "#") : null,
+    template: r.identity?.template ?? null,
     payments,
     derived: ((r.refusals ?? []) as Json[]).filter((x) => x.derived !== false).map((x) => ({ rule: x.rule, attempted: x.attempted, why: x.refusal })),
     refused: ((r.refusals ?? []) as Json[]).filter((x) => x.derived === false).map((x) => ({ rule: x.rule, attempted: x.attempted, why: x.refusal })),
@@ -213,13 +245,14 @@ export function fromHostedRow(row: Json): AgentView {
     parent: row.parent ?? null,
     expiresIn: null, expiresInDaa: null, openedAtDaa: null, daaNow: null, expired: status === "expired", opensIn: null,
     grantAddress: null, covenantId: null, agentKey: null, ownerKey: null, principalKey: null,
+    activity: { payments: null, paid: null, outside: null, coins: [] }, parentKey: null, narrower: null, replaced: null, template: null,
     payments: [], derived: [], refused: [], reconciliation: null, paidOutside: null, checkedAt: null, lastActive: row.lastRun?.at ? new Date(row.lastRun.at).toISOString() : null,
     hosted: hostedMeta(row),
   };
 }
 
 export function hostedMeta(row: Json): AgentView["hosted"] {
-  return { state: String(row.state ?? "unknown"), jobs: row.jobs ?? 0, jobsOn: row.jobsOn ?? 0, lastRunStatus: row.lastRun?.status ?? null };
+  return { state: String(row.state ?? "unknown"), jobs: row.jobs ?? 0, jobsOn: row.jobsOn ?? 0, lastRunStatus: row.lastRun?.status ?? null, lastRunAt: row.lastRun?.at ? new Date(row.lastRun.at).getTime() : null };
 }
 
 /** What it can still pay: the smaller of the authority left and the coin at the

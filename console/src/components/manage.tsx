@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Bot, Download, FileText, Globe, Link2, Loader2, Plug, Printer, ShieldOff, Users } from "lucide-react";
+import { Bot, Download, FileText, Globe, Info, Link2, Loader2, Plug, Printer, ShieldOff, Users } from "lucide-react";
+import { explorerTx } from "@/lib/kaspa";
+import { kas } from "@/lib/format";
 import { api, type RunnerConfig } from "@/lib/runner";
 import { href } from "@/lib/router";
 import { cn } from "@/lib/cn";
-import { Button, Card, CardHeader, Copy, LinkButton, Tabs } from "./ui";
+import { Button, Card, CardHeader, Copy, LinkButton, Row, Tabs } from "./ui";
 import { Field, KasInput, Select, inputCls, kasOk } from "./form";
 
 function download(name: string, data: string, type: string) {
@@ -29,6 +31,7 @@ export function ManageTab({ agent, runner, detail, reload }: { agent: string; ru
   return (
     <div className="grid items-start gap-4 lg:grid-cols-2">
       <div className="space-y-4">
+        <Facts agent={agent} runner={runner} a={detail} reload={reload} />
         <Helpers agent={agent} runner={runner} a={detail} reload={reload} />
         <Statement agent={agent} runner={runner} />
       </div>
@@ -38,6 +41,44 @@ export function ManageTab({ agent, runner, detail, reload }: { agent: string; ru
         <Stop a={detail} />
       </div>
     </div>
+  );
+}
+
+/* What the runner knows about this agent that the chain does not say: what it
+   owes in fees, which transaction created the grant, and where a deposit got
+   to. The agent's key is the runner's; everything else is yours. */
+function Facts({ agent, runner, a, reload }: { agent: string; runner: RunnerConfig; a: any; reload: () => void }) {
+  const [say, setSay] = useState<{ bad?: boolean; text: string } | null>(null);
+  const [armed, setArmed] = useState(false);
+  const g = a.grant ?? {};
+  const f = a.funding;
+  const K = (v: any) => (v == null ? "—" : `${kas(Number(v) / 1e8, { max: 4 })} KAS`);
+  const refund = async () => {
+    if (!armed) { setArmed(true); setTimeout(() => setArmed(false), 6000); return; }
+    setArmed(false);
+    try { await api(runner, "POST", `/v1/agents/${encodeURIComponent(agent)}/refund`, {}); setSay({ text: "Sent back to your key. Nothing at the deposit address now." }); reload(); }
+    catch (e) { const m = (e as Error).message; setSay({ bad: !/nothing to refund/.test(m), text: /nothing to refund/.test(m) ? "Nothing is sitting at the deposit address." : m }); }
+  };
+  return (
+    <Card>
+      <CardHeader title={<span className="flex items-center gap-2"><Info className="size-4 text-fg-3" /> What the runner holds</span>} sub="The facts the chain does not carry" />
+      <dl className="divide-y divide-line px-5 pb-2 pt-1">
+        <Row label="Agent key"><span className="num text-[12px]">{a.agentKey ? `${String(a.agentKey).slice(0, 16)}…` : "—"}</span><span className="block text-[11.5px] text-fg-3">held by the runner's vault</span></Row>
+        <Row label="Grant state">{g.undecided ? <span className="text-warn">{g.undecided}</span> : a.state ?? (g.address ? "live" : "no grant yet")}</Row>
+        <Row label="Runner fees owed"><span className="num">{a.feesOwed ?? "0"} KAS</span></Row>
+        {g.expiresAtMs ? <Row label="Ends"><span className="num text-[12.5px]">{new Date(g.expiresAtMs).toISOString().slice(0, 16).replace("T", " ")} UTC</span></Row> : null}
+        {f ? <Row label="Funding">{f.status}{f.note ? <span className="block text-[11.5px] leading-snug text-fg-3">{f.note}</span> : null}</Row> : null}
+        {f?.genesisTxid ? <Row label="Created by"><a className="num text-[12px] text-fg-2 hover:text-accent" href={explorerTx(f.genesisTxid)} target="_blank" rel="noopener">{String(f.genesisTxid).slice(0, 12)}… </a></Row> : null}
+        {g.budgetTotal ? <Row label="Budget, per the runner"><span className="num">{K(g.budgetTotal)}</span></Row> : null}
+        {g.reserved && Number(g.reserved) > 0 ? <Row label="Reserved for helpers"><span className="num">{K(g.reserved)}</span></Row> : null}
+      </dl>
+      {f && (
+        <div className="border-t border-line px-5 py-3">
+          <Button size="sm" variant={armed ? "danger" : "ghost"} onClick={refund}>{armed ? "Press again to send it back" : "Send back deposit leftovers"}</Button>
+          <p className="mt-2 text-[12px] text-fg-3">{say?.text ?? "Anything sitting at this agent's deposit address goes back to the key that funded it."}</p>
+        </div>
+      )}
+    </Card>
   );
 }
 

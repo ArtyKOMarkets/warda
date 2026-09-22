@@ -8,9 +8,11 @@ import { cn } from "@/lib/cn";
 import { href } from "@/lib/router";
 import { Badge, Button, Card, CardHeader, Empty, type Tone } from "./ui";
 import { Field, KasInput, Select, inputCls, kasOk } from "./form";
+import { isAddress } from "@/lib/kaspa";
+import { kas } from "@/lib/format";
 
 interface Workflow { id: string; name: string; enabled: boolean; trigger: { type: string; cron?: string; when?: string; percent?: number; hours?: number }; then?: { type: string }[] }
-interface Step { action: string; status: string; detail?: string; txid?: string }
+interface Step { action: string; status: string; detail?: string; txid?: string; sompi?: string }
 interface Run { id: string; startedAt: number; status: string; trigger: string; steps: Step[]; note?: string }
 interface Approval { id: string; status: string; op: string; note?: string; createdAt: number }
 
@@ -163,11 +165,33 @@ export function JobsTab({ agent, h }: { agent: string; h: ReturnType<typeof useH
         </Card>
       </div>
       <div className="space-y-4">
+        <Spending runs={runs} />
         <DraftJob agent={agent} runner={runner} onAdded={reload} />
         <QuickJob agent={agent} runner={runner} onAdded={reload} />
         <Templates agent={agent} runner={runner} onAdded={reload} />
       </div>
     </div>
+  );
+}
+
+/* What it has actually paid out, per day, from the runs the runner recorded. */
+function Spending({ runs }: { runs: Run[] | null }) {
+  if (!runs) return null;
+  const days = [...Array(30)].map((_, i) => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - 29 + i); return d; });
+  const values = days.map((d) => runs.filter((r) => new Date(r.startedAt).toDateString() === d.toDateString())
+    .reduce((s, r) => s + r.steps.reduce((x, st) => x + (st.sompi ? Number(st.sompi) / 1e8 : 0), 0), 0));
+  const total = values.reduce((a, b) => a + b, 0);
+  if (!total) return null;
+  const max = Math.max(...values);
+  return (
+    <Card className="p-5">
+      <div className="text-[15px] font-semibold">What it paid, by day</div>
+      <p className="mt-1 text-[12.5px] text-fg-3">From its runs — {kas(total)} KAS over 30 days.</p>
+      <div className="mt-4 flex h-24 items-end gap-[3px]">
+        {values.map((v, i) => <div key={i} title={`${days[i]!.toLocaleDateString("en-US", { month: "short", day: "numeric" })}: ${kas(v)} KAS`}
+          className={cn("flex-1 rounded-t-[2px]", v ? "bg-accent/80" : "bg-line")} style={{ height: v ? `${Math.max(4, (v / max) * 100)}%` : 2 }} />)}
+      </div>
+    </Card>
   );
 }
 
@@ -199,6 +223,11 @@ function DraftJob({ agent, runner, onAdded }: { agent: string; runner: RunnerCon
   return (
     <Card className="p-5">
       <div className="flex items-center gap-2 text-[15px] font-semibold"><Sparkles className="size-4 text-accent" /> Describe a job</div>
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {["Buy the Kaspa digest every morning at 7, and ask me first", "Pay 0.05 KAS when a webhook fires", "Tell me when the budget drops below 20%"].map((x) => (
+          <button key={x} type="button" onClick={() => setText(x)} className="rounded-full border border-line-strong px-2.5 py-1 text-[11.5px] text-fg-3 transition hover:border-fg-3/50 hover:text-fg-2">{x.slice(0, 34)}…</button>
+        ))}
+      </div>
       <textarea value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) make(); }}
         rows={3} placeholder="Buy the Kaspa digest every morning at 7, and ask me first"
         className={cn(inputCls, "mt-3 h-auto resize-none py-2.5 leading-relaxed")} />
@@ -224,6 +253,10 @@ function QuickJob({ agent, runner, onAdded }: { agent: string; runner: RunnerCon
   const { services } = useData();
   const endpoints = services.filter((s) => s.endpoint);
   const [url, setUrl] = useState(endpoints[0]?.endpoint ?? "");
+  const [kind, setKind] = useState<"buy" | "hook">("buy");
+  const [to, setTo] = useState("");
+  const [kasAmt, setKasAmt] = useState("0.05");
+  const [webhook, setWebhook] = useState<string | null>(null);
   const [when, setWhen] = useState<"daily" | "once">("daily");
   const [hour, setHour] = useState("7");
   const [max, setMax] = useState("0.1");
@@ -232,8 +265,19 @@ function QuickJob({ agent, runner, onAdded }: { agent: string; runner: RunnerCon
   const [msg, setMsg] = useState<{ bad?: boolean; text: string } | null>(null);
   useEffect(() => { if (!url && endpoints[0]?.endpoint) setUrl(endpoints[0].endpoint); }, [endpoints, url]);
 
-  const ok = /^https?:\/\/\S+$/.test(url) && kasOk(max);
+  const ok = kind === "hook" ? isAddress(to.trim()) && kasOk(kasAmt) : /^https?:\/\/\S+$/.test(url) && kasOk(max);
   const add = async () => {
+    if (kind === "hook") {
+      setBusy(true); setMsg(null);
+      const wf: any = { agent, name: "Pay on webhook", trigger: { type: "webhook" }, then: [{ type: "send", to: to.trim(), kas: kasAmt.trim() }] };
+      if (ask) { wf.then.unshift({ type: "approval", op: "continue", note: `"Pay on webhook" wants to pay ${kasAmt.trim()} KAS to ${to.trim().slice(0, 18)}….` }); wf.name += " — asks first"; }
+      try {
+        const r = await api<{ workflow: Workflow; webhook?: { url: string; header: string; secret: string } }>(runner, "POST", "/v1/workflows", wf);
+        if (r.webhook) setWebhook(`POST ${r.webhook.url}\n${r.webhook.header}: ${r.webhook.secret}\nIdempotency-Key: <one per event>`);
+        setMsg({ text: `Added: ${r.workflow.name}.` }); onAdded();
+      } catch (e) { setMsg({ bad: true, text: (e as Error).message }); } finally { setBusy(false); }
+      return;
+    }
     const host = endpoints.find((s) => s.endpoint === url)?.name ?? url.replace(/^https?:\/\//, "").split("/")[0];
     const hr = Math.max(0, Math.min(23, parseInt(hour, 10) || 0));
     const wf: any = when === "daily"
@@ -241,14 +285,31 @@ function QuickJob({ agent, runner, onAdded }: { agent: string; runner: RunnerCon
       : { agent, name: `Buy from ${host}`, trigger: { type: "manual" }, then: [{ type: "pay-x402", url, maxKas: max.trim() }] };
     if (ask) { wf.then.unshift({ type: "approval", op: "continue", note: `“${wf.name}” wants to buy from ${host} (up to ${max.trim()} KAS).` }); wf.name += " — asks first"; }
     setBusy(true); setMsg(null);
-    try { const r = await api<{ workflow: Workflow }>(runner, "POST", "/v1/workflows", wf); setMsg({ text: `Added: ${r.workflow.name}.` }); onAdded(); }
+    try {
+      const r = await api<{ workflow: Workflow & { id: string } }>(runner, "POST", "/v1/workflows", wf);
+      // "Once, now" means now: adding it and leaving it unrun is a job nobody asked for.
+      if (when === "once") await api(runner, "POST", `/v1/workflows/${r.workflow.id}/run`, {}, { "Idempotency-Key": `svc-${Date.now()}` });
+      setMsg({ text: when === "once" ? `Added and run: ${r.workflow.name}.` : `Added: ${r.workflow.name}.` }); onAdded();
+    }
     catch (e) { setMsg({ bad: true, text: (e as Error).message }); } finally { setBusy(false); }
   };
 
   return (
     <Card className="p-5">
-      <div className="text-[15px] font-semibold">Quick job: buy from a service</div>
+      <div className="text-[15px] font-semibold">Quick job</div>
+      <div className="mt-3 flex rounded-lg border border-line-strong bg-surface p-0.5">
+        {([["buy", "Buy from a service"], ["hook", "Pay on a webhook"]] as const).map(([v, l]) => (
+          <button key={v} onClick={() => setKind(v)} className={cn("h-8 flex-1 rounded-md px-2 text-[12.5px] font-medium transition", kind === v ? "bg-raised text-fg" : "text-fg-3 hover:text-fg-2")}>{l}</button>
+        ))}
+      </div>
       <div className="mt-4 space-y-4">
+        {kind === "hook" ? (
+          <>
+            <Field label="Pay this address" hint="It must be on the grant's allowlist, or the network refuses it."><input className={cn(inputCls, "num text-[13px]")} value={to} onChange={(e) => setTo(e.target.value)} placeholder="kaspatest:qq…" spellCheck={false} autoCapitalize="off" /></Field>
+            <Field label="Amount" hint="Per webhook call."><KasInput value={kasAmt} onChange={(e) => setKasAmt(e.target.value)} /></Field>
+          </>
+        ) : (
+        <>
         <Field label="Service">
           <Select value={endpoints.some((s) => s.endpoint === url) ? url : "__other"} onChange={(v) => setUrl(v === "__other" ? "" : v)}
             options={[...endpoints.map((s) => ({ value: s.endpoint!, label: s.name, hint: s.price ?? undefined })), { value: "__other", label: "Another URL…" }]} />
@@ -263,10 +324,13 @@ function QuickJob({ agent, runner, onAdded }: { agent: string; runner: RunnerCon
           ) : <span />}
         </div>
         <Field label="Pay at most" hint="Per purchase. The grant's own cap still applies."><KasInput value={max} onChange={(e) => setMax(e.target.value)} /></Field>
+        </>
+        )}
         <label className="flex cursor-pointer items-center gap-2.5 text-[13px] text-fg-2">
           <input type="checkbox" checked={ask} onChange={(e) => setAsk(e.target.checked)} className="size-4 accent-[var(--color-accent)]" /> Ask me first, each time
         </label>
       </div>
+      {webhook && <pre className="num mt-4 whitespace-pre-wrap break-all rounded-lg border border-line-strong bg-bg p-3 text-[11.5px] text-fg-2">{webhook}{"\n\n"}The secret is shown once. Store it where the sender can read it.</pre>}
       <div className="mt-5 flex items-center justify-between gap-3">
         {msg ? <span className={cn("text-[12.5px]", msg.bad ? "text-bad" : "text-ok")}>{msg.text}</span> : <a href={href("alerts")} className="text-[12.5px] text-fg-3 hover:text-fg">Alerts</a>}
         <Button size="sm" variant="primary" disabled={!ok || busy} onClick={add}><Plus className="size-3.5" /> Add job</Button>

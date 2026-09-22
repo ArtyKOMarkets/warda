@@ -7,11 +7,11 @@ import { useEffect, useState } from "react";
    tool's replies. Its hashes land somewhere sensible here, or in the classic
    console at /app-classic when this one has no screen for them yet. */
 const LEGACY: Record<string, string | ((rest: string[]) => string)> = {
-  dash: "overview", fleet: "agents", hagents: "agents", hosted: "new",
+  dash: "overview", hagents: "agents", hosted: "new", admin: "operator",
   refusals: "activity/blocked", registry: "services",
   agent: (r) => (r[0] ? `agents/${/^\d+$/.test(r[0]) ? "p" : "h"}:${r[0]}` : "agents"),
 };
-const CLASSIC_ONLY = new Set(["admin"]);
+const CLASSIC_ONLY = new Set<string>([]);
 
 function legacy() {
   const [head = "", ...rest] = location.hash.replace(/^#\/?/, "").split("/");
