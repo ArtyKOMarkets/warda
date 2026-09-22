@@ -2482,6 +2482,17 @@ ops/install-cron.sh</pre>
           <header><h2>Waiting for you <small id="ap-n"></small></h2></header>
           <div class="feed" id="ap-list"></div>
         </div>
+        <div class="card" style="margin-top:0.85rem" id="st-card">
+          <header><h2>Statement</h2></header>
+          <p class="why">Every payment this agent made in a month &mdash; date, job, what it bought, amount, transaction &mdash;
+            and the runner&rsquo;s fees. For your records or your accountant.</p>
+          <p style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;margin-top:0.4rem">
+            <select id="st-month" aria-label="Month"></select>
+            <button class="go gh" type="button" id="st-csv">Download CSV</button>
+            <button class="go gh" type="button" id="st-pdf">Print or save as PDF</button>
+            <span class="state" id="st-s" style="margin:0"></span></p>
+          <p class="why" id="st-sum" style="margin-top:0.5rem"></p>
+        </div>
         <div class="card" style="margin-top:0.85rem" id="pub-card">
           <header><h2>Public receipt</h2></header>
           <p class="why">A page anyone can open: what this agent bought, what it was refused, and what it may still spend
@@ -6802,6 +6813,7 @@ ops/install-cron.sh</pre>
       saShow(a);
       pubShow(a);
       if (TP.list) tpRender(); else tpLoad();
+      stSummary();
       apLoad(agent);
       haJobs(a.workflows || []);
       haRevoke(a);
@@ -7945,6 +7957,68 @@ ops/install-cron.sh</pre>
       haList(); haOpen(HA.open);
     }).catch(function (e) { $("sa-s").textContent = e.message; })
       .then(function () { $("sa-go").disabled = false; });
+  });
+
+  /* ---- monthly statement --------------------------------------------------- */
+  (function () {
+    var sel = $("st-month"), d = new Date();
+    for (var i = 0; i < 12; i++) {
+      var m = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - i, 1));
+      var v = m.toISOString().slice(0, 7);
+      var o = document.createElement("option");
+      o.value = v; o.textContent = m.toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+      sel.appendChild(o);
+    }
+  })();
+  function stGet(format) {
+    var base = $("h-url").value.trim().replace(/\/+$/, "");
+    var url = base + "/v1/agents/" + encodeURIComponent(HA.open) + "/statement?month=" + $("st-month").value + (format ? "&format=" + format : "");
+    return fetch(url, { headers: { Authorization: "Bearer " + $("h-key").value.trim() } }).then(function (r) {
+      if (!r.ok) return r.json().then(function (j) { throw new Error(j.error || "HTTP " + r.status); });
+      return format === "csv" ? r.text() : r.json();
+    });
+  }
+  function stSummary() {
+    if (!HA.open) return;
+    $("st-sum").textContent = "";
+    stGet().then(function (s) {
+      $("st-sum").textContent = s.totals.payments ? s.totals.payments + " payment" + (s.totals.payments === 1 ? "" : "s") + ", " + s.totals.paymentsKas +
+        " KAS, plus " + s.totals.runnerFeesKas + " KAS of runner fees (" + s.totals.charged + " runs)." : "No payments that month.";
+    }).catch(function (e) { $("st-sum").textContent = e.message; });
+  }
+  $("st-month").addEventListener("change", stSummary);
+  $("st-csv").addEventListener("click", function () {
+    $("st-s").textContent = "Preparing…";
+    stGet("csv").then(function (text) {
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([text], { type: "text/csv" }));
+      a.download = "warda-" + HA.open + "-" + $("st-month").value + ".csv"; a.click();
+      $("st-s").textContent = "";
+    }).catch(function (e) { $("st-s").textContent = e.message; });
+  });
+  $("st-pdf").addEventListener("click", function () {
+    var w = window.open("", "_blank");
+    stGet().then(function (s) {
+      var rows = s.rows.map(function (r) {
+        return "<tr><td>" + esc(r.date) + "</td><td>" + esc(r.job) + "</td><td>" + esc(r.kind) + "</td><td class=w>" + esc(r.what) +
+          "</td><td class=n>" + esc(r.kas) + "</td><td class=t>" + esc(r.txid) + "</td><td>" + esc(r.status) + "</td></tr>";
+      }).join("");
+      var html = "<!doctype html><meta charset=utf-8><title>Warda statement · " + esc(s.agent) + " · " + esc(s.month) + "</title>" +
+        "<style>body{font:13px/1.45 -apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#111;margin:32px}h1{font-size:20px;margin:0}" +
+        "p{color:#444}table{border-collapse:collapse;width:100%;margin-top:18px}th,td{border-bottom:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top}" +
+        "th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#666}.n{text-align:right;white-space:nowrap}.t{font:11px monospace;word-break:break-all}.w{word-break:break-all}" +
+        ".tot td{font-weight:600;border-top:2px solid #111}</style>" +
+        "<h1>Statement — agent " + esc(s.agent) + "</h1><p>" + esc(s.month) + " · generated " + esc(new Date().toISOString().slice(0, 16).replace("T", " ")) +
+        " UTC · Warda runner, Kaspa testnet-10</p>" +
+        "<table><thead><tr><th>Date</th><th>Job</th><th>Kind</th><th>What</th><th class=n>KAS</th><th>Transaction</th><th>Status</th></tr></thead><tbody>" +
+        (rows || "<tr><td colspan=7>No payments this month.</td></tr>") +
+        "<tr class=tot><td colspan=4>Payments (" + s.totals.payments + ")</td><td class=n>" + esc(s.totals.paymentsKas) + "</td><td colspan=2></td></tr>" +
+        "<tr class=tot><td colspan=4>Runner fees (" + s.totals.charged + " runs)</td><td class=n>" + esc(s.totals.runnerFeesKas) + "</td><td colspan=2></td></tr>" +
+        "<tr class=tot><td colspan=4>Total</td><td class=n>" + esc(s.totals.allKas) + "</td><td colspan=2></td></tr></tbody></table><p>" + esc(s.note) + "</p>";
+      if (!w) { $("st-s").textContent = "Allow pop-ups for this site to print."; return; }
+      w.document.open(); w.document.write(html); w.document.close();
+      setTimeout(function () { try { w.focus(); w.print(); } catch (e) {} }, 300);
+    }).catch(function (e) { if (w) w.close(); $("st-s").textContent = e.message; });
   });
 
   /* ---- job templates ------------------------------------------------------ */

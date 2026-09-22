@@ -43,6 +43,7 @@ import type { Ops } from "./ops.ts";
 import { adminStats } from "./admin.ts";
 import type { SubAgentTerms } from "./delegate.ts";
 import { jobProblem } from "./jobs.ts";
+import { statement, statementCsv } from "./statement.ts";
 import { FEATURED, publishable, type Template } from "./templates.ts";
 
 const PUBLIC_CONSOLE = "https://www.wardaprotocol.com/app";
@@ -531,6 +532,27 @@ export function createApi(d: ApiDeps): (req: Request) => Promise<Response> {
       const agent = m[1]!;
       if ((await d.registry.getMeta(`public:${agent}`)) !== "1") throw new HttpError(404, `${agent} is not shared publicly`);
       return json(200, { ...(await readingOf(agent)), public: true });
+    }],
+
+    /* A month's spending: JSON for the console, ?format=csv for a spreadsheet. */
+    ["GET", /^\/v1\/agents\/([\w-]+)\/statement$/, async (req, m, url) => {
+      const acct = await account(req);
+      const agent = m[1]!;
+      await ownAgent(acct, agent);
+      const month = url.searchParams.get("month") ?? new Date(now()).toISOString().slice(0, 7);
+      let s;
+      try {
+        s = await statement({ store: d.store, agent, month, perRunSompi: d.fees.perRunSompi, ledger: await d.store.getLedger(agent) });
+      } catch (e) {
+        throw new HttpError(400, (e as Error).message);
+      }
+      if (url.searchParams.get("format") === "csv") {
+        return new Response(statementCsv(s), {
+          status: 200,
+          headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": `attachment; filename="warda-${agent}-${month}.csv"` },
+        });
+      }
+      return json(200, s);
     }],
 
     ["GET", /^\/v1\/agents\/([\w-]+)\/runs$/, async (req, m, url) => {

@@ -75,7 +75,9 @@ function bench(o: { signupCode?: string; delegate?: boolean } = {}) {
     const text = await res.text();
     return { status: res.status, body: (text ? JSON.parse(text) : {}) as Record<string, any>, headers: res.headers };
   };
-  return { call, sent, tg, siteLinks, opsSent, registry, advance: (ms: number) => void (now += ms) };
+  const raw = (method: string, path: string, key: string) =>
+    api(new Request(BASE + path, { method, headers: { authorization: `Bearer ${key}` } }));
+  return { call, raw, sent, tg, siteLinks, opsSent, registry, advance: (ms: number) => void (now += ms) };
 }
 
 async function onboarded(recipients = [VENDOR, RUNNER], o: { delegate?: boolean } = {}) {
@@ -508,3 +510,33 @@ test("templates: featured ones copy onto an agent; a job is published without it
   assert.equal((await b.call("POST", `/v1/templates/${pub.body.template.id}/unpublish`, { key: b.key })).status, 200);
   assert.ok(!(await b.call("GET", "/v1/templates")).body.templates.some((t: { id: string }) => t.id === pub.body.template.id));
 });
+
+test("statement: the month's payments with job, URL, amount and txid, then runner fees; CSV too", async () => {
+  const b = await onboarded();
+  const wf = await b.call("POST", "/v1/workflows", { key: b.key, body: {
+    agent: "shop-bot", name: "Buy a fact", trigger: { type: "manual" }, then: [{ type: "pay-x402", url: "https://v.test/fact", maxKas: "0.05" }],
+  } });
+  await b.call("POST", `/v1/workflows/${wf.body.workflow.id}/run`, { key: b.key, headers: { "idempotency-key": "a" } });
+  await b.call("POST", `/v1/workflows/${wf.body.workflow.id}/run`, { key: b.key, headers: { "idempotency-key": "b" } });
+  const s = await b.call("GET", "/v1/agents/shop-bot/statement?month=2026-09", { key: b.key });
+  assert.equal(s.status, 200, JSON.stringify(s.body));
+  const pays = s.body.rows.filter((r: { kind: string }) => r.kind === "payment");
+  assert.equal(pays.length, 2);
+  assert.equal(pays[0].job, "Buy a fact");
+  assert.equal(pays[0].what, "https://v.test/fact");
+  assert.equal(pays[0].kas, "0.03");
+  assert.equal(pays[0].txid, "tx402");
+  assert.equal(s.body.totals.paymentsKas, "0.06");
+  assert.equal(s.body.totals.charged, 2);
+  assert.equal(s.body.totals.runnerFeesKas, "0.02");
+  const other = await b.call("GET", "/v1/agents/shop-bot/statement?month=2026-08", { key: b.key });
+  assert.equal(other.body.rows.length, 0);
+  assert.equal((await b.call("GET", "/v1/agents/shop-bot/statement?month=Sept", { key: b.key })).status, 400);
+  const res = await fetchCsv(b, "/v1/agents/shop-bot/statement?month=2026-09&format=csv");
+  assert.match(res, /^date,job,kind,what,kas,txid,status\n/);
+  assert.match(res, /Buy a fact,payment,https:\/\/v\.test\/fact,0\.03,tx402,paid/);
+});
+
+async function fetchCsv(b: { key: string; raw: (method: string, path: string, key: string) => Promise<Response> }, path: string) {
+  return (await b.raw("GET", path, b.key)).text();
+}

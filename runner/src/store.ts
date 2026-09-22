@@ -18,6 +18,8 @@ export interface Step {
   /** Written the moment a payment is broadcast, before the vendor answers. */
   txid?: string;
   sompi?: string;
+  /** What was paid: the vendor URL for pay-x402, the address for send. For statements. */
+  to?: string;
 }
 
 export interface RunRecord {

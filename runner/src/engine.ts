@@ -375,6 +375,7 @@ export class Engine {
             status: out.status >= 200 && out.status < 300 ? "ok" : "submitted",
             txid: out.txid,
             sompi: out.sompi.toString(),
+            to: a.url,
             detail: out.status >= 200 && out.status < 300
               ? `paid ${formatKas(out.sompi)} KAS, HTTP ${out.status}`
               : `paid ${formatKas(out.sompi)} KAS and the vendor answered ${out.status}; resume with this txid, do not pay again`,
@@ -384,7 +385,7 @@ export class Engine {
           const why = refusal(g, a.sompi, { now, feesOwed: owed, payee: a.to, networkFee: this.o.networkFee });
           if (why) return { action: a.type, status: "refused", detail: why };
           const { txid } = await this.o.payments.send(wf.agent, a.to, a.sompi, onSubmitted);
-          return { action: a.type, status: "ok", txid, sompi: a.sompi.toString(), detail: `sent ${formatKas(a.sompi)} KAS` };
+          return { action: a.type, status: "ok", txid, sompi: a.sompi.toString(), to: a.to, detail: `sent ${formatKas(a.sompi)} KAS` };
         }
         case "notify": {
           await this.o.notifier.notify(a.channel, a.to, fill(a.text, context(wf, run, g, owed, now)), wf.agent);
