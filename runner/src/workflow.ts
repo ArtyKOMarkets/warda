@@ -27,7 +27,8 @@ export type Action =
   | { type: "send"; to: string; sompi: bigint }
   | { type: "notify"; channel: "telegram" | "webhook"; to: string; text: string }
   | { type: "http"; url: string; method: string; body?: string }
-  | { type: "approval"; op: "topup" | "renew" | "revoke"; note: string };
+  /** "continue": pause the run here until the owner approves (Telegram or console); the rest runs only on yes. */
+  | { type: "approval"; op: "topup" | "renew" | "revoke" | "continue"; note: string };
 
 export const AUTHORITY: Record<Action["type"], Authority> = {
   "pay-x402": "agent",
@@ -174,8 +175,8 @@ export function parseAction(v: unknown, i: number): Action {
       return out;
     }
     case "approval": {
-      if (a.op !== "topup" && a.op !== "renew" && a.op !== "revoke") {
-        throw new WorkflowError(`${w("op")} must be topup, renew or revoke`);
+      if (a.op !== "topup" && a.op !== "renew" && a.op !== "revoke" && a.op !== "continue") {
+        throw new WorkflowError(`${w("op")} must be continue, topup, renew or revoke`);
       }
       return { type: "approval", op: a.op, note: typeof a.note === "string" ? a.note : "" };
     }

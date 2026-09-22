@@ -33,6 +33,6 @@ export function vaultFileStore(dir = AGENTS_DIR): Store {
     },
     putWorkflow: no, getWorkflow: no, listWorkflows: no, claimRun: no, updateRun: no, listRuns: no, staleRuns: no, runsSince: no,
     getCursor: no, setCursor: no, getEdge: no, setEdge: no, getLedger: no, setLedger: no,
-    putApproval: no, listApprovals: no,
+    putApproval: no, listApprovals: no, getApproval: no, getRun: no, staleApprovals: no,
   };
 }

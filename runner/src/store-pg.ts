@@ -174,5 +174,20 @@ export function pgStore(db: Queryable): Store {
       const { rows } = await db.query(`select body from runner_approvals where agent = $1 order by id`, [agent]);
       return rows.map((r) => decode<Approval>(r.body));
     },
+    async getApproval(id) {
+      const { rows } = await db.query(`select body from runner_approvals where id = $1`, [id]);
+      return rows[0] ? decode<Approval>(rows[0].body) : null;
+    },
+    async getRun(id) {
+      const { rows } = await db.query(`select body from runner_runs where id = $1`, [id]);
+      return rows[0] ? decode<RunRecord>(rows[0].body) : null;
+    },
+    async staleApprovals(before) {
+      const { rows } = await db.query(
+        `select body from runner_approvals where body->>'status' = 'pending' and body->>'op' = 'continue' and (body->>'createdAt')::bigint < $1 limit 100`,
+        [before],
+      );
+      return rows.map((r) => decode<Approval>(r.body));
+    },
   };
 }

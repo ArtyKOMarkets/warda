@@ -95,6 +95,8 @@ export interface TickReport {
 
 /** A run that has said "running" this long was interrupted. */
 const STALE_MS = 5 * 60_000;
+/** An approval waits this long for an answer. */
+export const APPROVAL_TTL_MS = 24 * 3_600_000;
 
 export class Engine {
   private readonly o: Required<EngineOptions>;
@@ -154,6 +156,19 @@ export class Engine {
    * moved; never pay it again); anything else is `failed`, with the reason.
    */
   private async sweep(now: number): Promise<void> {
+    /* A question nobody answered in a day is a no. */
+    for (const ap of await this.o.store.staleApprovals(now - APPROVAL_TTL_MS)) {
+      ap.status = "expired";
+      ap.decidedAt = now;
+      await this.o.store.putApproval(ap);
+      const r = await this.o.store.getRun(ap.runId);
+      if (r && r.status === "waiting") {
+        r.status = "expired";
+        r.note = "nobody answered the approval within a day";
+        r.finishedAt = now;
+        await this.o.store.updateRun(r);
+      }
+    }
     for (const r of await this.o.store.staleRuns(now - STALE_MS)) {
       if (r.inflight?.txid) {
         r.steps.push({ ...r.inflight, detail: "broadcast, then the runner stopped before the vendor answered; resume with this txid, do not pay again" });
@@ -246,12 +261,24 @@ export class Engine {
       return finish("skipped", "a condition did not hold");
     }
 
+    return finish(await this.execute(wf, run, 0, g, ledger.owed, body, bodies));
+  }
+
+  /**
+   * The actions from `from` on. Stops at the first refusal or failure, and at
+   * an approval that pauses the run ("waiting"); resume() carries on from the
+   * action after it.
+   */
+  private async execute(
+    wf: Workflow, run: RunRecord, from: number, g0: GrantView, owed: bigint, body?: unknown, bodies?: string[],
+  ): Promise<RunRecord["status"]> {
+    let g: GrantView | null = g0;
+    const ledger = (await this.o.store.getLedger(wf.agent)) ?? emptyLedger();
     let executed = false;
     let status: RunRecord["status"] = "ok";
     let moved = false;
-    for (const action of wf.actions) {
-      // Re-read before a payment, and after one: a notification that follows
-      // a purchase should report the grant as it is, not as it was.
+    for (let i = from; i < wf.actions.length; i++) {
+      const action = wf.actions[i]!;
       if (moved || spends({ actions: [action] })) {
         g = (await this.o.grants.read(wf.agent)) ?? null;
         if (!g) {
@@ -260,7 +287,7 @@ export class Engine {
           break;
         }
       }
-      const step = await this.act(wf, run, action, g!, ledger.owed, body, bodies);
+      const step = await this.act(wf, run, action, g!, owed, body, bodies, i);
       run.steps.push(step);
       if (step.txid) moved = true;
       await this.o.store.updateRun(run);
@@ -268,18 +295,57 @@ export class Engine {
       if (step.status === "refused") { status = "refused"; break; }
       if (step.status === "failed") { status = "failed"; break; }
       if (step.status === "submitted") { status = "undelivered"; break; }
+      if (step.status === "requested" && action.type === "approval" && action.op === "continue") { status = "waiting"; break; }
     }
-
-    if (executed) {
+    if (executed && !run.charged) {
       run.charged = true;
       await this.o.store.setLedger(wf.agent, accrue(ledger, this.o.fees));
       await this.settle(wf.agent);
     }
-    return finish(status);
+    return status;
+  }
+
+  /**
+   * The owner's answer to an approval. Yes carries the paused run on from the
+   * step after the approval; no ends it. Idempotent: a second answer, or an
+   * answer to one already decided or expired, changes nothing.
+   */
+  async decide(approvalId: string, yes: boolean, via: string): Promise<{ status: string; run?: RunRecord["status"] }> {
+    const ap = await this.o.store.getApproval(approvalId);
+    if (!ap) throw new Error(`no approval ${approvalId}`);
+    if (ap.status !== "pending") return { status: ap.status };
+    ap.decidedAt = this.o.now();
+    ap.decidedVia = via;
+    if (ap.op !== "continue") {
+      ap.status = yes ? "signed" : "dismissed";
+      await this.o.store.putApproval(ap);
+      return { status: ap.status };
+    }
+    const run = await this.o.store.getRun(ap.runId);
+    const wf = await this.o.store.getWorkflow(ap.workflowId);
+    ap.status = yes ? "approved" : "denied";
+    await this.o.store.putApproval(ap);
+    if (!run || run.status !== "waiting") return { status: ap.status };
+    const finish = async (status: RunRecord["status"], note?: string) => {
+      run.status = status;
+      run.finishedAt = this.o.now();
+      if (note) run.note = note;
+      await this.o.store.updateRun(run);
+      await this.told(run);
+      return { status: ap.status, run: status };
+    };
+    if (!yes) return finish("denied", `the owner said no (${via})`);
+    if (!wf) return finish("failed", "the workflow was deleted while it waited");
+    run.status = "running";
+    await this.o.store.updateRun(run);
+    const g = await this.o.grants.read(wf.agent);
+    if (!g) return finish("undecided", "approved, but the grant could not be read; nothing after the approval was run");
+    const owed = ((await this.o.store.getLedger(wf.agent)) ?? emptyLedger()).owed;
+    return finish(await this.execute(wf, run, ap.next ?? wf.actions.length, g, owed));
   }
 
   private async act(
-    wf: Workflow, run: RunRecord, a: Action, g: GrantView, owed: bigint, _body: unknown, bodies?: string[],
+    wf: Workflow, run: RunRecord, a: Action, g: GrantView, owed: bigint, _body: unknown, bodies?: string[], index = 0,
   ): Promise<Step> {
     const now = this.o.now();
     let sent: { txid: string; sompi: bigint } | null = null;
@@ -334,10 +400,11 @@ export class Engine {
           const ap: Approval = {
             id: `apr_${run.id}`, agent: wf.agent, workflowId: wf.id, runId: run.id,
             op: a.op, note: a.note, createdAt: now, status: "pending",
+            ...(a.op === "continue" ? { next: index + 1 } : {}),
           };
           await this.o.store.putApproval(ap);
           await this.o.approvals.announce(ap);
-          return { action: a.type, status: "requested", detail: `asked the owner to ${a.op}` };
+          return { action: a.type, status: "requested", detail: a.op === "continue" ? "waiting for the owner's yes or no" : `asked the owner to ${a.op}` };
         }
       }
     } catch (e) {

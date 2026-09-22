@@ -368,3 +368,29 @@ test("top-up: one waiting at a time, cancellable before any payment, then again"
   const other = await b.call("POST", "/v1/accounts", { body: {} });
   assert.equal((await b.call("POST", "/v1/agents/shop-bot/topup", { key: other.body.apiKey, body: {} })).status, 404);
 });
+
+test("approve from Telegram: only the owner's linked chat can decide", async () => {
+  const b = await onboarded();
+  const acct = await b.registry.ownerOf("shop-bot");
+  await b.registry.setTelegram(acct!, "42");
+  const wf = await b.call("POST", "/v1/workflows", { key: b.key, body: {
+    agent: "shop-bot", name: "ask first", trigger: { type: "manual" },
+    then: [{ type: "approval", op: "continue", note: "pay the vendor?" }, { type: "send", to: VENDOR, kas: "0.1" }],
+  } });
+  assert.equal(wf.status, 201, JSON.stringify(wf.body));
+  await b.call("POST", `/v1/workflows/${wf.body.workflow.id}/run`, { key: b.key });
+  const aps = (await b.call("GET", "/v1/agents/shop-bot/approvals", { key: b.key })).body.approvals;
+  assert.equal(aps.length, 1);
+  const tap = (chat: number, yes = true) => b.call("POST", "/v1/telegram/hook", {
+    headers: { "x-telegram-bot-api-secret-token": "hooksecret" },
+    body: { callback_query: { id: "cb1", data: `apr:${yes ? "yes" : "no"}:${aps[0].id}`, message: { chat: { id: chat }, message_id: 7 } } },
+  });
+  await tap(999);
+  assert.equal(b.sent.length, 0, "a stranger's tap does nothing");
+  await tap(42);
+  assert.equal(b.sent.length, 1, "the owner's tap lets the payment through");
+  const runs = (await b.call("GET", "/v1/agents/shop-bot/runs", { key: b.key })).body.runs;
+  assert.equal(runs[0].status, "ok");
+  const c = await b.call("POST", `/v1/approvals/${aps[0].id}`, { key: b.key, body: { decision: "deny" } });
+  assert.equal(c.body.status, "approved", "already decided");
+});

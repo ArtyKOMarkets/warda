@@ -16,7 +16,7 @@ import { createApi, memberKey } from "./api.ts";
 import { claudeDrafter } from "./draft.ts";
 import { Engine } from "./engine.ts";
 import { Funder, refundDeposit, type FundingChain } from "./funding.ts";
-import { liveApprovals, liveGrants, liveHttp, liveNotifier, livePayments, type OpenAgent } from "./live.ts";
+import { liveApprovals, liveGrants, liveHttp, liveNotifier, livePayments, telegramApi, type OpenAgent } from "./live.ts";
 import { createMcp } from "./mcp.ts";
 import { migrateRegistry, pgRegistry } from "./registry.ts";
 import { migrate, pgStore } from "./store-pg.ts";
@@ -86,6 +86,7 @@ export async function boot(e: NodeJS.ProcessEnv = process.env, defaults: { baseU
   };
   const token = e.TELEGRAM_BOT_TOKEN || undefined;
   const raw = liveNotifier(token ? { telegramToken: token } : {});
+  const tgx = token ? telegramApi(token) : null;
   /* Telegram with no chat named goes to whoever owns the agent. */
   const notifier = {
     async notify(channel: "telegram" | "webhook", to: string, text: string, agent?: string) {
@@ -110,6 +111,8 @@ export async function boot(e: NodeJS.ProcessEnv = process.env, defaults: { baseU
           return botName;
         },
         send: (chat: string, text: string) => raw.notify("telegram", chat, text),
+        answer: (id: string, text: string) => tgx!.answer(id, text),
+        edit: (chat: string, messageId: number, text: string) => tgx!.edit(chat, messageId, text),
         /* The console's own account API links its alerts through this same
            bot. Both sides derive the shared secret from the bot token. */
         async site(code: string, chat: string) {
@@ -139,7 +142,12 @@ export async function boot(e: NodeJS.ProcessEnv = process.env, defaults: { baseU
     store, grants, fees, notifier,
     payments: livePayments(openAgent),
     http: liveHttp,
-    approvals: liveApprovals(notifier, CONSOLE),
+    approvals: liveApprovals(notifier, CONSOLE, tgx ? async (agent, text, id) => {
+      const acct = await registry.ownerOf(agent);
+      const chat = acct ? await registry.telegramOf(acct) : null;
+      if (!chat) throw new Error("no chat");
+      await tgx.buttons(chat, text, [[{ text: "✅ Approve", data: `apr:yes:${id}` }, { text: "✖ Deny", data: `apr:no:${id}` }]]);
+    } : undefined),
     networkFee: 2_000_000n,
     onFinished: (run) => ops.runFinished(run),
   });

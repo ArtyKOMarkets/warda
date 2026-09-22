@@ -61,7 +61,7 @@ const WORKFLOW_SCHEMA = {
       description:
         "actions in order. pay-x402 {type, url (https), maxKas:'0.05'}: buy from a paid API. send {type, to: an allowed payee address, kas:'0.1'}. " +
         "notify {type, channel:'telegram', text} (no 'to': it goes to the owner's connected Telegram; text may use {{agent}} {{grant.availableKas}} {{grant.spentPercent}} {{grant.hoursToExpiry}} {{run.lastTxid}}). " +
-        "http {type, url, method}. approval {type, op:'topup'|'renew'|'revoke', note}: asks the owner to sign; the runner can never do these itself.",
+        "http {type, url, method}. approval {type, op:'continue', note}: pauses the run and asks the owner (Telegram buttons or the console) — the actions after it run only if they approve; use it for ask-me-before-paying. approval {type, op:'topup'|'renew'|'revoke', note}: asks the owner to act on the grant themselves.",
       items: { type: "object" },
     },
   },

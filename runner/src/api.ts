@@ -65,6 +65,9 @@ export interface ApiDeps {
     /** A /start code the console's account API made ("s-…"): handed to the
      *  site, which links that account's alerts to this chat. */
     site?(code: string, chat: string): Promise<{ ok: boolean; rules?: number }>;
+    /** Acknowledge a button tap, and replace the message it was on. */
+    answer?(callbackId: string, text: string): Promise<void>;
+    edit?(chat: string, messageId: number, text: string): Promise<void>;
   };
   /** Sentence → workflow draft (Claude). */
   drafter?: Drafter;
@@ -461,6 +464,16 @@ export function createApi(d: ApiDeps): (req: Request) => Promise<Response> {
       return json(200, { runs: await d.store.listRuns(m[1]!, limit) });
     }],
 
+    /* The same decision from the console. */
+    ["POST", /^\/v1\/approvals\/([\w-]+)$/, async (req, m) => {
+      const acct = await account(req);
+      const ap = await d.store.getApproval(m[1]!);
+      if (!ap || (await d.registry.ownerOf(ap.agent)) !== acct) throw new HttpError(404, `no approval ${m[1]}`);
+      const b = await body(req);
+      if (b.decision !== "approve" && b.decision !== "deny") throw new HttpError(400, `decision must be "approve" or "deny"`);
+      return json(200, await d.engine.decide(ap.id, b.decision === "approve", "console"));
+    }],
+
     ["GET", /^\/v1\/agents\/([\w-]+)\/approvals$/, async (req, m) => {
       const acct = await account(req);
       await ownAgent(acct, m[1]!);
@@ -595,7 +608,37 @@ export function createApi(d: ApiDeps): (req: Request) => Promise<Response> {
     ["POST", /^\/v1\/telegram\/hook$/, async (req) => {
       const tg = d.telegram;
       if (!tg || req.headers.get("x-telegram-bot-api-secret-token") !== tg.hookSecret) return json(200, { ok: true });
-      const u = (await req.json().catch(() => null)) as { message?: { chat?: { id?: number | string }; text?: string } } | null;
+      const u = (await req.json().catch(() => null)) as {
+        message?: { chat?: { id?: number | string }; text?: string };
+        callback_query?: { id: string; data?: string; message?: { chat?: { id?: number | string }; message_id?: number } };
+      } | null;
+
+      /* An Approve or Deny tap. Telegram vouches for which chat it came from
+         (the hook secret proves the update is Telegram's); the chat must be the
+         one the agent's owner linked, or the tap is refused. The worst a tap
+         can do is let a run spend what its grant already allows. */
+      const cb = u?.callback_query;
+      if (cb) {
+        const say = (t: string) => tg.answer?.(cb.id, t).catch(() => {});
+        const mm = /^apr:(yes|no):([\w-]{3,60})$/.exec(cb.data ?? "");
+        const from = cb.message?.chat?.id;
+        if (!mm || from === undefined) { await say("Not a button this bot knows."); return json(200, { ok: true }); }
+        const ap = await d.store.getApproval(mm[2]!);
+        const owner = ap ? await d.registry.ownerOf(ap.agent) : null;
+        const chatOf = owner ? await d.registry.telegramOf(owner) : null;
+        if (!ap || !chatOf || chatOf !== String(from)) { await say("This approval is not yours to decide."); return json(200, { ok: true }); }
+        const r = await d.engine.decide(ap.id, mm[1] === "yes", "telegram");
+        const outcome = r.status === "approved" ? `✅ Approved — ${ap.agent} carried on${r.run ? ` (${r.run})` : ""}.`
+          : r.status === "denied" ? `✖ Denied — ${ap.agent} stopped there. Nothing after that step ran.`
+          : r.status === "expired" ? "This approval expired before it was answered."
+          : `Already decided: ${r.status}.`;
+        await say(outcome.slice(0, 190));
+        if (cb.message?.message_id !== undefined) {
+          await tg.edit?.(String(from), cb.message.message_id, `Agent ${ap.agent}: ${ap.note || "approval"}\n\n${outcome}`).catch(() => {});
+        }
+        return json(200, { ok: true });
+      }
+
       const chat = u?.message?.chat?.id;
       const text = String(u?.message?.text ?? "");
       const m = /^\/start\s+([\w-]{8,})$/.exec(text.trim());

@@ -24,6 +24,6 @@ SECRET="$(printf '%s' "warda-runner-telegram:$TOKEN" | shasum -a 256 | cut -c1-4
 curl -sf "https://api.telegram.org/bot$TOKEN/setWebhook" \
   --data-urlencode "url=${URL%/}/v1/telegram/hook" \
   --data-urlencode "secret_token=$SECRET" \
-  --data-urlencode 'allowed_updates=["message"]' >/dev/null
+  --data-urlencode 'allowed_updates=["message","callback_query"]' >/dev/null
 echo "  webhook set: ${URL%/}/v1/telegram/hook"
 echo "done. In the console: Your agents → Connect Telegram."

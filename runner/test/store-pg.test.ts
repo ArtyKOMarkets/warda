@@ -107,3 +107,17 @@ test("runsSince: every agent's runs from a time, newest first", async () => {
   await s.claimRun({ ...run("k3"), startedAt: 5 });
   assert.deepEqual((await s.runsSince(10)).map((r) => r.key), ["k2", "k1"]);
 });
+
+test("approvals and runs by id; pending continue-approvals go stale", async () => {
+  const s = await fresh();
+  await s.claimRun(run("k1", "run_1"));
+  assert.equal((await s.getRun("run_1"))!.key, "k1");
+  assert.equal(await s.getRun("nope"), null);
+  const ap = { id: "apr_run_1", agent: "a", workflowId: "wf_1", runId: "run_1", op: "continue" as const, note: "", createdAt: 5, status: "pending" as const, next: 1 };
+  await s.putApproval(ap);
+  assert.equal((await s.getApproval("apr_run_1"))!.next, 1);
+  assert.deepEqual((await s.staleApprovals(10)).map((a) => a.id), ["apr_run_1"]);
+  assert.deepEqual(await s.staleApprovals(5), []);
+  await s.putApproval({ ...ap, status: "approved" });
+  assert.deepEqual(await s.staleApprovals(10), []);
+});

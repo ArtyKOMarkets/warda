@@ -2297,6 +2297,7 @@ ops/install-cron.sh</pre>
               <div class="prompts" id="h-prompts">
                 <button data-p="Buy a fact from the Warda demo API every morning at 8 UTC, never more than 0.05 KAS">&#10022; Buy a fact every morning at 8 UTC, never more than 0.05 KAS</button>
                 <button data-p="Message me on Telegram when less than 25% of the budget is left">&#10022; Message me on Telegram when less than 25% of the budget is left</button>
+                <button data-p="Every day at 9 UTC buy from the Warda demo API, up to 0.05 KAS, but ask me on Telegram first">&#10022; Buy daily, but ask me on Telegram first</button>
                 <button data-p="Two days before the grant ends, tell me on Telegram and ask me to renew it">&#10022; Two days before the grant ends, tell me and ask me to renew it</button>
               </div>
               <div class="dcard" id="h-dcard" hidden>
@@ -2328,6 +2329,8 @@ ops/install-cron.sh</pre>
                 <div class="field" id="h-f-kas" hidden><label for="h-jkas">Amount &mdash; KAS</label><input id="h-jkas" inputmode="decimal" value="0.05"></div>
                 <div class="field" id="h-f-tg" hidden><label for="h-jtg">Telegram chat &mdash; optional</label><input id="h-jtg" placeholder="empty: your connected Telegram" spellcheck="false"></div>
               </div>
+              <label class="fa-ack" id="h-f-ask" style="margin-top:0.8rem"><input type="checkbox" id="h-jask">
+                <span>Ask me first &mdash; each run waits for my <b>Approve</b> on Telegram or here before it pays.</span></label>
               <p style="margin-top:1rem"><button class="go wide" id="h-job">Add this job</button></p>
               </details>
               <p class="state" id="h-job-s"></p>
@@ -2472,6 +2475,10 @@ ops/install-cron.sh</pre>
             <button class="go gh" id="ha-d-refund">Send back deposit leftovers</button>
           </p>
           <pre id="ha-d-out" hidden></pre>
+        </div>
+        <div class="card" style="margin-top:0.85rem" id="ap-card" hidden>
+          <header><h2>Waiting for you <small id="ap-n"></small></h2></header>
+          <div class="feed" id="ap-list"></div>
         </div>
         <div class="card" style="margin-top:0.85rem" id="tu-card">
           <header><h2>Top up or renew <small id="tu-n"></small></h2></header>
@@ -6831,6 +6838,7 @@ var WardaRouter = (() => {
     $("h-f-hour").hidden = t !== "buy";
     $("h-f-to").hidden = $("h-f-kas").hidden = t !== "hook";
     $("h-f-tg").hidden = t !== "low" && t !== "end";
+    $("h-f-ask").hidden = !(t === "buy" || t === "once" || t === "hook");
   }
   function hJob() {
     var t = $("h-tpl").value, agent = HR.agent, wf;
@@ -6852,6 +6860,12 @@ var WardaRouter = (() => {
     } else {
       wf = { agent: agent, name: "Budget low", trigger: { type: "grant", when: "budget-below", percent: 20 },
              then: [{ type: "notify", channel: "telegram", to: $("h-jtg").value.trim(), text: "{{agent}} has {{grant.availableKas}} KAS left." }] };
+    }
+    if ($("h-jask").checked && !$("h-f-ask").hidden) {
+      var what = wf.then[0].type === "send" ? "pay " + wf.then[0].kas + " KAS to " + String(wf.then[0].to).slice(0, 18) + "…"
+        : "buy from " + host + " (up to " + wf.then[0].maxKas + " KAS)";
+      wf.then.unshift({ type: "approval", op: "continue", note: "“" + wf.name + "” wants to " + what + "." });
+      wf.name += " — asks first";
     }
     hState("h-job-s", "Adding…");
     $("h-job-out").hidden = true;
@@ -7002,6 +7016,7 @@ var WardaRouter = (() => {
         n = ["\ud83d\udcac", a.channel === "telegram" ? "Message you on Telegram" : "Call your webhook", "\u201c" + txt + "\u201d"];
       }
       else if (a.type === "http") n = ["\ud83c\udf10", "Call " + hostOf(a.url), a.method || "POST"];
+      else if (a.type === "approval" && a.op === "continue") n = ["\u2705", "Wait for your OK", "Approve on Telegram or here"];
       else if (a.type === "approval") n = ["\u270d", "Ask you to " + a.op, "you sign it; the runner cannot"];
       else n = ["\u2022", a.type, ""];
       nodes.push(["a", n, "ACTION"]);
@@ -7154,6 +7169,7 @@ var WardaRouter = (() => {
       ["tu-budget", "tu-cap", "tu-days"].forEach(function (id) { if (HA.tuFor !== agent) $(id).value = ""; });
       HA.tuFor = agent;
       tuShow(a);
+      apLoad(agent);
       haJobs(a.workflows || []);
       haRevoke(a);
     }).catch(function (e) { hState("ha-s", e.message, true); });
@@ -8212,6 +8228,31 @@ var WardaRouter = (() => {
   $("ad-forget").addEventListener("click", function () {
     try { localStorage.removeItem(AD_KEY); } catch (e) {}
     $("ad-body").hidden = true; $("ad-s").textContent = "Forgotten in this browser.";
+  });
+
+  /* ---- approvals waiting in Your agents ---------------------------------- */
+  function apLoad(agent) {
+    hApi("GET", "/v1/agents/" + encodeURIComponent(agent) + "/approvals").then(function (r) {
+      if (HA.open !== agent) return;
+      var list = (r.approvals || []).filter(function (a) { return a.status === "pending"; });
+      $("ap-card").hidden = !list.length;
+      $("ap-n").textContent = list.length ? String(list.length) : "";
+      $("ap-list").innerHTML = list.map(function (a) {
+        var left = Math.max(0, Math.round((a.createdAt + 86400000 - Date.now()) / 3600000));
+        return '<div class="ev"><span class="pill warn">waiting</span><i style="font-style:normal;min-width:0"><b>' +
+          esc(a.note || (a.op === "continue" ? "A job is waiting for your OK" : "Asks you to " + a.op)) + '</b>' +
+          '<span>' + (a.op === "continue" ? "expires in " + left + " h · also on Telegram" : "sign it in your own wallet") + '</span></i>' +
+          (a.op === "continue" ? '<span class="a" style="display:flex;gap:0.4rem"><button class="go" data-apr="' + esc(a.id) + '" data-d="approve">Approve</button>' +
+            '<button class="go gh" data-apr="' + esc(a.id) + '" data-d="deny">Deny</button></span>' : "") + '</div>';
+      }).join("");
+    }).catch(function () {});
+  }
+  $("ap-list").addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest("[data-apr]"); if (!b) return;
+    b.disabled = true;
+    hApi("POST", "/v1/approvals/" + encodeURIComponent(b.getAttribute("data-apr")), { decision: b.getAttribute("data-d") })
+      .then(function () { apLoad(HA.open); haRuns(HA.open); haList(); })
+      .catch(function (err) { hState("ha-s", err.message, true); b.disabled = false; });
   });
 
   /* ---- top up / renew ------------------------------------------------------ */

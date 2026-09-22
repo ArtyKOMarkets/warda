@@ -232,3 +232,51 @@ test("a run the process died in is swept: undelivered with its txid if it paid, 
   assert.equal(by.r2!.status, "failed");
   assert.equal(by.r3!.status, "running", "a run started a minute ago is left alone");
 });
+
+test("approve to continue: the run waits, and only a yes lets the payment through — once", async () => {
+  const w = world();
+  await w.engine.add(wf(w, { trigger: { type: "manual" }, then: [
+    { type: "approval", op: "continue", note: "pay 0.1 KAS?" },
+    { type: "send", to: RUNNER, kas: "0.1" },
+  ] }));
+  const id = (await w.engine.fire("wf_1", "manual"))!;
+  let run = (await w.store.listRuns("agent-009"))[0]!;
+  assert.equal(run.id, id);
+  assert.equal(run.status, "waiting");
+  assert.equal(w.sent.length, 0, "nothing after the approval has run");
+  assert.equal(w.announced.length, 1);
+  const ap = w.announced[0]!;
+  assert.equal(ap.op, "continue");
+  assert.equal(ap.next, 1);
+
+  const r = await w.engine.decide(ap.id, true, "telegram");
+  assert.equal(r.status, "approved");
+  assert.equal(r.run, "ok");
+  assert.equal(w.sent.length, 1);
+  run = (await w.store.listRuns("agent-009"))[0]!;
+  assert.equal(run.status, "ok");
+  assert.deepEqual(run.steps.map((s) => s.status), ["requested", "ok"]);
+
+  const again = await w.engine.decide(ap.id, true, "console");
+  assert.equal(again.status, "approved");
+  assert.equal(w.sent.length, 1, "a second yes pays nothing more");
+});
+
+test("approve to continue: no ends the run; silence for a day expires it", async () => {
+  const w = world();
+  await w.engine.add(wf(w, { trigger: { type: "manual" }, then: [
+    { type: "approval", op: "continue", note: "?" },
+    { type: "send", to: RUNNER, kas: "0.1" },
+  ] }));
+  await w.engine.fire("wf_1", "manual");
+  const r = await w.engine.decide(w.announced[0]!.id, false, "console");
+  assert.equal(r.run, "denied");
+  assert.equal(w.sent.length, 0);
+
+  await w.engine.fire("wf_1", "manual");
+  w.advance(25 * 3_600_000);
+  await w.engine.tick();
+  assert.equal((await w.store.getRun(w.announced[1]!.runId))!.status, "expired");
+  assert.equal((await w.engine.decide(w.announced[1]!.id, true, "console")).status, "expired");
+  assert.equal(w.sent.length, 0, "an expired approval cannot be approved");
+});

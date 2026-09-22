@@ -7,7 +7,9 @@ import type { Action, Workflow } from "./workflow.ts";
 import type { FeeLedger } from "./fees.ts";
 
 /** `undelivered`: a payment was broadcast and the vendor did not serve. Never retried by paying. */
-export type RunStatus = "running" | "ok" | "skipped" | "refused" | "failed" | "undelivered" | "undecided" | "missed";
+export type RunStatus = "running" | "ok" | "skipped" | "refused" | "failed" | "undelivered" | "undecided" | "missed"
+  /** Paused at an approval step, until the owner says yes or no. */
+  | "waiting" | "denied" | "expired";
 
 export interface Step {
   action: Action["type"];
@@ -52,10 +54,15 @@ export interface Approval {
   agent: string;
   workflowId: string;
   runId: string;
-  op: "topup" | "renew" | "revoke";
+  op: "topup" | "renew" | "revoke" | "continue";
   note: string;
   createdAt: number;
-  status: "pending" | "signed" | "dismissed";
+  status: "pending" | "signed" | "dismissed" | "approved" | "denied" | "expired";
+  /** op "continue": the index of the action the run resumes at when approved. */
+  next?: number;
+  decidedAt?: number;
+  /** Who decided: "telegram" or "console". */
+  decidedVia?: string;
 }
 
 export type Edge = "clear" | "firing";
@@ -88,6 +95,10 @@ export interface Store {
 
   putApproval(a: Approval): Promise<void>;
   listApprovals(agent: string): Promise<Approval[]>;
+  getApproval(id: string): Promise<Approval | null>;
+  getRun(id: string): Promise<RunRecord | null>;
+  /** Approvals still pending that were created before `before` (ms). */
+  staleApprovals(before: number): Promise<Approval[]>;
 }
 
 export function memoryStore(): Store {
@@ -164,6 +175,17 @@ export function memoryStore(): Store {
     },
     async listApprovals(agent) {
       return [...approvals.values()].filter((a) => a.agent === agent).map(clone);
+    },
+    async getApproval(id) {
+      const a = approvals.get(id);
+      return a ? clone(a) : null;
+    },
+    async getRun(id) {
+      const r = [...runs.values()].find((x) => x.id === id);
+      return r ? clone(r) : null;
+    },
+    async staleApprovals(before) {
+      return [...approvals.values()].filter((a) => a.status === "pending" && a.op === "continue" && a.createdAt < before).map(clone);
     },
   };
 }

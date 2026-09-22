@@ -178,10 +178,49 @@ export const liveHttp: Http = {
   },
 };
 
-/** Tells the owner there is something to sign, with a link to the console. */
-export function liveApprovals(n: Notifier, consoleUrl: string): Approvals {
+/** The Telegram calls beyond a plain message: buttons, and answering a tap. */
+export function telegramApi(token: string) {
+  const call = async (method: string, body: unknown) => {
+    const r = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) throw new Error(`Telegram ${method} answered ${r.status}`);
+  };
+  return {
+    buttons: (chat: string, text: string, rows: { text: string; data: string }[][]) =>
+      call("sendMessage", {
+        chat_id: chat, text, disable_web_page_preview: true,
+        reply_markup: { inline_keyboard: rows.map((r) => r.map((b) => ({ text: b.text, callback_data: b.data }))) },
+      }),
+    answer: (callbackId: string, text: string) => call("answerCallbackQuery", { callback_query_id: callbackId, text }),
+    edit: (chat: string, messageId: number, text: string) =>
+      call("editMessageText", { chat_id: chat, message_id: messageId, text, disable_web_page_preview: true }),
+  };
+}
+
+/**
+ * Tells the owner there is something to decide. A paused run ("continue")
+ * gets Approve and Deny buttons in their Telegram chat; the rest link to the
+ * console, because only the owner's own wallet can sign them.
+ */
+export function liveApprovals(
+  n: Notifier,
+  consoleUrl: string,
+  ask?: (agent: string, text: string, approvalId: string) => Promise<void>,
+): Approvals {
   return {
     async announce(a) {
+      if (a.op === "continue") {
+        const text = `Agent ${a.agent} is waiting for your OK.${a.note ? "\n\n" + a.note : ""}\n\n` +
+          `Nothing after this step runs unless you approve. It expires in 24 hours. Also in the console: ${consoleUrl}#/hagents`;
+        if (ask) {
+          try { await ask(a.agent, text, a.id); return; } catch { /* fall back to a plain message */ }
+        }
+        await n.notify("telegram", "", text, a.agent).catch(() => {});
+        return;
+      }
       await n.notify(
         "telegram",
         "",
