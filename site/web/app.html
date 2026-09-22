@@ -828,6 +828,9 @@
     .fa-amt input:not([type=checkbox]):not([type=radio]):not([type=range]) { font-size: 1.35rem; }
   }
 </style>
+</head>
+<body>
+
 
 <div class="app">
   <aside class="side" id="side">
@@ -8429,10 +8432,7 @@ var WardaRouter = (() => {
         "<style>body{font:13px/1.45 -apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#111;margin:32px}h1{font-size:20px;margin:0}" +
         "p{color:#444}table{border-collapse:collapse;width:100%;margin-top:18px}th,td{border-bottom:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top}" +
         "th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#666}.n{text-align:right;white-space:nowrap}.t{font:11px monospace;word-break:break-all}.w{word-break:break-all}" +
-        ".tot td{font-weight:600;border-top:2px solid #111}</style>
-</head>
-<body>
-" +
+        ".tot td{font-weight:600;border-top:2px solid #111}<\/style>" +
         "<h1>Statement — agent " + esc(s.agent) + "</h1><p>" + esc(s.month) + " · generated " + esc(new Date().toISOString().slice(0, 16).replace("T", " ")) +
         " UTC · Warda runner, Kaspa testnet-10</p>" +
         "<table><thead><tr><th>Date</th><th>Job</th><th>Kind</th><th>What</th><th class=n>KAS</th><th>Transaction</th><th>Status</th></tr></thead><tbody>" +
