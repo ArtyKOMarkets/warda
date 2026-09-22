@@ -12,8 +12,15 @@
  * line the agent can overdraw.
  */
 export interface FeePolicy {
-  /** The runner's payee address. Must be on the grant's allowlist. */
+  /** The runner's payee address. New grants put it on their allowlist. */
   payee: string;
+  /**
+   * Earlier payee addresses. An allowlist is fixed when a grant is created, so
+   * a grant made before the payee changed can only ever pay the one it named;
+   * fees from it still go there. Never add an address here that the runner's
+   * operator does not hold the key to.
+   */
+  previous?: string[];
   perRunSompi: bigint;
   settleAtSompi: bigint;
   /** Settle whatever is owed when fewer hours than this remain. */
@@ -25,6 +32,15 @@ export interface FeeLedger {
   runs: number;
   settled: bigint;
   lastSettlementTxid: string | null;
+}
+
+/**
+ * Which of the runner's payee addresses this grant can pay: the current one if
+ * its allowlist names it, else the newest earlier one it names, else null.
+ */
+export function feePayeeFor(p: FeePolicy, onAllowlist: (address: string) => boolean): string | null {
+  for (const a of [p.payee, ...(p.previous ?? [])]) if (onAllowlist(a)) return a;
+  return null;
 }
 
 export const emptyLedger = (): FeeLedger => ({ owed: 0n, runs: 0, settled: 0n, lastSettlementTxid: null });

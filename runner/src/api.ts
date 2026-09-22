@@ -27,7 +27,7 @@ import { toRecipientSet, type Manifest } from "@warda_protocol/agent";
 import { formatKas } from "@warda_protocol/core";
 import type { Engine } from "./engine.ts";
 import type { FeePolicy } from "./fees.ts";
-import { emptyLedger } from "./fees.ts";
+import { emptyLedger, feePayeeFor } from "./fees.ts";
 import { memberKey, spendable, type GrantReader } from "./grant.ts";
 import type { Registry } from "./registry.ts";
 import type { Store } from "./store.ts";
@@ -124,7 +124,8 @@ export function createApi(d: ApiDeps): (req: Request) => Promise<Response> {
     return wf;
   };
 
-  const feePayeeKey = memberKey(d.fees.payee);
+  /* Any of the runner's payee addresses, current or earlier, pays the fee. */
+  const paysFee = (members: string[]) => feePayeeFor(d.fees, (a) => members.includes(memberKey(a))) !== null;
 
   const routes: [string, RegExp, (req: Request, m: RegExpExecArray, url: URL) => Promise<Response>][] = [
     ["POST", /^\/v1\/accounts$/, async (req) => {
@@ -318,7 +319,7 @@ export function createApi(d: ApiDeps): (req: Request) => Promise<Response> {
         agent,
         registered: true,
         onChain: view ? "confirmed" : "undecided — the chain did not confirm this grant yet; runs will wait",
-        feePayeeOnAllowlist: members.includes(feePayeeKey),
+        feePayeeOnAllowlist: paysFee(members),
       });
     }],
 
@@ -397,7 +398,7 @@ export function createApi(d: ApiDeps): (req: Request) => Promise<Response> {
       const g = await d.registry.getGrant(wf.agent);
       if (!g) throw new HttpError(409, `register ${wf.agent}'s grant first: PUT /v1/agents/${wf.agent}/grant`);
       const members = g.recipients.map(memberKey);
-      if (spends(wf) && !members.includes(feePayeeKey)) {
+      if (spends(wf) && !paysFee(members)) {
         throw new HttpError(422,
           `this workflow spends, and ${wf.agent}'s grant cannot pay the runner's fee: ${d.fees.payee} is not on its allowlist. ` +
           `An allowlist is fixed when a grant is created, so this grant can run notify, http and approval workflows only.`);

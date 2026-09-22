@@ -75,6 +75,7 @@ export async function boot(e: NodeJS.ProcessEnv = process.env, defaults: { baseU
 
   const fees = {
     payee: env("RUNNER_FEE_PAYEE"),
+    previous: (e.RUNNER_FEE_PAYEES_PREVIOUS ?? "").split(",").map((s) => s.trim()).filter(Boolean),
     perRunSompi: kas(env("RUNNER_FEE_PER_RUN_KAS", "0.001")),
     settleAtSompi: kas(env("RUNNER_SETTLE_AT_KAS", "0.05")),
     settleBeforeExpiryHours: 24,

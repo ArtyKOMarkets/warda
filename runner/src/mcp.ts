@@ -17,7 +17,7 @@
 import { formatKas } from "@warda_protocol/core";
 import type { Engine } from "./engine.ts";
 import type { FeePolicy } from "./fees.ts";
-import { emptyLedger } from "./fees.ts";
+import { emptyLedger, feePayeeFor } from "./fees.ts";
 import { hoursToExpiry, memberKey, spendable, type GrantReader } from "./grant.ts";
 import type { Registry } from "./registry.ts";
 import type { Store } from "./store.ts";
@@ -116,8 +116,8 @@ export function createMcp(d: McpDeps): (req: Request) => Promise<Response> {
       case "pay": {
         const g = await d.registry.getGrant(agent);
         if (!g) return text("This agent has no grant yet, so it cannot pay anyone.", true);
-        const fee = memberKey(d.fees.payee);
-        if (!g.recipients.map(memberKey).includes(fee)) {
+        const members = g.recipients.map(memberKey);
+        if (!feePayeeFor(d.fees, (a) => members.includes(memberKey(a)))) {
           return text("This agent's grant cannot pay the runner's fee, so the runner cannot pay for it. Its allowlist was fixed without the runner's fee address.", true);
         }
         const wf = parseWorkflow(

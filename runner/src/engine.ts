@@ -20,8 +20,8 @@
  */
 import { formatKas } from "@warda_protocol/core";
 import { slotsBetween } from "./cron.ts";
-import { accrue, emptyLedger, settled, settlementDue, type FeePolicy } from "./fees.ts";
-import { hoursToExpiry, refusal, spendable, spentPercent, type GrantReader, type GrantView } from "./grant.ts";
+import { accrue, emptyLedger, feePayeeFor, settled, settlementDue, type FeePolicy } from "./fees.ts";
+import { hoursToExpiry, onAllowlist, refusal, spendable, spentPercent, type GrantReader, type GrantView } from "./grant.ts";
 import type { Approval, RunRecord, Step, Store } from "./store.ts";
 import { fill } from "./template.ts";
 import { spends, type Action, type Condition, type Workflow } from "./workflow.ts";
@@ -353,7 +353,9 @@ export class Engine {
     if (!g) return null;
     if (!settlementDue(ledger, this.o.fees, hoursToExpiry(g, this.o.now()))) return null;
     const amount = ledger.owed < g.maxPerSpend ? ledger.owed : g.maxPerSpend;
-    const why = refusal(g, amount, { now: this.o.now(), feesOwed: 0n, payee: this.o.fees.payee, networkFee: this.o.networkFee });
+    const payee = feePayeeFor(this.o.fees, (a) => onAllowlist(g.payees, a));
+    if (!payee) return null;
+    const why = refusal(g, amount, { now: this.o.now(), feesOwed: 0n, payee, networkFee: this.o.networkFee });
     if (why) return null;
     let txid: string | null = null;
     const once = async (t: string) => {
@@ -362,7 +364,7 @@ export class Engine {
       await this.o.store.setLedger(agent, settled(ledger, amount, t));
     };
     try {
-      const r = await this.o.payments.send(agent, this.o.fees.payee, amount, once);
+      const r = await this.o.payments.send(agent, payee, amount, once);
       await once(r.txid);
     } catch {
       // Not broadcast: the debt stands. If it was, `once` already recorded it.

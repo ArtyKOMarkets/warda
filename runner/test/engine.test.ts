@@ -9,7 +9,7 @@ const KAS = 100_000_000n;
 const RUNNER = "3c693f61fbc35d1fd4dcec2bbbab692be38656e6fd5a4077ee495afcb23535a1";
 const VENDOR = "16e6af2030f7e4510d1a417391a7ff7ccad21864f17eef7ee035f0453e21a033";
 
-function world(o: { price?: bigint; failAfterSubmit?: boolean; start?: number } = {}) {
+function world(o: { price?: bigint; failAfterSubmit?: boolean; start?: number; feePayee?: string; previous?: string[] } = {}) {
   let now = o.start ?? Date.parse("2026-09-22T09:00:30Z");
   const g: GrantView = {
     address: "kaspatest:grant",
@@ -59,7 +59,7 @@ function world(o: { price?: bigint; failAfterSubmit?: boolean; start?: number } 
     notifier: { notify: async (_c, _t, text) => void notes.push(text) },
     http: { request: async () => 200 },
     approvals: { announce: async (a) => void announced.push(a) },
-    fees: { payee: RUNNER, perRunSompi: 1_000_000n, settleAtSompi: 3_000_000n, settleBeforeExpiryHours: 24 },
+    fees: { payee: o.feePayee ?? RUNNER, ...(o.previous ? { previous: o.previous } : {}), perRunSompi: 1_000_000n, settleAtSompi: 3_000_000n, settleBeforeExpiryHours: 24 },
     networkFee: 1_500_000n,
     now: () => now,
   });
@@ -150,6 +150,19 @@ test("fees accrue per run, are not spendable, and settle in one payment", async 
   assert.equal(l.owed, 0n);
   assert.equal(l.settled, 3_000_000n);
   assert.equal(l.lastSettlementTxid, "tx1");
+});
+
+test("a new fee payee: grants made before it still settle to the payee their allowlist names", async () => {
+  const NEW = "7e".repeat(32);
+  const w = world({ feePayee: NEW, previous: [RUNNER] });
+  await w.engine.add(wf(w, { trigger: { type: "manual" }, then: [{ type: "notify", channel: "telegram", to: "1", text: "x" }] }));
+  for (let i = 0; i < 3; i++) await w.engine.fire("wf_1", "manual");
+  assert.deepEqual(w.sent.map((s) => [s.to, s.sompi]), [[RUNNER, 3_000_000n]], "the old payee, the only one this allowlist has");
+
+  const x = world({ feePayee: NEW });
+  await x.engine.add(wf(x, { trigger: { type: "manual" }, then: [{ type: "notify", channel: "telegram", to: "1", text: "x" }] }));
+  for (let i = 0; i < 3; i++) await x.engine.fire("wf_1", "manual");
+  assert.equal(x.sent.length, 0, "no payee this grant can pay: the debt stands, nothing is sent anywhere else");
 });
 
 test("owed fees are committed: a workflow cannot spend them", async () => {

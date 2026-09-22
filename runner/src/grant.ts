@@ -16,7 +16,7 @@ export function memberKey(m: string): string {
   return t.includes(":") ? toHex(decodeAddress(t).payload) : t.toLowerCase();
 }
 
-function onAllowlist(payees: string[], payee: string): boolean {
+export function onAllowlist(payees: string[], payee: string): boolean {
   try {
     const k = memberKey(payee);
     return payees.some((p) => { try { return memberKey(p) === k; } catch { return false; } });

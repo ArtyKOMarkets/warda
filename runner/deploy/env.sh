@@ -22,6 +22,9 @@ node --experimental-strip-types -e '
     const out = {};
     for (const k of want) out[k] = process.env[k] || file[k] || "";
     const missing = want.filter((k) => !out[k]);
+    /* Optional: earlier fee addresses of the runner, which grants made before
+       the payee changed still settle to (runner/tools/new-fee-payee.ts). */
+    for (const k of ["RUNNER_FEE_PAYEES_PREVIOUS"]) if (process.env[k]) out[k] = process.env[k];
     if (missing.length) { console.error("missing: " + missing.join(", ")); process.exit(1); }
     require("node:fs").writeFileSync(".env.push", Object.entries(out).map(([k, v]) => k + "=" + v).join("\n") + "\n", { mode: 0o600 });
   });
