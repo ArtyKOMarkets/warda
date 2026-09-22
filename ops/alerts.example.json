@@ -1,11 +1,9 @@
 {
   "_comment": "Copy to ops/alerts.json and edit, or compose a rule in the console at /app and paste it in. That copy is gitignored: it names your addresses and your thresholds, and a threshold published is a thing an attacker knows to sit just underneath. Every rule here NOTIFIES and nothing more — ops/alerts.ts holds no key, signs nothing and builds no transaction.",
-
   "telegram": {
     "_comment": "Optional. WARDA_TELEGRAM_CHAT in ops/alerts.env wins if set. The TOKEN is never kept here — a rule file gets pasted into chat windows.",
     "chatId": ""
   },
-
   "rules": [
     {
       "id": "003-running-low",
@@ -40,6 +38,14 @@
         "perKas": "0.05",
         "source": "you, 20 September 2026"
       }
+    },
+    {
+      "id": "runner-ticking",
+      "kind": "runner-ticking",
+      "note": "The hosted runner is ticked every minute by QStash. If that stops, nothing in the runner can say so.",
+      "runner": "https://warda-runner.vercel.app",
+      "_maxMinutes": "Optional, default 10.",
+      "maxMinutes": 10
     }
   ]
 }

@@ -92,4 +92,18 @@ test("the registry on Postgres: accounts, ownership, grants, hook secrets", asyn
   assert.equal(await r.checkHook("wf_1", s + "x"), false);
   const { rows } = await db.query(`select secret_hash from runner_hooks`);
   assert.notEqual((rows[0] as { secret_hash: string }).secret_hash, s, "only the hash is stored");
+  await r.setMeta("lastTickAt", "5");
+  await r.setMeta("lastTickAt", "6");
+  assert.equal(await r.getMeta("lastTickAt"), "6");
+  assert.equal(await r.getMeta("nope"), null);
+  assert.deepEqual(await r.listAccounts(), [{ id: a.id, createdAt: 1 }]);
+  assert.deepEqual(await r.listAgents(), [{ agent: "bot", account: a.id, createdAt: 1 }]);
+});
+
+test("runsSince: every agent's runs from a time, newest first", async () => {
+  const s = await fresh();
+  await s.claimRun({ ...run("k1"), startedAt: 10 });
+  await s.claimRun({ ...run("k2"), agent: "b", startedAt: 20 });
+  await s.claimRun({ ...run("k3"), startedAt: 5 });
+  assert.deepEqual((await s.runsSince(10)).map((r) => r.key), ["k2", "k1"]);
 });

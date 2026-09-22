@@ -628,6 +628,12 @@
   .wsel-list li .h { color: var(--chrome-faint); font-size: 0.72rem; margin-left: 1.2rem; }
   .wsel-list li[aria-selected="true"] .h, .wsel-list li.hi .h { color: var(--chrome-dim); }
   .hold { display: grid; gap: 0.45rem; }
+  .ad-bars { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; align-items: end; height: 140px; margin-top: 0.4rem; }
+  .ad-bar { display: flex; flex-direction: column-reverse; height: 100%; justify-content: flex-start; position: relative; }
+  .ad-bar span { display: block; width: 100%; border-radius: 2px; }
+  .ad-bar b { position: absolute; bottom: -1.3rem; left: 0; right: 0; text-align: center; font: 500 0.6rem var(--mono); color: var(--chrome-faint); }
+  .ad-key { margin: 1.8rem 0 0; font-size: 0.72rem; color: var(--chrome-faint); display: flex; flex-wrap: wrap; gap: 0.3rem 0.9rem; align-items: center; }
+  .ad-key i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 0.3rem; vertical-align: -1px; }
   .sess-tg-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin: 0; }
   .acc-side { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.6rem 1rem;
     margin-bottom: 0.85rem; padding: 0.7rem 0.9rem; border: 1px solid var(--edge-bright); border-radius: 10px; background: var(--panel); }
@@ -2381,6 +2387,56 @@ ops/install-cron.sh</pre>
             <p class="why"><b>The runner</b> holds the agent&rsquo;s key (in Turnkey), which can only pay inside these
               limits, and a one-time deposit key that can only create this grant or send your deposit back to you.
               <b>You</b> hold the key that stops the grant and takes back what is left. Nobody can raise a limit.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================ OPERATOR ============================ -->
+    <div class="view pad" id="v-admin">
+      <div class="head"><div>
+        <h1>Operator</h1>
+        <p>The hosted runner from the inside: who uses it, how their runs go, what is failing, and what it has
+          earned. Read from the runner&rsquo;s own records, not the chain. Needs the runner&rsquo;s admin secret
+          (<code>RUNNER_ADMIN_SECRET</code> in <code>runner/.env</code>), kept in this browser only.</p>
+      </div></div>
+      <div class="card" id="ad-auth">
+        <div class="grid">
+          <div class="field"><label for="ad-secret">Admin secret</label>
+            <input id="ad-secret" type="password" autocomplete="off" spellcheck="false" placeholder="RUNNER_ADMIN_SECRET"></div>
+        </div>
+        <p style="margin-top:0.7rem;display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap">
+          <button class="go" type="button" id="ad-load">Load</button>
+          <button class="go gh" type="button" id="ad-forget">Forget the secret</button>
+          <span class="state" id="ad-s" style="margin:0"></span></p>
+      </div>
+      <div id="ad-body" hidden>
+        <div class="tiles" id="ad-tiles" style="margin-top:0.85rem"></div>
+        <div class="card" style="margin-top:0.85rem">
+          <header><h2>Runs per day <small id="ad-days-n"></small></h2></header>
+          <div class="ad-bars" id="ad-bars"></div>
+          <p class="ad-key"><i style="background:var(--good)"></i>ok <i style="background:var(--amber)"></i>refused
+            <i style="background:var(--refuse)"></i>failed or stuck <i style="background:var(--chrome-faint)"></i>skipped, missed, undecided</p>
+        </div>
+        <div class="card" style="margin-top:0.85rem">
+          <header><h2>Agents <small id="ad-agents-n"></small></h2></header>
+          <div style="overflow-x:auto">
+            <table id="ad-agents"><thead><tr>
+              <th>Agent</th><th>Account</th><th>Funding</th><th class="n">Left of budget</th><th class="n">Jobs</th>
+              <th class="n">Runs ok / failed / refused</th><th>Last run</th><th class="n">Fees settled · owed</th><th>Last problem</th>
+            </tr></thead><tbody></tbody></table>
+          </div>
+        </div>
+        <div class="grid" style="margin-top:0.85rem;align-items:start">
+          <div class="card">
+            <header><h2>Problems <small id="ad-probs-n"></small></h2></header>
+            <div class="feed" id="ad-probs"></div>
+          </div>
+          <div class="card">
+            <header><h2>Accounts <small id="ad-accts-n"></small></h2></header>
+            <div style="overflow-x:auto">
+              <table id="ad-accts"><thead><tr><th>Account</th><th>Since</th><th class="n">Agents</th><th>Telegram</th></tr></thead><tbody></tbody></table>
+            </div>
           </div>
         </div>
       </div>
@@ -7804,7 +7860,7 @@ var WardaRouter = (() => {
   });
 
   var TITLES = { dash: "Overview", grants: "Grants", agent: "Agent", activity: "Activity",
-                 refusals: "Refused", alerts: "Alerts", fund: "Fund an agent", create: "Create a grant", hosted: "New agent", hagents: "Your agents",
+                 refusals: "Refused", alerts: "Alerts", fund: "Fund an agent", create: "Create a grant", hosted: "New agent", hagents: "Your agents", admin: "Operator",
                  account: "Your account", fleet: "Fleet", registry: "Services", analytics: "Analytics", more: "More" };
   /* ---- where you are, in the URL ----------------------------------------
      The console had no address. Every view was the same page, so a reload lost
@@ -7842,6 +7898,7 @@ var WardaRouter = (() => {
     if (v === "registry") svcView();
     if (v === "hosted") { if ($("h-key").value && !HR.connected) hConnect(); hView(); }
     if (v === "hagents") { haList(); tgCheck(); }
+    if (v === "admin" && adSecret() && $("ad-body").hidden) adLoad();
     Array.prototype.forEach.call(document.querySelectorAll(".side a[data-view], .tabs a[data-view]"), function (o) {
       if (o.getAttribute("data-view") === v) o.setAttribute("aria-current", "page");
       else o.removeAttribute("aria-current");
@@ -8050,6 +8107,76 @@ var WardaRouter = (() => {
       if ((want === "kaspa") === (W && W.family === "kaspa")) return;
       walletConnect(want === "kaspa" ? k.kaspa : k.evm);
     });
+  });
+
+  /* ---- the operator's view ------------------------------------------------
+     Not in the menu: /app#/admin. The runner answers only with its admin
+     secret, which stays in this browser (and nowhere else) once entered. */
+  var AD_KEY = "warda.console.admin";
+  function adSecret() { try { return localStorage.getItem(AD_KEY) || ""; } catch (e) { return ""; } }
+  function adAgo(ms) { return ms ? ago(new Date(ms).toISOString()) : "never"; }
+  function adLoad() {
+    var secret = $("ad-secret").value.trim() || adSecret();
+    if (!secret) { $("ad-s").textContent = "Enter the admin secret."; return; }
+    var base = ($("h-url").value.trim() || "https://warda-runner.vercel.app").replace(/\/+$/, "");
+    $("ad-s").textContent = "Reading " + base + "…";
+    fetch(base + "/v1/admin/stats", { headers: { Authorization: "Bearer " + secret } })
+      .then(function (r) { return r.json().then(function (j) { return { r: r, j: j }; }); })
+      .then(function (x) {
+        if (!x.r.ok) { $("ad-s").textContent = x.r.status === 401 ? "The runner refused that secret." : (x.j.error || "HTTP " + x.r.status); return; }
+        try { localStorage.setItem(AD_KEY, secret); } catch (e) {}
+        $("ad-secret").value = "";
+        $("ad-s").textContent = "Read " + new Date(x.j.at).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) + " from " + base;
+        adRender(x.j);
+      })
+      .catch(function (e) { $("ad-s").textContent = "The runner did not answer: " + (e && e.message || e); });
+  }
+  function adRender(d) {
+    $("ad-body").hidden = false;
+    var t = d.totals, tickAge = d.lastTickAt ? (Date.now() - d.lastTickAt) / 60000 : null;
+    $("ad-tiles").innerHTML = [
+      tile(I.shield, tickAge !== null && tickAge < 5 ? "#43C97F" : "#E8B23A", "Last tick", d.lastTickAt ? adAgo(d.lastTickAt) : "never",
+        tickAge !== null && tickAge < 5 ? "the minute schedule is running" : "the schedule should tick every minute — check QStash"),
+      tile(I.grid, "#4C8DF6", "Accounts · agents", t.accounts + " · " + t.agents, t.telegram + " with Telegram connected"),
+      tile(I.coin, "#0FA890", "Runs, last 24 h", String(t.runs24h), t.problems24h ? t.problems24h + " the operator should look at" : "none needing you"),
+      tile(I.lock, "#9B6BE8", "Runner fees", t.feesSettled + " KAS", t.feesOwed + " KAS owed, not yet settled")
+    ].join("");
+    var max = Math.max.apply(null, d.days.map(function (x) {
+      return Object.keys(x).reduce(function (a, k) { return k === "day" ? a : a + x[k]; }, 0);
+    }).concat([1]));
+    var col = function (x, keys) { return keys.reduce(function (a, k) { return a + (x[k] || 0); }, 0); };
+    $("ad-days-n").textContent = d.days.length + " days";
+    $("ad-bars").innerHTML = d.days.map(function (x) {
+      var parts = [["ok", "var(--good)", col(x, ["ok"])], ["refused", "var(--amber)", col(x, ["refused"])],
+        ["failed", "var(--refuse)", col(x, ["failed", "undelivered"])], ["other", "var(--chrome-faint)", col(x, ["skipped", "missed", "undecided", "running"])]];
+      return '<div class="ad-bar" title="' + esc(x.day + ": " + parts.map(function (p) { return p[2] + " " + p[0]; }).join(", ")) + '">' +
+        parts.map(function (p) { return p[2] ? '<span style="height:' + (p[2] / max * 100) + '%;background:' + p[1] + '"></span>' : ""; }).join("") +
+        '<b>' + esc(x.day.slice(8)) + '</b></div>';
+    }).join("");
+    $("ad-agents-n").textContent = d.agents.length;
+    $("ad-agents").querySelector("tbody").innerHTML = d.agents.length ? d.agents.map(function (a) {
+      return '<tr><td><b>#' + esc(a.agent) + '</b></td><td><code>' + esc(a.account) + '</code></td><td>' + esc(a.funding) + '</td>' +
+        '<td class="n">' + (a.grant ? esc(a.grant.left) + " of " + esc(a.grant.budget) : "—") + '</td><td class="n">' + a.jobs + '</td>' +
+        '<td class="n">' + a.runs.ok + ' / ' + (a.runs.failed ? '<span style="color:var(--refuse)">' + a.runs.failed + '</span>' : 0) + ' / ' + a.runs.refused + '</td>' +
+        '<td>' + adAgo(a.lastRunAt) + '</td><td class="n">' + esc(a.fees.settled) + ' · ' + esc(a.fees.owed) + '</td>' +
+        '<td>' + (a.lastProblem ? '<span class="pill no">' + esc(a.lastProblem.kind) + '</span> <span style="color:var(--chrome-faint);font-size:0.75rem">' + esc(adAgo(a.lastProblem.at)) + '</span>' : "—") + '</td></tr>';
+    }).join("") : '<tr><td colspan="9"><p class="empty">No agents yet.</p></td></tr>';
+    $("ad-probs-n").textContent = d.problems.length ? d.problems.length + " in " + d.days.length + " days" : "";
+    $("ad-probs").innerHTML = d.problems.length ? d.problems.map(function (p) {
+      return '<div class="ev"><span class="pill no">' + esc(p.kind) + '</span><i style="font-style:normal;min-width:0"><b>#' + esc(p.agent) + ' · ' + esc(p.status) + '</b>' +
+        '<span>' + esc(p.detail || "—") + '</span></i><span class="a">' + esc(adAgo(p.at)) + '</span></div>';
+    }).join("") : '<p class="empty">Nothing failed, nothing stuck.</p>';
+    $("ad-accts-n").textContent = d.accounts.length;
+    $("ad-accts").querySelector("tbody").innerHTML = d.accounts.map(function (a) {
+      return '<tr><td><code>' + esc(a.account) + '</code></td><td>' + esc(adAgo(a.createdAt)) + '</td><td class="n">' + a.agents + '</td>' +
+        '<td>' + (a.telegram ? '<span class="pill live">connected</span>' : "—") + '</td></tr>';
+    }).join("");
+  }
+  $("ad-load").addEventListener("click", adLoad);
+  $("ad-secret").addEventListener("keydown", function (e) { if (e.key === "Enter") adLoad(); });
+  $("ad-forget").addEventListener("click", function () {
+    try { localStorage.removeItem(AD_KEY); } catch (e) {}
+    $("ad-body").hidden = true; $("ad-s").textContent = "Forgotten in this browser.";
   });
 
   /* ---- selects ------------------------------------------------------------

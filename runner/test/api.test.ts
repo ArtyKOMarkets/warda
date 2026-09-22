@@ -9,6 +9,7 @@ import { memoryRegistry } from "../src/registry.ts";
 import { memoryStore } from "../src/store.ts";
 import { EnvelopeVault, localMasterKey } from "../src/vault.ts";
 import { toRecipientSet } from "@warda_protocol/agent";
+import { createOps } from "../src/ops.ts";
 
 const VENDOR = "16e6af2030f7e4510d1a417391a7ff7ccad21864f17eef7ee035f0453e21a033";
 const RUNNER = "3c693f61fbc35d1fd4dcec2bbbab692be38656e6fd5a4077ee495afcb23535a1";
@@ -28,8 +29,10 @@ function bench(o: { signupCode?: string } = {}) {
   };
   const grants = { read: async (a: string) => ((await registry.getGrant(a)) ? structuredClone(view) : null) };
   const fees = { payee: RUNNER, perRunSompi: 1_000_000n, settleAtSompi: 10_000_000n, settleBeforeExpiryHours: 24 };
+  const opsSent: string[] = [];
+  const ops = createOps({ registry, now: () => now, send: async (t) => void opsSent.push(t) });
   const engine = new Engine({
-    store, grants, fees, networkFee: 1_500_000n, now: () => now,
+    store, grants, fees, networkFee: 1_500_000n, now: () => now, onFinished: (r) => ops.runFinished(r),
     payments: {
       async x402(_a, _req, limit, on) {
         if (3_000_000n > limit) return { kind: "refused", reason: "over the limit" };
@@ -44,6 +47,7 @@ function bench(o: { signupCode?: string } = {}) {
   });
   const api = createApi({
     store, registry, vault, engine, grants, fees, tickSecret: "t".repeat(32), baseUrl: BASE, now: () => now,
+    ops, adminSecret: "admin-secret-0123456789",
     mcp: createMcp({ store, registry, engine, grants, fees, now: () => now }),
     drafter: { async draft({ agent }) { return { ok: true, workflow: { agent, name: "x", trigger: { type: "manual" }, then: [{ type: "send", to: "ff".repeat(32), kas: "0.9" }] }, summary: "s", notes: [] }; } },
     telegram: { hookSecret: "hooksecret", username: async () => "warda_test_bot", send: async (chat, text) => void tg.push([chat, text]),
@@ -59,7 +63,7 @@ function bench(o: { signupCode?: string } = {}) {
     const text = await res.text();
     return { status: res.status, body: (text ? JSON.parse(text) : {}) as Record<string, any>, headers: res.headers };
   };
-  return { call, sent, tg, siteLinks, registry, advance: (ms: number) => void (now += ms) };
+  return { call, sent, tg, siteLinks, opsSent, registry, advance: (ms: number) => void (now += ms) };
 }
 
 async function onboarded(recipients = [VENDOR, RUNNER]) {
@@ -297,4 +301,50 @@ test("a hosted agent's reading has the published readings' shape, and fees count
   assert.equal(r.body.purchases[0].outcome, "sent");
   assert.equal(r.body.activity.payments, 1);
   assert.equal(r.body.hosted, true);
+});
+
+test("the operator hears about the runner, not about owners' own refusals; once an hour per kind", async () => {
+  const b = await onboarded();
+  const tick = () => b.call("POST", "/v1/tick", { headers: { authorization: `Bearer ${"t".repeat(32)}` } });
+  assert.equal((await tick()).status, 200);
+  assert.equal((await b.call("GET", "/v1/health")).body.tickAgeSeconds, 0);
+  b.advance(25 * 60_000);
+  await tick();
+  assert.equal(b.opsSent.length, 1);
+  assert.match(b.opsSent[0]!, /tick stopped for a while[\s\S]*No tick for 25 minutes/);
+  b.advance(25 * 60_000);
+  await tick();
+  assert.equal(b.opsSent.length, 1, "a second gap within the hour is held, not sent");
+  b.advance(70 * 60_000);
+  await tick();
+  assert.equal(b.opsSent.length, 2);
+  assert.match(b.opsSent[1]!, /1 more like this/);
+
+  // A run that went fine tells the operator nothing.
+  const wf = await b.call("POST", "/v1/workflows", { key: b.key, body: {
+    agent: "shop-bot", name: "pay", trigger: { type: "manual" }, then: [{ type: "send", to: VENDOR, kas: "0.1" }],
+  } });
+  await b.call("POST", `/v1/workflows/${wf.body.workflow.id}/run`, { key: b.key });
+  assert.equal(b.opsSent.length, 2);
+});
+
+test("the operator's view needs the admin secret and names no secret", async () => {
+  const b = await onboarded();
+  assert.equal((await b.call("GET", "/v1/admin/stats")).status, 401);
+  assert.equal((await b.call("GET", "/v1/admin/stats", { headers: { authorization: "Bearer wrong" } })).status, 401);
+  const wf = await b.call("POST", "/v1/workflows", { key: b.key, body: {
+    agent: "shop-bot", name: "pay", trigger: { type: "manual" }, then: [{ type: "send", to: VENDOR, kas: "0.1" }],
+  } });
+  await b.call("POST", `/v1/workflows/${wf.body.workflow.id}/run`, { key: b.key });
+  const r = await b.call("GET", "/v1/admin/stats", { headers: { authorization: "Bearer admin-secret-0123456789" } });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.totals.accounts, 1);
+  assert.equal(r.body.totals.agents, 1);
+  assert.equal(r.body.agents[0].agent, "shop-bot");
+  assert.equal(r.body.agents[0].runs.ok, 1);
+  assert.equal(r.body.agents[0].jobs, 1);
+  assert.equal(r.body.days.length, 14);
+  const text = JSON.stringify(r.body);
+  assert.ok(!text.includes(b.key), "no API key");
+  assert.ok(!/acct_[\w-]{20,}/.test(text), "account ids are shortened");
 });

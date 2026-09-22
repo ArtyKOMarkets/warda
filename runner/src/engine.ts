@@ -83,6 +83,8 @@ export interface EngineOptions {
   /** The network fee a covenant spend costs, for the coin check. */
   networkFee: bigint;
   now?: () => number;
+  /** Told about every run as it finishes (the operator's alerts). Never throws into a run. */
+  onFinished?: (run: RunRecord) => Promise<void> | void;
   id?: () => string;
 }
 
@@ -101,9 +103,14 @@ export class Engine {
     let n = 0;
     this.o = {
       now: Date.now,
+      onFinished: () => {},
       id: () => `run_${Date.now().toString(36)}_${(n++).toString(36)}`,
       ...opts,
     };
+  }
+
+  private async told(run: RunRecord): Promise<void> {
+    try { await this.o.onFinished(structuredClone(run)); } catch { /* an alert never breaks a run */ }
   }
 
   /** Saves a workflow, starting its schedule from now rather than the epoch. */
@@ -158,6 +165,7 @@ export class Engine {
       r.note = "the runner stopped in the middle of this run";
       r.finishedAt = now;
       await this.o.store.updateRun(r);
+      await this.told(r);
     }
   }
 
@@ -226,6 +234,7 @@ export class Engine {
       run.finishedAt = this.o.now();
       if (note) run.note = note;
       await this.o.store.updateRun(run);
+      await this.told(run);
       return run.id;
     };
 

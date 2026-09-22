@@ -112,7 +112,7 @@ const say = (s = "") => console.error(s);
  * that is missing any of the three, because a rule you can write and the tool
  * silently ignores is worse than a rule you cannot write.
  */
-type Kind = "budget-low" | "expiring" | "balance-at-or-above";
+type Kind = "budget-low" | "expiring" | "balance-at-or-above" | "runner-ticking";
 
 /** What a person meant by a sompi figure, at the moment they wrote it down. */
 interface Quote {
@@ -147,6 +147,10 @@ export interface Rule {
   atOrAbove?: string;
   /** What the sompi figure meant to you. Never read by the comparison. */
   quote?: Quote;
+  /** runner-ticking: the hosted runner's base URL. */
+  runner?: string;
+  /** runner-ticking: fire when the last tick is older than this many minutes. Default 10. */
+  maxMinutes?: number;
 }
 
 interface RuleFile {
@@ -279,6 +283,27 @@ export interface Reader {
 }
 
 export async function evaluate(rule: Rule, read: Reader): Promise<Outcome> {
+  /* The hosted runner reports its own trouble, but not its own silence: if
+     nothing ticks it, nothing in it runs to say so. This is the outside look. */
+  if (rule.kind === "runner-ticking") {
+    if (!rule.runner) return { status: "undecided", why: "needs `runner`, the runner's base URL." };
+    const max = (rule.maxMinutes ?? 10) * 60;
+    let h: { tickAgeSeconds?: number | null; lastTickAt?: number | null };
+    try {
+      const res = await fetch(rule.runner.replace(/\/$/, "") + "/v1/health", { signal: AbortSignal.timeout(20_000) });
+      if (!res.ok) return { status: "undecided", why: `the runner answered HTTP ${res.status}` };
+      h = (await res.json()) as typeof h;
+    } catch (e) {
+      return { status: "undecided", why: `the runner did not answer: ${(e as Error).message}` };
+    }
+    const age = h.tickAgeSeconds;
+    if (age === null || age === undefined) return { status: "undecided", why: "the runner has never been ticked" };
+    const lines = [
+      `last tick ${Math.round(age / 60)} min ago (${h.lastTickAt ? new Date(h.lastTickAt).toISOString() : "?"})`,
+      `scheduled jobs are not running while it is quiet; check the QStash schedule and the runner's Vercel logs`,
+    ];
+    return { status: age > max ? "firing" : "clear", lines };
+  }
   if (rule.kind === "balance-at-or-above") {
     if (!rule.address || !rule.atOrAbove) {
       return { status: "undecided", why: "needs both `address` and `atOrAbove`." };

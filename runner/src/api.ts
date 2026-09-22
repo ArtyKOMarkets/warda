@@ -38,6 +38,9 @@ import { createPlan, depositUri, type Funder, type Plan } from "./funding.ts";
 import type { Drafter } from "./draft.ts";
 import { hostedReading } from "./reading.ts";
 import type { NetworkPrefix } from "@warda_protocol/kaspa";
+import { timingSafeEqual } from "node:crypto";
+import type { Ops } from "./ops.ts";
+import { adminStats } from "./admin.ts";
 
 export interface ApiDeps {
   store: Store;
@@ -68,6 +71,10 @@ export interface ApiDeps {
   /** The per-agent MCP endpoint, served at /mcp. */
   mcp?: (req: Request) => Promise<Response>;
   prefix?: NetworkPrefix;
+  /** The operator's alerts (ops.ts). */
+  ops?: Ops;
+  /** The operator's password for GET /v1/admin/stats; at least 16 characters, or the route is off. */
+  adminSecret?: string;
   now?: () => number;
   id?: (prefix: string) => string;
 }
@@ -543,8 +550,30 @@ export function createApi(d: ApiDeps): (req: Request) => Promise<Response> {
     ["POST", /^\/v1\/tick$/, async (req) => {
       const ok = d.tickSecret.length >= 16 && req.headers.get("authorization") === `Bearer ${d.tickSecret}`;
       if (!ok) throw new HttpError(401, "tick is for the scheduler");
-      const funded = d.funder ? await d.funder.tick() : [];
-      return json(200, { ...(await d.engine.tick()), funded });
+      await d.ops?.tickSeen(now()).catch(() => {});
+      try {
+        const funded = d.funder ? await d.funder.tick() : [];
+        return json(200, { ...(await d.engine.tick()), funded });
+      } catch (e) {
+        await d.ops?.report("tick-failed", String((e as Error)?.message ?? e).slice(0, 400)).catch(() => {});
+        throw e;
+      }
+    }],
+
+    /* Public: is the runner being ticked? No secret in it. */
+    ["GET", /^\/v1\/health$/, async () => {
+      const last = d.ops ? await d.ops.lastTickAt() : null;
+      return json(200, { ok: true, lastTickAt: last, tickAgeSeconds: last === null ? null : Math.round((now() - last) / 1000) });
+    }],
+
+    ["GET", /^\/v1\/admin\/stats$/, async (req) => {
+      const want = d.adminSecret ?? "";
+      const got = (req.headers.get("authorization") ?? "").replace(/^Bearer /, "");
+      if (want.length < 16 || got.length !== want.length || !timingSafeEqual(Buffer.from(got), Buffer.from(want))) {
+        throw new HttpError(401, "the operator's view needs the admin secret");
+      }
+      const days = Math.min(60, Math.max(1, Number(new URL(req.url).searchParams.get("days") ?? 14) || 14));
+      return json(200, await adminStats({ store: d.store, registry: d.registry, now: now(), lastTickAt: d.ops ? await d.ops.lastTickAt() : null, days }));
     }],
   ];
 

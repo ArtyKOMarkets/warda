@@ -47,6 +47,12 @@ export interface Registry {
   getPlan(agent: string): Promise<Plan | null>;
   /** Plans not yet funded or failed. */
   pendingPlans(): Promise<Plan[]>;
+  /** Small operational state: the last tick, when an ops alert was last sent. */
+  getMeta(key: string): Promise<string | null>;
+  setMeta(key: string, value: string): Promise<void>;
+  /** For the operator's view. */
+  listAccounts(): Promise<{ id: string; createdAt: number }[]>;
+  listAgents(): Promise<{ agent: string; account: string; createdAt: number }[]>;
 }
 
 const TG_LINK_MS = 15 * 60_000;
@@ -70,7 +76,16 @@ export function memoryRegistry(): Registry {
   const tgLinks = new Map<string, { account: string; at: number }>();
   const tgChats = new Map<string, string>();
   const usage = new Map<string, number>();
+  const meta = new Map<string, string>();
+  const accountsAt = new Map<string, number>();
+  const agentsAt = new Map<string, number>();
   return {
+    async getMeta(k) { return meta.get(k) ?? null; },
+    async setMeta(k, v) { meta.set(k, v); },
+    async listAccounts() { return [...accountsAt].map(([id, createdAt]) => ({ id, createdAt })); },
+    async listAgents() {
+      return [...owners].map(([agent, account]) => ({ agent, account, createdAt: agentsAt.get(agent) ?? 0 }));
+    },
     async bumpUsage(account, what, day) {
       const k = `${account}|${what}|${day}`;
       const n = (usage.get(k) ?? 0) + 1;
@@ -112,18 +127,20 @@ export function memoryRegistry(): Registry {
     async pendingPlans() {
       return [...plans.values()].filter((p) => p.status === "awaiting-deposit" || p.status === "submitting").map((p) => structuredClone(p));
     },
-    async createAccount() {
+    async createAccount(now) {
       const id = token("acct");
       const apiKey = token("wk");
       accounts.set(sha256(apiKey), id);
+      accountsAt.set(id, now);
       return { id, apiKey };
     },
     async accountFor(apiKey) {
       return accounts.get(sha256(apiKey)) ?? null;
     },
-    async claimAgent(agent, account) {
+    async claimAgent(agent, account, now) {
       if (owners.has(agent)) return false;
       owners.set(agent, account);
+      agentsAt.set(agent, now);
       return true;
     },
     async ownerOf(agent) {
@@ -162,6 +179,7 @@ create table if not exists runner_tg_links (code_hash text primary key, account 
 create table if not exists runner_tg_chats (account text primary key, chat text not null);
 create table if not exists runner_usage (account text not null, what text not null, day text not null, n int not null, primary key (account, what, day));
 create table if not exists runner_plans (agent text primary key, status text not null, body jsonb not null);
+create table if not exists runner_meta (key text primary key, value text not null);
 `;
 
 export async function migrateRegistry(db: Queryable): Promise<void> {
@@ -170,6 +188,21 @@ export async function migrateRegistry(db: Queryable): Promise<void> {
 
 export function pgRegistry(db: Queryable): Registry {
   return {
+    async getMeta(k) {
+      const { rows } = await db.query(`select value from runner_meta where key = $1`, [k]);
+      return rows[0] ? String(rows[0].value) : null;
+    },
+    async setMeta(k, v) {
+      await db.query(`insert into runner_meta (key, value) values ($1,$2) on conflict (key) do update set value = excluded.value`, [k, v]);
+    },
+    async listAccounts() {
+      const { rows } = await db.query(`select id, created_at from runner_accounts order by created_at`);
+      return rows.map((r) => ({ id: String(r.id), createdAt: Number(r.created_at) }));
+    },
+    async listAgents() {
+      const { rows } = await db.query(`select agent, account, created_at from runner_agents order by created_at`);
+      return rows.map((r) => ({ agent: String(r.agent), account: String(r.account), createdAt: Number(r.created_at) }));
+    },
     async bumpUsage(account, what, day) {
       const { rows } = await db.query(
         `insert into runner_usage (account, what, day, n) values ($1,$2,$3,1)

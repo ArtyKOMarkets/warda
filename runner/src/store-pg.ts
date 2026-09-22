@@ -115,6 +115,13 @@ export function pgStore(db: Queryable): Store {
       );
       return rows.map((r) => decode<RunRecord>(r.body));
     },
+    async runsSince(since, limit = 5000) {
+      const { rows } = await db.query(
+        `select body from runner_runs where started_at >= $1 order by started_at desc, id desc limit $2`,
+        [since, limit],
+      );
+      return rows.map((r) => decode<RunRecord>(r.body));
+    },
     async staleRuns(before) {
       const { rows } = await db.query(
         `select body from runner_runs where started_at < $1 and body->>'status' = 'running' limit 100`,

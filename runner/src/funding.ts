@@ -248,12 +248,14 @@ export interface FunderOptions {
   chain: FundingChain;
   prefix: NetworkPrefix;
   now?: () => number;
+  /** Told when a step of a plan throws (the operator's alerts). */
+  onError?: (plan: Plan, message: string) => Promise<void> | void;
 }
 
 export class Funder {
   private readonly o: Required<FunderOptions>;
   constructor(o: FunderOptions) {
-    this.o = { now: Date.now, ...o };
+    this.o = { now: Date.now, onError: () => {}, ...o };
   }
 
   /** One pass over every plan still waiting. Returns the agents funded. */
@@ -266,6 +268,7 @@ export class Funder {
         p.note = (e as Error).message;
         p.updatedAt = this.o.now();
         await this.o.registry.putPlan(p);
+        try { await this.o.onError(p, p.note); } catch { /* never breaks a tick */ }
       }
     }
     return funded;

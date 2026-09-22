@@ -22,6 +22,7 @@ import { migrateRegistry, pgRegistry } from "./registry.ts";
 import { migrate, pgStore } from "./store-pg.ts";
 import { EnvelopeVault, localMasterKey, type KeyVault } from "./vault.ts";
 import { TurnkeyVault, turnkeyFromEnv } from "./vault-turnkey.ts";
+import { createOps } from "./ops.ts";
 
 export interface Runner {
   api: (req: Request) => Promise<Response>;
@@ -122,6 +123,13 @@ export async function boot(e: NodeJS.ProcessEnv = process.env, defaults: { baseU
         },
       }
     : undefined;
+  /* The operator's alerts: RUNNER_OPS_CHAT is the operator's own Telegram chat
+     (deploy/env.sh copies it from ops/alerts.env). Without it, alerts are off. */
+  const opsChat = e.RUNNER_OPS_CHAT || "";
+  const ops = createOps({
+    registry, now: Date.now,
+    ...(token && opsChat ? { send: (text: string) => raw.notify("telegram", opsChat, text) } : {}),
+  });
   const grants = liveGrants(openAgent);
   const baseUrl = e.RUNNER_BASE_URL ?? defaults.baseUrl;
   const engine = new Engine({
@@ -130,6 +138,7 @@ export async function boot(e: NodeJS.ProcessEnv = process.env, defaults: { baseU
     http: liveHttp,
     approvals: liveApprovals(notifier, "https://wardaprotocol.com/app"),
     networkFee: 2_000_000n,
+    onFinished: (run) => ops.runFinished(run),
   });
 
   /* One chain connection for funding, reopened if it drops. */
@@ -150,7 +159,10 @@ export async function boot(e: NodeJS.ProcessEnv = process.env, defaults: { baseU
     utxos: (a) => withChain((c) => c.getUtxosByAddresses([a])),
     submit: (tx) => withChain((c) => c.submitTransaction(tx)),
   };
-  const funder = new Funder({ registry, vault, chain: fundingChain, prefix });
+  const funder = new Funder({
+    registry, vault, chain: fundingChain, prefix,
+    onError: (p, msg) => ops.report("funding", `Agent ${p.agent} (${p.status}): ${msg.slice(0, 300)}`),
+  });
 
   const api = createApi({
     funder, prefix,
@@ -160,12 +172,15 @@ export async function boot(e: NodeJS.ProcessEnv = process.env, defaults: { baseU
     refund: (plan) => refundDeposit({ plan, registry, vault, chain: fundingChain, prefix, now: Date.now() }),
     store, registry, vault, engine, grants, fees, baseUrl,
     tickSecret: env("RUNNER_TICK_SECRET"),
+    ops,
+    ...(e.RUNNER_ADMIN_SECRET ? { adminSecret: e.RUNNER_ADMIN_SECRET } : {}),
     ...(e.RUNNER_SIGNUP_CODE ? { signupCode: e.RUNNER_SIGNUP_CODE } : {}),
   });
 
   return {
     api,
     async tick() {
+      await ops.tickSeen(Date.now());
       const funded = await funder.tick();
       const r = await engine.tick();
       return { funded, ...r };
