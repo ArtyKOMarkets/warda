@@ -36,6 +36,7 @@ import { parseWorkflow, spends, WorkflowError, type Workflow } from "./workflow.
 import { kas } from "@warda_protocol/core";
 import { createPlan, depositUri, type Funder, type Plan } from "./funding.ts";
 import type { Drafter } from "./draft.ts";
+import { hostedReading } from "./reading.ts";
 import type { NetworkPrefix } from "@warda_protocol/kaspa";
 
 export interface ApiDeps {
@@ -348,6 +349,22 @@ export function createApi(d: ApiDeps): (req: Request) => Promise<Response> {
       } catch (e) {
         throw new HttpError(409, (e as Error).message);
       }
+    }],
+
+    ["GET", /^\/v1\/agents\/([\w-]+)\/reading$/, async (req, m) => {
+      const acct = await account(req);
+      const agent = m[1]!;
+      await ownAgent(acct, agent);
+      const record = await d.registry.getGrant(agent);
+      if (!record) throw new HttpError(404, `${agent} has no grant yet`);
+      const [view, runs, workflows, ledger, plan] = await Promise.all([
+        d.grants.read(agent), d.store.listRuns(agent, 200), d.store.listWorkflows(agent),
+        d.store.getLedger(agent), d.registry.getPlan(agent),
+      ]);
+      return json(200, hostedReading({
+        agent, record, view, runs, workflows, ledger, now: now(),
+        ...(plan?.genesisTxid ? { genesisTxid: plan.genesisTxid } : {}),
+      }));
     }],
 
     ["GET", /^\/v1\/agents\/([\w-]+)\/runs$/, async (req, m, url) => {

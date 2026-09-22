@@ -3068,8 +3068,8 @@ ops/install-cron.sh</pre>
     mid.style.fontStyle = "normal"; mid.style.minWidth = "0";
     var b = document.createElement("b");
     var j = document.createElement("a");
-    j.href = "/agent-" + a.id + ".json";
-    j.textContent = "agent-" + a.id + ".json";
+    j.href = a.hosted ? "#/hagents" : "/agent-" + a.id + ".json";
+    j.textContent = a.hosted ? a.id + " \u00b7 hosted" : "agent-" + a.id + ".json";
     b.appendChild(j);
     var sub = document.createElement("span");
     sub.textContent = "read " + ago(a.d.checkedAt);
@@ -3077,8 +3077,8 @@ ops/install-cron.sh</pre>
     var right = document.createElement("span");
     right.className = "a";
     var pg = document.createElement("a");
-    pg.href = "/agent-" + a.id;
-    pg.textContent = "page";
+    pg.href = a.hosted ? "#/hagents" : "/agent-" + a.id;
+    pg.textContent = a.hosted ? "manage" : "page";
     right.appendChild(pg);
     row.appendChild(ic); row.appendChild(mid); row.appendChild(right);
     return row;
@@ -3200,7 +3200,7 @@ ops/install-cron.sh</pre>
 
     /* The two links that let somebody check this page rather than believe it. */
     var links = document.createElement("span");
-    [["the reading", "/agent-" + a.id + ".json"], ["its public page", "/agent-" + a.id]]
+    (a.hosted ? [["manage it in Your agents", "#/hagents"]] : [["the reading", "/agent-" + a.id + ".json"], ["its public page", "/agent-" + a.id]])
       .forEach(function (pair, i) {
         if (i) links.appendChild(document.createTextNode(" · "));
         var el = document.createElement("a");
@@ -4038,6 +4038,10 @@ ops/install-cron.sh</pre>
   }
 
   function mine(a) {
+    /* An agent the runner hosts for this browser's runner account is yours by
+       construction: its key came from your runner account, its grant from
+       your deposit. No wallet needed to say so. */
+    if (a.hosted) return ["owner"];
     if (!W || !W.key) return [];
     var id = a.d.identity || {}, roles = [];
     if (id.principal === W.key) roles.push("principal");
@@ -4202,11 +4206,14 @@ ops/install-cron.sh</pre>
      anywhere else, and they were showing Warda's six grants on your account
      page after one click on "Warda's agents". */
   var SCOPE = "mine";
-  function scopeNow() { return W ? SCOPE : "public"; }
+  function hasHosted() { return ALL.some(function (a) { return a.hosted; }); }
+  /* A runner account makes "yours" meaningful without a wallet: its agents
+     are yours whether or not a key is connected. */
+  function scopeNow() { return W || hasHosted() ? SCOPE : "public"; }
 
   function scopeData() {
     var s = scopeNow();
-    A = s === "public" ? ALL.slice() : ALL.filter(function (a) { return mine(a).length; });
+    A = s === "public" ? ALL.filter(function (a) { return !a.hosted; }) : ALL.filter(function (a) { return mine(a).length; });
     P = []; RULES = []; FAILED = [];
     A.forEach(function (a) {
       (a.d.purchases || []).forEach(function (p) { P.push({ agent: a.id, p: p }); });
@@ -4229,15 +4236,16 @@ ops/install-cron.sh</pre>
 
   function scopeRender() {
     var s = scopeNow(), empty = s === "mine" && ALL.length > 0 && !A.length;
-    $("scope-seg").hidden = !W;
-    $("scope-connect").hidden = !!W;
+    $("scope-seg").hidden = !W && !hasHosted();
+    $("scope-connect").hidden = !!W || hasHosted();
     Array.prototype.forEach.call($("scope-seg").querySelectorAll("button"), function (b) {
       b.setAttribute("aria-pressed", String(b.getAttribute("data-scope") === s));
     });
     var who = W ? (W.family === "evm" ? "this account" : "your key") : "";
     $("scope-t").innerHTML = s === "public"
       ? "Showing <b>Warda&rsquo;s own agents</b> &mdash; published as live examples, not yours."
-      : "Showing <b>your grants</b> &mdash; every published grant that names " + who + ", and every grant you track.";
+      : "Showing <b>your grants</b> &mdash; " + (hasHosted() ? "the agents the runner hosts for you, " : "") +
+        (W ? "every published grant that names " + who + ", " : "") + "and every grant you track.";
     document.querySelector(".main").classList.toggle("mine-empty", empty);
     /* Tracked grants are grants too: a wallet with none published but some
        tracked sees those, not "you have nothing". */
@@ -6547,17 +6555,23 @@ ops/install-cron.sh</pre>
     if (!$("h-key").value.trim()) return Promise.resolve();
     return hApi("GET", "/v1/agents").then(function (r) {
       return Promise.all(r.agents.map(function (id) {
-        return hApi("GET", "/v1/agents/" + encodeURIComponent(id)).then(function (a) {
-          if (!a.manifest) return;
-          var k = ownKey(a.manifest);
-          var have = OWN.filter(function (x) { return ownKey(x.m) === k; })[0];
-          if (have && JSON.stringify(have.m) === JSON.stringify(a.manifest) && have.hosted === id) return;
-          if (ownAdd(JSON.stringify(a.manifest), id)) return;
-          OWN.forEach(function (x) { if (ownKey(x.m) === k) x.hosted = id; });
-          ownSave();
-        }).catch(function () {});
+        return hApi("GET", "/v1/agents/" + encodeURIComponent(id) + "/reading")
+          .then(function (d) { return { id: id, d: d, hosted: true }; })
+          .catch(function () { return null; });
       }));
-    }).then(function () { ownRender(); scopeRender(); }).catch(function () {});
+    }).then(function (rows) {
+      rows = (rows || []).filter(Boolean);
+      if (!rows.length) return;
+      var ids = rows.map(function (x) { return x.id; });
+      ALL = ALL.filter(function (x) { return !x.hosted && ids.indexOf(x.id) < 0; }).concat(rows);
+      /* They used to be tracked as bare grant.json files, which carry no
+         history; the reading does, so the tracked copies would only count
+         the same grant twice. */
+      var before = OWN.length;
+      OWN = OWN.filter(function (x) { return !x.hosted; });
+      if (OWN.length !== before) ownSave();
+      scopeData(); render(); ownRender(); scopeRender();
+    }).catch(function () {});
   }
   setTimeout(hSync, 800);
 
@@ -7191,7 +7205,7 @@ ops/install-cron.sh</pre>
 
   var routing = false;
   function route() {
-    var m = /^#\/([a-z]+)(?:\/(\w+))?$/.exec(location.hash || "");
+    var m = /^#\/([a-z]+)(?:\/([\w-]+))?$/.exec(location.hash || "");
     if (!m) { show("dash", true); return; }
     routing = true;
     if (m[1] === "agent" && m[2]) {

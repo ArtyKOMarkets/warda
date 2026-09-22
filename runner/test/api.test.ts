@@ -271,3 +271,20 @@ test("a draft is checked against the grant before the owner sees it, and is rate
   const other = (await b.call("POST", "/v1/accounts", { body: {} })).body.apiKey;
   assert.equal((await b.call("POST", "/v1/workflows/draft", { key: other, body: { agent: "shop-bot", text: "pay somebody a lot" } })).status, 404);
 });
+
+test("a hosted agent's reading has the published readings' shape, and fees count as named spending", async () => {
+  const b = await onboarded();
+  const wf = await b.call("POST", "/v1/workflows", { key: b.key, body: {
+    agent: "shop-bot", name: "Pay the vendor", trigger: { type: "manual" }, then: [{ type: "send", to: VENDOR, kas: "0.1" }] } });
+  await b.call("POST", `/v1/workflows/${wf.body.workflow.id}/run`, { key: b.key, headers: { "idempotency-key": "r1" } });
+  const r = await b.call("GET", "/v1/agents/shop-bot/reading", { key: b.key });
+  assert.equal(r.status, 200);
+  for (const k of ["checkedAt", "identity", "timelock", "authority", "activity", "purchases", "reconciliation", "refusals", "mission"]) {
+    assert.ok(k in r.body, k);
+  }
+  assert.equal(r.body.identity.agentId, "shop-bot");
+  assert.equal(r.body.purchases.length, 1);
+  assert.equal(r.body.purchases[0].outcome, "sent");
+  assert.equal(r.body.activity.payments, 1);
+  assert.equal(r.body.hosted, true);
+});
