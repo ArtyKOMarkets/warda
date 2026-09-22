@@ -81,33 +81,75 @@ const tk = new Turnkey({
   defaultOrganizationId: need("TURNKEY_ORGANIZATION_ID"),
 }).apiClient();
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/* Three ways Turnkey might produce a BIP340 signature over OUR digest:
+     P2TR   — tweaked key, checked against the address's output key
+     SPARK  — Spark is Schnorr-native; maybe raw, untweaked
+   Each signature is checked against every key it could verify under: the
+   account's own x-only key and, for P2TR, the output key in the address. */
+const FORMATS = [
+  { format: "ADDRESS_FORMAT_BITCOIN_TESTNET_P2TR", path: "m/86'/1'/0'/0/0" },
+  { format: "ADDRESS_FORMAT_SPARK_REGTEST", path: "m/8797555'/0'/0'/0'" },
+];
+
 const wallet = await tk.createWallet!({
   walletName: `warda-spike-${Date.now()}`,
-  accounts: [{
+  accounts: FORMATS.map((f) => ({
     curve: "CURVE_SECP256K1",
     pathFormat: "PATH_FORMAT_BIP32",
-    path: "m/86'/1'/0'/0/0",
-    addressFormat: "ADDRESS_FORMAT_BITCOIN_TESTNET_P2TR",
-  }],
+    path: f.path,
+    addressFormat: f.format,
+  })),
+}).catch((e: Error) => {
+  console.log(`createWallet with both formats refused (${e.message}); retrying with P2TR only`);
+  return tk.createWallet!({
+    walletName: `warda-spike-${Date.now()}`,
+    accounts: [{ curve: "CURVE_SECP256K1", pathFormat: "PATH_FORMAT_BIP32", path: FORMATS[0]!.path, addressFormat: FORMATS[0]!.format }],
+  });
 });
-const address: string = wallet.addresses[0];
-const outputKey = taprootOutputKey(address);
-console.log(`account      ${address}`);
-console.log(`output key   ${hex(outputKey)}   <- what a grant would bake in as its agent key`);
+console.log(`wallet       ${wallet.walletId}`);
+await sleep(3000);
+const { accounts } = await tk.getWalletAccounts!({ walletId: wallet.walletId });
 
-for (const hashFunction of ["HASH_FUNCTION_NO_OP", "HASH_FUNCTION_NOT_APPLICABLE"]) {
-  const digest = new Uint8Array(randomBytes(32));
-  try {
-    const r = await tk.signRawPayload!({
-      signWith: address,
-      payload: hex(digest),
-      encoding: "PAYLOAD_ENCODING_HEXADECIMAL",
-      hashFunction,
-    });
+for (const acct of accounts as { address: string; publicKey?: string; addressFormat: string }[]) {
+  console.log(`\n${acct.addressFormat}`);
+  console.log(`  address    ${acct.address}`);
+  const keys: [string, Uint8Array][] = [];
+  if (acct.publicKey) {
+    const pk = Buffer.from(acct.publicKey, "hex");
+    keys.push(["account key (untweaked)", pk.length === 33 ? pk.subarray(1) : pk]);
+    console.log(`  public key ${acct.publicKey}`);
+  }
+  if (acct.address.startsWith("tb1p") || acct.address.startsWith("bc1p")) {
+    const q = taprootOutputKey(acct.address);
+    keys.push(["taproot output key", q]);
+    console.log(`  output key ${hex(q)}`);
+  }
+  for (const signWith of [acct.address, acct.publicKey].filter(Boolean) as string[]) {
+    const digest = new Uint8Array(randomBytes(32));
+    let r: { r: string; s: string; v?: string } | null = null;
+    for (let attempt = 1; attempt <= 5 && !r; attempt++) {
+      try {
+        r = await tk.signRawPayload!({
+          signWith,
+          payload: hex(digest),
+          encoding: "PAYLOAD_ENCODING_HEXADECIMAL",
+          hashFunction: "HASH_FUNCTION_NO_OP",
+        });
+      } catch (e) {
+        const m = (e as Error).message;
+        if (/Could not find any resource/.test(m) && attempt < 5) { await sleep(2000); continue; }
+        console.log(`  signWith ${signWith === acct.address ? "address" : "public key"}: refused — ${m}`);
+        break;
+      }
+    }
+    if (!r) continue;
     const sig = Buffer.from(String(r.r) + String(r.s), "hex");
-    const ok = sig.length === 64 && schnorr.verify(sig, digest, outputKey);
-    console.log(`${hashFunction.padEnd(30)} ${sig.length} bytes  ${ok ? "PASS — BIP340 against the output key" : "FAIL"}`);
-  } catch (e) {
-    console.log(`${hashFunction.padEnd(30)} refused: ${(e as Error).message}`);
+    const hits = keys.filter(([, k]) => sig.length === 64 && k.length === 32 && schnorr.verify(sig, digest, k)).map(([n]) => n);
+    console.log(
+      `  signWith ${signWith === acct.address ? "address   " : "public key"}: ${sig.length} bytes, v=${r.v ?? "-"}  ` +
+        (hits.length ? `PASS — BIP340 verifies against the ${hits.join(" and ")}` : "FAIL — not a BIP340 signature under any of these keys"),
+    );
   }
 }
