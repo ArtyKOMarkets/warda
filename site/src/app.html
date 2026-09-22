@@ -621,6 +621,8 @@
   .wsel-list li .h { color: var(--chrome-faint); font-size: 0.72rem; margin-left: 1.2rem; }
   .wsel-list li[aria-selected="true"] .h, .wsel-list li.hi .h { color: var(--chrome-dim); }
   .hold { display: grid; gap: 0.45rem; }
+  /* A public receipt is a page for a stranger: no "whose grants" strip, no owner controls. */
+  body.pubview[data-screen="agent"] #scope, body.pubview[data-screen="agent"] #ag-ctl-card { display: none; }
   .ad-bars { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; align-items: end; height: 140px; margin-top: 0.4rem; }
   .ad-bar { display: flex; flex-direction: column-reverse; height: 100%; justify-content: flex-start; position: relative; }
   .ad-bar span { display: block; width: 100%; border-radius: 2px; }
@@ -2470,6 +2472,18 @@ ops/install-cron.sh</pre>
           <header><h2>Waiting for you <small id="ap-n"></small></h2></header>
           <div class="feed" id="ap-list"></div>
         </div>
+        <div class="card" style="margin-top:0.85rem" id="pub-card">
+          <header><h2>Public receipt</h2></header>
+          <p class="why">A page anyone can open: what this agent bought, what it was refused, and what it may still spend
+            &mdash; each figure checkable on the chain. Share it to show a client, a partner, or the world that your
+            agent stayed inside its limits. Off until you turn it on.</p>
+          <label class="fa-ack" style="margin-top:0.5rem"><input type="checkbox" id="pub-on"> <span>Share this agent&rsquo;s receipts publicly</span></label>
+          <p id="pub-link" hidden style="margin-top:0.6rem;display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center">
+            <code id="pub-url" style="overflow-wrap:anywhere"></code>
+            <button class="go gh" type="button" id="pub-copy">Copy link</button>
+            <a class="go gh" id="pub-open" target="_blank" rel="noopener">Open</a></p>
+          <p class="state" id="pub-s"></p>
+        </div>
         <div class="card" style="margin-top:0.85rem" id="sa-card">
           <header><h2>Sub-agents <small id="sa-n"></small></h2></header>
           <p class="why" id="sa-why">Give a helper part of this agent&rsquo;s budget. It gets its own key, jobs and limits &mdash;
@@ -3394,6 +3408,7 @@ ops/install-cron.sh</pre>
     if (!fromRoute) location.hash = hashFor("agent", id);
     SHOWN = id;
     document.body.setAttribute("data-screen", "agent");
+    document.body.classList.toggle("pubview", !!a.pub);
     var u = auth(a), t = term(a), c = hue(a.id);
     ctlRender(a);
     mAgent(a);
@@ -3402,11 +3417,15 @@ ops/install-cron.sh</pre>
        about the same agent computed a different way. */
     $("ag-name").innerHTML = 'Agent #' + a.id + ' ' +
       stateP(a).replace('class="pill', 'style="vertical-align:middle;margin-left:0.5rem" class="pill');
-    $("ag-mission").textContent = a.d.mission || "";
+    $("ag-mission").textContent = a.pub
+      ? "A public receipt, shared by its owner: what this agent bought, what it was refused, and what it may still spend. " +
+        "Hosted by the Warda runner; every limit is enforced by the Kaspa network, not by this page."
+      : a.d.mission || "";
 
     /* The two links that let somebody check this page rather than believe it. */
     var links = document.createElement("span");
-    (a.hosted ? [["manage it in Your agents", "#/hagents"]] : [["the reading", "/agent-" + a.id + ".json"], ["its public page", "/agent-" + a.id]])
+    (a.pub ? [["check it on the chain", "https://explorer-tn10.kaspa.org/addresses/" + (((a.d || {}).identity || {}).grantAddress || "")], ["the reading", a.pubUrl]]
+      : a.hosted ? [["manage it in Your agents", "#/hagents"]] : [["the reading", "/agent-" + a.id + ".json"], ["its public page", "/agent-" + a.id]])
       .forEach(function (pair, i) {
         if (i) links.appendChild(document.createTextNode(" · "));
         var el = document.createElement("a");
@@ -4247,6 +4266,7 @@ ops/install-cron.sh</pre>
     /* An agent the runner hosts for this browser's runner account is yours by
        construction: its key came from your runner account, its grant from
        your deposit. No wallet needed to say so. */
+    if (a.pub) return [];
     if (a.hosted) return ["owner"];
     if (!W || !W.key) return [];
     var id = a.d.identity || {}, roles = [];
@@ -4414,14 +4434,14 @@ ops/install-cron.sh</pre>
      anywhere else, and they were showing Warda's six grants on your account
      page after one click on "Warda's agents". */
   var SCOPE = "mine";
-  function hasHosted() { return ALL.some(function (a) { return a.hosted; }); }
+  function hasHosted() { return ALL.some(function (a) { return a.hosted && !a.pub; }); }
   /* A runner account makes "yours" meaningful without a wallet: its agents
      are yours whether or not a key is connected. */
   function scopeNow() { return W || hasHosted() ? SCOPE : "public"; }
 
   function scopeData() {
     var s = scopeNow();
-    A = s === "public" ? ALL.filter(function (a) { return !a.hosted; }) : ALL.filter(function (a) { return mine(a).length; });
+    A = s === "public" ? ALL.filter(function (a) { return !a.hosted && !a.pub; }) : ALL.filter(function (a) { return mine(a).length; });
     P = []; RULES = []; FAILED = [];
     A.forEach(function (a) {
       (a.d.purchases || []).forEach(function (p) { P.push({ agent: a.id, p: p }); });
@@ -6763,6 +6783,7 @@ ops/install-cron.sh</pre>
       HA.tuFor = agent;
       tuShow(a);
       saShow(a);
+      pubShow(a);
       apLoad(agent);
       haJobs(a.workflows || []);
       haRevoke(a);
@@ -6845,7 +6866,7 @@ ops/install-cron.sh</pre>
       rows = (rows || []).filter(Boolean);
       if (!rows.length) return;
       var ids = rows.map(function (x) { return x.id; });
-      ALL = ALL.filter(function (x) { return !x.hosted && ids.indexOf(x.id) < 0; }).concat(rows);
+      ALL = ALL.filter(function (x) { return (!x.hosted || x.pub) && ids.indexOf(x.id) < 0; }).concat(rows);
       /* They used to be tracked as bare grant.json files, which carry no
          history; the reading does, so the tracked copies would only count
          the same grant twice. */
@@ -7522,6 +7543,11 @@ ops/install-cron.sh</pre>
     var m = /^#\/([a-z]+)(?:\/([\w-]+))?$/.exec(location.hash || "");
     if (!m) { show("dash", true); return; }
     routing = true;
+    if (m[1] === "r" && m[2]) {
+      routing = false;
+      pubLoad(m[2]);
+      return;
+    }
     if (m[1] === "agent" && m[2]) {
       /* A link to an agent that did not load is not a blank page: say which,
          and put them somewhere they can act. */
@@ -7822,6 +7848,38 @@ ops/install-cron.sh</pre>
   $("ad-forget").addEventListener("click", function () {
     try { localStorage.removeItem(AD_KEY); } catch (e) {}
     $("ad-body").hidden = true; $("ad-s").textContent = "Forgotten in this browser.";
+  });
+
+  /* ---- public receipts ------------------------------------------------------
+     #/r/<agent>: a hosted agent its owner chose to share, read from the
+     runner's public endpoint and shown on the ordinary agent page. */
+  function pubLoad(agent) {
+    var base = ($("h-url") && $("h-url").value.trim() || "https://warda-runner.vercel.app").replace(/\/+$/, "");
+    var url = base + "/v1/public/agents/" + encodeURIComponent(agent) + "/reading";
+    fetch(url).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); }).then(function (x) {
+      if (!x.ok) { show("grants", true); flash("That receipt is not shared, or no longer is."); return; }
+      ALL = ALL.filter(function (a) { return a.id !== agent || !a.pub; });
+      if (!ALL.some(function (a) { return a.id === agent; })) ALL.push({ id: agent, d: x.j, hosted: true, pub: true, pubUrl: url });
+      scopeData(); render();
+      showAgent(agent, true);
+    }).catch(function () { show("grants", true); flash("The runner did not answer."); });
+  }
+  function flash(t) { var s = $("freshness"); if (s) { s.className = "chip warn"; s.innerHTML = "<i></i>" + esc(t); } }
+  function pubShow(a) {
+    $("pub-on").checked = !!a.public;
+    $("pub-link").hidden = !a.public;
+    $("pub-url").textContent = a.publicUrl || "";
+    $("pub-open").href = a.publicUrl || "#";
+  }
+  $("pub-on").addEventListener("change", function () {
+    var on = $("pub-on").checked;
+    hApi("POST", "/v1/agents/" + encodeURIComponent(HA.open) + "/public", { on: on }).then(function (r) {
+      $("pub-link").hidden = !r.public;
+      $("pub-s").textContent = r.public ? "Shared. Anyone with the link can see this agent's receipts." : "Not shared. The link no longer works.";
+    }).catch(function (e) { $("pub-s").textContent = e.message; $("pub-on").checked = !on; });
+  });
+  $("pub-copy").addEventListener("click", function () {
+    try { navigator.clipboard.writeText($("pub-url").textContent); $("pub-s").textContent = "Link copied."; } catch (e) {}
   });
 
   /* ---- sub-agents ---------------------------------------------------------- */

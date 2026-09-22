@@ -43,6 +43,8 @@ import type { Ops } from "./ops.ts";
 import { adminStats } from "./admin.ts";
 import type { SubAgentTerms } from "./delegate.ts";
 
+const PUBLIC_CONSOLE = "https://www.wardaprotocol.com/app";
+
 export interface ApiDeps {
   store: Store;
   registry: Registry;
@@ -141,6 +143,19 @@ export function createApi(d: ApiDeps): (req: Request) => Promise<Response> {
 
   /* Any of the runner's payee addresses, current or earlier, pays the fee. */
   const paysFee = (members: string[]) => feePayeeFor(d.fees, (a) => members.includes(memberKey(a))) !== null;
+
+  const readingOf = async (agent: string) => {
+    const record = await d.registry.getGrant(agent);
+    if (!record) throw new HttpError(404, `${agent} has no grant yet`);
+    const [view, runs, workflows, ledger, plan] = await Promise.all([
+      d.grants.read(agent), d.store.listRuns(agent, 200), d.store.listWorkflows(agent),
+      d.store.getLedger(agent), d.registry.getPlan(agent),
+    ]);
+    return hostedReading({
+      agent, record, view, runs, workflows, ledger, now: now(),
+      ...(plan?.genesisTxid ? { genesisTxid: plan.genesisTxid } : {}),
+    });
+  };
 
   const routes: [string, RegExp, (req: Request, m: RegExpExecArray, url: URL) => Promise<Response>][] = [
     ["POST", /^\/v1\/accounts$/, async (req) => {
@@ -315,6 +330,8 @@ export function createApi(d: ApiDeps): (req: Request) => Promise<Response> {
           return out;
         })(),
         canDelegate: Number(record?.manifest.delegation_depth ?? 0) > 0,
+        public: (await d.registry.getMeta(`public:${agent}`)) === "1",
+        publicUrl: `${PUBLIC_CONSOLE}#/r/${agent}`,
         grant: grant ?? { undecided: "no grant registered, or the chain did not confirm the one on record" },
         feesOwed: formatKas((ledger ?? emptyLedger()).owed),
         workflows: workflows.filter((w) => !w.id.startsWith("mcp-")).map(summary),
@@ -494,16 +511,24 @@ export function createApi(d: ApiDeps): (req: Request) => Promise<Response> {
       const acct = await account(req);
       const agent = m[1]!;
       await ownAgent(acct, agent);
-      const record = await d.registry.getGrant(agent);
-      if (!record) throw new HttpError(404, `${agent} has no grant yet`);
-      const [view, runs, workflows, ledger, plan] = await Promise.all([
-        d.grants.read(agent), d.store.listRuns(agent, 200), d.store.listWorkflows(agent),
-        d.store.getLedger(agent), d.registry.getPlan(agent),
-      ]);
-      return json(200, hostedReading({
-        agent, record, view, runs, workflows, ledger, now: now(),
-        ...(plan?.genesisTxid ? { genesisTxid: plan.genesisTxid } : {}),
-      }));
+      return json(200, await readingOf(agent));
+    }],
+
+    /* A public receipt: the same reading, for anyone, once its owner has
+       chosen to share it. Everything in it can be checked against the chain. */
+    ["POST", /^\/v1\/agents\/([\w-]+)\/public$/, async (req, m) => {
+      const acct = await account(req);
+      const agent = m[1]!;
+      await ownAgent(acct, agent);
+      const b = await body(req);
+      const on = b.on === true;
+      await d.registry.setMeta(`public:${agent}`, on ? "1" : "0");
+      return json(200, { agent, public: on, ...(on ? { url: `${PUBLIC_CONSOLE}#/r/${agent}` } : {}) });
+    }],
+    ["GET", /^\/v1\/public\/agents\/([\w-]+)\/reading$/, async (_req, m) => {
+      const agent = m[1]!;
+      if ((await d.registry.getMeta(`public:${agent}`)) !== "1") throw new HttpError(404, `${agent} is not shared publicly`);
+      return json(200, { ...(await readingOf(agent)), public: true });
     }],
 
     ["GET", /^\/v1\/agents\/([\w-]+)\/runs$/, async (req, m, url) => {

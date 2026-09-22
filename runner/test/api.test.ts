@@ -420,3 +420,20 @@ test("sub-agents: owner only, through the runner's delegate; listed on the paren
   assert.equal((await c.call("POST", "/v1/agents/shop-bot/subagents", { key: other.body.apiKey, body: { id: "x-helper", budgetKas: "0.1" } })).status, 404);
   assert.equal((await c.call("POST", "/v1/agents/shop-bot/subagents", { key: c.key, body: { id: "helper", budgetKas: "0.1" } })).status, 409);
 });
+
+test("a public receipt: nothing until the owner shares it, then readable by anyone, and unsharable", async () => {
+  const b = await onboarded();
+  assert.equal((await b.call("GET", "/v1/public/agents/shop-bot/reading")).status, 404);
+  const other = await b.call("POST", "/v1/accounts", { body: {} });
+  assert.equal((await b.call("POST", "/v1/agents/shop-bot/public", { key: other.body.apiKey, body: { on: true } })).status, 404);
+  const on = await b.call("POST", "/v1/agents/shop-bot/public", { key: b.key, body: { on: true } });
+  assert.match(on.body.url, /#\/r\/shop-bot$/);
+  const r = await b.call("GET", "/v1/public/agents/shop-bot/reading");
+  assert.equal(r.status, 200);
+  assert.equal(r.body.public, true);
+  assert.equal(r.body.identity.agentId, "shop-bot");
+  assert.ok(!JSON.stringify(r.body).includes(b.key));
+  assert.equal((await b.call("GET", "/v1/agents/shop-bot", { key: b.key })).body.public, true);
+  await b.call("POST", "/v1/agents/shop-bot/public", { key: b.key, body: { on: false } });
+  assert.equal((await b.call("GET", "/v1/public/agents/shop-bot/reading")).status, 404);
+});
