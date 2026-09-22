@@ -298,11 +298,18 @@ try {
     client.getUtxosByAddresses([payee]),
   ]);
 
-  // Only coins this grant could have produced: after it opened, and no larger
-  // than its per-payment cap. A payee address serves whoever pays it.
-  const ours = atPayee.filter(
+  /* Which coins at the payee are THIS grant's. Not "created after it opened
+     and no larger than its cap": that heuristic was right while one grant paid
+     this address, and agent #005 now pays the same vendor, in the same 0.2 KAS.
+     The page counted #005's payments as #001's — 20 payments and 4 KAS against
+     a covenant that had spent 0.8. Agents/tools/dashboard.ts learned this for
+     #002 and #003 and matches by the txid its purchase log recorded; #001
+     keeps no purchase log, so nothing at the payee can be attributed to it by
+     looking, and it says so instead of borrowing another agent's receipts. */
+  const inRange = atPayee.filter(
     (u) => u.entry.blockDaaScore >= state.notBefore && u.entry.value <= state.maxPerSpend,
   );
+  const ours: typeof inRange = [];
 
   // The manifest's own claim about the coin, checked against the coin.
   //
@@ -472,6 +479,16 @@ try {
               txid: toHex(u.outpoint.transactionId),
               index: u.outpoint.index,
             })),
+        },
+        reconciliation: {
+          spentPerTheCovenant: kas(state.spentTotal),
+          namedByTheLog: "0 KAS",
+          stillVisibleAtThePayee: "0 KAS",
+          unrecorded: kas(state.spentTotal),
+          candidatesAtThePayee: inRange.length,
+          note:
+            "This agent keeps no purchase log, so what the covenant says it spent cannot be matched to coins: " +
+            `its payee also receives from other grants, and ${inRange.length} coins there fit this grant's limits without any being provably its own.`,
         },
         refusals,
         mission:

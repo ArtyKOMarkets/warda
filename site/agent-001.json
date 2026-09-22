@@ -1,6 +1,6 @@
 {
   "_comment": "Written by agent/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, or the chain — none is typed. The refusal sentences are produced by running the same explainRefusal the payer calls, except the one marked derived:false, which is consensus's answer quoted from a node's actual rejection.",
-  "checkedAt": "2026-09-21T08:35:01.962Z",
+  "checkedAt": "2026-09-22T13:35:01.632Z",
   "network": "testnet-10",
   "elsewhere": {
     "vendor": "kaspatest:qr50gmc7t3jp33gg68aj63s9av54yc7w9kyjpwqdjhva9tt8j0a7wz2h6cnll",
@@ -22,14 +22,14 @@
   },
   "timelock": {
     "notBefore": "560669431",
-    "virtualDaaScore": "576470408",
+    "virtualDaaScore": "577512781",
     "open": true,
     "lockedFor": "0 seconds",
-    "openedAgo": "18 days",
+    "openedAgo": "19 days",
     "expiresAt": "586589431",
     "expired": false,
-    "expiresInDaa": "10119023",
-    "expiresIn": "12 days",
+    "expiresInDaa": "9076650",
+    "expiresIn": "11 days",
     "expiredAgo": null,
     "enforcedBy": "the covenant, on every spend: claimedDaa >= notBefore. Not a scheduler, not this process, and not revocable by whoever issued the grant.",
     "termEnforcedBy": "the covenant, on every spend: claimedDaa < expiresAt. After it, the grant refuses everything whatever its budget says, and the balance is the principal's to reclaim."
@@ -66,125 +66,18 @@
     }
   },
   "activity": {
-    "payments": 19,
-    "paid": "3.8 KAS",
+    "payments": 0,
+    "paid": "0 KAS",
     "paidOutsideTheAllowlist": "0 KAS",
-    "coins": [
-      {
-        "amount": "0.2 KAS",
-        "daaScore": "560791883",
-        "txid": "73f34306bc66fc376dbc7d08569ba3f69d101693c85b97693d7d6fea6e4b2f58",
-        "index": 1
-      },
-      {
-        "amount": "0.2 KAS",
-        "daaScore": "560837825",
-        "txid": "0bbc7254716fc403cbefbd7ee7c82ebeb4cb6c8a8b4d2b828aed73ae63e8145e",
-        "index": 1
-      },
-      {
-        "amount": "0.2 KAS",
-        "daaScore": "561520792",
-        "txid": "38006e773f49b3c7cf1437f609f40a95c1dfafc5f3c60b97568d7996bc2b5962",
-        "index": 1
-      },
-      {
-        "amount": "0.2 KAS",
-        "daaScore": "564064563",
-        "txid": "7821fc2a554551af559a078626d9cc071205a97965b953334a6d8c7ba32e31bc",
-        "index": 1
-      },
-      {
-        "amount": "0.2 KAS",
-        "daaScore": "564094891",
-        "txid": "29726ba017ba1880709c6ea6214edfb19d662f8ef745b1c91c04cad1a8cd7e74",
-        "index": 0
-      },
-      {
-        "amount": "0.2 KAS",
-        "daaScore": "569462566",
-        "txid": "48e32e98cc3d6271708733f09c19b02d6fc4afcba8ae953548c90e752d923e19",
-        "index": 0
-      },
-      {
-        "amount": "0.2 KAS",
-        "daaScore": "569515487",
-        "txid": "a502fc42046dd18b8ac7712e9b13ebe90f70c9d5094a86a73c4300e625943575",
-        "index": 0
-      },
-      {
-        "amount": "0.2 KAS",
-        "daaScore": "569618662",
-        "txid": "fda25802fc504037be6856b3296050799179fbfac74c8089e5fbc0041e3cce0e",
-        "index": 0
-      },
-      {
-        "amount": "0.2 KAS",
-        "daaScore": "570114757",
-        "txid": "f64debd2f0aedec654b939422de82f880f4514c78bf3465b318a5481a2542ee6",
-        "index": 0
-      },
-      {
-        "amount": "0.2 KAS",
-        "daaScore": "570279525",
-        "txid": "e751097a48e55516f362623b14754bb76c6e99e259e2e4f2e16c549ced7099e5",
-        "index": 0
-      },
-      {
-        "amount": "0.2 KAS",
-        "daaScore": "570284249",
-        "txid": "49cb9711429d0cbfcf962643111d1628cffd498448a64e78456c46302b6baaf9",
-        "index": 0
-      },
-      {
-        "amount": "0.2 KAS",
-        "daaScore": "570286658",
-        "txid": "9068d29130cdc441f508e006c756640141feafe2e76893b43b8bc179bd94a7f8",
-        "index": 0
-      },
-      {
-        "amount": "0.2 KAS",
-        "daaScore": "570293926",
-        "txid": "28a084fd6b36daf26d77838f3e85f8f0c2798ad4f8f2d87f8d78f82065a4d49b",
-        "index": 0
-      },
-      {
-        "amount": "0.2 KAS",
-        "daaScore": "571109533",
-        "txid": "7e59e4a13cf0638abebfe5532e1723522975522ba1c93b678c3bcbf14b58c160",
-        "index": 0
-      },
-      {
-        "amount": "0.2 KAS",
-        "daaScore": "571121162",
-        "txid": "647f648451c864073ba0d9c1ed4de56461ee392f7d5bbbb9bd9c1273a4876474",
-        "index": 0
-      },
-      {
-        "amount": "0.2 KAS",
-        "daaScore": "571826521",
-        "txid": "afbbe17c7256dc29e67d54109f6b6034b180bed264ee43b1e12a0ecc061be2b8",
-        "index": 0
-      },
-      {
-        "amount": "0.2 KAS",
-        "daaScore": "572685918",
-        "txid": "d359cb359529b7c75f44e430ee06875297b1eb55e9dd7388b38711aba15d1188",
-        "index": 0
-      },
-      {
-        "amount": "0.2 KAS",
-        "daaScore": "573586273",
-        "txid": "285057ed7d6b63e581c3cc17fdc3858fbbf3d2d424267e699d7b505ce6992624",
-        "index": 0
-      },
-      {
-        "amount": "0.2 KAS",
-        "daaScore": "576396711",
-        "txid": "7caeaec9007a687b22588ed6641a4965c047eb1e8e8b35e27c20ecffe7b674c2",
-        "index": 0
-      }
-    ]
+    "coins": []
+  },
+  "reconciliation": {
+    "spentPerTheCovenant": "0.8 KAS",
+    "namedByTheLog": "0 KAS",
+    "stillVisibleAtThePayee": "0 KAS",
+    "unrecorded": "0.8 KAS",
+    "candidatesAtThePayee": 20,
+    "note": "This agent keeps no purchase log, so what the covenant says it spent cannot be matched to coins: its payee also receives from other grants, and 20 coins there fit this grant's limits without any being provably its own."
   },
   "refusals": [
     {
@@ -226,8 +119,8 @@
   ],
   "mission": "Monitor the Kaspa network and publish an independent daily digest, unattended. It holds a bounded Warda grant and may buy an approved service when it needs one.",
   "lastRun": {
-    "at": "2026-09-21T08:17:00.521Z",
-    "runs": 378,
+    "at": "2026-09-22T13:17:01.559Z",
+    "runs": 406,
     "since": "2026-09-03T08:18:38.642Z",
     "servicesUsed": 0,
     "spent": "0 KAS",
@@ -235,8 +128,8 @@
   },
   "digest": {
     "window": "24 h",
-    "from": "2026-09-20T08:17:01.194Z",
-    "to": "2026-09-21T08:17:00.521Z",
-    "text": "Kaspa testnet-10 · 24 h to 2026-09-21 08:17 UTC\n\n  blue score  +860,262           9.95 blue blocks/s\n  DAA score   +862,150           now 576,460,686\n  minted      +2,661,256.22 KAS  26,959,153,551 KAS in existence\n  hashrate    21.53 MH/s         node estimate over its last 1,000 blocks\n  mempool     2 tx               held, unaccepted, at the closing reading\n  DAG         856 tips           1,295,566 blocks held by this node\n\nmeasured between two readings of one node (kaspad 2.0.1)\n"
+    "from": "2026-09-21T13:17:02.109Z",
+    "to": "2026-09-22T13:17:01.559Z",
+    "text": "Kaspa testnet-10 · 24 h to 2026-09-22 13:17 UTC\n\n  blue score  +859,860           9.95 blue blocks/s\n  DAA score   +862,109           now 577,502,013\n  minted      +2,661,129.66 KAS  26,962,367,892 KAS in existence\n  hashrate    21.75 MH/s         node estimate over its last 1,000 blocks\n  mempool     0 tx               held, unaccepted, at the closing reading\n  DAG         1 tips             1,394,550 blocks held by this node\n\nmeasured between two readings of one node (kaspad 2.0.1)\n"
   }
 }
