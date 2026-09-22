@@ -5,9 +5,13 @@
     /* Surfaces. Three steps, not two: the page, the card, and the inset a
        control or a meter sits in. A single flat ground with borders reads as a
        wireframe — the card has to be lighter than what it sits on. */
-    --void: #0C1220; --ground: #141C2E; --panel: #1A2338; --raise: #212C45;
-    --edge: #222D45; --edge-bright: #35415E;
-    --chrome: #E8ECF5; --chrome-dim: #9AA6BE; --chrome-faint: #6E7C97;
+    /* The site's own palette (wardaprotocol.com): near-black with a green
+       cast and one teal. The console had drifted to a navy of its own, and a
+       product that looks like a different company from its homepage reads as
+       one. */
+    --void: #06090C; --ground: #0A1014; --panel: #101A20; --raise: #16232B;
+    --edge: #1E2E37; --edge-bright: #2C4350;
+    --chrome: #DDE0E2; --chrome-dim: #8D989E; --chrome-faint: #66747C;
 
     --teal: #14D7C1; --teal-bright: #38F9E9; --teal-deep: #0BB6A2;
     --teal-ghost: rgba(20,215,193,0.11);
@@ -79,7 +83,7 @@
   .statusbar { margin-top: auto; }
   .top { display: flex; flex-wrap: wrap; gap: 0.7rem; align-items: center;
          padding: 0.7rem clamp(0.9rem, 2.4vw, 1.5rem); border-bottom: 1px solid var(--edge);
-         background: rgba(12,18,32,0.88); backdrop-filter: blur(8px);
+         background: rgba(6,9,12,0.88); backdrop-filter: blur(8px);
          position: sticky; top: 0; z-index: 20; }
   .search { flex: 1 1 18rem; min-width: 0; position: relative; display: flex; align-items: center; }
   .search svg { position: absolute; left: 0.65rem; width: 14px; height: 14px; color: var(--chrome-faint); }
@@ -397,6 +401,79 @@
   .ctl button.danger { background: rgba(255,107,90,0.12); border-color: rgba(255,107,90,0.5); color: var(--refuse); }
   .ctl button.danger:hover { background: rgba(255,107,90,0.2); }
 
+  /* ---- phone, as its own surface ----------------------------------------------
+     Desktop is the operator's console. The phone answers four questions — how
+     much, which agents, what did they spend, can I stop one — and everything
+     else is one tap further: cards instead of tables, explanations behind
+     "Why", the full view still there below. */
+  .mb-only { display: none; }
+  .whyb { display: none; }
+  .mlist { display: grid; gap: 0.5rem; }
+  .mrow { display: grid; gap: 0.15rem; padding: 0.9rem 1rem; border: 1px solid var(--edge); border-radius: var(--r);
+          background: var(--ground); color: var(--chrome); cursor: pointer; }
+  .mrow b { font-weight: 600; font-size: 0.98rem; }
+  .mrow span { color: var(--chrome-faint); font-size: 0.8rem; }
+  .mrow:hover { border-color: var(--edge-bright); }
+  .go.wide { width: 100%; justify-content: center; padding-block: 0.8rem; }
+  .mhero { border: 1px solid var(--edge-bright); border-radius: 16px; padding: 1.1rem 1.1rem 1rem;
+           background: radial-gradient(120% 90% at 100% 0%, rgba(20,215,193,0.10), transparent 60%), var(--ground); }
+  .mhero .lbl { font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--chrome-faint); }
+  .mhero .big { font-family: var(--display); font-weight: 700; font-size: 2.1rem; line-height: 1.05; margin-top: 0.3rem; font-variant-numeric: tabular-nums; }
+  .mhero .big small { font-size: 0.95rem; color: var(--chrome-dim); font-weight: 600; margin-left: 0.3rem; }
+  .mhero .sub { color: var(--chrome-dim); font-size: 0.85rem; margin-top: 0.15rem; }
+  .mbar { height: 8px; border-radius: 6px; background: var(--panel); overflow: hidden; margin-top: 0.8rem; }
+  .mbar i { display: block; height: 100%; background: var(--teal); border-radius: 6px; }
+  .mrow2 { display: flex; justify-content: space-between; gap: 0.6rem; font-size: 0.8rem; color: var(--chrome-faint); margin-top: 0.4rem; }
+  .enf { display: inline-flex; align-items: center; gap: 0.4rem; margin-top: 0.85rem; padding: 0.35rem 0.7rem;
+         border: 1px solid rgba(20,215,193,0.35); background: var(--teal-ghost); color: var(--teal); border-radius: 999px;
+         font-size: 0.76rem; font-weight: 500; }
+  .enf svg { width: 13px; height: 13px; }
+  .mstats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; margin-top: 0.7rem; }
+  .mstats div { border: 1px solid var(--edge); border-radius: 12px; padding: 0.65rem 0.7rem; background: var(--ground); }
+  .mstats i { display: block; font-style: normal; font-size: 0.68rem; color: var(--chrome-faint); }
+  .mstats b { font-family: var(--mono); font-weight: 500; font-size: 1rem; }
+  .msec { display: flex; justify-content: space-between; align-items: baseline; margin: 1.3rem 0 0.55rem; }
+  .msec h2 { font-size: 1rem; margin: 0; }
+  .acard { display: block; border: 1px solid var(--edge); border-radius: 14px; padding: 0.9rem 1rem; background: var(--ground);
+           margin-bottom: 0.55rem; cursor: pointer; color: var(--chrome); }
+  .acard:hover, .acard:focus-visible { border-color: var(--edge-bright); outline: none; }
+  .acard .t { display: flex; align-items: center; gap: 0.5rem; }
+  .acard .t b { font-family: var(--display); font-size: 1.02rem; }
+  .acard .t .pill { margin-left: auto; }
+  .acard .m { color: var(--chrome-faint); font-size: 0.78rem; margin-top: 0.15rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .acard .amt { font-family: var(--mono); font-size: 0.95rem; margin-top: 0.55rem; }
+  .acard .amt span { color: var(--chrome-faint); font-size: 0.8rem; }
+  .acard .mbar { margin-top: 0.45rem; height: 6px; }
+  .chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.35rem; margin-top: 0.65rem; }
+  .chips span { border: 1px solid var(--edge); border-radius: 9px; padding: 0.35rem 0.4rem; font-size: 0.7rem; color: var(--chrome-faint); text-align: center; line-height: 1.25; }
+  .chips span b { display: block; color: var(--chrome); font-family: var(--mono); font-weight: 500; font-size: 0.82rem; }
+  .mlim { display: grid; gap: 0; margin-top: 0.4rem; }
+  .mlim div { display: flex; justify-content: space-between; padding: 0.55rem 0; border-bottom: 1px solid var(--edge); font-size: 0.9rem; }
+  .mlim div:last-child { border-bottom: 0; }
+  .mlim dt { color: var(--chrome-dim); } .mlim dd { margin: 0; font-family: var(--mono); }
+  .mchk { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem 0.8rem; margin-top: 0.5rem; font-size: 0.85rem; color: var(--chrome-dim); }
+  .mchk span::before { content: "✓"; color: var(--teal); margin-right: 0.45rem; font-weight: 700; }
+  .mact { display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem; margin-top: 1rem; }
+  .mact .go { justify-content: center; padding-block: 0.75rem; }
+  @media (max-width: 720px) {
+    .mb-only { display: block; }
+    .dk-only { display: none !important; }
+    #range, #dash-sub, #v-grants .head p, #v-activity .head p, #v-refusals .head p { display: none; }
+    .mseg { display: flex; width: 100%; margin-bottom: 0.8rem; }
+    .mseg button { flex: 1; }
+    /* Explanations stay, one tap away. */
+    .card:not(.explain) > p.why { display: none; }
+    .whyb { display: inline-flex; margin-left: auto; font: 500 0.7rem var(--body); color: var(--chrome-faint);
+            background: transparent; border: 1px solid var(--edge); border-radius: 999px; padding: 0.15rem 0.55rem; cursor: pointer; }
+    .card.explain .whyb { color: var(--teal); border-color: rgba(20,215,193,0.4); }
+    /* The top bar is for finding things; a phone only needs that where there
+       is a list to search. */
+    body:not([data-view="grants"]):not([data-view="activity"]) .top .search { display: none; }
+    #scope.scope { gap: 0.4rem 0.6rem; flex-wrap: nowrap; }
+    #scope .scope-t { font-size: 0.72rem; flex: 1 1 auto; line-height: 1.35; }
+    #scope .go { padding: 0.3rem 0.65rem; font-size: 0.7rem; flex: none; white-space: nowrap; }
+  }
+
   /* ---- phone ----------------------------------------------------------------
      The sidebar becomes a drawer behind a menu button, and the five things a
      person does most sit in a tab bar under their thumb. Everything is still
@@ -413,7 +490,7 @@
       background: var(--panel); border: 1px solid var(--edge-bright); color: var(--chrome); flex: none; }
     .menu svg { width: 18px; height: 18px; }
     .tabs { display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
-      background: rgba(20,28,46,0.96); backdrop-filter: blur(10px); border-top: 1px solid var(--edge);
+      background: rgba(10,16,20,0.96); backdrop-filter: blur(10px); border-top: 1px solid var(--edge);
       padding: 0.35rem 0.3rem calc(0.35rem + env(safe-area-inset-bottom, 0px)); }
     .tabs a { display: grid; justify-items: center; gap: 0.2rem; padding: 0.35rem 0; border-radius: 10px;
       color: var(--chrome-faint); font-size: 0.64rem; cursor: pointer; min-height: 44px; }
@@ -703,7 +780,7 @@
         <button data-scope="mine" aria-pressed="true">Your grants</button>
         <button data-scope="public" aria-pressed="false">Warda&rsquo;s agents</button>
       </div>
-      <button class="go gh" id="scope-connect" data-view="account">Connect a wallet to see yours</button>
+      <button class="go gh" id="scope-connect" data-view="account">Connect a wallet<span class="dk-only"> to see yours</span></button>
     </div>
     <div class="pad scope-empty" id="scope-empty" hidden>
       <div class="card">
@@ -741,7 +818,9 @@
         <div class="feed trk-list"></div>
       </div>
 
-      <div class="dash">
+      <div class="mb-only" id="m-home"></div>
+
+      <div class="dash dk-only">
         <div class="stack">
           <div class="tiles" id="tiles"></div>
 
@@ -859,7 +938,16 @@
         <div class="feed trk-list"></div>
       </div>
 
-      <div class="card">
+      <div class="mb-only">
+        <div class="seg mseg" id="m-gf" role="group" aria-label="Show">
+          <button data-f="all" aria-pressed="true">All</button>
+          <button data-f="live" aria-pressed="false">Live</button>
+          <button data-f="ended" aria-pressed="false">Ended</button>
+        </div>
+        <div id="m-grants"></div>
+        <p style="margin-top:0.9rem"><button class="go wide" data-view="create">+ Create grant</button></p>
+      </div>
+      <div class="card dk-only">
         <header><h2>Every grant <small id="n-grants-2">&mdash;</small></h2></header>
         <div style="overflow-x:auto">
         <table id="t-all"><thead><tr>
@@ -885,7 +973,8 @@
         </div>
         <div id="ag-links"></div>
       </div>
-      <div class="tiles" id="ag-tiles"></div>
+      <div class="mb-only" id="m-agent"></div>
+      <div class="tiles dk-only" id="ag-tiles"></div>
 
       <div class="two" style="margin-top:0.85rem;align-items:start">
         <div class="stack">
@@ -1365,7 +1454,14 @@
         <h1>Activity</h1>
         <p>Every payment these agents recorded, newest first, with the outcome each one actually had.</p>
       </div></div>
-      <div class="card">
+      <div class="mb-only">
+        <div class="seg mseg" role="group" aria-label="Show">
+          <button data-view="activity" aria-pressed="true">Payments</button>
+          <button data-view="refusals" aria-pressed="false">Refused</button>
+        </div>
+        <div class="card"><div class="feed" id="m-acts"></div></div>
+      </div>
+      <div class="card dk-only">
         <header><h2>Payments <small id="n-acts-2">&mdash;</small></h2></header>
         <div style="overflow-x:auto">
         <table id="t-acts"><thead><tr>
@@ -1381,6 +1477,10 @@
         <h1>Refused</h1>
         <p>Two different things, kept apart on purpose &mdash; what actually went wrong, and what the covenant would refuse if anybody tried it.</p>
       </div></div>
+      <div class="seg mseg mb-only" role="group" aria-label="Show">
+        <button data-view="activity" aria-pressed="false">Payments</button>
+        <button data-view="refusals" aria-pressed="true">Refused</button>
+      </div>
       <div class="two" style="align-items:start">
         <div class="card">
           <header><h2>Attempts that did not settle <small id="n-fail">&mdash;</small></h2></header>
@@ -1917,6 +2017,12 @@ ops/install-cron.sh</pre>
       </div>
     </div>
 
+    <!-- ============================== MORE ============================== -->
+    <div class="view pad" id="v-more">
+      <div class="head"><div><h1>More</h1></div></div>
+      <div class="mlist"><a class="mrow" data-view="fleet"><b>Fleet</b><span>Every agent as one system · delegation · bulk controls</span></a><a class="mrow" data-view="analytics"><b>Analytics</b><span>Burn rate · runway · cost per task</span></a><a class="mrow" data-view="fund"><b>Fund an agent</b><span>From USDC or USDT you already hold</span></a><a class="mrow" data-view="create"><b>Create a grant</b><span>Budget, cap, rate, payees — four steps</span></a><a class="mrow" data-view="refusals"><b>Refused</b><span>What the covenant would not let through</span></a><a class="mrow" data-view="registry"><b>Services</b><span>The registry: who an agent can buy from</span></a><a class="mrow" data-view="account"><b>Your account</b><span>Wallets, synced grants, alert delivery</span></a><a class="mrow" href="/proof"><b>Proof</b><span>Every claim, and what would refute it</span></a><a class="mrow" href="/grant"><b>Get a funded testnet grant</b><span>We fund your agent, free</span></a></div>
+    </div>
+
     <div class="statusbar">
       <span><i class="d"></i>Network: <b id="sb-net">Kaspa testnet-10</b></span>
       <span id="sb-daa">&mdash;</span>
@@ -1926,11 +2032,11 @@ ops/install-cron.sh</pre>
   </div><!-- /main -->
   <div class="scrim" id="scrim" hidden></div>
   <nav class="tabs" aria-label="Main">
-    <a data-view="dash"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1.5"/><rect x="9" y="1.5" width="5.5" height="5.5" rx="1.5"/><rect x="1.5" y="9" width="5.5" height="5.5" rx="1.5"/><rect x="9" y="9" width="5.5" height="5.5" rx="1.5"/></svg><span>Overview</span></a>
-    <a data-view="fleet"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="3.3" r="1.8"/><circle cx="3.3" cy="12.2" r="1.8"/><circle cx="8" cy="12.2" r="1.8"/><circle cx="12.7" cy="12.2" r="1.8"/><path d="M8 5.1v5.3M8 7.8H3.3v2.6M8 7.8h4.7v2.6"/></svg><span>Fleet</span></a>
-    <a data-view="fund"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 5.5h9.5M8.5 2.5l3 3-3 3"/><path d="M14 10.5H4.5M7.5 7.5l-3 3 3 3"/></svg><span>Fund</span></a>
-    <a data-view="create"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2.5v11M2.5 8h11"/></svg><span>Create</span></a>
-    <a data-view="account"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="5.6" r="2.8"/><path d="M2.6 14c.7-2.9 2.9-4.4 5.4-4.4s4.7 1.5 5.4 4.4"/></svg><span>Account</span></a>
+    <a data-view="dash"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 7.2 8 2.5l6 4.7V14H9.8v-4H6.2v4H2z"/></svg><span>Home</span></a>
+    <a data-view="grants"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="3.3" r="1.8"/><circle cx="3.3" cy="12.2" r="1.8"/><circle cx="8" cy="12.2" r="1.8"/><circle cx="12.7" cy="12.2" r="1.8"/><path d="M8 5.1v5.3M8 7.8H3.3v2.6M8 7.8h4.7v2.6"/></svg><span>Agents</span></a>
+    <a data-view="activity"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.5 8.5h3l2-5 3 9 2-4h3"/></svg><span>Activity</span></a>
+    <a data-view="alerts"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 11V7.5a4 4 0 0 1 8 0V11l1.3 1.5H2.7zM6.6 14h2.8"/></svg><span>Alerts</span></a>
+    <a data-view="more"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg><span>More</span></a>
   </nav>
 </div><!-- /app -->
 
@@ -2098,6 +2204,121 @@ ops/install-cron.sh</pre>
   function P_() { return P.filter(function (x) { return inRange(x.p.at) && payHit(x); }); }
   function A_() { return A.filter(agentHit); }
 
+  /* ---- the phone's own surfaces --------------------------------------------
+     Built from the same readings as every other view; nothing here is a
+     second opinion. Hrefs are never concatenated into markup (check-links
+     reads the built page), so agent cards open through data-agent-open and
+     the public-page link is set as a property. */
+  var M_FILTER = "all";
+  var SHIELD = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 1.8 13 3.6v4.1c0 3-2.1 5.2-5 6.5-2.9-1.3-5-3.5-5-6.5V3.6z"/><path d="m5.6 8 1.7 1.7 3.2-3.3"/></svg>';
+  function usd(k) { return MARKET && MARKET.rate ? "≈ $" + (k * MARKET.rate).toLocaleString("en-US", { maximumFractionDigits: k * MARKET.rate < 10 ? 2 : 0 }) : ""; }
+  function pct(a, b) { return b > 0 ? Math.max(0, Math.min(100, Math.round(a / b * 100))) : 0; }
+  function mAgentCard(a) {
+    var u = auth(a), f = grantFacts(a), spent = num(u.spent), budget = num(u.budget);
+    var t = f.t, ends = !t.known ? "—" : t.expired ? "ended" : (t.in || "—").replace(/ days?$/, "d").replace(/ hours?$/, "h");
+    return '<div class="acard" tabindex="0" data-agent-open="' + esc(a.id) + '">' +
+      '<div class="t"><b>Agent #' + esc(a.id) + '</b>' + stateP(a) + '</div>' +
+      (a.d.mission ? '<p class="m">' + esc(a.d.mission) + '</p>' : '') +
+      '<p class="amt">' + kas2(spent) + ' <span>/ ' + kas2(budget) + ' KAS spent · ' + pct(spent, budget) + '%</span></p>' +
+      '<div class="mbar"><i style="width:' + pct(spent, budget) + '%"></i></div>' +
+      '<div class="chips"><span><b>' + kas2(num(u.maxPerPayment)) + '</b>per payment</span><span><b>' + kas2(num(u.epochLimit)) + '</b>per epoch</span>' +
+      '<span><b>' + (u.authorizedPayees || 0) + '</b>payees</span><span><b>' + esc(ends) + '</b>' + (f.ended ? 'status' : 'left') + '</span></div>' +
+      '</div>';
+  }
+  function mobileRender() {
+    if (!$("m-home")) return;
+    var list = A_();
+    var liveA = list.filter(function (a) { return live(a) === "live"; });
+    var left = liveA.reduce(function (s, a) { return s + Math.min(num(auth(a).remaining), num(auth(a).onChain) || num(auth(a).remaining)); }, 0);
+    var budget = liveA.reduce(function (s, a) { return s + num(auth(a).budget); }, 0);
+    var spentLive = liveA.reduce(function (s, a) { return s + num(auth(a).spent); }, 0);
+    var day = Date.now() - 86400000;
+    var today = P.filter(function (x) { return new Date(x.p.at).getTime() > day; });
+    var okP = function (x) { return x.p.outcome === "bought" || x.p.outcome === "served"; };
+    var paidToday = today.filter(okP).reduce(function (s, x) { return s + num(x.p.paid); }, 0);
+    var feed = function (xs) {
+      return xs.map(function (x) {
+        var ok = okP(x);
+        return evRow(ok ? "ok" : "bad", "#" + x.agent + " → " + esc(host(x.p.url)),
+          (ok ? "" : '<span style="color:var(--refuse)">' + esc(x.p.outcome || "refused") + '</span> · ') + ago(x.p.at),
+          ok ? esc(x.p.paid || "") : "—");
+      }).join("") || '<p class="empty">Nothing recorded yet.</p>';
+    };
+    var ordered = liveA.concat(list.filter(function (a) { return live(a) !== "live"; }));
+    $("m-home").innerHTML =
+      '<div class="mhero">' +
+        '<p class="lbl">Authority available · ' + liveA.length + ' live agent' + (liveA.length === 1 ? '' : 's') + '</p>' +
+        '<p class="big">' + kas2(left) + '<small>KAS</small></p>' +
+        '<p class="sub">' + (usd(left) || "&nbsp;") + '</p>' +
+        '<div class="mbar"><i style="width:' + pct(spentLive, budget) + '%"></i></div>' +
+        '<div class="mrow2"><span>' + kas2(spentLive) + ' KAS spent</span><span>of ' + kas2(budget) + ' KAS authorised</span></div>' +
+        '<a class="enf" href="/proof">' + SHIELD + 'Network enforced — not by this app</a>' +
+      '</div>' +
+      '<div class="mstats"><div><i>Spent today</i><b>' + kas2(paidToday) + '</b></div>' +
+        '<div><i>Payments today</i><b>' + today.filter(okP).length + '</b></div>' +
+        '<div><i>Refused today</i><b>' + today.filter(function (x) { return !okP(x); }).length + '</b></div></div>' +
+      '<div class="msec"><h2>Your agents</h2><a data-view="grants">View all</a></div>' +
+      ordered.slice(0, 3).map(mAgentCard).join("") +
+      '<p><button class="go wide" data-view="create">+ Create grant</button></p>' +
+      '<div class="msec"><h2>Recent activity</h2><a data-view="activity">View all</a></div>' +
+      '<div class="card"><div class="feed">' + feed(P.slice(0, 5)) + '</div></div>';
+
+    var shown = list.filter(function (a) {
+      var st = live(a);
+      return M_FILTER === "all" || (M_FILTER === "live" ? st === "live" : st !== "live");
+    });
+    $("m-grants").innerHTML = shown.map(mAgentCard).join("") || '<p class="empty">Nothing here.</p>';
+    $("m-acts").innerHTML = feed(P.slice(0, 60));
+  }
+  function mAgent(a) {
+    var box = $("m-agent"); if (!box) return;
+    var u = auth(a), f = grantFacts(a), spent = num(u.spent), budget = num(u.budget), rem = num(u.remaining);
+    var t = f.t;
+    box.innerHTML =
+      '<div class="mhero">' +
+        '<div class="mrow2" style="margin:0;color:var(--chrome-dim)"><span class="lbl">Spent</span><span class="lbl">Remaining</span></div>' +
+        '<div class="mrow2" style="margin:0.2rem 0 0;color:var(--chrome)"><span class="big" style="font-size:1.7rem">' + kas2(spent) + '</span><span class="big" style="font-size:1.7rem">' + kas2(rem) + '</span></div>' +
+        '<div class="mrow2" style="margin:0"><span>KAS ' + usd(spent) + '</span><span>KAS ' + usd(rem) + '</span></div>' +
+        '<div class="mbar"><i style="width:' + pct(spent, budget) + '%"></i></div>' +
+        '<a class="enf" href="/proof">' + SHIELD + 'Network enforced</a>' +
+      '</div>' +
+      '<div class="msec"><h2>Spending limits</h2></div>' +
+      '<div class="card"><dl class="mlim">' +
+        '<div><dt>Total budget</dt><dd>' + kas2(budget) + ' KAS</dd></div>' +
+        '<div><dt>Max per payment</dt><dd>' + kas2(num(u.maxPerPayment)) + ' KAS</dd></div>' +
+        '<div><dt>Per epoch (' + esc(u.epochLengthDaa || "—") + ' blocks)</dt><dd>' + kas2(num(u.epochLimit)) + ' KAS</dd></div>' +
+        '<div><dt>' + (t.expired ? "Expired" : "Expires") + '</dt><dd>' + esc(!t.known ? "—" : t.expired ? (t.ago || "") + " ago" : "in " + (t.in || "—")) + '</dd></div>' +
+        '<div><dt>Approved payees</dt><dd>' + (u.authorizedPayees || 0) + '</dd></div>' +
+      '</dl></div>' +
+      '<div class="msec"><h2>Checked by every node</h2></div>' +
+      '<div class="card"><div class="mchk"><span>Budget</span><span>Payment cap</span><span>Epoch limit</span><span>Allowlist</span><span>Expiry</span><span>Delegation depth</span></div></div>' +
+      '<div class="mact"><a class="go gh" id="m-proof">Public page</a>' +
+        '<button class="go danger" id="m-stop"' + (f.ended ? ' disabled' : '') + '>' + (f.ended ? 'Ended' : 'Revoke') + '</button></div>';
+    var pub = $("m-proof"); pub.href = ["", "agent-" + a.id].join("/");
+    $("m-stop").onclick = function () {
+      var c = $("ag-ctl"); if (!c) return;
+      c.scrollIntoView({ behavior: "smooth", block: "center" });
+      var b = c.querySelector('[data-ctl="revoke"]'); if (b && !b.disabled) b.click();
+    };
+  }
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest("#m-gf button");
+    if (!b) return;
+    M_FILTER = b.getAttribute("data-f");
+    Array.prototype.forEach.call(document.querySelectorAll("#m-gf button"), function (o) { o.setAttribute("aria-pressed", o === b ? "true" : "false"); });
+    mobileRender();
+  });
+  /* "Why" on every card that explains itself: hidden on a phone until asked. */
+  Array.prototype.forEach.call(document.querySelectorAll(".card"), function (card) {
+    var hdr = card.querySelector(":scope > header"), why = card.querySelector(":scope > p.why");
+    if (!hdr || !why) return;
+    var btn = document.createElement("button");
+    btn.type = "button"; btn.className = "whyb"; btn.textContent = "Why";
+    btn.setAttribute("aria-expanded", "false");
+    btn.onclick = function () { var on = card.classList.toggle("explain"); btn.setAttribute("aria-expanded", on ? "true" : "false"); };
+    hdr.appendChild(btn);
+  });
+
   /* ---------------------------------------------------------------- render */
   function render() {
     if (!ALL.length) {
@@ -2132,6 +2353,7 @@ ops/install-cron.sh</pre>
     tiles(); spendChart(); agentDonut(); payees(); endpoints();
     grantRows(); allRows(); acts(); notices(); recent(); sources(); deleg(); recon(); refusals();
     fleetView();
+    mobileRender();
     if ($("v-analytics").classList.contains("on")) analyticsView();
   }
 
@@ -2642,8 +2864,10 @@ ops/install-cron.sh</pre>
     if (!a) return;
     if (!fromRoute) location.hash = hashFor("agent", id);
     SHOWN = id;
+    document.body.setAttribute("data-view", "agent");
     var u = auth(a), t = term(a), c = hue(a.id);
     ctlRender(a);
+    mAgent(a);
 
     /* The same three-way pill the tables use, rather than a second opinion
        about the same agent computed a different way. */
@@ -5884,7 +6108,7 @@ ops/install-cron.sh</pre>
 
   var TITLES = { dash: "Overview", grants: "Grants", agent: "Agent", activity: "Activity",
                  refusals: "Refused", alerts: "Alerts", fund: "Fund an agent", create: "Create a grant",
-                 account: "Your account", fleet: "Fleet", registry: "Services", analytics: "Analytics" };
+                 account: "Your account", fleet: "Fleet", registry: "Services", analytics: "Analytics", more: "More" };
   /* ---- where you are, in the URL ----------------------------------------
      The console had no address. Every view was the same page, so a reload lost
      your place, the browser's Back button left the app entirely, and there was
@@ -5916,6 +6140,7 @@ ops/install-cron.sh</pre>
     if (!$("v-" + v)) return;
     if (!fromRoute) location.hash = hashFor(v);
     drawer(false);
+    document.body.setAttribute("data-view", v);
     if (v === "fleet") fleetView();
     if (v === "registry") svcView();
     Array.prototype.forEach.call(document.querySelectorAll(".side a[data-view], .tabs a[data-view]"), function (o) {
