@@ -1,4 +1,4 @@
-import { BellRing, Wallet } from "lucide-react";
+import { BellRing } from "lucide-react";
 import { useRoute } from "@/lib/router";
 import { Shell } from "@/components/shell";
 import { Overview } from "@/pages/Overview";
@@ -11,6 +11,7 @@ import { Services } from "@/pages/Services";
 import { Account } from "@/pages/Account";
 import { NewAgent } from "@/pages/NewAgent";
 import { Classic } from "@/pages/shared";
+import { Fund } from "@/pages/Fund";
 
 export function App() {
   const [page = "overview", a, b] = useRoute();
@@ -23,7 +24,7 @@ export function App() {
       case "services": return <Services />;
       case "account": return <Account />;
       case "new": return <NewAgent />;
-      case "fund": return <Classic title="Fund" view="fund" sub="Move money into a grant from a Kaspa or EVM wallet." icon={<Wallet className="size-5" />} />;
+      case "fund": return <Fund key={a ?? ""} agent={a} />;
       case "alerts": return <Classic title="Alerts" view="alerts" sub="Get told when an agent runs low, is refused, or stops." icon={<BellRing className="size-5" />} />;
       default: return <Overview />;
     }

@@ -18,7 +18,7 @@ const NAV: { title: string; items: Item[] }[] = [
   ] },
   { title: "Build", items: [
     { id: "new", label: "New agent", icon: Plus },
-    { id: "fund", label: "Fund", icon: Wallet, classic: "fund" },
+    { id: "fund", label: "Fund", icon: Wallet },
   ] },
   { title: "Network", items: [{ id: "services", label: "Services", icon: Store }] },
   { title: "Settings", items: [

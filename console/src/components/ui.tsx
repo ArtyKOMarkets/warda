@@ -13,11 +13,11 @@ const V: Record<Variant, string> = {
 const S = { sm: "h-8 px-3 text-[13px] gap-1.5", md: "h-9 px-3.5 text-sm gap-2", lg: "h-11 px-5 text-[15px] gap-2" };
 
 export function Button({ variant = "secondary", size = "md", className, ...p }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: keyof typeof S }) {
-  return <button className={cn("inline-flex items-center justify-center rounded-lg font-medium transition-[background,border,color,box-shadow] duration-150 disabled:opacity-50 disabled:pointer-events-none select-none", V[variant], S[size], className)} {...p} />;
+  return <button className={cn("inline-flex items-center justify-center rounded-lg font-medium transition-[background,border,color,box-shadow] duration-150 disabled:opacity-50 disabled:pointer-events-none select-none whitespace-nowrap", V[variant], S[size], className)} {...p} />;
 }
 
 export function LinkButton({ variant = "secondary", size = "md", className, ...p }: AnchorHTMLAttributes<HTMLAnchorElement> & { variant?: Variant; size?: keyof typeof S }) {
-  return <a className={cn("inline-flex items-center justify-center rounded-lg font-medium transition-[background,border,color,box-shadow] duration-150 select-none", V[variant], S[size], className)} {...p} />;
+  return <a className={cn("inline-flex items-center justify-center rounded-lg font-medium whitespace-nowrap transition-[background,border,color,box-shadow] duration-150 select-none", V[variant], S[size], className)} {...p} />;
 }
 
 export function Card({ className, children, interactive, ...p }: { className?: string; children: ReactNode; interactive?: boolean } & React.HTMLAttributes<HTMLDivElement>) {

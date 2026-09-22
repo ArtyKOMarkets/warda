@@ -42,3 +42,37 @@ export const explorerTx = (txid: string, net = "testnet-10") =>
   net === "mainnet" ? `https://explorer.kaspa.org/txs/${txid}` : `https://explorer-tn10.kaspa.org/txs/${txid}`;
 export const explorerAddress = (a: string, net = "testnet-10") =>
   net === "mainnet" ? `https://explorer.kaspa.org/addresses/${a}` : `https://explorer-tn10.kaspa.org/addresses/${a}`;
+
+/** A Kaspa address → { prefix, version, payload }, or null if the checksum fails. */
+export function decodeAddress(addr: string): { prefix: string; version: number; payload: number[] } | null {
+  const s = addr.trim().toLowerCase();
+  const i = s.indexOf(":");
+  if (i < 1) return null;
+  const prefix = s.slice(0, i);
+  const data: number[] = [];
+  for (const c of s.slice(i + 1)) { const v = CHARSET.indexOf(c); if (v < 0) return null; data.push(v); }
+  if (data.length < 9) return null;
+  const pre = [...prefix].map((c) => c.charCodeAt(0) & 31);
+  if (polymod([...pre, 0, ...data]) !== 0n) return null;
+  const body = data.slice(0, -8);
+  const bytes: number[] = [];
+  let acc = 0, bits = 0;
+  for (const d of body) { acc = (acc << 5) | d; bits += 5; while (bits >= 8) { bits -= 8; bytes.push((acc >> bits) & 255); } }
+  return { prefix, version: bytes[0]!, payload: bytes.slice(1) };
+}
+
+export function isAddress(a: string, prefix?: string): boolean {
+  const d = decodeAddress(a);
+  return !!d && (!prefix || d.prefix === prefix) && (d.version === 0 ? d.payload.length === 32 : d.version === 1 ? d.payload.length === 33 : d.version === 8 && d.payload.length === 32);
+}
+
+/** The owner's key, from a Kaspa address (P2PK) or a hex public key. */
+export function ownerKey(v: string): string | null {
+  v = v.trim();
+  if (v.includes(":")) {
+    const d = decodeAddress(v);
+    return d && d.version === 0 && d.payload.length === 32 ? d.payload.map((b) => b.toString(16).padStart(2, "0")).join("") : null;
+  }
+  const h = v.toLowerCase();
+  return /^(0[23])?[0-9a-f]{64}$/.test(h) ? h.slice(-64) : null;
+}

@@ -52,7 +52,7 @@ export function AgentDetail({ id, tab }: { id: string; tab?: string }) {
           {a.source === "hosted" ? (
             <>
               <LinkButton href="/app#/hagents"><Settings2 className="size-4" /> Jobs &amp; approvals</LinkButton>
-              {a.status !== "ended" && <LinkButton variant="primary" href="/app#/hagents"><Wallet className="size-4" /> Top up</LinkButton>}
+              {a.status !== "ended" && <LinkButton variant="primary" href={href("fund", a.id)}><Wallet className="size-4" /> Top up</LinkButton>}
             </>
           ) : (
             <LinkButton href={`/agent-${a.id}.html`}>Public page <ExternalLink className="size-4" /></LinkButton>
