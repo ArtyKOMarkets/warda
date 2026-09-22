@@ -1,0 +1,15 @@
+{
+  "name": "warda-runner-hosted",
+  "private": true,
+  "type": "module",
+  "description": "The Warda runner, hosted: one function bundled from runner/ by build.mjs, plus the four packages that must be installed as themselves.",
+  "engines": {
+    "node": "22.x"
+  },
+  "dependencies": {
+    "@kluster/kaspa-wasm": "^2.0.1",
+    "@neondatabase/serverless": "1.1.0",
+    "@turnkey/sdk-server": "^8.5.1",
+    "@warda_protocol/borsh": "^0.4.1"
+  }
+}
