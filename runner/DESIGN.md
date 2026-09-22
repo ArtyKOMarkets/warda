@@ -25,8 +25,9 @@ landing page and in the audit scope.
 Anything that needs an owner key — top up, renew, revoke — is an
 **approval**: the runner writes a request, notifies the owner, and the owner
 signs it in their own wallet (WalletConnect on the phone). The runner proposes;
-it never acts as the owner. `ops/check-runner.mjs` (to write) should fail the
-build if anything under `runner/src` imports a principal or revocation key.
+it never acts as the owner. `ops/check-runner.mjs` fails the build if anything
+under `runner/src` can reach a principal or revocation key, or if any action
+other than `approval` is declared owner-level.
 
 ### Vault: envelope now, MPC when it can sign for Kaspa
 
@@ -111,7 +112,8 @@ It is a fee per execution, never a percentage of what the agent spends.
 Built (`runner/src`): workflow parsing and validation, cron, the engine
 (triggers → conditions → actions, preflight, run log, fee accrual and
 settlement), `EnvelopeVault`, an in-memory store, and `live.ts` wiring the
-engine to `@warda_protocol/agent`.
+engine to `@warda_protocol/agent` (which gained `pay()` for invoice-less
+sends). 22 runner tests, 2 new wallet e2e tests, `check-runner` in CI.
 
 Next, in order:
 
