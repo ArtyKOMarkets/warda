@@ -261,6 +261,15 @@
   .wc-qr svg { width: 100%; height: 100%; display: block; }
   .wc-qr:empty { background: var(--panel); }
   .wc-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.8rem; }
+  /* On a phone there is nothing to scan: the pairing is handed straight to
+     the wallet app by its own link, the way every mobile dapp does it. */
+  .wc-apps { display: grid; gap: 0.5rem; margin-top: 0.9rem; }
+  .wc-apps a { display: flex; align-items: center; justify-content: space-between; padding: 0.85rem 1rem;
+               border: 1px solid var(--edge-bright); border-radius: 12px; background: var(--panel); color: var(--chrome);
+               font-weight: 600; cursor: pointer; }
+  .wc-apps a:hover { border-color: var(--teal-deep); }
+  .wc-apps a span { color: var(--chrome-faint); font-weight: 400; font-size: 0.78rem; }
+  .wc-qrtoggle { margin-top: 0.8rem; font-size: 0.78rem; color: var(--chrome-faint); cursor: pointer; background: none; border: 0; padding: 0; text-decoration: underline; }
   .wc-row > * { flex: 1 1 auto; }
   /* ---- analytics charts ---------------------------------------------------- */
   .an-leg { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; margin-top: 0.7rem; font-size: 0.76rem; color: var(--chrome-dim); }
@@ -1437,6 +1446,8 @@
           <p class="why" id="wc-say">Scan with your phone&rsquo;s camera. It opens Kaspire, which asks you to
             approve sharing your address and public key &mdash; the only two things this page requests.
             Nothing it asks for can move a coin.</p>
+          <div class="wc-apps" id="wc-apps" hidden></div>
+          <button type="button" class="wc-qrtoggle" id="wc-qrt" hidden>Show a QR code instead</button>
           <div class="wc-qr" id="wc-qr"></div>
           <p class="state" id="wc-state">Preparing a pairing&hellip;</p>
           <div class="wc-row">
@@ -2312,6 +2323,8 @@ ops/install-cron.sh</pre>
   Array.prototype.forEach.call(document.querySelectorAll(".card"), function (card) {
     var hdr = card.querySelector(":scope > header"), why = card.querySelector(":scope > p.why");
     if (!hdr || !why) return;
+    /* A dialog's one sentence is the point of the dialog, not a footnote. */
+    if (card.closest(".wc-veil")) { card.classList.add("explain"); return; }
     var btn = document.createElement("button");
     btn.type = "button"; btn.className = "whyb"; btn.textContent = "Why";
     btn.setAttribute("aria-expanded", "false");
@@ -3332,13 +3345,38 @@ ops/install-cron.sh</pre>
   function wcRequest(method, params) {
     return wcClient().then(function (c) {
       if (!WC.session) throw new Error("no WalletConnect session");
-      return c.request({ topic: WC.session.topic, chainId: WC.chain, request: { method: method, params: params } });
+      var pending = c.request({ topic: WC.session.topic, chainId: WC.chain, request: { method: method, params: params } });
+      wcNudge();
+      return pending;
     });
   }
 
   function wcModal(on) {
     $("wc-veil").hidden = !on;
-    if (!on) { $("wc-qr").innerHTML = ""; $("wc-open").hidden = true; $("wc-copy").hidden = true; }
+    if (!on) { $("wc-qr").innerHTML = ""; $("wc-open").hidden = true; $("wc-copy").hidden = true;
+               $("wc-apps").hidden = true; $("wc-apps").textContent = ""; $("wc-qrt").hidden = true; $("wc-qr").hidden = false; }
+  }
+
+  /* A phone, where a QR code is the one thing that cannot work. */
+  var PHONE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
+  /* Each wallet's own universal link for a WalletConnect pairing. Opening
+     one hands the wc: URI to the app, which asks to connect; the page keeps
+     waiting and picks up the approval when you come back. */
+  var WC_APPS = {
+    evm: [
+      { name: "MetaMask", base: "https://metamask.app.link/" },
+      { name: "Trust Wallet", base: "https://link.trustwallet.com/" },
+      { name: "Rainbow", base: "https://rnbwapp.com/" },
+      { name: "Coinbase Wallet", base: "https://go.cb-w.com/" }
+    ],
+    kaspa: [{ name: "Kaspire", base: "https://kaspire.kaslab.space/kaspire/" }]
+  };
+  /* Once connected, a signature request has to bring the wallet forward
+     too, or it sits unseen in an app nobody is looking at. */
+  function wcNudge() {
+    if (!PHONE || !WC.app) return;
+    try { window.open(WC.app, "_self"); } catch (e) {}
   }
 
   /* One pairing at a time. `WC.try` counts them, so the approval of a pairing
@@ -3367,7 +3405,29 @@ ops/install-cron.sh</pre>
           return wcLib().then(function (L) { return L.qrSvg(shown); }).then(function (svg) {
             if (dead()) return;
             $("wc-qr").innerHTML = svg;
-            $("wc-open").hidden = fam !== "kaspa";
+            if (PHONE) {
+              var box = $("wc-apps"); box.textContent = "";
+              WC_APPS[fam].forEach(function (w) {
+                var a = document.createElement("a");
+                a.href = w.base + "wc?uri=" + encodeURIComponent(r.uri);
+                a.rel = "noopener";
+                a.appendChild(document.createTextNode(w.name));
+                var sp = document.createElement("span"); sp.textContent = "Open app →"; a.appendChild(sp);
+                a.addEventListener("click", function () {
+                  WC.app = w.base;
+                  $("wc-state").textContent = "Approve in " + w.name + ", then come back to this page.";
+                });
+                box.appendChild(a);
+              });
+              box.hidden = false;
+              $("wc-qr").hidden = true;
+              $("wc-qrt").hidden = false;
+              $("wc-qrt").onclick = function () { $("wc-qr").hidden = false; $("wc-qrt").hidden = true; };
+              $("wc-say").textContent = fam === "kaspa"
+                ? "Opens Kaspire on this phone. It asks to share your address and public key. Nothing it asks for can move a coin."
+                : "Pick your wallet. It opens, asks to share your address, and you come back here. Nothing it asks for can move a coin.";
+            }
+            $("wc-open").hidden = fam !== "kaspa" || PHONE;
             $("wc-open").href = kaspire;
             $("wc-copy").hidden = false;
             $("wc-copy").onclick = function () {
@@ -3375,7 +3435,8 @@ ops/install-cron.sh</pre>
                 .then(function () { $("wc-state").textContent = "Pairing link copied. Paste it into your wallet’s WalletConnect screen."; })
                 .catch(function () { $("wc-state").textContent = r.uri; });
             };
-            $("wc-state").textContent = "Waiting for your wallet… the pairing lasts about five minutes.";
+            if (!PHONE) $("wc-state").textContent = "Waiting for your wallet… the pairing lasts about five minutes.";
+            else $("wc-state").textContent = "Waiting for your wallet…";
             return r.approval();
           });
         });
@@ -3685,15 +3746,26 @@ ops/install-cron.sh</pre>
     $("acc-connect").hidden = !kw;
     $("acc-get-kw").hidden = kw;
     $("acc-kw-s").textContent = kw ? "installed in this browser" : "not installed in this browser";
-    $("acc-wc-s").textContent = wc ? "on your phone, by QR code, over WalletConnect" : "WalletConnect is not set up on this site yet";
-    $("acc-wce-s").textContent = wc ? "any WalletConnect wallet, by QR code" : "WalletConnect is not set up on this site yet";
+    $("acc-wc-s").textContent = !wc ? "WalletConnect is not set up on this site yet" : PHONE ? "opens the Kaspire app on this phone" : "on your phone, by QR code, over WalletConnect";
+    $("acc-wce-s").textContent = !wc ? "WalletConnect is not set up on this site yet" : PHONE ? "MetaMask, Trust, Rainbow, Coinbase — opens the app to approve" : "any WalletConnect wallet, by QR code";
+    if (PHONE) { $("acc-wc").textContent = "Open Kaspire"; $("acc-wc-evm").textContent = "Connect a wallet app"; }
     $("acc-wc").disabled = !wc;
     $("acc-wc-evm").disabled = !wc;
-    $("acc-evm-s").textContent = EVM.length ? "found in this browser" : "no Ethereum-style wallet extension found";
+    $("acc-evm-s").textContent = EVM.length ? "found in this browser" : PHONE
+      ? "or open this page inside your wallet app’s own browser, where it connects directly"
+      : "no Ethereum-style wallet extension found";
     $("acc-evm").innerHTML = EVM.map(function (k) {
       var a = WALLETS[k], ic = /^data:image\//.test(String(a.icon || "")) ? '<img alt="" src="' + esc(a.icon) + '">' : "";
       return '<button class="go gh" data-evm="' + esc(k) + '">' + ic + 'Connect ' + esc(a.name) + '</button>';
     }).join("");
+    if (PHONE && !EVM.length) {
+      /* MetaMask's in-app browser injects the wallet like an extension. */
+      var mm = document.createElement("a");
+      mm.className = "go gh";
+      mm.href = "https://metamask.app.link/dapp/" + location.host + location.pathname;
+      mm.textContent = "Open in MetaMask’s browser";
+      $("acc-evm").appendChild(mm);
+    }
     ownRender();
 
     if (!W) {
