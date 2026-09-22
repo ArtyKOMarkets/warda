@@ -35,6 +35,7 @@ import type { KeyVault } from "./vault.ts";
 import { parseWorkflow, spends, WorkflowError, type Workflow } from "./workflow.ts";
 import { kas } from "@warda_protocol/core";
 import { createPlan, depositUri, type Funder, type Plan } from "./funding.ts";
+import type { Drafter } from "./draft.ts";
 import type { NetworkPrefix } from "@warda_protocol/kaspa";
 
 export interface ApiDeps {
@@ -58,6 +59,8 @@ export interface ApiDeps {
     username(): Promise<string>;
     send(chat: string, text: string): Promise<void>;
   };
+  /** Sentence → workflow draft (Claude). */
+  drafter?: Drafter;
   /** The per-agent MCP endpoint, served at /mcp. */
   mcp?: (req: Request) => Promise<Response>;
   prefix?: NetworkPrefix;
@@ -78,6 +81,8 @@ const json = (status: number, body: unknown) =>
     JSON.stringify(body, (_k, v) => (typeof v === "bigint" ? v.toString() : v instanceof Set ? [...v] : v), 2),
     { status, headers: { "content-type": "application/json", "cache-control": "no-store" } },
   );
+
+const DRAFTS_PER_DAY = 50;
 
 const AGENT_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{2,39}$/;
 
@@ -392,6 +397,35 @@ export function createApi(d: ApiDeps): (req: Request) => Promise<Response> {
         out.webhook = { url: `${d.baseUrl}/v1/hooks/${wf.id}`, header: "X-Warda-Hook", secret, note: "shown once" };
       }
       return json(201, out);
+    }],
+
+    ["POST", /^\/v1\/workflows\/draft$/, async (req) => {
+      const acct = await account(req);
+      if (!d.drafter) throw new HttpError(501, "this runner cannot draft jobs from a sentence");
+      const b = await body(req);
+      const agent = String(b.agent ?? "");
+      const text = String(b.text ?? "").trim();
+      await ownAgent(acct, agent);
+      if (text.length < 8) throw new HttpError(400, "say what the agent should do, in a sentence");
+      const used = await d.registry.bumpUsage(acct, "draft", new Date(now()).toISOString().slice(0, 10));
+      if (used > DRAFTS_PER_DAY) throw new HttpError(429, `that is ${DRAFTS_PER_DAY} drafts today; the limit resets at midnight UTC`);
+      const out = await d.drafter.draft({ agent, text, grant: await d.grants.read(agent), now: now() });
+      if (!out.ok) return json(200, out);
+      /* The same checks a hand-written job gets, run now so the card can say
+         so before the owner presses Add. */
+      const g = await d.registry.getGrant(agent);
+      const notes: string[] = [];
+      if (g) {
+        const members = g.recipients.map(memberKey);
+        const cap = BigInt(g.manifest.max_per_spend);
+        const wf = parseWorkflow(out.workflow, { id: "draft", now: now() });
+        for (const a of wf.actions) {
+          if (a.type === "send" && !members.includes(memberKey(a.to))) notes.push(`${a.to} is not on the allowlist; this step would be refused`);
+          const amt = a.type === "send" ? a.sompi : a.type === "pay-x402" ? a.maxSompi : 0n;
+          if (amt > cap) notes.push(`${formatKas(amt)} KAS is over the cap of ${formatKas(cap)} KAS`);
+        }
+      }
+      return json(200, { ...out, notes, usedToday: used });
     }],
 
     ["GET", /^\/v1\/workflows$/, async (req, _m, url) => {

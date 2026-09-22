@@ -41,6 +41,8 @@ export interface Registry {
   consumeTelegramLink(code: string, now: number): Promise<string | null>;
   setTelegram(account: string, chat: string): Promise<void>;
   telegramOf(account: string): Promise<string | null>;
+  /** Counts one use of `what` today; returns today's total. */
+  bumpUsage(account: string, what: string, day: string): Promise<number>;
   putPlan(p: Plan): Promise<void>;
   getPlan(agent: string): Promise<Plan | null>;
   /** Plans not yet funded or failed. */
@@ -67,7 +69,14 @@ export function memoryRegistry(): Registry {
   const agentTokens = new Map<string, string>(); // hash -> agent
   const tgLinks = new Map<string, { account: string; at: number }>();
   const tgChats = new Map<string, string>();
+  const usage = new Map<string, number>();
   return {
+    async bumpUsage(account, what, day) {
+      const k = `${account}|${what}|${day}`;
+      const n = (usage.get(k) ?? 0) + 1;
+      usage.set(k, n);
+      return n;
+    },
     async createTelegramLink(account, now) {
       const c = randomBytes(9).toString("base64url");
       tgLinks.set(sha256(c), { account, at: now });
@@ -151,6 +160,7 @@ create table if not exists runner_hooks (workflow_id text primary key, secret_ha
 create table if not exists runner_agent_tokens (token_hash text primary key, agent text not null, created_at bigint not null);
 create table if not exists runner_tg_links (code_hash text primary key, account text not null, created_at bigint not null);
 create table if not exists runner_tg_chats (account text primary key, chat text not null);
+create table if not exists runner_usage (account text not null, what text not null, day text not null, n int not null, primary key (account, what, day));
 create table if not exists runner_plans (agent text primary key, status text not null, body jsonb not null);
 `;
 
@@ -160,6 +170,14 @@ export async function migrateRegistry(db: Queryable): Promise<void> {
 
 export function pgRegistry(db: Queryable): Registry {
   return {
+    async bumpUsage(account, what, day) {
+      const { rows } = await db.query(
+        `insert into runner_usage (account, what, day, n) values ($1,$2,$3,1)
+         on conflict (account, what, day) do update set n = runner_usage.n + 1 returning n`,
+        [account, what, day],
+      );
+      return Number(rows[0]!.n);
+    },
     async createTelegramLink(account, now) {
       const c = randomBytes(9).toString("base64url");
       await db.query(`insert into runner_tg_links (code_hash, account, created_at) values ($1,$2,$3)`, [sha256(c), account, now]);

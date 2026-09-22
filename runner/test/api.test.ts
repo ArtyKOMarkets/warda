@@ -44,6 +44,7 @@ function bench(o: { signupCode?: string } = {}) {
   const api = createApi({
     store, registry, vault, engine, grants, fees, tickSecret: "t".repeat(32), baseUrl: BASE, now: () => now,
     mcp: createMcp({ store, registry, engine, grants, fees, now: () => now }),
+    drafter: { async draft({ agent }) { return { ok: true, workflow: { agent, name: "x", trigger: { type: "manual" }, then: [{ type: "send", to: "ff".repeat(32), kas: "0.9" }] }, summary: "s", notes: [] }; } },
     telegram: { hookSecret: "hooksecret", username: async () => "warda_test_bot", send: async (chat, text) => void tg.push([chat, text]) },
     ...(o.signupCode ? { signupCode: o.signupCode } : {}),
   });
@@ -259,4 +260,14 @@ test("Telegram: a one-time /start link connects the owner's chat, and nothing el
   assert.match(b.tg.at(-1)![1], /expired or was already used/);
   const acct = await b.registry.ownerOf("shop-bot");
   assert.equal(await b.registry.telegramOf(acct!), "42");
+});
+
+test("a draft is checked against the grant before the owner sees it, and is rate-limited", async () => {
+  const b = await onboarded();
+  const r = await b.call("POST", "/v1/workflows/draft", { key: b.key, body: { agent: "shop-bot", text: "pay somebody a lot" } });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.ok, true);
+  assert.equal(r.body.notes.length, 2, "a stranger payee and an amount over the cap are both flagged");
+  const other = (await b.call("POST", "/v1/accounts", { body: {} })).body.apiKey;
+  assert.equal((await b.call("POST", "/v1/workflows/draft", { key: other, body: { agent: "shop-bot", text: "pay somebody a lot" } })).status, 404);
 });

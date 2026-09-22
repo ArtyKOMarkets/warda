@@ -13,6 +13,7 @@ import { kas } from "@warda_protocol/core";
 import { fromHex, openChain, pubkeyToAddress } from "@warda_protocol/kaspa";
 import { Agent, type Manifest } from "@warda_protocol/agent";
 import { createApi, memberKey } from "./api.ts";
+import { claudeDrafter } from "./draft.ts";
 import { Engine } from "./engine.ts";
 import { Funder, refundDeposit, type FundingChain } from "./funding.ts";
 import { liveApprovals, liveGrants, liveHttp, liveNotifier, livePayments, type OpenAgent } from "./live.ts";
@@ -138,6 +139,7 @@ export async function boot(e: NodeJS.ProcessEnv = process.env, defaults: { baseU
 
   const api = createApi({
     funder, prefix,
+    ...(e.ANTHROPIC_API_KEY ? { drafter: claudeDrafter({ apiKey: e.ANTHROPIC_API_KEY, ...(e.RUNNER_DRAFT_MODEL ? { model: e.RUNNER_DRAFT_MODEL } : {}) }) } : {}),
     ...(telegram ? { telegram } : {}),
     mcp: createMcp({ store, registry, engine, grants, fees }),
     refund: (plan) => refundDeposit({ plan, registry, vault, chain: fundingChain, prefix, now: Date.now() }),

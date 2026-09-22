@@ -679,6 +679,34 @@
   .promo span { color: var(--chrome-dim); font-size: 0.8rem; }
   .promo .go { margin-left: auto; }
   .mrow.hot-row { border-color: rgba(255,140,60,0.45); background: linear-gradient(110deg, rgba(255,120,50,0.12), transparent 70%); }
+  /* A job drawn as what it is: when, if, then. */
+  .flow { display: flex; flex-wrap: wrap; align-items: stretch; row-gap: 0.7rem; padding: 0.4rem 0 0.2rem; }
+  .fnode { flex: 0 0 auto; min-width: 9.5rem; max-width: 14rem; border: 1px solid var(--edge-bright); border-radius: 12px;
+           background: var(--raise); padding: 0.85rem 0.9rem; text-align: center; }
+  .fnode .i { font-size: 1.25rem; line-height: 1; }
+  .fnode b { display: block; font-size: 0.86rem; margin-top: 0.45rem; }
+  .fnode span { display: block; font-size: 0.72rem; color: var(--chrome-dim); margin-top: 0.25rem; word-break: break-word; }
+  .fnode .k { font-family: var(--mono); font-size: 0.56rem; letter-spacing: 0.14em; color: var(--chrome-faint); margin-top: 0.55rem; }
+  .fnode.t { border-color: var(--teal-deep); background: rgba(20,215,193,0.08); }
+  .fnode.c { border-color: rgba(232,178,58,0.55); background: rgba(232,178,58,0.06); }
+  .fline { flex: 0 0 1.6rem; align-self: center; border-top: 1px dashed var(--edge-bright); }
+  @media (max-width: 720px) {
+    .flow { flex-direction: column; align-items: center; }
+    .fnode { width: 100%; max-width: none; }
+    .fline { flex: 0 0 1rem; border-top: 0; border-left: 1px dashed var(--edge-bright); }
+  }
+  .draft-box { display: flex; gap: 0.6rem; align-items: stretch; flex-wrap: wrap; }
+  .draft-box textarea { flex: 1 1 18rem; min-height: 3.2rem; font-family: var(--body); }
+  .prompts { display: grid; gap: 0.45rem; margin-top: 0.8rem; }
+  .prompts button { text-align: left; background: var(--panel); border: 1px solid var(--edge); border-radius: 9px;
+                    color: var(--chrome-dim); padding: 0.55rem 0.75rem; font: inherit; font-size: 0.8rem; cursor: pointer; }
+  .prompts button:hover { border-color: var(--teal-deep); color: var(--chrome); }
+  .dcard { margin-top: 1rem; border: 1px solid var(--teal-deep); border-radius: 12px; padding: 1rem; background: var(--ground); }
+  .dcard .sum { font-size: 0.9rem; margin: 0 0 0.7rem; }
+  .tabs-mini { display: flex; gap: 0.4rem; flex-wrap: wrap; margin: 0.7rem 0 0; }
+  .tabs-mini button { background: var(--panel); border: 1px solid var(--edge); border-radius: 8px; color: var(--chrome-dim);
+                      padding: 0.35rem 0.7rem; font: inherit; font-size: 0.78rem; cursor: pointer; }
+  .tabs-mini button[aria-pressed="true"] { border-color: var(--teal); color: var(--chrome); }
   .wstep { display: none; }
   .wstep.on { display: block; }
   .wstep h2 { font-family: var(--display); font-size: 1.2rem; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
@@ -2159,7 +2187,29 @@ ops/install-cron.sh</pre>
           <div class="wstep hstep" data-hstep="5">
             <div class="card">
               <header><h2>Give it a job</h2></header>
-              <div class="grid">
+              <p class="say">Say it in a sentence. You get a card to check before anything is added &mdash; and whatever
+                you write, it can only ever do what the grant allows.</p>
+              <div class="draft-box">
+                <textarea id="h-say" rows="2" placeholder="Buy a fact from the Warda demo API every morning at 8, never more than 0.05 KAS"></textarea>
+                <button class="go" id="h-draft">Draft it</button>
+              </div>
+              <div class="prompts" id="h-prompts">
+                <button data-p="Buy a fact from the Warda demo API every morning at 8 UTC, never more than 0.05 KAS">&#10022; Buy a fact every morning at 8 UTC, never more than 0.05 KAS</button>
+                <button data-p="Message me on Telegram when less than 25% of the budget is left">&#10022; Message me on Telegram when less than 25% of the budget is left</button>
+                <button data-p="Two days before the grant ends, tell me on Telegram and ask me to renew it">&#10022; Two days before the grant ends, tell me and ask me to renew it</button>
+              </div>
+              <div class="dcard" id="h-dcard" hidden>
+                <p class="sum" id="h-dsum"></p>
+                <div class="flow" id="h-dflow"></div>
+                <p class="state" id="h-dnotes"></p>
+                <p style="margin-top:0.8rem;display:flex;gap:0.5rem;flex-wrap:wrap">
+                  <button class="go" id="h-dadd">Add this job</button>
+                  <button class="go gh" id="h-dagain">Try again</button>
+                </p>
+              </div>
+              <p class="state" id="h-draft-s"></p>
+              <details style="margin-top:1rem"><summary class="kv" style="cursor:pointer">Or pick a template</summary>
+              <div class="grid" style="margin-top:0.8rem">
                 <div class="field">
                   <label for="h-tpl">What it does</label>
                   <select id="h-tpl">
@@ -2178,6 +2228,7 @@ ops/install-cron.sh</pre>
                 <div class="field" id="h-f-tg" hidden><label for="h-jtg">Telegram chat &mdash; optional</label><input id="h-jtg" placeholder="empty: your connected Telegram" spellcheck="false"></div>
               </div>
               <p style="margin-top:1rem"><button class="go wide" id="h-job">Add this job</button></p>
+              </details>
               <p class="state" id="h-job-s"></p>
               <pre id="h-job-out" hidden></pre>
             </div>
@@ -2193,7 +2244,14 @@ ops/install-cron.sh</pre>
               <p class="say">Paste this into Claude, Cursor or any MCP client. The agent can then check its authority
                 and pay inside its grant &mdash; with a key it never sees.</p>
               <p><button class="go gh" id="h-mcp">Create the MCP connection</button></p>
+              <div id="h-mcp-tabs" class="tabs-mini" hidden>
+                <button data-c="code" aria-pressed="true">Claude Code</button>
+                <button data-c="desktop" aria-pressed="false">Claude Desktop</button>
+                <button data-c="cursor" aria-pressed="false">Cursor</button>
+                <button data-c="raw" aria-pressed="false">Any MCP client</button>
+              </div>
               <pre id="h-mcp-out" hidden></pre>
+              <p class="state" id="h-mcp-s"></p>
             </div>
             <div class="card" style="margin-top:0.85rem">
               <header><h2>What it has done</h2></header>
@@ -6198,11 +6256,125 @@ ops/install-cron.sh</pre>
       r.refunded.forEach(function (x) { el.appendChild(document.createTextNode(x.kas + " KAS ")); hTx(el, null, x.txid); });
     }).catch(function (e) { hState("h-fund-s", e.message, true); });
   });
+  /* MCP, one snippet per client: the same URL and token, in the shape each
+     client wants. The token is shown once; it acts as this one agent. */
+  var MCP = null;
+  function mcpShow(c) {
+    if (!MCP) return;
+    var name = "warda-" + MCP.agent, url = MCP.url, auth = "Bearer " + MCP.token;
+    var server = { url: url, headers: { Authorization: auth } };
+    var cfg = {}; cfg[name] = server;
+    var out = {
+      code: "claude mcp add --transport http " + name + " " + url + " \\\n  --header \"Authorization: " + auth + "\"",
+      desktop: "Settings \u2192 Connectors \u2192 Add custom connector, or in claude_desktop_config.json:\n\n" +
+        JSON.stringify({ mcpServers: cfg }, null, 2),
+      cursor: "~/.cursor/mcp.json:\n\n" + JSON.stringify({ mcpServers: cfg }, null, 2),
+      raw: "URL     " + url + "\nHeader  Authorization: " + auth + "\nTools   get_authority, pay, list_workflows, run_workflow, list_runs",
+    }[c];
+    $("h-mcp-out").textContent = out;
+    $("h-mcp-out").hidden = false;
+    Array.prototype.forEach.call($("h-mcp-tabs").querySelectorAll("button"), function (b) {
+      b.setAttribute("aria-pressed", String(b.getAttribute("data-c") === c));
+    });
+  }
   $("h-mcp").addEventListener("click", function () {
     hApi("POST", "/v1/agents/" + encodeURIComponent(HR.agent) + "/token", {}).then(function (r) {
-      $("h-mcp-out").textContent = JSON.stringify(r.mcp.config, null, 2) + "\n\n" + r.note;
-      $("h-mcp-out").hidden = false;
-    }).catch(function (e) { $("h-mcp-out").textContent = e.message; $("h-mcp-out").hidden = false; });
+      MCP = { agent: HR.agent, url: r.mcp.url, token: r.mcp.token };
+      $("h-mcp-tabs").hidden = false;
+      $("h-mcp").textContent = "Make a new token";
+      hState("h-mcp-s", "Shown once. Then ask your agent: \u201cWhat can you spend?\u201d \u2014 it will call get_authority.");
+      mcpShow("code");
+    }).catch(function (e) { hState("h-mcp-s", e.message, true); });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll("#h-mcp-tabs button"), function (b) {
+    b.addEventListener("click", function () { mcpShow(b.getAttribute("data-c")); });
+  });
+
+  /* A job, drawn: when → if → then. Used for drafts and for jobs in the list. */
+  function flowOf(wf) {
+    var box = document.createElement("div");
+    box.className = "flow";
+    var nodes = [];
+    var t = wf.trigger || {};
+    var hostOf = function (u) { try { return new URL(u).host; } catch (e) { return u; } };
+    var tn;
+    if (t.type === "schedule") {
+      var f = String(t.cron || "").split(" ");
+      tn = /^\d+$/.test(f[0]) && /^\d+$/.test(f[1]) && f[2] === "*" && f[3] === "*" && f[4] === "*"
+        ? ["\u23f0", "Every day", ("0" + f[1]).slice(-2) + ":" + ("0" + f[0]).slice(-2) + " UTC"]
+        : ["\u23f0", "On a schedule", t.cron];
+    } else if (t.type === "webhook") tn = ["\u26a1", "When a webhook fires", "a secret URL"];
+    else if (t.type === "grant" && t.when === "budget-below") tn = ["\ud83d\udcc9", "Budget running low", "under " + t.percent + "% left"];
+    else if (t.type === "grant") tn = ["\u231b", "Grant ending", t.hours + " h before it ends"];
+    else tn = ["\u25b6", "When you run it", "by hand or over MCP"];
+    nodes.push(["t", tn, "TRIGGER"]);
+    (wf.if || []).forEach(function (c) {
+      var nice = { "grant.availableKas": ["KAS left", ""], "grant.spentPercent": ["Budget spent", "%"], "grant.hoursToExpiry": ["Hours left", " h"] }[c.field];
+      nodes.push(["c", ["\u2696", nice ? nice[0] : String(c.field).replace("trigger.body.", "webhook "), c.op + " " + c.value + (nice ? nice[1] : "")], "CONDITION"]);
+    });
+    (wf.then || []).forEach(function (a) {
+      var n;
+      if (a.type === "pay-x402") n = ["\ud83d\udcb3", "Buy from " + hostOf(a.url), "at most " + a.maxKas + " KAS"];
+      else if (a.type === "send") n = ["\u2197", "Pay " + (String(a.to).length > 20 ? String(a.to).slice(0, 14) + "\u2026" : a.to), a.kas + " KAS"];
+      else if (a.type === "notify") n = ["\ud83d\udcac", a.channel === "telegram" ? "Message you on Telegram" : "Call your webhook", String(a.text || "").slice(0, 70)];
+      else if (a.type === "http") n = ["\ud83c\udf10", "Call " + hostOf(a.url), a.method || "POST"];
+      else if (a.type === "approval") n = ["\u270d", "Ask you to " + a.op, "you sign it; the runner cannot"];
+      else n = ["\u2022", a.type, ""];
+      nodes.push(["a", n, "ACTION"]);
+    });
+    nodes.forEach(function (x, i) {
+      if (i) { var l = document.createElement("i"); l.className = "fline"; box.appendChild(l); }
+      var d = document.createElement("div");
+      d.className = "fnode" + (x[0] === "t" ? " t" : x[0] === "c" ? " c" : "");
+      var ic = document.createElement("div"); ic.className = "i"; ic.textContent = x[1][0];
+      var b = document.createElement("b"); b.textContent = x[1][1];
+      var sp = document.createElement("span"); sp.textContent = x[1][2] || "";
+      var k = document.createElement("div"); k.className = "k"; k.textContent = x[2];
+      d.appendChild(ic); d.appendChild(b); d.appendChild(sp); d.appendChild(k);
+      box.appendChild(d);
+    });
+    return box;
+  }
+
+  var DRAFT = null;
+  function hDraft() {
+    var text = $("h-say").value.trim();
+    if (text.length < 8) { hState("h-draft-s", "Say what it should do, in a sentence.", true); return; }
+    hState("h-draft-s", "Drafting\u2026");
+    $("h-draft").disabled = true;
+    $("h-dcard").hidden = true;
+    hApi("POST", "/v1/workflows/draft", { agent: HR.agent, text: text }).then(function (r) {
+      if (!r.ok) { hState("h-draft-s", "Not possible as asked: " + r.reason, true); return; }
+      DRAFT = r.workflow;
+      $("h-dsum").textContent = r.summary || r.workflow.name;
+      var fl = $("h-dflow"); fl.textContent = ""; fl.appendChild(flowOf(r.workflow));
+      hState("h-dnotes", r.notes && r.notes.length ? "\u26a0 " + r.notes.join(" \u00b7 ") : "\u2713 Inside this agent\u2019s grant.", !!(r.notes && r.notes.length));
+      $("h-dcard").hidden = false;
+      hState("h-draft-s", "");
+    }).catch(function (e) { hState("h-draft-s", e.message, true); })
+      .then(function () { $("h-draft").disabled = false; });
+  }
+  $("h-draft").addEventListener("click", hDraft);
+  $("h-say").addEventListener("keydown", function (e) { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) hDraft(); });
+  Array.prototype.forEach.call(document.querySelectorAll("#h-prompts button"), function (b) {
+    b.addEventListener("click", function () { $("h-say").value = b.getAttribute("data-p"); hDraft(); });
+  });
+  $("h-dagain").addEventListener("click", hDraft);
+  $("h-dadd").addEventListener("click", function () {
+    if (!DRAFT) return;
+    $("h-dadd").disabled = true;
+    hApi("POST", "/v1/workflows", DRAFT).then(function (r) {
+      $("h-dcard").hidden = true;
+      DRAFT = null;
+      if (r.webhook) {
+        $("h-job-out").textContent = "POST " + r.webhook.url + "\n" + r.webhook.header + ": " + r.webhook.secret +
+          "\nIdempotency-Key: <one per event>\n\nThe secret is shown once. Store it where the sender can read it.";
+        $("h-job-out").hidden = false;
+      }
+      hState("h-job-s", "\u2713 Added: " + r.workflow.name + ". It runs from now on, inside the grant.");
+      hRuns();
+    }).catch(function (e) { hState("h-dnotes", e.message, true); })
+      .then(function () { $("h-dadd").disabled = false; });
   });
   $("h-tpl").addEventListener("change", hTpl);
   $("h-job").addEventListener("click", hJob);
