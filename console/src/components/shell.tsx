@@ -1,6 +1,6 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
-  LayoutGrid, Bot, FileKey2, Activity, BarChart3, Plus, Wallet, Store, UserRound, BellRing, Menu, X, RefreshCw, ExternalLink,
+  LayoutGrid, Bot, FileKey2, Activity, BarChart3, Plus, Wallet, Store, UserRound, BellRing, Menu, X, RefreshCw, Check, ChevronDown, Unplug, KeyRound,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { href } from "@/lib/router";
@@ -72,12 +72,53 @@ function Nav({ active, onPick }: { active: string; onPick?: () => void }) {
   );
 }
 
+/* One network today. Mainnet is listed and not selectable: the covenant is
+   the same, the audit is not done, and a console that quietly reads mainnet
+   would be showing grants nobody should make yet. */
 function NetworkPill() {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const off = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", off);
+    return () => document.removeEventListener("mousedown", off);
+  }, [open]);
   return (
-    <span className="inline-flex h-7 items-center gap-2 rounded-full border border-line-strong bg-surface px-2.5 text-[12px] font-medium text-fg-2">
-      <span className="relative flex size-2"><span className="absolute inset-0 animate-ping rounded-full bg-ok/60" /><span className="relative size-2 rounded-full bg-ok" /></span>
-      Kaspa testnet-10
-    </span>
+    <div ref={ref} className="relative">
+      <button onClick={() => setOpen(!open)} aria-haspopup="listbox" aria-expanded={open}
+        className="inline-flex h-7 items-center gap-2 rounded-full border border-line-strong bg-surface px-2.5 text-[12px] font-medium text-fg-2 transition hover:text-fg">
+        <span className="relative flex size-2"><span className="absolute inset-0 animate-ping rounded-full bg-ok/60" /><span className="relative size-2 rounded-full bg-ok" /></span>
+        Kaspa testnet-10
+        <ChevronDown className={cn("size-3.5 text-fg-3 transition", open && "rotate-180")} />
+      </button>
+      {open && (
+        <ul role="listbox" className="rise absolute right-0 z-40 mt-1.5 w-64 rounded-xl border border-line-strong bg-raised p-1 shadow-[0_16px_40px_-12px_rgba(0,0,0,.7)]">
+          <li role="option" aria-selected className="flex items-center gap-2 rounded-lg bg-hover px-2.5 py-2 text-[13px]">
+            <span className="size-2 rounded-full bg-ok" /><span className="flex-1">Kaspa testnet-10</span><Check className="size-4 text-accent" />
+          </li>
+          <li role="option" aria-selected={false} aria-disabled className="flex cursor-not-allowed items-start gap-2 rounded-lg px-2.5 py-2 text-[13px] text-fg-3">
+            <span className="mt-1.5 size-2 rounded-full bg-line-strong" />
+            <span><span className="block">Kaspa mainnet</span><span className="block text-[11.5px]">when the covenant is audited — real money will not be read from an unaudited console</span></span>
+          </li>
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function WalletFoot({ onPick }: { onPick?: () => void }) {
+  const { wallet, forget } = useWallet();
+  if (!wallet) return (
+    <a href={href("account", "wallet")} onClick={onPick} className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[12.5px] font-medium text-fg-2 transition hover:bg-raised hover:text-fg">
+      <KeyRound className="size-4 text-fg-3" /> Connect a wallet
+    </a>
+  );
+  return (
+    <div className="rounded-lg px-2.5 py-2">
+      <a href={href("account", "wallet")} onClick={onPick} className="flex items-center gap-2"><span className={cn("size-2 shrink-0 rounded-full", wallet.problem ? "bg-warn" : "bg-accent")} /><span className="num min-w-0 flex-1 truncate text-[12px] text-fg-2">{short(wallet.address, 10, 4)}</span></a>
+      <button onClick={() => { forget(); onPick?.(); }} className="mt-1.5 flex items-center gap-1.5 text-[12px] text-fg-3 transition hover:text-fg"><Unplug className="size-3.5" /> Disconnect</button>
+    </div>
   );
 }
 
@@ -94,7 +135,7 @@ function WalletChip() {
 
 export function Shell({ active, children }: { active: string; children: ReactNode }) {
   const [open, setOpen] = useState(false);
-  const { reload, loading, updatedAt } = useData();
+  const { reload, loading, readAt, missing } = useData();
   const [, tick] = useState(0);
   useEffect(() => { const t = setInterval(() => tick((x) => x + 1), 30_000); return () => clearInterval(t); }, []);
   useEffect(() => { document.body.style.overflow = open ? "hidden" : ""; }, [open]);
@@ -105,11 +146,7 @@ export function Shell({ active, children }: { active: string; children: ReactNod
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[248px] flex-col border-r border-line bg-[#0a0b0e] lg:flex">
         <div className="flex h-16 items-center px-4"><Logo /></div>
         <div className="flex-1 overflow-y-auto px-4 pb-6 pt-2"><Nav active={active} /></div>
-        <div className="border-t border-line p-4">
-          <a href="/app-classic" className="flex items-center justify-between rounded-lg px-2.5 py-2 text-[12.5px] text-fg-3 transition hover:bg-raised hover:text-fg-2">
-            Classic console <ExternalLink className="size-3.5" />
-          </a>
-        </div>
+        <div className="border-t border-line p-4"><WalletFoot /></div>
       </aside>
 
       {/* Mobile drawer */}
@@ -118,7 +155,7 @@ export function Shell({ active, children }: { active: string; children: ReactNod
         <aside className={cn("absolute inset-y-0 left-0 flex w-[280px] flex-col border-r border-line bg-[#0a0b0e] transition-transform duration-200", open ? "translate-x-0" : "-translate-x-full")}>
           <div className="flex h-14 items-center justify-between px-4"><Logo /><button className="grid size-9 place-items-center rounded-lg text-fg-2 hover:bg-raised" onClick={() => setOpen(false)} aria-label="Close menu"><X className="size-5" /></button></div>
           <div className="flex-1 overflow-y-auto px-4 pb-6 pt-2"><Nav active={active} onPick={() => setOpen(false)} /></div>
-          <div className="border-t border-line p-4"><a href="/app-classic" className="text-[12.5px] text-fg-3">Classic console</a></div>
+          <div className="border-t border-line p-4"><WalletFoot onPick={() => setOpen(false)} /></div>
         </aside>
       </div>
 
@@ -127,7 +164,9 @@ export function Shell({ active, children }: { active: string; children: ReactNod
           <button className="-ml-1 grid size-9 place-items-center rounded-lg text-fg-2 hover:bg-raised lg:hidden" onClick={() => setOpen(true)} aria-label="Open menu"><Menu className="size-5" /></button>
           <div className="lg:hidden"><Logo /></div>
           <div className="flex-1" />
-          <span className="hidden text-[12px] text-fg-3 sm:inline">{updatedAt ? `Updated ${ago(updatedAt)}` : ""}</span>
+          <span className={cn("hidden text-[12px] sm:inline", missing ? "text-bad" : "text-fg-3")} title={readAt ? `Chain read ${new Date(readAt).toLocaleString("en-US")}` : ""}>
+            {missing ? `${missing} reading${missing === 1 ? "" : "s"} did not load` : readAt ? `Read ${ago(readAt)}` : ""}
+          </span>
           <button onClick={reload} className="grid size-8 place-items-center rounded-lg text-fg-3 transition hover:bg-raised hover:text-fg" aria-label="Refresh" title="Refresh">
             <RefreshCw className={cn("size-4", loading && "animate-spin")} />
           </button>

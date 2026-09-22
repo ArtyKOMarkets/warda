@@ -26,6 +26,7 @@ export interface Payment {
 }
 
 export interface DerivedLimit { rule: string; attempted: string; why: string }
+export interface Recon { spent: number | null; logged: number | null; atPayee: number | null; chargedHome: number | null; unrecorded: number | null; overclaimed: number | null; note: string | null }
 
 export interface AgentView {
   key: string;            // stable key: "p:001" or "h:viking"
@@ -49,6 +50,10 @@ export interface AgentView {
   parent: string | null;
 
   expiresIn: string | null;
+  expiresInDaa: number | null;
+  /** DAA when the grant opened, and where the chain was when it was read. */
+  openedAtDaa: number | null;
+  daaNow: number | null;
   expired: boolean;
   opensIn: string | null;
 
@@ -59,7 +64,12 @@ export interface AgentView {
   principalKey: string | null;
 
   payments: Payment[];
+  /** Limits worked out from the grant's terms: examples, not events. */
   derived: DerivedLimit[];
+  /** Attempts that really happened and did not settle, as the reading recorded them. */
+  refused: DerivedLimit[];
+  reconciliation: Recon | null;
+  paidOutside: number | null;
   checkedAt: string | null;
   lastActive: string | null;
 
@@ -96,11 +106,15 @@ function host(u: string | null | undefined): string | null {
 
 type Json = Record<string, any>;
 
+/* A covenant rule refusing a payment is a refusal whatever the agent's own
+   log called it: the reasons below are limits the network enforces, and an
+   attempt that hit one never became a transaction. */
+const COVENANT = /timelock|not_?before|epoch|budget|cap|per-payment|allowlist|recipient|expire|payee/i;
 function payment(p: Json): Payment {
   const o = String(p.outcome ?? "");
   const outcome: Outcome =
     o === "bought" || o === "served" ? "paid"
-    : o === "refused" ? "blocked"
+    : o === "refused" || (o === "failed" && COVENANT.test(String(p.reason ?? "")) ) ? "blocked"
     : o === "paid-but-refused" || o === "paid-then-failed" ? "paid-not-served"
     : "failed";
   return {
@@ -155,6 +169,9 @@ export function fromReading(r: Json, source: Source, id: string, labels: Map<str
     delegationDepth: a.delegationDepth ?? null,
     parent: r.delegatedBy?.parent ? String(r.delegatedBy.parent).replace(/^WARDA-/, "#") : null,
     expiresIn: t.expiresIn ?? null,
+    expiresInDaa: t.expiresInDaa != null ? Number(t.expiresInDaa) : null,
+    openedAtDaa: t.notBefore != null ? Number(t.notBefore) : null,
+    daaNow: t.virtualDaaScore != null ? Number(t.virtualDaaScore) : null,
     expired: !!t.expired,
     opensIn: t.open === false ? t.lockedFor ?? null : null,
     grantAddress: r.identity?.grantAddress ?? r.retired?.grantAddress ?? null,
@@ -163,7 +180,15 @@ export function fromReading(r: Json, source: Source, id: string, labels: Map<str
     ownerKey: r.identity?.revocation ?? r.identity?.principal ?? null,
     principalKey: r.identity?.principal ?? null,
     payments,
-    derived: ((r.refusals ?? []) as Json[]).map((x) => ({ rule: x.rule, attempted: x.attempted, why: x.refusal })),
+    derived: ((r.refusals ?? []) as Json[]).filter((x) => x.derived !== false).map((x) => ({ rule: x.rule, attempted: x.attempted, why: x.refusal })),
+    refused: ((r.refusals ?? []) as Json[]).filter((x) => x.derived === false).map((x) => ({ rule: x.rule, attempted: x.attempted, why: x.refusal })),
+    reconciliation: r.reconciliation ? {
+      spent: kasOf(r.reconciliation.spentPerTheCovenant), logged: kasOf(r.reconciliation.namedByTheLog),
+      atPayee: kasOf(r.reconciliation.stillVisibleAtThePayee), chargedHome: kasOf(r.reconciliation.chargedHomeBySettlement),
+      unrecorded: kasOf(r.reconciliation.unrecorded), overclaimed: kasOf(r.reconciliation.overclaimedByTheLog),
+      note: r.reconciliation.note ?? null,
+    } : null,
+    paidOutside: kasOf(r.activity?.paidOutsideTheAllowlist),
     checkedAt: r.checkedAt ?? null,
     lastActive: [lastPay, r.lastRun?.at].filter(Boolean).sort().pop() ?? null,
   };
@@ -186,9 +211,9 @@ export function fromHostedRow(row: Json): AgentView {
     budget, spent, remaining: kasOf(row.spendableKas), onChain: null,
     maxPerPayment: null, periodLimit: null, periodSeconds: null, payees: [], delegationDepth: null,
     parent: row.parent ?? null,
-    expiresIn: null, expired: status === "expired", opensIn: null,
+    expiresIn: null, expiresInDaa: null, openedAtDaa: null, daaNow: null, expired: status === "expired", opensIn: null,
     grantAddress: null, covenantId: null, agentKey: null, ownerKey: null, principalKey: null,
-    payments: [], derived: [], checkedAt: null, lastActive: row.lastRun?.at ? new Date(row.lastRun.at).toISOString() : null,
+    payments: [], derived: [], refused: [], reconciliation: null, paidOutside: null, checkedAt: null, lastActive: row.lastRun?.at ? new Date(row.lastRun.at).toISOString() : null,
     hosted: hostedMeta(row),
   };
 }
@@ -197,16 +222,38 @@ export function hostedMeta(row: Json): AgentView["hosted"] {
   return { state: String(row.state ?? "unknown"), jobs: row.jobs ?? 0, jobsOn: row.jobsOn ?? 0, lastRunStatus: row.lastRun?.status ?? null };
 }
 
+/** What it can still pay: the smaller of the authority left and the coin at the
+    address. Fees come out of the coin, so a grant that has paid often holds less
+    than its budget says it may spend. */
+export function spendable(a: AgentView): number | null {
+  if (a.status === "ended" || a.expired) return 0;
+  if (a.remaining === null) return a.onChain;
+  return a.onChain === null ? a.remaining : Math.min(a.remaining, a.onChain);
+}
+/** It may not spend, whatever the counters say. */
+export const shortOfCoin = (a: AgentView) => a.remaining !== null && a.onChain !== null && a.onChain < a.remaining;
+
+/** How fast it is spending, and how long that leaves. DAA is ten a second. */
+export function runway(a: AgentView): { days: number; rate: number; lasts: number | null; ends: number | null } | null {
+  if (a.status === "ended" || a.expired || a.spent === null || !a.openedAtDaa || !a.daaNow) return null;
+  const days = (a.daaNow - a.openedAtDaa) / 864_000;
+  if (days < 1 || a.spent <= 0) return null;
+  const rate = a.spent / days;
+  const can = spendable(a);
+  return { days, rate, lasts: can === null ? null : can / rate, ends: a.expiresInDaa != null ? a.expiresInDaa / 864_000 : null };
+}
+
 export interface Totals { agents: number; active: number; budget: number; remaining: number; spent: number; payments: number; blocked: number }
 
 export function totals(list: AgentView[]): Totals {
-  const live = list.filter((a) => a.status !== "ended");
+  // Expired counts as over: a grant past its term refuses every spend.
+  const live = list.filter((a) => a.status !== "ended" && a.status !== "expired");
   const sum = (f: (a: AgentView) => number | null, l = live) => l.reduce((s, a) => s + (f(a) ?? 0), 0);
   return {
     agents: list.length,
-    active: list.filter((a) => a.status === "active").length,
+    active: live.length,
     budget: sum((a) => a.budget),
-    remaining: sum((a) => a.remaining),
+    remaining: sum((a) => spendable(a)),
     spent: sum((a) => a.spent, list),
     payments: list.reduce((s, a) => s + a.payments.filter((p) => p.outcome === "paid" || p.outcome === "paid-not-served").length, 0),
     blocked: list.reduce((s, a) => s + a.payments.filter((p) => p.outcome === "blocked").length, 0),

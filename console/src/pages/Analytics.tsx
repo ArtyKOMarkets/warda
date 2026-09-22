@@ -1,8 +1,10 @@
 import { useData } from "@/lib/data";
 import { kas } from "@/lib/format";
-import { totals } from "@/lib/model";
+import { totals, runway, spendable } from "@/lib/model";
+import { ScopeBanner } from "@/components/scope";
 import { BarChart, HBars } from "@/components/charts";
-import { Card, CardHeader, Empty, Kas, PageHeader, Skeleton, Stat } from "@/components/ui";
+import { Badge, Card, CardHeader, Empty, Kas, PageHeader, Skeleton, Stat } from "@/components/ui";
+import { href } from "@/lib/router";
 import { allPayments, agentName } from "./shared";
 
 export function Analytics() {
@@ -38,8 +40,9 @@ export function Analytics() {
 
   return (
     <>
+      <ScopeBanner />
       <PageHeader title="Analytics" sub="Where the money went, from the payments your agents logged." />
-      <Card className="grid grid-cols-2 gap-y-6 p-5 sm:p-6 lg:grid-cols-4">
+      <Card className="grid grid-cols-2 items-start gap-x-6 gap-y-6 p-5 sm:p-6 lg:grid-cols-4">
         <Stat label="Spent, all time"><Kas value={kas(t.spent)} loading={first} /></Stat>
         <Stat label="Payments" className="lg:border-l lg:border-line lg:pl-6">{first ? <Skeleton className="h-[1em] w-10" /> : <span className="num">{t.payments}</span>}</Stat>
         <Stat label="Average payment" className="lg:border-l lg:border-line lg:pl-6"><Kas value={kas(avg)} loading={first} /></Stat>
@@ -49,6 +52,8 @@ export function Analytics() {
       <Card className="mt-4 p-5 sm:p-6">
         {first ? <Skeleton className="h-[250px] w-full" /> : <BarChart data={bars} />}
       </Card>
+
+      <Runway agents={agents} />
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <Card>
@@ -62,5 +67,40 @@ export function Analytics() {
       </div>
       <p className="mt-4 text-[12px] text-fg-3">Spent per the covenant can be higher than logged payments: some agents keep no purchase log.</p>
     </>
+  );
+}
+
+/* Burn rate and runway: what it has spent since the grant opened, and how
+   long what it can still pay lasts at that pace — against the term, which
+   ends whatever is left. */
+function Runway({ agents }: { agents: ReturnType<typeof useData>["agents"] }) {
+  const rows = agents.map((a) => ({ a, r: runway(a) })).filter((x) => x.r) as { a: (typeof agents)[number]; r: NonNullable<ReturnType<typeof runway>> }[];
+  if (!rows.length) return null;
+  const rate = rows.reduce((s, x) => s + x.r.rate, 0);
+  const left = rows.reduce((s, x) => s + (spendable(x.a) ?? 0), 0);
+  return (
+    <Card className="mt-4">
+      <CardHeader title="Burn rate and runway" sub="From the covenant's own spend since each grant opened" />
+      <div className="grid gap-y-5 border-b border-line p-5 sm:grid-cols-3">
+        <Stat label="Fleet burn rate" hint="per day, across these agents"><Kas value={kas(rate, { max: 3 })} /></Stat>
+        <Stat label="Fleet runway" hint="at that pace" className="sm:border-l sm:border-line sm:pl-6"><span className="num">{rate > 0 ? Math.round(left / rate) : "—"}<span className="ml-1.5 text-[12px] font-medium text-fg-3">days</span></span></Stat>
+        <Stat label="Measured over" hint="since each grant opened" className="sm:border-l sm:border-line sm:pl-6"><span className="num">{Math.round(Math.max(...rows.map((x) => x.r.days)))}<span className="ml-1.5 text-[12px] font-medium text-fg-3">days</span></span></Stat>
+      </div>
+      <ul className="divide-y divide-line">
+        {rows.sort((x, y) => (x.r.lasts ?? 1e9) - (y.r.lasts ?? 1e9)).map(({ a, r }) => {
+          const moneyFirst = r.lasts != null && r.ends != null && r.lasts < r.ends;
+          return (
+            <li key={a.key} className="flex flex-wrap items-center gap-x-6 gap-y-1 px-5 py-3 text-[13px]">
+              <a href={href("agents", a.key)} className="min-w-[8rem] flex-1 font-medium hover:text-accent">{agentName(a)}</a>
+              <span className="num text-fg-2">{kas(r.rate, { max: 3 })} <span className="text-[11.5px] text-fg-3">KAS / day</span></span>
+              <span className="num text-fg-2">{r.lasts != null ? Math.round(r.lasts) : "—"} <span className="text-[11.5px] text-fg-3">days of money</span></span>
+              <span className="num text-fg-2">{r.ends != null ? Math.round(r.ends) : "—"} <span className="text-[11.5px] text-fg-3">days of term</span></span>
+              <Badge tone={moneyFirst ? "warn" : "muted"}>{moneyFirst ? "money first" : "term first"}</Badge>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="border-t border-line px-5 py-3 text-[12px] text-fg-3">An agent that has been open less than a day, or has spent nothing, is left out rather than guessed at.</p>
+    </Card>
   );
 }

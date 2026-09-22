@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
-import { ArrowRight, Coins, LogIn, Wallet } from "lucide-react";
+import { ArrowRight, Coins, Download, LogIn, Wallet } from "lucide-react";
 import { useData } from "@/lib/data";
 import { api, RunnerError } from "@/lib/runner";
 import { kas } from "@/lib/format";
 import { href, go } from "@/lib/router";
 import { cn } from "@/lib/cn";
 import { AgentMark } from "@/components/agent";
-import { Button, Card, CardHeader, Empty, LinkButton, PageHeader, Row, Skeleton, Tabs } from "@/components/ui";
+import { Button, Card, CardHeader, Copy, Empty, LinkButton, PageHeader, Row, Skeleton, Tabs } from "@/components/ui";
+import { CMDS } from "@/lib/commands";
 import { Stablecoin } from "./Stablecoin";
 import { Field, KasInput, inputCls, kasOk } from "@/components/form";
 import { DepositPanel, type Funding } from "@/components/deposit";
@@ -83,9 +84,13 @@ function TopUp({ agent, current, onDone }: { agent: string; current: { budget: n
   const [pending, setPending] = useState<Funding | null>(null);
   const [checked, setChecked] = useState(false);
 
+  const [prev, setPrev] = useState<any>(null);
   useEffect(() => {
-    api<{ funding: (Funding & { round?: number }) | null; previousGrant?: string }>(runner, "GET", `/v1/agents/${encodeURIComponent(agent)}`)
-      .then((r) => { if (r.funding && (r.funding.round ?? 1) > 1 && !["funded", "refunded"].includes(r.funding.status)) setPending(r.funding); })
+    api<{ funding: (Funding & { round?: number }) | null; previousGrant?: any }>(runner, "GET", `/v1/agents/${encodeURIComponent(agent)}`)
+      .then((r) => {
+        if (r.funding && (r.funding.round ?? 1) > 1 && !["funded", "refunded"].includes(r.funding.status)) setPending(r.funding);
+        if (r.previousGrant) setPrev(r.previousGrant);
+      })
       .catch(() => {}).finally(() => setChecked(true));
   }, [agent, runner]);
 
@@ -102,9 +107,10 @@ function TopUp({ agent, current, onDone }: { agent: string; current: { budget: n
   };
 
   if (!checked) return <Card className="p-6"><Skeleton className="h-40 w-full" /></Card>;
-  if (pending) return <DepositPanel runner={runner} agent={agent} initial={pending} kind="topup" onFunded={onDone} />;
+  if (pending) return <><DepositPanel runner={runner} agent={agent} initial={pending} kind="topup" onFunded={onDone} />{prev && <PreviousGrant prev={prev} />}</>;
 
   return (
+    <>
     <Card>
       <CardHeader title={`Top up ${agent}`} sub={`Now ${kas(current.remaining)} KAS left${current.expiresIn ? ` · ends in ${current.expiresIn}` : ""}`} />
       <div className="grid gap-5 p-5 sm:grid-cols-3">
@@ -122,6 +128,32 @@ function TopUp({ agent, current, onDone }: { agent: string; current: { budget: n
       <div className="flex items-center justify-end gap-3 p-5">
         {problem && <span className="text-[12.5px] text-fg-3">{problem}</span>}
         <Button variant="primary" disabled={!!problem || busy} onClick={go_}>{busy ? "Preparing…" : "Get deposit address"} <ArrowRight className="size-4" /></Button>
+      </div>
+    </Card>
+    {prev && <PreviousGrant prev={prev} />}
+    </>
+  );
+}
+
+/* After a top-up the grant it replaced may still hold what it did not spend.
+   Only the owner's revocation key can take that back, so the console hands
+   over the manifest and the command rather than pretending it can. */
+function PreviousGrant({ prev }: { prev: any }) {
+  const manifest = prev?.manifest ?? prev;
+  return (
+    <Card className="mt-4 p-5">
+      <div className="text-[14px] font-semibold">The grant this one replaced</div>
+      <p className="mt-2 text-[13px] leading-relaxed text-fg-2">It may still hold what it did not spend. Only your revocation key can take that back — the runner never holds it.</p>
+      {typeof manifest === "object" && (
+        <Button size="sm" className="mt-3" onClick={() => {
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(new Blob([JSON.stringify(manifest, null, 2) + "\n"], { type: "application/json" }));
+          a.download = "previous-grant.json"; a.click();
+        }}><Download className="size-3.5" /> Download its grant.json</Button>
+      )}
+      <div className="mt-3 flex items-start rounded-lg border border-line-strong bg-bg">
+        <pre className="num min-w-0 flex-1 overflow-x-auto p-3 text-[12px] text-fg-2">{CMDS.revoke.replace("grant.json", "previous-grant.json")}</pre>
+        <Copy text={CMDS.revoke.replace("grant.json", "previous-grant.json")} className="m-1.5 shrink-0" label="Copy the command" />
       </div>
     </Card>
   );

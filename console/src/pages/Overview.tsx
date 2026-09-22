@@ -1,5 +1,6 @@
 import { Plus, ShieldCheck, Ban, ArrowRight, Bot } from "lucide-react";
 import { useData } from "@/lib/data";
+import { Notices, ScopeBanner } from "@/components/scope";
 import { totals } from "@/lib/model";
 import { kas } from "@/lib/format";
 import { href } from "@/lib/router";
@@ -8,7 +9,7 @@ import { Card, CardHeader, Empty, Kas, LinkButton, PageHeader, Skeleton, Stat } 
 import { allPayments } from "./shared";
 
 export function Overview() {
-  const { agents, loading } = useData();
+  const { agents, loading, scope, yours } = useData();
   const t = totals(agents);
   const live = agents.filter((a) => a.status !== "ended" && a.status !== "expired");
   const shown = (live.length ? live : agents).slice(0, 6);
@@ -18,14 +19,15 @@ export function Overview() {
 
   return (
     <>
+      <ScopeBanner />
       <PageHeader
-        title="Overview"
-        sub="Your agents, what they may spend, and every payment — each limit enforced by the Kaspa network."
+        title={scope === "warda" && !yours ? "Warda's own agents" : "Overview"}
+        sub={scope === "warda" ? "Public examples, live on testnet-10. Connect your wallet to see your own." : "Your agents, what they may spend, and every payment — each limit enforced by the Kaspa network."}
         actions={<LinkButton variant="primary" href={href("new")}><Plus className="size-4" /> New agent</LinkButton>}
       />
 
-      <Card className="grid grid-cols-2 gap-y-6 p-5 sm:p-6 lg:grid-cols-4">
-        <Stat label="Spendable now" hint={first ? <Skeleton className="w-24" /> : `across ${live.length} live agent${live.length === 1 ? "" : "s"}`}>
+      <Card className="grid grid-cols-2 items-start gap-x-6 gap-y-6 p-5 sm:p-6 lg:grid-cols-4">
+        <Stat label="They can still pay" hint={first ? <Skeleton className="w-24" /> : `across ${live.length} live agent${live.length === 1 ? "" : "s"}`}>
           <Kas value={kas(t.remaining)} loading={first} />
         </Stat>
         <Stat label="Total budget" hint={first ? <Skeleton className="w-24" /> : "granted to live agents"} className="lg:border-l lg:border-line lg:pl-6">
@@ -38,6 +40,8 @@ export function Overview() {
           {first ? <Skeleton className="h-[1em] w-10" /> : <span className="num">{t.blocked}</span>}
         </Stat>
       </Card>
+
+      <Notices className="mt-6" />
 
       <section className="mt-10">
         <div className="mb-4 flex items-center justify-between">

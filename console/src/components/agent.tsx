@@ -1,6 +1,6 @@
 import { ArrowUpRight, Ban, CircleCheck, CircleAlert, Clock, Layers, ShieldCheck, Users, Gauge, Timer } from "lucide-react";
 import type { AgentView, Payment } from "@/lib/model";
-import { ruleWords } from "@/lib/model";
+import { ruleWords, spendable, shortOfCoin } from "@/lib/model";
 import { ago, kas, periodWords, short, dateTime } from "@/lib/format";
 import { explorerTx } from "@/lib/kaspa";
 import { href } from "@/lib/router";
@@ -48,11 +48,12 @@ export function AgentCard({ a }: { a: AgentView }) {
 
         <div className="mt-6 flex items-end justify-between gap-3">
           <div>
-            <div className="text-[12px] text-fg-3">Spendable now</div>
-            {a.remaining === null && a.status === "waiting" ? <span className="mt-1 block text-[20px] font-semibold leading-[26px] tracking-[-0.02em] text-fg-2">Not funded yet</span> : <Kas value={kas(a.status === "ended" ? 0 : a.remaining)} className="mt-1 block text-[26px] font-semibold leading-none tracking-[-0.03em]" />}
+            <div className="text-[12px] text-fg-3">It can still pay</div>
+            {a.remaining === null && a.status === "waiting" ? <span className="mt-1 block text-[20px] font-semibold leading-[26px] tracking-[-0.02em] text-fg-2">Not funded yet</span> : <Kas value={kas(spendable(a))} className="mt-1 block text-[26px] font-semibold leading-none tracking-[-0.03em]" />}
           </div>
           <div className="text-right text-[12px] text-fg-3">
             of <span className="num text-fg-2">{kas(a.budget)}</span> KAS
+            {shortOfCoin(a) && <span className="block text-warn">coin below authority</span>}
           </div>
         </div>
         <Meter className="mt-3" spent={a.spent} budget={a.budget} muted={a.status === "ended" || a.status === "expired" || a.remaining === null} />
@@ -101,17 +102,19 @@ export function AuthorityBlock({ a }: { a: AgentView }) {
         <div aria-hidden className="pointer-events-none absolute -top-24 right-0 h-48 w-72 rounded-full bg-accent/10 blur-3xl" />
         <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="flex items-center gap-2 text-[13px] text-fg-3"><ShieldCheck className="size-4 text-accent" /> Spending authority</div>
+            <div className="flex items-center gap-2 text-[13px] text-fg-3"><ShieldCheck className="size-4 text-accent" /> It can still pay</div>
             <div className="mt-3 flex items-baseline gap-3">
-              <Kas value={kas(ended ? 0 : a.remaining)} className="text-[44px] font-semibold leading-none tracking-[-0.04em]" />
+              <Kas value={kas(spendable(a))} className="text-[44px] font-semibold leading-none tracking-[-0.04em]" />
             </div>
             <div className="mt-2 text-[13px] text-fg-3">
-              {ended ? a.statusNote ?? "This grant has ended." : <>spendable now, of a <span className="num text-fg-2">{kas(a.budget)} KAS</span> budget</>}
+              {ended ? a.statusNote ?? "This grant has ended."
+                : shortOfCoin(a) ? <>the coin at its address, which is under the <span className="num text-fg-2">{kas(a.remaining)} KAS</span> its authority allows — fees come out of the coin</>
+                : <>of a <span className="num text-fg-2">{kas(a.budget)} KAS</span> budget</>}
             </div>
           </div>
           <div className="grid grid-cols-3 gap-6 text-[13px] lg:min-w-[380px]">
             <Legend color="bg-fg-3/60" label="Spent" value={kas(a.spent)} />
-            <Legend color="bg-accent" label="Left" value={kas(ended ? 0 : a.remaining)} />
+            <Legend color="bg-accent" label="Authority left" value={kas(ended ? 0 : a.remaining)} />
             <Legend color="bg-line-strong" label="On-chain" value={kas(a.onChain)} />
           </div>
         </div>

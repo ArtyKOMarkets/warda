@@ -31,6 +31,7 @@ export function Services() {
                   <div className="min-w-0">
                     <div className="text-[15px] font-semibold">{s.name}</div>
                     <div className="mt-0.5 text-[12.5px] text-fg-3">by {s.operator ?? "unknown operator"}</div>
+                    {s.description && <p className="mt-2 text-[13px] leading-relaxed text-fg-2">{s.description}</p>}
                   </div>
                   {s.price && <Badge tone="accent">{s.price}</Badge>}
                 </div>

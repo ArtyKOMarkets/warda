@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { Activity as Icon } from "lucide-react";
+import { Activity as Icon, Download } from "lucide-react";
 import { useData } from "@/lib/data";
 import { ActivityList } from "@/components/agent";
-import { Card, Empty, PageHeader, Skeleton, Tabs } from "@/components/ui";
+import { Button, Card, Empty, PageHeader, Skeleton, Tabs } from "@/components/ui";
+import { agentName } from "./shared";
+import { ScopeBanner } from "@/components/scope";
 import { allPayments } from "./shared";
 
 type F = "all" | "paid" | "blocked" | "issues";
@@ -15,7 +17,16 @@ export function Activity({ filter }: { filter?: string }) {
   const shown = pick(f);
   return (
     <>
-      <PageHeader title="Activity" sub="Every payment your agents made or tried, with the transaction that proves it." />
+      <ScopeBanner />
+      <PageHeader title="Activity" sub="Every payment these agents made or tried, with the transaction that proves it."
+        actions={<Button size="sm" disabled={!shown.length} onClick={() => {
+          const rows = [["at", "agent", "outcome", "paid_kas", "host", "pay_to", "txid", "url", "why"],
+            ...shown.map(({ p, a }) => [p.at, agentName(a), p.outcome, p.amount ?? "", p.host ?? "", p.payTo ?? "", p.txid ?? "", p.url ?? "", p.why ?? ""])];
+          const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+          const el = document.createElement("a");
+          el.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+          el.download = `warda-activity-${new Date().toISOString().slice(0, 10)}.csv`; el.click();
+        }}><Download className="size-3.5" /> CSV</Button>} />
       <Tabs className="mb-5" value={f} onChange={(v) => { setF(v); history.replaceState(null, "", `#/activity/${v}`); }} items={[
         { value: "all", label: "All", count: rows.length },
         { value: "paid", label: "Paid", count: pick("paid").length },

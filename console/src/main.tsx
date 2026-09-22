@@ -9,6 +9,6 @@ import { PairingModal } from "./components/wallet-ui";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <DataProvider><WalletProvider><AccountProvider><App /><PairingModal /></AccountProvider></WalletProvider></DataProvider>
+    <WalletProvider><DataProvider><AccountProvider><App /><PairingModal /></AccountProvider></DataProvider></WalletProvider>
   </StrictMode>,
 );

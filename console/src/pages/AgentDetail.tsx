@@ -10,6 +10,7 @@ import { Badge, Card, CardHeader, Copy, Empty, External, LinkButton, Skeleton, S
 import { agentName } from "./shared";
 import { ApprovalsBanner, JobsTab, useHostedAgent } from "@/components/jobs";
 import { ManageTab } from "@/components/manage";
+import { Controls, Reconciliation, RealRefusals } from "@/components/controls";
 
 type T = "overview" | "jobs" | "manage" | "payments" | "blocked" | "proof";
 
@@ -82,6 +83,7 @@ export function AgentDetail({ id, tab }: { id: string; tab?: string }) {
             </Card>
             <div className="space-y-4">
               <Payees a={a} />
+              <Reconciliation a={a} />
               <Card>
                 <CardHeader title="Blocked" sub={blocked.length ? `${blocked.length} real attempt${blocked.length === 1 ? "" : "s"} refused` : "Nothing refused so far"} />
                 <div className="space-y-3 p-5">
@@ -130,6 +132,7 @@ function Blocked({ a }: { a: AgentView }) {
   const blocked = a.payments.filter((p) => p.outcome === "blocked");
   return (
     <div className="space-y-6">
+      <RealRefusals a={a} />
       <Card>
         <CardHeader title="Refused attempts" sub="Payments this agent really tried that fell outside its grant" />
         <div className="grid gap-3 p-5 md:grid-cols-2">
@@ -163,7 +166,8 @@ function Proof({ a }: { a: AgentView }) {
     ["Owner key", a.ownerKey],
   ];
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+    <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+      <div className="space-y-4">
       <Card>
         <CardHeader title="On-chain identity" sub="Everything here can be checked on the Kaspa explorer" />
         <dl className="mt-2 divide-y divide-line px-5 pb-2">
@@ -179,6 +183,8 @@ function Proof({ a }: { a: AgentView }) {
           ))}
         </dl>
       </Card>
+      <Controls a={a} />
+      </div>
       <Card className="p-5">
         <div className="flex items-center gap-2 text-[15px] font-semibold"><ShieldCheck className="size-4 text-accent" /> Why you can trust this</div>
         <p className="mt-2 text-[13px] leading-relaxed text-fg-2">
