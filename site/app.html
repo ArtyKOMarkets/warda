@@ -622,6 +622,11 @@
   .wsel-list li .h { color: var(--chrome-faint); font-size: 0.72rem; margin-left: 1.2rem; }
   .wsel-list li[aria-selected="true"] .h, .wsel-list li.hi .h { color: var(--chrome-dim); }
   .hold { display: grid; gap: 0.45rem; }
+  .svc-job { margin-top: 0.6rem; border: 1px solid var(--edge-bright); border-radius: 10px; padding: 0.75rem 0.85rem; display: grid; gap: 0.55rem; }
+  .svc-job .row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+  .svc-job .row > * { flex: 0 1 auto; }
+  .svc-job input { width: 5.5rem; }
+  .svc-job p { margin: 0; font-size: 0.78rem; color: var(--chrome-dim); line-height: 1.5; }
   .h-stable { margin-top: 0.8rem; border: 1px solid var(--edge-bright); border-radius: 10px; padding: 0.75rem 0.9rem;
     display: flex; flex-wrap: wrap; gap: 0.6rem 1rem; align-items: center; justify-content: space-between; }
   .h-stable p { margin: 0; flex: 1 1 20rem; font-size: 0.82rem; color: var(--chrome-dim); line-height: 1.5; }
@@ -6646,7 +6651,9 @@ var WardaRouter = (() => {
         '<p class="why" style="margin:0">' + (paid.n ? "Paid " + paid.n + " times by agents here, " + kas2(paid.kas) + " KAS in all." : "No agent here has paid it yet.") +
         (s.operator ? " Operated by " + esc(s.operator) + "." : "") + '</p>' +
         '<div class="og-a"><button class="go" data-svc-fund="' + i + '"' + (addr ? "" : " disabled") + '>Fund an agent for this &rarr;</button>' +
-        '<button class="go gh" data-svc-use="' + i + '">Use it</button></div>' +
+        '<button class="go gh" data-svc-use="' + i + '">Use it</button>' +
+        '<button class="go gh" data-svc-job="' + i + '">&#9889; Add as a job</button></div>' +
+        '<div class="svc-job" data-svc-jobbox="' + i + '" hidden></div>' +
         '<pre data-svc-cmd="' + i + '" hidden></pre></div>';
     }).join("") || '<p class="empty">The registry lists no services.</p>';
     $("svc-unlisted-card").hidden = !SVC.unlisted.length;
@@ -7944,6 +7951,8 @@ var WardaRouter = (() => {
     }
     var sf = e.target.closest && e.target.closest("[data-svc-fund]");
     if (sf && !sf.disabled) svcFund(Number(sf.getAttribute("data-svc-fund")));
+    var sj = e.target.closest && e.target.closest("[data-svc-job]");
+    if (sj) svcJob(Number(sj.getAttribute("data-svc-job")));
     var su = e.target.closest && e.target.closest("[data-svc-use]");
     if (su) svcUse(Number(su.getAttribute("data-svc-use")));
     var ct = e.target.closest && e.target.closest("[data-ctl]");
@@ -8438,6 +8447,61 @@ var WardaRouter = (() => {
     el.hidden = false;
     el.innerHTML = "<p>Paying the deposit for your new agent <b>" + esc(FA_FOR.agent) + "</b>. At least <b>" + esc(FA_FOR.kas) +
       " KAS</b> must arrive in <b>one</b> payment; the amount above has a margin for the rate moving. Anything over goes into the agent's grant, not to anyone else.</p>";
+  }
+
+  /* ---- a service from the registry, as a job on a hosted agent -------------
+     One click from "this is worth paying for" to "my agent buys it every day":
+     the job is a pay-x402 on the service's endpoint, capped a little above its
+     listed price, on an agent the runner hosts for you. */
+  function svcJob(i) {
+    var s = SVC.services[i], box = document.querySelector('[data-svc-jobbox="' + i + '"]');
+    if (!box) return;
+    if (!box.hidden) { box.hidden = true; return; }
+    box.hidden = false;
+    if (!$("h-key").value.trim()) {
+      box.innerHTML = '<p>Jobs run on agents the Warda runner hosts for you. You have none in this browser yet.</p>' +
+        '<div class="row"><button class="go" type="button" data-view="hosted">&#128293; Create an agent first</button></div>';
+      return;
+    }
+    var pr = s.pricing || {}, price = pr.asset === "KAS" ? parseFloat(pr.amount) : NaN;
+    var max = isFinite(price) && price > 0 ? String(Math.ceil(price * 1.2 * 1e4) / 1e4) : "0.05";
+    box.innerHTML = '<p>Reading your agents…</p>';
+    hApi("GET", "/v1/agents?detail=1").then(function (r) {
+      var list = (r.agents || []).filter(function (a) { return a.state === "active" || a.state === "live" || a.spendableKas != null; });
+      if (!list.length) { box.innerHTML = '<p>None of your agents has a live grant yet.</p><div class="row"><button class="go" type="button" data-view="hosted">&#128293; New agent</button></div>'; return; }
+      box.innerHTML =
+        '<div class="row"><select data-sj="agent">' + list.map(function (a) { return '<option value="' + esc(a.agent) + '">' + esc(a.agent) + ' · ' + esc(a.spendableKas || "?") + ' KAS left</option>'; }).join("") + '</select>' +
+        '<select data-sj="when"><option value="daily">every day</option><option value="once">once, now</option></select>' +
+        '<span data-sj="at">at <input data-sj="hour" inputmode="numeric" value="9"> UTC</span></div>' +
+        '<div class="row">never more than <input data-sj="max" inputmode="decimal" value="' + esc(max) + '"> KAS a call' +
+        '<button class="go" type="button" data-sj="go">Add the job</button></div><p data-sj="s"></p>';
+      box.querySelectorAll("select").forEach(wSel);
+      var q = function (k) { return box.querySelector('[data-sj="' + k + '"]'); };
+      q("when").addEventListener("change", function () { q("at").hidden = q("when").value !== "daily"; });
+      var check = function () {
+        var addr = payeeAddr(s.payee, (s.payment || {}).network);
+        q("s").textContent = "Checking " + q("agent").value + "'s allowlist…";
+        hApi("GET", "/v1/agents/" + encodeURIComponent(q("agent").value)).then(function (a) {
+          var payees = ((a.grant || {}).payees || []).map(String);
+          q("s").innerHTML = !addr ? "" : payees.indexOf(addr) >= 0 ? "✓ " + esc(q("agent").value) + " may pay this service."
+            : '<span style="color:var(--amber)">' + esc(q("agent").value) + "'s grant does not list this service's payee, so the network would refuse its payments. " +
+              'Pick another agent, or make a new one with it as a payee.</span>';
+        }).catch(function () { q("s").textContent = ""; });
+      };
+      q("agent").addEventListener("change", check); check();
+      q("go").addEventListener("click", function () {
+        var agent = q("agent").value, once = q("when").value === "once";
+        var hr = Math.max(0, Math.min(23, parseInt(q("hour").value, 10) || 0));
+        var wf = { agent: agent, name: (once ? "Buy " : "Daily: ") + (s.name || s.id), trigger: once ? { type: "manual" } : { type: "schedule", cron: "0 " + hr + " * * *" },
+          then: [{ type: "pay-x402", url: s.endpoint, maxKas: q("max").value.trim() }] };
+        q("go").disabled = true; q("s").textContent = "Adding…";
+        hApi("POST", "/v1/workflows", wf).then(function (res) {
+          if (once) return hApi("POST", "/v1/workflows/" + res.workflow.id + "/run", {}, { "Idempotency-Key": "svc-" + Date.now() })
+            .then(function () { q("s").innerHTML = "Added and run. See it in <a class=more data-view=hagents>Your agents</a>."; });
+          q("s").innerHTML = "Added: " + esc(agent) + " buys this every day at " + hr + ":00 UTC. <a class=more data-view=hagents>Your agents</a>";
+        }).catch(function (e) { q("s").textContent = e.message; q("go").disabled = false; });
+      });
+    }).catch(function (e) { box.innerHTML = "<p>" + esc(e.message) + "</p>"; });
   }
 
   /* ---- monthly statement --------------------------------------------------- */
