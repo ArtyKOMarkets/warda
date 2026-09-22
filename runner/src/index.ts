@@ -8,3 +8,5 @@ export * from "./engine.ts";
 export * from "./template.ts";
 export * from "./vault-turnkey.ts";
 export * from "./store-pg.ts";
+export * from "./registry.ts";
+export * from "./api.ts";

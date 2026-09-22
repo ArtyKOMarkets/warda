@@ -22,6 +22,8 @@ export interface OpenedAgent {
   payees: string[];
   /** Pay through a relay hop (x402 v2 vendors need it). */
   relay?: boolean;
+  /** Releases what `open` acquired (the chain connection). */
+  close?: () => Promise<void>;
 }
 
 export type OpenAgent = (agentId: string) => Promise<OpenedAgent>;
@@ -32,8 +34,10 @@ const MS_PER_DAA = 100n;
 export function liveGrants(open: OpenAgent, now: () => number = Date.now): GrantReader {
   return {
     async read(agentId) {
+      let opened: OpenedAgent | null = null;
       try {
-        const { agent, payees } = await open(agentId);
+        opened = await open(agentId);
+        const { agent, payees } = opened;
         const s = agent.state;
         const chain = agent.chainAccess;
         const [dag, utxos] = await Promise.all([chain.getBlockDagInfo(), chain.getUtxosByAddresses([agent.address])]);
@@ -64,6 +68,8 @@ export function liveGrants(open: OpenAgent, now: () => number = Date.now): Grant
         return view;
       } catch {
         return null;
+      } finally {
+        await opened?.close?.().catch(() => {});
       }
     },
   };
@@ -96,24 +102,33 @@ export function livePayments(open: OpenAgent): Payments {
           reason: `the vendor asks ${price} sompi and this step may spend at most ${limitSompi}`,
         };
       }
-      const { agent, relay } = await open(agentId);
-      let recording: Promise<void> | null = null;
-      const { response, paid } = await agent.fetch(req.url, init, {
-        ...(relay ? { relay: true } : {}),
-        onEvent: (e) => {
-          if (e.type === "paid") recording = onSubmitted(e.result.txid, e.result.amountSompi);
-        },
-      });
-      if (recording) await recording;
-      if (!paid) return { kind: "free", status: response.status };
-      return { kind: "paid", status: response.status, txid: paid.txid, sompi: paid.amountSompi };
+      const opened = await open(agentId);
+      try {
+        const { agent, relay } = opened;
+        let recording: Promise<void> | null = null;
+        const { response, paid } = await agent.fetch(req.url, init, {
+          ...(relay ? { relay: true } : {}),
+          onEvent: (e) => {
+            if (e.type === "paid") recording = onSubmitted(e.result.txid, e.result.amountSompi);
+          },
+        });
+        if (recording) await recording;
+        if (!paid) return { kind: "free", status: response.status };
+        return { kind: "paid", status: response.status, txid: paid.txid, sompi: paid.amountSompi };
+      } finally {
+        await opened.close?.().catch(() => {});
+      }
     },
 
     async send(agentId, to, sompi, onSubmitted) {
-      const { agent } = await open(agentId);
-      const r = await agent.pay(to, sompi);
-      await onSubmitted(r.txid, r.amountSompi);
-      return { txid: r.txid };
+      const opened = await open(agentId);
+      try {
+        const r = await opened.agent.pay(to, sompi);
+        await onSubmitted(r.txid, r.amountSompi);
+        return { txid: r.txid };
+      } finally {
+        await opened.close?.().catch(() => {});
+      }
     },
   };
 }

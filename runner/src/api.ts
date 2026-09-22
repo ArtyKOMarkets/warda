@@ -1,0 +1,320 @@
+/**
+ * The runner's HTTP API, as one fetch handler: `(Request) => Response`.
+ *
+ * The same function runs on Vercel, under `node:http` locally (server.ts),
+ * and in the tests with no server at all. It decides who may do what; the
+ * engine decides what happens; the covenant decides what is allowed.
+ *
+ *   POST  /v1/accounts                     → { account, apiKey }  (once)
+ *   POST  /v1/agents          { id }       → the agent key the grant must name
+ *   GET   /v1/agents
+ *   GET   /v1/agents/:id                   → key, grant, fees owed, workflows
+ *   PUT   /v1/agents/:id/grant { manifest, recipients }
+ *   GET   /v1/agents/:id/runs
+ *   GET   /v1/agents/:id/approvals
+ *   POST  /v1/workflows       <workflow JSON>
+ *   GET   /v1/workflows?agent=
+ *   PATCH /v1/workflows/:id   { enabled }
+ *   POST  /v1/workflows/:id/run
+ *   POST  /v1/hooks/:id       (X-Warda-Hook: <secret>, Idempotency-Key)
+ *   POST  /v1/tick            (Authorization: Bearer <tick secret>)
+ *
+ * Every request but signup, hooks and tick carries `Authorization: Bearer
+ * wk_…`. An agent, a workflow or a run that belongs to another account is a
+ * 404, not a 403: whether it exists is not this caller's business.
+ */
+import { toRecipientSet, type Manifest } from "@warda_protocol/agent";
+import { formatKas } from "@warda_protocol/core";
+import type { Engine } from "./engine.ts";
+import type { FeePolicy } from "./fees.ts";
+import { emptyLedger } from "./fees.ts";
+import { memberKey, type GrantReader } from "./grant.ts";
+import type { Registry } from "./registry.ts";
+import type { Store } from "./store.ts";
+import type { KeyVault } from "./vault.ts";
+import { parseWorkflow, spends, WorkflowError, type Workflow } from "./workflow.ts";
+
+export interface ApiDeps {
+  store: Store;
+  registry: Registry;
+  vault: KeyVault;
+  engine: Engine;
+  grants: GrantReader;
+  fees: FeePolicy;
+  tickSecret: string;
+  /** If set, signup needs `{ code }` matching it. The beta is invite-only. */
+  signupCode?: string;
+  baseUrl: string;
+  now?: () => number;
+  id?: (prefix: string) => string;
+}
+
+class HttpError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
+const json = (status: number, body: unknown) =>
+  new Response(
+    JSON.stringify(body, (_k, v) => (typeof v === "bigint" ? v.toString() : v instanceof Set ? [...v] : v), 2),
+    { status, headers: { "content-type": "application/json", "cache-control": "no-store" } },
+  );
+
+const AGENT_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{2,39}$/;
+
+export { memberKey };
+
+export function createApi(d: ApiDeps): (req: Request) => Promise<Response> {
+  const now = d.now ?? Date.now;
+  let n = 0;
+  const id = d.id ?? ((p: string) => `${p}_${now().toString(36)}${(n++).toString(36)}`);
+
+  const body = async (req: Request): Promise<Record<string, unknown>> => {
+    try {
+      const b = await req.json();
+      if (typeof b !== "object" || b === null || Array.isArray(b)) throw new Error();
+      return b as Record<string, unknown>;
+    } catch {
+      throw new HttpError(400, "the body must be a JSON object");
+    }
+  };
+
+  const account = async (req: Request): Promise<string> => {
+    const m = /^Bearer\s+(wk_[\w-]+)$/.exec(req.headers.get("authorization") ?? "");
+    const acct = m ? await d.registry.accountFor(m[1]!) : null;
+    if (!acct) throw new HttpError(401, "an API key is required: Authorization: Bearer wk_…");
+    return acct;
+  };
+
+  const ownAgent = async (acct: string, agent: string) => {
+    if ((await d.registry.ownerOf(agent)) !== acct) throw new HttpError(404, `no agent ${agent}`);
+  };
+
+  const ownWorkflow = async (acct: string, wfId: string): Promise<Workflow> => {
+    const wf = await d.store.getWorkflow(wfId);
+    if (!wf || (await d.registry.ownerOf(wf.agent)) !== acct) throw new HttpError(404, `no workflow ${wfId}`);
+    return wf;
+  };
+
+  const feePayeeKey = memberKey(d.fees.payee);
+
+  const routes: [string, RegExp, (req: Request, m: RegExpExecArray, url: URL) => Promise<Response>][] = [
+    ["POST", /^\/v1\/accounts$/, async (req) => {
+      if (d.signupCode) {
+        const b = await body(req);
+        if (b.code !== d.signupCode) throw new HttpError(403, "the runner beta is invite-only; that code is not it");
+      }
+      const a = await d.registry.createAccount(now());
+      return json(201, {
+        account: a.id,
+        apiKey: a.apiKey,
+        note: "This key is shown once and stored only as a hash. It can create and run workflows; it can never move an owner's funds.",
+      });
+    }],
+
+    ["POST", /^\/v1\/agents$/, async (req) => {
+      const acct = await account(req);
+      const b = await body(req);
+      const agent = typeof b.id === "string" ? b.id : id("agent");
+      if (!AGENT_ID.test(agent)) throw new HttpError(400, "an agent id is 3–40 letters, digits, - or _");
+      if (!(await d.registry.claimAgent(agent, acct, now()))) throw new HttpError(409, `agent ${agent} already exists`);
+      const publicKey = await d.vault.create(agent);
+      return json(201, {
+        agent,
+        agentKey: publicKey,
+        next: {
+          grant: {
+            agent: publicKey,
+            payees: `every address the agent may pay, plus the runner's fee payee ${d.fees.payee}`,
+            note: "The runner holds this agent key and nothing else. Create the grant from your own wallet, naming this key as the agent and a revocation key the runner has never seen.",
+          },
+          register: `PUT ${d.baseUrl}/v1/agents/${agent}/grant`,
+        },
+      });
+    }],
+
+    ["GET", /^\/v1\/agents$/, async (req) => {
+      const acct = await account(req);
+      return json(200, { agents: await d.registry.agentsOf(acct) });
+    }],
+
+    ["GET", /^\/v1\/agents\/([\w-]+)$/, async (req, m) => {
+      const acct = await account(req);
+      const agent = m[1]!;
+      await ownAgent(acct, agent);
+      const [key, grant, ledger, workflows] = await Promise.all([
+        d.vault.publicKey(agent),
+        d.grants.read(agent),
+        d.store.getLedger(agent),
+        d.store.listWorkflows(agent),
+      ]);
+      return json(200, {
+        agent,
+        agentKey: key,
+        grant: grant ?? { undecided: "no grant registered, or the chain did not confirm the one on record" },
+        feesOwed: formatKas((ledger ?? emptyLedger()).owed),
+        workflows: workflows.map(summary),
+      });
+    }],
+
+    ["PUT", /^\/v1\/agents\/([\w-]+)\/grant$/, async (req, m) => {
+      const acct = await account(req);
+      const agent = m[1]!;
+      await ownAgent(acct, agent);
+      const b = await body(req);
+      const manifest = b.manifest as Manifest | undefined;
+      const recipients = b.recipients;
+      if (!manifest || typeof manifest !== "object") throw new HttpError(400, "manifest is required: the grant JSON genesis wrote");
+      if (!Array.isArray(recipients) || recipients.some((r) => typeof r !== "string")) {
+        throw new HttpError(400, "recipients must be the list of addresses or keys the grant committed to");
+      }
+      const key = await d.vault.publicKey(agent);
+      if (manifest.agent !== key) {
+        throw new HttpError(422, `this grant names agent key ${String(manifest.agent).slice(0, 16)}…, and the key the runner holds for ${agent} is ${String(key).slice(0, 16)}…. The runner could not sign for it.`);
+      }
+      let root: string;
+      try {
+        root = toRecipientSet(recipients as string[]).rootHex;
+      } catch (e) {
+        throw new HttpError(400, `recipients: ${(e as Error).message}`);
+      }
+      if (root !== manifest.recipients_root) {
+        throw new HttpError(422, "these recipients do not hash to the grant's recipients_root, so no payment could prove its payee against them");
+      }
+      await d.registry.putGrant({ agent, manifest, recipients: recipients as string[], updatedAt: now() });
+      const view = await d.grants.read(agent);
+      const members = (recipients as string[]).map(memberKey);
+      return json(200, {
+        agent,
+        registered: true,
+        onChain: view ? "confirmed" : "undecided — the chain did not confirm this grant yet; runs will wait",
+        feePayeeOnAllowlist: members.includes(feePayeeKey),
+      });
+    }],
+
+    ["GET", /^\/v1\/agents\/([\w-]+)\/runs$/, async (req, m, url) => {
+      const acct = await account(req);
+      await ownAgent(acct, m[1]!);
+      const limit = Math.min(200, Math.max(1, Number(url.searchParams.get("limit") ?? 50)));
+      return json(200, { runs: await d.store.listRuns(m[1]!, limit) });
+    }],
+
+    ["GET", /^\/v1\/agents\/([\w-]+)\/approvals$/, async (req, m) => {
+      const acct = await account(req);
+      await ownAgent(acct, m[1]!);
+      return json(200, { approvals: await d.store.listApprovals(m[1]!) });
+    }],
+
+    ["POST", /^\/v1\/workflows$/, async (req) => {
+      const acct = await account(req);
+      const raw = await body(req);
+      let wf: Workflow;
+      try {
+        wf = parseWorkflow(raw, { id: id("wf"), now: now() });
+      } catch (e) {
+        if (e instanceof WorkflowError) throw new HttpError(400, e.message);
+        throw e;
+      }
+      await ownAgent(acct, wf.agent);
+      const g = await d.registry.getGrant(wf.agent);
+      if (!g) throw new HttpError(409, `register ${wf.agent}'s grant first: PUT /v1/agents/${wf.agent}/grant`);
+      const members = g.recipients.map(memberKey);
+      if (spends(wf) && !members.includes(feePayeeKey)) {
+        throw new HttpError(422,
+          `this workflow spends, and ${wf.agent}'s grant cannot pay the runner's fee: ${d.fees.payee} is not on its allowlist. ` +
+          `An allowlist is fixed when a grant is created, so this grant can run notify, http and approval workflows only.`);
+      }
+      const cap = BigInt(g.manifest.max_per_spend);
+      for (const a of wf.actions) {
+        if (a.type === "send" && !members.includes(memberKey(a.to))) {
+          throw new HttpError(422, `${a.to} is not on ${wf.agent}'s allowlist; no transaction can pay it`);
+        }
+        const amt = a.type === "send" ? a.sompi : a.type === "pay-x402" ? a.maxSompi : 0n;
+        if (amt > cap) throw new HttpError(422, `${formatKas(amt)} KAS is over the grant's per-payment cap of ${formatKas(cap)} KAS`);
+      }
+      await d.engine.add(wf);
+      const out: Record<string, unknown> = { workflow: summary(wf) };
+      if (wf.trigger.type === "webhook") {
+        const secret = await d.registry.createHook(wf.id);
+        out.webhook = { url: `${d.baseUrl}/v1/hooks/${wf.id}`, header: "X-Warda-Hook", secret, note: "shown once" };
+      }
+      return json(201, out);
+    }],
+
+    ["GET", /^\/v1\/workflows$/, async (req, _m, url) => {
+      const acct = await account(req);
+      const agent = url.searchParams.get("agent");
+      const agents = agent ? [agent] : await d.registry.agentsOf(acct);
+      if (agent) await ownAgent(acct, agent);
+      const all = (await Promise.all(agents.map((a) => d.store.listWorkflows(a)))).flat();
+      return json(200, { workflows: all.map(summary) });
+    }],
+
+    ["PATCH", /^\/v1\/workflows\/([\w-]+)$/, async (req, m) => {
+      const acct = await account(req);
+      const wf = await ownWorkflow(acct, m[1]!);
+      const b = await body(req);
+      if (typeof b.enabled !== "boolean") throw new HttpError(400, "only { enabled: true|false } can be changed; a workflow's actions are replaced by creating a new one");
+      wf.enabled = b.enabled;
+      await d.store.putWorkflow(wf);
+      return json(200, { workflow: summary(wf) });
+    }],
+
+    ["POST", /^\/v1\/workflows\/([\w-]+)\/run$/, async (req, m) => {
+      const acct = await account(req);
+      const wf = await ownWorkflow(acct, m[1]!);
+      const key = req.headers.get("idempotency-key") ?? undefined;
+      const run = await d.engine.fire(wf.id, "manual", key ? { key } : {});
+      return json(run ? 202 : 200, run ? { run } : { run: null, note: "already ran for this Idempotency-Key" });
+    }],
+
+    ["POST", /^\/v1\/hooks\/([\w-]+)$/, async (req, m) => {
+      const wfId = m[1]!;
+      const secret = req.headers.get("x-warda-hook") ?? "";
+      if (!secret || !(await d.registry.checkHook(wfId, secret))) throw new HttpError(404, `no webhook ${wfId}`);
+      let payload: unknown = null;
+      const text = await req.text();
+      if (text) {
+        try { payload = JSON.parse(text); } catch { payload = text; }
+      }
+      const key = req.headers.get("idempotency-key") ?? undefined;
+      const run = await d.engine.fire(wfId, "webhook", { body: payload, ...(key ? { key } : {}) });
+      return json(202, { run });
+    }],
+
+    ["POST", /^\/v1\/tick$/, async (req) => {
+      const ok = d.tickSecret.length >= 16 && req.headers.get("authorization") === `Bearer ${d.tickSecret}`;
+      if (!ok) throw new HttpError(401, "tick is for the scheduler");
+      return json(200, await d.engine.tick());
+    }],
+  ];
+
+  return async (req: Request): Promise<Response> => {
+    const url = new URL(req.url);
+    try {
+      for (const [method, re, fn] of routes) {
+        const m = re.exec(url.pathname);
+        if (m && req.method === method) return await fn(req, m, url);
+      }
+      return json(404, { error: `no route ${req.method} ${url.pathname}` });
+    } catch (e) {
+      if (e instanceof HttpError) return json(e.status, { error: e.message });
+      const msg = (e as Error).message ?? String(e);
+      return json(500, { error: msg });
+    }
+  };
+}
+
+function summary(wf: Workflow) {
+  return {
+    id: wf.id,
+    agent: wf.agent,
+    name: wf.name,
+    enabled: wf.enabled,
+    trigger: wf.trigger.type === "schedule" ? { type: "schedule", cron: wf.trigger.cron.source } : wf.trigger,
+    actions: wf.actions.map((a) => a.type),
+  };
+}

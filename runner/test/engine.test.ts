@@ -6,8 +6,8 @@ import { memoryStore, type Approval } from "../src/store.ts";
 import { parseWorkflow } from "../src/workflow.ts";
 
 const KAS = 100_000_000n;
-const RUNNER = "kaspatest:runner";
-const VENDOR = "kaspatest:vendor";
+const RUNNER = "3c693f61fbc35d1fd4dcec2bbbab692be38656e6fd5a4077ee495afcb23535a1";
+const VENDOR = "16e6af2030f7e4510d1a417391a7ff7ccad21864f17eef7ee035f0453e21a033";
 
 function world(o: { price?: bigint; failAfterSubmit?: boolean; start?: number } = {}) {
   let now = o.start ?? Date.parse("2026-09-22T09:00:30Z");
@@ -117,7 +117,7 @@ test("the workflow's maximum narrows the grant's, and a refusal spends and charg
 
 test("send refuses a payee the grant never committed to", async () => {
   const w = world();
-  await w.engine.add(wf(w, { trigger: { type: "manual" }, then: [{ type: "send", to: "kaspatest:stranger", kas: "0.1" }] }));
+  await w.engine.add(wf(w, { trigger: { type: "manual" }, then: [{ type: "send", to: "ff".repeat(32), kas: "0.1" }] }));
   await w.engine.fire("wf_1", "manual");
   const [run] = await w.store.listRuns("agent-009");
   assert.equal(run!.status, "refused");

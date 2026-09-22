@@ -73,3 +73,23 @@ test("cursors, edges, ledgers and approvals", async () => {
   await s.putApproval({ id: "p1", agent: "a", workflowId: "wf_1", runId: "r", op: "topup", note: "", createdAt: 1, status: "pending" });
   assert.equal((await s.listApprovals("a"))[0]!.op, "topup");
 });
+
+test("the registry on Postgres: accounts, ownership, grants, hook secrets", async () => {
+  const { migrateRegistry, pgRegistry } = await import("../src/registry.ts");
+  const db = new PGlite();
+  await migrateRegistry(db);
+  const r = pgRegistry(db);
+  const a = await r.createAccount(1);
+  assert.equal(await r.accountFor(a.apiKey), a.id);
+  assert.equal(await r.accountFor("wk_nope"), null);
+  assert.equal(await r.claimAgent("bot", a.id, 1), true);
+  assert.equal(await r.claimAgent("bot", "someone-else", 2), false);
+  assert.equal(await r.ownerOf("bot"), a.id);
+  await r.putGrant({ agent: "bot", manifest: { agent: "aa" } as never, recipients: ["x"], updatedAt: 3 });
+  assert.deepEqual((await r.getGrant("bot"))!.recipients, ["x"]);
+  const s = await r.createHook("wf_1");
+  assert.equal(await r.checkHook("wf_1", s), true);
+  assert.equal(await r.checkHook("wf_1", s + "x"), false);
+  const { rows } = await db.query(`select secret_hash from runner_hooks`);
+  assert.notEqual((rows[0] as { secret_hash: string }).secret_hash, s, "only the hash is stored");
+});

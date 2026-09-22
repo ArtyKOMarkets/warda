@@ -8,6 +8,22 @@
  * script-verification failure nobody can read.
  */
 import { formatKas } from "@warda_protocol/core";
+import { decodeAddress, toHex } from "@warda_protocol/kaspa";
+
+/** A payee as an allowlist stores it: 32-byte x-only hex, from an address or hex. */
+export function memberKey(m: string): string {
+  const t = m.replace(/#.*$/, "").trim();
+  return t.includes(":") ? toHex(decodeAddress(t).payload) : t.toLowerCase();
+}
+
+function onAllowlist(payees: string[], payee: string): boolean {
+  try {
+    const k = memberKey(payee);
+    return payees.some((p) => { try { return memberKey(p) === k; } catch { return false; } });
+  } catch {
+    return false;
+  }
+}
 
 export interface GrantView {
   /** Where the grant's coin is right now. It moves after every spend. */
@@ -21,7 +37,7 @@ export interface GrantView {
   epochRemaining: bigint | null;
   /** What the coin holds. Budget and coin diverge by fees over a grant's life. */
   coin: bigint;
-  /** Allowlisted payees, as Kaspa addresses. */
+  /** Allowlisted payees, as Kaspa addresses or x-only hex; compared by key. */
   payees: string[];
   /** Wall-clock estimate of the covenant's expiry, or null if unknown. */
   expiresAtMs: number | null;
@@ -58,7 +74,7 @@ export function refusal(
 ): string | null {
   if (g.status !== "ACTIVE") return `the grant is ${g.status.toLowerCase()}; nothing can be spent from it`;
   if (g.expiresAtMs !== null && g.expiresAtMs <= opts.now) return "the grant's term has ended";
-  if (opts.payee !== undefined && !g.payees.includes(opts.payee)) {
+  if (opts.payee !== undefined && !onAllowlist(g.payees, opts.payee)) {
     return `${opts.payee} is not on this grant's allowlist, and an allowlist is fixed when the grant is created`;
   }
   if (sompi > g.maxPerSpend) {

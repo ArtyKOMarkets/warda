@@ -9,6 +9,7 @@
  */
 import { Pool } from "@neondatabase/serverless";
 import { migrate } from "../src/store-pg.ts";
+import { migrateRegistry } from "../src/registry.ts";
 import { loadEnv } from "./env.ts";
 
 loadEnv();
@@ -20,6 +21,7 @@ if (!url) {
 const pool = new Pool({ connectionString: url });
 try {
   await migrate(pool);
+  await migrateRegistry(pool);
   const { rows } = await pool.query(
     `select table_name from information_schema.tables where table_name like 'runner_%' order by 1`,
   );
