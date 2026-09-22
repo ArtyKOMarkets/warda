@@ -619,6 +619,18 @@
   .wsel-btn .t { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .wsel-btn svg { width: 14px; height: 14px; flex: none; color: var(--chrome-faint); transition: transform 0.18s; }
   .wsel.open .wsel-btn svg { transform: rotate(180deg); color: var(--teal); }
+  .wsel-list li .h { color: var(--chrome-faint); font-size: 0.72rem; margin-left: 1.2rem; }
+  .wsel-list li[aria-selected="true"] .h, .wsel-list li.hi .h { color: var(--chrome-dim); }
+  .hold { display: grid; gap: 0.45rem; }
+  .hold-r { display: flex; align-items: center; gap: 0.7rem; padding: 0.6rem 0.75rem; border: 1px solid var(--edge);
+    border-radius: 9px; background: var(--ground); }
+  .hold-r .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  .hold-r b { font-family: var(--mono); font-size: 0.95rem; font-weight: 500; color: var(--chrome); }
+  .hold-r span { color: var(--chrome-faint); font-size: 0.78rem; flex: 1 1 auto; }
+  .hold-r button { flex: none; }
+  .fa-have { color: var(--chrome-dim); }
+  #fa-all { background: none; border: 0; padding: 0; margin-left: 0.35rem; color: var(--teal); cursor: pointer;
+    font: inherit; text-decoration: underline; text-underline-offset: 2px; }
   .wsel .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; box-shadow: 0 0 0 2px rgba(255,255,255,0.06); }
   .wsel-list { position: absolute; z-index: 60; left: 0; top: calc(100% + 6px); min-width: 100%; width: max-content;
     max-width: min(26rem, 92vw); max-height: 21rem; overflow-y: auto; margin: 0; padding: 0.3rem; list-style: none;
@@ -1444,6 +1456,12 @@
 
       <div id="acc-in" hidden>
         <div class="tiles" id="acc-tiles"></div>
+        <div class="card" id="acc-hold" style="margin-top:0.85rem" hidden>
+          <header><h2>Stablecoins in this wallet <small id="acc-hold-n"></small></h2>
+            <div class="og-a"><button class="go gh" id="acc-hold-r" type="button">Read again</button></div></header>
+          <div class="hold" id="acc-hold-l"></div>
+          <p class="why" id="acc-hold-s"></p>
+        </div>
         <div class="card sess" id="sess" style="margin-top:0.85rem">
           <header><h2>Console account <small id="sess-plan"></small></h2>
             <div class="og-a" id="sess-actions"></div></header>
@@ -4521,6 +4539,7 @@ var WardaRouter = (() => {
   }
 
   function walletRender() {
+    setTimeout(holdSync, 0);
     var btn = $("wallet-btn"), lab = $("wallet-label");
     var kw = WALLETS.kasware.present(), wc = WALLETS.walletconnect.present();
     btn.classList.remove("on", "bad");
@@ -4572,13 +4591,13 @@ var WardaRouter = (() => {
 
     if (evm) {
       var here = W.chainId ? chainName(W.chainId) : "an unreported chain";
-      var sym = W.chainId === 38833 || W.chainId === 38836 ? "iKAS" : W.chainId === 1 ? "ETH" : "native";
+      var sym = ({ 38833: "iKAS", 38836: "iKAS", 1: "ETH", 8453: "ETH", 42161: "ETH", 10: "ETH", 137: "POL", 43114: "AVAX", 56: "BNB" })[W.chainId] || "native";
       $("acc-tiles").innerHTML = [
         tile(I.coin, "#0FA890", "Balance on " + esc(here), W.wei == null ? "—" : weiKas(W.wei) + " " + sym,
           W.wei == null ? "the wallet did not report one — not zero" : "the chain's own coin, read through your wallet"),
         tile(I.lock, "#9B6BE8", "Kaspa key", "none", "an Ethereum-style address cannot name the Schnorr key a grant commits to"),
         tile(I.grid, "#4C8DF6", "What it can do here", "fund · track",
-          "fund a treasury from USDC on Igra, and track any grant.json"),
+          "fund an agent from USDC or USDT on seven chains, and track any grant.json"),
         tile(I.shield, W.problem ? "#E8B23A" : "#43C97F", "Status", W.problem ? "check" : "ready",
           W.problem ? "see Identity" : "on " + here)
       ].join("");
@@ -5240,7 +5259,7 @@ var WardaRouter = (() => {
      route, and choosing it takes a tick in a box that says so. */
   var ROUTES = null;
   fetch("/routes.json").then(function (r) { return r.ok ? r.json() : null; })
-    .then(function (j) { ROUTES = j; faView(); })
+    .then(function (j) { ROUTES = j; faView(); holdSync(); })
     .catch(function () { ROUTES = false; faView(); });
 
   var LEG_PILL = { live: "live", paused: "no", experimental: "warn" };
@@ -5310,6 +5329,7 @@ var WardaRouter = (() => {
     $("fa-from-s").textContent = W && W.family === "evm"
       ? "from " + WALLETS[W.kind].name + " · " + short(W.address) + (W.chainId && W.chainId !== src.chainId ? " — your wallet is on " + chainName(W.chainId) + ", not " + src.chain : "")
       : "from any wallet on " + src.chain + " — connect one under Your account";
+    holdFund(src);
     $("fa-kas").textContent = kasN == null ? "—" : "≈ " + Math.floor(kasN).toLocaleString("en-US") + " KAS";
     $("fa-kas-s").textContent = kasN == null
       ? (usd > 0 ? "Waiting for the market price. That is no estimate, not a zero." : "Enter an amount above zero.")
@@ -7577,6 +7597,7 @@ var WardaRouter = (() => {
       /* Changing what you pay, or with what, makes a new swap: the unpaid one
          is set aside rather than silently kept at the old terms. */
       if (["fa-usd", "fa-chain", "fa-tok", "fu-addr"].indexOf(id) >= 0) cnAside();
+      if (id === "fa-chain" || id === "fa-tok") faView.touched = true;
       faView();
     };
     $(id).addEventListener("input", f); $(id).addEventListener("change", f);
@@ -7800,6 +7821,141 @@ var WardaRouter = (() => {
     if (n && n.scrollIntoView) n.scrollIntoView({ block: "center" });
   });
 
+  /* ---- holdings -----------------------------------------------------------
+     What a connected 0x wallet holds in USDC and USDT on every chain Fund an
+     agent takes money from. Read from each chain's public RPC — not through
+     the wallet, which only answers for the chain it is on — and checked: the
+     contract must call itself the token it is listed as. A chain that did not
+     answer is shown as not read, never as zero. */
+  var HOLD = { address: null, rows: null, busy: false, at: null };
+  function rpcCall(urls, method, params) {
+    var i = 0;
+    function go() {
+      if (i >= urls.length) return Promise.reject(new Error("no RPC answered"));
+      var u = urls[i++];
+      var ctl = typeof AbortController === "function" ? new AbortController() : null;
+      var t = ctl ? setTimeout(function () { ctl.abort(); }, 8000) : null;
+      return fetch(u, { method: "POST", headers: { "content-type": "application/json" }, signal: ctl ? ctl.signal : undefined,
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: method, params: params }) })
+        .then(function (r) { return r.json(); })
+        .then(function (j) { clearTimeout(t); if (!j || j.error || j.result == null) throw new Error("bad answer"); return j.result; })
+        .catch(function () { clearTimeout(t); return go(); });
+    }
+    return go();
+  }
+  function abiStr(hex) {
+    hex = String(hex || "").replace(/^0x/, "");
+    var bytes = hex.length >= 192 ? hex.slice(128, 128 + parseInt(hex.slice(64, 128), 16) * 2) : hex.replace(/(00)+$/, "");
+    var arr = new Uint8Array((bytes.match(/../g) || []).map(function (h) { return parseInt(h, 16); }));
+    try { return new TextDecoder().decode(arr).replace(/\0/g, "").trim(); } catch (e) { return ""; }
+  }
+  function fromUnits(raw, dec) {
+    var s = raw.toString();
+    if (!dec) return s;
+    s = s.padStart(dec + 1, "0");
+    var f = s.slice(-dec).replace(/0+$/, "");
+    return s.slice(0, -dec) + (f ? "." + f : "");
+  }
+  function money(x) { return Number(x).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function holdOne(src, tok, addr) {
+    var c = src.contracts[tok];
+    var call = function (data) { return rpcCall(src.rpc, "eth_call", [{ to: c, data: data }, "latest"]); };
+    return Promise.all([call("0x70a08231" + word(addr)), call("0x313ce567"), call("0x95d89b41")]).then(function (r) {
+      var sym = abiStr(r[2]), norm = sym.replace(/₮/g, "T").toUpperCase();
+      if (norm.indexOf(tok) !== 0) return { chain: src.chain, token: tok, err: "its contract calls itself " + (sym || "nothing") };
+      var dec = Number(BigInt(r[1])), raw = BigInt(r[0]);
+      return { chain: src.chain, token: tok, raw: raw, amount: fromUnits(raw, dec) };
+    }).catch(function () { return { chain: src.chain, token: tok, err: "no RPC answered" }; });
+  }
+  function holdSync(force) {
+    var addr = W && W.family === "evm" && W.address ? String(W.address).toLowerCase() : null;
+    if (!addr) { if (HOLD.address) { HOLD = { address: null, rows: null, busy: false, at: null }; holdRender(); } return; }
+    if (!ROUTES) return;   // the route table names the chains and contracts; holdSync runs again when it loads
+    if (!force && HOLD.address === addr && (HOLD.rows || HOLD.busy)) return;
+    HOLD = { address: addr, rows: HOLD.address === addr ? HOLD.rows : null, busy: true, at: HOLD.at };
+    holdRender();
+    var jobs = [];
+    ROUTES.networks.mainnet.sources.forEach(function (src) {
+      if (src.rpc && src.contracts) Object.keys(src.contracts).forEach(function (tok) { jobs.push(holdOne(src, tok, addr)); });
+    });
+    Promise.all(jobs).then(function (rows) {
+      if (HOLD.address !== addr) return;
+      HOLD.rows = rows; HOLD.busy = false; HOLD.at = new Date().toISOString();
+      holdRender(); holdPick();
+    });
+  }
+  function holdHave() { return (HOLD.rows || []).filter(function (r) { return !r.err && r.raw > 0n; }); }
+  function holdOf(chain, tok) { return (HOLD.rows || []).filter(function (r) { return r.chain === chain && r.token === tok; })[0] || null; }
+  function holdUse(chain, tok, amount) {
+    var srcs = ROUTES.networks.mainnet.sources, i = srcs.map(function (x) { return x.chain; }).indexOf(chain);
+    if (i < 0) return;
+    faView.touched = true;
+    $("fa-chain").value = String(i); faView();
+    $("fa-tok").value = tok;
+    if (amount != null) $("fa-usd").value = amount;
+    $("fa-usd").dispatchEvent(new Event("input", { bubbles: true }));
+  }
+  /* The first time holdings arrive, Fund an agent starts on the biggest one,
+     unless the person already chose, or a swap is under way. */
+  function holdPick() {
+    if (faView.touched || CN || !ROUTES) return;
+    var have = holdHave().sort(function (a, b) { return Number(b.amount) - Number(a.amount); });
+    if (!have.length) return;
+    var cur = faView.src && holdOf(faView.src.chain, $("fa-tok").value);
+    if (cur && cur === have[0]) return;
+    holdUse(have[0].chain, have[0].token, null);
+    faView.touched = false;
+  }
+  function holdFund(src) {
+    /* Balances beside each chain and token in the pickers. */
+    var tok = $("fa-tok").value, srcs = ROUTES.networks.mainnet.sources;
+    Array.prototype.forEach.call($("fa-chain").options, function (o, i) {
+      var h = !srcs[i] ? "" : holdHave().filter(function (r) { return r.chain === srcs[i].chain; })
+        .map(function (r) { return money(r.amount) + " " + r.token; }).join(" · ");
+      if ((o.getAttribute("data-hint") || "") !== h) o.setAttribute("data-hint", h);
+    });
+    Array.prototype.forEach.call($("fa-tok").options, function (o) {
+      var r = HOLD.rows ? holdOf(src.chain, o.value || o.text) : null;
+      var h = r && !r.err && r.raw > 0n ? money(r.amount) : "";
+      if ((o.getAttribute("data-hint") || "") !== h) o.setAttribute("data-hint", h);
+    });
+    if (!(W && W.family === "evm")) return;
+    var el = $("fa-from-s"), r = holdOf(src.chain, tok);
+    var say = HOLD.busy && !HOLD.rows ? " · reading what it holds…"
+      : !r ? "" : r.err ? " · " + tok + " here not read (" + r.err + ")"
+      : r.raw > 0n ? " · you have " + money(r.amount) + " " + tok + " here" : " · no " + tok + " on " + src.chain;
+    el.innerHTML = esc(el.textContent) + '<span class="fa-have">' + esc(say) + '</span>' +
+      (r && !r.err && r.raw > 0n ? '<button type="button" id="fa-all">use all</button>' : "");
+    if ($("fa-all")) $("fa-all").onclick = function () { holdUse(src.chain, tok, r.amount); };
+  }
+  function holdRender() {
+    var on = !!(W && W.family === "evm");
+    $("acc-hold").hidden = !on;
+    if (ROUTES && faView.src) faView();
+    if (!on) return;
+    var rows = HOLD.rows || [], have = holdHave(), bad = rows.filter(function (r) { return r.err; });
+    var chains = {}; rows.forEach(function (r) { chains[r.chain] = 1; });
+    $("acc-hold-n").textContent = HOLD.busy ? "reading…" : HOLD.at ? Object.keys(chains).length + " chains · read " + ago(HOLD.at) : "";
+    $("acc-hold-r").disabled = HOLD.busy;
+    $("acc-hold-l").innerHTML = !HOLD.rows ? '<p class="why">Reading each chain&hellip;</p>'
+      : have.length ? have.sort(function (a, b) { return Number(b.amount) - Number(a.amount); }).map(function (r) {
+          return '<div class="hold-r">' + wselDot(r.token).replace("dot", "dot") + '<b>' + esc(money(r.amount)) + ' ' + esc(r.token) + '</b>' +
+            '<span>on ' + esc(r.chain) + '</span>' +
+            '<button class="go gh" type="button" data-hold="' + esc(r.chain + "|" + r.token + "|" + r.amount) + '">Fund an agent with it &rarr;</button></div>';
+        }).join("")
+      : '<p class="empty">No USDC or USDT on the chains this console funds from' + (bad.length ? " that answered" : "") + '.</p>';
+    $("acc-hold-s").textContent = !HOLD.rows ? "" :
+      (bad.length ? "Not read: " + bad.map(function (r) { return r.token + " on " + r.chain + " (" + r.err + ")"; }).join(", ") + ". Not read is not zero. " : "") +
+      "Read from each chain's public node, for this address, whichever chain your wallet is on. Only USDC and USDT, the two Fund an agent takes.";
+    Array.prototype.forEach.call($("acc-hold-l").querySelectorAll("[data-hold]"), function (b) {
+      b.onclick = function () {
+        var p = b.getAttribute("data-hold").split("|");
+        show("fund"); holdUse(p[0], p[1], p[2]);
+      };
+    });
+  }
+  $("acc-hold-r").addEventListener("click", function () { holdSync(true); });
+
   /* ---- selects ------------------------------------------------------------
      Every <select> in the console gets a drawn button and list. The native
      element keeps its value and fires its own input/change events, so no
@@ -7855,7 +8011,8 @@ var WardaRouter = (() => {
     function item(o, i) {
       return '<li role="option" data-i="' + i + '" aria-selected="' + (i === sel.selectedIndex) + '"' +
         (o.disabled ? ' aria-disabled="true"' : '') + (i === hi ? ' class="hi"' : '') + '>' +
-        wselDot(o.text) + '<span class="t">' + esc(o.text) + '</span>' + WSEL_CK + '</li>';
+        wselDot(o.text) + '<span class="t">' + esc(o.text) + '</span>' +
+        (o.getAttribute("data-hint") ? '<span class="h">' + esc(o.getAttribute("data-hint")) + '</span>' : '') + WSEL_CK + '</li>';
     }
     function mark(i) {
       hi = i;
@@ -7934,7 +8091,7 @@ var WardaRouter = (() => {
     });
     sel.addEventListener("change", sync);
     new MutationObserver(sync).observe(sel, { childList: true, subtree: true, characterData: true, attributes: true,
-      attributeFilter: ["disabled", "hidden", "selected", "label"] });
+      attributeFilter: ["disabled", "hidden", "selected", "label", "data-hint"] });
     sync();
   }
   document.addEventListener("click", function () { if (WSEL_OPEN) WSEL_OPEN(); });
