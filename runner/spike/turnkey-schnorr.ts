@@ -11,18 +11,44 @@
  * Run (needs a Turnkey organisation and an API key pair; free tier is fine):
  *
  *   cd runner/spike && npm init -y >/dev/null && npm i @turnkey/sdk-server
- *   TURNKEY_ORGANIZATION_ID=… TURNKEY_API_PUBLIC_KEY=… TURNKEY_API_PRIVATE_KEY=… \
+ *   TURNKEY_ORGANIZATION_ID=… TURNKEY_KEY_FILE=~/Downloads/key.json \
  *     node --experimental-strip-types turnkey-schnorr.ts
+ *
+ * or TURNKEY_API_PUBLIC_KEY / TURNKEY_API_PRIVATE_KEY in place of the file.
  *
  * PASS means: build TurnkeyVault. FAIL means: EnvelopeVault + KMS to mainnet.
  * The Turnkey call names below are from their docs and have NOT been run here.
  */
 import { randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { schnorr } from "@noble/curves/secp256k1.js";
 
+/* Keys can come from the JSON file the dashboard gives you (TURNKEY_KEY_FILE)
+   or from the environment. The file's field names are matched loosely, and
+   only the field NAMES are ever printed — never a value. */
+const fromFile: Record<string, string> = {};
+if (process.env.TURNKEY_KEY_FILE) {
+  const raw = JSON.parse(readFileSync(process.env.TURNKEY_KEY_FILE.replace(/^~/, homedir()), "utf8"));
+  const flat = (o: unknown, out: Record<string, string>) => {
+    if (o && typeof o === "object") for (const [k, v] of Object.entries(o)) {
+      if (typeof v === "string") out[k.toLowerCase().replace(/[^a-z]/g, "")] = v; else flat(v, out);
+    }
+    return out;
+  };
+  const f = flat(raw, {});
+  const pick = (...names: string[]) => names.map((n) => f[n]).find(Boolean);
+  const pub = pick("apipublickey", "publickey", "public");
+  const priv = pick("apiprivatekey", "privatekey", "private");
+  const org = pick("organizationid", "orgid", "defaultorganizationid");
+  if (pub) fromFile.TURNKEY_API_PUBLIC_KEY = pub;
+  if (priv) fromFile.TURNKEY_API_PRIVATE_KEY = priv;
+  if (org) fromFile.TURNKEY_ORGANIZATION_ID = org;
+  console.log(`key file fields: ${Object.keys(f).join(", ")}`);
+}
 const need = (k: string) => {
-  const v = process.env[k];
-  if (!v) throw new Error(`set ${k}`);
+  const v = process.env[k] || fromFile[k];
+  if (!v) throw new Error(`set ${k} (or put it in the file TURNKEY_KEY_FILE points at)`);
   return v;
 };
 
