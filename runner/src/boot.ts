@@ -180,7 +180,11 @@ export async function boot(e: NodeJS.ProcessEnv = process.env, defaults: { baseU
     funder, prefix,
     ...(e.ANTHROPIC_API_KEY ? { drafter: claudeDrafter({ apiKey: e.ANTHROPIC_API_KEY, ...(e.RUNNER_DRAFT_MODEL ? { model: e.RUNNER_DRAFT_MODEL } : {}) }) } : {}),
     ...(telegram ? { telegram } : {}),
-    mcp: createMcp({ store, registry, engine, grants, fees }),
+    mcp: createMcp({
+      store, registry, engine, grants, fees, consoleUrl: CONSOLE,
+      ...(e.ANTHROPIC_API_KEY ? { drafter: claudeDrafter({ apiKey: e.ANTHROPIC_API_KEY, ...(e.RUNNER_DRAFT_MODEL ? { model: e.RUNNER_DRAFT_MODEL } : {}) }) } : {}),
+      tellOwner: (agent, text) => notifier.notify("telegram", "", text, agent),
+    }),
     refund: (plan) => refundDeposit({ plan, registry, vault, chain: fundingChain, prefix, now: Date.now() }),
     store, registry, vault, engine, grants, fees, baseUrl,
     tickSecret: env("RUNNER_TICK_SECRET"),

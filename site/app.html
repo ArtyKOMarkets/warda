@@ -6988,7 +6988,7 @@ var WardaRouter = (() => {
       desktop: "Settings \u2192 Connectors \u2192 Add custom connector, or in claude_desktop_config.json:\n\n" +
         JSON.stringify({ mcpServers: cfg }, null, 2),
       cursor: "~/.cursor/mcp.json:\n\n" + JSON.stringify({ mcpServers: cfg }, null, 2),
-      raw: "URL     " + url + "\nHeader  Authorization: " + auth + "\nTools   get_authority, pay, list_workflows, run_workflow, list_runs",
+      raw: "URL     " + url + "\nHeader  Authorization: " + auth + "\nTools   get_authority, pay, list_workflows, run_workflow, create_job, pause_job, list_runs",
     }[c];
     $("h-mcp-out").textContent = out;
     $("h-mcp-out").hidden = false;
@@ -7001,7 +7001,7 @@ var WardaRouter = (() => {
       MCP = { agent: HR.agent, url: r.mcp.url, token: r.mcp.token };
       $("h-mcp-tabs").hidden = false;
       $("h-mcp").textContent = "Make a new token";
-      hState("h-mcp-s", "Shown once. Then ask your agent: \u201cWhat can you spend?\u201d \u2014 it will call get_authority.");
+      hState("h-mcp-s", "Shown once. Then ask your agent: \u201cWhat can you spend?\u201d \u2014 it will call get_authority. Or: \u201cGive yourself a job: every morning buy …, never more than 0.05 KAS\u201d \u2014 it drafts it with create_job, and you are told.");
       mcpShow("code");
     }).catch(function (e) { hState("h-mcp-s", e.message, true); });
   });

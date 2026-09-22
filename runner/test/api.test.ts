@@ -54,7 +54,13 @@ function bench(o: { signupCode?: string; delegate?: boolean } = {}) {
         manifest: { ...p.manifest, agent: (await vault.publicKey(child)) ?? (await vault.create(child)), budget: Number(terms.budget) } });
       return { txid: "txd", childAddress: "kaspatest:child" };
     } } : {}),
-    mcp: createMcp({ store, registry, engine, grants, fees, now: () => now }),
+    mcp: createMcp({ store, registry, engine, grants, fees, now: () => now,
+      drafter: { async draft({ agent, text }) {
+        if (/impossible/.test(text)) return { ok: false, reason: "no such payee" };
+        return { ok: true, summary: "Buy a fact every morning at 8 UTC, never more than 0.05 KAS", notes: [],
+          workflow: { agent, name: "Morning fact", trigger: { type: "schedule", cron: "0 8 * * *" }, then: [{ type: "pay-x402", url: "https://v.test/fact", maxKas: /huge/.test(text) ? "5" : "0.05" }] } };
+      } },
+      tellOwner: async (agent, text) => void tg.push([agent, text]) }),
     drafter: { async draft({ agent }) { return { ok: true, workflow: { agent, name: "x", trigger: { type: "manual" }, then: [{ type: "send", to: "ff".repeat(32), kas: "0.9" }] }, summary: "s", notes: [] }; } },
     telegram: { hookSecret: "hooksecret", username: async () => "warda_test_bot", send: async (chat, text) => void tg.push([chat, text]),
       site: async (code, chat) => { siteLinks.push([code, chat]); return code === "s-0123456789ab" ? { ok: true, rules: 2 } : { ok: false }; } },
@@ -225,7 +231,7 @@ test("MCP: an agent token reads its authority and pays inside its grant, and not
   const init = await rpc("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "t", version: "1" } });
   assert.match(init.body.result.instructions, /shop-bot/);
   const tools = (await rpc("tools/list")).body.result.tools.map((x: { name: string }) => x.name);
-  assert.deepEqual(tools, ["get_authority", "pay", "list_workflows", "run_workflow", "list_runs"]);
+  assert.deepEqual(tools, ["get_authority", "pay", "list_workflows", "run_workflow", "create_job", "pause_job", "list_runs"]);
   const auth = JSON.parse((await rpc("tools/call", { name: "get_authority", arguments: {} })).body.result.content[0].text);
   assert.equal(auth.perPaymentCapKas, "0.5");
   const paid = await rpc("tools/call", { name: "pay", arguments: { url: "https://v.test/fact", max_kas: "0.05" } });
@@ -436,4 +442,33 @@ test("a public receipt: nothing until the owner shares it, then readable by anyo
   assert.equal((await b.call("GET", "/v1/agents/shop-bot", { key: b.key })).body.public, true);
   await b.call("POST", "/v1/agents/shop-bot/public", { key: b.key, body: { on: false } });
   assert.equal((await b.call("GET", "/v1/public/agents/shop-bot/reading")).status, 404);
+});
+
+test("MCP create_job: an agent drafts its own job, sees it, confirms it; the grant's limits still apply; the owner is told", async () => {
+  const b = await onboarded();
+  const t = (await b.call("POST", "/v1/agents/shop-bot/token", { key: b.key, body: {} })).body.mcp.token as string;
+  const tool = async (name: string, args: unknown) => {
+    const r = await b.call("POST", "/mcp", { body: { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } }, headers: { authorization: `Bearer ${t}` } });
+    return { err: !!r.body.result.isError, text: r.body.result.content[0].text as string };
+  };
+  const preview = await tool("create_job", { sentence: "buy a fact every morning, 0.05 max" });
+  assert.equal(preview.err, false);
+  assert.match(preview.text, /confirm: true/);
+  assert.equal((await b.call("GET", "/v1/agents/shop-bot", { key: b.key })).body.workflows.length, 0, "a preview saves nothing");
+
+  const made = JSON.parse((await tool("create_job", { sentence: "buy a fact every morning, 0.05 max", confirm: true, ask_owner_first: true })).text);
+  assert.match(made.name, /^🤖 /);
+  const wfs = (await b.call("GET", "/v1/agents/shop-bot", { key: b.key })).body.workflows;
+  assert.equal(wfs.length, 1);
+  assert.equal(b.tg.at(-1)![0], "shop-bot");
+  assert.match(b.tg.at(-1)![1], /gave itself a job/);
+
+  const over = await tool("create_job", { sentence: "buy a huge fact every morning", confirm: true });
+  assert.equal(over.err, true);
+  assert.match(over.text, /over the grant's per-payment cap/);
+  assert.equal((await tool("create_job", { sentence: "something impossible please" })).err, true);
+
+  const paused = JSON.parse((await tool("pause_job", { id: made.created })).text);
+  assert.equal(paused.paused, made.created);
+  assert.equal((await b.call("GET", "/v1/agents/shop-bot", { key: b.key })).body.workflows[0].enabled, false);
 });

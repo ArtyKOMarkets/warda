@@ -21,7 +21,9 @@ import { emptyLedger, feePayeeFor } from "./fees.ts";
 import { hoursToExpiry, memberKey, spendable, type GrantReader } from "./grant.ts";
 import type { Registry } from "./registry.ts";
 import type { Store } from "./store.ts";
-import { parseWorkflow } from "./workflow.ts";
+import { parseWorkflow, WorkflowError } from "./workflow.ts";
+import type { Drafter } from "./draft.ts";
+import { jobProblem } from "./jobs.ts";
 
 export interface McpDeps {
   store: Store;
@@ -30,7 +32,15 @@ export interface McpDeps {
   grants: GrantReader;
   fees: FeePolicy;
   now?: () => number;
+  /** Sentence → job, for create_job. Absent: the tool says so. */
+  drafter?: Drafter;
+  /** Tells the agent's owner (Telegram) that the agent changed its own jobs. */
+  tellOwner?: (agent: string, text: string) => Promise<void>;
+  /** For the owner's link in that message. */
+  consoleUrl?: string;
 }
+
+const JOBS_PER_DAY = 20;
 
 const PROTOCOL = "2025-06-18";
 
@@ -68,6 +78,29 @@ const TOOLS = [
   {
     name: "run_workflow",
     description: "Run one of this agent's workflows now.",
+    inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"], additionalProperties: false },
+  },
+  {
+    name: "create_job",
+    description:
+      "Give yourself a standing job, described in one sentence — e.g. \"every morning at 8 UTC buy the weather from " +
+      "https://…/weather, never more than 0.05 KAS\" or \"tell my owner on Telegram when less than 20% of the budget is left\". " +
+      "First call returns the draft for you to check; call again with confirm: true to save it. The job runs inside this " +
+      "agent's grant like any other, and your owner is told that you created it and can pause it.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sentence: { type: "string", description: "what the job should do, in plain English" },
+        confirm: { type: "boolean", description: "true to save the draft; omit to only see it" },
+        ask_owner_first: { type: "boolean", description: "true: every run waits for the owner's Approve on Telegram before it pays" },
+      },
+      required: ["sentence"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "pause_job",
+    description: "Stop one of this agent's jobs from running (it stays listed, and the owner can resume it).",
     inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"], additionalProperties: false },
   },
   {
@@ -159,6 +192,46 @@ export function createMcp(d: McpDeps): (req: Request) => Promise<Response> {
         const run = await d.engine.fire(wf.id, "manual");
         const rec = (await d.store.listRuns(agent, 5)).find((x) => x.id === run);
         return text(rec ?? { run });
+      }
+      case "create_job": {
+        if (!d.drafter) return text("This runner cannot draft jobs from a sentence.", true);
+        const sentence = String(args.sentence ?? "").trim();
+        if (sentence.length < 8) return text("Say what the job should do, in a sentence.", true);
+        const owner = await d.registry.ownerOf(agent);
+        if (!owner) return text("This agent has no owner on record.", true);
+        const used = await d.registry.bumpUsage(owner, "draft", new Date(now()).toISOString().slice(0, 10));
+        if (used > JOBS_PER_DAY) return text(`That is ${JOBS_PER_DAY} drafts today for this account; the limit resets at midnight UTC.`, true);
+        const draft = await d.drafter.draft({ agent, text: sentence, grant: await d.grants.read(agent), now: now() });
+        if (!draft.ok) return text(`Not possible as asked: ${draft.reason}`, true);
+        const raw = draft.workflow as { name?: string; then?: Record<string, unknown>[] };
+        if (args.ask_owner_first === true && Array.isArray(raw.then)) {
+          raw.then = [{ type: "approval", op: "continue", note: `Your agent's job "${raw.name ?? "job"}" wants to run: ${draft.summary}` }, ...raw.then];
+        }
+        let wf;
+        try {
+          wf = parseWorkflow({ ...raw, agent, name: `🤖 ${String(raw.name ?? "job").slice(0, 60)}` }, { id: `wf_${now().toString(36)}_a${(n++).toString(36)}`, now: now() });
+        } catch (e) {
+          return text(`The draft did not parse: ${e instanceof WorkflowError ? e.message : (e as Error).message}`, true);
+        }
+        const g = await d.registry.getGrant(agent);
+        if (!g) return text("This agent has no grant yet, so it can have no jobs.", true);
+        const problem = jobProblem(wf, g, d.fees);
+        if (problem) return text(`This job could never work: ${problem}`, true);
+        if (args.confirm !== true) {
+          return text({ draft: draft.summary, job: raw, next: "If this is what you meant, call create_job again with the same sentence and confirm: true." });
+        }
+        if (wf.trigger.type === "webhook") return text("Webhook jobs need a secret shown to a person once; ask your owner to add this one in the console.", true);
+        await d.engine.add(wf);
+        await d.tellOwner?.(agent,
+          `🤖 Your agent ${agent} gave itself a job: ${draft.summary}\n\nIt runs inside the agent's grant like any other job. ` +
+            `Pause or remove it any time: ${d.consoleUrl ?? "https://www.wardaprotocol.com/app"}#/hagents`).catch(() => {});
+        return text({ created: wf.id, name: wf.name, summary: draft.summary, owner: "told on Telegram, if connected" });
+      }
+      case "pause_job": {
+        const wf = await d.store.getWorkflow(String(args.id ?? ""));
+        if (!wf || wf.agent !== agent) return text(`no job ${String(args.id)} for this agent`, true);
+        await d.store.putWorkflow({ ...wf, enabled: false });
+        return text({ paused: wf.id });
       }
       case "list_runs": {
         const limit = Math.min(50, Math.max(1, Number(args.limit ?? 10)));

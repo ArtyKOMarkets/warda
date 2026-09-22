@@ -42,6 +42,7 @@ import { timingSafeEqual } from "node:crypto";
 import type { Ops } from "./ops.ts";
 import { adminStats } from "./admin.ts";
 import type { SubAgentTerms } from "./delegate.ts";
+import { jobProblem } from "./jobs.ts";
 
 const PUBLIC_CONSOLE = "https://www.wardaprotocol.com/app";
 
@@ -567,20 +568,8 @@ export function createApi(d: ApiDeps): (req: Request) => Promise<Response> {
       await ownAgent(acct, wf.agent);
       const g = await d.registry.getGrant(wf.agent);
       if (!g) throw new HttpError(409, `register ${wf.agent}'s grant first: PUT /v1/agents/${wf.agent}/grant`);
-      const members = g.recipients.map(memberKey);
-      if (spends(wf) && !paysFee(members)) {
-        throw new HttpError(422,
-          `this workflow spends, and ${wf.agent}'s grant cannot pay the runner's fee: ${d.fees.payee} is not on its allowlist. ` +
-          `An allowlist is fixed when a grant is created, so this grant can run notify, http and approval workflows only.`);
-      }
-      const cap = BigInt(g.manifest.max_per_spend);
-      for (const a of wf.actions) {
-        if (a.type === "send" && !members.includes(memberKey(a.to))) {
-          throw new HttpError(422, `${a.to} is not on ${wf.agent}'s allowlist; no transaction can pay it`);
-        }
-        const amt = a.type === "send" ? a.sompi : a.type === "pay-x402" ? a.maxSompi : 0n;
-        if (amt > cap) throw new HttpError(422, `${formatKas(amt)} KAS is over the grant's per-payment cap of ${formatKas(cap)} KAS`);
-      }
+      const problem = jobProblem(wf, g, d.fees);
+      if (problem) throw new HttpError(422, problem);
       await d.engine.add(wf);
       const out: Record<string, unknown> = { workflow: summary(wf) };
       if (wf.trigger.type === "webhook") {
