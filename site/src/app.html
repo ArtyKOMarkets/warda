@@ -621,6 +621,10 @@
   .wsel-list li .h { color: var(--chrome-faint); font-size: 0.72rem; margin-left: 1.2rem; }
   .wsel-list li[aria-selected="true"] .h, .wsel-list li.hi .h { color: var(--chrome-dim); }
   .hold { display: grid; gap: 0.45rem; }
+  .h-stable { margin-top: 0.8rem; border: 1px solid var(--edge-bright); border-radius: 10px; padding: 0.75rem 0.9rem;
+    display: flex; flex-wrap: wrap; gap: 0.6rem 1rem; align-items: center; justify-content: space-between; }
+  .h-stable p { margin: 0; flex: 1 1 20rem; font-size: 0.82rem; color: var(--chrome-dim); line-height: 1.5; }
+  .h-stable p b { color: var(--chrome); }
   .sa-need { border: 1px dashed var(--edge-bright); border-radius: 10px; padding: 0.8rem 0.9rem; display: grid; gap: 0.6rem; justify-items: start; }
   .sa-need p { margin: 0; font-size: 0.82rem; color: var(--chrome-dim); line-height: 1.5; }
   .tp-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: 0.7rem; margin-top: 0.6rem; }
@@ -1861,6 +1865,7 @@ ops/install-cron.sh</pre>
           <div class="wz-step" data-wz="fu" data-n="1" data-label="You pay">
             <div class="card fa">
               <header><h2>What you pay with</h2></header>
+              <div class="fa-pend" id="fa-for" hidden></div>
               <div class="fa-pend" id="fa-pend" hidden></div>
               <div class="fa-side">
                 <label for="fa-usd">You pay</label>
@@ -2282,6 +2287,11 @@ ops/install-cron.sh</pre>
                 single transaction. All of it goes into the grant, and the grant&rsquo;s stop-and-reclaim key is yours.
                 Between your payment arriving and that transaction confirming &mdash; usually under a minute &mdash; the
                 runner controls the deposit. After that, it cannot take a single sompi back out.</p>
+              <div class="h-stable" id="h-stable">
+                <p><b>No KAS?</b> <span id="h-stable-say">Pay with USDC or USDT from Base, Ethereum, Arbitrum and more &mdash; it is swapped
+                  to KAS and lands at this deposit address in one payment.</span></p>
+                <button class="go gh" type="button" id="h-stable-go">Pay with USDC or USDT &rarr;</button>
+              </div>
               <p class="state" id="h-fund-s">Waiting for your payment&hellip;</p>
               <p style="margin-top:0.6rem"><button class="go gh" id="h-refund">Changed your mind? Send it back</button></p>
             </div>
@@ -6429,6 +6439,7 @@ ops/install-cron.sh</pre>
   }
   function hFund(f) {
     HR.funding = f;
+    hStable(f);
     $("h-amt").textContent = f.amountKas + " KAS";
     $("h-addr").textContent = f.address;
     $("h-open").href = f.uri;
@@ -7418,6 +7429,7 @@ ops/install-cron.sh</pre>
       if (["fa-usd", "fa-chain", "fa-tok", "fu-addr"].indexOf(id) >= 0) cnAside();
       if (id === "fa-chain" || id === "fa-tok") faView.touched = true;
       faView();
+      if (typeof faFor === "function") faFor();
     };
     $(id).addEventListener("input", f); $(id).addEventListener("change", f);
   });
@@ -7958,6 +7970,39 @@ ops/install-cron.sh</pre>
     }).catch(function (e) { $("sa-s").textContent = e.message; })
       .then(function () { $("sa-go").disabled = false; });
   });
+
+  /* ---- paying a hosted agent's deposit with stablecoins ---------------------
+     Fund an agent already swaps USDC/USDT to KAS through ChangeNOW; here it is
+     pointed at the agent's deposit address, with a margin so the one payment
+     that arrives covers the whole deposit (anything over goes into the grant).
+     ChangeNOW delivers mainnet KAS only, so on testnet this says so instead. */
+  var FA_FOR = null;
+  function hStable(f) {
+    var test = /^kaspatest:/.test(f.address || "");
+    $("h-stable-go").hidden = test;
+    $("h-stable-say").innerHTML = test
+      ? "Paying with USDC or USDT opens on <b>mainnet</b>: the swap delivers real KAS, and this runner is on testnet-10, where KAS is free. " +
+        '<a href="https://faucet-tn10.kaspanet.io/" target="_blank" rel="noopener">Get testnet KAS from the faucet</a>, then send it here.'
+      : "Pay with USDC or USDT from Base, Ethereum, Arbitrum and more — it is swapped to KAS and lands at this deposit address in one payment.";
+  }
+  $("h-stable-go").addEventListener("click", function () {
+    var f = HR.funding; if (!f) return;
+    var need = Number(f.amountKas);
+    FA_FOR = { agent: HR.agent, address: f.address, kas: need };
+    $("fu-addr").value = f.address;
+    FA_ROUTE = "changenow";
+    if (MARKET && MARKET.rate) $("fa-usd").value = String(Math.ceil(need * MARKET.rate * 1.06 + 1));
+    faView.touched = true;
+    show("fund");
+    faView(); faFor();
+  });
+  function faFor() {
+    var el = $("fa-for"); if (!el) return;
+    if (!FA_FOR || $("fu-addr").value.trim() !== FA_FOR.address) { el.hidden = true; return; }
+    el.hidden = false;
+    el.innerHTML = "<p>Paying the deposit for your new agent <b>" + esc(FA_FOR.agent) + "</b>. At least <b>" + esc(FA_FOR.kas) +
+      " KAS</b> must arrive in <b>one</b> payment; the amount above has a margin for the rate moving. Anything over goes into the agent's grant, not to anyone else.</p>";
+  }
 
   /* ---- monthly statement --------------------------------------------------- */
   (function () {
