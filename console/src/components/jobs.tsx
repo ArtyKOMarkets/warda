@@ -100,7 +100,7 @@ export function JobsTab({ agent, h }: { agent: string; h: ReturnType<typeof useH
   };
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
       <div className="space-y-4">
         <Card>
           <CardHeader title="Jobs" sub="What this agent does, and when" />

@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
-import { BellRing, CircleCheck, ExternalLink, Loader2, LogIn, Send } from "lucide-react";
+import { BellRing, CircleCheck, Loader2, LogIn, Send } from "lucide-react";
 import { useData } from "@/lib/data";
 import { api } from "@/lib/runner";
 import { href } from "@/lib/router";
 import { cn } from "@/lib/cn";
 import { AgentMark } from "@/components/agent";
-import { Button, Card, CardHeader, Empty, LinkButton, PageHeader } from "@/components/ui";
+import { Button, Card, CardHeader, Empty, LinkButton, PageHeader, Tabs } from "@/components/ui";
+import { go } from "@/lib/router";
+import { AlertRules } from "./AlertRules";
 import { agentName } from "./shared";
 
 interface Wf { id: string; name: string; enabled: boolean; trigger: { type: string; when?: string; percent?: number; hours?: number } }
@@ -35,7 +37,7 @@ function Toggle({ on, busy, onClick, label }: { on: boolean; busy?: boolean; onC
   );
 }
 
-export function Alerts() {
+function HostedAlerts() {
   const { runner, agents } = useData();
   const hosted = agents.filter((a) => a.source === "hosted" && a.status !== "ended" && a.status !== "expired");
   const [tg, setTg] = useState<{ available: boolean; connected: boolean } | null>(null);
@@ -78,7 +80,6 @@ export function Alerts() {
   if (!runner.key) {
     return (
       <>
-        <PageHeader title="Alerts" sub="Get a Telegram message when an agent runs low or its grant is nearly over." />
         <Card><Empty icon={<LogIn className="size-5" />} title="Sign in to the runner" action={<LinkButton variant="primary" href={href("account")}>Sign in</LinkButton>}>Alerts run on the runner, for your hosted agents.</Empty></Card>
       </>
     );
@@ -86,8 +87,7 @@ export function Alerts() {
 
   return (
     <>
-      <PageHeader title="Alerts" sub="A Telegram message when an agent needs you. Alerts only tell you — they never move money." />
-      <div className="grid items-start gap-4 lg:grid-cols-[1fr_340px]">
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
         <Card>
           <CardHeader title="Per agent" sub="Checked by the runner every minute" />
           {err && <p className="mx-5 mt-3 rounded-lg bg-bad/10 px-3 py-2 text-[12.5px] text-bad">{err}</p>}
@@ -135,12 +135,23 @@ export function Alerts() {
             {tg && !tg.connected && tg.available && <p className="mt-3 text-[12px] text-fg-3">Alerts you turn on now start arriving once it's connected.</p>}
           </Card>
           <Card className="p-5">
-            <div className="text-[14px] font-semibold">Watch any address</div>
-            <p className="mt-2 text-[13px] leading-relaxed text-fg-2">Money-arrived and spending-spike rules that run on your own machine are in the classic console.</p>
-            <LinkButton className="mt-4" href="/app-classic#/alerts">Open local alerts <ExternalLink className="size-4" /></LinkButton>
+            <div className="text-[14px] font-semibold">Watch an address or any grant</div>
+            <p className="mt-2 text-[13px] leading-relaxed text-fg-2">Money arrived, running out, nearly over and spending spikes, for any address or tracked grant — run by your console account.</p>
+            <LinkButton className="mt-4" href={href("alerts", "rules")}>Build a rule</LinkButton>
           </Card>
         </div>
       </div>
+    </>
+  );
+}
+
+export function Alerts({ tab, arg }: { tab?: string; arg?: string }) {
+  const t = tab === "rules" || tab === "watch" ? "rules" : "agents";
+  return (
+    <>
+      <PageHeader title="Alerts" sub="A Telegram message when something needs you. Alerts only tell you — they never move money." />
+      <Tabs className="mb-6" value={t} onChange={(v) => go("alerts", v)} items={[{ value: "agents", label: "Hosted agents" }, { value: "rules", label: "Addresses & grants" }]} />
+      {t === "agents" ? <HostedAlerts /> : <AlertRules watch={tab === "watch" ? arg : undefined} />}
     </>
   );
 }

@@ -5,6 +5,8 @@ import {
 import { cn } from "@/lib/cn";
 import { href } from "@/lib/router";
 import { useData } from "@/lib/data";
+import { useWallet } from "@/lib/connect";
+import { short } from "@/lib/format";
 import { ago } from "@/lib/format";
 
 type Item = { id: string; label: string; icon: typeof Bot; to?: string; classic?: string };
@@ -79,6 +81,17 @@ function NetworkPill() {
   );
 }
 
+function WalletChip() {
+  const { wallet } = useWallet();
+  return wallet ? (
+    <a href={href("account", "wallet")} className="inline-flex h-7 items-center gap-2 rounded-full border border-line-strong bg-surface px-2.5 text-[12px] font-medium text-fg-2 transition hover:text-fg">
+      <span className={cn("size-2 rounded-full", wallet.problem ? "bg-warn" : "bg-accent")} /><span className="num">{short(wallet.address, wallet.family === "evm" ? 6 : 14, 4)}</span>
+    </a>
+  ) : (
+    <a href={href("account", "wallet")} className="inline-flex h-7 items-center whitespace-nowrap rounded-full border border-line-strong px-3 text-[12px] font-medium text-fg-2 transition hover:border-accent/50 hover:text-fg">Connect<span className="hidden sm:inline">&nbsp;wallet</span></a>
+  );
+}
+
 export function Shell({ active, children }: { active: string; children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const { reload, loading, updatedAt } = useData();
@@ -119,6 +132,7 @@ export function Shell({ active, children }: { active: string; children: ReactNod
             <RefreshCw className={cn("size-4", loading && "animate-spin")} />
           </button>
           <div className="hidden sm:block"><NetworkPill /></div>
+          <WalletChip />
         </header>
         <main className="mx-auto w-full max-w-[1240px] px-4 pb-24 pt-8 sm:px-6 lg:px-10 lg:pt-10">{children}</main>
       </div>

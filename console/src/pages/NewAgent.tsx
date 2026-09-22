@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, KeyRound, Plus, ShieldCheck, Store, Trash2, Wallet, ExternalLink, LogIn } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, KeyRound, Plus, ShieldCheck, Store, Trash2, Wallet, LogIn } from "lucide-react";
 import { useData } from "@/lib/data";
 import { api, RunnerError } from "@/lib/runner";
 import { isAddress, ownerKey } from "@/lib/kaspa";
@@ -95,7 +95,7 @@ export function NewAgent() {
             <div className="grid size-11 place-items-center rounded-xl border border-line-strong bg-raised"><KeyRound className="size-5 text-fg-2" /></div>
             <h2 className="mt-5 text-[18px] font-semibold">Or make your own grant</h2>
             <p className="mt-2 text-[13.5px] leading-relaxed text-fg-2">Your software holds the agent key and you plug the grant into the SDK, CLI or MCP.</p>
-            <LinkButton className="mt-5" href="/app-classic#/create">Create a grant <ExternalLink className="size-4" /></LinkButton>
+            <LinkButton className="mt-5" href="#/create">Create a grant</LinkButton>
           </Card>
         </div>
       </>
@@ -106,7 +106,7 @@ export function NewAgent() {
   return (
     <>
       <PageHeader title="New agent" sub="Set what it may spend and who it may pay. The network enforces both, on every payment."
-        actions={<LinkButton variant="ghost" href="/app-classic#/create">Own grant instead <ExternalLink className="size-3.5" /></LinkButton>} />
+        actions={<LinkButton variant="ghost" href="#/create">Own grant instead</LinkButton>} />
 
       <ol className="mb-8 flex items-center gap-2 sm:gap-3">
         {STEPS.map((s, i) => (
@@ -122,7 +122,7 @@ export function NewAgent() {
       </ol>
 
       {step >= 2 && funding ? (
-        <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
           <DepositPanel runner={runner} agent={funding.agent} initial={funding.f} onFunded={() => { setStep(3); setRunner({ ...runner, agent: undefined }); reload(); }} />
           <Card className="h-fit p-5">
             <div className="text-[15px] font-semibold">{funding.agent}</div>
@@ -134,7 +134,7 @@ export function NewAgent() {
           </Card>
         </div>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
           <Card className="p-6">
             {step === 0 && (
               <div className="grid gap-5 sm:grid-cols-2">

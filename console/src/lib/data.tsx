@@ -3,7 +3,7 @@ import { fromHostedRow, fromReading, hostedMeta, type AgentView } from "./model"
 import { api, loadRunner, saveRunner, type RunnerConfig } from "./runner";
 import { pubkeyToAddress } from "./kaspa";
 
-export interface Service { id: string; name: string; operator: string | null; endpoint: string | null; price: string | null; address: string | null }
+export interface Service { id: string; name: string; operator: string | null; endpoint: string | null; price: string | null; priceKas: number | null; address: string | null }
 
 interface Data {
   agents: AgentView[];
@@ -41,7 +41,7 @@ function toServices(raw: any): Service[] {
     const pr = s.pricing;
     return {
       id: s.id, name: s.name, operator: s.operator ?? null, endpoint: s.endpoint ?? null,
-      price: pr ? `${pr.amount} ${pr.asset} / ${pr.unit}` : null, address,
+      price: pr ? `${pr.amount} ${pr.asset} / ${pr.unit}` : null, priceKas: pr?.asset === "KAS" && Number(pr.amount) > 0 ? Number(pr.amount) : null, address,
     };
   });
 }

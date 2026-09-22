@@ -1,4 +1,4 @@
-import { FileKey2, ExternalLink } from "lucide-react";
+import { FileKey2 } from "lucide-react";
 import { useData } from "@/lib/data";
 import { kas, short } from "@/lib/format";
 import { explorerAddress } from "@/lib/kaspa";
@@ -13,7 +13,7 @@ export function Grants() {
   return (
     <>
       <PageHeader title="Grants" sub="A grant is the on-chain contract that holds an agent's money and its rules. Its terms can't be edited — only ended." 
-        actions={<LinkButton href="/app-classic#/create">Create a grant <ExternalLink className="size-4" /></LinkButton>} />
+        actions={<LinkButton href="#/create">Create a grant</LinkButton>} />
       <Card className="overflow-hidden">
         {loading && !agents.length ? <div className="space-y-3 p-5">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-12 w-full" />)}</div> : !list.length ? (
           <Empty icon={<FileKey2 className="size-5" />} title="No grants yet">Create an agent and its grant is made for you.</Empty>

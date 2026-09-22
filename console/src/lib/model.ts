@@ -56,6 +56,7 @@ export interface AgentView {
   covenantId: string | null;
   agentKey: string | null;
   ownerKey: string | null;
+  principalKey: string | null;
 
   payments: Payment[];
   derived: DerivedLimit[];
@@ -160,6 +161,7 @@ export function fromReading(r: Json, source: Source, id: string, labels: Map<str
     covenantId: r.identity?.covenantId ?? null,
     agentKey: r.identity?.agent ?? null,
     ownerKey: r.identity?.revocation ?? r.identity?.principal ?? null,
+    principalKey: r.identity?.principal ?? null,
     payments,
     derived: ((r.refusals ?? []) as Json[]).map((x) => ({ rule: x.rule, attempted: x.attempted, why: x.refusal })),
     checkedAt: r.checkedAt ?? null,
@@ -185,7 +187,7 @@ export function fromHostedRow(row: Json): AgentView {
     maxPerPayment: null, periodLimit: null, periodSeconds: null, payees: [], delegationDepth: null,
     parent: row.parent ?? null,
     expiresIn: null, expired: status === "expired", opensIn: null,
-    grantAddress: null, covenantId: null, agentKey: null, ownerKey: null,
+    grantAddress: null, covenantId: null, agentKey: null, ownerKey: null, principalKey: null,
     payments: [], derived: [], checkedAt: null, lastActive: row.lastRun?.at ? new Date(row.lastRun.at).toISOString() : null,
     hosted: hostedMeta(row),
   };

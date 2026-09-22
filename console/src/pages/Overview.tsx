@@ -55,7 +55,7 @@ export function Overview() {
         )}
       </section>
 
-      <section className="mt-10 grid gap-4 lg:grid-cols-[1.6fr_1fr]">
+      <section className="mt-10 grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <Card>
           <CardHeader title="Recent activity" sub="Payments and refusals, newest first" action={<a href={href("activity")} className="text-[13px] text-fg-3 hover:text-fg">View all</a>} />
           <div className="mt-3">

@@ -1,10 +1,15 @@
 import { useState } from "react";
-import { Eye, EyeOff, CircleCheck, CircleAlert, ExternalLink, Server } from "lucide-react";
+import { Eye, EyeOff, CircleCheck, CircleAlert } from "lucide-react";
 import { useData } from "@/lib/data";
 import { api, DEFAULT_RUNNER } from "@/lib/runner";
-import { Button, Card, CardHeader, Copy, LinkButton, PageHeader } from "@/components/ui";
+import { Button, Card, CardHeader, Copy, PageHeader, Tabs } from "@/components/ui";
+import { useWallet } from "@/lib/connect";
+import { useAccount } from "@/lib/account";
+import { WalletCard, Holdings, UseIt, SignedNote } from "@/components/wallet-ui";
+import { ConsoleAccount, KeyGrants, TrackedGrants } from "@/components/session-ui";
+import { go } from "@/lib/router";
 
-export function Account() {
+function RunnerPanel() {
   const { runner, setRunner, errors, agents } = useData();
   const [url, setUrl] = useState(runner.url);
   const [key, setKey] = useState(runner.key);
@@ -39,8 +44,7 @@ export function Account() {
   const input = "h-10 w-full rounded-lg border border-line-strong bg-bg px-3 text-[14px] placeholder:text-fg-3 focus:border-accent/60 focus:outline-none";
   return (
     <>
-      <PageHeader title="Account" sub="Sign in to the runner to see and manage your hosted agents. Published agents show without signing in." />
-      <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <Card>
           <CardHeader title="Runner" sub={runner.key ? (errors.hosted ? "Signed in, but the runner did not answer" : `Signed in · ${hosted} hosted agent${hosted === 1 ? "" : "s"}`) : "Not signed in"} />
           <form className="space-y-4 p-5" onSubmit={(e) => { e.preventDefault(); save(); }}>
@@ -84,13 +88,37 @@ export function Account() {
             )}
           </Card>
         ) : null}
-        <Card className="p-5">
-          <div className="flex items-center gap-2 text-[15px] font-semibold"><Server className="size-4 text-accent" /> Your wallet</div>
-          <p className="mt-2 text-[13px] leading-relaxed text-fg-2">Connecting a wallet to see its balances is still in the classic console. Telegram is under <a className="text-fg hover:text-accent" href="#/alerts">Alerts</a>.</p>
-          <LinkButton className="mt-4" href="/app-classic#/account">Open account settings <ExternalLink className="size-4" /></LinkButton>
-        </Card>
+
         </div>
       </div>
+    </>
+  );
+}
+
+type T = "wallet" | "console" | "grants" | "runner";
+export function Account({ tab }: { tab?: string }) {
+  const t = (["wallet", "console", "grants", "runner"].includes(tab ?? "") ? tab : "wallet") as T;
+  const { wallet } = useWallet();
+  const { me, own } = useAccount();
+  const { runner } = useData();
+  return (
+    <>
+      <PageHeader title="Account" sub="Your wallet, your console account, the grants you track, and your sign-in to the runner that hosts agents." />
+      <Tabs className="mb-6" value={t} onChange={(v) => go("account", v)} items={[
+        { value: "wallet", label: <span className="flex items-center gap-2">Wallet{wallet && <span className={`size-1.5 rounded-full ${wallet.problem ? "bg-warn" : "bg-ok"}`} />}</span> },
+        { value: "console", label: <span className="flex items-center gap-2">Console account{me && <span className="size-1.5 rounded-full bg-ok" />}</span> },
+        { value: "grants", label: "Tracked grants", count: own.length || undefined },
+        { value: "runner", label: <span className="flex items-center gap-2">Runner{!runner.key && <span className="size-1.5 rounded-full bg-warn" />}</span> },
+      ]} />
+      {t === "wallet" && (
+        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+          <div className="space-y-4"><WalletCard /><Holdings /><KeyGrants /></div>
+          <div className="space-y-4"><UseIt /><SignedNote /></div>
+        </div>
+      )}
+      {t === "console" && <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]"><ConsoleAccount /><div className="space-y-4">{!wallet && <WalletCard />}<SignedNote /></div></div>}
+      {t === "grants" && <TrackedGrants />}
+      {t === "runner" && <RunnerPanel />}
     </>
   );
 }

@@ -5,6 +5,8 @@ import { explorerTx } from "@/lib/kaspa";
 import { hasKasware, kaswareSend, qrSvg } from "@/lib/wallet";
 import { Button, Card, LinkButton } from "./ui";
 import { cn } from "@/lib/cn";
+import { href } from "@/lib/router";
+import { FOR_KEY } from "@/pages/Stablecoin";
 
 export interface Funding {
   status: string; address: string; amountKas: string; uri: string;
@@ -101,6 +103,7 @@ export function DepositPanel({ runner, agent, initial, onFunded, kind = "create"
             {hasKasware() && <Button variant="primary" onClick={send} disabled={sending || arrived}>{sending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />} Send with KasWare</Button>}
             <LinkButton href={f.uri} variant={hasKasware() ? "secondary" : "primary"}>Open in wallet</LinkButton>
             {test && <LinkButton href="https://faucet-tn10.kaspanet.io/" target="_blank" rel="noopener" variant="ghost">Get testnet KAS <ExternalLink className="size-3.5" /></LinkButton>}
+            {!test && <Button variant="ghost" onClick={() => { try { sessionStorage.setItem(FOR_KEY, JSON.stringify({ agent, address: f.address, kas: Number(f.amountKas) })); } catch { /* */ } location.hash = href("fund", "stablecoin").slice(1); }}>Pay with USDC or USDT</Button>}
           </div>
 
           <div className={cn("mt-6 flex items-start gap-2.5 rounded-xl px-3.5 py-3 text-[13px]", msg?.bad ? "bg-bad/10 text-bad" : "bg-raised text-fg-2")}>

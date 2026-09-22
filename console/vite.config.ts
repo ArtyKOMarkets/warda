@@ -2,6 +2,8 @@ declare const process: { env: Record<string, string | undefined> };
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwind from "@tailwindcss/vite";
+// Reown (WalletConnect) project id: public by design, kept beside the classic console's.
+import wc from "../site/src/walletconnect.json";
 
 /* Served by the static site at /app/ (the classic console moved to
    /app-classic). Everything is relative to that base; the router is
@@ -9,5 +11,6 @@ import tailwind from "@tailwindcss/vite";
 export default defineConfig({
   base: process.env.WARDA_BASE ?? "/app/",
   plugins: [react(), tailwind()],
-  build: { outDir: "dist", assetsDir: "assets", sourcemap: false },
+  define: { __WC_PROJECT_ID__: JSON.stringify(wc.projectId ?? "") },
+  build: { outDir: "dist", assetsDir: "assets", sourcemap: false, chunkSizeWarningLimit: 800 },
 });

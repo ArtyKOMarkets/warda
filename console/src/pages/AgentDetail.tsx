@@ -75,7 +75,7 @@ export function AgentDetail({ id, tab }: { id: string; tab?: string }) {
 
       <div className="mt-6">
         {t === "overview" && (
-          <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
             <Card>
               <CardHeader title="Recent payments" action={paid.length > 6 ? <button className="text-[13px] text-fg-3 hover:text-fg" onClick={() => setT("payments")}>View all</button> : null} />
               <div className="mt-3"><ActivityList rows={a.payments.slice(0, 6).map((p) => ({ p, a }))} empty={<Empty title="No payments yet" className="py-10">This agent has not paid for anything.</Empty>} /></div>
@@ -163,7 +163,7 @@ function Proof({ a }: { a: AgentView }) {
     ["Owner key", a.ownerKey],
   ];
   return (
-    <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
       <Card>
         <CardHeader title="On-chain identity" sub="Everything here can be checked on the Kaspa explorer" />
         <dl className="mt-2 divide-y divide-line px-5 pb-2">

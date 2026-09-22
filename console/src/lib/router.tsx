@@ -11,7 +11,7 @@ const LEGACY: Record<string, string | ((rest: string[]) => string)> = {
   refusals: "activity/blocked", registry: "services",
   agent: (r) => (r[0] ? `agents/${/^\d+$/.test(r[0]) ? "p" : "h"}:${r[0]}` : "agents"),
 };
-const CLASSIC_ONLY = new Set(["create", "admin"]);
+const CLASSIC_ONLY = new Set(["admin"]);
 
 function legacy() {
   const [head = "", ...rest] = location.hash.replace(/^#\/?/, "").split("/");
