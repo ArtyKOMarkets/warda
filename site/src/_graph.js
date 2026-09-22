@@ -12,7 +12,7 @@
  * describes. It no-ops on a page that carries none of the elements it fills.
  */
 (function () {
-  var AGENT_IDS = ["001", "002", "003", "004", "005", "006", "009", "010"];
+  var AGENT_IDS = ["001", "002", "003", "004", "005", "006", "011", "009", "010"];
 
 /* ---- the diagram -------------------------------------------------------
    Positions are fixed; everything else — which nodes exist, which are dead,
@@ -32,9 +32,12 @@ var POS = {
   /* The growth fleet: a batch grant each week (#009) and the sub-agent it
      hires (#010), which buys records from Researcher. A second tree, drawn
      below the first, because it is a separate budget with its own principal. */
-  "009": { x: 120, y: 740, role: "growth orchestrator" },
-  "010": { x: 120, y: 870, role: "Scout — buys research" },
-  researcher: { x: 545, y: 870, role: "sells /verify records" },
+  /* The first agent whose key lives in Turnkey rather than in a file here.
+     It buys from the demo vendor, so it sits with the other buyers. */
+  "011": { x: 120, y: 730, role: "key held by Turnkey" },
+  "009": { x: 120, y: 870, role: "growth orchestrator" },
+  "010": { x: 120, y: 1000, role: "Scout — buys research" },
+  researcher: { x: 545, y: 1000, role: "sells /verify records" },
   vendor:  { x: 545, y: 265, role: "sells /weather /fact" },
   /* The one node on this diagram nobody here operates. It is drawn apart from
      the others for the same reason agent #005 exists: every other arrow on
