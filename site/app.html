@@ -529,6 +529,10 @@
   .fa { display: grid; gap: 0.9rem; }
   .fa-side { background: var(--panel); border: 1px solid var(--edge); border-radius: 10px; padding: 0.85rem 0.95rem; }
   .fa-side label { display: block; margin-bottom: 0.45rem; }
+  .fa-pend { border: 1px solid var(--amber); border-radius: 10px; padding: 0.75rem 0.95rem; background: rgba(240,180,80,0.06); }
+  .fa-pend p { margin: 0 0 0.55rem; font-size: 0.82rem; color: var(--chrome-dim); line-height: 1.5; }
+  .fa-pend p b { color: var(--chrome); }
+  .fa-pend .og-a { display: flex; flex-wrap: wrap; gap: 0.5rem; }
   .fa-amt { display: flex; flex-wrap: wrap; gap: 0.5rem; }
   .fa-amt input { flex: 1 1 140px; width: auto; min-width: 0; font-size: 1.35rem; }
   .fa-amt select { flex: 0 0 auto; width: auto; }
@@ -1761,6 +1765,7 @@ ops/install-cron.sh</pre>
           <div class="wz-step" data-wz="fu" data-n="1" data-label="You pay">
             <div class="card fa">
               <header><h2>What you pay with</h2></header>
+              <div class="fa-pend" id="fa-pend" hidden></div>
               <div class="fa-side">
                 <label for="fa-usd">You pay</label>
                 <div class="fa-amt">
@@ -1877,6 +1882,7 @@ ops/install-cron.sh</pre>
                   <button class="go" id="cn-send" hidden>Send from your wallet</button>
                   <button class="go gh" id="cn-switch" hidden>Switch your wallet to this chain</button>
                   <button class="go gh" id="cn-copy">Copy the address</button>
+                  <button class="go gh" id="cn-change" hidden>Change amount or network</button>
                 </div>
                 <p class="state" id="cn-send-s"></p>
               </div>
@@ -5233,12 +5239,19 @@ var WardaRouter = (() => {
        made on — a reload must not look like the money went nowhere. */
     if (CN && !faView.resumed) {
       faView.resumed = true;
+      var unpaidAtLoad = cnUnpaid();
       var ci = srcs.map(function (x) { return x.chain; }).indexOf(CN.chain);
       if (ci >= 0) sel.value = String(ci);
       FA_ROUTE = "changenow";
       $("fa-usd").value = CN.usd || CN.amount; if (CN.cap) $("fa-cap").value = CN.cap; if (CN.days) $("fa-days").value = CN.days;
       if (CN.to) $("fu-addr").value = CN.to;
-      setTimeout(function () { WZ.fu.seen = 4; wzGo("fu", 4, true); cnRender(); cnPoll(); }, 0);
+      /* Money already moving: straight back to where it is. A swap nothing
+         was sent to yet is only a quote with an address — step 1 says so and
+         lets the amount, token and network be changed. */
+      setTimeout(function () {
+        if (unpaidAtLoad) { cnPend(); cnRender(); cnPoll(); return; }
+        WZ.fu.seen = 4; wzGo("fu", 4, true); cnRender(); cnPoll();
+      }, 0);
     }
     var src = srcs[Number(sel.value) || 0];
     var tok = $("fa-tok"), was = tok.value;
@@ -5300,7 +5313,7 @@ var WardaRouter = (() => {
     }).join("") + '<p class="why" style="margin:0.2rem 0 0">Route status checked ' + esc(ROUTES.checkedAt) +
       (stale ? ' — more than two weeks ago, so every step is shown as unchecked rather than repeated.' : '.') + '</p>';
     var custodial = route.custody !== "none";
-    $("fa-ack-l").hidden = !custodial;
+    $("fa-ack-l").hidden = !custodial || !!CN;
     $("fa-ack-t").textContent = "I understand " + route.custody + " holds the money until the KAS is sent, and that Warda is not a party to it.";
     $("fa-igra-only").hidden = route.legs.indexOf("zealous") < 0;
     $("fa-plan-card").hidden = route.legs.indexOf("exit") < 0;
@@ -5340,6 +5353,7 @@ var WardaRouter = (() => {
     } else if (!kaspaKey) why.push("No Kaspa key is connected to create the grant with.");
     if (stale) why.push("The route status has not been checked in over two weeks.");
 
+    if (isCn && CN) why = [];
     if (isCn && CN_ERR && !CN) why.unshift("ChangeNOW did not create the swap: " + CN_ERR);
     $("fa-go").disabled = why.length > 0 && !(isCn && CN_ERR && why.length === 1);
     $("fa-go").textContent = isCn ? "Create the swap" : "Fund agent";
@@ -5386,6 +5400,32 @@ var WardaRouter = (() => {
     op: "https://optimistic.etherscan.io/tx/", matic: "https://polygonscan.com/tx/", avaxc: "https://snowtrace.io/tx/", bsc: "https://bscscan.com/tx/" };
   try { CN = JSON.parse(localStorage.getItem(CN_KEY) || "null"); } catch (e) { CN = null; }
   function cnSave() { try { CN ? localStorage.setItem(CN_KEY, JSON.stringify(CN)) : localStorage.removeItem(CN_KEY); } catch (e) {} }
+
+  /* ChangeNOW's own words for "nothing has arrived": new, waiting, expired. */
+  function cnUnpaid() { return !!CN && (!CN.last || ["new", "waiting", "expired"].indexOf(CN.last) >= 0); }
+  var CN_ASIDE = null;    // the unpaid swap last set aside, so its id stays on screen
+  function cnAside() {
+    if (!cnUnpaid()) return false;
+    CN_ASIDE = { id: CN.id, amount: CN.amount, token: CN.token, chain: CN.chain };
+    clearTimeout(CN_T); CN = null; cnSave(); faView.qk = null; CN_Q = null; cnRender(); cnPend();
+    return true;
+  }
+  function cnPend() {
+    var el = $("fa-pend"); if (!el) return;
+    if (CN && cnUnpaid()) {
+      el.hidden = false;
+      el.innerHTML = '<p>You have a swap waiting for its deposit: <b>' + esc(CN.amount + " " + CN.token + " on " + CN.chain) +
+        '</b>, exchange ' + esc(CN.id) + ', created ' + esc(ago(CN.created)) + '. Nothing has arrived at it. Continue it, or change the amount, token or network below and it is set aside.</p>' +
+        '<div class="og-a"><button class="go" type="button" id="fa-pend-go">Continue this swap &rarr;</button>' +
+        '<button class="go gh" type="button" id="fa-pend-new">Start over</button></div>';
+      $("fa-pend-go").onclick = function () { WZ.fu.seen = 4; wzGo("fu", 4); cnRender(); };
+      $("fa-pend-new").onclick = function () { cnAside(); faView(); };
+    } else if (CN_ASIDE) {
+      el.hidden = false;
+      el.innerHTML = '<p>The earlier swap (' + esc(CN_ASIDE.amount + " " + CN_ASIDE.token + " on " + CN_ASIDE.chain) + ', exchange <b>' + esc(CN_ASIDE.id) +
+        '</b>) is set aside. Nothing had arrived at it; if you did send something, quote that id to ChangeNOW&rsquo;s support.</p>';
+    } else el.hidden = true;
+  }
 
   function cnMainnet(addr) {
     try { var d = WardaRouter.decodeAddress(String(addr || "").trim()); return d.prefix === "kaspa" ? "" : "The instant swap delivers mainnet KAS, so the address must start kaspa: — this one is " + d.prefix + ":."; }
@@ -5445,9 +5485,11 @@ var WardaRouter = (() => {
 
   function cnRender(st) {
     var on = !!CN;
+    cnPend();
     $("cn-dep").hidden = !on || !!(st && st.status && ["exchanging", "sending", "finished", "failed", "refunded"].indexOf(st.status) >= 0);
     $("cn-refund-f").hidden = on;
-    $("cn-reset").hidden = !on;
+    $("cn-reset").hidden = !on || cnUnpaid();
+    $("cn-change").hidden = !cnUnpaid();
     $("cn-track").hidden = !on;
     $("cn-id").textContent = on ? "exchange " + CN.id : "";
     $("fa-go").hidden = on;
@@ -7487,7 +7529,13 @@ var WardaRouter = (() => {
   /* Straight on to a grant, carrying the two things this page already knows:
      where the KAS lands, and the rate it was bought at. */
   ["fa-usd", "fa-cap", "fa-days", "fa-chain", "fa-tok", "fu-addr", "cn-refund"].forEach(function (id) {
-    var f = function () { CN_ERR = ""; faView(); };
+    var f = function () {
+      CN_ERR = "";
+      /* Changing what you pay, or with what, makes a new swap: the unpaid one
+         is set aside rather than silently kept at the old terms. */
+      if (["fa-usd", "fa-chain", "fa-tok", "fu-addr"].indexOf(id) >= 0) cnAside();
+      faView();
+    };
     $(id).addEventListener("input", f); $(id).addEventListener("change", f);
   });
   $("fu-slip").addEventListener("input", faView);
@@ -7503,6 +7551,7 @@ var WardaRouter = (() => {
       $("cn-send-s").textContent = "Deposit address copied. Send exactly " + CN.amount + " " + CN.token + " on " + CN.chain + ".";
     }, function () { $("cn-send-s").textContent = CN.payin; });
   });
+  $("cn-change").addEventListener("click", function () { cnAside(); faView(); wzGo("fu", 1); });
   $("cn-reset").addEventListener("click", function () {
     if (CN && ["finished", "failed", "refunded"].indexOf(CN.last) < 0 &&
         !confirmInline("cn-reset", "This forgets exchange " + CN.id + " in this browser. Write the id down first if you have sent anything — press again to confirm.")) return;
