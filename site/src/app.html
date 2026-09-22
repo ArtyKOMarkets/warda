@@ -5822,7 +5822,10 @@ ops/install-cron.sh</pre>
   function hLoad() {
     try {
       var v = JSON.parse(localStorage.getItem(HKEY) || "{}");
-      if (v.url) $("h-url").value = v.url;
+      /* The old default was a runner on this machine. Now the hosted one is,
+         so a saved localhost that was only ever the default does not strand
+         anyone on a runner that is no longer running. */
+      if (v.url && v.url !== "http://localhost:8787") $("h-url").value = v.url;
       if (v.key) $("h-key").value = v.key;
       if (v.agent) HR.agent = v.agent;
     } catch (e) {}
@@ -5843,7 +5846,10 @@ ops/install-cron.sh</pre>
         if (!r.ok) throw new Error(j.error || "the runner answered " + r.status);
         return j;
       });
-    }, function () { throw new Error("the runner did not answer at " + base + ". Is runner/tools/serve.ts running?"); });
+    }, function () {
+      throw new Error("the runner did not answer at " + base + "." +
+        (/localhost|127\.0\.0\.1/.test(base) ? " Is runner/tools/serve.ts running? The hosted runner is https://warda-runner.vercel.app." : ""));
+    });
   }
   function hState(id, text, bad) { var el = $(id); el.textContent = text; el.style.color = bad ? "var(--refuse)" : ""; }
   function hTx(parent, label, txid) {
