@@ -15,13 +15,14 @@
  *   RUNNER_SIGNUP_CODE  RUNNER_BASE_URL  PORT (8787)
  *   TELEGRAM_BOT_TOKEN  RUNNER_OWNER_TELEGRAM (where approvals are announced)
  *
- * The in-process tick is for running on a machine that stays up. Hosted, the
+ * The in-process tick (every 20 s; RUNNER_TICK_MS) is for a machine that stays up. Hosted, the
  * same POST /v1/tick is called by a scheduler instead.
  */
 import { createServer } from "node:http";
 import { Pool } from "@neondatabase/serverless";
 import { kas } from "@warda_protocol/core";
-import { fromHex, pubkeyToAddress } from "@warda_protocol/kaspa";
+import { fromHex, openChain, pubkeyToAddress } from "@warda_protocol/kaspa";
+import { Funder, type FundingChain } from "../src/funding.ts";
 import { Agent, type Manifest } from "@warda_protocol/agent";
 import { createApi, memberKey } from "../src/api.ts";
 import { Engine } from "../src/engine.ts";
@@ -94,7 +95,29 @@ const engine = new Engine({
   approvals: liveApprovals(notifier, () => process.env.RUNNER_OWNER_TELEGRAM ?? null, "https://wardaprotocol.com/app"),
   networkFee: 2_000_000n,
 });
+/* One chain connection for funding, reopened if it drops. */
+type Client = Awaited<ReturnType<typeof openChain>>["client"];
+let client: Client | null = null;
+const chainClient = async (): Promise<Client> =>
+  (client ??= (await openChain({ url: env("WARDA_RPC_JSON"), networkId: "testnet-10" })).client);
+const withChain = async <T>(f: (c: Client) => Promise<T>): Promise<T> => {
+  try {
+    return await f(await chainClient());
+  } catch (e) {
+    try { void client?.close(); } catch { /* already gone */ }
+    client = null;
+    throw e;
+  }
+};
+const fundingChain: FundingChain = {
+  daa: () => withChain(async (c) => (await c.getBlockDagInfo()).virtualDaaScore),
+  utxos: (a) => withChain((c) => c.getUtxosByAddresses([a])),
+  submit: (tx) => withChain((c) => c.submitTransaction(tx)),
+};
+const funder = new Funder({ registry, vault, chain: fundingChain, prefix });
+
 const api = createApi({
+  funder, prefix,
   store, registry, vault, engine, grants, fees, baseUrl,
   tickSecret: env("RUNNER_TICK_SECRET"),
   ...(process.env.RUNNER_SIGNUP_CODE ? { signupCode: process.env.RUNNER_SIGNUP_CODE } : {}),
@@ -121,6 +144,8 @@ setInterval(async () => {
   if (ticking) return; // a slow tick is skipped, never overlapped
   ticking = true;
   try {
+    const funded = await funder.tick();
+    for (const a of funded) console.error(`funded   : ${a} — deposit turned into its grant`);
     const r = await engine.tick();
     if (r.started.length || r.missed) console.error(`tick     : ${r.started.length} run(s), ${r.missed} missed`);
   } catch (e) {
@@ -128,4 +153,4 @@ setInterval(async () => {
   } finally {
     ticking = false;
   }
-}, 60_000);
+}, Number(process.env.RUNNER_TICK_MS ?? 20_000));

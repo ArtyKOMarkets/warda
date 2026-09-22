@@ -179,3 +179,13 @@ test("the key in the vector is the principal the grant names", () => {
   assert.equal(toHex(agentPublicKey(SECRET)), golden.key.xonlyPublicHex);
   assert.equal(golden.params.principalKey, golden.key.xonlyPublicHex);
 });
+
+test("a genesis that locks the whole coin has no change output", () => {
+  const plan = planFromGolden();
+  const all = buildGenesis({ ...plan, grantValue: plan.funding.value - plan.fee });
+  assert.equal(all.changeValue, 0n);
+  assert.equal(all.tx.outputs.length, 1, "a zero-value change output would not relay");
+  assert.ok(all.tx.outputs[0]!.covenant, "the grant output keeps its covenant binding");
+  const some = buildGenesis(plan);
+  assert.equal(some.tx.outputs.length, 2);
+});

@@ -143,7 +143,11 @@ export function buildGenesis(plan: GenesisPlan): UnsignedGenesis {
         scriptPublicKey: grantScriptPublicKey,
         covenant: { authorizingInput: 0, covenantId: id },
       },
-      { value: change, scriptPublicKey: changeSpk },
+      // No change output when there is no change. A zero-value output is
+      // non-standard and would stop the whole transaction relaying; a caller
+      // that locks the entire funding coin into the grant (the runner does,
+      // so the coin carries its own spend fees) has nothing to send back.
+      ...(change > 0n ? [{ value: change, scriptPublicKey: changeSpk }] : []),
     ],
     lockTime: 0n,
     subnetworkId: SUBNETWORK_ID_NATIVE,

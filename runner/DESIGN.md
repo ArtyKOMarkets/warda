@@ -14,6 +14,7 @@ an agent, set limits, fund it from a phone wallet, paste an MCP URL.
 | key | where it lives | what the runner can do with it |
 |---|---|---|
 | **agent** | the runner's vault, encrypted at rest | sign spends the covenant allows — nothing else |
+| **deposit** (one per agent) | the runner's vault | sign ONE genesis: the whole deposit into a grant whose principal and revocation are the owner's. Holds nothing afterwards |
 | principal / funder | the owner's wallet | nothing. Never sent to the runner |
 | revocation | the owner's wallet | nothing. Never sent to the runner |
 
@@ -21,6 +22,16 @@ A breach of the runner loses **at most what the grants it holds could still
 spend**, and the owner can revoke every one of them without the runner. That
 bound is set by consensus, not by our ops. It is the sentence that goes on the
 landing page and in the audit scope.
+
+**Funding from any wallet.** No phone wallet can build a covenant genesis,
+but every wallet and exchange can send KAS to an address. So the owner sends
+the amount the runner quotes (budget + genesis fee + a buffer the grant's own
+spend fees come out of) to a single-use deposit address, and the runner turns
+that coin into the grant in one transaction (`src/funding.ts`). The honest
+cost: between the deposit arriving and the genesis confirming — usually under
+a minute — the runner controls the deposit outright. Every page offering this
+says so. A retried genesis is rebuilt from the recorded inputs, so it is the
+same transaction and never a second grant.
 
 Anything that needs an owner key — top up, renew, revoke — is an
 **approval**: the runner writes a request, notifies the owner, and the owner

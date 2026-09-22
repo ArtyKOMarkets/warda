@@ -45,7 +45,8 @@ function bench(o: { signupCode?: string } = {}) {
     const res = await api(new Request(BASE + path, {
       method, headers, ...(opts.body !== undefined ? { body: JSON.stringify(opts.body) } : {}),
     }));
-    return { status: res.status, body: (await res.json()) as Record<string, any> };
+    const text = await res.text();
+    return { status: res.status, body: (text ? JSON.parse(text) : {}) as Record<string, any>, headers: res.headers };
   };
   return { call, sent, advance: (ms: number) => void (now += ms) };
 }
@@ -160,4 +161,31 @@ test("signup is invite-only when a code is set", async () => {
   const b = bench({ signupCode: "kaspa" });
   assert.equal((await b.call("POST", "/v1/accounts", { body: { code: "nope" } })).status, 403);
   assert.equal((await b.call("POST", "/v1/accounts", { body: { code: "kaspa" } })).status, 201);
+});
+
+test("creating an agent with funding returns a deposit, and the runner's fee payee is added for you", async () => {
+  const b = bench();
+  const key = (await b.call("POST", "/v1/accounts", { body: {} })).body.apiKey;
+  const r = await b.call("POST", "/v1/agents", { key, body: { id: "funded-bot", funding: {
+    principal: "02" + "cd".repeat(32),
+    limits: { budgetKas: "1", maxPerPaymentKas: "0.2", days: 7 },
+    payees: [VENDOR],
+  } } });
+  assert.equal(r.status, 201, JSON.stringify(r.body));
+  assert.match(r.body.deposit.address, /^kaspatest:q/);
+  assert.equal(r.body.deposit.amountKas, "1.11");
+  assert.match(r.body.deposit.note, /controls this deposit/);
+  assert.equal(r.body.grant.principal, "cd".repeat(32), "a compressed key from a wallet is reduced to x-only");
+  assert.ok(r.body.grant.warning, "principal doubling as revocation is flagged");
+  assert.deepEqual(r.body.grant.payees.sort(), [VENDOR, RUNNER].sort());
+  const got = await b.call("GET", "/v1/agents/funded-bot", { key });
+  assert.equal(got.body.funding.status, "awaiting-deposit");
+});
+
+test("preflight requests are answered, and every response allows the console's origin", async () => {
+  const b = bench();
+  const r = await b.call("OPTIONS", "/v1/agents");
+  assert.equal(r.status, 204);
+  assert.equal(r.headers.get("access-control-allow-origin"), "*");
+  assert.equal(r.headers.get("access-control-allow-private-network"), "true");
 });

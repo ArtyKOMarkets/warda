@@ -33,6 +33,9 @@ import type { Registry } from "./registry.ts";
 import type { Store } from "./store.ts";
 import type { KeyVault } from "./vault.ts";
 import { parseWorkflow, spends, WorkflowError, type Workflow } from "./workflow.ts";
+import { kas } from "@warda_protocol/core";
+import { createPlan, depositUri, type Funder } from "./funding.ts";
+import type { NetworkPrefix } from "@warda_protocol/kaspa";
 
 export interface ApiDeps {
   store: Store;
@@ -45,6 +48,9 @@ export interface ApiDeps {
   /** If set, signup needs `{ code }` matching it. The beta is invite-only. */
   signupCode?: string;
   baseUrl: string;
+  /** Turns deposits into grants; run on every tick. */
+  funder?: Pick<Funder, "tick">;
+  prefix?: NetworkPrefix;
   now?: () => number;
   id?: (prefix: string) => string;
 }
@@ -122,6 +128,58 @@ export function createApi(d: ApiDeps): (req: Request) => Promise<Response> {
       if (!AGENT_ID.test(agent)) throw new HttpError(400, "an agent id is 3–40 letters, digits, - or _");
       if (!(await d.registry.claimAgent(agent, acct, now()))) throw new HttpError(409, `agent ${agent} already exists`);
       const publicKey = await d.vault.create(agent);
+      if (b.funding !== undefined) {
+        const f = b.funding as Record<string, any>;
+        const lim = (f.limits ?? {}) as Record<string, unknown>;
+        const toKas = (v: unknown, name: string) => {
+          try { return kas(String(v)); } catch { throw new HttpError(400, `funding.limits.${name} must be a KAS amount like "0.5"`); }
+        };
+        const payees = Array.isArray(f.payees) ? (f.payees as unknown[]).map(String) : [];
+        if (payees.length === 0) throw new HttpError(400, "funding.payees must list who the agent may pay");
+        const strip = (k: unknown) => {
+          const h = String(k ?? "").toLowerCase();
+          return /^0[23][0-9a-f]{64}$/.test(h) ? h.slice(2) : h;
+        };
+        const principal = strip(f.principal);
+        const revocation = f.revocation ? strip(f.revocation) : principal;
+        const members = [...new Set([...payees.map(memberKey), memberKey(d.fees.payee)])];
+        const maxPer = toKas(lim.maxPerPaymentKas, "maxPerPaymentKas");
+        let plan;
+        try {
+          plan = await createPlan({
+            vault: d.vault, registry: d.registry, agent, agentKey: publicKey, principal, revocation,
+            limits: {
+              budget: toKas(lim.budgetKas, "budgetKas"),
+              maxPerSpend: maxPer,
+              epochLimit: lim.epochKas !== undefined ? toKas(lim.epochKas, "epochKas") : maxPer * 5n,
+              epochLength: 1000n,
+              days: Number(lim.days ?? 30),
+            },
+            recipients: members, prefix: d.prefix ?? "kaspatest", now: now(),
+          });
+        } catch (e) {
+          throw new HttpError(400, (e as Error).message);
+        }
+        return json(201, {
+          agent,
+          agentKey: publicKey,
+          deposit: {
+            address: plan.depositAddress,
+            amountKas: formatKas(BigInt(plan.required)),
+            uri: depositUri(plan),
+            status: plan.status,
+            note:
+              "Send exactly this, in one payment, from any wallet or exchange. The runner turns it into the grant in one " +
+              "transaction: the whole amount goes into the grant, whose principal and revocation are YOUR keys. Until " +
+              "that transaction confirms (usually under a minute), the runner controls this deposit.",
+          },
+          grant: {
+            principal, revocation,
+            ...(revocation === principal ? { warning: "revocation is your principal key: whoever can stop this grant can also take it. Fine on testnet; use a separate key on mainnet." } : {}),
+            payees: members,
+          },
+        });
+      }
       return json(201, {
         agent,
         agentKey: publicKey,
@@ -145,15 +203,27 @@ export function createApi(d: ApiDeps): (req: Request) => Promise<Response> {
       const acct = await account(req);
       const agent = m[1]!;
       await ownAgent(acct, agent);
-      const [key, grant, ledger, workflows] = await Promise.all([
+      const [key, grant, ledger, workflows, plan] = await Promise.all([
         d.vault.publicKey(agent),
         d.grants.read(agent),
         d.store.getLedger(agent),
         d.store.listWorkflows(agent),
+        d.registry.getPlan(agent),
       ]);
       return json(200, {
         agent,
         agentKey: key,
+        funding: plan
+          ? {
+              status: plan.status,
+              address: plan.depositAddress,
+              amountKas: formatKas(BigInt(plan.required)),
+              uri: depositUri(plan),
+              seenKas: plan.seen ? formatKas(BigInt(plan.seen)) : "0",
+              ...(plan.genesisTxid ? { genesisTxid: plan.genesisTxid } : {}),
+              ...(plan.note ? { note: plan.note } : {}),
+            }
+          : null,
         grant: grant ?? { undecided: "no grant registered, or the chain did not confirm the one on record" },
         feesOwed: formatKas((ledger ?? emptyLedger()).owed),
         workflows: workflows.map(summary),
@@ -288,12 +358,27 @@ export function createApi(d: ApiDeps): (req: Request) => Promise<Response> {
     ["POST", /^\/v1\/tick$/, async (req) => {
       const ok = d.tickSecret.length >= 16 && req.headers.get("authorization") === `Bearer ${d.tickSecret}`;
       if (!ok) throw new HttpError(401, "tick is for the scheduler");
-      return json(200, await d.engine.tick());
+      const funded = d.funder ? await d.funder.tick() : [];
+      return json(200, { ...(await d.engine.tick()), funded });
     }],
   ];
 
-  return async (req: Request): Promise<Response> => {
+  const cors = (r: Response) => {
+    // API keys travel in a header, never a cookie, so any origin may call
+    // this; what it can do is what the key can do. Private-Network lets a
+    // page on wardaprotocol.com reach a runner on localhost during the beta.
+    r.headers.set("access-control-allow-origin", "*");
+    r.headers.set("access-control-allow-headers", "authorization, content-type, idempotency-key, x-warda-hook");
+    r.headers.set("access-control-allow-methods", "GET, POST, PUT, PATCH, OPTIONS");
+    r.headers.set("access-control-allow-private-network", "true");
+    return r;
+  };
+
+  return async (req: Request): Promise<Response> => cors(await route(req));
+
+  async function route(req: Request): Promise<Response> {
     const url = new URL(req.url);
+    if (req.method === "OPTIONS") return new Response(null, { status: 204 });
     try {
       for (const [method, re, fn] of routes) {
         const m = re.exec(url.pathname);
@@ -305,7 +390,7 @@ export function createApi(d: ApiDeps): (req: Request) => Promise<Response> {
       const msg = (e as Error).message ?? String(e);
       return json(500, { error: msg });
     }
-  };
+  }
 }
 
 function summary(wf: Workflow) {

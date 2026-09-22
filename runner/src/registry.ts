@@ -11,6 +11,7 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { Queryable } from "./store-pg.ts";
 import { decode, encode } from "./store-pg.ts";
 import type { Manifest } from "@warda_protocol/agent";
+import type { Plan } from "./funding.ts";
 
 export interface GrantRecord {
   agent: string;
@@ -31,6 +32,10 @@ export interface Registry {
   /** Returns the plaintext secret once. */
   createHook(workflowId: string): Promise<string>;
   checkHook(workflowId: string, secret: string): Promise<boolean>;
+  putPlan(p: Plan): Promise<void>;
+  getPlan(agent: string): Promise<Plan | null>;
+  /** Plans not yet funded or failed. */
+  pendingPlans(): Promise<Plan[]>;
 }
 
 export const sha256 = (s: string) => createHash("sha256").update(s, "utf8").digest("hex");
@@ -47,7 +52,18 @@ export function memoryRegistry(): Registry {
   const owners = new Map<string, string>();
   const grants = new Map<string, GrantRecord>();
   const hooks = new Map<string, string>();
+  const plans = new Map<string, Plan>();
   return {
+    async putPlan(p) {
+      plans.set(p.agent, structuredClone(p));
+    },
+    async getPlan(agent) {
+      const p = plans.get(agent);
+      return p ? structuredClone(p) : null;
+    },
+    async pendingPlans() {
+      return [...plans.values()].filter((p) => p.status === "awaiting-deposit" || p.status === "submitting").map((p) => structuredClone(p));
+    },
     async createAccount() {
       const id = token("acct");
       const apiKey = token("wk");
@@ -93,6 +109,7 @@ create table if not exists runner_agents (agent text primary key, account text n
 create index if not exists runner_agents_account on runner_agents (account);
 create table if not exists runner_grants (agent text primary key, body jsonb not null, updated_at bigint not null);
 create table if not exists runner_hooks (workflow_id text primary key, secret_hash text not null);
+create table if not exists runner_plans (agent text primary key, status text not null, body jsonb not null);
 `;
 
 export async function migrateRegistry(db: Queryable): Promise<void> {
@@ -101,6 +118,21 @@ export async function migrateRegistry(db: Queryable): Promise<void> {
 
 export function pgRegistry(db: Queryable): Registry {
   return {
+    async putPlan(p) {
+      await db.query(
+        `insert into runner_plans (agent, status, body) values ($1,$2,$3::jsonb)
+         on conflict (agent) do update set status = excluded.status, body = excluded.body`,
+        [p.agent, p.status, encode(p)],
+      );
+    },
+    async getPlan(agent) {
+      const { rows } = await db.query(`select body from runner_plans where agent = $1`, [agent]);
+      return rows[0] ? decode<Plan>(rows[0].body) : null;
+    },
+    async pendingPlans() {
+      const { rows } = await db.query(`select body from runner_plans where status in ('awaiting-deposit','submitting')`);
+      return rows.map((r) => decode<Plan>(r.body));
+    },
     async createAccount(at) {
       const id = token("acct");
       const apiKey = token("wk");

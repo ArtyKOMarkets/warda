@@ -22,14 +22,18 @@ const bad = [];
 const FORBIDDEN = [
   [/WARDA_SK\b/, "reads the funder's key from the environment"],
   [/\.key["'`]/, "names a key file"],
-  [/revocation[-_.]?key/i, "mentions a revocation key"],
+  [/revocation\.key|warda-revocation/i, "names the revocation key file"],
   [/from\s+["'](\.\.\/)+(cli|ops|covenant)\//, "imports from a tool that holds owner keys"],
-  [/\b(signGenesis|signRevoke|buildRevoke|revokeGrant|reclaim)\b/, "calls an owner-key operation"],
+  [/\b(signRevoke|buildRevoke|revokeGrant|buildReclaim|signReclaim|buildExit)\s*\(/, "calls an owner-key operation"],
 ];
 
 for (const f of readdirSync(root).filter((f) => f.endsWith(".ts"))) {
   const text = readFileSync(join(root, f), "utf8").replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "");
   for (const [re, why] of FORBIDDEN) if (re.test(text)) bad.push(`runner/src/${f} ${why}`);
+  // Genesis is signed only by an agent's deposit key, never by anything else.
+  if (/attachGenesisSignature\s*\(/.test(text) && !/signer\(depositId\(/.test(text)) {
+    bad.push(`runner/src/${f} signs a genesis with something other than a deposit key`);
+  }
 }
 
 const wf = readFileSync(join(root, "workflow.ts"), "utf8");
@@ -46,4 +50,4 @@ if (bad.length) {
   console.error("check-runner: the runner must hold agent keys and nothing else\n\n  " + bad.join("\n  "));
   process.exit(1);
 }
-console.log("check-runner: agent keys only; owner operations are approvals");
+console.log("check-runner: agent and single-use deposit keys only; owner operations are approvals");
