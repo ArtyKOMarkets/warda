@@ -22,9 +22,10 @@ import { createServer } from "node:http";
 import { Pool } from "@neondatabase/serverless";
 import { kas } from "@warda_protocol/core";
 import { fromHex, openChain, pubkeyToAddress } from "@warda_protocol/kaspa";
-import { Funder, type FundingChain } from "../src/funding.ts";
+import { Funder, refundDeposit, type FundingChain } from "../src/funding.ts";
 import { Agent, type Manifest } from "@warda_protocol/agent";
 import { createApi, memberKey } from "../src/api.ts";
+import { createMcp } from "../src/mcp.ts";
 import { Engine } from "../src/engine.ts";
 import { liveApprovals, liveGrants, liveHttp, liveNotifier, livePayments, type OpenAgent } from "../src/live.ts";
 import { migrateRegistry, pgRegistry } from "../src/registry.ts";
@@ -118,6 +119,8 @@ const funder = new Funder({ registry, vault, chain: fundingChain, prefix });
 
 const api = createApi({
   funder, prefix,
+  mcp: createMcp({ store, registry, engine, grants, fees }),
+  refund: (plan) => refundDeposit({ plan, registry, vault, chain: fundingChain, prefix, now: Date.now() }),
   store, registry, vault, engine, grants, fees, baseUrl,
   tickSecret: env("RUNNER_TICK_SECRET"),
   ...(process.env.RUNNER_SIGNUP_CODE ? { signupCode: process.env.RUNNER_SIGNUP_CODE } : {}),

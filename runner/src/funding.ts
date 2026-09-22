@@ -33,6 +33,9 @@ import covenantTemplate from "@warda_protocol/kaspa/covenant-template.json" with
 import {
   EMPTY_RESERVE,
   RecipientSet,
+  ScriptBuilder,
+  SUBNETWORK_ID_NATIVE,
+  sighash,
   assertRecipientsFitTemplate,
   attachGenesisSignature,
   buildGenesis,
@@ -89,7 +92,9 @@ export interface Plan {
   depositAddress: string;
   /** Budget, genesis fee, and a buffer the grant's own spends pay fees from. */
   required: string;
-  status: "awaiting-deposit" | "submitting" | "funded" | "failed";
+  status: "awaiting-deposit" | "submitting" | "funded" | "failed" | "refunded";
+  /** Refunds of deposit coins that never became (or were left over from) the grant. */
+  refunds?: { txid: string; value: string; at: number }[];
   seen?: string;
   /** Everything genesis was built from, so a retry is the same transaction. */
   built?: { daa: string; coin: FundingCoin; grantAddress: string; txid: string };
@@ -332,6 +337,58 @@ export class Funder {
     await this.o.registry.putPlan(p);
     return true;
   }
+}
+
+/**
+ * Give a deposit back.
+ *
+ * The one thing the deposit key may do besides genesis, and it may do it to
+ * exactly one place: the OWNER's principal key, which the owner supplied and
+ * the runner does not hold. Each coin at the deposit address is returned as
+ * its own transaction, less the network fee. Allowed while the plan is still
+ * waiting (the owner changed their mind, or paid in pieces) — which cancels
+ * it — and after funding, for anything left at the deposit address.
+ */
+export async function refundDeposit(o: {
+  plan: Plan;
+  registry: Registry;
+  vault: KeyVault;
+  chain: FundingChain;
+  prefix: NetworkPrefix;
+  now: number;
+}): Promise<{ txid: string; value: bigint }[]> {
+  const p = o.plan;
+  if (p.status === "submitting") {
+    throw new Error("the grant is being created from this deposit right now; wait for it, then refund anything left over");
+  }
+  const coins = (await o.chain.utxos(p.depositAddress)).filter((u) => !u.entry.covenantId && u.entry.value > GENESIS_FEE);
+  if (coins.length === 0) throw new Error(`nothing to refund: ${p.depositAddress} holds no coin worth more than the fee`);
+  const to = payToPubkeyScript(fromHex(p.principal));
+  const sign = await o.vault.signer(depositId(p.agent));
+  const out: { txid: string; value: bigint }[] = [];
+  for (const c of coins) {
+    const value = c.entry.value - GENESIS_FEE;
+    const tx: Transaction = {
+      version: 1,
+      inputs: [{ previousOutpoint: c.outpoint, signatureScript: new Uint8Array(0), sequence: 0n, computeBudget: GENESIS_COMPUTE_BUDGET }],
+      outputs: [{ value, scriptPublicKey: to }],
+      lockTime: 0n,
+      subnetworkId: SUBNETWORK_ID_NATIVE,
+      gas: 0n,
+      payload: new Uint8Array(0),
+    };
+    const entry = { value: c.entry.value, scriptPublicKey: c.entry.scriptPublicKey, blockDaaScore: c.entry.blockDaaScore, isCoinbase: c.entry.isCoinbase };
+    const sig = await sign(sighash(tx, 0, entry));
+    tx.inputs[0]!.signatureScript = new ScriptBuilder().addData(sig).drain();
+    const txid = toWire(tx, entry, "@warda_protocol/runner (refund)").txid;
+    await o.chain.submit(tx);
+    out.push({ txid, value });
+    (p.refunds ??= []).push({ txid, value: value.toString(), at: o.now });
+  }
+  if (p.status === "awaiting-deposit") p.status = "refunded";
+  p.updatedAt = o.now;
+  await o.registry.putPlan(p);
+  return out;
 }
 
 /** The deposit as a payment URI a wallet or a camera can open. */

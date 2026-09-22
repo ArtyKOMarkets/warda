@@ -34,8 +34,8 @@ export interface X402Request {
 }
 
 export type X402Outcome =
-  | { kind: "free"; status: number }
-  | { kind: "paid"; status: number; txid: string; sompi: bigint }
+  | { kind: "free"; status: number; body?: string }
+  | { kind: "paid"; status: number; txid: string; sompi: bigint; body?: string }
   | { kind: "refused"; reason: string };
 
 export interface Payments {
@@ -177,7 +177,18 @@ export class Engine {
     await this.o.store.claimRun(run);
   }
 
-  private async run(wf: Workflow, key: string, trigger: string, body?: unknown): Promise<string | null> {
+  /**
+   * Run a workflow that is not stored — an agent's own request over MCP.
+   * The same run, the same checks, the same fee; the vendor's answers come
+   * back to the caller, because an agent that paid for a response wants it.
+   */
+  async runOnce(wf: Workflow, key: string, trigger: string): Promise<{ run: string | null; bodies: string[] }> {
+    const bodies: string[] = [];
+    const run = await this.run(wf, key, trigger, undefined, bodies);
+    return { run, bodies };
+  }
+
+  private async run(wf: Workflow, key: string, trigger: string, body?: unknown, bodies?: string[]): Promise<string | null> {
     const run: RunRecord = {
       id: this.o.id(), workflowId: wf.id, agent: wf.agent, key, trigger,
       startedAt: this.o.now(), status: "running", steps: [], charged: false,
@@ -214,7 +225,7 @@ export class Engine {
           break;
         }
       }
-      const step = await this.act(wf, run, action, g!, ledger.owed, body);
+      const step = await this.act(wf, run, action, g!, ledger.owed, body, bodies);
       run.steps.push(step);
       if (step.txid) moved = true;
       await this.o.store.updateRun(run);
@@ -233,7 +244,7 @@ export class Engine {
   }
 
   private async act(
-    wf: Workflow, run: RunRecord, a: Action, g: GrantView, owed: bigint, _body: unknown,
+    wf: Workflow, run: RunRecord, a: Action, g: GrantView, owed: bigint, _body: unknown, bodies?: string[],
   ): Promise<Step> {
     const now = this.o.now();
     let sent: { txid: string; sompi: bigint } | null = null;
@@ -256,6 +267,7 @@ export class Engine {
           if (a.contentType !== undefined) req.contentType = a.contentType;
           const out = await this.o.payments.x402(wf.agent, req, limit, onSubmitted);
           if (out.kind === "refused") return { action: a.type, status: "refused", detail: out.reason };
+          if (bodies && out.body !== undefined) bodies.push(out.body);
           if (out.kind === "free") return { action: a.type, status: "ok", detail: `HTTP ${out.status}, no charge` };
           return {
             action: a.type,

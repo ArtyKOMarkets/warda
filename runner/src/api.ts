@@ -34,7 +34,7 @@ import type { Store } from "./store.ts";
 import type { KeyVault } from "./vault.ts";
 import { parseWorkflow, spends, WorkflowError, type Workflow } from "./workflow.ts";
 import { kas } from "@warda_protocol/core";
-import { createPlan, depositUri, type Funder } from "./funding.ts";
+import { createPlan, depositUri, type Funder, type Plan } from "./funding.ts";
 import type { NetworkPrefix } from "@warda_protocol/kaspa";
 
 export interface ApiDeps {
@@ -50,6 +50,10 @@ export interface ApiDeps {
   baseUrl: string;
   /** Turns deposits into grants; run on every tick. */
   funder?: Pick<Funder, "tick">;
+  /** Returns a deposit to the owner's principal key (funding.ts refundDeposit). */
+  refund?: (plan: Plan) => Promise<{ txid: string; value: bigint }[]>;
+  /** The per-agent MCP endpoint, served at /mcp. */
+  mcp?: (req: Request) => Promise<Response>;
   prefix?: NetworkPrefix;
   now?: () => number;
   id?: (prefix: string) => string;
@@ -265,6 +269,38 @@ export function createApi(d: ApiDeps): (req: Request) => Promise<Response> {
       });
     }],
 
+    ["POST", /^\/v1\/agents\/([\w-]+)\/token$/, async (req, m) => {
+      const acct = await account(req);
+      await ownAgent(acct, m[1]!);
+      const t = await d.registry.createAgentToken(m[1]!);
+      return json(201, {
+        agent: m[1],
+        mcp: {
+          url: `${d.baseUrl}/mcp`,
+          token: t,
+          config: { mcpServers: { [`warda-${m[1]}`]: { url: `${d.baseUrl}/mcp`, headers: { Authorization: `Bearer ${t}` } } } },
+        },
+        note: "Shown once. This token acts as this one agent: it can read its authority and pay inside its grant, and nothing else.",
+      });
+    }],
+
+    ["POST", /^\/v1\/agents\/([\w-]+)\/refund$/, async (req, m) => {
+      const acct = await account(req);
+      await ownAgent(acct, m[1]!);
+      const plan = await d.registry.getPlan(m[1]!);
+      if (!plan) throw new HttpError(404, `${m[1]} was not funded through a deposit`);
+      if (!d.refund) throw new HttpError(501, "this runner cannot send refunds");
+      try {
+        const sent = await d.refund(plan);
+        return json(200, {
+          refunded: sent.map((x) => ({ txid: x.txid, kas: formatKas(x.value) })),
+          to: "your principal key — the one you gave when you created the agent",
+        });
+      } catch (e) {
+        throw new HttpError(409, (e as Error).message);
+      }
+    }],
+
     ["GET", /^\/v1\/agents\/([\w-]+)\/runs$/, async (req, m, url) => {
       const acct = await account(req);
       await ownAgent(acct, m[1]!);
@@ -368,7 +404,7 @@ export function createApi(d: ApiDeps): (req: Request) => Promise<Response> {
     // this; what it can do is what the key can do. Private-Network lets a
     // page on wardaprotocol.com reach a runner on localhost during the beta.
     r.headers.set("access-control-allow-origin", "*");
-    r.headers.set("access-control-allow-headers", "authorization, content-type, idempotency-key, x-warda-hook");
+    r.headers.set("access-control-allow-headers", "authorization, content-type, idempotency-key, x-warda-hook, mcp-protocol-version, mcp-session-id");
     r.headers.set("access-control-allow-methods", "GET, POST, PUT, PATCH, OPTIONS");
     r.headers.set("access-control-allow-private-network", "true");
     return r;
@@ -379,6 +415,7 @@ export function createApi(d: ApiDeps): (req: Request) => Promise<Response> {
   async function route(req: Request): Promise<Response> {
     const url = new URL(req.url);
     if (req.method === "OPTIONS") return new Response(null, { status: 204 });
+    if (url.pathname === "/mcp" && d.mcp) return d.mcp(req);
     try {
       for (const [method, re, fn] of routes) {
         const m = re.exec(url.pathname);

@@ -32,6 +32,9 @@ export interface Registry {
   /** Returns the plaintext secret once. */
   createHook(workflowId: string): Promise<string>;
   checkHook(workflowId: string, secret: string): Promise<boolean>;
+  /** A token that acts as ONE agent over MCP. Returns the plaintext once. */
+  createAgentToken(agent: string): Promise<string>;
+  agentForToken(token: string): Promise<string | null>;
   putPlan(p: Plan): Promise<void>;
   getPlan(agent: string): Promise<Plan | null>;
   /** Plans not yet funded or failed. */
@@ -53,7 +56,16 @@ export function memoryRegistry(): Registry {
   const grants = new Map<string, GrantRecord>();
   const hooks = new Map<string, string>();
   const plans = new Map<string, Plan>();
+  const agentTokens = new Map<string, string>(); // hash -> agent
   return {
+    async createAgentToken(agent) {
+      const t = token("wat");
+      agentTokens.set(sha256(t), agent);
+      return t;
+    },
+    async agentForToken(t) {
+      return agentTokens.get(sha256(t)) ?? null;
+    },
     async putPlan(p) {
       plans.set(p.agent, structuredClone(p));
     },
@@ -109,6 +121,7 @@ create table if not exists runner_agents (agent text primary key, account text n
 create index if not exists runner_agents_account on runner_agents (account);
 create table if not exists runner_grants (agent text primary key, body jsonb not null, updated_at bigint not null);
 create table if not exists runner_hooks (workflow_id text primary key, secret_hash text not null);
+create table if not exists runner_agent_tokens (token_hash text primary key, agent text not null, created_at bigint not null);
 create table if not exists runner_plans (agent text primary key, status text not null, body jsonb not null);
 `;
 
@@ -118,6 +131,15 @@ export async function migrateRegistry(db: Queryable): Promise<void> {
 
 export function pgRegistry(db: Queryable): Registry {
   return {
+    async createAgentToken(agent) {
+      const t = token("wat");
+      await db.query(`insert into runner_agent_tokens (token_hash, agent, created_at) values ($1,$2,$3)`, [sha256(t), agent, Date.now()]);
+      return t;
+    },
+    async agentForToken(t) {
+      const { rows } = await db.query(`select agent from runner_agent_tokens where token_hash = $1`, [sha256(t)]);
+      return rows[0] ? String(rows[0].agent) : null;
+    },
     async putPlan(p) {
       await db.query(
         `insert into runner_plans (agent, status, body) values ($1,$2,$3::jsonb)

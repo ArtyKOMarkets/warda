@@ -75,6 +75,16 @@ export function liveGrants(open: OpenAgent, now: () => number = Date.now): Grant
   };
 }
 
+/** What the vendor served, capped: it goes back to an agent, not into a log. */
+async function text(res: Response): Promise<string> {
+  try {
+    const t = await res.text();
+    return t.length > 65_536 ? t.slice(0, 65_536) + "\n…(truncated)" : t;
+  } catch {
+    return "";
+  }
+}
+
 async function quote(res: Response): Promise<bigint> {
   const body = await res.clone().json().catch(() => {
     throw new Error("the 402 carried no readable price");
@@ -94,7 +104,7 @@ export function livePayments(open: OpenAgent): Payments {
       // even opened. `Agent.fetch` would pay any invoice the grant allows;
       // the workflow's own maximum is narrower, and it is enforced here.
       const probe = await fetch(req.url, init);
-      if (probe.status !== 402) return { kind: "free", status: probe.status };
+      if (probe.status !== 402) return { kind: "free", status: probe.status, body: await text(probe) };
       const price = await quote(probe);
       if (price > limitSompi) {
         return {
@@ -113,8 +123,8 @@ export function livePayments(open: OpenAgent): Payments {
           },
         });
         if (recording) await recording;
-        if (!paid) return { kind: "free", status: response.status };
-        return { kind: "paid", status: response.status, txid: paid.txid, sompi: paid.amountSompi };
+        if (!paid) return { kind: "free", status: response.status, body: await text(response) };
+        return { kind: "paid", status: response.status, txid: paid.txid, sompi: paid.amountSompi, body: await text(response) };
       } finally {
         await opened.close?.().catch(() => {});
       }

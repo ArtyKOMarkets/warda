@@ -11,3 +11,4 @@ export * from "./store-pg.ts";
 export * from "./registry.ts";
 export * from "./api.ts";
 export * from "./funding.ts";
+export * from "./mcp.ts";

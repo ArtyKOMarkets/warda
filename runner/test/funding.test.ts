@@ -120,3 +120,28 @@ test("the owner's key cannot be the agent's", async () => {
     recipients: [VENDOR], prefix: "kaspatest", now: 1,
   }), /cannot be the agent's key/);
 });
+
+test("a deposit that never became a grant goes back to the owner's key, and cancels the plan", async () => {
+  const { refundDeposit } = await import("../src/funding.ts");
+  const b = await bench();
+  b.deposit(KAS / 2n);
+  const out = await refundDeposit({ plan: (await b.registry.getPlan("bot"))!, registry: b.registry, vault: b.vault, chain: b.chain, prefix: "kaspatest", now: 2 });
+  assert.equal(out.length, 1);
+  assert.equal(out[0]!.value, KAS / 2n - 1_000_000n);
+  assert.equal(b.submitted.length, 1);
+  const p = (await b.registry.getPlan("bot"))!;
+  assert.equal(p.status, "refunded");
+  assert.equal(p.refunds!.length, 1);
+  assert.deepEqual(await b.funder.tick(), [], "a refunded plan is never funded afterwards");
+});
+
+test("no refund while the grant is being created from the deposit", async () => {
+  const { refundDeposit } = await import("../src/funding.ts");
+  const b = await bench({ failSubmit: 1 });
+  b.deposit(BigInt(b.plan.required));
+  await b.funder.tick();
+  await assert.rejects(
+    refundDeposit({ plan: (await b.registry.getPlan("bot"))!, registry: b.registry, vault: b.vault, chain: b.chain, prefix: "kaspatest", now: 2 }),
+    /being created/,
+  );
+});

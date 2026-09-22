@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { createApi } from "../src/api.ts";
+import { createMcp } from "../src/mcp.ts";
 import { Engine } from "../src/engine.ts";
 import type { GrantView } from "../src/grant.ts";
 import { memoryRegistry } from "../src/registry.ts";
@@ -28,7 +29,11 @@ function bench(o: { signupCode?: string } = {}) {
   const engine = new Engine({
     store, grants, fees, networkFee: 1_500_000n, now: () => now,
     payments: {
-      async x402() { return { kind: "free", status: 200 }; },
+      async x402(_a, _req, limit, on) {
+        if (3_000_000n > limit) return { kind: "refused", reason: "over the limit" };
+        await on("tx402", 3_000_000n);
+        return { kind: "paid", status: 200, txid: "tx402", sompi: 3_000_000n, body: '{"fact":"blocks converge"}' };
+      },
       async send(_a, to, sompi, on) { sent.push(to); await on("tx", sompi); return { txid: "tx" }; },
     },
     notifier: { notify: async () => {} },
@@ -37,6 +42,7 @@ function bench(o: { signupCode?: string } = {}) {
   });
   const api = createApi({
     store, registry, vault, engine, grants, fees, tickSecret: "t".repeat(32), baseUrl: BASE, now: () => now,
+    mcp: createMcp({ store, registry, engine, grants, fees, now: () => now }),
     ...(o.signupCode ? { signupCode: o.signupCode } : {}),
   });
   const call = async (method: string, path: string, opts: { key?: string; body?: unknown; headers?: Record<string, string> } = {}) => {
@@ -188,4 +194,33 @@ test("preflight requests are answered, and every response allows the console's o
   assert.equal(r.status, 204);
   assert.equal(r.headers.get("access-control-allow-origin"), "*");
   assert.equal(r.headers.get("access-control-allow-private-network"), "true");
+});
+
+test("MCP: an agent token reads its authority and pays inside its grant, and nothing else", async () => {
+  const b = await onboarded();
+  const tok = await b.call("POST", "/v1/agents/shop-bot/token", { key: b.key, body: {} });
+  assert.equal(tok.status, 201);
+  const t = tok.body.mcp.token as string;
+  assert.match(t, /^wat_/);
+  const rpc = (method: string, params: unknown = {}, token = t) =>
+    b.call("POST", "/mcp", { body: { jsonrpc: "2.0", id: 1, method, params }, headers: { authorization: `Bearer ${token}` } });
+  assert.equal((await rpc("tools/list", {}, "wat_nope")).status, 401);
+  assert.equal((await b.call("POST", "/mcp", { key: b.key, body: { jsonrpc: "2.0", id: 1, method: "tools/list" } })).status, 401,
+    "an account key is not an agent token");
+  const init = await rpc("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "t", version: "1" } });
+  assert.match(init.body.result.instructions, /shop-bot/);
+  const tools = (await rpc("tools/list")).body.result.tools.map((x: { name: string }) => x.name);
+  assert.deepEqual(tools, ["get_authority", "pay", "list_workflows", "run_workflow", "list_runs"]);
+  const auth = JSON.parse((await rpc("tools/call", { name: "get_authority", arguments: {} })).body.result.content[0].text);
+  assert.equal(auth.perPaymentCapKas, "0.5");
+  const paid = await rpc("tools/call", { name: "pay", arguments: { url: "https://v.test/fact", max_kas: "0.05" } });
+  const r = JSON.parse(paid.body.result.content[0].text);
+  assert.equal(r.status, "ok");
+  assert.equal(r.txid, "tx402");
+  assert.equal(r.served, '{"fact":"blocks converge"}');
+  const cheap = await rpc("tools/call", { name: "pay", arguments: { url: "https://v.test/fact", max_kas: "0.01" } });
+  assert.equal(cheap.body.result.isError, true, "a price above max_kas is refused, not paid");
+  const runs = JSON.parse((await rpc("tools/call", { name: "list_runs", arguments: { limit: 5 } })).body.result.content[0].text);
+  assert.equal(runs.length, 2);
+  assert.equal((await b.call("POST", "/mcp", { body: { jsonrpc: "2.0", method: "notifications/initialized" }, headers: { authorization: `Bearer ${t}` } })).status, 202);
 });
