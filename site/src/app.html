@@ -743,6 +743,9 @@
       <a data-view="hosted">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="4.5" width="10" height="8" rx="2"/><path d="M8 4.5V2.2M5.8 8.2h.01M10.2 8.2h.01M6 10.6h4"/></svg>
         &#128293; New agent<span class="tag hot">new</span></a>
+      <a data-view="hagents">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="3" width="12" height="4" rx="1.2"/><rect x="2" y="9" width="12" height="4" rx="1.2"/><path d="M4.5 5h.01M4.5 11h.01"/></svg>
+        Your agents<span class="tag" id="n-hagents">&mdash;</span></a>
       <a data-view="fund">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 5.5h9.5M8.5 2.5l3 3-3 3"/><path d="M14 10.5H4.5M7.5 7.5l-3 3 3 3"/></svg>
         Fund an agent</a>
@@ -2079,6 +2082,7 @@ ops/install-cron.sh</pre>
               <div class="grid">
                 <div class="field"><label for="h-url">Runner</label><input id="h-url" value="https://warda-runner.vercel.app" spellcheck="false"></div>
                 <div class="field"><label for="h-key">Runner key</label><input id="h-key" placeholder="wk_&hellip; &mdash; or create an account" spellcheck="false" autocomplete="off"></div>
+                <div class="field"><label for="h-code">Invite code &mdash; to create an account</label><input id="h-code" placeholder="from the Warda team" spellcheck="false" autocomplete="off"></div>
               </div>
               <p style="margin-top:0.9rem;display:flex;gap:0.6rem;flex-wrap:wrap">
                 <button class="go" id="h-connect">Connect</button>
@@ -2221,9 +2225,55 @@ ops/install-cron.sh</pre>
       </div>
     </div>
 
+    <div class="view pad" id="v-hagents">
+      <div class="head"><div>
+        <h1>Your agents</h1>
+        <p>Every agent the runner hosts for you: what it may still spend, what it does, and what it last did.
+          Pausing a job is instant. Stopping the grant itself takes your key, and only yours.</p>
+      </div>
+      <div><button class="go" data-view="hosted">&#128293; New agent</button></div></div>
+
+      <p class="state" id="ha-s"></p>
+      <div class="card" id="ha-list-c">
+        <header><h2>Agents <small id="ha-n"></small></h2><a class="more" id="ha-reload">Refresh</a></header>
+        <div style="overflow-x:auto">
+          <table id="ha-t"><thead><tr>
+            <th>Agent</th><th>State</th><th class="n">May still spend</th><th class="n">Spent</th><th class="n">Jobs</th><th>Last run</th>
+          </tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+
+      <div id="ha-d" hidden style="margin-top:1rem">
+        <div class="card">
+          <header><h2 id="ha-d-name">&mdash;</h2><a class="more" id="ha-d-close">Close</a></header>
+          <dl class="kvs" id="ha-d-kv" style="display:grid;grid-template-columns:auto 1fr;gap:0.35rem 1rem;font-size:0.8rem"></dl>
+          <p style="margin-top:0.9rem;display:flex;gap:0.5rem;flex-wrap:wrap">
+            <button class="go" id="ha-d-job">Give it a job</button>
+            <button class="go gh" id="ha-d-mcp">MCP connection</button>
+            <button class="go gh" id="ha-d-refund">Send back deposit leftovers</button>
+          </p>
+          <pre id="ha-d-out" hidden></pre>
+        </div>
+        <div class="card" style="margin-top:0.85rem">
+          <header><h2>Jobs</h2></header>
+          <div id="ha-d-jobs"></div>
+        </div>
+        <div class="card" style="margin-top:0.85rem">
+          <header><h2>What it has done</h2></header>
+          <div id="ha-d-runs"></div>
+        </div>
+        <div class="card" style="margin-top:0.85rem">
+          <header><h2>Stopping it for good</h2></header>
+          <p class="why">The runner cannot end a grant &mdash; by design, it never holds the key that can. Your key can,
+            at any moment, and the balance comes back to you:</p>
+          <pre id="ha-d-revoke"></pre>
+        </div>
+      </div>
+    </div>
+
     <div class="view pad" id="v-more">
       <div class="head"><div><h1>More</h1></div></div>
-      <div class="mlist"><a class="mrow hot-row" data-view="hosted"><b>&#128293; New agent</b><span>Hosted, funded from any wallet, working in two minutes</span></a><a class="mrow" data-view="fleet"><b>Fleet</b><span>Every agent as one system · delegation · bulk controls</span></a><a class="mrow" data-view="analytics"><b>Analytics</b><span>Burn rate · runway · cost per task</span></a><a class="mrow" data-view="fund"><b>Fund an agent</b><span>From USDC or USDT you already hold</span></a><a class="mrow" data-view="create"><b>Create a grant</b><span>Budget, cap, rate, payees — four steps</span></a><a class="mrow" data-view="refusals"><b>Refused</b><span>What the covenant would not let through</span></a><a class="mrow" data-view="registry"><b>Services</b><span>The registry: who an agent can buy from</span></a><a class="mrow" data-view="account"><b>Your account</b><span>Wallets, synced grants, alert delivery</span></a><a class="mrow" href="/proof"><b>Proof</b><span>Every claim, and what would refute it</span></a><a class="mrow" href="/grant"><b>Get a funded testnet grant</b><span>We fund your agent, free</span></a></div>
+      <div class="mlist"><a class="mrow hot-row" data-view="hosted"><b>&#128293; New agent</b><span>Hosted, funded from any wallet, working in two minutes</span></a><a class="mrow" data-view="hagents"><b>Your agents</b><span>Hosted agents: money left, jobs, runs</span></a><a class="mrow" data-view="fleet"><b>Fleet</b><span>Every agent as one system · delegation · bulk controls</span></a><a class="mrow" data-view="analytics"><b>Analytics</b><span>Burn rate · runway · cost per task</span></a><a class="mrow" data-view="fund"><b>Fund an agent</b><span>From USDC or USDT you already hold</span></a><a class="mrow" data-view="create"><b>Create a grant</b><span>Budget, cap, rate, payees — four steps</span></a><a class="mrow" data-view="refusals"><b>Refused</b><span>What the covenant would not let through</span></a><a class="mrow" data-view="registry"><b>Services</b><span>The registry: who an agent can buy from</span></a><a class="mrow" data-view="account"><b>Your account</b><span>Wallets, synced grants, alert delivery</span></a><a class="mrow" href="/proof"><b>Proof</b><span>Every claim, and what would refute it</span></a><a class="mrow" href="/grant"><b>Get a funded testnet grant</b><span>We fund your agent, free</span></a></div>
     </div>
 
     <div class="statusbar">
@@ -6094,7 +6144,7 @@ ops/install-cron.sh</pre>
   $("h-connect").addEventListener("click", hConnect);
   $("h-signup").addEventListener("click", function () {
     hState("h-runner-s", "Creating an account…");
-    hApi("POST", "/v1/accounts", {}).then(function (r) {
+    hApi("POST", "/v1/accounts", { code: $("h-code").value.trim() }).then(function (r) {
       $("h-key").value = r.apiKey;
       hSave();
       return hConnect().then(function () {
@@ -6145,6 +6195,169 @@ ops/install-cron.sh</pre>
   hLoad();
   hTpl();
   hGo(1);
+
+  /* ---- your hosted agents ----------------------------------------------------
+     Every agent on this runner account, from the same runner key the New
+     agent wizard keeps. Nothing here can end a grant: the runner never holds
+     the key that can, so the page hands the owner the command instead. */
+  var HA = { open: null };
+  function haAgo(t) { return t ? ago(t) : "never"; }
+  function haPill(state) {
+    var m = { active: ["live", "live"], "awaiting-deposit": ["warn", "awaiting deposit"], submitting: ["warn", "creating grant"],
+              refunded: ["done", "refunded"], expired: ["done", "ended"], revoked: ["done", "revoked"], undecided: ["no", "unreadable"] };
+    var x = m[state] || ["done", state];
+    var sp = document.createElement("span"); sp.className = "pill " + x[0]; sp.textContent = x[1]; return sp;
+  }
+  function haList() {
+    if (!$("h-key").value.trim()) {
+      hState("ha-s", "No runner key in this browser yet. Create your first agent to get one.");
+      $("ha-list-c").hidden = true;
+      return;
+    }
+    $("ha-list-c").hidden = false;
+    hState("ha-s", "Reading your agents and their grants from the chain…");
+    hApi("GET", "/v1/agents?detail=1").then(function (r) {
+      hState("ha-s", "");
+      HR.connected = true;
+      $("ha-n").textContent = r.agents.length;
+      $("n-hagents").textContent = r.agents.length;
+      var tb = $("ha-t").querySelector("tbody");
+      tb.textContent = "";
+      if (!r.agents.length) {
+        var tr0 = document.createElement("tr"), td0 = document.createElement("td");
+        td0.colSpan = 6; td0.textContent = "None yet — 🔥 New agent makes one in about two minutes.";
+        tr0.appendChild(td0); tb.appendChild(tr0);
+      }
+      r.agents.forEach(function (a) {
+        var tr = document.createElement("tr");
+        tr.className = "hpick";
+        tr.style.cursor = "pointer";
+        tr.tabIndex = 0;
+        var cells = [a.agent, null, a.spendableKas != null ? a.spendableKas + " KAS" : "—",
+          a.spentKas != null ? a.spentKas + " of " + a.budgetKas + " KAS" : a.budgetKas ? "budget " + a.budgetKas + " KAS" : "—",
+          a.jobsOn + " of " + a.jobs + " on",
+          a.lastRun ? a.lastRun.status + " · " + haAgo(a.lastRun.at) : "never"];
+        cells.forEach(function (c, i) {
+          var td = document.createElement("td");
+          if (i >= 2 && i <= 4) td.className = "n";
+          if (i === 1) td.appendChild(haPill(a.state)); else td.textContent = c;
+          if (i === 0) td.style.fontWeight = "600";
+          tr.appendChild(td);
+        });
+        var go = function () { haOpen(a.agent); };
+        tr.addEventListener("click", go);
+        tr.addEventListener("keydown", function (e) { if (e.key === "Enter") go(); });
+        tb.appendChild(tr);
+      });
+    }).catch(function (e) { hState("ha-s", e.message, true); });
+  }
+  function haKv(k, v, link) {
+    var dt = document.createElement("dt"); dt.style.color = "var(--chrome-faint)"; dt.textContent = k;
+    var dd = document.createElement("dd"); dd.className = "kv"; dd.style.margin = "0";
+    if (link) hTx(dd, v, link); else dd.textContent = v;
+    $("ha-d-kv").appendChild(dt); $("ha-d-kv").appendChild(dd);
+  }
+  function haOpen(agent) {
+    HA.open = agent;
+    $("ha-d").hidden = false;
+    $("ha-d-name").textContent = agent;
+    $("ha-d-out").hidden = true;
+    $("ha-d-kv").textContent = "";
+    hApi("GET", "/v1/agents/" + encodeURIComponent(agent)).then(function (a) {
+      var g = a.grant || {};
+      haKv("Agent key", a.agentKey ? a.agentKey.slice(0, 16) + "… (held by the runner’s vault)" : "—");
+      if (g.address) haKv("Grant", g.address);
+      if (g.budgetTotal) haKv("Spent", (Number(g.spentTotal) / 1e8) + " of " + (Number(g.budgetTotal) / 1e8) + " KAS");
+      if (g.maxPerSpend) haKv("Any single payment", (Number(g.maxPerSpend) / 1e8) + " KAS");
+      if (g.expiresAtMs) haKv("Ends", new Date(g.expiresAtMs).toISOString().slice(0, 16).replace("T", " ") + " UTC");
+      if (g.payees) haKv("May pay", g.payees.length + " addresses");
+      if (g.undecided) haKv("Grant", g.undecided);
+      haKv("Runner fees owed", a.feesOwed + " KAS");
+      if (a.funding && a.funding.genesisTxid) haKv("Created by", "the genesis transaction", a.funding.genesisTxid);
+      else if (a.funding) haKv("Funding", a.funding.status + (a.funding.note ? " — " + a.funding.note : ""));
+      $("ha-d-refund").hidden = !a.funding;
+      haJobs(a.workflows || []);
+      haRevoke(a);
+    }).catch(function (e) { hState("ha-s", e.message, true); });
+    haRuns(agent);
+    $("ha-d").scrollIntoView({ block: "start", behavior: "smooth" });
+  }
+  function haJobs(wfs) {
+    var box = $("ha-d-jobs"); box.textContent = "";
+    if (!wfs.length) { box.textContent = "No jobs yet."; return; }
+    wfs.forEach(function (w) {
+      var row = document.createElement("div");
+      row.style.cssText = "display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap;padding:0.55rem 0;border-bottom:1px solid var(--edge)";
+      var t = document.createElement("span"); t.style.flex = "1"; t.style.minWidth = "12rem";
+      t.textContent = w.name + " · " + (w.trigger.type === "schedule" ? "every day at " + w.trigger.cron.split(" ")[1] + ":00 UTC" : w.trigger.type) +
+        (w.enabled ? "" : " · paused");
+      var run = document.createElement("button"); run.className = "go gh"; run.textContent = "Run now";
+      run.onclick = function () {
+        run.disabled = true;
+        hApi("POST", "/v1/workflows/" + w.id + "/run", {}, { "Idempotency-Key": "console-" + Date.now() })
+          .then(function () { haRuns(HA.open); }).catch(function (e) { hState("ha-s", e.message, true); })
+          .then(function () { run.disabled = false; });
+      };
+      var tog = document.createElement("button"); tog.className = "go gh"; tog.textContent = w.enabled ? "Pause" : "Resume";
+      tog.onclick = function () {
+        hApi("PATCH", "/v1/workflows/" + w.id, { enabled: !w.enabled }).then(function () { haOpen(HA.open); haList(); })
+          .catch(function (e) { hState("ha-s", e.message, true); });
+      };
+      row.appendChild(t); row.appendChild(run); row.appendChild(tog);
+      box.appendChild(row);
+    });
+  }
+  function haRuns(agent) {
+    hApi("GET", "/v1/agents/" + encodeURIComponent(agent) + "/runs?limit=15").then(function (r) {
+      var box = $("ha-d-runs"); box.textContent = "";
+      if (!r.runs.length) { box.textContent = "Nothing yet."; return; }
+      r.runs.forEach(function (run) {
+        var row = document.createElement("div");
+        row.className = "kv";
+        row.style.cssText = "padding:0.5rem 0;border-bottom:1px solid var(--edge)";
+        row.appendChild(document.createTextNode(new Date(run.startedAt).toISOString().slice(5, 16).replace("T", " ") + "  " +
+          run.status.toUpperCase() + "  " + run.trigger + "  "));
+        run.steps.forEach(function (st) {
+          row.appendChild(document.createTextNode("· " + (st.detail || st.action + " " + st.status) + " "));
+          if (st.txid) hTx(row, null, st.txid);
+        });
+        if (run.note) row.appendChild(document.createTextNode(" — " + run.note));
+        box.appendChild(row);
+      });
+    }).catch(function () {});
+  }
+  function haRevoke(a) {
+    var pre = $("ha-d-revoke");
+    pre.textContent = "";
+    if (!a.manifest) { pre.textContent = "This agent has no grant yet, so there is nothing to stop."; return; }
+    var dl = document.createElement("a");
+    dl.textContent = "Download this grant’s current grant.json";
+    dl.href = URL.createObjectURL(new Blob([JSON.stringify(a.manifest, null, 2) + "\n"], { type: "application/json" }));
+    dl.download = "grant.json";
+    pre.appendChild(dl);
+    pre.appendChild(document.createTextNode(
+      "\n\nThen, with the key you gave as the revocation key:\n\n  npx @warda_protocol/cli revoke grant.json --key your-revocation.key\n\n" +
+      "Download it just before you run it: the grant moves after every payment, and an old copy points at an\n" +
+      "address that no longer holds anything."));
+  }
+  $("ha-reload").addEventListener("click", haList);
+  $("ha-d-close").addEventListener("click", function () { $("ha-d").hidden = true; HA.open = null; });
+  $("ha-d-job").addEventListener("click", function () {
+    HR.agent = HA.open; HR.funding = { status: "funded" }; HR.seen = 5; hSave();
+    show("hosted"); hGo(5);
+  });
+  $("ha-d-mcp").addEventListener("click", function () {
+    hApi("POST", "/v1/agents/" + encodeURIComponent(HA.open) + "/token", {}).then(function (r) {
+      $("ha-d-out").textContent = JSON.stringify(r.mcp.config, null, 2) + "\n\n" + r.note;
+      $("ha-d-out").hidden = false;
+    }).catch(function (e) { $("ha-d-out").textContent = e.message; $("ha-d-out").hidden = false; });
+  });
+  $("ha-d-refund").addEventListener("click", function () {
+    hApi("POST", "/v1/agents/" + encodeURIComponent(HA.open) + "/refund", {}).then(function (r) {
+      $("ha-d-out").textContent = "Sent back to your key: " + r.refunded.map(function (x) { return x.kas + " KAS (" + x.txid.slice(0, 10) + "…)"; }).join(", ");
+      $("ha-d-out").hidden = false;
+    }).catch(function (e) { $("ha-d-out").textContent = e.message; $("ha-d-out").hidden = false; });
+  });
 
   /* ---- the drawer, on a phone ---------------------------------------------- */
   function drawer(open) {
@@ -6709,7 +6922,7 @@ ops/install-cron.sh</pre>
   });
 
   var TITLES = { dash: "Overview", grants: "Grants", agent: "Agent", activity: "Activity",
-                 refusals: "Refused", alerts: "Alerts", fund: "Fund an agent", create: "Create a grant", hosted: "New agent",
+                 refusals: "Refused", alerts: "Alerts", fund: "Fund an agent", create: "Create a grant", hosted: "New agent", hagents: "Your agents",
                  account: "Your account", fleet: "Fleet", registry: "Services", analytics: "Analytics", more: "More" };
   /* ---- where you are, in the URL ----------------------------------------
      The console had no address. Every view was the same page, so a reload lost
@@ -6746,6 +6959,7 @@ ops/install-cron.sh</pre>
     if (v === "fleet") fleetView();
     if (v === "registry") svcView();
     if (v === "hosted") { if ($("h-key").value && !HR.connected) hConnect(); hView(); }
+    if (v === "hagents") haList();
     Array.prototype.forEach.call(document.querySelectorAll(".side a[data-view], .tabs a[data-view]"), function (o) {
       if (o.getAttribute("data-view") === v) o.setAttribute("aria-current", "page");
       else o.removeAttribute("aria-current");

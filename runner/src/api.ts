@@ -28,7 +28,7 @@ import { formatKas } from "@warda_protocol/core";
 import type { Engine } from "./engine.ts";
 import type { FeePolicy } from "./fees.ts";
 import { emptyLedger } from "./fees.ts";
-import { memberKey, type GrantReader } from "./grant.ts";
+import { memberKey, spendable, type GrantReader } from "./grant.ts";
 import type { Registry } from "./registry.ts";
 import type { Store } from "./store.ts";
 import type { KeyVault } from "./vault.ts";
@@ -198,21 +198,49 @@ export function createApi(d: ApiDeps): (req: Request) => Promise<Response> {
       });
     }],
 
-    ["GET", /^\/v1\/agents$/, async (req) => {
+    ["GET", /^\/v1\/agents$/, async (req, _m, url) => {
       const acct = await account(req);
-      return json(200, { agents: await d.registry.agentsOf(acct) });
+      const ids = await d.registry.agentsOf(acct);
+      if (url.searchParams.get("detail") !== "1") return json(200, { agents: ids });
+      /* One row per agent for the console's list: where its money is, what it
+         does, and when it last did it. Grants are read from the chain, so an
+         agent whose grant cannot be read says so rather than showing zero. */
+      const rows = await Promise.all(ids.map(async (agent) => {
+        const [plan, grant, ledger, workflows, runs] = await Promise.all([
+          d.registry.getPlan(agent),
+          d.grants.read(agent),
+          d.store.getLedger(agent),
+          d.store.listWorkflows(agent),
+          d.store.listRuns(agent, 1),
+        ]);
+        const owed = (ledger ?? emptyLedger()).owed;
+        const last = runs[0];
+        return {
+          agent,
+          state: grant ? grant.status.toLowerCase() : plan && plan.status !== "funded" ? plan.status : "undecided",
+          spendableKas: grant ? formatKas(spendable(grant, owed)) : null,
+          budgetKas: grant ? formatKas(grant.budgetTotal) : plan ? formatKas(BigInt(plan.limits.budget)) : null,
+          spentKas: grant ? formatKas(grant.spentTotal) : null,
+          endsAt: grant?.expiresAtMs ?? null,
+          jobs: workflows.filter((w) => !w.id.startsWith("mcp-")).length,
+          jobsOn: workflows.filter((w) => !w.id.startsWith("mcp-") && w.enabled).length,
+          lastRun: last ? { at: last.startedAt, status: last.status, trigger: last.trigger } : null,
+        };
+      }));
+      return json(200, { agents: rows });
     }],
 
     ["GET", /^\/v1\/agents\/([\w-]+)$/, async (req, m) => {
       const acct = await account(req);
       const agent = m[1]!;
       await ownAgent(acct, agent);
-      const [key, grant, ledger, workflows, plan] = await Promise.all([
+      const [key, grant, ledger, workflows, plan, record] = await Promise.all([
         d.vault.publicKey(agent),
         d.grants.read(agent),
         d.store.getLedger(agent),
         d.store.listWorkflows(agent),
         d.registry.getPlan(agent),
+        d.registry.getGrant(agent),
       ]);
       return json(200, {
         agent,
@@ -230,7 +258,10 @@ export function createApi(d: ApiDeps): (req: Request) => Promise<Response> {
           : null,
         grant: grant ?? { undecided: "no grant registered, or the chain did not confirm the one on record" },
         feesOwed: formatKas((ledger ?? emptyLedger()).owed),
-        workflows: workflows.map(summary),
+        workflows: workflows.filter((w) => !w.id.startsWith("mcp-")).map(summary),
+        /* The grant as it stands now — it moves after every spend — so the
+           owner can revoke it with their own key and nobody else's tool. */
+        ...(record ? { manifest: record.manifest, recipients: record.recipients } : {}),
       });
     }],
 

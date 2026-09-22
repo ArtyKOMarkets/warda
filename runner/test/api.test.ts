@@ -224,3 +224,18 @@ test("MCP: an agent token reads its authority and pays inside its grant, and not
   assert.equal(runs.length, 2);
   assert.equal((await b.call("POST", "/mcp", { body: { jsonrpc: "2.0", method: "notifications/initialized" }, headers: { authorization: `Bearer ${t}` } })).status, 202);
 });
+
+test("the agent list, in detail: state, money, jobs, last run", async () => {
+  const b = await onboarded();
+  await b.call("POST", "/v1/workflows", { key: b.key, body: {
+    agent: "shop-bot", trigger: { type: "manual" }, then: [{ type: "send", to: VENDOR, kas: "0.1" }] } });
+  const plain = await b.call("GET", "/v1/agents", { key: b.key });
+  assert.deepEqual(plain.body.agents, ["shop-bot"]);
+  const d = await b.call("GET", "/v1/agents?detail=1", { key: b.key });
+  const row = d.body.agents[0];
+  assert.equal(row.agent, "shop-bot");
+  assert.equal(row.state, "active");
+  assert.equal(row.spendableKas, "2");
+  assert.equal(row.jobs, 1);
+  assert.equal(row.lastRun, null);
+});
