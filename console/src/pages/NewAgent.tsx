@@ -95,7 +95,7 @@ export function NewAgent() {
             <div className="grid size-11 place-items-center rounded-xl border border-line-strong bg-raised"><KeyRound className="size-5 text-fg-2" /></div>
             <h2 className="mt-5 text-[18px] font-semibold">Or make your own grant</h2>
             <p className="mt-2 text-[13.5px] leading-relaxed text-fg-2">Your software holds the agent key and you plug the grant into the SDK, CLI or MCP.</p>
-            <LinkButton className="mt-5" href="/app#/create">Create a grant <ExternalLink className="size-4" /></LinkButton>
+            <LinkButton className="mt-5" href="/app-classic#/create">Create a grant <ExternalLink className="size-4" /></LinkButton>
           </Card>
         </div>
       </>
@@ -106,7 +106,7 @@ export function NewAgent() {
   return (
     <>
       <PageHeader title="New agent" sub="Set what it may spend and who it may pay. The network enforces both, on every payment."
-        actions={<LinkButton variant="ghost" href="/app#/create">Own grant instead <ExternalLink className="size-3.5" /></LinkButton>} />
+        actions={<LinkButton variant="ghost" href="/app-classic#/create">Own grant instead <ExternalLink className="size-3.5" /></LinkButton>} />
 
       <ol className="mb-8 flex items-center gap-2 sm:gap-3">
         {STEPS.map((s, i) => (
@@ -129,7 +129,7 @@ export function NewAgent() {
             <p className="mt-2 text-[13px] leading-relaxed text-fg-2">The runner made the agent's key. When your payment arrives it creates the grant in one transaction, with you as its owner.</p>
             <div className="mt-5 flex flex-col gap-2">
               <Button onClick={() => go("agents", `h:${funding.agent}`)}>Open agent</Button>
-              <LinkButton variant="ghost" href="/app#/hagents">Add a job <ExternalLink className="size-3.5" /></LinkButton>
+              <LinkButton variant="ghost" href={href("agents", `h:${funding.agent}`, "jobs")}>Add a job</LinkButton>
             </div>
           </Card>
         </div>

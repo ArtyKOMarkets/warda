@@ -14,7 +14,7 @@ export function Classic({ title, sub, view, icon }: { title: string; sub: string
     <>
       <PageHeader title={title} sub={sub} />
       <Card>
-        <Empty icon={icon} title={`${title} is in the classic console for now`} action={<LinkButton variant="primary" href={`/app#/${view}`}>Open {title} <ExternalLink className="size-4" /></LinkButton>}>
+        <Empty icon={icon} title={`${title} is in the classic console for now`} action={<LinkButton variant="primary" href={`/app-classic#/${view}`}>Open {title} <ExternalLink className="size-4" /></LinkButton>}>
           It works the same there. This screen is being rebuilt next.
         </Empty>
       </Card>

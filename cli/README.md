@@ -93,6 +93,21 @@ and a hardcoded fee is how `build-exit.ts` shipped a default the node refused,
 so on a rejection that names a required figure this rebuilds at that figure and
 says what it learned.
 
+### A hosted helper's budget, back to its parent
+
+When a helper on the hosted runner is done, the console's **Return unused budget**
+downloads `return.json`. The settlement needs two signatures: the runner signs the
+parent agent's half, and the other half is your revocation key's, which the runner
+never holds. So you finish it where that key is:
+
+```bash
+warda return return.json --key <file with your revocation key>
+```
+
+It rebuilds the transaction on your machine, shows what it does, and sends back
+only a signature. The helper's grant ends; what it did not spend is the parent's
+again.
+
 ### An agent that earns, in three commands
 
 Agent #001 sells a digest and is paid to an ordinary address. That money has no

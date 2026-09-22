@@ -137,7 +137,7 @@ export function Alerts() {
           <Card className="p-5">
             <div className="text-[14px] font-semibold">Watch any address</div>
             <p className="mt-2 text-[13px] leading-relaxed text-fg-2">Money-arrived and spending-spike rules that run on your own machine are in the classic console.</p>
-            <LinkButton className="mt-4" href="/app#/alerts">Open local alerts <ExternalLink className="size-4" /></LinkButton>
+            <LinkButton className="mt-4" href="/app-classic#/alerts">Open local alerts <ExternalLink className="size-4" /></LinkButton>
           </Card>
         </div>
       </div>

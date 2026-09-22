@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { Share2, Copy as CopyIco, Play, Pause, Sparkles, CircleCheck, CircleAlert, Ban, Clock, Hand, Loader2, Plus, Zap, ExternalLink } from "lucide-react";
+import { Share2, Copy as CopyIco, Play, Pause, Sparkles, CircleCheck, CircleAlert, Ban, Clock, Hand, Loader2, Plus, Zap } from "lucide-react";
 import { api, type RunnerConfig } from "@/lib/runner";
 import { useData } from "@/lib/data";
 import { dateTime, ago } from "@/lib/format";
 import { explorerTx } from "@/lib/kaspa";
 import { cn } from "@/lib/cn";
+import { href } from "@/lib/router";
 import { Badge, Button, Card, CardHeader, Empty, type Tone } from "./ui";
 import { Field, KasInput, Select, inputCls, kasOk } from "./form";
 
@@ -267,7 +268,7 @@ function QuickJob({ agent, runner, onAdded }: { agent: string; runner: RunnerCon
         </label>
       </div>
       <div className="mt-5 flex items-center justify-between gap-3">
-        {msg ? <span className={cn("text-[12.5px]", msg.bad ? "text-bad" : "text-ok")}>{msg.text}</span> : <a href="/app#/hagents" className="inline-flex items-center gap-1 text-[12.5px] text-fg-3 hover:text-fg">Templates &amp; alerts <ExternalLink className="size-3" /></a>}
+        {msg ? <span className={cn("text-[12.5px]", msg.bad ? "text-bad" : "text-ok")}>{msg.text}</span> : <a href={href("alerts")} className="text-[12.5px] text-fg-3 hover:text-fg">Alerts</a>}
         <Button size="sm" variant="primary" disabled={!ok || busy} onClick={add}><Plus className="size-3.5" /> Add job</Button>
       </div>
     </Card>

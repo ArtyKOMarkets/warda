@@ -48,7 +48,9 @@ const resolves = (href) => {
   const rel = clean.replace(/^\//, "");
   if (built.has(rel) || built.has(`${rel}.html`)) return true;
   const onDisk = join(web, rel);
-  return existsSync(onDisk) && statSync(onDisk).isFile();
+  if (existsSync(onDisk) && statSync(onDisk).isFile()) return true;
+  /* A directory with an index is a page too: /app is the console's app/index.html. */
+  return existsSync(join(onDisk, "index.html"));
 };
 
 for (const page of pages) {

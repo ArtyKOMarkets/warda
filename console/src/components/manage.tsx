@@ -81,8 +81,7 @@ function Helpers({ agent, runner, a, reload }: { agent: string; runner: RunnerCo
                   {ret && <p>{ret}</p>}
                   <p className="mt-2">return.json is in your downloads. Where your revocation key is, run:</p>
                   <Cmd>{"npx @warda_protocol/cli return return.json --key <file with your revocation key>"}</Cmd>
-                  <p className="mt-2 text-[12px] text-fg-3">The published CLI (0.4.2) doesn't have <span className="num">return</span> yet. Until it does, from the Warda repo:</p>
-                  <Cmd>{"node --experimental-strip-types cli/warda.ts return return.json --key <file with your revocation key>"}</Cmd>
+                  <p className="mt-2 text-[12px] text-fg-3">Needs CLI 0.5 or later.</p>
                   <p className="mt-2 text-[12px] text-fg-3">It rebuilds the transaction on your machine, shows what it does, and sends back only a signature. Valid for 30 minutes.</p>
                 </div>
               )}

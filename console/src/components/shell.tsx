@@ -93,7 +93,7 @@ export function Shell({ active, children }: { active: string; children: ReactNod
         <div className="flex h-16 items-center px-4"><Logo /></div>
         <div className="flex-1 overflow-y-auto px-4 pb-6 pt-2"><Nav active={active} /></div>
         <div className="border-t border-line p-4">
-          <a href="/app" className="flex items-center justify-between rounded-lg px-2.5 py-2 text-[12.5px] text-fg-3 transition hover:bg-raised hover:text-fg-2">
+          <a href="/app-classic" className="flex items-center justify-between rounded-lg px-2.5 py-2 text-[12.5px] text-fg-3 transition hover:bg-raised hover:text-fg-2">
             Classic console <ExternalLink className="size-3.5" />
           </a>
         </div>
@@ -105,7 +105,7 @@ export function Shell({ active, children }: { active: string; children: ReactNod
         <aside className={cn("absolute inset-y-0 left-0 flex w-[280px] flex-col border-r border-line bg-[#0a0b0e] transition-transform duration-200", open ? "translate-x-0" : "-translate-x-full")}>
           <div className="flex h-14 items-center justify-between px-4"><Logo /><button className="grid size-9 place-items-center rounded-lg text-fg-2 hover:bg-raised" onClick={() => setOpen(false)} aria-label="Close menu"><X className="size-5" /></button></div>
           <div className="flex-1 overflow-y-auto px-4 pb-6 pt-2"><Nav active={active} onPick={() => setOpen(false)} /></div>
-          <div className="border-t border-line p-4"><a href="/app" className="text-[12.5px] text-fg-3">Classic console</a></div>
+          <div className="border-t border-line p-4"><a href="/app-classic" className="text-[12.5px] text-fg-3">Classic console</a></div>
         </aside>
       </div>
 

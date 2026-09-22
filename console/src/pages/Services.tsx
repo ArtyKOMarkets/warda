@@ -32,7 +32,7 @@ export function Services() {
                   <span className="text-fg-3">{mine.length ? <>Paid <span className="num text-fg">{kas(total)} KAS</span> in {mine.length} payment{mine.length === 1 ? "" : "s"}</> : "No payments from these agents yet"}</span>
                   {s.address && <span className="flex items-center text-fg-3"><span className="num hidden sm:inline">{short(s.address, 10, 4)}</span><Copy text={s.address} label="Copy payee address" /></span>}
                 </div>
-                <a href="/app#/registry" className="mt-4 inline-flex items-center gap-1 text-[13px] text-fg-2 hover:text-accent">Add as a job <ExternalLink className="size-3.5" /></a>
+                <a href="/app-classic#/registry" className="mt-4 inline-flex items-center gap-1 text-[13px] text-fg-2 hover:text-accent">Add as a job <ExternalLink className="size-3.5" /></a>
               </Card>
             );
           })}

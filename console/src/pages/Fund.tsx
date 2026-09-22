@@ -54,7 +54,7 @@ export function Fund({ agent }: { agent?: string }) {
               <div className="grid size-10 shrink-0 place-items-center rounded-xl border border-line-strong bg-raised"><Coins className="size-5 text-fg-2" /></div>
               <div><div className="text-[14px] font-semibold">Pay with USDC or USDT</div><p className="mt-0.5 text-[13px] text-fg-3">Swapped to KAS from Base, Ethereum, Arbitrum and more. Mainnet only.</p></div>
             </div>
-            <LinkButton className="shrink-0" href="/app#/fund">Stablecoin funding <ExternalLink className="size-4" /></LinkButton>
+            <LinkButton className="shrink-0" href="/app-classic#/fund">Stablecoin funding <ExternalLink className="size-4" /></LinkButton>
           </Card>
         </div>
       </div>

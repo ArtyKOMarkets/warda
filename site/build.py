@@ -928,17 +928,21 @@ for src in (lockup_png, mark_png):
     (web_assets / src.name).write_bytes(src.read_bytes())
 print(f"web/assets: {', '.join(p.name for p in (lockup_png, mark_png))}")
 
-# The next console (console/, React + Vite), served at /app-next/ beside the
-# classic /app until it does everything. It is built separately with
-# `npm run build` in console/; this only copies what that build left. A
-# missing dist/ is not an error: the classic console is still the console.
+# The console (console/, React + Vite) is /app. The classic console that
+# /app used to be is kept at /app-classic, for the few screens not rebuilt
+# yet; the new console sends those there, and maps the classic hashes the
+# runner's messages and people's bookmarks still carry. The console is
+# built separately with `npm run build` in console/; this only copies what
+# that build left. Without a build, /app stays the classic console.
 import shutil
 _next = here.parent / "console" / "dist"
-_next_dst = here / "web" / "app-next"
+_web = here / "web"
 if (_next / "index.html").exists():
-    if _next_dst.exists():
-        shutil.rmtree(_next_dst)
-    shutil.copytree(_next, _next_dst)
-    print(f"web/app-next: {sum(1 for _ in _next_dst.rglob('*') if _.is_file())} files from console/dist")
+    for old in (_web / "app", _web / "app-next"):
+        if old.exists():
+            shutil.rmtree(old)
+    shutil.copytree(_next, _web / "app")
+    (_web / "app.html").replace(_web / "app-classic.html")
+    print(f"web/app: {sum(1 for _ in (_web / 'app').rglob('*') if _.is_file())} files from console/dist; classic console at web/app-classic.html")
 else:
-    print("web/app-next: skipped (run `npm run build` in console/ first)")
+    print("web/app: classic console (run `npm run build` in console/ for the new one)")

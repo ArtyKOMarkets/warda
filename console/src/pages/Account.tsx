@@ -87,7 +87,7 @@ export function Account() {
         <Card className="p-5">
           <div className="flex items-center gap-2 text-[15px] font-semibold"><Server className="size-4 text-accent" /> Your wallet</div>
           <p className="mt-2 text-[13px] leading-relaxed text-fg-2">Connecting a wallet to see its balances is still in the classic console. Telegram is under <a className="text-fg hover:text-accent" href="#/alerts">Alerts</a>.</p>
-          <LinkButton className="mt-4" href="/app#/account">Open account settings <ExternalLink className="size-4" /></LinkButton>
+          <LinkButton className="mt-4" href="/app-classic#/account">Open account settings <ExternalLink className="size-4" /></LinkButton>
         </Card>
         </div>
       </div>
