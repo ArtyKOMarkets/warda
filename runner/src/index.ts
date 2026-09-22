@@ -6,3 +6,4 @@ export * from "./store.ts";
 export * from "./vault.ts";
 export * from "./engine.ts";
 export * from "./template.ts";
+export * from "./vault-turnkey.ts";

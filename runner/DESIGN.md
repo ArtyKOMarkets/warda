@@ -29,28 +29,27 @@ it never acts as the owner. `ops/check-runner.mjs` fails the build if anything
 under `runner/src` can reach a principal or revocation key, or if any action
 other than `approval` is declared owner-level.
 
-### Vault: envelope now, MPC when it can sign for Kaspa
+### Vault: Turnkey (MPC), envelope as the fallback
 
 `KeyVault` is an interface with one job: create an agent key, and hand back a
 `Signer` for it. Every signature is verified against the agent key the grant
 names before it leaves the vault.
 
-- **`EnvelopeVault` (now).** A fresh 32-byte agent key per agent, sealed with
-  AES-256-GCM under a master key. The master key is a `MasterKey`, so a cloud
-  KMS (AWS `Encrypt`/`Decrypt`, GCP KMS) replaces the local one without
-  touching the vault. Testnet can run on the local master key.
-- **MPC (Turnkey) — spike first.** MPC is easier to *explain* ("no single
-  machine ever holds the key") and gives export/recovery for free. It is not
-  easier to *build*, and the blocker is specific: Kaspa signs a raw 32-byte
-  sighash with **BIP340 Schnorr**. Turnkey's raw-payload signing is ECDSA; its
-  Schnorr is reached through Taproot addresses, where the key is **tweaked**
-  automatically. That is workable — the covenant can bake in the tweaked
-  output key, which is what the signature verifies against — but it has to be
-  proven on a real digest before anything depends on it.
-  `spike/turnkey-schnorr.ts` is that proof: it asks Turnkey to sign a digest
-  with a P2TR account and checks the result with the same `verifyDigest` the
-  payer uses. If it passes, `TurnkeyVault` is ~60 lines behind the same
-  interface. If it fails, envelope + KMS ships to mainnet.
+- **`TurnkeyVault` (default).** Proven on 22 September 2026 by
+  `spike/turnkey-schnorr.ts` against a real Turnkey organisation:
+  `signRawPayload` with a Taproot (P2TR) account as `signWith` and
+  `HASH_FUNCTION_NO_OP` returns a 64-byte **BIP340** signature over our raw
+  32-byte sighash, valid under the address's **tweaked output key**. The grant
+  names that output key as its agent key, so only Turnkey can spend it and the
+  runner never sees a secret. A Spark account also passed, untweaked; P2TR is
+  used because it is Turnkey's documented Schnorr path. The vault signs once at
+  creation and refuses to store a key it has not seen verify.
+- **`EnvelopeVault` (fallback, tests, local).** A 32-byte key sealed with
+  AES-256-GCM under a `MasterKey`, which a cloud KMS can replace.
+
+Before mainnet: a Turnkey **policy** restricting the runner's API key to
+`SIGN_RAW_PAYLOAD` on agent wallets only, so a leaked runner credential cannot
+create, export or delete anything.
 
 ## Workflows
 

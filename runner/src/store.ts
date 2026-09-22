@@ -38,7 +38,11 @@ export interface RunRecord {
 
 export interface VaultRecord {
   agent: string;
+  /** The x-only key the grant names as its agent. */
   publicKey: string;
+  /** Which vault made it. Absent on records written before there were two. */
+  provider?: "envelope" | "turnkey";
+  /** envelope: the sealed secret, base64. turnkey: a JSON reference — no secret. */
   sealed: string;
   createdAt: number;
 }

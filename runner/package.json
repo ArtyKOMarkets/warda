@@ -14,9 +14,10 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@turnkey/sdk-server": "^8.5.1",
+    "@warda_protocol/agent": "^0.1.0",
     "@warda_protocol/core": "^0.3.1",
     "@warda_protocol/kaspa": "^0.6.0",
-    "@warda_protocol/x402": "^0.6.0",
-    "@warda_protocol/agent": "^0.1.0"
+    "@warda_protocol/x402": "^0.6.0"
   }
 }

@@ -78,6 +78,7 @@ export class EnvelopeVault implements KeyVault {
       await this.store.putVault({
         agent,
         publicKey,
+        provider: "envelope",
         sealed: Buffer.from(sealed).toString("base64"),
         createdAt: this.now(),
       });
@@ -94,6 +95,9 @@ export class EnvelopeVault implements KeyVault {
   async signer(agent: string): Promise<Signer> {
     const rec = await this.store.getVault(agent);
     if (!rec) throw new Error(`the runner holds no key for agent ${agent}`);
+    if (rec.provider && rec.provider !== "envelope") {
+      throw new Error(`agent ${agent}'s key is held by ${rec.provider}, not by this vault`);
+    }
     const pub = fromHex(rec.publicKey);
     return async (digest) => {
       const secret = await this.master.open(new Uint8Array(Buffer.from(rec.sealed, "base64")), agent);
