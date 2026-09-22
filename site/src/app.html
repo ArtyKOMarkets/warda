@@ -602,6 +602,46 @@
   select, input, textarea { font-family: var(--mono); font-size: 0.85rem; color: var(--chrome);
     background: var(--panel); border: 1px solid var(--edge); border-radius: 8px;
     padding: 0.5rem 0.6rem; width: 100%; }
+  /* ---- selects: the native <select> stays the source of truth (value,
+     events, forms), hidden; this is what you see and click. -------------- */
+  .wsel { position: relative; width: 100%; min-width: 0; }
+  .wsel[hidden] { display: none; }
+  .wsel > select.wsel-native { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0;
+    pointer-events: none; }
+  .wsel-btn { display: flex; align-items: center; gap: 0.55rem; width: 100%; text-align: left; cursor: pointer;
+    font-family: var(--mono); font-size: 0.85rem; color: var(--chrome); background: var(--panel);
+    border: 1px solid var(--edge); border-radius: 8px; padding: 0.5rem 0.6rem; height: 100%;
+    transition: border-color 0.15s, background 0.15s; }
+  .wsel-btn:hover { border-color: var(--edge-bright); background: var(--raise); }
+  .wsel.open .wsel-btn { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(20,215,193,0.12); }
+  .wsel-btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+  .wsel-btn .t { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .wsel-btn svg { width: 14px; height: 14px; flex: none; color: var(--chrome-faint); transition: transform 0.18s; }
+  .wsel.open .wsel-btn svg { transform: rotate(180deg); color: var(--teal); }
+  .wsel .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; box-shadow: 0 0 0 2px rgba(255,255,255,0.06); }
+  .wsel-list { position: absolute; z-index: 60; left: 0; top: calc(100% + 6px); min-width: 100%; width: max-content;
+    max-width: min(26rem, 92vw); max-height: 21rem; overflow-y: auto; margin: 0; padding: 0.3rem; list-style: none;
+    background: var(--raise); border: 1px solid var(--edge-bright); border-radius: 10px;
+    box-shadow: 0 14px 40px rgba(0,0,0,0.5), 0 2px 6px rgba(0,0,0,0.35);
+    animation: wsel-in 0.12s ease-out; }
+  .wsel.up .wsel-list { top: auto; bottom: calc(100% + 6px); }
+  .wsel.right .wsel-list { left: auto; right: 0; }
+  @keyframes wsel-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+  .wsel-list li { display: flex; align-items: center; gap: 0.55rem; padding: 0.5rem 0.6rem; border-radius: 7px;
+    font-family: var(--mono); font-size: 0.82rem; color: var(--chrome-dim); cursor: pointer; outline: none; white-space: nowrap; }
+  .wsel-list li .t { flex: 1 1 auto; }
+  .wsel-list li:hover, .wsel-list li.hi { background: rgba(20,215,193,0.09); color: var(--chrome); }
+  .wsel-list li[aria-selected="true"] { color: var(--teal-bright); }
+  .wsel-list li .ck { width: 14px; height: 14px; flex: none; opacity: 0; color: var(--teal); }
+  .wsel-list li[aria-selected="true"] .ck { opacity: 1; }
+  .wsel-list li[aria-disabled="true"] { opacity: 0.4; cursor: not-allowed; background: none; }
+  .wsel-list li.grp { font-size: 0.64rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--chrome-faint);
+    cursor: default; padding: 0.55rem 0.6rem 0.25rem; background: none; }
+  .wsel.net { width: auto; }
+  .wsel.net .wsel-btn { font-size: 0.67rem; border-color: var(--edge-bright); border-radius: 999px; padding: 0.32rem 0.7rem; }
+  .wsel.net .wsel-list li { font-size: 0.72rem; }
+  .fa-amt .wsel { flex: 0 0 auto; width: auto; }
+  .fa-amt .wsel-btn { font-size: 0.95rem; padding-inline: 0.8rem; }
   input::placeholder, textarea::placeholder { color: var(--chrome-faint); }
   input:focus, textarea:focus, select:focus { border-color: var(--edge-bright); }
   select:focus-visible, input:focus-visible, textarea:focus-visible,
@@ -4870,7 +4910,10 @@ ops/install-cron.sh</pre>
 
     /* Routes: every one this chain has, the chosen one first. */
     var stale = faStale();
-    var ids = src.routes.slice();
+    /* A token can travel fewer routes than its chain has: USDT off Ethereum
+       and BNB Chain goes by the instant swap only. */
+    var only = (src.tokenRoutes || {})[$("fa-tok").value];
+    var ids = src.routes.filter(function (r) { return !only || only.indexOf(r) >= 0; });
     var best = ids.filter(function (r) { return faOpen(main, r) && main.routes[r].custody === "none"; })[0]
       || ids.filter(function (r) { return faOpen(main, r); })[0] || ids[0];
     var rid = FA_ROUTE && ids.indexOf(FA_ROUTE) >= 0 ? FA_ROUTE : best;
@@ -7340,6 +7383,147 @@ ops/install-cron.sh</pre>
     var n = $("f-notices");
     if (n && n.scrollIntoView) n.scrollIntoView({ block: "center" });
   });
+
+  /* ---- selects ------------------------------------------------------------
+     Every <select> in the console gets a drawn button and list. The native
+     element keeps its value and fires its own input/change events, so no
+     code that reads or sets it had to change; setting .value or
+     .selectedIndex, or rewriting its options, redraws the button. */
+  var WSEL_DOT = { USDC: "#2775CA", USDT: "#26A17B", Base: "#0052FF", Ethereum: "#627EEA", Arbitrum: "#28A0F0",
+    Optimism: "#FF0420", Polygon: "#8247E5", Avalanche: "#E84142", "BNB Chain": "#F0B90B", Igra: "#49EACB" };
+  var WSEL_CHEV = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6l4 4 4-4"/></svg>';
+  var WSEL_CK = '<svg class="ck" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3.6 8.4l3 3 5.8-6.4"/></svg>';
+  var WSEL_OPEN = null;
+  function wselDot(t) { var c = WSEL_DOT[String(t).trim()]; return c ? '<i class="dot" style="background:' + c + '"></i>' : ""; }
+  function wSel(sel) {
+    if (sel.__w || sel.multiple || sel.getAttribute("aria-hidden") === "true") return;
+    sel.__w = true;
+    var wrap = document.createElement("div");
+    wrap.className = "wsel" + (sel.classList.contains("net") ? " net" : "");
+    sel.parentNode.insertBefore(wrap, sel);
+    wrap.appendChild(sel);
+    sel.classList.add("wsel-native");
+    sel.tabIndex = -1;
+    var btn = document.createElement("button");
+    btn.type = "button"; btn.className = "wsel-btn";
+    btn.setAttribute("aria-haspopup", "listbox"); btn.setAttribute("aria-expanded", "false");
+    if (sel.id) {
+      btn.id = sel.id + "-w";
+      var lab = document.querySelector('label[for="' + sel.id + '"]');
+      if (lab) { lab.htmlFor = btn.id; btn.setAttribute("aria-label", lab.textContent.trim()); }
+    }
+    if (sel.getAttribute("aria-label")) btn.setAttribute("aria-label", sel.getAttribute("aria-label"));
+    var list = document.createElement("ul");
+    list.className = "wsel-list"; list.setAttribute("role", "listbox"); list.hidden = true; list.tabIndex = -1;
+    wrap.appendChild(btn); wrap.appendChild(list);
+    var hi = -1;
+
+    function sync() {
+      var o = sel.options[sel.selectedIndex];
+      var t = o ? o.text : "—";
+      btn.innerHTML = wselDot(t) + '<span class="t">' + esc(t) + '</span>' + WSEL_CHEV;
+      btn.disabled = sel.disabled || !sel.options.length;
+      wrap.hidden = sel.hidden;
+      if (!list.hidden) build();
+    }
+    function build() {
+      var html = "", idx = 0;
+      Array.prototype.forEach.call(sel.children, function (c) {
+        if (c.tagName === "OPTGROUP") {
+          html += '<li class="grp" role="presentation">' + esc(c.label) + '</li>';
+          Array.prototype.forEach.call(c.children, function (o) { html += item(o, idx++); });
+        } else if (c.tagName === "OPTION") html += item(c, idx++);
+      });
+      list.innerHTML = html;
+    }
+    function item(o, i) {
+      return '<li role="option" data-i="' + i + '" aria-selected="' + (i === sel.selectedIndex) + '"' +
+        (o.disabled ? ' aria-disabled="true"' : '') + (i === hi ? ' class="hi"' : '') + '>' +
+        wselDot(o.text) + '<span class="t">' + esc(o.text) + '</span>' + WSEL_CK + '</li>';
+    }
+    function mark(i) {
+      hi = i;
+      Array.prototype.forEach.call(list.querySelectorAll("li[data-i]"), function (li) {
+        var on = Number(li.getAttribute("data-i")) === i;
+        li.classList.toggle("hi", on);
+        if (on && li.scrollIntoView) li.scrollIntoView({ block: "nearest" });
+      });
+    }
+    function step(d) {
+      var n = sel.options.length, i = hi;
+      for (var k = 0; k < n; k++) { i = (i + d + n) % n; if (!sel.options[i].disabled) break; }
+      mark(i);
+    }
+    function open() {
+      if (btn.disabled) return;
+      if (WSEL_OPEN && WSEL_OPEN !== close) WSEL_OPEN();
+      hi = sel.selectedIndex; build();
+      list.hidden = false; wrap.classList.add("open"); btn.setAttribute("aria-expanded", "true");
+      /* Open upward, or from the right edge, when the page has no room. */
+      var r = wrap.getBoundingClientRect(), h = Math.min(list.scrollHeight, 336);
+      wrap.classList.toggle("up", window.innerHeight - r.bottom < h + 12 && r.top > h + 12);
+      wrap.classList.toggle("right", r.left + list.offsetWidth > window.innerWidth - 8);
+      mark(hi);
+      WSEL_OPEN = close;
+    }
+    function close(back) {
+      if (list.hidden) return;
+      list.hidden = true; wrap.classList.remove("open", "up", "right"); btn.setAttribute("aria-expanded", "false");
+      if (WSEL_OPEN === close) WSEL_OPEN = null;
+      if (back) btn.focus();
+    }
+    function pick(i) {
+      if (i < 0 || !sel.options[i] || sel.options[i].disabled) return;
+      if (sel.selectedIndex !== i) {
+        sel.selectedIndex = i;
+        sel.dispatchEvent(new Event("input", { bubbles: true }));
+        sel.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      close(true); sync();
+    }
+    btn.addEventListener("click", function (e) { e.stopPropagation(); list.hidden ? open() : close(); });
+    list.addEventListener("click", function (e) {
+      e.stopPropagation();
+      var li = e.target.closest("li[data-i]"); if (li) pick(Number(li.getAttribute("data-i")));
+    });
+    list.addEventListener("mousemove", function (e) {
+      var li = e.target.closest("li[data-i]"); if (li && Number(li.getAttribute("data-i")) !== hi) mark(Number(li.getAttribute("data-i")));
+    });
+    wrap.addEventListener("keydown", function (e) {
+      var k = e.key;
+      if (list.hidden) {
+        if (k === "ArrowDown" || k === "ArrowUp" || k === "Enter" || k === " ") { e.preventDefault(); open(); }
+        return;
+      }
+      if (k === "Escape") { e.preventDefault(); e.stopPropagation(); close(true); }
+      else if (k === "ArrowDown") { e.preventDefault(); step(1); }
+      else if (k === "ArrowUp") { e.preventDefault(); step(-1); }
+      else if (k === "Home") { e.preventDefault(); hi = -1; step(1); }
+      else if (k === "End") { e.preventDefault(); hi = 0; step(-1); }
+      else if (k === "Enter" || k === " ") { e.preventDefault(); e.stopPropagation(); pick(hi); }
+      else if (k === "Tab") close();
+      else if (k.length === 1 && /\S/.test(k)) {
+        var n = sel.options.length;
+        for (var j = 1; j <= n; j++) {
+          var o = sel.options[(hi + j) % n];
+          if (!o.disabled && o.text.trim().toLowerCase().indexOf(k.toLowerCase()) === 0) { mark((hi + j) % n); break; }
+        }
+      }
+    });
+    ["value", "selectedIndex"].forEach(function (p) {
+      var d = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, p);
+      Object.defineProperty(sel, p, { configurable: true,
+        get: function () { return d.get.call(sel); },
+        set: function (v) { d.set.call(sel, v); sync(); } });
+    });
+    sel.addEventListener("change", sync);
+    new MutationObserver(sync).observe(sel, { childList: true, subtree: true, characterData: true, attributes: true,
+      attributeFilter: ["disabled", "hidden", "selected", "label"] });
+    sync();
+  }
+  document.addEventListener("click", function () { if (WSEL_OPEN) WSEL_OPEN(); });
+  window.addEventListener("resize", function () { if (WSEL_OPEN) WSEL_OPEN(); });
+  Array.prototype.forEach.call(document.querySelectorAll("select"), wSel);
 
   goStep(1);
   alertsView();

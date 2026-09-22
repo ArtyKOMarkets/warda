@@ -43,7 +43,7 @@ const FEE = /^\d{1,2}(\.\d{1,3})?$/.test(FEE_RAW) ? FEE_RAW : null;
    as the fallback for running the source file directly. */
 const ROUTES_INLINE = {
   "_comment": "Ways into KAS, route by route and leg by leg, and whether each works. Read by /app's Fund an agent. A route is only as available as its worst leg; the page offers every route a source chain has, and prefers the one with no custodian. checkedAt older than 14 days and /app shows every leg as unchecked. The igra-hyperlane leg's status is set by ops/check-routes.mjs, which reads the pause on-chain.",
-  "checkedAt": "2026-09-21",
+  "checkedAt": "2026-09-22",
   "networks": {
     "testnet-10": {
       "none": "Igra's Galleon testnet has no USDC venue and no published exit bridge to Kaspa testnet-10, and no swap service trades testnet KAS, so there is no way in from a stablecoin on testnet. Testnet KAS comes from a faucet.",
@@ -99,7 +99,8 @@ const ROUTES_INLINE = {
           "chain": "Arbitrum",
           "chainId": 42161,
           "tokens": [
-            "USDC"
+            "USDC",
+            "USDT"
           ],
           "routes": [
             "igra",
@@ -110,14 +111,25 @@ const ROUTES_INLINE = {
               "currency": "usdc",
               "network": "arbitrum",
               "legacy": "usdcarb"
+            },
+            "USDT": {
+              "currency": "usdt",
+              "network": "arbitrum",
+              "legacy": "usdtarb"
             }
+          },
+          "tokenRoutes": {
+            "USDT": [
+              "changenow"
+            ]
           }
         },
         {
           "chain": "Optimism",
           "chainId": 10,
           "tokens": [
-            "USDC"
+            "USDC",
+            "USDT"
           ],
           "routes": [
             "igra",
@@ -128,14 +140,25 @@ const ROUTES_INLINE = {
               "currency": "usdc",
               "network": "op",
               "legacy": "usdcop"
+            },
+            "USDT": {
+              "currency": "usdt",
+              "network": "op",
+              "legacy": "usdtop"
             }
+          },
+          "tokenRoutes": {
+            "USDT": [
+              "changenow"
+            ]
           }
         },
         {
           "chain": "Polygon",
           "chainId": 137,
           "tokens": [
-            "USDC"
+            "USDC",
+            "USDT"
           ],
           "routes": [
             "igra",
@@ -146,14 +169,25 @@ const ROUTES_INLINE = {
               "currency": "usdc",
               "network": "matic",
               "legacy": "usdcmatic"
+            },
+            "USDT": {
+              "currency": "usdt",
+              "network": "matic",
+              "legacy": "usdtmatic"
             }
+          },
+          "tokenRoutes": {
+            "USDT": [
+              "changenow"
+            ]
           }
         },
         {
           "chain": "Avalanche",
           "chainId": 43114,
           "tokens": [
-            "USDC"
+            "USDC",
+            "USDT"
           ],
           "routes": [
             "igra",
@@ -164,7 +198,17 @@ const ROUTES_INLINE = {
               "currency": "usdc",
               "network": "avaxc",
               "legacy": "usdcarc20"
+            },
+            "USDT": {
+              "currency": "usdt",
+              "network": "avaxc",
+              "legacy": "usdtarc20"
             }
+          },
+          "tokenRoutes": {
+            "USDT": [
+              "changenow"
+            ]
           }
         },
         {
@@ -261,7 +305,7 @@ const ROUTES_INLINE = {
           "does": "swap USDC for iKAS on Igra",
           "via": "Zealous Swap, USDC/iKAS pool",
           "status": "live",
-          "why": "Trading, with a thin pool relative to the rest of the venue \u2014 a large order moves the price, which is what the slippage bound is for.",
+          "why": "Trading, with a thin pool relative to the rest of the venue — a large order moves the price, which is what the slippage bound is for.",
           "source": "https://www.coingecko.com/en/exchanges/zealous-swap-igra"
         },
         "exit": {
@@ -276,7 +320,7 @@ const ROUTES_INLINE = {
           "via": "ChangeNOW",
           "status": "live",
           "custodial": true,
-          "why": "Custodial for the minutes of the swap: ChangeNOW receives the stablecoin and sends native KAS to your Kaspa address. Its fee is inside the rate it quotes. No 1,000 KAS floor \u2014 the minimum is under a dollar.",
+          "why": "Custodial for the minutes of the swap: ChangeNOW receives the stablecoin and sends native KAS to your Kaspa address. Its fee is inside the rate it quotes. No 1,000 KAS floor — the minimum is under a dollar.",
           "source": "https://changenow.io/currencies/kaspa"
         },
         "dymension-evm": {

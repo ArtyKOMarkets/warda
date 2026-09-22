@@ -4,15 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
-<title>You don't need KAS</title>
+<title>Get a funded testnet grant for your agent — Warda</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<meta name="description" content="Send your agent's public key. We fund a bounded Warda grant on Kaspa testnet so it can pay for APIs under limits the network enforces. Free, usually within a day.">
 <style>
   :root {
     --void: #06090C; --ground: #0A1014; --panel: #101A20;
     --edge: #1E2E37; --edge-bright: #2C4350;
     --chrome: #DDE0E2; --chrome-dim: #8D989E; --chrome-faint: #5D6B73;
     --teal: #14D7C1; --teal-deep: #06BBA1; --teal-ghost: rgba(20,215,193,0.10);
-    --refuse: #FF6B5A; --amber: #E8B14C;
+    --refuse: #FF6B5A; --refuse-ghost: rgba(255,107,90,0.08);
     --display: "Chakra Petch", "Arial Narrow", sans-serif;
     --body: "Barlow", "Helvetica Neue", Arial, sans-serif;
     --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
@@ -23,94 +24,82 @@
          font-family: var(--body); line-height: 1.6; }
   .wrap { max-width: 62rem; margin: 0 auto; padding: 0 var(--gutter); }
   header { border-bottom: 1px solid var(--edge); padding: 2.6rem 0 2.4rem; }
-  h1 { font-family: var(--display); font-size: clamp(2.1rem, 6vw, 3.4rem); line-height: 1.04;
-       margin: 1.3rem 0 0; font-weight: 700; letter-spacing: -0.015em; }
-  .lede { color: var(--chrome-dim); max-width: 60ch; margin-top: 1.1rem; font-size: 1.06rem; }
+  .home { font-family: var(--mono); font-size: 0.72rem; color: var(--chrome-faint);
+          text-decoration: none; letter-spacing: 0.08em; }
+  .home:hover { color: var(--teal); }
+  h1 { font-family: var(--display); font-size: clamp(1.9rem, 5vw, 3rem); line-height: 1.06;
+       margin: 1.3rem 0 0; font-weight: 600; letter-spacing: -0.01em; }
+  .lede { color: var(--chrome-dim); max-width: 56ch; margin-top: 1.1rem; }
   .eyebrow { font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.18em;
              text-transform: uppercase; color: var(--teal); margin: 0; }
-  section { border-bottom: 1px solid var(--edge); padding: 2.6rem 0; }
-  h2 { font-family: var(--display); font-size: clamp(1.35rem, 3vw, 1.95rem); margin: 0.6rem 0 0;
-       font-weight: 600; letter-spacing: -0.01em; }
-  p { max-width: 64ch; color: var(--chrome-dim); }
-  p strong { color: var(--chrome); font-weight: 600; }
-  code { font-family: var(--mono); font-size: 0.9em; color: var(--chrome-dim); overflow-wrap: anywhere; }
+  section { border-bottom: 1px solid var(--edge); padding: 2.4rem 0; }
+  h2 { font-family: var(--display); font-size: clamp(1.3rem, 3vw, 1.8rem); margin: 0.7rem 0 0;
+       font-weight: 600; }
+  label { display: block; font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.12em;
+          text-transform: uppercase; color: var(--chrome-faint); margin: 1.2rem 0 0.5rem; }
+  textarea, input { width: 100%; background: var(--ground); color: var(--chrome);
+                    border: 1px solid var(--edge); padding: 0.8rem 0.9rem;
+                    font-family: var(--mono); font-size: 0.76rem; line-height: 1.7; }
+  textarea { min-height: 12rem; resize: vertical; }
+  textarea:focus, input:focus { outline: none; border-color: var(--teal-deep); }
+  button { font-family: var(--mono); font-size: 0.76rem; letter-spacing: 0.06em;
+           background: var(--teal); color: #04121; border: 0; padding: 0.7rem 1.3rem;
+           cursor: pointer; margin-top: 1rem; }
+  button.alt { background: transparent; color: var(--chrome-dim); border: 1px solid var(--edge);
+               margin-left: 0.5rem; }
+  button:hover { filter: brightness(1.08); }
+
+  .out { margin-top: 1.4rem; border: 1px solid; padding: 1.2rem 1.2rem; display: none;
+         font-family: var(--mono); font-size: 0.78rem; }
+  .out.on { display: block; }
+  .out.ok { border-color: var(--teal-deep); background: var(--teal-ghost); }
+  .out.no { border-color: var(--refuse); background: var(--refuse-ghost); }
+  .out .head { display: block; text-transform: uppercase; letter-spacing: 0.14em;
+               font-size: 0.7rem; margin-bottom: 0.7rem; }
+  .out.ok .head { color: var(--teal); }
+  .out.no .head { color: var(--refuse); }
+  .out .addr { word-break: break-all; color: var(--chrome); }
+
+  .terms { margin-top: 1.4rem; border-top: 1px solid var(--edge); display: none; }
+  .terms.on { display: block; }
+  .terms .row { display: grid; grid-template-columns: 12rem 1fr; gap: 1rem;
+                padding: 0.75rem 0; border-bottom: 1px solid var(--edge); }
+  .terms .k { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.1em;
+              text-transform: uppercase; color: var(--chrome-faint); }
+  .terms .v { font-size: 0.92rem; word-break: break-all; }
+  .terms .v .n { color: var(--chrome-faint); font-size: 0.82rem; display: block; margin-top: 0.2rem; }
+  @media (max-width: 620px) { .terms .row { grid-template-columns: 1fr; gap: 0.2rem; } }
+
+  .selftest { font-family: var(--mono); font-size: 0.72rem; padding: 0.8rem 1rem;
+              border: 1px solid var(--edge); color: var(--chrome-dim); margin-top: 1.4rem; }
+  .selftest b { color: var(--teal); font-weight: 500; }
+  .selftest.bad { border-color: var(--refuse); color: var(--refuse); }
+  footer { padding: 2.4rem 0 3.4rem; }
+  footer p { font-family: var(--mono); font-size: 0.7rem; color: var(--chrome-faint);
+             line-height: 1.75; max-width: 64ch; }
+  code { font-family: var(--mono); font-size: 0.92em; color: var(--chrome-dim); }
+
+
+  .steps { display: grid; gap: 1rem; margin-top: 1.4rem; }
+  .step { border: 1px solid var(--edge); background: var(--ground); padding: 1.1rem 1.2rem; }
+  .step b { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--teal); }
+  .step p { margin: 0.4rem 0 0; color: var(--chrome-dim); }
+  pre { background: var(--ground); border: 1px solid var(--edge); padding: 0.9rem 1rem; overflow-x: auto;
+        font-family: var(--mono); font-size: 0.76rem; line-height: 1.7; color: var(--chrome); white-space: pre; }
+  .grid2 { display: grid; gap: 0 1.2rem; grid-template-columns: 1fr 1fr; }
+  @media (max-width: 700px) { .grid2 { grid-template-columns: 1fr; } }
+  .hint { font-size: 0.86rem; color: var(--chrome-faint); margin: 0.4rem 0 0; }
+  .msg { margin-top: 1.2rem; padding: 0.9rem 1rem; border: 1px solid var(--edge); font-size: 0.92rem; color: var(--chrome-dim); }
+  .msg.ok { border-color: var(--teal-deep); background: var(--teal-ghost); color: var(--chrome); }
+  .msg.bad { border-color: var(--refuse); background: var(--refuse-ghost); color: var(--refuse); }
+  .kv { display: grid; grid-template-columns: 11rem 1fr; gap: 0.35rem 1rem; margin-top: 1.1rem; font-size: 0.92rem; }
+  .kv dt { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--chrome-faint); padding-top: 0.2rem; }
+  .kv dd { margin: 0; overflow-wrap: anywhere; }
+  @media (max-width: 620px) { .kv { grid-template-columns: 1fr; } .kv dd { margin-bottom: 0.5rem; } }
+  .terms-list { color: var(--chrome-dim); padding-left: 1.2rem; max-width: 62ch; }
+  .terms-list li { margin: 0.4rem 0; }
+  button:disabled { opacity: 0.5; cursor: wait; }
   a { color: var(--teal); }
-
-  /* ── the diagram ─────────────────────────────────────────────────────── */
-  .rail { margin: 2rem 0 0; overflow-x: auto; }
-  .rail svg { display: block; width: 100%; min-width: 34rem; height: auto; }
-
-  .r-box { fill: var(--panel); stroke: var(--edge-bright); stroke-width: 1.2; }
-  .r-grant { fill: var(--teal-ghost); stroke: var(--teal); stroke-width: 1.6; }
-  .r-line { stroke: var(--chrome-faint); stroke-width: 1.2; fill: none; }
-  .r-line-t { stroke: var(--teal); stroke-width: 1.4; fill: none; }
-  .r-dash { stroke-dasharray: 5 4; }
-  .r-lab { font-family: var(--display); font-size: 15px; font-weight: 600; fill: var(--chrome); }
-  .r-sub { font-family: var(--mono); font-size: 11.5px; fill: var(--chrome-faint); }
-  .r-val { font-family: var(--mono); font-size: 12.5px; fill: var(--teal); }
-  .r-key { font-family: var(--mono); font-size: 11px; fill: var(--chrome-faint);
-           letter-spacing: 0.1em; text-transform: uppercase; }
-  .r-edge { font-family: var(--mono); font-size: 11.5px; fill: var(--chrome-dim); }
-
-  /* The boundary. Everything this page is about. */
-  .r-border { stroke: var(--teal); stroke-width: 1.2; stroke-dasharray: 2 5; opacity: 0.55; }
-  .r-above { font-family: var(--mono); font-size: 11px; fill: var(--chrome-faint);
-             letter-spacing: 0.12em; text-transform: uppercase; }
-  .r-below { font-family: var(--mono); font-size: 11px; fill: var(--teal);
-             letter-spacing: 0.12em; text-transform: uppercase; }
-
-  .coin, .spend { opacity: 0; }
-  @media (prefers-reduced-motion: no-preference) {
-    /* One coin falls in. Many leave. That asymmetry IS the argument, so it is
-       the thing that moves — conversion happens once, spending happens all the
-       time, and a still picture cannot say that. */
-    .coin { animation: fall 6s cubic-bezier(.5,0,.6,1) infinite; }
-    .spend { animation: spend 6s ease-in infinite; }
-    .spend.s2 { animation-delay: 0.22s; }
-    .spend.s3 { animation-delay: 0.44s; }
-    .spend.s4 { animation-delay: 0.66s; }
-    .spend.s5 { animation-delay: 0.88s; }
-    @keyframes fall {
-      0%   { opacity: 0; transform: translateY(0); }
-      6%   { opacity: 1; }
-      38%  { opacity: 1; transform: translateY(176px); }
-      46%  { opacity: 0; transform: translateY(176px); }
-      100% { opacity: 0; transform: translateY(176px); }
-    }
-    @keyframes spend {
-      0%, 48% { opacity: 0; transform: translateY(0); }
-      54%     { opacity: 1; transform: translateY(0); }
-      88%     { opacity: 1; transform: translateY(96px); }
-      96%,100%{ opacity: 0; transform: translateY(96px); }
-    }
-  }
-
-  .zones { display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
-           background: var(--edge); border: 1px solid var(--edge); margin-top: 1.8rem; }
-  @media (max-width: 620px) { .zones { grid-template-columns: 1fr; } }
-  .zone { background: var(--ground); padding: 1.2rem 1.3rem; }
-  .zone .k { font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.14em;
-             text-transform: uppercase; color: var(--chrome-faint); }
-  .zone.on .k { color: var(--teal); }
-  .zone h3 { font-family: var(--display); font-size: 1.05rem; margin: 0.5rem 0 0.4rem; font-weight: 600; }
-  .zone p { font-size: 0.9rem; margin: 0; }
-
-  .facts { border-top: 1px solid var(--edge); margin-top: 1.6rem; }
-  .fact { display: grid; grid-template-columns: minmax(7rem, 11rem) 1fr; gap: 0.3rem 1.4rem;
-          padding: 0.75rem 0; border-bottom: 1px solid var(--edge); align-items: baseline; }
-  @media (max-width: 560px) { .fact { grid-template-columns: 1fr; } }
-  .fact .k { font-family: var(--mono); font-size: 0.64rem; letter-spacing: 0.12em;
-             text-transform: uppercase; color: var(--chrome-faint); }
-  .fact .v { font-family: var(--mono); font-size: 0.82rem; color: var(--chrome); overflow-wrap: anywhere; }
-  .fact .v.t { color: var(--teal); }
-
-  .note { border-left: 2px solid var(--amber); background: rgba(232,177,76,0.07);
-          padding: 0.9rem 1.1rem; margin-top: 1.5rem; font-size: 0.9rem;
-          color: var(--chrome-dim); max-width: 66ch; }
-  .note b { color: var(--chrome); }
-  pre { background: var(--ground); border: 1px solid var(--edge); padding: 0.9rem 1rem;
-        overflow-x: auto; font-family: var(--mono); font-size: 0.78rem; color: var(--chrome-dim); }
-  footer { padding: 2.4rem 0 3.4rem; color: var(--chrome-faint); font-size: 0.85rem; }
   /* One bar, every page, injected by build.py.
      There were seven public pages and the only way between any two of them
      was back to the home page first. Sticky because the landing page is very
@@ -326,6 +315,7 @@
 </head>
 <body>
 
+
 <nav class="topnav" aria-label="Site">
   <div class="wrap">
     <a class="nv-brand" href="/" data-nv="index.html">Warda</a>
@@ -334,7 +324,7 @@
       <a href="/agents" data-nv="agents.html">Agents</a>
       <a href="/start" data-nv="start.html">Developers</a>
       <a href="/network" data-nv="network.html">Network</a>
-      <a href="/rail" data-nv="rail.html" aria-current="page">Funding</a>
+      <a href="/rail" data-nv="rail.html">Funding</a>
 
       <!-- The technical world, behind one control.
            There were ten links in this bar and every one of them was a page a
@@ -354,7 +344,7 @@
         <div class="nv-sheet">
           <a href="/protocol" data-nv="protocol.html"><b>Protocol</b><span>The covenant, the grant, the three keys</span></a>
           <a href="/proof" data-nv="proof.html"><b>Proof</b><span>Every claim, and what would refute it</span></a>
-          <a href="/grant" data-nv="grant.html"><b>Get a grant</b><span>We fund your agent on testnet, free</span></a>
+          <a href="/grant" data-nv="grant.html" aria-current="page"><b>Get a grant</b><span>We fund your agent on testnet, free</span></a>
           <a href="/verify" data-nv="verify.html"><b>Verify</b><span>Check a grant against the chain yourself</span></a>
           <a href="/sandbox" data-nv="sandbox.html"><b>Sandbox</b><span>Ask the covenant for money, in the browser</span></a>
           <a href="/attack" data-nv="attack.html"><b>Attack</b><span>A live agent&rsquo;s key is published. Take it</span></a>
@@ -419,171 +409,175 @@
 </script>
 
 
-<div class="wrap">
 <header>
-  <p class="eyebrow">The funding edge</p>
-  <h1>You don't need KAS.</h1>
-  <p class="lede">
-    You need an agent that cannot overspend. Sell what you already hold, once. What arrives
-    becomes authority the network enforces &mdash; and every payment after that is a rule
-    nobody can route around.
-  </p>
+  <div class="wrap">
+    <p class="eyebrow" style="margin-top:1.4rem">For builders · free · Kaspa testnet</p>
+    <h1>Get a funded grant<br>for your agent.</h1>
+    <p class="lede">
+      Send us your agent&rsquo;s <strong style="color:var(--chrome);font-weight:500">public key</strong>. We fund a
+      Warda grant for it &mdash; 5 testnet KAS, a per-payment cap, a rate limit and an allowlist, all enforced by the
+      network &mdash; usually within a day. It can pay the services in the <a href="/network">Warda registry</a> the
+      minute it lands, and up to six addresses of your own.
+    </p>
+    <p class="lede">No faucet, no bridge, no account. Your agent&rsquo;s secret never leaves your machine.</p>
+  </div>
 </header>
 
-<section>
-  <div class="rail">
-    <svg viewBox="0 0 860 560" role="img"
-         aria-label="One conversion at the top, from an asset you already hold into KAS, crossing a boundary into a grant whose limits are in KAS and enforced by consensus. Below the boundary, hundreds of small payments leave the grant, each refused if it breaks a rule.">
-      <defs>
-        <marker id="ra" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-          <path d="M 0 0 L 10 5 L 0 10 z" fill="#5D6B73"/>
-        </marker>
-        <marker id="rt" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-          <path d="M 0 0 L 10 5 L 0 10 z" fill="#14D7C1"/>
-        </marker>
-      </defs>
-
-      <!-- what you already hold -->
-      <rect class="r-box" x="288" y="14" width="284" height="50" rx="3"/>
-      <text class="r-lab" x="430" y="38" text-anchor="middle">USDC</text>
-      <text class="r-sub" x="430" y="54" text-anchor="middle">or USDT, or anything with a market</text>
-
-      <line class="r-line r-dash" x1="430" y1="66" x2="430" y2="106" marker-end="url(#ra)"/>
-      <text class="r-edge" x="444" y="90">sold once, at a rate you choose</text>
-
-      <rect class="r-box" x="330" y="110" width="200" height="46" rx="3"/>
-      <text class="r-lab" x="430" y="132" text-anchor="middle">KAS</text>
-      <text class="r-sub" x="430" y="147" text-anchor="middle">one coin, at your own key</text>
-
-      <line class="r-line" x1="430" y1="158" x2="430" y2="196" marker-end="url(#ra)"/>
-      <text class="r-edge" x="444" y="180">genesis</text>
-
-      <!-- the falling coin: one conversion -->
-      <circle class="coin" cx="430" cy="30" r="4.5" fill="#14D7C1"/>
-
-      <!-- THE BOUNDARY -->
-      <line class="r-border" x1="20" y1="208" x2="840" y2="208"/>
-      <text class="r-above" x="20" y="200">above &mdash; somebody's word</text>
-      <text class="r-below" x="840" y="224" text-anchor="end">below &mdash; refused by the network</text>
-
-      <!-- the grant -->
-      <rect class="r-grant" x="230" y="238" width="400" height="152" rx="4"/>
-      <text class="r-lab" x="430" y="266" text-anchor="middle">the grant</text>
-      <text class="r-sub" x="430" y="282" text-anchor="middle">a coin locked by a script</text>
-
-      <text class="r-key" x="258" y="312">budget</text>
-      <text class="r-val" x="602" y="312" text-anchor="end">3 KAS, for its whole life</text>
-      <text class="r-key" x="258" y="334">per payment</text>
-      <text class="r-val" x="602" y="334" text-anchor="end">0.25 KAS</text>
-      <text class="r-key" x="258" y="356">payees</text>
-      <text class="r-val" x="602" y="356" text-anchor="end">fixed at creation</text>
-      <text class="r-key" x="258" y="378">expires</text>
-      <text class="r-val" x="602" y="378" text-anchor="end">block 598641927</text>
-
-      <!-- many payments leave -->
-      <line class="r-line-t" x1="290" y1="392" x2="250" y2="452" marker-end="url(#rt)"/>
-      <line class="r-line-t" x1="360" y1="392" x2="340" y2="452" marker-end="url(#rt)"/>
-      <line class="r-line-t" x1="430" y1="392" x2="430" y2="452" marker-end="url(#rt)"/>
-      <line class="r-line-t" x1="500" y1="392" x2="520" y2="452" marker-end="url(#rt)"/>
-      <line class="r-line-t" x1="570" y1="392" x2="610" y2="452" marker-end="url(#rt)"/>
-
-      <circle class="spend s1" cx="290" cy="396" r="3.5" fill="#14D7C1"/>
-      <circle class="spend s2" cx="360" cy="396" r="3.5" fill="#14D7C1"/>
-      <circle class="spend s3" cx="430" cy="396" r="3.5" fill="#14D7C1"/>
-      <circle class="spend s4" cx="500" cy="396" r="3.5" fill="#14D7C1"/>
-      <circle class="spend s5" cx="570" cy="396" r="3.5" fill="#14D7C1"/>
-
-      <text class="r-lab" x="430" y="482" text-anchor="middle">hundreds of payments</text>
-      <text class="r-sub" x="430" y="500" text-anchor="middle">sub-cent fees &middot; each one refused if it breaks a rule</text>
-      <text class="r-sub" x="430" y="522" text-anchor="middle">the conversion happened once; this happens all day</text>
-    </svg>
+<section id="status-sec" hidden>
+  <div class="wrap">
+    <p class="eyebrow">Your request</p>
+    <h2 id="st-h">&mdash;</h2>
+    <div id="st-body"></div>
   </div>
+</section>
 
-  <div class="zones">
-    <div class="zone">
-      <div class="k">above the line</div>
-      <h3>Somebody's word</h3>
-      <p>An exchange sold you KAS. A rate was what it was. Warda saw none of it, is not party
-      to it, and says so on the receipt &mdash; it holds no key and takes no custody at any
-      point on this path.</p>
+<section id="ask">
+  <div class="wrap">
+    <p class="eyebrow">Two steps</p>
+    <h2>Make a key, then ask.</h2>
+    <div class="steps">
+      <div class="step"><b>1 · on your machine</b>
+        <p>Generate the key your agent will sign with. It prints the public half; the secret stays in the file.</p>
+        <pre>npx -p @warda_protocol/cli warda key --out agent.key</pre>
+      </div>
     </div>
-    <div class="zone on">
-      <div class="k">below the line</div>
-      <h3>Refused by the network</h3>
-      <p>The budget, the per-payment cap, the epoch limit, the window and the payee list are
-      conditions in the script that unlocks the coin. A payment that breaks one is not
-      rejected &mdash; there is no such transaction to submit.</p>
-    </div>
+
+    <form id="f" novalidate>
+      <label for="agentKey">2 · Your agent&rsquo;s public key</label>
+      <input id="agentKey" name="agentKey" spellcheck="false" autocomplete="off" placeholder="64 hex characters — the PUBLIC key, never the secret" required>
+      <p class="hint">If you paste a secret by mistake, we cannot tell it from a public key. Paste what <code>warda key</code> printed as public.</p>
+
+      <div class="grid2">
+        <div>
+          <label for="project">What you are building</label>
+          <input id="project" name="project" maxlength="120" placeholder="An agent that buys market data" required>
+        </div>
+        <div>
+          <label for="contact">Where to tell you it is funded</label>
+          <input id="contact" name="contact" maxlength="120" placeholder="@handle on X or Telegram, or email" required>
+        </div>
+      </div>
+
+      <label for="payees">Addresses it may pay, besides the registry <span style="text-transform:none;letter-spacing:0">— optional, up to six</span></label>
+      <input id="payees" name="payees" spellcheck="false" autocomplete="off" placeholder="kaspatest:… or 64-hex public keys, separated by spaces or commas">
+      <p class="hint">Fixed when the grant is created. Leave it empty to pay only the registry&rsquo;s services.</p>
+
+      <label for="about">Anything we should know <span style="text-transform:none;letter-spacing:0">— optional</span></label>
+      <textarea id="about" name="about" maxlength="600" style="min-height:5rem" placeholder="What the agent pays for, which framework, what you want to try."></textarea>
+
+      <button id="send" type="submit">Request a funded grant</button>
+      <div class="msg" id="msg" hidden></div>
+    </form>
   </div>
 </section>
 
 <section>
-  <p class="eyebrow">The part most people get wrong</p>
-  <h2>The limits are in KAS, and they have to be.</h2>
-  <p>
-    It would read better as <code>$100 budget, $5 per payment</code>. It cannot be built. A
-    covenant is a script validated by Kaspa consensus, and consensus compares sompi because
-    that is what it can see &mdash; there is no price on L1 and no oracle to ask. A covenant
-    that trusted a signed price would have moved the limit back into a process that can be
-    wrong or captured, which is the arrangement this whole protocol exists to argue against.
-  </p>
-  <p>
-    So dollars live at the <strong>edges</strong>, where they belong. You think in dollars when
-    you fund. A seller may price in dollars and the quote converts at the moment of payment.
-    The cap in the coin stays in KAS, and if a rate move pushes a dollar-priced service over
-    it, <strong>the payment refuses</strong>. That is the covenant working, not a gap in it.
-  </p>
-  <div class="note">
-    <b>What that buys you:</b> every limit on this page can be checked by a stranger against
-    the chain, with no account and nothing of ours in the way. A dollar limit could only ever
-    be checked against our word.
+  <div class="wrap">
+    <p class="eyebrow">The terms, plainly</p>
+    <h2>What you get, and what we keep.</h2>
+    <ul class="terms-list">
+      <li><b style="color:var(--chrome)">Your agent key spends</b>, inside the grant&rsquo;s limits: 5 KAS in total, at most 0.5 per payment, at most 2 in any ~100 seconds, for 30 days.</li>
+      <li><b style="color:var(--chrome)">We are the principal.</b> This is testnet money we lend: whatever your agent does not spend comes back to us when the grant ends.</li>
+      <li><b style="color:var(--chrome)">A separate key of ours can stop it</b> and receives nothing when it does &mdash; the balance goes home, not to whoever pressed stop.</li>
+      <li>We keep your contact to tell you the grant is ready and to ask how it went. We will not name your project publicly without asking you first.</li>
+      <li>Testnet, unaudited, no real money. When mainnet comes, you will be the first to hear.</li>
+    </ul>
   </div>
-</section>
-
-<section>
-  <p class="eyebrow">Not a diagram</p>
-  <h2>Agent #006 was funded this way, and has already spent.</h2>
-  <p>
-    Every figure below is a transaction. The agent was bought rather than hand-funded, its
-    three powers are held by three different keys, and it has paid a vendor under the limits
-    above.
-  </p>
-  <div class="facts">
-    <div class="fact"><div class="k">grant</div><div class="v t">kaspatest:ppcf3e34glskreft0ls8v7fxxudj8n52ua86dd7t3c83wyn5f83h6hd4yes97</div></div>
-    <div class="fact"><div class="k">created by</div><div class="v">4ae57de08eaa800d63496f4d119014b1c753b588f1b8f1e0626caf6198b07a89</div></div>
-    <div class="fact"><div class="k">first payment</div><div class="v">c8e2b9f990351fb0863303c2089bf37bf11f447984872395a7a6c5be48f489ac</div></div>
-    <div class="fact"><div class="k">spends</div><div class="v">agent key &mdash; within 3 KAS, 0.25 a payment, 2 an epoch</div></div>
-    <div class="fact"><div class="k">stops it</div><div class="v">a separate revocation key, which receives nothing</div></div>
-    <div class="fact"><div class="k">receives</div><div class="v">the principal, on revoke or at expiry</div></div>
-  </div>
-  <p style="margin-top:1.4rem">
-    The funding itself is recorded too &mdash; which asset, which venue, the rate and
-    <em>whose word it is</em> &mdash; because that is the one part of this nobody can
-    re-derive from the chain later. It is the only thing on the page marked
-    <code>assumed</code>, and it is marked that deliberately.
-  </p>
-</section>
-
-<section>
-  <p class="eyebrow">Do it yourself</p>
-  <h2>Two commands, and one of them is you selling something.</h2>
-<pre><code>warda fund --payees payees.txt --budget 3 --max-per-spend 0.25 \
-  --rate 0.05 --asset USDC --venue "wherever you trade" --wait</code></pre>
-  <p style="margin-top:1.1rem">
-    It works out what to sell, tells you where to send the KAS, waits for it, and bounds what
-    arrives. The rate is yours: Warda does not fetch prices, because a price this tool went and
-    got would be a number we vouch for, and the receipt would carry our name where yours belongs.
-  </p>
-  <p>
-    <a href="/start">Start here</a> &middot; <a href="/agents">watch the agents</a> &middot;
-    <a href="/build">how the covenant works</a>
-  </p>
 </section>
 
 <footer>
-  <p>testnet-10 &middot; unaudited &middot; no real money. The limits are real; the coin is not.</p>
+  <div class="wrap">
+    <p>Questions: <a href="https://t.me/Warda_protocol">Telegram @Warda_protocol</a> · <a href="mailto:aj@wardaprotocol.com">aj@wardaprotocol.com</a>. The grant is created with <code>sdk/tools/genesis.ts</code>; its manifest is public by construction and you can check it at <a href="/verify">/verify</a>.</p>
+  </div>
 </footer>
-</div>
+
+<script>
+(function () {
+  var API = "/api/account";
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
+  var kas = function (s) { return s == null ? "—" : (Number(s) / 1e8).toString() + " KAS"; };
+
+  function download(name, text, type) {
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([text], { type: type }));
+    a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  }
+
+  function renderStatus(r) {
+    $("status-sec").hidden = false;
+    var body = $("st-body");
+    if (r.status === "pending") {
+      $("st-h").textContent = "Queued — we fund these by hand, usually within a day.";
+      body.innerHTML = '<p class="lede">Keep this page: <code>' + esc(location.origin + "/grant?r=" + r.id) +
+        '</code>. It shows the grant as soon as it exists, with everything your agent needs to spend from it.</p>' +
+        '<dl class="kv"><dt>Project</dt><dd>' + esc(r.project) + '</dd><dt>Agent key</dt><dd><code>' + esc(r.agentKey) + '</code></dd></dl>';
+      $("ask").hidden = true;
+      return;
+    }
+    if (r.status === "declined") {
+      $("st-h").textContent = "Not funded this time.";
+      body.innerHTML = '<p class="lede">' + esc(r.note || "Write to aj@wardaprotocol.com and we will talk it through.") + '</p>';
+      return;
+    }
+    var g = r.grant || {}, m = g.manifest || {};
+    $("st-h").textContent = "Funded. Your agent can pay now.";
+    $("ask").hidden = true;
+    body.innerHTML =
+      '<dl class="kv">' +
+      '<dt>Grant address</dt><dd><code>' + esc(g.address) + '</code></dd>' +
+      '<dt>Budget</dt><dd>' + kas(m.budget) + '</dd>' +
+      '<dt>Per payment</dt><dd>' + kas(m.max_per_spend) + '</dd>' +
+      '<dt>Per epoch</dt><dd>' + kas(m.epoch_limit) + ' every ' + esc(m.epoch_length || 1000) + ' blocks</dd>' +
+      '<dt>May pay</dt><dd>' + (g.payees || []).length + ' addresses, fixed</dd>' +
+      (g.txid ? '<dt>Created by</dt><dd><code>' + esc(g.txid) + '</code></dd>' : '') +
+      '</dl>' +
+      '<p style="margin-top:1.3rem"><button type="button" id="dl-m">Download grant.json</button> <button type="button" class="alt" id="dl-p">Download payees.txt</button></p>' +
+      '<p class="lede" style="margin-top:1.4rem">Put both next to <code>agent.key</code> and buy something from the registry:</p>' +
+      '<pre>npx -p @warda_protocol/cli warda pay https://warda-demo-api.vercel.app/fact \\\n  --grant grant.json --payees payees.txt --key agent.key</pre>' +
+      '<p class="lede">Or give your agent the MCP server and let it pay for tools itself: <a href="/start">/start</a>. ' +
+      'Every spend moves the grant to a new address; the tools follow it for you. Watch it in the <a href="/app">console</a>.</p>';
+    $("dl-m").onclick = function () { download("grant.json", JSON.stringify(m, null, 2) + "\n", "application/json"); };
+    $("dl-p").onclick = function () { download("payees.txt", (g.payees || []).join("\n") + "\n", "text/plain"); };
+  }
+
+  function load(id) {
+    fetch(API + "?op=request&id=" + encodeURIComponent(id), { cache: "no-store" })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!j.ok) { $("status-sec").hidden = false; $("st-h").textContent = "No request with that id."; return; }
+        renderStatus(j.request);
+        if (j.request.status === "pending") setTimeout(function () { load(id); }, 60000);
+      })
+      .catch(function () {});
+  }
+
+  var rid = new URLSearchParams(location.search).get("r");
+  if (rid) load(rid);
+
+  $("f").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var msg = $("msg"), btn = $("send");
+    var key = $("agentKey").value.trim().toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(key)) { msg.hidden = false; msg.className = "msg bad"; msg.textContent = "The public key is 64 hex characters (0-9, a-f)."; return; }
+    btn.disabled = true; msg.hidden = true;
+    fetch(API + "?op=request", {
+      method: "POST", headers: { "content-type": "application/json", "x-warda": "1" },
+      body: JSON.stringify({ agentKey: key, project: $("project").value, contact: $("contact").value,
+        payees: $("payees").value, about: $("about").value }),
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      btn.disabled = false;
+      if (!j.ok) { msg.hidden = false; msg.className = "msg bad"; msg.textContent = j.message || "That did not go through."; return; }
+      history.replaceState(null, "", "/grant?r=" + j.request.id);
+      renderStatus(j.request);
+      $("status-sec").scrollIntoView({ behavior: "smooth" });
+    }).catch(function () {
+      btn.disabled = false; msg.hidden = false; msg.className = "msg bad";
+      msg.textContent = "Could not reach the site. Try again, or write to aj@wardaprotocol.com.";
+    });
+  });
+})();
+</script>
 
 </body>
 </html>
