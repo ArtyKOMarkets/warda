@@ -477,7 +477,7 @@
     .card.explain .whyb { color: var(--teal); border-color: rgba(20,215,193,0.4); }
     /* The top bar is for finding things; a phone only needs that where there
        is a list to search. */
-    body:not([data-view="grants"]):not([data-view="activity"]) .top .search { display: none; }
+    body:not([data-screen="grants"]):not([data-screen="activity"]) .top .search { display: none; }
     #scope.scope { gap: 0.4rem 0.6rem; flex-wrap: nowrap; }
     #scope .scope-t { font-size: 0.72rem; flex: 1 1 auto; line-height: 1.35; }
     #scope .go { padding: 0.3rem 0.65rem; font-size: 0.7rem; flex: none; white-space: nowrap; }
@@ -2877,7 +2877,7 @@ ops/install-cron.sh</pre>
     if (!a) return;
     if (!fromRoute) location.hash = hashFor("agent", id);
     SHOWN = id;
-    document.body.setAttribute("data-view", "agent");
+    document.body.setAttribute("data-screen", "agent");
     var u = auth(a), t = term(a), c = hue(a.id);
     ctlRender(a);
     mAgent(a);
@@ -6212,7 +6212,7 @@ ops/install-cron.sh</pre>
     if (!$("v-" + v)) return;
     if (!fromRoute) location.hash = hashFor(v);
     drawer(false);
-    document.body.setAttribute("data-view", v);
+    document.body.setAttribute("data-screen", v);
     if (v === "fleet") fleetView();
     if (v === "registry") svcView();
     Array.prototype.forEach.call(document.querySelectorAll(".side a[data-view], .tabs a[data-view]"), function (o) {
@@ -6240,7 +6240,9 @@ ops/install-cron.sh</pre>
     var row = e.target.closest("tr.pick");
     if (row) { showAgent(row.getAttribute("data-agent")); return; }
     var el = e.target.closest("[data-view]");
-    if (!el || el.classList.contains("st")) return;
+    /* The page itself is never a link: body carries data-screen, not
+       data-view, and this guard keeps it that way if someone forgets. */
+    if (!el || el === document.body || el.classList.contains("st")) return;
     e.preventDefault();
     show(el.getAttribute("data-view"));
   });

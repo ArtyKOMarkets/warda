@@ -12,9 +12,13 @@
     /* Surfaces. Three steps, not two: the page, the card, and the inset a
        control or a meter sits in. A single flat ground with borders reads as a
        wireframe — the card has to be lighter than what it sits on. */
-    --void: #0C1220; --ground: #141C2E; --panel: #1A2338; --raise: #212C45;
-    --edge: #222D45; --edge-bright: #35415E;
-    --chrome: #E8ECF5; --chrome-dim: #9AA6BE; --chrome-faint: #6E7C97;
+    /* The site's own palette (wardaprotocol.com): near-black with a green
+       cast and one teal. The console had drifted to a navy of its own, and a
+       product that looks like a different company from its homepage reads as
+       one. */
+    --void: #06090C; --ground: #0A1014; --panel: #101A20; --raise: #16232B;
+    --edge: #1E2E37; --edge-bright: #2C4350;
+    --chrome: #DDE0E2; --chrome-dim: #8D989E; --chrome-faint: #66747C;
 
     --teal: #14D7C1; --teal-bright: #38F9E9; --teal-deep: #0BB6A2;
     --teal-ghost: rgba(20,215,193,0.11);
@@ -86,7 +90,7 @@
   .statusbar { margin-top: auto; }
   .top { display: flex; flex-wrap: wrap; gap: 0.7rem; align-items: center;
          padding: 0.7rem clamp(0.9rem, 2.4vw, 1.5rem); border-bottom: 1px solid var(--edge);
-         background: rgba(12,18,32,0.88); backdrop-filter: blur(8px);
+         background: rgba(6,9,12,0.88); backdrop-filter: blur(8px);
          position: sticky; top: 0; z-index: 20; }
   .search { flex: 1 1 18rem; min-width: 0; position: relative; display: flex; align-items: center; }
   .search svg { position: absolute; left: 0.65rem; width: 14px; height: 14px; color: var(--chrome-faint); }
@@ -264,6 +268,15 @@
   .wc-qr svg { width: 100%; height: 100%; display: block; }
   .wc-qr:empty { background: var(--panel); }
   .wc-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.8rem; }
+  /* On a phone there is nothing to scan: the pairing is handed straight to
+     the wallet app by its own link, the way every mobile dapp does it. */
+  .wc-apps { display: grid; gap: 0.5rem; margin-top: 0.9rem; }
+  .wc-apps a { display: flex; align-items: center; justify-content: space-between; padding: 0.85rem 1rem;
+               border: 1px solid var(--edge-bright); border-radius: 12px; background: var(--panel); color: var(--chrome);
+               font-weight: 600; cursor: pointer; }
+  .wc-apps a:hover { border-color: var(--teal-deep); }
+  .wc-apps a span { color: var(--chrome-faint); font-weight: 400; font-size: 0.78rem; }
+  .wc-qrtoggle { margin-top: 0.8rem; font-size: 0.78rem; color: var(--chrome-faint); cursor: pointer; background: none; border: 0; padding: 0; text-decoration: underline; }
   .wc-row > * { flex: 1 1 auto; }
   /* ---- analytics charts ---------------------------------------------------- */
   .an-leg { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; margin-top: 0.7rem; font-size: 0.76rem; color: var(--chrome-dim); }
@@ -353,6 +366,19 @@
   .fa-route { margin-top: 0.9rem; }
 
   /* ---- fleet --------------------------------------------------------------- */
+  .gf-flow { display: flex; flex-wrap: wrap; align-items: stretch; gap: 0.5rem; margin-top: 0.9rem; }
+  .gf-flow .st { flex: 1 1 11rem; min-width: 0; border: 1px solid var(--edge); border-radius: 10px; background: var(--panel);
+                 padding: 0.7rem 0.85rem; display: flex; flex-direction: column; gap: 0.2rem; color: var(--chrome); text-decoration: none; }
+  .gf-flow a.st:hover { border-color: var(--teal-deep); }
+  .gf-flow .st b { font-size: 0.88rem; }
+  .gf-flow .st span { font-size: 0.74rem; color: var(--chrome-faint); }
+  .gf-flow .st.off { border-style: dashed; }
+  .gf-flow .ar { align-self: center; color: var(--chrome-faint); font-family: var(--mono); font-size: 0.8rem; }
+  .gf-n { display: grid; grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); gap: 0.5rem; margin-top: 0.8rem; }
+  .gf-n div { border-top: 1px solid var(--edge); padding-top: 0.5rem; }
+  .gf-n i { display: block; font-style: normal; font-size: 0.72rem; color: var(--chrome-faint); }
+  .gf-n b { font-family: var(--mono); font-size: 1.05rem; color: var(--chrome); font-weight: 500; }
+  @media (max-width: 720px) { .gf-flow .ar { display: none; } }
   .fl-bar { display: flex; height: 16px; border-radius: 8px; overflow: hidden; background: var(--panel); margin-top: 0.9rem; gap: 2px; }
   .fl-bar i { display: block; min-width: 3px; }
   .fl-legend { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; margin-top: 0.7rem; font-size: 0.76rem; color: var(--chrome-dim); }
@@ -391,6 +417,79 @@
   .ctl button.danger { background: rgba(255,107,90,0.12); border-color: rgba(255,107,90,0.5); color: var(--refuse); }
   .ctl button.danger:hover { background: rgba(255,107,90,0.2); }
 
+  /* ---- phone, as its own surface ----------------------------------------------
+     Desktop is the operator's console. The phone answers four questions — how
+     much, which agents, what did they spend, can I stop one — and everything
+     else is one tap further: cards instead of tables, explanations behind
+     "Why", the full view still there below. */
+  .mb-only { display: none; }
+  .whyb { display: none; }
+  .mlist { display: grid; gap: 0.5rem; }
+  .mrow { display: grid; gap: 0.15rem; padding: 0.9rem 1rem; border: 1px solid var(--edge); border-radius: var(--r);
+          background: var(--ground); color: var(--chrome); cursor: pointer; }
+  .mrow b { font-weight: 600; font-size: 0.98rem; }
+  .mrow span { color: var(--chrome-faint); font-size: 0.8rem; }
+  .mrow:hover { border-color: var(--edge-bright); }
+  .go.wide { width: 100%; justify-content: center; padding-block: 0.8rem; }
+  .mhero { border: 1px solid var(--edge-bright); border-radius: 16px; padding: 1.1rem 1.1rem 1rem;
+           background: radial-gradient(120% 90% at 100% 0%, rgba(20,215,193,0.10), transparent 60%), var(--ground); }
+  .mhero .lbl { font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--chrome-faint); }
+  .mhero .big { font-family: var(--display); font-weight: 700; font-size: 2.1rem; line-height: 1.05; margin-top: 0.3rem; font-variant-numeric: tabular-nums; }
+  .mhero .big small { font-size: 0.95rem; color: var(--chrome-dim); font-weight: 600; margin-left: 0.3rem; }
+  .mhero .sub { color: var(--chrome-dim); font-size: 0.85rem; margin-top: 0.15rem; }
+  .mbar { height: 8px; border-radius: 6px; background: var(--panel); overflow: hidden; margin-top: 0.8rem; }
+  .mbar i { display: block; height: 100%; background: var(--teal); border-radius: 6px; }
+  .mrow2 { display: flex; justify-content: space-between; gap: 0.6rem; font-size: 0.8rem; color: var(--chrome-faint); margin-top: 0.4rem; }
+  .enf { display: inline-flex; align-items: center; gap: 0.4rem; margin-top: 0.85rem; padding: 0.35rem 0.7rem;
+         border: 1px solid rgba(20,215,193,0.35); background: var(--teal-ghost); color: var(--teal); border-radius: 999px;
+         font-size: 0.76rem; font-weight: 500; }
+  .enf svg { width: 13px; height: 13px; }
+  .mstats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; margin-top: 0.7rem; }
+  .mstats div { border: 1px solid var(--edge); border-radius: 12px; padding: 0.65rem 0.7rem; background: var(--ground); }
+  .mstats i { display: block; font-style: normal; font-size: 0.68rem; color: var(--chrome-faint); }
+  .mstats b { font-family: var(--mono); font-weight: 500; font-size: 1rem; }
+  .msec { display: flex; justify-content: space-between; align-items: baseline; margin: 1.3rem 0 0.55rem; }
+  .msec h2 { font-size: 1rem; margin: 0; }
+  .acard { display: block; border: 1px solid var(--edge); border-radius: 14px; padding: 0.9rem 1rem; background: var(--ground);
+           margin-bottom: 0.55rem; cursor: pointer; color: var(--chrome); }
+  .acard:hover, .acard:focus-visible { border-color: var(--edge-bright); outline: none; }
+  .acard .t { display: flex; align-items: center; gap: 0.5rem; }
+  .acard .t b { font-family: var(--display); font-size: 1.02rem; }
+  .acard .t .pill { margin-left: auto; }
+  .acard .m { color: var(--chrome-faint); font-size: 0.78rem; margin-top: 0.15rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .acard .amt { font-family: var(--mono); font-size: 0.95rem; margin-top: 0.55rem; }
+  .acard .amt span { color: var(--chrome-faint); font-size: 0.8rem; }
+  .acard .mbar { margin-top: 0.45rem; height: 6px; }
+  .chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.35rem; margin-top: 0.65rem; }
+  .chips span { border: 1px solid var(--edge); border-radius: 9px; padding: 0.35rem 0.4rem; font-size: 0.7rem; color: var(--chrome-faint); text-align: center; line-height: 1.25; }
+  .chips span b { display: block; color: var(--chrome); font-family: var(--mono); font-weight: 500; font-size: 0.82rem; }
+  .mlim { display: grid; gap: 0; margin-top: 0.4rem; }
+  .mlim div { display: flex; justify-content: space-between; padding: 0.55rem 0; border-bottom: 1px solid var(--edge); font-size: 0.9rem; }
+  .mlim div:last-child { border-bottom: 0; }
+  .mlim dt { color: var(--chrome-dim); } .mlim dd { margin: 0; font-family: var(--mono); }
+  .mchk { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem 0.8rem; margin-top: 0.5rem; font-size: 0.85rem; color: var(--chrome-dim); }
+  .mchk span::before { content: "✓"; color: var(--teal); margin-right: 0.45rem; font-weight: 700; }
+  .mact { display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem; margin-top: 1rem; }
+  .mact .go { justify-content: center; padding-block: 0.75rem; }
+  @media (max-width: 720px) {
+    .mb-only { display: block; }
+    .dk-only { display: none !important; }
+    #range, #dash-sub, #v-grants .head p, #v-activity .head p, #v-refusals .head p { display: none; }
+    .mseg { display: flex; width: 100%; margin-bottom: 0.8rem; }
+    .mseg button { flex: 1; }
+    /* Explanations stay, one tap away. */
+    .card:not(.explain) > p.why { display: none; }
+    .whyb { display: inline-flex; margin-left: auto; font: 500 0.7rem var(--body); color: var(--chrome-faint);
+            background: transparent; border: 1px solid var(--edge); border-radius: 999px; padding: 0.15rem 0.55rem; cursor: pointer; }
+    .card.explain .whyb { color: var(--teal); border-color: rgba(20,215,193,0.4); }
+    /* The top bar is for finding things; a phone only needs that where there
+       is a list to search. */
+    body:not([data-screen="grants"]):not([data-screen="activity"]) .top .search { display: none; }
+    #scope.scope { gap: 0.4rem 0.6rem; flex-wrap: nowrap; }
+    #scope .scope-t { font-size: 0.72rem; flex: 1 1 auto; line-height: 1.35; }
+    #scope .go { padding: 0.3rem 0.65rem; font-size: 0.7rem; flex: none; white-space: nowrap; }
+  }
+
   /* ---- phone ----------------------------------------------------------------
      The sidebar becomes a drawer behind a menu button, and the five things a
      person does most sit in a tab bar under their thumb. Everything is still
@@ -407,7 +506,7 @@
       background: var(--panel); border: 1px solid var(--edge-bright); color: var(--chrome); flex: none; }
     .menu svg { width: 18px; height: 18px; }
     .tabs { display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
-      background: rgba(20,28,46,0.96); backdrop-filter: blur(10px); border-top: 1px solid var(--edge);
+      background: rgba(10,16,20,0.96); backdrop-filter: blur(10px); border-top: 1px solid var(--edge);
       padding: 0.35rem 0.3rem calc(0.35rem + env(safe-area-inset-bottom, 0px)); }
     .tabs a { display: grid; justify-items: center; gap: 0.2rem; padding: 0.35rem 0; border-radius: 10px;
       color: var(--chrome-faint); font-size: 0.64rem; cursor: pointer; min-height: 44px; }
@@ -700,7 +799,7 @@
         <button data-scope="mine" aria-pressed="true">Your grants</button>
         <button data-scope="public" aria-pressed="false">Warda&rsquo;s agents</button>
       </div>
-      <button class="go gh" id="scope-connect" data-view="account">Connect a wallet to see yours</button>
+      <button class="go gh" id="scope-connect" data-view="account">Connect a wallet<span class="dk-only"> to see yours</span></button>
     </div>
     <div class="pad scope-empty" id="scope-empty" hidden>
       <div class="card">
@@ -738,7 +837,9 @@
         <div class="feed trk-list"></div>
       </div>
 
-      <div class="dash">
+      <div class="mb-only" id="m-home"></div>
+
+      <div class="dash dk-only">
         <div class="stack">
           <div class="tiles" id="tiles"></div>
 
@@ -856,7 +957,16 @@
         <div class="feed trk-list"></div>
       </div>
 
-      <div class="card">
+      <div class="mb-only">
+        <div class="seg mseg" id="m-gf" role="group" aria-label="Show">
+          <button data-f="all" aria-pressed="true">All</button>
+          <button data-f="live" aria-pressed="false">Live</button>
+          <button data-f="ended" aria-pressed="false">Ended</button>
+        </div>
+        <div id="m-grants"></div>
+        <p style="margin-top:0.9rem"><button class="go wide" data-view="create">+ Create grant</button></p>
+      </div>
+      <div class="card dk-only">
         <header><h2>Every grant <small id="n-grants-2">&mdash;</small></h2></header>
         <div style="overflow-x:auto">
         <table id="t-all"><thead><tr>
@@ -882,7 +992,8 @@
         </div>
         <div id="ag-links"></div>
       </div>
-      <div class="tiles" id="ag-tiles"></div>
+      <div class="mb-only" id="m-agent"></div>
+      <div class="tiles dk-only" id="ag-tiles"></div>
 
       <div class="two" style="margin-top:0.85rem;align-items:start">
         <div class="stack">
@@ -1125,6 +1236,17 @@
           the agent when you want it back.</p>
       </div>
 
+      <div class="card" id="gf-card" style="margin-top:0.85rem" hidden>
+        <header><h2>Growth fleet <small id="gf-when">&mdash;</small></h2>
+          <span class="more">Warda&rsquo;s own team &middot; <span id="gf-sched">weekly</span></span></header>
+        <p class="why">Three agents on one weekly budget. The orchestrator is issued a grant that may pay Researcher and
+          nobody else, hires Scout with a piece of it, takes back what Scout did not spend, and is revoked when the
+          week is done. A fourth, Outreach, writes drafts for a person and holds no money at all.</p>
+        <div class="gf-flow" id="gf-flow"></div>
+        <div class="gf-n" id="gf-n"></div>
+        <p class="why" id="gf-tx" style="margin-bottom:0"></p>
+      </div>
+
       <div class="two" style="margin-top:0.85rem;align-items:start">
         <div class="card">
           <header><h2>Who delegated to whom</h2></header>
@@ -1334,6 +1456,8 @@
           <p class="why" id="wc-say">Scan with your phone&rsquo;s camera. It opens Kaspire, which asks you to
             approve sharing your address and public key &mdash; the only two things this page requests.
             Nothing it asks for can move a coin.</p>
+          <div class="wc-apps" id="wc-apps" hidden></div>
+          <button type="button" class="wc-qrtoggle" id="wc-qrt" hidden>Show a QR code instead</button>
           <div class="wc-qr" id="wc-qr"></div>
           <p class="state" id="wc-state">Preparing a pairing&hellip;</p>
           <div class="wc-row">
@@ -1351,7 +1475,14 @@
         <h1>Activity</h1>
         <p>Every payment these agents recorded, newest first, with the outcome each one actually had.</p>
       </div></div>
-      <div class="card">
+      <div class="mb-only">
+        <div class="seg mseg" role="group" aria-label="Show">
+          <button data-view="activity" aria-pressed="true">Payments</button>
+          <button data-view="refusals" aria-pressed="false">Refused</button>
+        </div>
+        <div class="card"><div class="feed" id="m-acts"></div></div>
+      </div>
+      <div class="card dk-only">
         <header><h2>Payments <small id="n-acts-2">&mdash;</small></h2></header>
         <div style="overflow-x:auto">
         <table id="t-acts"><thead><tr>
@@ -1367,6 +1498,10 @@
         <h1>Refused</h1>
         <p>Two different things, kept apart on purpose &mdash; what actually went wrong, and what the covenant would refuse if anybody tried it.</p>
       </div></div>
+      <div class="seg mseg mb-only" role="group" aria-label="Show">
+        <button data-view="activity" aria-pressed="false">Payments</button>
+        <button data-view="refusals" aria-pressed="true">Refused</button>
+      </div>
       <div class="two" style="align-items:start">
         <div class="card">
           <header><h2>Attempts that did not settle <small id="n-fail">&mdash;</small></h2></header>
@@ -1903,6 +2038,12 @@ ops/install-cron.sh</pre>
       </div>
     </div>
 
+    <!-- ============================== MORE ============================== -->
+    <div class="view pad" id="v-more">
+      <div class="head"><div><h1>More</h1></div></div>
+      <div class="mlist"><a class="mrow" data-view="fleet"><b>Fleet</b><span>Every agent as one system · delegation · bulk controls</span></a><a class="mrow" data-view="analytics"><b>Analytics</b><span>Burn rate · runway · cost per task</span></a><a class="mrow" data-view="fund"><b>Fund an agent</b><span>From USDC or USDT you already hold</span></a><a class="mrow" data-view="create"><b>Create a grant</b><span>Budget, cap, rate, payees — four steps</span></a><a class="mrow" data-view="refusals"><b>Refused</b><span>What the covenant would not let through</span></a><a class="mrow" data-view="registry"><b>Services</b><span>The registry: who an agent can buy from</span></a><a class="mrow" data-view="account"><b>Your account</b><span>Wallets, synced grants, alert delivery</span></a><a class="mrow" href="/proof"><b>Proof</b><span>Every claim, and what would refute it</span></a><a class="mrow" href="/grant"><b>Get a funded testnet grant</b><span>We fund your agent, free</span></a></div>
+    </div>
+
     <div class="statusbar">
       <span><i class="d"></i>Network: <b id="sb-net">Kaspa testnet-10</b></span>
       <span id="sb-daa">&mdash;</span>
@@ -1912,11 +2053,11 @@ ops/install-cron.sh</pre>
   </div><!-- /main -->
   <div class="scrim" id="scrim" hidden></div>
   <nav class="tabs" aria-label="Main">
-    <a data-view="dash"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1.5"/><rect x="9" y="1.5" width="5.5" height="5.5" rx="1.5"/><rect x="1.5" y="9" width="5.5" height="5.5" rx="1.5"/><rect x="9" y="9" width="5.5" height="5.5" rx="1.5"/></svg><span>Overview</span></a>
-    <a data-view="fleet"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="3.3" r="1.8"/><circle cx="3.3" cy="12.2" r="1.8"/><circle cx="8" cy="12.2" r="1.8"/><circle cx="12.7" cy="12.2" r="1.8"/><path d="M8 5.1v5.3M8 7.8H3.3v2.6M8 7.8h4.7v2.6"/></svg><span>Fleet</span></a>
-    <a data-view="fund"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 5.5h9.5M8.5 2.5l3 3-3 3"/><path d="M14 10.5H4.5M7.5 7.5l-3 3 3 3"/></svg><span>Fund</span></a>
-    <a data-view="create"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2.5v11M2.5 8h11"/></svg><span>Create</span></a>
-    <a data-view="account"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="5.6" r="2.8"/><path d="M2.6 14c.7-2.9 2.9-4.4 5.4-4.4s4.7 1.5 5.4 4.4"/></svg><span>Account</span></a>
+    <a data-view="dash"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 7.2 8 2.5l6 4.7V14H9.8v-4H6.2v4H2z"/></svg><span>Home</span></a>
+    <a data-view="grants"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="3.3" r="1.8"/><circle cx="3.3" cy="12.2" r="1.8"/><circle cx="8" cy="12.2" r="1.8"/><circle cx="12.7" cy="12.2" r="1.8"/><path d="M8 5.1v5.3M8 7.8H3.3v2.6M8 7.8h4.7v2.6"/></svg><span>Agents</span></a>
+    <a data-view="activity"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.5 8.5h3l2-5 3 9 2-4h3"/></svg><span>Activity</span></a>
+    <a data-view="alerts"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 11V7.5a4 4 0 0 1 8 0V11l1.3 1.5H2.7zM6.6 14h2.8"/></svg><span>Alerts</span></a>
+    <a data-view="more"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg><span>More</span></a>
   </nav>
 </div><!-- /app -->
 
@@ -2499,6 +2640,123 @@ var WardaRouter = (() => {
   function P_() { return P.filter(function (x) { return inRange(x.p.at) && payHit(x); }); }
   function A_() { return A.filter(agentHit); }
 
+  /* ---- the phone's own surfaces --------------------------------------------
+     Built from the same readings as every other view; nothing here is a
+     second opinion. Hrefs are never concatenated into markup (check-links
+     reads the built page), so agent cards open through data-agent-open and
+     the public-page link is set as a property. */
+  var M_FILTER = "all";
+  var SHIELD = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 1.8 13 3.6v4.1c0 3-2.1 5.2-5 6.5-2.9-1.3-5-3.5-5-6.5V3.6z"/><path d="m5.6 8 1.7 1.7 3.2-3.3"/></svg>';
+  function usd(k) { return MARKET && MARKET.rate ? "≈ $" + (k * MARKET.rate).toLocaleString("en-US", { maximumFractionDigits: k * MARKET.rate < 10 ? 2 : 0 }) : ""; }
+  function pct(a, b) { return b > 0 ? Math.max(0, Math.min(100, Math.round(a / b * 100))) : 0; }
+  function mAgentCard(a) {
+    var u = auth(a), f = grantFacts(a), spent = num(u.spent), budget = num(u.budget);
+    var t = f.t, ends = !t.known ? "—" : t.expired ? "ended" : (t.in || "—").replace(/ days?$/, "d").replace(/ hours?$/, "h");
+    return '<div class="acard" tabindex="0" data-agent-open="' + esc(a.id) + '">' +
+      '<div class="t"><b>Agent #' + esc(a.id) + '</b>' + stateP(a) + '</div>' +
+      (a.d.mission ? '<p class="m">' + esc(a.d.mission) + '</p>' : '') +
+      '<p class="amt">' + kas2(spent) + ' <span>/ ' + kas2(budget) + ' KAS spent · ' + pct(spent, budget) + '%</span></p>' +
+      '<div class="mbar"><i style="width:' + pct(spent, budget) + '%"></i></div>' +
+      '<div class="chips"><span><b>' + kas2(num(u.maxPerPayment)) + '</b>per payment</span><span><b>' + kas2(num(u.epochLimit)) + '</b>per epoch</span>' +
+      '<span><b>' + (u.authorizedPayees || 0) + '</b>payees</span><span><b>' + esc(ends) + '</b>' + (f.ended ? 'status' : 'left') + '</span></div>' +
+      '</div>';
+  }
+  function mobileRender() {
+    if (!$("m-home")) return;
+    var list = A_();
+    var liveA = list.filter(function (a) { return live(a) === "live"; });
+    var left = liveA.reduce(function (s, a) { return s + Math.min(num(auth(a).remaining), num(auth(a).onChain) || num(auth(a).remaining)); }, 0);
+    var budget = liveA.reduce(function (s, a) { return s + num(auth(a).budget); }, 0);
+    var spentLive = liveA.reduce(function (s, a) { return s + num(auth(a).spent); }, 0);
+    var day = Date.now() - 86400000;
+    var today = P.filter(function (x) { return new Date(x.p.at).getTime() > day; });
+    var okP = function (x) { return x.p.outcome === "bought" || x.p.outcome === "served"; };
+    var paidToday = today.filter(okP).reduce(function (s, x) { return s + num(x.p.paid); }, 0);
+    var feed = function (xs) {
+      return xs.map(function (x) {
+        var ok = okP(x);
+        return evRow(ok ? "ok" : "bad", "#" + x.agent + " → " + esc(host(x.p.url)),
+          (ok ? "" : '<span style="color:var(--refuse)">' + esc(x.p.outcome || "refused") + '</span> · ') + ago(x.p.at),
+          ok ? esc(x.p.paid || "") : "—");
+      }).join("") || '<p class="empty">Nothing recorded yet.</p>';
+    };
+    var ordered = liveA.concat(list.filter(function (a) { return live(a) !== "live"; }));
+    $("m-home").innerHTML =
+      '<div class="mhero">' +
+        '<p class="lbl">Authority available · ' + liveA.length + ' live agent' + (liveA.length === 1 ? '' : 's') + '</p>' +
+        '<p class="big">' + kas2(left) + '<small>KAS</small></p>' +
+        '<p class="sub">' + (usd(left) || "&nbsp;") + '</p>' +
+        '<div class="mbar"><i style="width:' + pct(spentLive, budget) + '%"></i></div>' +
+        '<div class="mrow2"><span>' + kas2(spentLive) + ' KAS spent</span><span>of ' + kas2(budget) + ' KAS authorised</span></div>' +
+        '<a class="enf" href="/proof">' + SHIELD + 'Network enforced — not by this app</a>' +
+      '</div>' +
+      '<div class="mstats"><div><i>Spent today</i><b>' + kas2(paidToday) + '</b></div>' +
+        '<div><i>Payments today</i><b>' + today.filter(okP).length + '</b></div>' +
+        '<div><i>Refused today</i><b>' + today.filter(function (x) { return !okP(x); }).length + '</b></div></div>' +
+      '<div class="msec"><h2>Your agents</h2><a data-view="grants">View all</a></div>' +
+      ordered.slice(0, 3).map(mAgentCard).join("") +
+      '<p><button class="go wide" data-view="create">+ Create grant</button></p>' +
+      '<div class="msec"><h2>Recent activity</h2><a data-view="activity">View all</a></div>' +
+      '<div class="card"><div class="feed">' + feed(P.slice(0, 5)) + '</div></div>';
+
+    var shown = list.filter(function (a) {
+      var st = live(a);
+      return M_FILTER === "all" || (M_FILTER === "live" ? st === "live" : st !== "live");
+    });
+    $("m-grants").innerHTML = shown.map(mAgentCard).join("") || '<p class="empty">Nothing here.</p>';
+    $("m-acts").innerHTML = feed(P.slice(0, 60));
+  }
+  function mAgent(a) {
+    var box = $("m-agent"); if (!box) return;
+    var u = auth(a), f = grantFacts(a), spent = num(u.spent), budget = num(u.budget), rem = num(u.remaining);
+    var t = f.t;
+    box.innerHTML =
+      '<div class="mhero">' +
+        '<div class="mrow2" style="margin:0;color:var(--chrome-dim)"><span class="lbl">Spent</span><span class="lbl">Remaining</span></div>' +
+        '<div class="mrow2" style="margin:0.2rem 0 0;color:var(--chrome)"><span class="big" style="font-size:1.7rem">' + kas2(spent) + '</span><span class="big" style="font-size:1.7rem">' + kas2(rem) + '</span></div>' +
+        '<div class="mrow2" style="margin:0"><span>KAS ' + usd(spent) + '</span><span>KAS ' + usd(rem) + '</span></div>' +
+        '<div class="mbar"><i style="width:' + pct(spent, budget) + '%"></i></div>' +
+        '<a class="enf" href="/proof">' + SHIELD + 'Network enforced</a>' +
+      '</div>' +
+      '<div class="msec"><h2>Spending limits</h2></div>' +
+      '<div class="card"><dl class="mlim">' +
+        '<div><dt>Total budget</dt><dd>' + kas2(budget) + ' KAS</dd></div>' +
+        '<div><dt>Max per payment</dt><dd>' + kas2(num(u.maxPerPayment)) + ' KAS</dd></div>' +
+        '<div><dt>Per epoch (' + esc(u.epochLengthDaa || "—") + ' blocks)</dt><dd>' + kas2(num(u.epochLimit)) + ' KAS</dd></div>' +
+        '<div><dt>' + (t.expired ? "Expired" : "Expires") + '</dt><dd>' + esc(!t.known ? "—" : t.expired ? (t.ago || "") + " ago" : "in " + (t.in || "—")) + '</dd></div>' +
+        '<div><dt>Approved payees</dt><dd>' + (u.authorizedPayees || 0) + '</dd></div>' +
+      '</dl></div>' +
+      '<div class="msec"><h2>Checked by every node</h2></div>' +
+      '<div class="card"><div class="mchk"><span>Budget</span><span>Payment cap</span><span>Epoch limit</span><span>Allowlist</span><span>Expiry</span><span>Delegation depth</span></div></div>' +
+      '<div class="mact"><a class="go gh" id="m-proof">Public page</a>' +
+        '<button class="go danger" id="m-stop"' + (f.ended ? ' disabled' : '') + '>' + (f.ended ? 'Ended' : 'Revoke') + '</button></div>';
+    var pub = $("m-proof"); pub.href = ["", "agent-" + a.id].join("/");
+    $("m-stop").onclick = function () {
+      var c = $("ag-ctl"); if (!c) return;
+      c.scrollIntoView({ behavior: "smooth", block: "center" });
+      var b = c.querySelector('[data-ctl="revoke"]'); if (b && !b.disabled) b.click();
+    };
+  }
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest("#m-gf button");
+    if (!b) return;
+    M_FILTER = b.getAttribute("data-f");
+    Array.prototype.forEach.call(document.querySelectorAll("#m-gf button"), function (o) { o.setAttribute("aria-pressed", o === b ? "true" : "false"); });
+    mobileRender();
+  });
+  /* "Why" on every card that explains itself: hidden on a phone until asked. */
+  Array.prototype.forEach.call(document.querySelectorAll(".card"), function (card) {
+    var hdr = card.querySelector(":scope > header"), why = card.querySelector(":scope > p.why");
+    if (!hdr || !why) return;
+    /* A dialog's one sentence is the point of the dialog, not a footnote. */
+    if (card.closest(".wc-veil")) { card.classList.add("explain"); return; }
+    var btn = document.createElement("button");
+    btn.type = "button"; btn.className = "whyb"; btn.textContent = "Why";
+    btn.setAttribute("aria-expanded", "false");
+    btn.onclick = function () { var on = card.classList.toggle("explain"); btn.setAttribute("aria-expanded", on ? "true" : "false"); };
+    hdr.appendChild(btn);
+  });
+
   /* ---------------------------------------------------------------- render */
   function render() {
     if (!ALL.length) {
@@ -2533,6 +2791,7 @@ var WardaRouter = (() => {
     tiles(); spendChart(); agentDonut(); payees(); endpoints();
     grantRows(); allRows(); acts(); notices(); recent(); sources(); deleg(); recon(); refusals();
     fleetView();
+    mobileRender();
     if ($("v-analytics").classList.contains("on")) analyticsView();
   }
 
@@ -3043,8 +3302,10 @@ var WardaRouter = (() => {
     if (!a) return;
     if (!fromRoute) location.hash = hashFor("agent", id);
     SHOWN = id;
+    document.body.setAttribute("data-screen", "agent");
     var u = auth(a), t = term(a), c = hue(a.id);
     ctlRender(a);
+    mAgent(a);
 
     /* The same three-way pill the tables use, rather than a second opinion
        about the same agent computed a different way. */
@@ -3509,13 +3770,38 @@ var WardaRouter = (() => {
   function wcRequest(method, params) {
     return wcClient().then(function (c) {
       if (!WC.session) throw new Error("no WalletConnect session");
-      return c.request({ topic: WC.session.topic, chainId: WC.chain, request: { method: method, params: params } });
+      var pending = c.request({ topic: WC.session.topic, chainId: WC.chain, request: { method: method, params: params } });
+      wcNudge();
+      return pending;
     });
   }
 
   function wcModal(on) {
     $("wc-veil").hidden = !on;
-    if (!on) { $("wc-qr").innerHTML = ""; $("wc-open").hidden = true; $("wc-copy").hidden = true; }
+    if (!on) { $("wc-qr").innerHTML = ""; $("wc-open").hidden = true; $("wc-copy").hidden = true;
+               $("wc-apps").hidden = true; $("wc-apps").textContent = ""; $("wc-qrt").hidden = true; $("wc-qr").hidden = false; }
+  }
+
+  /* A phone, where a QR code is the one thing that cannot work. */
+  var PHONE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
+  /* Each wallet's own universal link for a WalletConnect pairing. Opening
+     one hands the wc: URI to the app, which asks to connect; the page keeps
+     waiting and picks up the approval when you come back. */
+  var WC_APPS = {
+    evm: [
+      { name: "MetaMask", base: "https://metamask.app.link/" },
+      { name: "Trust Wallet", base: "https://link.trustwallet.com/" },
+      { name: "Rainbow", base: "https://rnbwapp.com/" },
+      { name: "Coinbase Wallet", base: "https://go.cb-w.com/" }
+    ],
+    kaspa: [{ name: "Kaspire", base: "https://kaspire.kaslab.space/kaspire/" }]
+  };
+  /* Once connected, a signature request has to bring the wallet forward
+     too, or it sits unseen in an app nobody is looking at. */
+  function wcNudge() {
+    if (!PHONE || !WC.app) return;
+    try { window.open(WC.app, "_self"); } catch (e) {}
   }
 
   /* One pairing at a time. `WC.try` counts them, so the approval of a pairing
@@ -3544,7 +3830,29 @@ var WardaRouter = (() => {
           return wcLib().then(function (L) { return L.qrSvg(shown); }).then(function (svg) {
             if (dead()) return;
             $("wc-qr").innerHTML = svg;
-            $("wc-open").hidden = fam !== "kaspa";
+            if (PHONE) {
+              var box = $("wc-apps"); box.textContent = "";
+              WC_APPS[fam].forEach(function (w) {
+                var a = document.createElement("a");
+                a.href = w.base + "wc?uri=" + encodeURIComponent(r.uri);
+                a.rel = "noopener";
+                a.appendChild(document.createTextNode(w.name));
+                var sp = document.createElement("span"); sp.textContent = "Open app →"; a.appendChild(sp);
+                a.addEventListener("click", function () {
+                  WC.app = w.base;
+                  $("wc-state").textContent = "Approve in " + w.name + ", then come back to this page.";
+                });
+                box.appendChild(a);
+              });
+              box.hidden = false;
+              $("wc-qr").hidden = true;
+              $("wc-qrt").hidden = false;
+              $("wc-qrt").onclick = function () { $("wc-qr").hidden = false; $("wc-qrt").hidden = true; };
+              $("wc-say").textContent = fam === "kaspa"
+                ? "Opens Kaspire on this phone. It asks to share your address and public key. Nothing it asks for can move a coin."
+                : "Pick your wallet. It opens, asks to share your address, and you come back here. Nothing it asks for can move a coin.";
+            }
+            $("wc-open").hidden = fam !== "kaspa" || PHONE;
             $("wc-open").href = kaspire;
             $("wc-copy").hidden = false;
             $("wc-copy").onclick = function () {
@@ -3552,7 +3860,8 @@ var WardaRouter = (() => {
                 .then(function () { $("wc-state").textContent = "Pairing link copied. Paste it into your wallet’s WalletConnect screen."; })
                 .catch(function () { $("wc-state").textContent = r.uri; });
             };
-            $("wc-state").textContent = "Waiting for your wallet… the pairing lasts about five minutes.";
+            if (!PHONE) $("wc-state").textContent = "Waiting for your wallet… the pairing lasts about five minutes.";
+            else $("wc-state").textContent = "Waiting for your wallet…";
             return r.approval();
           });
         });
@@ -3862,15 +4171,26 @@ var WardaRouter = (() => {
     $("acc-connect").hidden = !kw;
     $("acc-get-kw").hidden = kw;
     $("acc-kw-s").textContent = kw ? "installed in this browser" : "not installed in this browser";
-    $("acc-wc-s").textContent = wc ? "on your phone, by QR code, over WalletConnect" : "WalletConnect is not set up on this site yet";
-    $("acc-wce-s").textContent = wc ? "any WalletConnect wallet, by QR code" : "WalletConnect is not set up on this site yet";
+    $("acc-wc-s").textContent = !wc ? "WalletConnect is not set up on this site yet" : PHONE ? "opens the Kaspire app on this phone" : "on your phone, by QR code, over WalletConnect";
+    $("acc-wce-s").textContent = !wc ? "WalletConnect is not set up on this site yet" : PHONE ? "MetaMask, Trust, Rainbow, Coinbase — opens the app to approve" : "any WalletConnect wallet, by QR code";
+    if (PHONE) { $("acc-wc").textContent = "Open Kaspire"; $("acc-wc-evm").textContent = "Connect a wallet app"; }
     $("acc-wc").disabled = !wc;
     $("acc-wc-evm").disabled = !wc;
-    $("acc-evm-s").textContent = EVM.length ? "found in this browser" : "no Ethereum-style wallet extension found";
+    $("acc-evm-s").textContent = EVM.length ? "found in this browser" : PHONE
+      ? "or open this page inside your wallet app’s own browser, where it connects directly"
+      : "no Ethereum-style wallet extension found";
     $("acc-evm").innerHTML = EVM.map(function (k) {
       var a = WALLETS[k], ic = /^data:image\//.test(String(a.icon || "")) ? '<img alt="" src="' + esc(a.icon) + '">' : "";
       return '<button class="go gh" data-evm="' + esc(k) + '">' + ic + 'Connect ' + esc(a.name) + '</button>';
     }).join("");
+    if (PHONE && !EVM.length) {
+      /* MetaMask's in-app browser injects the wallet like an extension. */
+      var mm = document.createElement("a");
+      mm.className = "go gh";
+      mm.href = "https://metamask.app.link/dapp/" + location.host + location.pathname;
+      mm.textContent = "Open in MetaMask’s browser";
+      $("acc-evm").appendChild(mm);
+    }
     ownRender();
 
     if (!W) {
@@ -5544,6 +5864,7 @@ var WardaRouter = (() => {
     fleetView.rows = rows;
     tplRender();
     treeRender();
+    growthRender();
   }
 
   function flBulk(k) {
@@ -5557,6 +5878,39 @@ var WardaRouter = (() => {
     $("fl-cmds").hidden = false;
     $("fl-cmds-why").textContent = CTL_SAY[k] + (skip ? " " + skip + " selected grant" + (skip === 1 ? " was" : "s were") + " left out: " +
       (k === "reclaim" ? "not past its term, or already ended." : "already ended.") : "") + " File names are placeholders for each grant's manifest.";
+  }
+
+  /* The growth fleet's latest finished week, from /growth.json. Warda's own
+     team, so it shows only when the console is showing Warda's agents. */
+  var GROWTH = null;
+  fetch("/growth.json", { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (g) { GROWTH = g; if ($("v-fleet").classList.contains("on")) growthRender(); }).catch(function () {});
+  function growthRender() {
+    var card = $("gf-card"); if (!card) return;
+    var g = GROWTH, show = !!g && scopeNow() === "public";
+    card.hidden = !show; if (!show) return;
+    var tx = {}; (g.transactions || []).forEach(function (t) { tx[t.step] = t.txid; });
+    var has = function (id) { return A.some(function (a) { return a.id === id; }); };
+    var step = function (id, name, say) {
+      return has(id) ? '<a class="st" data-agent-open="' + id + '"><b>' + name + ' &middot; #' + id + '</b><span>' + say + '</span></a>'
+        : '<div class="st"><b>' + name + '</b><span>' + say + '</span></div>';
+    };
+    $("gf-when").textContent = g.label + " · " + (g.network || "");
+    $("gf-sched").textContent = g.schedule || "weekly";
+    $("gf-flow").innerHTML =
+      step(g.orchestrator || "009", "Orchestrator", "batch grant; may pay Researcher only") + '<span class="ar">delegates &rarr;</span>' +
+      step(g.scout || "010", "Scout", "one payee, one record&rsquo;s price at a time") + '<span class="ar">pays &rarr;</span>' +
+      '<a class="st" href="' + esc(g.researcher && g.researcher.url || "#") + '" target="_blank" rel="noopener"><b>Researcher</b><span>' +
+        esc(g.researcher && g.researcher.price || "") + ' &middot; facts with sources</span></a>' +
+      '<span class="ar">records &rarr;</span>' +
+      '<div class="st off"><b>Outreach</b><span>no grant, no key; drafts for a person</span></div>';
+    var n = function (label, v) { return '<div><i>' + label + '</i><b>' + esc(String(v)) + '</b></div>'; };
+    $("gf-n").innerHTML = n("Projects found", g.candidates) + n("Records bought", g.bought) +
+      n("Cost, on chain", g.spentKas + " KAS") + n("Drafts to read", g.drafts) + n("No draft", g.noDraft) + n("Messages sent", g.sent || 0);
+    var short = function (t) { return t ? t.slice(0, 8) + "…" : "—"; };
+    $("gf-tx").innerHTML = "On chain: genesis <code>" + short(tx.genesis) + "</code> · hire <code>" + short(tx.hire) +
+      "</code> · settle <code>" + short(tx.settle) + "</code> · revoke <code>" + short(tx.revoke) +
+      "</code>. The authority is real and enforced; the money is testnet, and both ends are Warda&rsquo;s.";
   }
 
   function treeRender() {
@@ -6251,7 +6605,7 @@ var WardaRouter = (() => {
 
   var TITLES = { dash: "Overview", grants: "Grants", agent: "Agent", activity: "Activity",
                  refusals: "Refused", alerts: "Alerts", fund: "Fund an agent", create: "Create a grant",
-                 account: "Your account", fleet: "Fleet", registry: "Services", analytics: "Analytics" };
+                 account: "Your account", fleet: "Fleet", registry: "Services", analytics: "Analytics", more: "More" };
   /* ---- where you are, in the URL ----------------------------------------
      The console had no address. Every view was the same page, so a reload lost
      your place, the browser's Back button left the app entirely, and there was
@@ -6283,6 +6637,7 @@ var WardaRouter = (() => {
     if (!$("v-" + v)) return;
     if (!fromRoute) location.hash = hashFor(v);
     drawer(false);
+    document.body.setAttribute("data-screen", v);
     if (v === "fleet") fleetView();
     if (v === "registry") svcView();
     Array.prototype.forEach.call(document.querySelectorAll(".side a[data-view], .tabs a[data-view]"), function (o) {
@@ -6310,7 +6665,9 @@ var WardaRouter = (() => {
     var row = e.target.closest("tr.pick");
     if (row) { showAgent(row.getAttribute("data-agent")); return; }
     var el = e.target.closest("[data-view]");
-    if (!el || el.classList.contains("st")) return;
+    /* The page itself is never a link: body carries data-screen, not
+       data-view, and this guard keeps it that way if someone forgets. */
+    if (!el || el === document.body || el.classList.contains("st")) return;
     e.preventDefault();
     show(el.getAttribute("data-view"));
   });
