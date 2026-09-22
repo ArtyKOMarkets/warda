@@ -1,0 +1,7 @@
+{
+  "agent": "WARDA-011",
+  "publicKey": "beacc5cd6f23a2de06eb91d92ec34dea04b7fbd1688e6294ad54a666d963df94",
+  "provider": "turnkey",
+  "sealed": "{\"walletId\":\"c8d2bcfa-8a8b-501d-81ae-6b34cb154d33\",\"address\":\"tb1ph6kvtnt0yw3duphtj8vjas6dagzt0773dz8x999d2jnxdktrm72qyq30n8\"}",
+  "createdAt": 1790066439957
+}

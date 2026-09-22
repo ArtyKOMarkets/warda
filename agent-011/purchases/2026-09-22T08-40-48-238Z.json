@@ -1,0 +1,30 @@
+{
+  "_comment": "Written by agent-002/tools/buy.ts. One file per attempt, refusals included: a purchase log that only records successes is a sales brochure.",
+  "at": "2026-09-22T08:40:48.238Z",
+  "agent": "WARDA-011",
+  "url": "https://warda-demo-api.vercel.app/fact",
+  "task": "first Turnkey-signed purchase",
+  "proof": {
+    "header": "eyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJ0ZXN0bmV0LTEwIiwicGF5ZXIiOiJrYXNwYXRlc3Q6cHpxOThuMzN3OHYzemY3c2ZkcmV6dW5sd2F1d2RmdTkzczJ5amxlejgyd2F3cXR0NnA3N3EwdmZ3anh3dCIsInR4aWQiOiJmYTVkZmU3MjgyZDg3ZmUzNGIxNzhlZjVlMTA1ODc0OWQ4MDU1OWQ4NzUzYzZhMDA2NTY3YWUwYmViZGJhNmFjIiwiYW1vdW50U29tcGkiOiIzMDAwMDAwIiwibm9uY2UiOiIxNzkwMDY2NTY5MzI1LjUyMDIxYjk4MzBiYThiZDY4ZDY4ZDhkMmQxNTUxNDc2In0=",
+    "txid": "fa5dfe7282d87fe34b178ef5e1058749d80559d8753c6a006567ae0bebdba6ac",
+    "amountSompi": "3000000",
+    "payTo": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4"
+  },
+  "outcome": "bought",
+  "status": 200,
+  "quoted": {
+    "payTo": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
+    "amountSompi": "3000000"
+  },
+  "txid": "fa5dfe7282d87fe34b178ef5e1058749d80559d8753c6a006567ae0bebdba6ac",
+  "sellerClaimed": "warda demo vendor",
+  "resumedFrom": null,
+  "response": {
+    "fact": "GHOSTDAG orders blocks by how much work references them, so honest blocks converge on one order without discarding competing ones.",
+    "seller": "warda demo vendor",
+    "paidTo": "kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4",
+    "settledBy": "fa5dfe7282d87fe34b178ef5e1058749d80559d8753c6a006567ae0bebdba6ac",
+    "verified": "a UTXO at this endpoint's payee address, from that transaction, for exactly the quoted amount",
+    "readFrom": "this vendor's own node"
+  }
+}
