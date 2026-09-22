@@ -621,6 +621,8 @@
   .wsel-list li .h { color: var(--chrome-faint); font-size: 0.72rem; margin-left: 1.2rem; }
   .wsel-list li[aria-selected="true"] .h, .wsel-list li.hi .h { color: var(--chrome-dim); }
   .hold { display: grid; gap: 0.45rem; }
+  .sa-need { border: 1px dashed var(--edge-bright); border-radius: 10px; padding: 0.8rem 0.9rem; display: grid; gap: 0.6rem; justify-items: start; }
+  .sa-need p { margin: 0; font-size: 0.82rem; color: var(--chrome-dim); line-height: 1.5; }
   .tp-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: 0.7rem; margin-top: 0.6rem; }
   .tp { border: 1px solid var(--edge); border-radius: 10px; padding: 0.8rem 0.9rem; background: var(--ground); display: grid; gap: 0.5rem; align-content: start; }
   .tp b { font-size: 0.9rem; color: var(--chrome); }
@@ -2498,7 +2500,7 @@ ops/install-cron.sh</pre>
             never more than you hand it, never more per payment than this agent may pay, paying only the same payees &mdash;
             and <b>every Kaspa node enforces the split</b>. Your keys own both, so you can stop either.</p>
           <div class="feed" id="sa-list"></div>
-          <div id="sa-form" style="margin-top:0.6rem">
+          <div id="sa-form" style="margin-top:0.6rem" hidden>
             <div class="grid">
               <div class="field"><label for="sa-name">Helper name</label><input id="sa-name" placeholder="research-helper" spellcheck="false"></div>
               <div class="field"><label for="sa-budget">Its budget, KAS</label><input id="sa-budget" inputmode="decimal" placeholder="0.2"></div>
@@ -7911,9 +7913,19 @@ ops/install-cron.sh</pre>
           '</b><span>budget ' + esc(k.budgetKas) + ' KAS</span></i><span class="a">Open &rarr;</span></div>';
       }).join("");
     $("sa-form").hidden = !a.canDelegate || !!a.parent;
-    if (!a.canDelegate && !a.parent) {
+    var f = a.funding, topping = f && f.round > 1 && (f.status === "awaiting-deposit" || f.status === "submitting");
+    if (!a.canDelegate && !a.parent && topping) {
+      $("sa-list").innerHTML += '<div class="sa-need"><p>Your top-up is ' + (f.status === "submitting" ? "being turned into the new grant right now" : "waiting for its deposit") +
+        '. As soon as the new grant is live, helpers can be created here.</p></div>';
+    } else if (!a.canDelegate && !a.parent) {
       $("sa-s").textContent = "";
-      $("sa-list").innerHTML += '<p class="empty">This agent&rsquo;s grant was made before helpers existed. <b>Top it up</b> below &mdash; the new grant allows them, and the agent, its jobs and payees stay the same.</p>';
+      $("sa-list").innerHTML += '<div class="sa-need"><p>This agent&rsquo;s current grant was made before helpers existed, so it has no room for them. ' +
+        'A <b>top-up</b> gives it a new grant that does &mdash; same agent, same jobs, same payees. Once the deposit lands, you can create helpers here.</p>' +
+        '<button class="go" type="button" id="sa-topup">Top it up to allow helpers &darr;</button></div>';
+      $("sa-topup").onclick = function () {
+        $("tu-card").scrollIntoView({ behavior: "smooth", block: "start" });
+        setTimeout(function () { if (!$("tu-form").hidden) $("tu-budget").focus(); }, 400);
+      };
     }
   }
   $("sa-list").addEventListener("click", function (e) {
