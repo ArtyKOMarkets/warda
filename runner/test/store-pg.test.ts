@@ -121,3 +121,19 @@ test("approvals and runs by id; pending continue-approvals go stale", async () =
   await s.putApproval({ ...ap, status: "approved" });
   assert.deepEqual(await s.staleApprovals(10), []);
 });
+
+test("templates on Postgres: listed by copies, hidden ones gone", async () => {
+  const { migrateRegistry, pgRegistry } = await import("../src/registry.ts");
+  const db = new PGlite();
+  await migrateRegistry(db);
+  const r = pgRegistry(db);
+  const t = (id: string, at: number) => ({ id, title: id, description: "", job: { name: id }, author: "x", createdAt: at, copies: 0 });
+  await r.putTemplate(t("a", 1), "acct1");
+  await r.putTemplate(t("b", 2), "acct1");
+  await r.countTemplateCopy("a");
+  assert.deepEqual((await r.listTemplates(10)).map((x) => [x.id, x.copies]), [["a", 1], ["b", 0]]);
+  assert.equal((await r.getTemplate("a"))!.account, "acct1");
+  await r.hideTemplate("a");
+  assert.equal(await r.getTemplate("a"), null);
+  assert.deepEqual((await r.listTemplates(10)).map((x) => x.id), ["b"]);
+});

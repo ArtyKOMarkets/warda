@@ -12,6 +12,7 @@ import type { Queryable } from "./store-pg.ts";
 import { decode, encode } from "./store-pg.ts";
 import type { Manifest } from "@warda_protocol/agent";
 import type { Plan } from "./funding.ts";
+import type { Template } from "./templates.ts";
 
 export interface GrantRecord {
   agent: string;
@@ -31,6 +32,11 @@ export interface Registry {
   agentsOf(account: string): Promise<string[]>;
   putGrant(g: GrantRecord): Promise<void>;
   getGrant(agent: string): Promise<GrantRecord | null>;
+  putTemplate(t: Template, account: string): Promise<void>;
+  listTemplates(limit: number): Promise<Template[]>;
+  getTemplate(id: string): Promise<(Template & { account: string }) | null>;
+  countTemplateCopy(id: string): Promise<void>;
+  hideTemplate(id: string): Promise<void>;
   /** Only to undo a delegation the network did not take. */
   deleteGrant(agent: string): Promise<void>;
   /** Returns the plaintext secret once. */
@@ -81,10 +87,23 @@ export function memoryRegistry(): Registry {
   const tgChats = new Map<string, string>();
   const usage = new Map<string, number>();
   const meta = new Map<string, string>();
+  const templates = new Map<string, Template & { account: string; hidden?: boolean }>();
   const accountsAt = new Map<string, number>();
   const agentsAt = new Map<string, number>();
   return {
     async getMeta(k) { return meta.get(k) ?? null; },
+    async putTemplate(t, account) { templates.set(t.id, structuredClone({ ...t, account })); },
+    async listTemplates(limit) {
+      return [...templates.values()].filter((t) => !t.hidden)
+        .sort((a, b) => b.copies - a.copies || b.createdAt - a.createdAt).slice(0, limit)
+        .map(({ account: _a, hidden: _h, ...t }) => structuredClone(t));
+    },
+    async getTemplate(id) {
+      const t = templates.get(id);
+      return t && !t.hidden ? structuredClone(t) : null;
+    },
+    async countTemplateCopy(id) { const t = templates.get(id); if (t) t.copies++; },
+    async hideTemplate(id) { const t = templates.get(id); if (t) t.hidden = true; },
     async setMeta(k, v) { meta.set(k, v); },
     async listAccounts() { return [...accountsAt].map(([id, createdAt]) => ({ id, createdAt })); },
     async listAgents() {
@@ -187,6 +206,7 @@ create table if not exists runner_tg_chats (account text primary key, chat text 
 create table if not exists runner_usage (account text not null, what text not null, day text not null, n int not null, primary key (account, what, day));
 create table if not exists runner_plans (agent text primary key, status text not null, body jsonb not null);
 create table if not exists runner_meta (key text primary key, value text not null);
+create table if not exists runner_templates (id text primary key, account text not null, body jsonb not null, copies int not null default 0, hidden boolean not null default false, created_at bigint not null);
 `;
 
 export async function migrateRegistry(db: Queryable): Promise<void> {
@@ -198,6 +218,27 @@ export function pgRegistry(db: Queryable): Registry {
     async getMeta(k) {
       const { rows } = await db.query(`select value from runner_meta where key = $1`, [k]);
       return rows[0] ? String(rows[0].value) : null;
+    },
+    async putTemplate(t, account) {
+      await db.query(
+        `insert into runner_templates (id, account, body, copies, created_at) values ($1,$2,$3::jsonb,$4,$5)`,
+        [t.id, account, encode(t), t.copies, t.createdAt],
+      );
+    },
+    async listTemplates(limit) {
+      const { rows } = await db.query(
+        `select body, copies from runner_templates where not hidden order by copies desc, created_at desc limit $1`, [limit]);
+      return rows.map((r) => ({ ...decode<Template>(r.body), copies: Number(r.copies) }));
+    },
+    async getTemplate(id) {
+      const { rows } = await db.query(`select body, copies, account from runner_templates where id = $1 and not hidden`, [id]);
+      return rows[0] ? { ...decode<Template>(rows[0].body), copies: Number(rows[0].copies), account: String(rows[0].account) } : null;
+    },
+    async countTemplateCopy(id) {
+      await db.query(`update runner_templates set copies = copies + 1 where id = $1`, [id]);
+    },
+    async hideTemplate(id) {
+      await db.query(`update runner_templates set hidden = true where id = $1`, [id]);
     },
     async setMeta(k, v) {
       await db.query(`insert into runner_meta (key, value) values ($1,$2) on conflict (key) do update set value = excluded.value`, [k, v]);

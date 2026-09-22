@@ -472,3 +472,39 @@ test("MCP create_job: an agent drafts its own job, sees it, confirms it; the gra
   assert.equal(paused.paused, made.created);
   assert.equal((await b.call("GET", "/v1/agents/shop-bot", { key: b.key })).body.workflows[0].enabled, false);
 });
+
+test("templates: featured ones copy onto an agent; a job is published without its private parts; copies are counted", async () => {
+  const b = await onboarded();
+  const list = (await b.call("GET", "/v1/templates")).body.templates;
+  assert.ok(list.some((t: { id: string }) => t.id === "featured-low-budget"));
+  const c = await b.call("POST", "/v1/templates/featured-low-budget/copy", { key: b.key, body: { agent: "shop-bot" } });
+  assert.equal(c.status, 201, JSON.stringify(c.body));
+  assert.equal(c.body.workflow.agent, "shop-bot");
+
+  const wf = await b.call("POST", "/v1/workflows", { key: b.key, body: {
+    agent: "shop-bot", name: "Warn me", trigger: { type: "grant", when: "budget-below", percent: 30 },
+    then: [{ type: "notify", channel: "telegram", to: "123456", text: "{{agent}} is low" }],
+  } });
+  const pub = await b.call("POST", "/v1/templates", { key: b.key, body: { workflowId: wf.body.workflow.id, title: "Warn at 30%", description: "a nudge" } });
+  assert.equal(pub.status, 201, JSON.stringify(pub.body));
+  assert.equal(pub.body.template.job.then[0].to, "", "the author's chat id is not published");
+  assert.ok(!JSON.stringify(pub.body).includes("123456"));
+  assert.equal(pub.body.template.job.agent, undefined);
+
+  const hook = await b.call("POST", "/v1/workflows", { key: b.key, body: {
+    agent: "shop-bot", name: "call me", trigger: { type: "manual" }, then: [{ type: "http", url: "https://secret.test/x?k=1", method: "POST" }],
+  } });
+  assert.equal((await b.call("POST", "/v1/templates", { key: b.key, body: { workflowId: hook.body.workflow.id, title: "call a URL" } })).status, 422);
+
+  const other = await onboarded();
+  const copy = await other.call("POST", `/v1/templates/${pub.body.template.id}/copy`, { key: other.key, body: { agent: "shop-bot" } });
+  assert.equal(copy.status, 404, "different bench, different registry");
+  const mine = await b.call("POST", `/v1/templates/${pub.body.template.id}/copy`, { key: b.key, body: { agent: "shop-bot" } });
+  assert.equal(mine.status, 201);
+  const again = (await b.call("GET", "/v1/templates")).body.templates.find((t: { id: string }) => t.id === pub.body.template.id);
+  assert.equal(again.copies, 1);
+  const stranger = await b.call("POST", "/v1/accounts", { body: {} });
+  assert.equal((await b.call("POST", `/v1/templates/${pub.body.template.id}/unpublish`, { key: stranger.body.apiKey })).status, 404);
+  assert.equal((await b.call("POST", `/v1/templates/${pub.body.template.id}/unpublish`, { key: b.key })).status, 200);
+  assert.ok(!(await b.call("GET", "/v1/templates")).body.templates.some((t: { id: string }) => t.id === pub.body.template.id));
+});

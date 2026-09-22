@@ -43,6 +43,7 @@ import type { Ops } from "./ops.ts";
 import { adminStats } from "./admin.ts";
 import type { SubAgentTerms } from "./delegate.ts";
 import { jobProblem } from "./jobs.ts";
+import { FEATURED, publishable, type Template } from "./templates.ts";
 
 const PUBLIC_CONSOLE = "https://www.wardaprotocol.com/app";
 
@@ -577,6 +578,55 @@ export function createApi(d: ApiDeps): (req: Request) => Promise<Response> {
         out.webhook = { url: `${d.baseUrl}/v1/hooks/${wf.id}`, header: "X-Warda-Hook", secret, note: "shown once" };
       }
       return json(201, out);
+    }],
+
+    /* Job templates: public to read, an account to publish or copy. */
+    ["GET", /^\/v1\/templates$/, async () => {
+      const shared = await d.registry.listTemplates(100);
+      return json(200, { templates: [...FEATURED, ...shared] });
+    }],
+    ["POST", /^\/v1\/templates$/, async (req) => {
+      const acct = await account(req);
+      const b = await body(req);
+      const wf = await ownWorkflow(acct, String(b.workflowId ?? ""));
+      const title = String(b.title ?? "").trim().slice(0, 80);
+      const description = String(b.description ?? "").trim().slice(0, 280);
+      if (title.length < 4) throw new HttpError(400, "give the template a title of at least four characters");
+      const p = publishable(wf);
+      if ("refused" in p) throw new HttpError(422, p.refused);
+      const used = await d.registry.bumpUsage(acct, "template", new Date(now()).toISOString().slice(0, 10));
+      if (used > 10) throw new HttpError(429, "ten templates a day is the limit");
+      const t: Template = { id: id("tpl"), title, description, job: p.job, author: "a Warda runner user", createdAt: now(), copies: 0 };
+      await d.registry.putTemplate(t, acct);
+      return json(201, { template: t });
+    }],
+    ["POST", /^\/v1\/templates\/([\w-]+)\/copy$/, async (req, m) => {
+      const acct = await account(req);
+      const b = await body(req);
+      const agent = String(b.agent ?? "");
+      await ownAgent(acct, agent);
+      const t = FEATURED.find((x) => x.id === m[1]) ?? (await d.registry.getTemplate(m[1]!));
+      if (!t) throw new HttpError(404, `no template ${m[1]}`);
+      let wf: Workflow;
+      try {
+        wf = parseWorkflow({ ...t.job, agent }, { id: id("wf"), now: now() });
+      } catch (e) {
+        throw new HttpError(422, `this template no longer parses: ${(e as Error).message}`);
+      }
+      const g = await d.registry.getGrant(agent);
+      if (!g) throw new HttpError(409, `${agent} has no grant yet`);
+      const problem = jobProblem(wf, g, d.fees);
+      if (problem) throw new HttpError(422, `this template cannot run on ${agent}: ${problem}`);
+      await d.engine.add(wf);
+      if (!t.featured) await d.registry.countTemplateCopy(t.id);
+      return json(201, { workflow: summary(wf) });
+    }],
+    ["POST", /^\/v1\/templates\/([\w-]+)\/unpublish$/, async (req, m) => {
+      const acct = await account(req);
+      const t = await d.registry.getTemplate(m[1]!);
+      if (!t || t.account !== acct) throw new HttpError(404, `no template ${m[1]} of yours`);
+      await d.registry.hideTemplate(t.id);
+      return json(200, { unpublished: t.id });
     }],
 
     ["POST", /^\/v1\/workflows\/draft$/, async (req) => {

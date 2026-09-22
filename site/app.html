@@ -622,6 +622,14 @@
   .wsel-list li .h { color: var(--chrome-faint); font-size: 0.72rem; margin-left: 1.2rem; }
   .wsel-list li[aria-selected="true"] .h, .wsel-list li.hi .h { color: var(--chrome-dim); }
   .hold { display: grid; gap: 0.45rem; }
+  .tp-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: 0.7rem; margin-top: 0.6rem; }
+  .tp { border: 1px solid var(--edge); border-radius: 10px; padding: 0.8rem 0.9rem; background: var(--ground); display: grid; gap: 0.5rem; align-content: start; }
+  .tp b { font-size: 0.9rem; color: var(--chrome); }
+  .tp p { margin: 0; font-size: 0.78rem; color: var(--chrome-dim); line-height: 1.5; }
+  .tp small { font-size: 0.68rem; color: var(--chrome-faint); font-family: var(--mono); }
+  .tp .flow { transform-origin: left top; }
+  .tp-share { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; width: 100%; padding: 0.3rem 0 0.2rem; }
+  .tp-share input { flex: 1 1 12rem; width: auto; }
   /* A public receipt is a page for a stranger: no "whose grants" strip, no owner controls. */
   body.pubview[data-screen="agent"] #scope, body.pubview[data-screen="agent"] #ag-ctl-card { display: none; }
   .ad-bars { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; align-items: end; height: 140px; margin-top: 0.4rem; }
@@ -2538,6 +2546,13 @@ ops/install-cron.sh</pre>
         <div class="card" style="margin-top:0.85rem">
           <header><h2>Jobs</h2></header>
           <div id="ha-d-jobs"></div>
+        </div>
+        <div class="card" style="margin-top:0.85rem" id="tp-card">
+          <header><h2>Templates <small id="tp-n"></small></h2><a class="more" id="tp-reload">Refresh</a></header>
+          <p class="why">Jobs other people found useful. One click adds one to this agent; it is checked against this
+            agent&rsquo;s own limits first. Share yours with <b>Share as template</b> on any job above &mdash; your chat and private URLs are never included.</p>
+          <div class="tp-list" id="tp-list"></div>
+          <p class="state" id="tp-s"></p>
         </div>
         <div class="card" style="margin-top:0.85rem">
           <header><h2>What it has done</h2></header>
@@ -7200,6 +7215,7 @@ var WardaRouter = (() => {
       tuShow(a);
       saShow(a);
       pubShow(a);
+      if (TP.list) tpRender(); else tpLoad();
       apLoad(agent);
       haJobs(a.workflows || []);
       haRevoke(a);
@@ -7228,7 +7244,9 @@ var WardaRouter = (() => {
         hApi("PATCH", "/v1/workflows/" + w.id, { enabled: !w.enabled }).then(function () { haOpen(HA.open); haList(); })
           .catch(function (e) { hState("ha-s", e.message, true); });
       };
-      row.appendChild(t); row.appendChild(run); row.appendChild(tog);
+      var share = document.createElement("button"); share.className = "go gh"; share.textContent = "Share as template";
+      share.onclick = function () { tpShare(row, w); };
+      row.appendChild(t); row.appendChild(run); row.appendChild(tog); row.appendChild(share);
       box.appendChild(row);
     });
   }
@@ -8332,6 +8350,49 @@ var WardaRouter = (() => {
     }).catch(function (e) { $("sa-s").textContent = e.message; })
       .then(function () { $("sa-go").disabled = false; });
   });
+
+  /* ---- job templates ------------------------------------------------------ */
+  var TP = { list: null };
+  function tpLoad() {
+    hApi("GET", "/v1/templates").then(function (r) { TP.list = r.templates || []; tpRender(); })
+      .catch(function (e) { $("tp-s").textContent = e.message; });
+  }
+  function tpRender() {
+    var box = $("tp-list"); box.textContent = "";
+    var list = TP.list || [];
+    $("tp-n").textContent = list.length ? String(list.length) : "";
+    list.forEach(function (t) {
+      var card = document.createElement("div"); card.className = "tp";
+      card.innerHTML = '<b>' + esc(t.title) + '</b>' + (t.description ? '<p>' + esc(t.description) + '</p>' : "") +
+        '<small>' + esc(t.featured ? "by Warda" : "shared by " + t.author) + (t.copies ? " · copied " + t.copies + "×" : "") + '</small>';
+      try { card.appendChild(flowOf(t.job)); } catch (e) {}
+      var add = document.createElement("button"); add.className = "go gh"; add.type = "button";
+      add.textContent = "Add to " + (HA.open || "this agent");
+      add.onclick = function () {
+        add.disabled = true;
+        hApi("POST", "/v1/templates/" + encodeURIComponent(t.id) + "/copy", { agent: HA.open }).then(function () {
+          add.textContent = "Added ✓"; haOpen(HA.open);
+        }).catch(function (e) { $("tp-s").textContent = e.message; add.disabled = false; });
+      };
+      card.appendChild(add);
+      box.appendChild(card);
+    });
+  }
+  $("tp-reload").addEventListener("click", tpLoad);
+  /* "Share as template" on a job row: a title, and publish. */
+  function tpShare(row, w) {
+    if (row.querySelector(".tp-share")) return;
+    var f = document.createElement("div"); f.className = "tp-share";
+    f.innerHTML = '<input placeholder="A title others will understand" maxlength="80"><button class="go" type="button">Publish</button><span class="state" style="margin:0"></span>';
+    var inp = f.querySelector("input"), go = f.querySelector("button"), st = f.querySelector(".state");
+    go.onclick = function () {
+      go.disabled = true;
+      hApi("POST", "/v1/templates", { workflowId: w.id, title: inp.value.trim(), description: "" }).then(function () {
+        st.textContent = "Published. Anyone with a runner account can copy it now."; tpLoad();
+      }).catch(function (e) { st.textContent = e.message; go.disabled = false; });
+    };
+    row.appendChild(f); inp.focus();
+  }
 
   /* ---- approvals waiting in Your agents ---------------------------------- */
   function apLoad(agent) {
