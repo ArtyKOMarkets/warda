@@ -77,7 +77,7 @@ test("a full deposit becomes a grant owned by the owner's keys, in one transacti
   assert.equal(g.manifest.principal, b.principal);
   assert.equal(g.manifest.agent, b.plan.agentKey);
   assert.equal(g.manifest.budget, Number(KAS));
-  assert.equal(g.manifest.delegation_depth, 0);
+  assert.equal(g.manifest.delegation_depth, 1, "room for one level of sub-agents");
   const p = (await b.registry.getPlan("bot"))!;
   assert.equal(p.status, "funded");
   assert.equal(p.genesisTxid, p.built!.txid);

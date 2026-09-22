@@ -62,6 +62,8 @@ const TEMPLATE = covenantTemplate as unknown as CovenantTemplate;
 export const GENESIS_FEE = 1_000_000n;
 const GENESIS_COMPUTE_BUDGET = 12;
 const DAA_PER_DAY = 864_000n;
+/** New hosted grants allow one level of sub-agents; a sub-agent cannot delegate further. */
+export const SUB_AGENT_DEPTH = 1;
 
 export interface Limits {
   budget: bigint;
@@ -102,6 +104,8 @@ export interface Plan {
   note?: string;
   createdAt: number;
   updatedAt: number;
+  /** How many levels of sub-agents the grant allows. Absent on plans made before sub-agents: 0. */
+  depth?: number;
   /** 1 for the agent's first grant; each top-up is the next round, with its own deposit key. */
   round?: number;
   /** A top-up: the grant this one replaces once it is funded. Its leftover is the owner's to reclaim. */
@@ -177,6 +181,7 @@ export async function createPlan(o: {
     status: "awaiting-deposit",
     createdAt: o.now,
     updatedAt: o.now,
+    depth: SUB_AGENT_DEPTH,
   };
   await o.registry.putPlan(plan);
   return plan;
@@ -253,6 +258,7 @@ export async function createTopUp(o: {
     createdAt: o.now,
     updatedAt: o.now,
     round,
+    depth: SUB_AGENT_DEPTH,
     replaces: { manifest: o.record.manifest, recipients: o.record.recipients, ...(prev?.genesisTxid ? { genesisTxid: prev.genesisTxid } : {}) },
   };
   await o.registry.putPlan(plan);
@@ -271,7 +277,7 @@ function genesisFor(p: Plan, coin: FundingCoin, daa: bigint) {
     recipientsRoot: toHex(recipients.root),
     notBefore: daa,
     expiresAt: daa + BigInt(p.limits.days) * DAA_PER_DAY,
-    delegationDepth: 0n,
+    delegationDepth: BigInt(p.depth ?? 0),
     templateId: templateIdFor(TEMPLATE, authority),
     spentTotal: 0n,
     reserved: 0n,
@@ -312,7 +318,7 @@ function genesisFor(p: Plan, coin: FundingCoin, daa: bigint) {
     max_per_spend: Number(state.maxPerSpend),
     epoch_limit: Number(state.epochLimit),
     epoch_length: Number(state.epochLength),
-    delegation_depth: 0,
+    delegation_depth: p.depth ?? 0,
     grant_value: Number(value - GENESIS_FEE),
     spent_total: 0,
     reserved: 0,

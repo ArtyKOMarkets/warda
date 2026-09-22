@@ -15,7 +15,7 @@ const VENDOR = "16e6af2030f7e4510d1a417391a7ff7ccad21864f17eef7ee035f0453e21a033
 const RUNNER = "3c693f61fbc35d1fd4dcec2bbbab692be38656e6fd5a4077ee495afcb23535a1";
 const BASE = "https://runner.test";
 
-function bench(o: { signupCode?: string } = {}) {
+function bench(o: { signupCode?: string; delegate?: boolean } = {}) {
   const store = memoryStore();
   const registry = memoryRegistry();
   const vault = new EnvelopeVault(localMasterKey(new Uint8Array(randomBytes(32))), store);
@@ -48,6 +48,12 @@ function bench(o: { signupCode?: string } = {}) {
   const api = createApi({
     store, registry, vault, engine, grants, fees, tickSecret: "t".repeat(32), baseUrl: BASE, now: () => now,
     ops, adminSecret: "admin-secret-0123456789",
+    ...(o.delegate ? { delegate: async (parent: string, child: string, terms: { budget: bigint }) => {
+      const p = (await registry.getGrant(parent))!;
+      await registry.putGrant({ agent: child, parent, recipients: p.recipients, updatedAt: 1,
+        manifest: { ...p.manifest, agent: (await vault.publicKey(child)) ?? (await vault.create(child)), budget: Number(terms.budget) } });
+      return { txid: "txd", childAddress: "kaspatest:child" };
+    } } : {}),
     mcp: createMcp({ store, registry, engine, grants, fees, now: () => now }),
     drafter: { async draft({ agent }) { return { ok: true, workflow: { agent, name: "x", trigger: { type: "manual" }, then: [{ type: "send", to: "ff".repeat(32), kas: "0.9" }] }, summary: "s", notes: [] }; } },
     telegram: { hookSecret: "hooksecret", username: async () => "warda_test_bot", send: async (chat, text) => void tg.push([chat, text]),
@@ -66,8 +72,8 @@ function bench(o: { signupCode?: string } = {}) {
   return { call, sent, tg, siteLinks, opsSent, registry, advance: (ms: number) => void (now += ms) };
 }
 
-async function onboarded(recipients = [VENDOR, RUNNER]) {
-  const b = bench();
+async function onboarded(recipients = [VENDOR, RUNNER], o: { delegate?: boolean } = {}) {
+  const b = bench(o);
   const acct = await b.call("POST", "/v1/accounts", { body: {} });
   const key = acct.body.apiKey as string;
   const agent = await b.call("POST", "/v1/agents", { key, body: { id: "shop-bot" } });
@@ -393,4 +399,24 @@ test("approve from Telegram: only the owner's linked chat can decide", async () 
   assert.equal(runs[0].status, "ok");
   const c = await b.call("POST", `/v1/approvals/${aps[0].id}`, { key: b.key, body: { decision: "deny" } });
   assert.equal(c.body.status, "approved", "already decided");
+});
+
+test("sub-agents: owner only, through the runner's delegate; listed on the parent", async () => {
+  const b = await onboarded();
+  const off = await b.call("POST", "/v1/agents/shop-bot/subagents", { key: b.key, body: { id: "helper", budgetKas: "0.2" } });
+  assert.equal(off.status, 501, "a runner without a chain cannot delegate");
+
+  const c = await onboarded([VENDOR, RUNNER], { delegate: true });
+  const r = await c.call("POST", "/v1/agents/shop-bot/subagents", { key: c.key, body: { id: "helper", budgetKas: "0.2", maxPerPaymentKas: "0.05", days: 2 } });
+  assert.equal(r.status, 201, JSON.stringify(r.body));
+  assert.equal(r.body.parent, "shop-bot");
+  const d = await c.call("GET", "/v1/agents/shop-bot", { key: c.key });
+  assert.deepEqual(d.body.subAgents, [{ agent: "helper", budgetKas: "0.2" }]);
+  const h = await c.call("GET", "/v1/agents/helper", { key: c.key });
+  assert.equal(h.body.parent, "shop-bot");
+  const list = await c.call("GET", "/v1/agents", { key: c.key });
+  assert.deepEqual(list.body.agents.sort(), ["helper", "shop-bot"]);
+  const other = await c.call("POST", "/v1/accounts", { body: {} });
+  assert.equal((await c.call("POST", "/v1/agents/shop-bot/subagents", { key: other.body.apiKey, body: { id: "x-helper", budgetKas: "0.1" } })).status, 404);
+  assert.equal((await c.call("POST", "/v1/agents/shop-bot/subagents", { key: c.key, body: { id: "helper", budgetKas: "0.1" } })).status, 409);
 });

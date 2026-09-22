@@ -2470,6 +2470,24 @@ ops/install-cron.sh</pre>
           <header><h2>Waiting for you <small id="ap-n"></small></h2></header>
           <div class="feed" id="ap-list"></div>
         </div>
+        <div class="card" style="margin-top:0.85rem" id="sa-card">
+          <header><h2>Sub-agents <small id="sa-n"></small></h2></header>
+          <p class="why" id="sa-why">Give a helper part of this agent&rsquo;s budget. It gets its own key, jobs and limits &mdash;
+            never more than you hand it, never more per payment than this agent may pay, paying only the same payees &mdash;
+            and <b>every Kaspa node enforces the split</b>. Your keys own both, so you can stop either.</p>
+          <div class="feed" id="sa-list"></div>
+          <div id="sa-form" style="margin-top:0.6rem">
+            <div class="grid">
+              <div class="field"><label for="sa-name">Helper name</label><input id="sa-name" placeholder="research-helper" spellcheck="false"></div>
+              <div class="field"><label for="sa-budget">Its budget, KAS</label><input id="sa-budget" inputmode="decimal" placeholder="0.2"></div>
+              <div class="field"><label for="sa-cap">Any single payment, KAS</label><input id="sa-cap" inputmode="decimal" placeholder="0.02"></div>
+              <div class="field"><label for="sa-days">Lasts, days &mdash; optional</label><input id="sa-days" inputmode="numeric" placeholder="as long as this agent"></div>
+            </div>
+            <p style="margin-top:0.7rem;display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap">
+              <button class="go" type="button" id="sa-go">Create the helper</button>
+              <span class="state" id="sa-s" style="margin:0"></span></p>
+          </div>
+        </div>
         <div class="card" style="margin-top:0.85rem" id="tu-card">
           <header><h2>Top up or renew <small id="tu-n"></small></h2></header>
           <p class="why">A grant&rsquo;s budget and end date are fixed when it is made, so more money or more time is a
@@ -6698,7 +6716,7 @@ ops/install-cron.sh</pre>
         tr.className = "hpick";
         tr.style.cursor = "pointer";
         tr.tabIndex = 0;
-        var cells = [a.agent, null, a.spendableKas != null ? a.spendableKas + " KAS" : "—",
+        var cells = [a.parent ? "\u21b3 " + a.agent : a.agent, null, a.spendableKas != null ? a.spendableKas + " KAS" : "—",
           a.spentKas != null ? a.spentKas + " of " + a.budgetKas + " KAS" : a.budgetKas ? "budget " + a.budgetKas + " KAS" : "—",
           a.jobsOn + " of " + a.jobs + " on",
           a.lastRun ? a.lastRun.status + " · " + haAgo(a.lastRun.at) : "never"];
@@ -6744,6 +6762,7 @@ ops/install-cron.sh</pre>
       ["tu-budget", "tu-cap", "tu-days"].forEach(function (id) { if (HA.tuFor !== agent) $(id).value = ""; });
       HA.tuFor = agent;
       tuShow(a);
+      saShow(a);
       apLoad(agent);
       haJobs(a.workflows || []);
       haRevoke(a);
@@ -7803,6 +7822,41 @@ ops/install-cron.sh</pre>
   $("ad-forget").addEventListener("click", function () {
     try { localStorage.removeItem(AD_KEY); } catch (e) {}
     $("ad-body").hidden = true; $("ad-s").textContent = "Forgotten in this browser.";
+  });
+
+  /* ---- sub-agents ---------------------------------------------------------- */
+  function saShow(a) {
+    var kids = a.subAgents || [];
+    $("sa-n").textContent = kids.length ? String(kids.length) : "";
+    $("sa-list").innerHTML = (a.parent ? '<p class="why" style="margin:0 0 0.5rem">This is a helper of <a class="more" data-sa="' + esc(a.parent) + '">' + esc(a.parent) +
+      '</a>. Helpers cannot make helpers of their own.</p>' : "") +
+      kids.map(function (k) {
+        return '<div class="ev" data-sa="' + esc(k.agent) + '" style="cursor:pointer"><span class="pill live">helper</span><i style="font-style:normal"><b>' + esc(k.agent) +
+          '</b><span>budget ' + esc(k.budgetKas) + ' KAS</span></i><span class="a">Open &rarr;</span></div>';
+      }).join("");
+    $("sa-form").hidden = !a.canDelegate || !!a.parent;
+    if (!a.canDelegate && !a.parent) {
+      $("sa-s").textContent = "";
+      $("sa-list").innerHTML += '<p class="empty">This agent&rsquo;s grant was made before helpers existed. <b>Top it up</b> below &mdash; the new grant allows them, and the agent, its jobs and payees stay the same.</p>';
+    }
+  }
+  $("sa-list").addEventListener("click", function (e) {
+    var el = e.target.closest && e.target.closest("[data-sa]"); if (!el) return;
+    haOpen(el.getAttribute("data-sa"));
+  });
+  $("sa-go").addEventListener("click", function () {
+    var name = $("sa-name").value.trim(), budget = $("sa-budget").value.trim();
+    if (!name || !budget) { $("sa-s").textContent = "A name and a budget, please."; return; }
+    $("sa-go").disabled = true; $("sa-s").textContent = "Signing the split and sending it to the network…";
+    hApi("POST", "/v1/agents/" + encodeURIComponent(HA.open) + "/subagents", {
+      id: name, budgetKas: budget, maxPerPaymentKas: $("sa-cap").value.trim() || budget,
+      days: $("sa-days").value.trim(),
+    }).then(function (r) {
+      $("sa-s").textContent = r.note;
+      ["sa-name", "sa-budget", "sa-cap", "sa-days"].forEach(function (id) { $(id).value = ""; });
+      haList(); haOpen(HA.open);
+    }).catch(function (e) { $("sa-s").textContent = e.message; })
+      .then(function () { $("sa-go").disabled = false; });
   });
 
   /* ---- approvals waiting in Your agents ---------------------------------- */

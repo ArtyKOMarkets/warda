@@ -19,6 +19,8 @@ export interface GrantRecord {
   /** Allowlist members as the grant committed to them: addresses or x-only hex. */
   recipients: string[];
   updatedAt: number;
+  /** A sub-agent: the agent whose grant delegated this one. */
+  parent?: string;
 }
 
 export interface Registry {
@@ -29,6 +31,8 @@ export interface Registry {
   agentsOf(account: string): Promise<string[]>;
   putGrant(g: GrantRecord): Promise<void>;
   getGrant(agent: string): Promise<GrantRecord | null>;
+  /** Only to undo a delegation the network did not take. */
+  deleteGrant(agent: string): Promise<void>;
   /** Returns the plaintext secret once. */
   createHook(workflowId: string): Promise<string>;
   checkHook(workflowId: string, secret: string): Promise<boolean>;
@@ -155,6 +159,9 @@ export function memoryRegistry(): Registry {
     async getGrant(agent) {
       const g = grants.get(agent);
       return g ? structuredClone(g) : null;
+    },
+    async deleteGrant(agent) {
+      grants.delete(agent);
     },
     async createHook(id) {
       const s = token("wh");
@@ -290,6 +297,9 @@ export function pgRegistry(db: Queryable): Registry {
     async getGrant(agent) {
       const { rows } = await db.query(`select body from runner_grants where agent = $1`, [agent]);
       return rows[0] ? decode<GrantRecord>(rows[0].body) : null;
+    },
+    async deleteGrant(agent) {
+      await db.query(`delete from runner_grants where agent = $1`, [agent]);
     },
     async createHook(id) {
       const s = token("wh");

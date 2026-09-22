@@ -41,6 +41,7 @@ import type { NetworkPrefix } from "@warda_protocol/kaspa";
 import { timingSafeEqual } from "node:crypto";
 import type { Ops } from "./ops.ts";
 import { adminStats } from "./admin.ts";
+import type { SubAgentTerms } from "./delegate.ts";
 
 export interface ApiDeps {
   store: Store;
@@ -74,6 +75,8 @@ export interface ApiDeps {
   /** The per-agent MCP endpoint, served at /mcp. */
   mcp?: (req: Request) => Promise<Response>;
   prefix?: NetworkPrefix;
+  /** Sub-agents: a delegation from a hosted agent's grant (delegate.ts). */
+  delegate?: (parent: string, child: string, terms: SubAgentTerms) => Promise<{ txid: string; childAddress: string }>;
   /** Once an hour: tell owners whose agents are about to stop (nudge.ts). */
   nudge?: () => Promise<unknown>;
   /** The operator's alerts (ops.ts). */
@@ -238,12 +241,13 @@ export function createApi(d: ApiDeps): (req: Request) => Promise<Response> {
            old address empty, which is "undecided", not a problem. */
         const read = async () => (await d.grants.read(agent)) ??
           (await new Promise((r) => setTimeout(r, 1500)), await d.grants.read(agent));
-        const [plan, grant, ledger, workflows, runs] = await Promise.all([
+        const [plan, grant, ledger, workflows, runs, record] = await Promise.all([
           d.registry.getPlan(agent),
           read(),
           d.store.getLedger(agent),
           d.store.listWorkflows(agent),
           d.store.listRuns(agent, 1),
+          d.registry.getGrant(agent),
         ]);
         const owed = (ledger ?? emptyLedger()).owed;
         const last = runs[0];
@@ -260,6 +264,7 @@ export function createApi(d: ApiDeps): (req: Request) => Promise<Response> {
           jobs: workflows.filter((w) => !w.id.startsWith("mcp-")).length,
           jobsOn: workflows.filter((w) => !w.id.startsWith("mcp-") && w.enabled).length,
           lastRun: last ? { at: last.startedAt, status: last.status, trigger: last.trigger } : null,
+          ...(record?.parent ? { parent: record.parent } : {}),
         };
       }));
       return json(200, { agents: rows });
@@ -300,6 +305,16 @@ export function createApi(d: ApiDeps): (req: Request) => Promise<Response> {
         /* After a top-up: the grant it replaced, which may still hold what it
            did not spend. Only the owner's revocation key can take that back. */
         ...(plan?.replaces && plan.status === "funded" ? { previousGrant: plan.replaces } : {}),
+        ...(record?.parent ? { parent: record.parent } : {}),
+        subAgents: await (async () => {
+          const out: { agent: string; budgetKas: string }[] = [];
+          for (const a of await d.registry.agentsOf(acct)) {
+            const r = a === agent ? null : await d.registry.getGrant(a);
+            if (r?.parent === agent) out.push({ agent: a, budgetKas: formatKas(BigInt(r.manifest.budget)) });
+          }
+          return out;
+        })(),
+        canDelegate: Number(record?.manifest.delegation_depth ?? 0) > 0,
         grant: grant ?? { undecided: "no grant registered, or the chain did not confirm the one on record" },
         feesOwed: formatKas((ledger ?? emptyLedger()).owed),
         workflows: workflows.filter((w) => !w.id.startsWith("mcp-")).map(summary),
@@ -357,6 +372,40 @@ export function createApi(d: ApiDeps): (req: Request) => Promise<Response> {
         },
         note: "Shown once. This token acts as this one agent: it can read its authority and pay inside its grant, and nothing else.",
       });
+    }],
+
+    /* A helper with part of this agent's budget, enforced by every node. */
+    ["POST", /^\/v1\/agents\/([\w-]+)\/subagents$/, async (req, m) => {
+      const acct = await account(req);
+      const parent = m[1]!;
+      await ownAgent(acct, parent);
+      if (!d.delegate) throw new HttpError(501, "this runner cannot make sub-agents");
+      const b = await body(req);
+      const child = typeof b.id === "string" ? b.id : id(`${parent}-helper`);
+      if (!AGENT_ID.test(child)) throw new HttpError(400, "an agent id is 3–40 letters, digits, - or _");
+      const toK = (v: unknown, name: string) => {
+        try { return kas(String(v)); } catch { throw new HttpError(400, `${name} must be a KAS amount like "0.2"`); }
+      };
+      const budget = toK(b.budgetKas, "budgetKas");
+      const maxPerSpend = toK(b.maxPerPaymentKas ?? b.budgetKas, "maxPerPaymentKas");
+      if (!(await d.registry.claimAgent(child, acct, now()))) {
+        // A retry after the network refused one: same owner, still no grant.
+        if ((await d.registry.ownerOf(child)) !== acct || (await d.registry.getGrant(child))) {
+          throw new HttpError(409, `agent ${child} already exists`);
+        }
+      }
+      try {
+        const r = await d.delegate(parent, child, {
+          budget, maxPerSpend, ...(b.days !== undefined && b.days !== "" ? { days: Number(b.days) } : {}),
+        });
+        return json(201, {
+          agent: child, parent, txid: r.txid, address: r.childAddress,
+          note: `${child} now holds ${formatKas(budget)} KAS of ${parent}'s budget, enforced by every Kaspa node. ` +
+            `It may pay the same payees, never more than ${formatKas(maxPerSpend)} KAS at once. Give it jobs like any agent.`,
+        });
+      } catch (e) {
+        throw new HttpError(409, (e as Error).message);
+      }
     }],
 
     /* More money, or more time: a successor grant from a new deposit. */

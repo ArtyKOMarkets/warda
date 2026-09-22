@@ -24,6 +24,7 @@ import { EnvelopeVault, localMasterKey, type KeyVault } from "./vault.ts";
 import { TurnkeyVault, turnkeyFromEnv } from "./vault-turnkey.ts";
 import { createOps } from "./ops.ts";
 import { nudgeLow } from "./nudge.ts";
+import { delegate } from "./delegate.ts";
 
 const CONSOLE = "https://www.wardaprotocol.com/app";
 
@@ -184,6 +185,8 @@ export async function boot(e: NodeJS.ProcessEnv = process.env, defaults: { baseU
     store, registry, vault, engine, grants, fees, baseUrl,
     tickSecret: env("RUNNER_TICK_SECRET"),
     ops,
+    delegate: (parent, child, terms) =>
+      delegate({ registry, vault, chain: fundingChain, prefix, parent, child, terms, now: Date.now() }),
     ...(token ? { nudge: () => nudgeLow({ registry, store, grants, now: Date.now(), consoleUrl: CONSOLE, send: (chat, text) => raw.notify("telegram", chat, text) }) } : {}),
     ...(e.RUNNER_ADMIN_SECRET ? { adminSecret: e.RUNNER_ADMIN_SECRET } : {}),
     ...(e.RUNNER_SIGNUP_CODE ? { signupCode: e.RUNNER_SIGNUP_CODE } : {}),
