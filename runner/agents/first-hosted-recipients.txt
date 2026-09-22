@@ -1,0 +1,5 @@
+# first-hosted: the first agent onboarded through the runner API.
+# The Warda demo vendor.
+16e6af2030f7e4510d1a417391a7ff7ccad21864f17eef7ee035f0453e21a033
+# The runner fee payee (testnet: the funder address, until the runner has its own).
+kaspatest:qqpexyeaam7yer0kgn69z2tcce663gysscrhpkx70vkswlev9he57gs7vy506
