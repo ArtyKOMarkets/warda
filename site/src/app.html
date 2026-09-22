@@ -621,6 +621,11 @@
   .wsel-list li .h { color: var(--chrome-faint); font-size: 0.72rem; margin-left: 1.2rem; }
   .wsel-list li[aria-selected="true"] .h, .wsel-list li.hi .h { color: var(--chrome-dim); }
   .hold { display: grid; gap: 0.45rem; }
+  .acc-side { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.6rem 1rem;
+    margin-bottom: 0.85rem; padding: 0.7rem 0.9rem; border: 1px solid var(--edge-bright); border-radius: 10px; background: var(--panel); }
+  .acc-side p { margin: 0; font-size: 0.8rem; color: var(--chrome-dim); flex: 1 1 22rem; line-height: 1.5; }
+  .acc-side p b { color: var(--chrome); font-weight: 600; }
+  .acc-side .seg button { padding: 0.42rem 0.9rem; font-size: 0.8rem; }
   .hold-r { display: flex; align-items: center; gap: 0.7rem; padding: 0.6rem 0.75rem; border: 1px solid var(--edge);
     border-radius: 9px; background: var(--ground); }
   .hold-r .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
@@ -1454,6 +1459,13 @@
       </div>
 
       <div id="acc-in" hidden>
+        <div class="acc-side" id="acc-side" hidden>
+          <p><b>This wallet has two accounts.</b> <span id="acc-side-s"></span></p>
+          <div class="seg" role="group" aria-label="Which account">
+            <button type="button" data-side="kaspa" aria-pressed="false">Kaspa &middot; <span class="acc-side-net">testnet-10</span></button>
+            <button type="button" data-side="evm" aria-pressed="false">Igra &middot; 0x account</button>
+          </div>
+        </div>
         <div class="tiles" id="acc-tiles"></div>
         <div class="card" id="acc-hold" style="margin-top:0.85rem" hidden>
           <header><h2>Stablecoins in this wallet <small id="acc-hold-n"></small></h2>
@@ -4124,6 +4136,7 @@ ops/install-cron.sh</pre>
 
   function walletRender() {
     setTimeout(holdSync, 0);
+    setTimeout(accSide, 0);
     var btn = $("wallet-btn"), lab = $("wallet-label");
     var kw = WALLETS.kasware.present(), wc = WALLETS.walletconnect.present();
     btn.classList.remove("on", "bad");
@@ -7539,6 +7552,37 @@ ops/install-cron.sh</pre>
     });
   }
   $("acc-hold-r").addEventListener("click", function () { holdSync(true); });
+
+  /* KasWare is two accounts in one extension: a Kaspa address (the key a
+     grant names, and where testnet KAS sits) and an 0x account on Igra. Which
+     one is connected decides what this page can do, so both are one click
+     apart instead of a disconnect-and-reconnect. */
+  function accSideKinds() {
+    var evmKw = EVM.filter(function (k) { return /kasware/i.test(WALLETS[k].name || ""); })[0] || null;
+    return { kaspa: WALLETS.kasware.present() ? "kasware" : null, evm: evmKw };
+  }
+  function accSide() {
+    var el = $("acc-side"); if (!el) return;
+    var k = accSideKinds();
+    var mine = W && (W.kind === k.kaspa || W.kind === k.evm);
+    el.hidden = !(W && mine && k.kaspa && k.evm);
+    if (el.hidden) return;
+    var side = W.family === "kaspa" ? "kaspa" : "evm";
+    Array.prototype.forEach.call(el.querySelectorAll("[data-side]"), function (b) {
+      b.setAttribute("aria-pressed", String(b.getAttribute("data-side") === side));
+    });
+    el.querySelector(".acc-side-net").textContent = $("net").value;
+    $("acc-side-s").textContent = side === "kaspa"
+      ? "You are using its Kaspa account — your KAS, and the key a grant names. Switch to the 0x account to fund with USDC or USDT."
+      : "You are using its 0x account on Igra — for funding with USDC or USDT. Your " + $("net").value + " KAS and the key a grant needs are on its Kaspa account.";
+  }
+  Array.prototype.forEach.call(document.querySelectorAll("#acc-side [data-side]"), function (b) {
+    b.addEventListener("click", function () {
+      var k = accSideKinds(), want = b.getAttribute("data-side");
+      if ((want === "kaspa") === (W && W.family === "kaspa")) return;
+      walletConnect(want === "kaspa" ? k.kaspa : k.evm);
+    });
+  });
 
   /* ---- selects ------------------------------------------------------------
      Every <select> in the console gets a drawn button and list. The native
