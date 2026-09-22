@@ -24,6 +24,8 @@
  *    refusal is not.
  */
 import { randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { SIG_HASH_ALL, fromHex, toHex, verifyDigest } from "@warda_protocol/kaspa";
 import type { Store } from "./store.ts";
 import type { KeyVault, Signer } from "./vault.ts";
@@ -179,9 +181,10 @@ export class TurnkeyVault implements KeyVault {
  * envelope vault and the tests never load Turnkey's SDK.
  */
 export async function turnkeyFromEnv(env: NodeJS.ProcessEnv = process.env): Promise<TurnkeyApi> {
+  const file = env.TURNKEY_KEY_FILE ? credentialsFile(env.TURNKEY_KEY_FILE) : {};
   const need = (k: string) => {
-    const v = env[k];
-    if (!v) throw new Error(`${k} is not set`);
+    const v = env[k] || file[k];
+    if (!v) throw new Error(`${k} is not set (in the environment or in TURNKEY_KEY_FILE)`);
     return v;
   };
   const { Turnkey } = await import("@turnkey/sdk-server");
@@ -192,4 +195,32 @@ export async function turnkeyFromEnv(env: NodeJS.ProcessEnv = process.env): Prom
     defaultOrganizationId: need("TURNKEY_ORGANIZATION_ID"),
   }).apiClient();
   return client as unknown as TurnkeyApi;
+}
+
+/**
+ * The JSON the Turnkey dashboard downloads: `publicKey`, `privateKey`, and
+ * sometimes an organisation id. Field names are matched loosely; values are
+ * never printed.
+ */
+export function credentialsFile(path: string): Record<string, string> {
+  const raw = JSON.parse(readFileSync(path.replace(/^~/, homedir()), "utf8")) as unknown;
+  const flat: Record<string, string> = {};
+  const walk = (o: unknown) => {
+    if (o && typeof o === "object") {
+      for (const [k, v] of Object.entries(o)) {
+        if (typeof v === "string") flat[k.toLowerCase().replace(/[^a-z]/g, "")] = v;
+        else walk(v);
+      }
+    }
+  };
+  walk(raw);
+  const out: Record<string, string> = {};
+  const pick = (to: string, ...names: string[]) => {
+    const v = names.map((n) => flat[n]).find(Boolean);
+    if (v) out[to] = v;
+  };
+  pick("TURNKEY_API_PUBLIC_KEY", "apipublickey", "publickey");
+  pick("TURNKEY_API_PRIVATE_KEY", "apiprivatekey", "privatekey");
+  pick("TURNKEY_ORGANIZATION_ID", "organizationid", "orgid", "defaultorganizationid");
+  return out;
 }
