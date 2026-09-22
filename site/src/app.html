@@ -6316,7 +6316,15 @@ ops/install-cron.sh</pre>
       var n;
       if (a.type === "pay-x402") n = ["\ud83d\udcb3", "Buy from " + hostOf(a.url), "at most " + a.maxKas + " KAS"];
       else if (a.type === "send") n = ["\u2197", "Pay " + (String(a.to).length > 20 ? String(a.to).slice(0, 14) + "\u2026" : a.to), a.kas + " KAS"];
-      else if (a.type === "notify") n = ["\ud83d\udcac", a.channel === "telegram" ? "Message you on Telegram" : "Call your webhook", String(a.text || "").slice(0, 70)];
+      else if (a.type === "notify") {
+        /* Placeholders read as what they will say, and the text is cut at a
+           word — "{{grant.availa" helps nobody. */
+        var names = { "grant.availableKas": "KAS left", "grant.spentPercent": "% spent", "grant.hoursToExpiry": "hours left",
+                      "grant.address": "grant address", "agent": "agent name", "run.lastTxid": "transaction", "workflow.name": "job name" };
+        var txt = String(a.text || "").replace(/\{\{\s*([\w.]+)\s*\}\}/g, function (_m, k) { return "\u2039" + (names[k] || k) + "\u203a"; });
+        if (txt.length > 90) txt = txt.slice(0, 90).replace(/\s+\S*$/, "") + "\u2026";
+        n = ["\ud83d\udcac", a.channel === "telegram" ? "Message you on Telegram" : "Call your webhook", "\u201c" + txt + "\u201d"];
+      }
       else if (a.type === "http") n = ["\ud83c\udf10", "Call " + hostOf(a.url), a.method || "POST"];
       else if (a.type === "approval") n = ["\u270d", "Ask you to " + a.op, "you sign it; the runner cannot"];
       else n = ["\u2022", a.type, ""];
