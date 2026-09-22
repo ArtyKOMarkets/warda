@@ -1,0 +1,189 @@
+import { useState } from "react";
+import { ArrowLeft, Ban, ExternalLink, FileJson, ShieldCheck, Settings2, Wallet } from "lucide-react";
+import { useData } from "@/lib/data";
+import { ago, kas, short } from "@/lib/format";
+import { explorerAddress } from "@/lib/kaspa";
+import { href } from "@/lib/router";
+import { ruleWords, type AgentView } from "@/lib/model";
+import { AgentMark, ActivityList, AuthorityBlock, BlockedCard } from "@/components/agent";
+import { Badge, Card, CardHeader, Copy, Empty, External, LinkButton, Skeleton, StatusBadge, Tabs } from "@/components/ui";
+import { agentName } from "./shared";
+
+type T = "overview" | "payments" | "blocked" | "proof";
+
+export function AgentDetail({ id, tab }: { id: string; tab?: string }) {
+  const { agents, loading } = useData();
+  const a = agents.find((x) => x.key === id) ?? agents.find((x) => x.id === id);
+  const [t, setT] = useState<T>((["overview", "payments", "blocked", "proof"].includes(tab ?? "") ? tab : "overview") as T);
+
+  if (!a) {
+    return loading ? (
+      <div><Skeleton className="h-8 w-48" /><Skeleton className="mt-8 h-64 w-full rounded-[14px]" /></div>
+    ) : (
+      <Card><Empty title="Agent not found" action={<LinkButton href={href("agents")}>Back to agents</LinkButton>}>
+        It may belong to a runner account you are not signed in to.
+      </Empty></Card>
+    );
+  }
+
+  const paid = a.payments.filter((p) => p.outcome !== "blocked");
+  const blocked = a.payments.filter((p) => p.outcome === "blocked");
+  const parent = a.parent ? agents.find((x) => x.id === a.parent || x.label === a.parent) : null;
+
+  return (
+    <>
+      <a href={href("agents")} className="mb-6 inline-flex items-center gap-1.5 text-[13px] text-fg-3 transition hover:text-fg"><ArrowLeft className="size-4" /> Agents</a>
+
+      <div className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 items-start gap-4">
+          <AgentMark agent={a} size={52} className="rounded-[14px]" />
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h1 className="text-[26px] font-semibold leading-tight tracking-[-0.025em]">{agentName(a)}</h1>
+              <StatusBadge status={a.status} />
+              <Badge>{a.source === "hosted" ? "Hosted" : "Published"}</Badge>
+            </div>
+            {a.mission && <p className="mt-1.5 max-w-2xl text-[14px] leading-relaxed text-fg-2">{a.mission}</p>}
+            {parent && <p className="mt-1.5 text-[13px] text-fg-3">Sub-agent of <a className="text-fg-2 hover:text-accent" href={href("agents", parent.key)}>{agentName(parent)}</a></p>}
+            {a.parent && !parent && <p className="mt-1.5 text-[13px] text-fg-3">Sub-agent of {a.parent}</p>}
+          </div>
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          {a.source === "hosted" ? (
+            <>
+              <LinkButton href="/app#/hagents"><Settings2 className="size-4" /> Jobs &amp; approvals</LinkButton>
+              {a.status !== "ended" && <LinkButton variant="primary" href="/app#/hagents"><Wallet className="size-4" /> Top up</LinkButton>}
+            </>
+          ) : (
+            <LinkButton href={`/agent-${a.id}.html`}>Public page <ExternalLink className="size-4" /></LinkButton>
+          )}
+        </div>
+      </div>
+
+      <AuthorityBlock a={a} />
+
+      <Tabs className="mt-8" value={t} onChange={setT} items={[
+        { value: "overview", label: "Overview" },
+        { value: "payments", label: "Payments", count: paid.length },
+        { value: "blocked", label: "Blocked", count: blocked.length },
+        { value: "proof", label: "Proof" },
+      ]} />
+
+      <div className="mt-6">
+        {t === "overview" && (
+          <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
+            <Card>
+              <CardHeader title="Recent payments" action={paid.length > 6 ? <button className="text-[13px] text-fg-3 hover:text-fg" onClick={() => setT("payments")}>View all</button> : null} />
+              <div className="mt-3"><ActivityList rows={a.payments.slice(0, 6).map((p) => ({ p, a }))} empty={<Empty title="No payments yet" className="py-10">This agent has not paid for anything.</Empty>} /></div>
+            </Card>
+            <div className="space-y-4">
+              <Payees a={a} />
+              <Card>
+                <CardHeader title="Blocked" sub={blocked.length ? `${blocked.length} real attempt${blocked.length === 1 ? "" : "s"} refused` : "Nothing refused so far"} />
+                <div className="space-y-3 p-5">
+                  {blocked.slice(0, 2).map((p, i) => <BlockedCard key={i} p={p} a={a} />)}
+                  {!blocked.length && <p className="text-[13px] leading-relaxed text-fg-3">Every attempt stayed within the grant. See <button className="text-fg-2 underline-offset-4 hover:underline" onClick={() => setT("blocked")}>what it would refuse</button>.</p>}
+                </div>
+              </Card>
+            </div>
+          </div>
+        )}
+
+        {t === "payments" && (
+          <Card><ActivityList rows={paid.map((p) => ({ p, a }))} empty={<Empty title="No payments yet">When this agent pays for something, each payment appears here with its transaction.</Empty>} /></Card>
+        )}
+
+        {t === "blocked" && <Blocked a={a} />}
+        {t === "proof" && <Proof a={a} />}
+      </div>
+    </>
+  );
+}
+
+function Payees({ a }: { a: AgentView }) {
+  return (
+    <Card>
+      <CardHeader title="Who it may pay" sub="Fixed when the grant was made" />
+      <ul className="mt-3 divide-y divide-line">
+        {a.payees.length ? a.payees.map((p) => (
+          <li key={p.address} className="flex items-center gap-3 px-5 py-3">
+            <div className="min-w-0 flex-1">
+              <div className="text-[13.5px] font-medium">{p.label ?? <span className="text-fg-2">Unlisted</span>}</div>
+              <div className="num truncate text-[11.5px] text-fg-3">{short(p.address, 16, 8)}</div>
+            </div>
+            <Copy text={p.address} label="Copy address" />
+          </li>
+        )) : <li className="px-5 pb-5 text-[13px] text-fg-3">{a.source === "hosted" && !a.grantAddress ? "Shown once the grant is funded." : "No payees in this reading."}</li>}
+      </ul>
+      {a.payees.some((p) => !p.label) && <p className="border-t border-line px-5 py-3 text-[12px] text-fg-3">Names come from the Services registry. Unlisted means the address isn't in it.</p>}
+    </Card>
+  );
+}
+
+function Blocked({ a }: { a: AgentView }) {
+  const blocked = a.payments.filter((p) => p.outcome === "blocked");
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader title="Refused attempts" sub="Payments this agent really tried that fell outside its grant" />
+        <div className="grid gap-3 p-5 md:grid-cols-2">
+          {blocked.length ? blocked.map((p, i) => <BlockedCard key={i} p={p} a={a} />) : (
+            <div className="md:col-span-2"><Empty icon={<ShieldCheck className="size-5" />} title="Nothing refused" className="py-8">Every payment this agent attempted was within its limits.</Empty></div>
+          )}
+        </div>
+      </Card>
+      {a.derived.length > 0 && (
+        <Card>
+          <CardHeader title="What it would refuse" sub="Worked out from the grant's rules — examples, not events" />
+          <ul className="mt-3 divide-y divide-line">
+            {a.derived.map((d, i) => (
+              <li key={i} className="px-5 py-4">
+                <div className="flex items-center gap-2 text-[13.5px] font-medium"><Ban className="size-4 text-fg-3" /> {ruleWords(d.rule)}<span className="font-normal text-fg-3">· {d.attempted}</span></div>
+                <p className="mt-1.5 text-[12.5px] leading-relaxed text-fg-3">{d.why}</p>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function Proof({ a }: { a: AgentView }) {
+  const rows: [string, string | null, string?][] = [
+    ["Grant address", a.grantAddress, a.grantAddress ? explorerAddress(a.grantAddress, a.network) : undefined],
+    ["Covenant", a.covenantId],
+    ["Agent key", a.agentKey],
+    ["Owner key", a.ownerKey],
+  ];
+  return (
+    <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
+      <Card>
+        <CardHeader title="On-chain identity" sub="Everything here can be checked on the Kaspa explorer" />
+        <dl className="mt-2 divide-y divide-line px-5 pb-2">
+          {rows.map(([k, v, link]) => (
+            <div key={k} className="flex flex-col gap-1 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+              <dt className="shrink-0 text-[13px] text-fg-3">{k}</dt>
+              <dd className="flex min-w-0 items-center gap-1">
+                <span className="num truncate text-[12.5px] text-fg-2" title={v ?? ""}>{v ? short(v, 18, 10) : "—"}</span>
+                {v && <Copy text={v} />}
+                {link && <a href={link} target="_blank" rel="noopener" className="grid size-7 place-items-center rounded-md text-fg-3 hover:bg-raised hover:text-fg" aria-label="Open in explorer"><ExternalLink className="size-3.5" /></a>}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </Card>
+      <Card className="p-5">
+        <div className="flex items-center gap-2 text-[15px] font-semibold"><ShieldCheck className="size-4 text-accent" /> Why you can trust this</div>
+        <p className="mt-2 text-[13px] leading-relaxed text-fg-2">
+          The rules above are part of the grant's script on Kaspa. The network checks them on every payment, so neither the agent nor Warda can spend outside them.
+        </p>
+        <div className="mt-4 space-y-2 text-[13px]">
+          {a.source === "published" && <div><External href={`/agent-${a.id}.json`}><FileJson className="size-3.5" /> Raw reading</External></div>}
+          <div><External href="/proof.html">How the proof works</External></div>
+        </div>
+        {a.checkedAt && <p className="mt-4 border-t border-line pt-3 text-[12px] text-fg-3">Read from the chain {ago(a.checkedAt)} · {kas(a.onChain)} KAS at the grant address</p>}
+      </Card>
+    </div>
+  );
+}

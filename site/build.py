@@ -927,3 +927,18 @@ web_assets.mkdir(parents=True, exist_ok=True)
 for src in (lockup_png, mark_png):
     (web_assets / src.name).write_bytes(src.read_bytes())
 print(f"web/assets: {', '.join(p.name for p in (lockup_png, mark_png))}")
+
+# The next console (console/, React + Vite), served at /app-next/ beside the
+# classic /app until it does everything. It is built separately with
+# `npm run build` in console/; this only copies what that build left. A
+# missing dist/ is not an error: the classic console is still the console.
+import shutil
+_next = here.parent / "console" / "dist"
+_next_dst = here / "web" / "app-next"
+if (_next / "index.html").exists():
+    if _next_dst.exists():
+        shutil.rmtree(_next_dst)
+    shutil.copytree(_next, _next_dst)
+    print(f"web/app-next: {sum(1 for _ in _next_dst.rglob('*') if _.is_file())} files from console/dist")
+else:
+    print("web/app-next: skipped (run `npm run build` in console/ first)")
