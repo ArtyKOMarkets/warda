@@ -2073,11 +2073,11 @@ ops/install-cron.sh</pre>
           <div class="wstep hstep on" data-hstep="1">
             <div class="card">
               <header><h2>Connect to the runner</h2></header>
-              <p class="say">The runner holds your agent&rsquo;s key and runs its jobs. During the beta it can run on
-                your own machine (<code>runner/tools/serve.ts</code>). The runner key below can create agents and run
-                their jobs; it can never move your funds.</p>
+              <p class="say">The runner holds your agent&rsquo;s key and runs its jobs, every minute, whether or not
+                you are here. Its key can create agents and run their jobs; it can never move your funds. (You can also
+                run one yourself: <code>runner/tools/serve.ts</code>.)</p>
               <div class="grid">
-                <div class="field"><label for="h-url">Runner</label><input id="h-url" value="http://localhost:8787" spellcheck="false"></div>
+                <div class="field"><label for="h-url">Runner</label><input id="h-url" value="https://warda-runner.vercel.app" spellcheck="false"></div>
                 <div class="field"><label for="h-key">Runner key</label><input id="h-key" placeholder="wk_&hellip; &mdash; or create an account" spellcheck="false" autocomplete="off"></div>
               </div>
               <p style="margin-top:0.9rem;display:flex;gap:0.6rem;flex-wrap:wrap">
