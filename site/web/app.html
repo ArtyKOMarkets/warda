@@ -423,6 +423,62 @@
      else is one tap further: cards instead of tables, explanations behind
      "Why", the full view still there below. */
   .mb-only { display: none; }
+  /* ---- calm: explanations one tap away, one loud button per place ------- */
+  .card.collapsible:not(.explain) > p.why:not([id]) { display: none; }
+  .whyb { display: none; }
+  .card.collapsible > header .whyb { display: inline-flex; margin-left: auto; font: 500 0.7rem var(--body); color: var(--chrome-faint);
+    background: transparent; border: 1px solid var(--edge); border-radius: 999px; padding: 0.15rem 0.6rem; cursor: pointer; align-self: center; }
+  .card.collapsible > header .whyb:hover { color: var(--chrome); border-color: var(--edge-bright); }
+  .card.explain > header .whyb { color: var(--teal); border-color: rgba(20,215,193,0.4); }
+  /* ---- one scale for everything that is pressed ------------------------- */
+  button.go, a.go { min-height: 2.3rem; }
+  .card > header { margin-bottom: 0.2rem; }
+  .card > header h2 { line-height: 1.35; }
+  /* ---- money has one colour each, everywhere ---------------------------- */
+  :root { --c-left: var(--teal); --c-spent: var(--chrome-dim); --c-refused: var(--refuse); --c-wait: var(--amber); }
+  .pill.waiting { background: rgba(232,178,58,0.14); color: var(--c-wait); }
+  /* ---- plain words, with the exact term one hover away ------------------ */
+  .term { text-decoration: underline dotted rgba(141,152,158,0.55); text-underline-offset: 3px; cursor: help; }
+  /* ---- empty states: a mark, a sentence, and (where there is one) a way on */
+  .empty { text-align: center; padding: 1.3rem 0.8rem; border: 1px dashed var(--edge); border-radius: 10px; }
+  .empty::before { content: ""; display: block; width: 26px; height: 26px; margin: 0 auto 0.55rem; border-radius: 50%;
+    background: radial-gradient(circle at 50% 50%, rgba(20,215,193,0.35) 0 3px, transparent 4px),
+      radial-gradient(circle at 50% 50%, transparent 0 9px, rgba(20,215,193,0.22) 10px 11px, transparent 12px); }
+  td .empty, .tp-list .empty { border: 0; }
+  .empty .go { margin-top: 0.7rem; }
+  /* ---- motion: money moving is something you can see -------------------- */
+  @keyframes w-pulse { 0% { box-shadow: 0 0 0 0 rgba(20,215,193,0.45); } 100% { box-shadow: 0 0 0 14px rgba(20,215,193,0); } }
+  .pulse { animation: w-pulse 1.4s ease-out 2; }
+  @keyframes w-fall { to { transform: translate3d(var(--dx), 105vh, 0) rotate(var(--r)); opacity: 0.2; } }
+  .confetti { position: fixed; top: -12px; width: 8px; height: 12px; border-radius: 2px; z-index: 200; pointer-events: none;
+    animation: w-fall var(--t) cubic-bezier(.2,.6,.4,1) forwards; }
+  @media (prefers-reduced-motion: reduce) { .pulse { animation: none; } .confetti { display: none; } }
+  /* ---- Your agents as cards ---------------------------------------------- */
+  .hcards { display: grid; grid-template-columns: repeat(auto-fill, minmax(17.5rem, 1fr)); gap: 0.8rem; margin-top: 0.5rem; }
+  .hc { background: var(--ground); border: 1px solid var(--edge); border-radius: 12px; padding: 0.9rem 1rem; cursor: pointer;
+    display: grid; gap: 0.55rem; transition: border-color .15s, transform .15s, background .15s; text-align: left; }
+  .hc:hover, .hc:focus-visible { border-color: var(--edge-bright); background: var(--panel); transform: translateY(-1px); outline: none; }
+  .hc.on { border-color: rgba(20,215,193,0.55); }
+  .hc.child { margin-left: 1.2rem; border-style: dashed; }
+  .hc-top { display: flex; align-items: center; gap: 0.5rem; }
+  .hc-top b { font-family: var(--display); font-size: 1rem; font-weight: 600; color: var(--chrome); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hc-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .hc-st { font-size: 0.7rem; color: var(--chrome-faint); }
+  .hc-left { font-family: var(--mono); font-size: 1.3rem; color: var(--chrome); letter-spacing: -0.02em; }
+  .hc-left span { font-size: 0.78rem; color: var(--chrome-faint); margin-left: 0.3rem; letter-spacing: 0; }
+  .hc-bar { height: 6px; border-radius: 999px; background: var(--raise); overflow: hidden; }
+  .hc-bar i { display: block; height: 100%; background: var(--c-left); border-radius: 999px; transition: width .6s ease; }
+  .hc-spark { height: 34px; }
+  .hc-spark svg { width: 100%; height: 34px; display: block; }
+  .hc-foot { display: flex; justify-content: space-between; gap: 0.5rem; font-size: 0.72rem; color: var(--chrome-faint); }
+  /* ---- one agent, in tabs ------------------------------------------------ */
+  .htabs { display: flex; gap: 0.2rem; margin: 0.9rem 0 0; border-bottom: 1px solid var(--edge); overflow-x: auto; }
+  .htabs button { background: none; border: 0; border-bottom: 2px solid transparent; color: var(--chrome-dim); font: 500 0.84rem var(--body);
+    padding: 0.55rem 0.85rem; cursor: pointer; white-space: nowrap; margin-bottom: -1px; }
+  .htabs button:hover { color: var(--chrome); }
+  .htabs button[aria-selected="true"] { color: var(--chrome); border-bottom-color: var(--teal); }
+  .htabs button i { font-style: normal; font-size: 0.66rem; margin-left: 0.35rem; padding: 0.05rem 0.4rem; border-radius: 999px; background: rgba(232,178,58,0.18); color: var(--amber); }
+  #ha-d [data-htab][hidden] { display: none !important; }
   .whyb { display: none; }
   .mlist { display: grid; gap: 0.5rem; }
   .mrow { display: grid; gap: 0.15rem; padding: 0.9rem 1rem; border: 1px solid var(--edge); border-radius: var(--r);
@@ -477,11 +533,7 @@
     #range, #dash-sub, #v-grants .head p, #v-activity .head p, #v-refusals .head p { display: none; }
     .mseg { display: flex; width: 100%; margin-bottom: 0.8rem; }
     .mseg button { flex: 1; }
-    /* Explanations stay, one tap away. */
-    .card:not(.explain) > p.why { display: none; }
-    .whyb { display: inline-flex; margin-left: auto; font: 500 0.7rem var(--body); color: var(--chrome-faint);
-            background: transparent; border: 1px solid var(--edge); border-radius: 999px; padding: 0.15rem 0.55rem; cursor: pointer; }
-    .card.explain .whyb { color: var(--teal); border-color: rgba(20,215,193,0.4); }
+    /* (explanations: one tap away on every screen — see "calm" below) */
     /* The top bar is for finding things; a phone only needs that where there
        is a list to search. */
     body:not([data-screen="grants"]):not([data-screen="activity"]) .top .search { display: none; }
@@ -649,7 +701,14 @@
   .tp b { font-size: 0.9rem; color: var(--chrome); }
   .tp p { margin: 0; font-size: 0.78rem; color: var(--chrome-dim); line-height: 1.5; }
   .tp small { font-size: 0.68rem; color: var(--chrome-faint); font-family: var(--mono); }
-  .tp .flow { transform-origin: left top; }
+  /* In a template card the flow is a compact chain, not a diagram. */
+  .tp .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; padding: 0; row-gap: 0.3rem; }
+  .tp .flow .fline { width: 10px; min-width: 10px; height: 1px; border-top: 1px dashed var(--edge-bright); margin: 0; flex: none; }
+  .tp .flow .fnode { display: inline-flex; align-items: center; gap: 0.35rem; min-width: 0; width: auto; padding: 0.3rem 0.55rem;
+    border-radius: 999px; font-size: 0.74rem; text-align: left; }
+  .tp .flow .fnode .i { font-size: 0.85rem; margin: 0; }
+  .tp .flow .fnode b { font-size: 0.74rem; font-weight: 500; margin: 0; white-space: nowrap; }
+  .tp .flow .fnode span, .tp .flow .fnode .k { display: none; }
   .tp-share { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; width: 100%; padding: 0.3rem 0 0.2rem; }
   .tp-share input { flex: 1 1 12rem; width: auto; }
   /* A public receipt is a page for a stranger: no "whose grants" strip, no owner controls. */
@@ -1126,12 +1185,13 @@
         <div style="overflow-x:auto">
         <table id="t-all"><thead><tr>
           <th>Agent</th><th class="n">Budget</th><th class="n">Spent</th><th class="n">Left</th>
-          <th class="n">On chain</th><th class="n">Per payment</th><th class="n">Per epoch</th>
-          <th class="n">Payees</th><th class="n">Depth</th><th class="n">Expires</th><th class="n">State</th>
+          <th class="n"><span class="term" title="What the coin at the grant's address holds right now. Network fees come out of this, not the budget.">In its account</span></th>
+          <th class="n">Per payment</th><th class="n"><span class="term" title="Epoch limit: the most it may spend within one epoch (a fixed run of blocks, about 100 seconds per 1000).">Per period</span></th>
+          <th class="n">Payees</th><th class="n"><span class="term" title="Delegation depth: how many levels of helpers (sub-agents) this grant allows. 0 means none.">Helpers</span></th><th class="n">Expires</th><th class="n">State</th>
         </tr></thead><tbody></tbody></table>
         </div>
         <p class="note"><b>Two numbers can end an agent, and the smaller one is the answer.</b>
-          <em>Left</em> is what the covenant would still permit; <em>on chain</em> is what the coin at the
+          <em>Left</em> is what the covenant would still permit; <em>in its account</em> is what the coin at the
           grant&rsquo;s address actually holds. Any grant that has paid for anything has spent fees out of the
           second and not the first.</p>
       </div>
@@ -2490,11 +2550,7 @@ ops/install-cron.sh</pre>
         <button class="go gh tg-connect">Connect Telegram</button><span class="state tg-state" style="margin:0"></span></p>
       <div class="card" id="ha-list-c">
         <header><h2>Agents <small id="ha-n"></small></h2><a class="more" id="ha-reload">Refresh</a></header>
-        <div style="overflow-x:auto">
-          <table id="ha-t"><thead><tr>
-            <th>Agent</th><th>State</th><th class="n">May still spend</th><th class="n">Spent</th><th class="n">Jobs</th><th>Last run</th>
-          </tr></thead><tbody></tbody></table>
-        </div>
+        <div class="hcards" id="ha-cards"></div>
       </div>
 
       <div id="ha-d" hidden style="margin-top:1rem">
@@ -3321,10 +3377,14 @@ var WardaRouter = (() => {
   });
   /* "Why" on every card that explains itself: hidden on a phone until asked. */
   Array.prototype.forEach.call(document.querySelectorAll(".card"), function (card) {
-    var hdr = card.querySelector(":scope > header"), why = card.querySelector(":scope > p.why");
+    var hdr = card.querySelector(":scope > header"), why = card.querySelector(":scope > p.why:not([id])");
     if (!hdr || !why) return;
     /* A dialog's one sentence is the point of the dialog, not a footnote. */
     if (card.closest(".wc-veil")) { card.classList.add("explain"); return; }
+    /* A card that is ONLY its explanation keeps it: hiding it would leave a title. */
+    var rest = Array.prototype.filter.call(card.children, function (c) { return c !== hdr && !(c.tagName === "P" && c.classList.contains("why") && !c.id); });
+    if (!rest.length) return;
+    card.classList.add("collapsible");
     var btn = document.createElement("button");
     btn.type = "button"; btn.className = "whyb"; btn.textContent = "Why";
     btn.setAttribute("aria-expanded", "false");
@@ -6907,6 +6967,7 @@ var WardaRouter = (() => {
         } else if (f.status === "funded") {
           clearInterval(HR.poll); HR.poll = null;
           hLive(f);
+          confetti();
         } else {
           clearInterval(HR.poll); HR.poll = null;
           hState("h-fund-s", f.status === "refunded" ? "Sent back to your key. Nothing was created." : (f.note || f.status), f.status !== "refunded");
@@ -7205,34 +7266,7 @@ var WardaRouter = (() => {
       HR.connected = true;
       $("ha-n").textContent = r.agents.length;
       $("n-hagents").textContent = r.agents.length;
-      var tb = $("ha-t").querySelector("tbody");
-      tb.textContent = "";
-      if (!r.agents.length) {
-        var tr0 = document.createElement("tr"), td0 = document.createElement("td");
-        td0.colSpan = 6; td0.textContent = "None yet — 🔥 New agent makes one in about two minutes.";
-        tr0.appendChild(td0); tb.appendChild(tr0);
-      }
-      r.agents.forEach(function (a) {
-        var tr = document.createElement("tr");
-        tr.className = "hpick";
-        tr.style.cursor = "pointer";
-        tr.tabIndex = 0;
-        var cells = [a.parent ? "\u21b3 " + a.agent : a.agent, null, a.spendableKas != null ? a.spendableKas + " KAS" : "—",
-          a.spentKas != null ? a.spentKas + " of " + a.budgetKas + " KAS" : a.budgetKas ? "budget " + a.budgetKas + " KAS" : "—",
-          a.jobsOn + " of " + a.jobs + " on",
-          a.lastRun ? a.lastRun.status + " · " + haAgo(a.lastRun.at) : "never"];
-        cells.forEach(function (c, i) {
-          var td = document.createElement("td");
-          if (i >= 2 && i <= 4) td.className = "n";
-          if (i === 1) td.appendChild(haPill(a.state)); else td.textContent = c;
-          if (i === 0) td.style.fontWeight = "600";
-          tr.appendChild(td);
-        });
-        var go = function () { haOpen(a.agent); };
-        tr.addEventListener("click", go);
-        tr.addEventListener("keydown", function (e) { if (e.key === "Enter") go(); });
-        tb.appendChild(tr);
-      });
+      haCards(r.agents);
     }).catch(function (e) { hState("ha-s", e.message, true); });
   }
   function haKv(k, v, link) {
@@ -7242,12 +7276,14 @@ var WardaRouter = (() => {
     $("ha-d-kv").appendChild(dt); $("ha-d-kv").appendChild(dd);
   }
   function haOpen(agent) {
+    if (HA.open !== agent && typeof haTab === "function") haTab("overview");
     HA.open = agent;
     $("ha-d").hidden = false;
     $("ha-d-name").textContent = agent;
     $("ha-d-out").hidden = true;
     $("ha-d-kv").textContent = "";
     hApi("GET", "/v1/agents/" + encodeURIComponent(agent)).then(function (a) {
+      HA.last = a;
       var g = a.grant || {};
       haKv("Agent key", a.agentKey ? a.agentKey.slice(0, 16) + "… (held by the runner’s vault)" : "—");
       if (g.address) haKv("Grant", g.address);
@@ -7277,7 +7313,12 @@ var WardaRouter = (() => {
   }
   function haJobs(wfs) {
     var box = $("ha-d-jobs"); box.textContent = "";
-    if (!wfs.length) { box.textContent = "No jobs yet."; return; }
+    if (!wfs.length) {
+      box.innerHTML = '<div class="empty">No jobs yet. Pick one from the templates below, or describe one in a sentence.' +
+        '<br><button class="go" type="button" id="ha-jobs-tpl">Browse templates</button></div>';
+      $("ha-jobs-tpl").onclick = function () { var t = $("tp-card"); if (t) t.scrollIntoView({ behavior: "smooth", block: "start" }); };
+      return;
+    }
     wfs.forEach(function (w) {
       var row = document.createElement("div");
       row.style.cssText = "display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap;padding:0.55rem 0;border-bottom:1px solid var(--edge)";
@@ -7305,7 +7346,7 @@ var WardaRouter = (() => {
   function haRuns(agent) {
     hApi("GET", "/v1/agents/" + encodeURIComponent(agent) + "/runs?limit=15").then(function (r) {
       var box = $("ha-d-runs"); box.textContent = "";
-      if (!r.runs.length) { box.textContent = "Nothing yet."; return; }
+      if (!r.runs.length) { box.innerHTML = '<div class="empty">Nothing has run yet. Press <b>Run now</b> on a job above, or wait for its schedule.</div>'; return; }
       r.runs.forEach(function (run) {
         var row = document.createElement("div");
         row.className = "kv";
@@ -8430,6 +8471,7 @@ var WardaRouter = (() => {
       days: $("sa-days").value.trim(),
     }).then(function (r) {
       $("sa-s").textContent = r.note;
+      confetti();
       ["sa-name", "sa-budget", "sa-cap", "sa-days"].forEach(function (id) { $(id).value = ""; });
       haList(); haOpen(HA.open);
     }).catch(function (e) { $("sa-s").textContent = e.message; })
@@ -8574,6 +8616,153 @@ var WardaRouter = (() => {
       }).join("");
       mount("sp-chart", '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="KAS this agent paid per day over the last 30 days">' + grid + bars + labs + '</svg>');
     }).catch(function () {});
+  }
+
+  /* ---- Your agents, as cards ------------------------------------------------
+     One card per agent: whether it is live, how much of its budget is left,
+     two weeks of spending, and when it last did something. Helpers sit under
+     their parent. A payment since the last look makes its card pulse. */
+  var HC = { seen: {}, spark: {} };
+  function haCards(agents) {
+    var box = $("ha-cards"); box.textContent = "";
+    if (!agents.length) {
+      box.innerHTML = '<div class="empty" style="grid-column:1/-1">No agents yet. One takes about two minutes: pick its limits, fund it from any wallet, give it a job.' +
+        '<br><button class="go" type="button" data-view="hosted">&#128293; Create your first agent</button></div>';
+      return;
+    }
+    var byParent = {};
+    agents.forEach(function (a) { if (a.parent) (byParent[a.parent] = byParent[a.parent] || []).push(a); });
+    var ordered = [];
+    agents.filter(function (a) { return !a.parent || !agents.some(function (p) { return p.agent === a.parent; }); })
+      .forEach(function (a) { ordered.push(a); (byParent[a.agent] || []).forEach(function (c) { ordered.push(c); }); });
+    ordered.forEach(function (a) {
+      var st = { active: ["var(--good)", "live"], "awaiting-deposit": ["var(--amber)", "waiting for its deposit"], submitting: ["var(--amber)", "creating its grant"],
+        paying: ["var(--teal)", "paying now"], refunded: ["var(--chrome-faint)", "refunded"], expired: ["var(--chrome-faint)", "ended"],
+        revoked: ["var(--chrome-faint)", "stopped"], undecided: ["var(--amber)", "checking the chain"] }[a.state] || ["var(--chrome-faint)", a.state];
+      if (a.lastRun && a.lastRun.status === "waiting") st = ["var(--amber)", "waiting for your OK"];
+      var budget = Number(a.budgetKas || 0), left = a.spendableKas != null ? Number(a.spendableKas) : null;
+      var pctLeft = budget > 0 && left !== null ? Math.max(0, Math.min(100, left / budget * 100)) : 0;
+      var el = document.createElement("div");
+      el.className = "hc" + (a.parent ? " child" : "") + (HA.open === a.agent ? " on" : "");
+      el.tabIndex = 0; el.setAttribute("role", "button"); el.setAttribute("data-hc", a.agent);
+      el.innerHTML =
+        '<div class="hc-top"><i class="hc-dot" style="background:' + st[0] + '"></i><b>' + (a.parent ? "↳ " : "") + esc(a.agent) + '</b><span class="hc-st">' + esc(st[1]) + '</span></div>' +
+        '<div class="hc-left">' + (left !== null ? esc(kas2(left)) : "—") + '<span>KAS left' + (budget ? " of " + esc(kas2(budget)) : "") + '</span></div>' +
+        '<div class="hc-bar"><i style="width:' + pctLeft.toFixed(1) + '%"></i></div>' +
+        '<div class="hc-spark" data-spark="' + esc(a.agent) + '"></div>' +
+        '<div class="hc-foot"><span>' + (a.jobs ? a.jobsOn + " of " + a.jobs + " jobs on" : "no jobs yet") + '</span><span>' +
+        (a.lastRun ? esc(a.lastRun.status) + " · " + esc(haAgo(a.lastRun.at)) : "never run") + '</span></div>';
+      var go = function () { haOpen(a.agent); Array.prototype.forEach.call(box.querySelectorAll(".hc"), function (c) { c.classList.toggle("on", c === el); }); };
+      el.addEventListener("click", go);
+      el.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } });
+      box.appendChild(el);
+      var at = a.lastRun ? a.lastRun.at : 0;
+      if (HC.seen[a.agent] !== undefined && at > HC.seen[a.agent]) { el.classList.add("pulse"); countUp(el.querySelector(".hc-left")); }
+      HC.seen[a.agent] = at;
+      hcSpark(a.agent, at);
+    });
+  }
+  function hcSpark(agent, at) {
+    var draw = function (days) {
+      var el = document.querySelector('[data-spark="' + agent + '"]'); if (!el) return;
+      var max = Math.max.apply(null, days.concat([0]));
+      if (!(max > 0)) { el.innerHTML = '<svg viewBox="0 0 140 34" preserveAspectRatio="none"><line x1="0" x2="140" y1="31" y2="31" stroke="var(--edge-bright)" stroke-dasharray="2 3"/></svg>'; return; }
+      var w = 140 / days.length, bars = days.map(function (v, i) {
+        var h = v > 0 ? Math.max(2, v / max * 30) : 0;
+        return h ? '<rect x="' + (i * w + 1).toFixed(1) + '" y="' + (32 - h).toFixed(1) + '" width="' + Math.max(1, w - 2).toFixed(1) + '" height="' + h.toFixed(1) + '" rx="1.5" fill="var(--c-left)" opacity="' + (i === days.length - 1 ? 1 : 0.75) + '"/>' : "";
+      }).join("");
+      el.innerHTML = '<svg viewBox="0 0 140 34" preserveAspectRatio="none" role="img" aria-label="payments over the last 14 days">' + bars + '</svg>';
+    };
+    var c = HC.spark[agent];
+    if (c && c.at === at) { draw(c.days); return; }
+    hApi("GET", "/v1/agents/" + encodeURIComponent(agent) + "/runs?limit=100").then(function (r) {
+      var today = new Date(); today.setUTCHours(0, 0, 0, 0);
+      var days = []; for (var i = 13; i >= 0; i--) days.push(0);
+      (r.runs || []).forEach(function (run) {
+        var k = 13 - Math.floor((today.getTime() + 86400000 - 1 - run.startedAt) / 86400000);
+        if (k < 0 || k > 13) return;
+        (run.steps || []).forEach(function (st) { if (st.txid && st.sompi) days[k] += Number(st.sompi) / 1e8; });
+      });
+      HC.spark[agent] = { at: at, days: days };
+      draw(days);
+    }).catch(function () {});
+  }
+
+  /* ---- one agent, in tabs ------------------------------------------------- */
+  var HTABS = [["overview", "Overview"], ["jobs", "Jobs"], ["money", "Money"], ["helpers", "Helpers"], ["settings", "Settings"]];
+  var HTAB = "overview";
+  (function () {
+    var d = $("ha-d"); if (!d) return;
+    var cardOf = function (id) { var e = $(id); return e ? (e.classList.contains("card") ? e : e.closest(".card")) : null; };
+    var place = { "sp-card": "overview", "ha-d-jobs": "jobs", "tp-card": "jobs", "ha-d-runs": "jobs",
+                  "tu-card": "money", "st-card": "money", "sa-card": "helpers", "pub-card": "settings", "ha-d-revoke": "settings" };
+    Object.keys(place).forEach(function (id) { var c = cardOf(id); if (c) c.setAttribute("data-htab", place[id]); });
+    var bar = document.createElement("div"); bar.className = "htabs"; bar.setAttribute("role", "tablist"); bar.id = "ha-tabs";
+    bar.innerHTML = HTABS.map(function (t) { return '<button type="button" role="tab" data-ht="' + t[0] + '">' + t[1] + '</button>'; }).join("");
+    var first = d.querySelector(":scope > .card");
+    first.parentNode.insertBefore(bar, first.nextSibling);
+    var ap = $("ap-card"); if (ap) bar.parentNode.insertBefore(ap, bar);
+    bar.addEventListener("click", function (e) { var b = e.target.closest && e.target.closest("[data-ht]"); if (b) haTab(b.getAttribute("data-ht")); });
+    haTab("overview");
+  })();
+  function haTab(t) {
+    HTAB = t;
+    Array.prototype.forEach.call(document.querySelectorAll("#ha-tabs [data-ht]"), function (b) { b.setAttribute("aria-selected", String(b.getAttribute("data-ht") === t)); });
+    Array.prototype.forEach.call(document.querySelectorAll("#ha-d [data-htab]"), function (c) { c.hidden = c.getAttribute("data-htab") !== t; });
+    if (t === "overview" && HA.open) setTimeout(function () { var h = $("sp-chart"); if (h && !h.querySelector("svg") && HA.last) spShow(HA.last); }, 0);
+  }
+
+  /* ---- motion ------------------------------------------------------------- */
+  var QUIET = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  /* Remembered by what the figure IS (an agent's card, a tile's label), not by
+     element: views are redrawn, and a redraw must not count up again. */
+  var NUMS = {};
+  function numKey(el) {
+    var hc = el.closest && el.closest("[data-hc]"); if (hc) return "hc:" + hc.getAttribute("data-hc");
+    var t = el.closest && el.closest(".tile"), k = t && t.querySelector(".k");
+    var host = el.closest && el.closest("[id]");
+    return (host ? host.id : "") + ":" + (k ? k.textContent : "");
+  }
+  /* A figure that changes counts to its new value instead of jumping. */
+  function countUp(el) {
+    if (!el || QUIET) return;
+    var node = el.firstChild; if (!node || node.nodeType !== 3) return;
+    var m = /^([^\d-]*)(-?[\d,]*\.?\d+)(.*)$/.exec(node.nodeValue); if (!m) return;
+    var key = numKey(el);
+    var to = parseFloat(m[2].replace(/,/g, "")), from = key in NUMS ? NUMS[key] : to * 0.6, dec = (m[2].split(".")[1] || "").length;
+    NUMS[key] = to;
+    if (from === to) return;
+    var t0 = performance.now();
+    var step = function (t) {
+      var k = Math.min(1, (t - t0) / 700), e = 1 - Math.pow(1 - k, 3);
+      node.nodeValue = m[1] + (from + (to - from) * e).toLocaleString("en-US", { minimumFractionDigits: dec, maximumFractionDigits: dec }) + m[3];
+      if (k < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+  function countAll(root) { Array.prototype.forEach.call((root || document).querySelectorAll(".tile .v, .hc-left, .mhero .big"), countUp); }
+  /* A new agent going live, a helper made, a top-up landed: a small celebration. */
+  if (typeof MutationObserver === "function") {
+    ["tiles", "ag-tiles", "ha-cards", "acc-tiles", "m-home"].forEach(function (id) {
+      var el = $(id); if (!el) return;
+      new MutationObserver(function () { countAll(el); }).observe(el, { childList: true });
+    });
+  }
+  function confetti() {
+    if (QUIET) return;
+    var colors = ["#14D7C1", "#38F9E9", "#43C97F", "#E8B23A", "#9B6BE8", "#4C8DF6"];
+    for (var i = 0; i < 70; i++) {
+      var c = document.createElement("i");
+      c.className = "confetti";
+      c.style.left = (Math.random() * 100) + "vw";
+      c.style.background = colors[i % colors.length];
+      c.style.setProperty("--dx", ((Math.random() - 0.5) * 30).toFixed(1) + "vw");
+      c.style.setProperty("--r", Math.round(Math.random() * 900 - 450) + "deg");
+      c.style.setProperty("--t", (1.6 + Math.random() * 1.4).toFixed(2) + "s");
+      c.style.animationDelay = (Math.random() * 0.25).toFixed(2) + "s";
+      document.body.appendChild(c);
+      setTimeout(function (x) { return function () { x.remove(); }; }(c), 3400);
+    }
   }
 
   /* ---- monthly statement --------------------------------------------------- */
@@ -8747,7 +8936,7 @@ var WardaRouter = (() => {
     TU.poll = setInterval(function () {
       if (HA.open !== agent) { clearInterval(TU.poll); TU.poll = null; return; }
       hApi("GET", "/v1/agents/" + encodeURIComponent(agent)).then(function (a) {
-        if (a.funding && a.funding.status === "funded") { clearInterval(TU.poll); TU.poll = null; haOpen(agent); haList(); $("tu-s").textContent = "Done — the agent is on its new grant."; }
+        if (a.funding && a.funding.status === "funded") { clearInterval(TU.poll); TU.poll = null; haOpen(agent); haList(); $("tu-s").textContent = "Done — the agent is on its new grant."; confetti(); }
         else tuShow(a);
       }).catch(function () {});
     }, 6000);
