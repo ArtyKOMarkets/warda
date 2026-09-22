@@ -34,7 +34,7 @@ import type { Store } from "./store.ts";
 import type { KeyVault } from "./vault.ts";
 import { parseWorkflow, spends, WorkflowError, type Workflow } from "./workflow.ts";
 import { kas } from "@warda_protocol/core";
-import { createPlan, depositUri, type Funder, type Plan } from "./funding.ts";
+import { createPlan, createTopUp, depositUri, type Funder, type Plan } from "./funding.ts";
 import type { Drafter } from "./draft.ts";
 import { hostedReading } from "./reading.ts";
 import type { NetworkPrefix } from "@warda_protocol/kaspa";
@@ -71,6 +71,8 @@ export interface ApiDeps {
   /** The per-agent MCP endpoint, served at /mcp. */
   mcp?: (req: Request) => Promise<Response>;
   prefix?: NetworkPrefix;
+  /** Once an hour: tell owners whose agents are about to stop (nudge.ts). */
+  nudge?: () => Promise<unknown>;
   /** The operator's alerts (ops.ts). */
   ops?: Ops;
   /** The operator's password for GET /v1/admin/stats; at least 16 characters, or the route is off. */
@@ -284,8 +286,17 @@ export function createApi(d: ApiDeps): (req: Request) => Promise<Response> {
               seenKas: plan.seen ? formatKas(BigInt(plan.seen)) : "0",
               ...(plan.genesisTxid ? { genesisTxid: plan.genesisTxid } : {}),
               ...(plan.note ? { note: plan.note } : {}),
+              round: plan.round ?? 1,
+              limits: {
+                budgetKas: formatKas(BigInt(plan.limits.budget)),
+                maxPerPaymentKas: formatKas(BigInt(plan.limits.maxPerSpend)),
+                days: plan.limits.days,
+              },
             }
           : null,
+        /* After a top-up: the grant it replaced, which may still hold what it
+           did not spend. Only the owner's revocation key can take that back. */
+        ...(plan?.replaces && plan.status === "funded" ? { previousGrant: plan.replaces } : {}),
         grant: grant ?? { undecided: "no grant registered, or the chain did not confirm the one on record" },
         feesOwed: formatKas((ledger ?? emptyLedger()).owed),
         workflows: workflows.filter((w) => !w.id.startsWith("mcp-")).map(summary),
@@ -345,13 +356,78 @@ export function createApi(d: ApiDeps): (req: Request) => Promise<Response> {
       });
     }],
 
+    /* More money, or more time: a successor grant from a new deposit. */
+    ["POST", /^\/v1\/agents\/([\w-]+)\/topup$/, async (req, m) => {
+      const acct = await account(req);
+      const agent = m[1]!;
+      await ownAgent(acct, agent);
+      const record = await d.registry.getGrant(agent);
+      if (!record) throw new HttpError(409, `${agent} has no grant yet; fund it first`);
+      const b = await body(req);
+      const opt = (v: unknown, name: string) => {
+        if (v === undefined || v === null || v === "") return undefined;
+        try { return kas(String(v)); } catch { throw new HttpError(400, `${name} must be a KAS amount like "0.5"`); }
+      };
+      const budget = opt(b.budgetKas, "budgetKas");
+      const maxPerSpend = opt(b.maxPerPaymentKas, "maxPerPaymentKas");
+      let plan: Plan;
+      try {
+        plan = await createTopUp({
+          vault: d.vault, registry: d.registry, agent, record,
+          previous: await d.registry.getPlan(agent),
+          limits: {
+            ...(budget !== undefined ? { budget } : {}),
+            ...(maxPerSpend !== undefined ? { maxPerSpend, epochLimit: maxPerSpend * 5n } : {}),
+            ...(b.days !== undefined ? { days: Number(b.days) } : {}),
+          },
+          feePayee: d.fees.payee, oldFeePayees: d.fees.previous ?? [],
+          prefix: d.prefix ?? "kaspatest", now: now(),
+        });
+      } catch (e) {
+        throw new HttpError(409, (e as Error).message);
+      }
+      return json(201, {
+        agent,
+        deposit: {
+          address: plan.depositAddress,
+          amountKas: formatKas(BigInt(plan.required)),
+          uri: depositUri(plan),
+          status: plan.status,
+          note:
+            "Send exactly this, in one payment. When it arrives the runner creates the agent's next grant — same agent, " +
+            "same jobs, same payees, your keys as principal and revocation — and switches to it. The current grant keeps " +
+            "working until then. Whatever is left in it afterwards stays under your revocation key.",
+        },
+        limits: {
+          budgetKas: formatKas(BigInt(plan.limits.budget)),
+          maxPerPaymentKas: formatKas(BigInt(plan.limits.maxPerSpend)),
+          days: plan.limits.days,
+        },
+      });
+    }],
+
     ["POST", /^\/v1\/agents\/([\w-]+)\/refund$/, async (req, m) => {
       const acct = await account(req);
       await ownAgent(acct, m[1]!);
       const plan = await d.registry.getPlan(m[1]!);
       if (!plan) throw new HttpError(404, `${m[1]} was not funded through a deposit`);
-      if (!d.refund) throw new HttpError(501, "this runner cannot send refunds");
       try {
+        /* Nothing sent yet: cancelling is just closing the plan, so a new top-up can be made. */
+        if (plan.status === "awaiting-deposit" && (!plan.seen || plan.seen === "0")) {
+          const sent = !d.refund ? [] : await d.refund(plan).catch((e: Error) => {
+            if (!/nothing to refund/.test(e.message)) throw e;
+            return [];
+          });
+          if (sent.length === 0) {
+            plan.status = "refunded";
+            plan.note = "cancelled before any payment arrived";
+            plan.updatedAt = now();
+            await d.registry.putPlan(plan);
+            return json(200, { refunded: [], cancelled: true });
+          }
+          return json(200, { refunded: sent.map((x) => ({ txid: x.txid, kas: formatKas(x.value) })), to: "your principal key" });
+        }
+        if (!d.refund) throw new HttpError(501, "this runner cannot send refunds");
         const sent = await d.refund(plan);
         return json(200, {
           refunded: sent.map((x) => ({ txid: x.txid, kas: formatKas(x.value) })),
@@ -553,7 +629,9 @@ export function createApi(d: ApiDeps): (req: Request) => Promise<Response> {
       await d.ops?.tickSeen(now()).catch(() => {});
       try {
         const funded = d.funder ? await d.funder.tick() : [];
-        return json(200, { ...(await d.engine.tick()), funded });
+        const report = await d.engine.tick();
+        await d.nudge?.().catch(() => {});
+        return json(200, { ...report, funded });
       } catch (e) {
         await d.ops?.report("tick-failed", String((e as Error)?.message ?? e).slice(0, 400)).catch(() => {});
         throw e;

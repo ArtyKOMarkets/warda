@@ -2464,6 +2464,38 @@ ops/install-cron.sh</pre>
           </p>
           <pre id="ha-d-out" hidden></pre>
         </div>
+        <div class="card" style="margin-top:0.85rem" id="tu-card">
+          <header><h2>Top up or renew <small id="tu-n"></small></h2></header>
+          <p class="why">A grant&rsquo;s budget and end date are fixed when it is made, so more money or more time is a
+            <b>new grant for the same agent</b>: same key, same jobs, same payees, your keys as its owner. Send the deposit
+            and the runner switches over; the current grant keeps working until then.</p>
+          <div id="tu-form">
+            <div class="grid">
+              <div class="field"><label for="tu-budget">New budget, KAS</label><input id="tu-budget" inputmode="decimal"></div>
+              <div class="field"><label for="tu-cap">Any single payment, KAS</label><input id="tu-cap" inputmode="decimal"></div>
+              <div class="field"><label for="tu-days">Lasts, days</label><input id="tu-days" inputmode="numeric"></div>
+            </div>
+            <p style="margin-top:0.7rem;display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap">
+              <button class="go" type="button" id="tu-go">Get the deposit address</button>
+              <span class="state" id="tu-s" style="margin:0"></span></p>
+          </div>
+          <div id="tu-dep" hidden>
+            <div style="display:grid;grid-template-columns:auto 1fr;gap:1rem;align-items:center;margin-top:0.4rem">
+              <div id="tu-qr" style="width:140px;height:140px;background:#fff;border-radius:8px;padding:6px"></div>
+              <div style="min-width:0">
+                <p class="kv" style="font-size:1.35rem;color:var(--chrome)" id="tu-amt">&mdash;</p>
+                <p class="kv" id="tu-addr" style="margin-top:0.4rem;overflow-wrap:anywhere"></p>
+                <p style="margin-top:0.7rem;display:flex;gap:0.5rem;flex-wrap:wrap">
+                  <a class="go" id="tu-open">Open in wallet</a>
+                  <button class="go gh" type="button" id="tu-copy">Copy address</button>
+                  <button class="go gh" type="button" id="tu-cancel">Cancel and refund</button>
+                </p>
+                <p class="state" id="tu-wait"></p>
+              </div>
+            </div>
+          </div>
+          <div id="tu-prev" hidden style="margin-top:0.8rem"></div>
+        </div>
         <div class="card" style="margin-top:0.85rem">
           <header><h2>Jobs</h2></header>
           <div id="ha-d-jobs"></div>
@@ -7110,6 +7142,9 @@ var WardaRouter = (() => {
       if (a.funding && a.funding.genesisTxid) haKv("Created by", "the genesis transaction", a.funding.genesisTxid);
       else if (a.funding) haKv("Funding", a.funding.status + (a.funding.note ? " — " + a.funding.note : ""));
       $("ha-d-refund").hidden = !a.funding;
+      ["tu-budget", "tu-cap", "tu-days"].forEach(function (id) { if (HA.tuFor !== agent) $(id).value = ""; });
+      HA.tuFor = agent;
+      tuShow(a);
       haJobs(a.workflows || []);
       haRevoke(a);
     }).catch(function (e) { hState("ha-s", e.message, true); });
@@ -8168,6 +8203,69 @@ var WardaRouter = (() => {
   $("ad-forget").addEventListener("click", function () {
     try { localStorage.removeItem(AD_KEY); } catch (e) {}
     $("ad-body").hidden = true; $("ad-s").textContent = "Forgotten in this browser.";
+  });
+
+  /* ---- top up / renew ------------------------------------------------------ */
+  var TU = { poll: null };
+  function tuShow(a) {
+    var f = a.funding, g = a.grant || {};
+    var lim = f && f.limits;
+    if (!$("tu-budget").value) $("tu-budget").value = lim ? lim.budgetKas : g.budgetTotal ? String(Number(g.budgetTotal) / 1e8) : "";
+    if (!$("tu-cap").value) $("tu-cap").value = lim ? lim.maxPerPaymentKas : g.maxPerSpend ? String(Number(g.maxPerSpend) / 1e8) : "";
+    if (!$("tu-days").value) $("tu-days").value = lim ? lim.days : 30;
+    var waiting = f && f.round > 1 && (f.status === "awaiting-deposit" || f.status === "submitting");
+    $("tu-n").textContent = f && f.round > 1 ? "grant " + f.round : "";
+    $("tu-form").hidden = !!waiting;
+    $("tu-dep").hidden = !waiting;
+    if (waiting) tuDeposit(f);
+    else if (TU.poll) { clearInterval(TU.poll); TU.poll = null; }
+    var p = a.previousGrant;
+    $("tu-prev").hidden = !p;
+    if (p) {
+      $("tu-prev").innerHTML = '<p class="why" style="margin:0"><b>The grant this one replaced</b> may still hold what it did not spend. ' +
+        'Only your revocation key can take it back. Download its grant.json and run:</p>' +
+        '<pre style="margin-top:0.5rem">npx @warda_protocol/cli revoke grant.json --key your-revocation.key</pre>' +
+        '<p style="margin-top:0.4rem"><a class="more" id="tu-prev-dl">Download the previous grant.json</a></p>';
+      $("tu-prev-dl").onclick = function () {
+        var el = document.createElement("a");
+        el.href = URL.createObjectURL(new Blob([JSON.stringify(p.manifest, null, 2) + "\n"], { type: "application/json" }));
+        el.download = "grant-previous.json"; el.click();
+      };
+    }
+  }
+  function tuDeposit(f) {
+    $("tu-amt").textContent = f.amountKas + " KAS";
+    $("tu-addr").textContent = f.address;
+    $("tu-open").href = f.uri;
+    $("tu-copy").onclick = function () { try { navigator.clipboard.writeText(f.address); $("tu-wait").textContent = "Address copied."; } catch (e) {} };
+    wcLib().then(function (L) { return L.qrSvg(f.uri); }).then(function (svg) { $("tu-qr").innerHTML = svg; }).catch(function () { $("tu-qr").hidden = true; });
+    $("tu-wait").textContent = f.status === "submitting" ? "Payment arrived. Creating the new grant…"
+      : (f.seenKas && f.seenKas !== "0" ? "Seen " + f.seenKas + " KAS so far. " : "") + (f.note || "Waiting for your payment…");
+    if (TU.poll) return;
+    var agent = HA.open;
+    TU.poll = setInterval(function () {
+      if (HA.open !== agent) { clearInterval(TU.poll); TU.poll = null; return; }
+      hApi("GET", "/v1/agents/" + encodeURIComponent(agent)).then(function (a) {
+        if (a.funding && a.funding.status === "funded") { clearInterval(TU.poll); TU.poll = null; haOpen(agent); haList(); $("tu-s").textContent = "Done — the agent is on its new grant."; }
+        else tuShow(a);
+      }).catch(function () {});
+    }, 6000);
+  }
+  $("tu-go").addEventListener("click", function () {
+    $("tu-go").disabled = true; $("tu-s").textContent = "Making a deposit address…";
+    hApi("POST", "/v1/agents/" + encodeURIComponent(HA.open) + "/topup", {
+      budgetKas: $("tu-budget").value.trim(), maxPerPaymentKas: $("tu-cap").value.trim(), days: Number($("tu-days").value) || 30,
+    }).then(function () { $("tu-s").textContent = ""; haOpen(HA.open); })
+      .catch(function (e) { $("tu-s").textContent = e.message; })
+      .then(function () { $("tu-go").disabled = false; });
+  });
+  $("tu-cancel").addEventListener("click", function () {
+    if (!confirmInline("tu-cancel", "Cancel this top-up? Anything already sent goes back to your key. Press again to confirm.")) return;
+    hApi("POST", "/v1/agents/" + encodeURIComponent(HA.open) + "/refund", {}).then(function () { haOpen(HA.open); })
+      .catch(function (e) {
+        /* Nothing was sent yet: the plan is still open, so say so rather than fail. */
+        $("tu-wait").textContent = /nothing to refund/.test(e.message) ? "Nothing has been sent to it yet — just don't send. It stays unused." : e.message;
+      });
   });
 
   /* ---- selects ------------------------------------------------------------

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { schnorr } from "@noble/curves/secp256k1.js";
 import { fromHex, payToPubkeyScript, toHex } from "@warda_protocol/kaspa";
-import { Funder, createPlan, depositUri, requiredDeposit, type FundingChain } from "../src/funding.ts";
+import { Funder, createPlan, createTopUp, depositUri, requiredDeposit, type FundingChain } from "../src/funding.ts";
 import { memoryRegistry } from "../src/registry.ts";
 import { memoryStore } from "../src/store.ts";
 import { EnvelopeVault, localMasterKey } from "../src/vault.ts";
@@ -144,4 +144,44 @@ test("no refund while the grant is being created from the deposit", async () => 
     refundDeposit({ plan: (await b.registry.getPlan("bot"))!, registry: b.registry, vault: b.vault, chain: b.chain, prefix: "kaspatest", now: 2 }),
     /being created/,
   );
+});
+
+test("top-up: a successor grant for the same agent, from its own deposit key, with the fee address brought up to date", async () => {
+  const b = await bench();
+  b.deposit(BigInt(b.plan.required));
+  await b.funder.tick();
+  const first = (await b.registry.getGrant("bot"))!;
+  const NEW_FEE = "7e".repeat(32);
+  const top = await createTopUp({
+    vault: b.vault, registry: b.registry, agent: "bot", record: first, previous: (await b.registry.getPlan("bot"))!,
+    limits: { budget: 2n * KAS }, feePayee: NEW_FEE, oldFeePayees: [RUNNER], prefix: "kaspatest", now: 2,
+  });
+  assert.equal(top.round, 2);
+  assert.notEqual(top.depositAddress, b.plan.depositAddress, "a new deposit key");
+  assert.equal(top.agentKey, first.manifest.agent, "the same agent key");
+  assert.equal(top.principal, first.manifest.principal);
+  assert.deepEqual(top.recipients, [VENDOR, NEW_FEE], "the old fee address is replaced by the current one");
+  assert.equal(top.limits.budget, (2n * KAS).toString());
+  assert.equal(top.limits.maxPerSpend, first.manifest.max_per_spend.toString(), "unchanged limits carry over");
+  assert.equal(top.replaces!.manifest.covenant_id, first.manifest.covenant_id);
+
+  await assert.rejects(() => createTopUp({
+    vault: b.vault, registry: b.registry, agent: "bot", record: first, previous: top,
+    feePayee: NEW_FEE, prefix: "kaspatest", now: 3,
+  }), /already waiting/);
+
+  // Until the deposit arrives the old grant is still the agent's.
+  await b.funder.tick();
+  assert.equal((await b.registry.getGrant("bot"))!.manifest.covenant_id, first.manifest.covenant_id);
+
+  const list = b.utxos.get(top.depositAddress) ?? [];
+  list.push({ outpoint: { transactionId: new Uint8Array(randomBytes(32)), index: 0 },
+    entry: { value: BigInt(top.required), scriptPublicKey: payToPubkeyScript(fromHex(top.depositKey)), blockDaaScore: 1n, isCoinbase: false } });
+  b.utxos.set(top.depositAddress, list);
+  assert.deepEqual(await b.funder.tick(), ["bot"]);
+  const next = (await b.registry.getGrant("bot"))!;
+  assert.notEqual(next.manifest.covenant_id, first.manifest.covenant_id);
+  assert.equal(next.manifest.budget, Number(2n * KAS));
+  assert.equal(next.manifest.agent, first.manifest.agent);
+  assert.equal((await b.registry.getPlan("bot"))!.status, "funded");
 });

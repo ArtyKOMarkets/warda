@@ -348,3 +348,23 @@ test("the operator's view needs the admin secret and names no secret", async () 
   assert.ok(!text.includes(b.key), "no API key");
   assert.ok(!/acct_[\w-]{20,}/.test(text), "account ids are shortened");
 });
+
+test("top-up: one waiting at a time, cancellable before any payment, then again", async () => {
+  const b = await onboarded();
+  const r = await b.call("POST", "/v1/agents/shop-bot/topup", { key: b.key, body: { budgetKas: "3", days: 14 } });
+  assert.equal(r.status, 201, JSON.stringify(r.body));
+  assert.match(r.body.deposit.address, /^kaspatest:/);
+  assert.equal(r.body.limits.budgetKas, "3");
+  assert.equal(r.body.limits.days, 14);
+  assert.equal((await b.call("POST", "/v1/agents/shop-bot/topup", { key: b.key, body: {} })).status, 409);
+  const detail = await b.call("GET", "/v1/agents/shop-bot", { key: b.key });
+  assert.equal(detail.body.funding.round, 2);
+  assert.equal(detail.body.funding.status, "awaiting-deposit");
+  const c = await b.call("POST", "/v1/agents/shop-bot/refund", { key: b.key });
+  assert.equal(c.body.cancelled, true);
+  const again = await b.call("POST", "/v1/agents/shop-bot/topup", { key: b.key, body: {} });
+  assert.equal(again.status, 201);
+  assert.notEqual(again.body.deposit.address, r.body.deposit.address, "each top-up has its own deposit key");
+  const other = await b.call("POST", "/v1/accounts", { body: {} });
+  assert.equal((await b.call("POST", "/v1/agents/shop-bot/topup", { key: other.body.apiKey, body: {} })).status, 404);
+});

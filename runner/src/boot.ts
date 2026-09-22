@@ -23,6 +23,9 @@ import { migrate, pgStore } from "./store-pg.ts";
 import { EnvelopeVault, localMasterKey, type KeyVault } from "./vault.ts";
 import { TurnkeyVault, turnkeyFromEnv } from "./vault-turnkey.ts";
 import { createOps } from "./ops.ts";
+import { nudgeLow } from "./nudge.ts";
+
+const CONSOLE = "https://www.wardaprotocol.com/app";
 
 export interface Runner {
   api: (req: Request) => Promise<Response>;
@@ -136,7 +139,7 @@ export async function boot(e: NodeJS.ProcessEnv = process.env, defaults: { baseU
     store, grants, fees, notifier,
     payments: livePayments(openAgent),
     http: liveHttp,
-    approvals: liveApprovals(notifier, "https://wardaprotocol.com/app"),
+    approvals: liveApprovals(notifier, CONSOLE),
     networkFee: 2_000_000n,
     onFinished: (run) => ops.runFinished(run),
   });
@@ -173,6 +176,7 @@ export async function boot(e: NodeJS.ProcessEnv = process.env, defaults: { baseU
     store, registry, vault, engine, grants, fees, baseUrl,
     tickSecret: env("RUNNER_TICK_SECRET"),
     ops,
+    ...(token ? { nudge: () => nudgeLow({ registry, store, grants, now: Date.now(), consoleUrl: CONSOLE, send: (chat, text) => raw.notify("telegram", chat, text) }) } : {}),
     ...(e.RUNNER_ADMIN_SECRET ? { adminSecret: e.RUNNER_ADMIN_SECRET } : {}),
     ...(e.RUNNER_SIGNUP_CODE ? { signupCode: e.RUNNER_SIGNUP_CODE } : {}),
   });

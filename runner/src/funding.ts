@@ -102,6 +102,10 @@ export interface Plan {
   note?: string;
   createdAt: number;
   updatedAt: number;
+  /** 1 for the agent's first grant; each top-up is the next round, with its own deposit key. */
+  round?: number;
+  /** A top-up: the grant this one replaces once it is funded. Its leftover is the owner's to reclaim. */
+  replaces?: { manifest: Manifest; recipients: string[]; genesisTxid?: string };
 }
 
 export interface FundingChain {
@@ -113,7 +117,8 @@ export interface FundingChain {
   submit(tx: Transaction): Promise<string>;
 }
 
-export const depositId = (agent: string) => `${agent}--deposit`;
+/** The deposit key's vault id. Round 1 keeps the original name; a top-up gets its own key. */
+export const depositId = (agent: string, round?: number) => (round && round > 1 ? `${agent}--deposit-${round}` : `${agent}--deposit`);
 
 /** The coin covers the budget AND the network fee of every spend it makes. */
 export function requiredDeposit(l: Limits): bigint {
@@ -172,6 +177,83 @@ export async function createPlan(o: {
     status: "awaiting-deposit",
     createdAt: o.now,
     updatedAt: o.now,
+  };
+  await o.registry.putPlan(plan);
+  return plan;
+}
+
+/**
+ * Top up, or renew: a NEW grant for the same agent key, from a new deposit.
+ *
+ * A grant's budget and term are fixed when it is created, so "more money" or
+ * "more time" is always a successor. Same agent (so the same Turnkey key, the
+ * same jobs, the same MCP token), same owner keys, same payees — except that
+ * the runner's fee address is brought up to date. When the deposit arrives,
+ * the funder builds the successor and the runner switches to it; until then
+ * the current grant keeps working. What is left in the old grant stays there,
+ * under the owner's revocation key, which the runner never holds.
+ */
+export async function createTopUp(o: {
+  vault: KeyVault;
+  registry: Registry;
+  agent: string;
+  record: { manifest: Manifest; recipients: string[] };
+  previous: Plan | null;
+  limits?: Partial<Limits>;
+  /** The runner's fee addresses: the current one goes on the allowlist, earlier ones come off. */
+  feePayee: string;
+  oldFeePayees?: string[];
+  prefix: NetworkPrefix;
+  now: number;
+}): Promise<Plan> {
+  const prev = o.previous;
+  if (prev && (prev.status === "awaiting-deposit" || prev.status === "submitting")) {
+    throw new Error(prev.round && prev.round > 1
+      ? "a top-up for this agent is already waiting for its deposit; send to that address, or refund it first"
+      : "this agent's first grant is still being funded");
+  }
+  const m = o.record.manifest as Manifest & Record<string, unknown>;
+  const n = (v: unknown) => BigInt(String(v ?? 0));
+  const days = o.limits?.days ?? prev?.limits.days ??
+    Math.max(1, Math.round(Number(n(m.expires_at) - n(m.not_before)) / Number(DAA_PER_DAY)));
+  const limits: Limits = {
+    budget: o.limits?.budget ?? n(prev?.limits.budget ?? m.budget),
+    maxPerSpend: o.limits?.maxPerSpend ?? n(prev?.limits.maxPerSpend ?? m.max_per_spend),
+    epochLimit: o.limits?.epochLimit ?? n(prev?.limits.epochLimit ?? m.epoch_limit),
+    epochLength: o.limits?.epochLength ?? n(prev?.limits.epochLength ?? m.epoch_length),
+    days: Math.min(365, days),
+  };
+  if (limits.epochLimit < limits.maxPerSpend) limits.epochLimit = limits.maxPerSpend * 5n;
+  const why = checkLimits(limits);
+  if (why) throw new Error(why);
+  const fees = new Set([o.feePayee, ...(o.oldFeePayees ?? [])].map(memberKey));
+  const payees = o.record.recipients.filter((r) => !fees.has(memberKey(r)));
+  const recipients = [...payees, o.feePayee];
+  const set = new RecipientSet(recipients.map(memberKey));
+  assertRecipientsFitTemplate(TEMPLATE, set);
+  const round = (prev?.round ?? 1) + 1;
+  const depositKey = await o.vault.create(depositId(o.agent, round));
+  const plan: Plan = {
+    agent: o.agent,
+    agentKey: String(m.agent),
+    principal: String(m.principal),
+    revocation: String(m.revocation),
+    limits: {
+      budget: limits.budget.toString(),
+      maxPerSpend: limits.maxPerSpend.toString(),
+      epochLimit: limits.epochLimit.toString(),
+      epochLength: limits.epochLength.toString(),
+      days: limits.days,
+    },
+    recipients,
+    depositKey,
+    depositAddress: pubkeyToAddress(fromHex(depositKey), o.prefix),
+    required: requiredDeposit(limits).toString(),
+    status: "awaiting-deposit",
+    createdAt: o.now,
+    updatedAt: o.now,
+    round,
+    replaces: { manifest: o.record.manifest, recipients: o.record.recipients, ...(prev?.genesisTxid ? { genesisTxid: prev.genesisTxid } : {}) },
   };
   await o.registry.putPlan(plan);
   return plan;
@@ -310,7 +392,7 @@ export class Funder {
       daa = await chain.daa();
     }
     const { built, manifest } = genesisFor(p, coin, daa);
-    const sign = await this.o.vault.signer(depositId(p.agent));
+    const sign = await this.o.vault.signer(depositId(p.agent, p.round));
     const tx = attachGenesisSignature(built, await sign(built.sighash));
     const txid = toWire(tx, built.entry, "@warda_protocol/runner (genesis)").txid;
     const grantAddress = scriptHashToAddress(toHex(built.grantScriptHash), prefix);
@@ -367,7 +449,7 @@ export async function refundDeposit(o: {
   const coins = (await o.chain.utxos(p.depositAddress)).filter((u) => !u.entry.covenantId && u.entry.value > GENESIS_FEE);
   if (coins.length === 0) throw new Error(`nothing to refund: ${p.depositAddress} holds no coin worth more than the fee`);
   const to = payToPubkeyScript(fromHex(p.principal));
-  const sign = await o.vault.signer(depositId(p.agent));
+  const sign = await o.vault.signer(depositId(p.agent, p.round));
   const out: { txid: string; value: bigint }[] = [];
   for (const c of coins) {
     const value = c.entry.value - GENESIS_FEE;
