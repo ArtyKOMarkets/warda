@@ -803,6 +803,12 @@
   .statusbar .d { display: inline-block; width: 6px; height: 6px; border-radius: 50%;
         background: var(--good); margin-right: 0.45rem; }
   .statusbar .sp { flex: 1; min-width: 0; }
+  /* iOS Safari zooms the page into any field whose text is under 16px, and
+     does not zoom back out. On touch screens every field is 16px or more. */
+  @media (hover: none) and (pointer: coarse) {
+    input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea { font-size: 16px; }
+    .fa-amt input:not([type=checkbox]):not([type=radio]):not([type=range]) { font-size: 1.35rem; }
+  }
 </style>
 </head>
 <body>

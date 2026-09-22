@@ -528,6 +528,7 @@
         <div class="nv-sheet">
           <a href="/protocol" data-nv="protocol.html"><b>Protocol</b><span>The covenant, the grant, the three keys</span></a>
           <a href="/proof" data-nv="proof.html"><b>Proof</b><span>Every claim, and what would refute it</span></a>
+          <a href="/grant" data-nv="grant.html"><b>Get a grant</b><span>We fund your agent on testnet, free</span></a>
           <a href="/verify" data-nv="verify.html"><b>Verify</b><span>Check a grant against the chain yourself</span></a>
           <a href="/sandbox" data-nv="sandbox.html"><b>Sandbox</b><span>Ask the covenant for money, in the browser</span></a>
           <a href="/attack" data-nv="attack.html"><b>Attack</b><span>A live agent&rsquo;s key is published. Take it</span></a>
@@ -867,9 +868,12 @@ function renderWallet(d) {
     /* `onChain` is null for a grant that has ended, and a panel showing "0 KAS"
        there would be true and misleading: a drained grant and an ended one are
        different, and only one of them can be topped up. */
-    bal.textContent = retired ? "ended" : "—";
+    /* A weekly agent gets a new grant every Monday: its grant ending is the
+       week being done, not the agent being over. */
+    var wk = d.weekly;
+    bal.textContent = retired ? (wk ? "week done" : "ended") : "—";
     bal.className = "wal-amt ended";
-    set("w-balsub", retired ? "the grant holds nothing" : "no reading");
+    set("w-balsub", retired ? (wk ? wk.label + " · next grant " + (wk.schedule || "next week") : "the grant holds nothing") : "no reading");
   } else {
     bal.textContent = a.onChain;
     bal.className = "wal-amt";
@@ -902,7 +906,7 @@ function renderWallet(d) {
     row(mark("✓"), "per epoch", a.epochLimit + " every " + (a.epochLengthDaa || "?") + " blocks");
   }
   if (a.remaining && a.budget) {
-    row(mark("✓"), retired ? "unspent" : "budget left", a.remaining + " of " + a.budget);
+    row(mark("✓"), retired ? (d.weekly ? "returned" : "unspent") : "budget left", a.remaining + " of " + a.budget);
   }
   if (a.authorizedPayees) {
     row(
@@ -919,12 +923,16 @@ function renderWallet(d) {
      endings, and only the covenant's own record can tell them apart. */
   if (retired) {
     row(
-      "✗",
-      "ended",
+      d.weekly ? "·" : "✗",
+      d.weekly ? "week ended" : "ended",
       retired.endedBy
-        ? "by the revocation key · " + String(retired.endedBy).slice(0, 10) + "…"
+        /* Two endings: a settlement is the PARENT agent collapsing the grant it
+           delegated, not the stop key. This said "revocation key" for both,
+           which on #004 and #010 named the mechanism their pages contrast. */
+        ? (retired.how === "settled" ? "settled into its parent · " : "by the revocation key · ") +
+          String(retired.endedBy).slice(0, 10) + "…"
         : "its authority is over",
-      "no",
+      d.weekly ? "" : "no",
     );
   }
   /* Always last, always present. It is the only row here that is an argument
@@ -977,19 +985,39 @@ function renderWallet(d) {
     "w-count",
     act.payments
       ? act.payments + (act.payments === 1 ? " payment · " : " payments · ") + (act.paid || "")
-      : "nothing yet",
+      : d.weekly && d.weekly.delegatedTo
+        ? "through Scout · " + d.weekly.delegatedTo.payments + " payments · " + d.weekly.delegatedTo.spent
+        : "nothing yet",
   );
 
   if (items.length === 0) {
     var none = document.createElement("li");
     none.className = "empty";
-    none.textContent = "No payment has been made from this grant.";
+    var dt = d.weekly && d.weekly.delegatedTo;
+    if (dt) {
+      /* The orchestrator pays nobody itself: it hands Scout a piece of the
+         budget, and Scout's payments are charged home to it at settlement. */
+      var span = document.createElement("span");
+      span.style.gridColumn = "1 / -1";
+      var link = document.createElement("a");
+      link.setAttribute("href", ["", "agent-" + dt.id].join("/"));
+      link.textContent = "Scout, agent #" + dt.id;
+      span.appendChild(document.createTextNode("Its payments this week were made by "));
+      span.appendChild(link);
+      span.appendChild(document.createTextNode(" out of the piece it delegated: " + dt.payments + " record" +
+        (dt.payments === 1 ? "" : "s") + ", " + dt.spent + ", charged home here at settlement."));
+      none.appendChild(span);
+    } else none.textContent = "No payment has been made from this grant.";
     list.appendChild(none);
   } else {
     items.slice(0, 8).forEach(function (it) {
       var li = document.createElement("li");
       var s1 = document.createElement("span"); s1.className = "a"; s1.textContent = it.amount;
-      var s2 = document.createElement("span"); s2.className = "w"; s2.textContent = it.who;
+      /* The growth fleet's purchases name the projects it researched — people
+         it may write to. The payment is public on chain; the list of who is
+         being looked at does not need to be on a web page. */
+      var who = d.weekly ? String(it.who).replace(/\?.*$/, "") + " · one project record" : it.who;
+      var s2 = document.createElement("span"); s2.className = "w"; s2.textContent = who;
       var s3 = document.createElement("span"); s3.className = "t";
       s3.textContent = it.txid ? it.txid.slice(0, 10) + "…" : "";
       li.appendChild(s1); li.appendChild(s2); li.appendChild(s3);

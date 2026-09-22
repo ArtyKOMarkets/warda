@@ -1330,6 +1330,7 @@
         <div class="nv-sheet">
           <a href="/protocol" data-nv="protocol.html" aria-current="page"><b>Protocol</b><span>The covenant, the grant, the three keys</span></a>
           <a href="/proof" data-nv="proof.html"><b>Proof</b><span>Every claim, and what would refute it</span></a>
+          <a href="/grant" data-nv="grant.html"><b>Get a grant</b><span>We fund your agent on testnet, free</span></a>
           <a href="/verify" data-nv="verify.html"><b>Verify</b><span>Check a grant against the chain yourself</span></a>
           <a href="/sandbox" data-nv="sandbox.html"><b>Sandbox</b><span>Ask the covenant for money, in the browser</span></a>
           <a href="/attack" data-nv="attack.html"><b>Attack</b><span>A live agent&rsquo;s key is published. Take it</span></a>
@@ -1842,7 +1843,7 @@ Anyone can sign with it.</code></pre>
 <section class="rule" id="graph">
   <div class="wrap">
     <div data-rise>
-      <p class="eyebrow">Six agents, on chain</p>
+      <p class="eyebrow">Nine agents, on chain</p>
       <h2>They pay each other, and two of them exist because another one made them.</h2>
       <p style="max-width:58ch;color:var(--chrome-dim)">
         Agent&nbsp;#002 was revoked and replaced by #003, which delegated a bounded piece of its
@@ -1856,12 +1857,12 @@ Anyone can sign with it.</code></pre>
        a drawing program, and then the agents change and the picture does not.
        This one has no positions for an agent it cannot read. -->
   <figure class="graph" id="g-graph" hidden>
-    <!-- 700 tall, and it has been 440 and 560 on the way here. Each time the
+    <!-- 1060 tall since #011 joined the buyers above the growth fleet (#009, #010); it has been 440, 560, 700 and 930 on the way here. Each time the
          height was right for the agents that existed when it was typed, and
          each time a new row was added without it: a node drawn below the
          viewBox is not clipped with an error, it is simply not on the picture.
          A viewBox is as easy to leave behind as a sentence. -->
-    <svg viewBox="0 0 760 700" role="img" aria-labelledby="g-graph-t">
+    <svg viewBox="0 0 760 1060" role="img" aria-labelledby="g-graph-t">
       <!-- No count in here. It said "Four agents" and was wrong the day a
            fifth arrived — in the accessible name, which is the one version of
            this picture a screen reader gets. -->
@@ -2937,9 +2938,12 @@ function renderWallet(d) {
     /* `onChain` is null for a grant that has ended, and a panel showing "0 KAS"
        there would be true and misleading: a drained grant and an ended one are
        different, and only one of them can be topped up. */
-    bal.textContent = retired ? "ended" : "—";
+    /* A weekly agent gets a new grant every Monday: its grant ending is the
+       week being done, not the agent being over. */
+    var wk = d.weekly;
+    bal.textContent = retired ? (wk ? "week done" : "ended") : "—";
     bal.className = "wal-amt ended";
-    set("w-balsub", retired ? "the grant holds nothing" : "no reading");
+    set("w-balsub", retired ? (wk ? wk.label + " · next grant " + (wk.schedule || "next week") : "the grant holds nothing") : "no reading");
   } else {
     bal.textContent = a.onChain;
     bal.className = "wal-amt";
@@ -2972,7 +2976,7 @@ function renderWallet(d) {
     row(mark("✓"), "per epoch", a.epochLimit + " every " + (a.epochLengthDaa || "?") + " blocks");
   }
   if (a.remaining && a.budget) {
-    row(mark("✓"), retired ? "unspent" : "budget left", a.remaining + " of " + a.budget);
+    row(mark("✓"), retired ? (d.weekly ? "returned" : "unspent") : "budget left", a.remaining + " of " + a.budget);
   }
   if (a.authorizedPayees) {
     row(
@@ -2989,12 +2993,16 @@ function renderWallet(d) {
      endings, and only the covenant's own record can tell them apart. */
   if (retired) {
     row(
-      "✗",
-      "ended",
+      d.weekly ? "·" : "✗",
+      d.weekly ? "week ended" : "ended",
       retired.endedBy
-        ? "by the revocation key · " + String(retired.endedBy).slice(0, 10) + "…"
+        /* Two endings: a settlement is the PARENT agent collapsing the grant it
+           delegated, not the stop key. This said "revocation key" for both,
+           which on #004 and #010 named the mechanism their pages contrast. */
+        ? (retired.how === "settled" ? "settled into its parent · " : "by the revocation key · ") +
+          String(retired.endedBy).slice(0, 10) + "…"
         : "its authority is over",
-      "no",
+      d.weekly ? "" : "no",
     );
   }
   /* Always last, always present. It is the only row here that is an argument
@@ -3047,19 +3055,39 @@ function renderWallet(d) {
     "w-count",
     act.payments
       ? act.payments + (act.payments === 1 ? " payment · " : " payments · ") + (act.paid || "")
-      : "nothing yet",
+      : d.weekly && d.weekly.delegatedTo
+        ? "through Scout · " + d.weekly.delegatedTo.payments + " payments · " + d.weekly.delegatedTo.spent
+        : "nothing yet",
   );
 
   if (items.length === 0) {
     var none = document.createElement("li");
     none.className = "empty";
-    none.textContent = "No payment has been made from this grant.";
+    var dt = d.weekly && d.weekly.delegatedTo;
+    if (dt) {
+      /* The orchestrator pays nobody itself: it hands Scout a piece of the
+         budget, and Scout's payments are charged home to it at settlement. */
+      var span = document.createElement("span");
+      span.style.gridColumn = "1 / -1";
+      var link = document.createElement("a");
+      link.setAttribute("href", ["", "agent-" + dt.id].join("/"));
+      link.textContent = "Scout, agent #" + dt.id;
+      span.appendChild(document.createTextNode("Its payments this week were made by "));
+      span.appendChild(link);
+      span.appendChild(document.createTextNode(" out of the piece it delegated: " + dt.payments + " record" +
+        (dt.payments === 1 ? "" : "s") + ", " + dt.spent + ", charged home here at settlement."));
+      none.appendChild(span);
+    } else none.textContent = "No payment has been made from this grant.";
     list.appendChild(none);
   } else {
     items.slice(0, 8).forEach(function (it) {
       var li = document.createElement("li");
       var s1 = document.createElement("span"); s1.className = "a"; s1.textContent = it.amount;
-      var s2 = document.createElement("span"); s2.className = "w"; s2.textContent = it.who;
+      /* The growth fleet's purchases name the projects it researched — people
+         it may write to. The payment is public on chain; the list of who is
+         being looked at does not need to be on a web page. */
+      var who = d.weekly ? String(it.who).replace(/\?.*$/, "") + " · one project record" : it.who;
+      var s2 = document.createElement("span"); s2.className = "w"; s2.textContent = who;
       var s3 = document.createElement("span"); s3.className = "t";
       s3.textContent = it.txid ? it.txid.slice(0, 10) + "…" : "";
       li.appendChild(s1); li.appendChild(s2); li.appendChild(s3);
@@ -3215,7 +3243,7 @@ function renderWallet(d) {
  * describes. It no-ops on a page that carries none of the elements it fills.
  */
 (function () {
-  var AGENT_IDS = ["001", "002", "003", "004", "005", "006"];
+  var AGENT_IDS = ["001", "002", "003", "004", "005", "006", "011", "009", "010"];
 
 /* ---- the diagram -------------------------------------------------------
    Positions are fixed; everything else — which nodes exist, which are dead,
@@ -3232,6 +3260,15 @@ var POS = {
      is different about it happened before the grant existed, which is why the
      interesting part of #006 is on /rail and not on this picture. */
   "006": { x: 120, y: 600, role: "bought, not hand-funded" },
+  /* The growth fleet: a batch grant each week (#009) and the sub-agent it
+     hires (#010), which buys records from Researcher. A second tree, drawn
+     below the first, because it is a separate budget with its own principal. */
+  /* The first agent whose key lives in Turnkey rather than in a file here.
+     It buys from the demo vendor, so it sits with the other buyers. */
+  "011": { x: 120, y: 730, role: "key held by Turnkey" },
+  "009": { x: 120, y: 870, role: "growth orchestrator" },
+  "010": { x: 120, y: 1000, role: "Scout — buys research" },
+  researcher: { x: 545, y: 1000, role: "sells /verify records" },
   vendor:  { x: 545, y: 265, role: "sells /weather /fact" },
   /* The one node on this diagram nobody here operates. It is drawn apart from
      the others for the same reason agent #005 exists: every other arrow on
@@ -3257,6 +3294,7 @@ function nodeFor(p) {
   var label = p.label || "";
   if (label.indexOf("#001") >= 0) return "001";
   if (label.indexOf("demo vendor") >= 0) return "vendor";
+  if (label.indexOf("Researcher") >= 0) return "researcher";
   /* An agent's own relay key is plumbing, not a counterparty: the grant funds
      it and it pays onward in the same breath. Drawing it would put a node on
      this picture that nobody trades with. */
@@ -3327,7 +3365,9 @@ function drawGraph(loaded) {
     var d = loaded[id];
     if (!d) return;
     any = true;
-    box(id, "Agent #" + id, POS[id] ? POS[id].role : "", !!d.retired);
+    /* #009 and #010 get a new grant each week: an ended one is a finished
+       week, not a retired agent, so they are not drawn dimmed. */
+    box(id, "Agent #" + id, POS[id] ? POS[id].role : "", !!d.retired && id !== "009" && id !== "010");
   });
   if (!any) return;
 
@@ -3338,11 +3378,12 @@ function drawGraph(loaded) {
   Object.keys(loaded).forEach(function (id) {
     ((loaded[id] && loaded[id].buysFrom && loaded[id].buysFrom.payees) || []).forEach(function (p) {
       var key = nodeFor(p);
-      if (key === "vendor" || key === "outside") sellers[key] = true;
+      if (key === "vendor" || key === "outside" || key === "researcher") sellers[key] = true;
     });
   });
   if (sellers.vendor) box("vendor", "Demo vendor", POS.vendor.role, false);
   if (sellers.outside) box("outside", "demo.kaspa-x402.org", POS.outside.role, false);
+  if (sellers.researcher) box("researcher", "Growth Researcher", POS.researcher.role, false);
 
   /* Payments, aggregated from the receipts. Only what was actually served:
      an arrow for money that bought nothing would be a different claim. */
