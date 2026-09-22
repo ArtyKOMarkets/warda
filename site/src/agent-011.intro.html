@@ -1,0 +1,32 @@
+<section>
+  <p class="eyebrow">The question this answers</p>
+  <h2>Can an agent pay with a key nobody here has ever held?</h2>
+  <p>
+    Every other agent on this site signs with a key that sits in a file on a machine we run.
+    That is fine for a demonstration and it is the first thing anybody running agents for real
+    will refuse to do &mdash; and it is the one thing a hosted service cannot ask its users to
+    accept.
+  </p>
+  <p>
+    This agent&rsquo;s key was created inside <strong>Turnkey</strong>, a key-management service
+    that signs in a secure enclave and never exports the key. The grant names that key as its
+    agent. Every payment is built here, the 32-byte transaction digest is sent to Turnkey, and a
+    signature comes back &mdash; which is checked against the grant&rsquo;s agent key before it is
+    used. Its first purchase, <code>fa5dfe72&hellip;</code>, paid the Warda demo vendor
+    0.03&nbsp;KAS and was served.
+  </p>
+  <p>
+    <strong>The honest gap, first:</strong> the trust has moved, not vanished. Turnkey could
+    sign for this agent. What it cannot do is sign for more than the covenant allows: the budget,
+    the per-payment cap, the epoch limit and the single allowed payee are checked by every Kaspa
+    node, so the most Turnkey &mdash; or anyone who took over our access to it &mdash; could ever
+    spend is what the grant has left, and only to the demo vendor. A <em>separate</em> revocation
+    key, which Turnkey has never seen, can stop the grant at any moment.
+  </p>
+  <p>
+    That bound is the point. A custodian holding a wallet is trusted with the wallet; a custodian
+    holding a Warda agent key is trusted with a grant whose limits consensus already enforces. It
+    is what makes a hosted Warda runner something a person can reasonably use.
+  </p>
+  {{LOCK}}
+</section>

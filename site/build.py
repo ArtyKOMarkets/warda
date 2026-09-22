@@ -132,6 +132,8 @@ AGENT_PAGES = {
            "that the one thing hardest to fake about this protocol can be checked rather than believed.",
     "006": "An agent that was bought rather than funded by hand: an asset sold once, a grant "
            "bounded from what arrived, and three powers held by three different keys.",
+    "011": "An agent whose key has never been on a machine of ours: created and held by Turnkey, "
+           "and bounded by a grant every Kaspa node enforces.",
     "009": "The growth fleet's orchestrator: a batch grant issued each week, subdivided to hire a "
            "sub-agent, charged for what it spent, and revoked when the week is done.",
     "010": "Scout, the growth fleet's buyer: a sub-agent that may pay one address, buys one "
@@ -466,6 +468,17 @@ AGENTS = [
     # The growth fleet. A new batch grant every week, so not one fixed grant:
     # growth/tools/reading.ts reads the latest finished week from
     # growth/current.json and runs dashboard.ts with that week's flags.
+    # The first agent whose key lives in Turnkey (MPC): created by
+    # runner/tools/first-turnkey-grant.sh, which signs through
+    # runner/tools/turnkey-sign.ts. No machine of ours has held its key.
+    ("agent-011.json", "agent-011.html",
+     "node --experimental-strip-types agents/tools/dashboard.ts \\\n"
+     "    x402/demo/agent-011-grant.json --id WARDA-011 \\\n"
+     "    --recipients x402/demo/agent-011-recipients.txt \\\n"
+     "    --purchases agent-011/purchases \\\n"
+     "    --endpoint https://warda-demo-api.vercel.app/fact \\\n"
+     "    --mission \"Pay with a key no machine of ours has ever held: the agent key lives in Turnkey, and the covenant bounds what it can sign for.\" \\\n"
+     "    > site/src/agent-011.json.new && mv site/src/agent-011.json.new site/src/agent-011.json"),
     ("agent-009.json", "agent-009.html",
      "node --experimental-strip-types growth/tools/reading.ts orchestrator \\\n"
      "    > site/src/agent-009.json.new && mv site/src/agent-009.json.new site/src/agent-009.json"),
