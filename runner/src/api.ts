@@ -42,6 +42,7 @@ import { timingSafeEqual } from "node:crypto";
 import type { Ops } from "./ops.ts";
 import { adminStats } from "./admin.ts";
 import type { SubAgentTerms } from "./delegate.ts";
+import type { ReturnDoc } from "./settle.ts";
 import { jobProblem } from "./jobs.ts";
 import { statement, statementCsv } from "./statement.ts";
 import { FEATURED, publishable, type Template } from "./templates.ts";
@@ -82,6 +83,11 @@ export interface ApiDeps {
   prefix?: NetworkPrefix;
   /** Sub-agents: a delegation from a hosted agent's grant (delegate.ts). */
   delegate?: (parent: string, child: string, terms: SubAgentTerms) => Promise<{ txid: string; childAddress: string }>;
+  /** Returning a helper's budget to its parent (settle.ts): prepare, then the owner's signature completes it. */
+  returns?: {
+    prepare(child: string): Promise<ReturnDoc>;
+    complete(id: string, signature: string): Promise<{ txid: string; parent: string; child: string; recoveredKas: string }>;
+  };
   /** Once an hour: tell owners whose agents are about to stop (nudge.ts). */
   nudge?: () => Promise<unknown>;
   /** The operator's alerts (ops.ts). */
@@ -423,6 +429,35 @@ export function createApi(d: ApiDeps): (req: Request) => Promise<Response> {
           note: `${child} now holds ${formatKas(budget)} KAS of ${parent}'s budget, enforced by every Kaspa node. ` +
             `It may pay the same payees, never more than ${formatKas(maxPerSpend)} KAS at once. Give it jobs like any agent.`,
         });
+      } catch (e) {
+        throw new HttpError(409, (e as Error).message);
+      }
+    }],
+
+    /* A helper's unused budget back to its parent. Step 1 (the owner, with
+       their runner key): the runner signs the parent's half and returns the
+       document. Step 2 (the owner's own machine): the revocation key's
+       signature over the helper's half, checked here before anything is sent. */
+    ["POST", /^\/v1\/agents\/([\w-]+)\/return$/, async (req, m) => {
+      const acct = await account(req);
+      await ownAgent(acct, m[1]!);
+      if (!d.returns) throw new HttpError(501, "this runner cannot return helpers");
+      try {
+        const doc = await d.returns.prepare(m[1]!);
+        return json(201, {
+          document: doc,
+          next: `Save this as return.json and, where your revocation key is, run: npx @warda_protocol/cli return return.json --key <the file holding your revocation key>`,
+        });
+      } catch (e) {
+        throw new HttpError(409, (e as Error).message);
+      }
+    }],
+    ["POST", /^\/v1\/returns\/(ret_[0-9a-f]{24})\/signature$/, async (req, m) => {
+      if (!d.returns) throw new HttpError(501, "this runner cannot return helpers");
+      const b = await body(req);
+      if (typeof b.signature !== "string" || !/^[0-9a-f]{130}$/i.test(b.signature)) throw new HttpError(400, "signature: 65 bytes as hex");
+      try {
+        return json(200, await d.returns.complete(m[1]!, b.signature));
       } catch (e) {
         throw new HttpError(409, (e as Error).message);
       }

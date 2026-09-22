@@ -271,6 +271,8 @@ const HELP = `warda — bounded spending authority for an agent, on Kaspa.
                                 available at any moment. [--key <revocation.key>]
   warda reclaim  [grant.json]   the term is over, bring the remainder home.
                                 Signed by the principal, after expiry.
+  warda return   <return.json>  a hosted helper's unused budget back to its parent.
+                                Your half, signed here. --key <revocation.key>
   warda fee      relay          what the network charges for a relayed payment.
                                 Measured, not estimated — it is the one fee here
                                 that cannot be corrected after the fact.
@@ -959,6 +961,13 @@ switch (verb) {
         env,
       ),
     );
+    break;
+  }
+
+  /* A hosted helper's unused budget, back to its parent: the owner's half of
+     the settlement the runner prepared. Only a signature leaves this machine. */
+  case "return": {
+    process.exit(run("sdk/tools/return-helper.ts", rest));
     break;
   }
 

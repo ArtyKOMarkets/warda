@@ -15,6 +15,8 @@ const KAS = 100_000_000n;
 const VENDOR = "16e6af2030f7e4510d1a417391a7ff7ccad21864f17eef7ee035f0453e21a033";
 const RUNNER = "3c693f61fbc35d1fd4dcec2bbbab692be38656e6fd5a4077ee495afcb23535a1";
 const owner = () => toHex(schnorr.getPublicKey(new Uint8Array(randomBytes(32))));
+const REV_SECRET = new Uint8Array(randomBytes(32));
+const REV = toHex(schnorr.getPublicKey(REV_SECRET));
 const TEMPLATE = covenantTemplate as unknown as CovenantTemplate;
 
 async function funded(o: { failSubmit?: boolean } = {}) {
@@ -31,7 +33,7 @@ async function funded(o: { failSubmit?: boolean } = {}) {
   };
   const agentKey = await vault.create("boss");
   const plan = await createPlan({
-    vault, registry, agent: "boss", agentKey, principal: owner(), revocation: owner(),
+    vault, registry, agent: "boss", agentKey, principal: owner(), revocation: REV,
     limits: { budget: KAS, maxPerSpend: KAS / 5n, epochLimit: KAS / 2n, epochLength: 1000n, days: 7 },
     recipients: [VENDOR, RUNNER], prefix: "kaspatest", now: 1,
   });
@@ -47,7 +49,9 @@ async function funded(o: { failSubmit?: boolean } = {}) {
       covenantId: fromHex(rec.manifest.covenant_id) } }]);
   if (o.failSubmit) failNext = true;
   submitted.length = 0; // the genesis
-  return { registry, vault, chain, submitted, rec };
+  const at = (address: string, value: bigint, covenantId: string) => utxos.set(address, [{ outpoint: { transactionId: new Uint8Array(randomBytes(32)), index: 0 },
+    entry: { value, scriptPublicKey: { version: 0, script: new Uint8Array(0) }, blockDaaScore: 3n, isCoinbase: false, covenantId: fromHex(covenantId) } }]);
+  return { registry, vault, chain, submitted, rec, at, store };
 }
 
 test("a sub-agent: a child grant with part of the budget, narrower, same owner keys; the parent reserves it", async () => {
@@ -88,4 +92,37 @@ test("more than the parent has left, or a higher cap, is refused before anything
   await assert.rejects(() => delegate({ registry: b.registry, vault: b.vault, chain: b.chain, prefix: "kaspatest",
     parent: "boss", child: "h2", terms: { budget: KAS / 10n, maxPerSpend: KAS }, now: 5 }), /cannot raise the per-spend cap/);
   assert.equal(b.submitted.length, 0);
+});
+
+test("return a helper: the runner signs the parent's half, the owner's revocation key the helper's; the parent gets the coin back", async () => {
+  const { prepareReturn, completeReturn } = await import("../src/settle.ts");
+  const { signDigest } = await import("@warda_protocol/kaspa");
+  const b = await funded();
+  const d = await delegate({ registry: b.registry, vault: b.vault, chain: b.chain, prefix: "kaspatest",
+    parent: "boss", child: "helper", terms: { budget: KAS / 5n, maxPerSpend: KAS / 50n }, now: 5 });
+  const parentAfter = (await b.registry.getGrant("boss"))!;
+  b.at(d.parentAddress, BigInt(parentAfter.manifest.grant_value), parentAfter.manifest.covenant_id);
+  b.at(d.childAddress, KAS / 5n, parentAfter.manifest.covenant_id);
+  b.submitted.length = 0;
+
+  const doc = await prepareReturn({ registry: b.registry, vault: b.vault, chain: b.chain, prefix: "kaspatest", child: "helper", runnerUrl: "https://r.test", now: 10 });
+  assert.equal(doc.kind, "warda-return");
+  assert.equal(doc.authority.revocationKey, REV);
+  assert.match(doc.says, /Return helper's unused 0\.2 KAS of budget to boss/);
+  assert.ok(!JSON.stringify(doc).includes(toHex(REV_SECRET)));
+
+  await assert.rejects(() => completeReturn({ registry: b.registry, store: b.store, chain: b.chain, id: doc.id,
+    signature: toHex(signDigest(fromHex(doc.childSighash), new Uint8Array(randomBytes(32)))), now: 11 }), /not the revocation key's/);
+  assert.equal(b.submitted.length, 0);
+
+  const r = await completeReturn({ registry: b.registry, store: b.store, chain: b.chain, id: doc.id,
+    signature: toHex(signDigest(fromHex(doc.childSighash), REV_SECRET)), now: 12 });
+  assert.equal(b.submitted.length, 1);
+  assert.equal(r.parent, "boss");
+  assert.equal(await b.registry.getGrant("helper"), null, "the helper's grant is over");
+  const p = (await b.registry.getGrant("boss"))!;
+  assert.equal(p.manifest.reserved, 0, "the reserve is released");
+  assert.equal(p.manifest.reserve_root, b.rec.manifest.reserve_root, "the stack is back where it was");
+  await assert.rejects(() => completeReturn({ registry: b.registry, store: b.store, chain: b.chain, id: doc.id,
+    signature: toHex(signDigest(fromHex(doc.childSighash), REV_SECRET)), now: 13 }), /already completed/);
 });

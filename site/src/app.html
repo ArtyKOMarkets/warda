@@ -7931,7 +7931,11 @@ ops/install-cron.sh</pre>
     var kids = a.subAgents || [];
     $("sa-n").textContent = kids.length ? String(kids.length) : "";
     $("sa-list").innerHTML = (a.parent ? '<p class="why" style="margin:0 0 0.5rem">This is a helper of <a class="more" data-sa="' + esc(a.parent) + '">' + esc(a.parent) +
-      '</a>. Helpers cannot make helpers of their own.</p>' : "") +
+      '</a>. Helpers cannot make helpers of their own.</p>' +
+      '<div class="sa-need"><p><b>Done with it?</b> Give its unused budget back to ' + esc(a.parent) + '. The runner signs ' + esc(a.parent) +
+      '&rsquo;s half; the other half needs <b>your revocation key</b>, which the runner never holds &mdash; so you finish it with one command on your own machine. ' +
+      'This helper&rsquo;s grant then ends and its jobs stop.</p>' +
+      '<button class="go gh" type="button" id="sa-return">Return unused budget to ' + esc(a.parent) + '</button><pre id="sa-ret-out" hidden></pre></div>' : "") +
       kids.map(function (k) {
         return '<div class="ev" data-sa="' + esc(k.agent) + '" style="cursor:pointer"><span class="pill live">helper</span><i style="font-style:normal"><b>' + esc(k.agent) +
           '</b><span>budget ' + esc(k.budgetKas) + ' KAS</span></i><span class="a">Open &rarr;</span></div>';
@@ -7953,6 +7957,22 @@ ops/install-cron.sh</pre>
     }
   }
   $("sa-list").addEventListener("click", function (e) {
+    if (e.target.id === "sa-return") {
+      var btn = e.target; btn.disabled = true;
+      hApi("POST", "/v1/agents/" + encodeURIComponent(HA.open) + "/return", {}).then(function (r) {
+        var a = document.createElement("a");
+        a.href = URL.createObjectURL(new Blob([JSON.stringify(r, null, 2) + "\n"], { type: "application/json" }));
+        a.download = "return.json"; a.click();
+        $("sa-ret-out").hidden = false;
+        $("sa-ret-out").textContent = r.document.says + "\n\nreturn.json is in your downloads. Where your revocation key is, run:\n\n" +
+          "  npx @warda_protocol/cli return return.json --key your-revocation.key\n\n" +
+          "It rebuilds the transaction on your machine, shows what it does, and sends back only a signature.\n" +
+          "Your revocation key is the Kaspa key you gave when you created the agent (if that was KasWare's,\n" +
+          "export its private key from KasWare into a file first). Valid for 30 minutes.";
+      }).catch(function (err) { $("sa-ret-out").hidden = false; $("sa-ret-out").textContent = err.message; })
+        .then(function () { btn.disabled = false; });
+      return;
+    }
     var el = e.target.closest && e.target.closest("[data-sa]"); if (!el) return;
     haOpen(el.getAttribute("data-sa"));
   });
