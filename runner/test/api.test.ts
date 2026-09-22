@@ -20,6 +20,7 @@ function bench(o: { signupCode?: string } = {}) {
   const vault = new EnvelopeVault(localMasterKey(new Uint8Array(randomBytes(32))), store);
   let now = Date.parse("2026-09-22T09:00:00Z");
   const sent: string[] = [];
+  const tg: [string, string][] = [];
   const view: GrantView = {
     address: "kaspatest:grant", status: "ACTIVE", budgetTotal: 200_000_000n, spentTotal: 0n, reserved: 0n,
     maxPerSpend: 50_000_000n, epochRemaining: null, coin: 200_000_000n, payees: [VENDOR, RUNNER], expiresAtMs: now + 7 * 86_400_000,
@@ -43,6 +44,7 @@ function bench(o: { signupCode?: string } = {}) {
   const api = createApi({
     store, registry, vault, engine, grants, fees, tickSecret: "t".repeat(32), baseUrl: BASE, now: () => now,
     mcp: createMcp({ store, registry, engine, grants, fees, now: () => now }),
+    telegram: { hookSecret: "hooksecret", username: async () => "warda_test_bot", send: async (chat, text) => void tg.push([chat, text]) },
     ...(o.signupCode ? { signupCode: o.signupCode } : {}),
   });
   const call = async (method: string, path: string, opts: { key?: string; body?: unknown; headers?: Record<string, string> } = {}) => {
@@ -54,7 +56,7 @@ function bench(o: { signupCode?: string } = {}) {
     const text = await res.text();
     return { status: res.status, body: (text ? JSON.parse(text) : {}) as Record<string, any>, headers: res.headers };
   };
-  return { call, sent, advance: (ms: number) => void (now += ms) };
+  return { call, sent, tg, registry, advance: (ms: number) => void (now += ms) };
 }
 
 async function onboarded(recipients = [VENDOR, RUNNER]) {
@@ -238,4 +240,23 @@ test("the agent list, in detail: state, money, jobs, last run", async () => {
   assert.equal(row.spendableKas, "2");
   assert.equal(row.jobs, 1);
   assert.equal(row.lastRun, null);
+});
+
+test("Telegram: a one-time /start link connects the owner's chat, and nothing else can", async () => {
+  const b = await onboarded();
+  assert.deepEqual((await b.call("GET", "/v1/telegram", { key: b.key })).body, { available: true, connected: false });
+  const link = await b.call("POST", "/v1/telegram/link", { key: b.key, body: {} });
+  const code = /start=([\w-]+)$/.exec(link.body.url)![1]!;
+  assert.match(link.body.url, /^https:\/\/t\.me\/warda_test_bot\?start=/);
+  const hook = (body: unknown, secret = "hooksecret") =>
+    b.call("POST", "/v1/telegram/hook", { body, headers: { "x-telegram-bot-api-secret-token": secret } });
+  await hook({ message: { chat: { id: 42 }, text: `/start ${code}` } }, "forged");
+  assert.equal((await b.call("GET", "/v1/telegram", { key: b.key })).body.connected, false, "a forged hook changes nothing");
+  await hook({ message: { chat: { id: 42 }, text: `/start ${code}` } });
+  assert.equal((await b.call("GET", "/v1/telegram", { key: b.key })).body.connected, true);
+  assert.match(b.tg.at(-1)![1], /Connected/);
+  await hook({ message: { chat: { id: 99 }, text: `/start ${code}` } });
+  assert.match(b.tg.at(-1)![1], /expired or was already used/);
+  const acct = await b.registry.ownerOf("shop-bot");
+  assert.equal(await b.registry.telegramOf(acct!), "42");
 });

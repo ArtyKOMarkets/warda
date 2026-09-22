@@ -35,11 +35,19 @@ export interface Registry {
   /** A token that acts as ONE agent over MCP. Returns the plaintext once. */
   createAgentToken(agent: string): Promise<string>;
   agentForToken(token: string): Promise<string | null>;
+  /** A one-time code the owner sends the bot as /start <code>. */
+  createTelegramLink(account: string, now: number): Promise<string>;
+  /** Consumes a code younger than 15 minutes; returns its account. */
+  consumeTelegramLink(code: string, now: number): Promise<string | null>;
+  setTelegram(account: string, chat: string): Promise<void>;
+  telegramOf(account: string): Promise<string | null>;
   putPlan(p: Plan): Promise<void>;
   getPlan(agent: string): Promise<Plan | null>;
   /** Plans not yet funded or failed. */
   pendingPlans(): Promise<Plan[]>;
 }
+
+const TG_LINK_MS = 15 * 60_000;
 
 export const sha256 = (s: string) => createHash("sha256").update(s, "utf8").digest("hex");
 export const token = (prefix: string) => `${prefix}_${randomBytes(24).toString("base64url")}`;
@@ -57,7 +65,26 @@ export function memoryRegistry(): Registry {
   const hooks = new Map<string, string>();
   const plans = new Map<string, Plan>();
   const agentTokens = new Map<string, string>(); // hash -> agent
+  const tgLinks = new Map<string, { account: string; at: number }>();
+  const tgChats = new Map<string, string>();
   return {
+    async createTelegramLink(account, now) {
+      const c = randomBytes(9).toString("base64url");
+      tgLinks.set(sha256(c), { account, at: now });
+      return c;
+    },
+    async consumeTelegramLink(code, now) {
+      const k = sha256(code);
+      const l = tgLinks.get(k);
+      tgLinks.delete(k);
+      return l && now - l.at < TG_LINK_MS ? l.account : null;
+    },
+    async setTelegram(account, chat) {
+      tgChats.set(account, chat);
+    },
+    async telegramOf(account) {
+      return tgChats.get(account) ?? null;
+    },
     async createAgentToken(agent) {
       const t = token("wat");
       agentTokens.set(sha256(t), agent);
@@ -122,6 +149,8 @@ create index if not exists runner_agents_account on runner_agents (account);
 create table if not exists runner_grants (agent text primary key, body jsonb not null, updated_at bigint not null);
 create table if not exists runner_hooks (workflow_id text primary key, secret_hash text not null);
 create table if not exists runner_agent_tokens (token_hash text primary key, agent text not null, created_at bigint not null);
+create table if not exists runner_tg_links (code_hash text primary key, account text not null, created_at bigint not null);
+create table if not exists runner_tg_chats (account text primary key, chat text not null);
 create table if not exists runner_plans (agent text primary key, status text not null, body jsonb not null);
 `;
 
@@ -131,6 +160,26 @@ export async function migrateRegistry(db: Queryable): Promise<void> {
 
 export function pgRegistry(db: Queryable): Registry {
   return {
+    async createTelegramLink(account, now) {
+      const c = randomBytes(9).toString("base64url");
+      await db.query(`insert into runner_tg_links (code_hash, account, created_at) values ($1,$2,$3)`, [sha256(c), account, now]);
+      return c;
+    },
+    async consumeTelegramLink(code, now) {
+      const { rows } = await db.query(`delete from runner_tg_links where code_hash = $1 returning account, created_at`, [sha256(code)]);
+      const r = rows[0];
+      return r && now - Number(r.created_at) < TG_LINK_MS ? String(r.account) : null;
+    },
+    async setTelegram(account, chat) {
+      await db.query(
+        `insert into runner_tg_chats (account, chat) values ($1,$2) on conflict (account) do update set chat = excluded.chat`,
+        [account, chat],
+      );
+    },
+    async telegramOf(account) {
+      const { rows } = await db.query(`select chat from runner_tg_chats where account = $1`, [account]);
+      return rows[0] ? String(rows[0].chat) : null;
+    },
     async createAgentToken(agent) {
       const t = token("wat");
       await db.query(`insert into runner_agent_tokens (token_hash, agent, created_at) values ($1,$2,$3)`, [sha256(t), agent, Date.now()]);

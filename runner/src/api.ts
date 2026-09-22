@@ -52,6 +52,12 @@ export interface ApiDeps {
   funder?: Pick<Funder, "tick">;
   /** Returns a deposit to the owner's principal key (funding.ts refundDeposit). */
   refund?: (plan: Plan) => Promise<{ txid: string; value: bigint }[]>;
+  /** Telegram: the bot that tells owners about their agents. */
+  telegram?: {
+    hookSecret: string;
+    username(): Promise<string>;
+    send(chat: string, text: string): Promise<void>;
+  };
   /** The per-agent MCP endpoint, served at /mcp. */
   mcp?: (req: Request) => Promise<Response>;
   prefix?: NetworkPrefix;
@@ -427,6 +433,48 @@ export function createApi(d: ApiDeps): (req: Request) => Promise<Response> {
       const key = req.headers.get("idempotency-key") ?? undefined;
       const run = await d.engine.fire(wfId, "webhook", { body: payload, ...(key ? { key } : {}) });
       return json(202, { run });
+    }],
+
+    ["GET", /^\/v1\/telegram$/, async (req) => {
+      const acct = await account(req);
+      const chat = await d.registry.telegramOf(acct);
+      return json(200, { available: !!d.telegram, connected: !!chat });
+    }],
+
+    ["POST", /^\/v1\/telegram\/link$/, async (req) => {
+      const acct = await account(req);
+      if (!d.telegram) throw new HttpError(501, "this runner has no Telegram bot configured");
+      const code = await d.registry.createTelegramLink(acct, now());
+      const bot = await d.telegram.username();
+      return json(201, {
+        url: `https://t.me/${bot}?start=${code}`,
+        note: "Open it and press Start. The link works once, for 15 minutes.",
+      });
+    }],
+
+    /* Telegram calls this; it proves itself with the secret token given to
+       setWebhook. Always 200 — a refusal would only make Telegram retry. */
+    ["POST", /^\/v1\/telegram\/hook$/, async (req) => {
+      const tg = d.telegram;
+      if (!tg || req.headers.get("x-telegram-bot-api-secret-token") !== tg.hookSecret) return json(200, { ok: true });
+      const u = (await req.json().catch(() => null)) as { message?: { chat?: { id?: number | string }; text?: string } } | null;
+      const chat = u?.message?.chat?.id;
+      const text = String(u?.message?.text ?? "");
+      const m = /^\/start\s+([\w-]{8,})$/.exec(text.trim());
+      if (chat === undefined) return json(200, { ok: true });
+      if (!m) {
+        await tg.send(String(chat), "This bot tells you about your Warda agents. Connect it from the console: New agent → Put it to work → Connect Telegram.").catch(() => {});
+        return json(200, { ok: true });
+      }
+      const acct = await d.registry.consumeTelegramLink(m[1]!, now());
+      if (!acct) {
+        await tg.send(String(chat), "That link has expired or was already used. Make a new one in the console.").catch(() => {});
+        return json(200, { ok: true });
+      }
+      await d.registry.setTelegram(acct, String(chat));
+      const n = (await d.registry.agentsOf(acct)).length;
+      await tg.send(String(chat), `Connected. Warda will tell you here about your ${n} agent${n === 1 ? "" : "s"}: low budgets, endings, and anything that needs your signature. It can never move your funds.`).catch(() => {});
+      return json(200, { ok: true });
     }],
 
     ["POST", /^\/v1\/tick$/, async (req) => {

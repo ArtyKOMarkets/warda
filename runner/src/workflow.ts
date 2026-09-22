@@ -159,7 +159,9 @@ export function parseAction(v: unknown, i: number): Action {
       if (a.channel !== "telegram" && a.channel !== "webhook") {
         throw new WorkflowError(`${w("channel")} must be telegram or webhook`);
       }
-      const to = a.channel === "webhook" ? https(a.to, w("to")) : str(a.to, w("to"));
+      // Telegram with no `to` goes to the chat the agent's owner connected.
+      const to = a.channel === "webhook" ? https(a.to, w("to"))
+        : a.to === undefined || a.to === "" ? "" : str(a.to, w("to"));
       return { type: "notify", channel: a.channel, to, text: str(a.text, w("text")) };
     }
     case "http": {

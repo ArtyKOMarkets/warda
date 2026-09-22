@@ -2167,6 +2167,7 @@ ops/install-cron.sh</pre>
                     <option value="buy">Buy from an API, every day</option>
                     <option value="hook">Pay a payee when a webhook fires</option>
                     <option value="low">Tell me when its budget runs low</option>
+                    <option value="end">Tell me a day before its grant ends</option>
                   </select>
                 </div>
                 <div class="field" id="h-f-url"><label for="h-jurl">API</label><input id="h-jurl" value="https://warda-demo-api.vercel.app/fact" spellcheck="false"></div>
@@ -2174,11 +2175,18 @@ ops/install-cron.sh</pre>
                 <div class="field" id="h-f-hour"><label for="h-jhour">At (UTC hour)</label><input id="h-jhour" inputmode="numeric" value="9"></div>
                 <div class="field" id="h-f-to" hidden><label for="h-jto">Pay</label><input id="h-jto" spellcheck="false"></div>
                 <div class="field" id="h-f-kas" hidden><label for="h-jkas">Amount &mdash; KAS</label><input id="h-jkas" inputmode="decimal" value="0.05"></div>
-                <div class="field" id="h-f-tg" hidden><label for="h-jtg">Telegram chat id</label><input id="h-jtg" spellcheck="false"></div>
+                <div class="field" id="h-f-tg" hidden><label for="h-jtg">Telegram chat &mdash; optional</label><input id="h-jtg" placeholder="empty: your connected Telegram" spellcheck="false"></div>
               </div>
               <p style="margin-top:1rem"><button class="go wide" id="h-job">Add this job</button></p>
               <p class="state" id="h-job-s"></p>
               <pre id="h-job-out" hidden></pre>
+            </div>
+            <div class="card" style="margin-top:0.85rem">
+              <header><h2>Tell me on Telegram</h2></header>
+              <p class="say">Low budgets, a grant about to end, anything that needs your signature &mdash; to your phone.
+                The bot can only send you messages; it can never move your funds.</p>
+              <p><button class="go gh tg-connect">Connect Telegram</button></p>
+              <p class="state tg-state"></p>
             </div>
             <div class="card" style="margin-top:0.85rem">
               <header><h2>Let the agent pay by itself</h2></header>
@@ -2234,6 +2242,8 @@ ops/install-cron.sh</pre>
       <div><button class="go" data-view="hosted">&#128293; New agent</button></div></div>
 
       <p class="state" id="ha-s"></p>
+      <p style="display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap;margin:0 0 0.9rem">
+        <button class="go gh tg-connect">Connect Telegram</button><span class="state tg-state" style="margin:0"></span></p>
       <div class="card" id="ha-list-c">
         <header><h2>Agents <small id="ha-n"></small></h2><a class="more" id="ha-reload">Refresh</a></header>
         <div style="overflow-x:auto">
@@ -4587,8 +4597,8 @@ ops/install-cron.sh</pre>
       var m = x.m, rd = OREAD[ownKey(m)], st = ownState(m, rd);
       var r = rd && rd.st === "read" && rd.r.found ? rd.r : null;
       if (r && r.agrees) { left += Number(r.remaining.sompi); read++; }
-      var title = "Grant " + (m.covenant_id ? String(m.covenant_id).slice(0, 8) + "…" : short(m.principal));
-      return '<div class="ev" data-view="account" tabindex="0">' +
+      var title = x.hosted ? x.hosted + " \u00b7 hosted" : "Grant " + (m.covenant_id ? String(m.covenant_id).slice(0, 8) + "…" : short(m.principal));
+      return '<div class="ev" data-view="' + (x.hosted ? "hagents" : "account") + '" tabindex="0">' +
         '<span class="pill ' + st[1] + '">' + esc(st[0]) + '</span>' +
         '<i style="font-style:normal;min-width:0"><b>' + esc(title) + '</b>' +
         '<span>' + (r ? "next payment up to " + amt(r.maxNextSpend) + " KAS · this epoch " + amt(r.epochRemaining) + " KAS"
@@ -5998,7 +6008,7 @@ ops/install-cron.sh</pre>
     $("h-next").textContent = HR.step === 3 ? "Create the agent" : "Continue";
     ["h-budget", "h-cap", "h-days", "h-name", "h-payees", "h-owner"].forEach(function (id) { $(id).disabled = !!HR.funding; });
     if (HR.step === 3) hOwner();
-    if (HR.step === 5) hRuns();
+    if (HR.step === 5) { hRuns(); tgCheck(); }
     hView();
     window.scrollTo(0, 0);
   }
@@ -6073,6 +6083,7 @@ ops/install-cron.sh</pre>
     HR.poll = setInterval(tick, 5000);
   }
   function hLive(f) {
+    setTimeout(hSync, 0);
     var el = $("h-fund-s");
     el.textContent = "Live. The grant exists, and its limits are now enforced by every Kaspa node. ";
     el.style.color = "var(--teal-bright)";
@@ -6085,7 +6096,7 @@ ops/install-cron.sh</pre>
     $("h-f-url").hidden = $("h-f-max").hidden = !(t === "buy" || t === "once");
     $("h-f-hour").hidden = t !== "buy";
     $("h-f-to").hidden = $("h-f-kas").hidden = t !== "hook";
-    $("h-f-tg").hidden = t !== "low";
+    $("h-f-tg").hidden = t !== "low" && t !== "end";
   }
   function hJob() {
     var t = $("h-tpl").value, agent = HR.agent, wf;
@@ -6100,6 +6111,10 @@ ops/install-cron.sh</pre>
     } else if (t === "hook") {
       wf = { agent: agent, name: "Pay on webhook", trigger: { type: "webhook" },
              then: [{ type: "send", to: $("h-jto").value.trim(), kas: $("h-jkas").value.trim() }] };
+    } else if (t === "end") {
+      wf = { agent: agent, name: "Grant ending", trigger: { type: "grant", when: "expiring-within", hours: 24 },
+             then: [{ type: "notify", channel: "telegram", to: $("h-jtg").value.trim(),
+                      text: "{{agent}}'s grant ends in {{grant.hoursToExpiry}} hours, with {{grant.availableKas}} KAS left. After that it can pay no one, and what is left is yours to take back." }] };
     } else {
       wf = { agent: agent, name: "Budget low", trigger: { type: "grant", when: "budget-below", percent: 20 },
              then: [{ type: "notify", channel: "telegram", to: $("h-jtg").value.trim(), text: "{{agent}} has {{grant.availableKas}} KAS left." }] };
@@ -6220,6 +6235,7 @@ ops/install-cron.sh</pre>
     $("ha-list-c").hidden = false;
     hState("ha-s", "Reading your agents and their grants from the chain…");
     hApi("GET", "/v1/agents?detail=1").then(function (r) {
+      hSync();
       hState("ha-s", "");
       HR.connected = true;
       $("ha-n").textContent = r.agents.length;
@@ -6343,6 +6359,62 @@ ops/install-cron.sh</pre>
       "Download it just before you run it: the grant moves after every payment, and an old copy points at an\n" +
       "address that no longer holds anything."));
   }
+  /* Hosted agents' grants are the owner's grants: tracked like any grant.json
+     you add by hand, so Overview, Grants and the verifier's reading all count
+     them. The runner's copy is the current one — a grant moves with every
+     payment — so a tracked copy is replaced whenever it differs. */
+  function hSync() {
+    if (!$("h-key").value.trim()) return Promise.resolve();
+    return hApi("GET", "/v1/agents").then(function (r) {
+      return Promise.all(r.agents.map(function (id) {
+        return hApi("GET", "/v1/agents/" + encodeURIComponent(id)).then(function (a) {
+          if (!a.manifest) return;
+          var k = ownKey(a.manifest);
+          var have = OWN.filter(function (x) { return ownKey(x.m) === k; })[0];
+          if (have && JSON.stringify(have.m) === JSON.stringify(a.manifest) && have.hosted === id) return;
+          if (ownAdd(JSON.stringify(a.manifest), id)) return;
+          OWN.forEach(function (x) { if (ownKey(x.m) === k) x.hosted = id; });
+          ownSave();
+        }).catch(function () {});
+      }));
+    }).then(function () { ownRender(); scopeRender(); }).catch(function () {});
+  }
+  setTimeout(hSync, 800);
+
+  /* Telegram: one tap. The runner makes a one-time /start link; the owner
+     presses Start in Telegram and the bot learns their chat. No chat ids. */
+  var TG = { poll: null };
+  function tgState(text, bad) {
+    Array.prototype.forEach.call(document.querySelectorAll(".tg-state"), function (el) {
+      el.textContent = text; el.style.color = bad ? "var(--refuse)" : "";
+    });
+  }
+  function tgCheck() {
+    if (!$("h-key").value.trim()) return Promise.resolve(false);
+    return hApi("GET", "/v1/telegram").then(function (r) {
+      Array.prototype.forEach.call(document.querySelectorAll(".tg-connect"), function (b) {
+        b.hidden = r.connected || !r.available;
+      });
+      tgState(r.connected ? "✓ Telegram connected — alerts come to your phone." : r.available ? "" : "This runner has no Telegram bot yet.");
+      return r.connected;
+    }).catch(function () { return false; });
+  }
+  Array.prototype.forEach.call(document.querySelectorAll(".tg-connect"), function (b) {
+    b.addEventListener("click", function () {
+      var w = window.open("about:blank", "_blank");
+      hApi("POST", "/v1/telegram/link", {}).then(function (r) {
+        if (w) w.location = r.url; else location.href = r.url;
+        tgState("Press Start in Telegram, then come back here…");
+        if (TG.poll) clearInterval(TG.poll);
+        var n = 0;
+        TG.poll = setInterval(function () {
+          if (++n > 60) { clearInterval(TG.poll); return; }
+          tgCheck().then(function (ok) { if (ok) clearInterval(TG.poll); });
+        }, 3000);
+      }).catch(function (e) { if (w) w.close(); tgState(e.message, true); });
+    });
+  });
+
   $("ha-reload").addEventListener("click", haList);
   $("ha-d-close").addEventListener("click", function () { $("ha-d").hidden = true; HA.open = null; });
   $("ha-d-job").addEventListener("click", function () {
@@ -6962,7 +7034,7 @@ ops/install-cron.sh</pre>
     if (v === "fleet") fleetView();
     if (v === "registry") svcView();
     if (v === "hosted") { if ($("h-key").value && !HR.connected) hConnect(); hView(); }
-    if (v === "hagents") haList();
+    if (v === "hagents") { haList(); tgCheck(); }
     Array.prototype.forEach.call(document.querySelectorAll(".side a[data-view], .tabs a[data-view]"), function (o) {
       if (o.getAttribute("data-view") === v) o.setAttribute("aria-current", "page");
       else o.removeAttribute("aria-current");

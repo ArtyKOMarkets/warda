@@ -6,6 +6,7 @@
  * and submits through the public resolvers over borsh, which is what lets a
  * hosted runner exist without anybody's node behind it.
  */
+import { createHash } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { Pool } from "@neondatabase/serverless";
 import { kas } from "@warda_protocol/core";
@@ -77,14 +78,41 @@ export async function boot(e: NodeJS.ProcessEnv = process.env, defaults: { baseU
     settleAtSompi: kas(env("RUNNER_SETTLE_AT_KAS", "0.05")),
     settleBeforeExpiryHours: 24,
   };
-  const notifier = liveNotifier(e.TELEGRAM_BOT_TOKEN ? { telegramToken: e.TELEGRAM_BOT_TOKEN } : {});
+  const token = e.TELEGRAM_BOT_TOKEN || undefined;
+  const raw = liveNotifier(token ? { telegramToken: token } : {});
+  /* Telegram with no chat named goes to whoever owns the agent. */
+  const notifier = {
+    async notify(channel: "telegram" | "webhook", to: string, text: string, agent?: string) {
+      let chat = to;
+      if (channel === "telegram" && !chat) {
+        const acct = agent ? await registry.ownerOf(agent) : null;
+        chat = (acct ? await registry.telegramOf(acct) : null) ?? "";
+        if (!chat) throw new Error("the agent's owner has not connected Telegram (console: Put it to work → Connect Telegram)");
+      }
+      return raw.notify(channel, chat, text);
+    },
+  };
+  let botName: string | null = null;
+  const telegram = token
+    ? {
+        hookSecret: createHash("sha256").update("warda-runner-telegram:" + token).digest("hex").slice(0, 48),
+        async username() {
+          if (botName) return botName;
+          const r = await fetch(`https://api.telegram.org/bot${token}/getMe`).then((x) => x.json() as Promise<{ result?: { username?: string } }>);
+          botName = r.result?.username ?? "";
+          if (!botName) throw new Error("Telegram did not say what this bot is called");
+          return botName;
+        },
+        send: (chat: string, text: string) => raw.notify("telegram", chat, text),
+      }
+    : undefined;
   const grants = liveGrants(openAgent);
   const baseUrl = e.RUNNER_BASE_URL ?? defaults.baseUrl;
   const engine = new Engine({
     store, grants, fees, notifier,
     payments: livePayments(openAgent),
     http: liveHttp,
-    approvals: liveApprovals(notifier, () => e.RUNNER_OWNER_TELEGRAM ?? null, "https://wardaprotocol.com/app"),
+    approvals: liveApprovals(notifier, "https://wardaprotocol.com/app"),
     networkFee: 2_000_000n,
   });
 
@@ -110,6 +138,7 @@ export async function boot(e: NodeJS.ProcessEnv = process.env, defaults: { baseU
 
   const api = createApi({
     funder, prefix,
+    ...(telegram ? { telegram } : {}),
     mcp: createMcp({ store, registry, engine, grants, fees }),
     refund: (plan) => refundDeposit({ plan, registry, vault, chain: fundingChain, prefix, now: Date.now() }),
     store, registry, vault, engine, grants, fees, baseUrl,

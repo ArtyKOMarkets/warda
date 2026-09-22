@@ -59,7 +59,8 @@ export interface Payments {
 }
 
 export interface Notifier {
-  notify(channel: "telegram" | "webhook", to: string, text: string): Promise<void>;
+  /** `to` empty on telegram means "the agent owner's connected chat". */
+  notify(channel: "telegram" | "webhook", to: string, text: string, agent?: string): Promise<void>;
 }
 
 export interface Http {
@@ -311,7 +312,7 @@ export class Engine {
           return { action: a.type, status: "ok", txid, sompi: a.sompi.toString(), detail: `sent ${formatKas(a.sompi)} KAS` };
         }
         case "notify": {
-          await this.o.notifier.notify(a.channel, a.to, fill(a.text, context(wf, run, g, owed, now)));
+          await this.o.notifier.notify(a.channel, a.to, fill(a.text, context(wf, run, g, owed, now)), wf.agent);
           return { action: a.type, status: "ok" };
         }
         case "http": {

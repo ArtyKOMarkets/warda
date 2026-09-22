@@ -179,17 +179,16 @@ export const liveHttp: Http = {
 };
 
 /** Tells the owner there is something to sign, with a link to the console. */
-export function liveApprovals(n: Notifier, ownerChat: (agent: string) => string | null, consoleUrl: string): Approvals {
+export function liveApprovals(n: Notifier, consoleUrl: string): Approvals {
   return {
     async announce(a) {
-      const chat = ownerChat(a.agent);
-      if (!chat) return;
       await n.notify(
         "telegram",
-        chat,
+        "",
         `Agent ${a.agent} asks you to ${a.op} its grant.${a.note ? " " + a.note : ""}\n` +
-          `Nothing happens until you sign it in your own wallet: ${consoleUrl}#/agent/${a.agent}`,
-      );
+          `Nothing happens until you sign it in your own wallet: ${consoleUrl}#/hagents`,
+        a.agent,
+      ).catch(() => {}); // no connected chat: the approval still waits in the console
     },
   };
 }
