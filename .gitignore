@@ -71,3 +71,6 @@ ops/alerts.env
 runner/spike/package.json
 runner/spike/package-lock.json
 runner/spike/node_modules/
+
+# Runner secrets (DATABASE_URL etc.) — never committed
+runner/.env
