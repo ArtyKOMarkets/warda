@@ -187,3 +187,25 @@ test("the record is advanced, not replaced — unmodelled fields survive", async
   assert.equal(after_.principal, MANIFEST.principal);
   assert.equal(after_.recipients_root, MANIFEST.recipients_root);
 });
+
+test("pay sends to an allowlisted address with no invoice, and moves the record", async () => {
+  const { node, store, agent } = await bench();
+  const before = store.current();
+  const from = agent.address;
+  const r = await agent.pay("kaspatest:qqtwdteqxrm7g5gdrfqh8yd8la7v45scvnchamm7uq6lq3f7yxsrx5umtwam4", 1_000_000n);
+  assert.equal(node.submitted.length, 1);
+  assert.equal(r.amountSompi, 1_000_000n);
+  assert.equal(store.current().spent_total - before.spent_total, 1_000_000);
+  assert.notEqual(agent.address, from, "a grant's address moves with its state");
+});
+
+test("pay refuses a payee the grant never committed to, before signing", async () => {
+  const { node, store, agent } = await bench();
+  const before = store.current();
+  await assert.rejects(
+    agent.pay("kaspatest:qr0lr4ml9fn3chekrqmjdkergxl93l4wrk3dankcgvjq776s9wn9jkdskewva", 1_000_000n),
+    /allowlist|valid Kaspa address/,
+  );
+  assert.equal(node.submitted.length, 0);
+  assert.deepEqual(store.current(), before);
+});

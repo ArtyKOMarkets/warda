@@ -53,7 +53,8 @@
     "cli",
     "mcp",
     "growth",
-    "extension"
+    "extension",
+    "runner"
   ],
   "repository": {
     "type": "git",

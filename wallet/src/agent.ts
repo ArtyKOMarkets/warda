@@ -56,9 +56,11 @@ import {
 /* `Signer` comes from x402 rather than from the SDK: it is the SDK's type, but
    the SDK's index does not re-export it and x402 does. Importing it from the
    package that actually publishes it beats adding an export to fix a caller. */
+import { randomUUID } from "node:crypto";
 import {
   WardaPayer,
   wardaFetch,
+  type PaymentResult,
   type ResumableProof,
   type Signer,
   type WardaFetchEvent,
@@ -169,6 +171,39 @@ export class Agent {
   /** What one payment costs in network fee, which the budget is NOT charged. */
   get fee(): bigint {
     return this.payer.fee;
+  }
+
+  /** Where the grant's coin is now. It moves after every spend. */
+  get address(): string {
+    return this.payer.address;
+  }
+
+  /** The chain this agent reads, for a caller that needs the tip or the coin. */
+  get chainAccess(): Chain {
+    return this.chain;
+  }
+
+  /**
+   * Pay an allowlisted address straight from the grant — no invoice.
+   *
+   * The same covenant spend an x402 purchase makes, addressed by the caller
+   * rather than by a vendor's 402. The record is written forward in a
+   * `finally` for the reason `fetch` gives: once broadcast, the grant has
+   * moved whatever happens next.
+   */
+  async pay(payTo: string, amountSompi: bigint): Promise<PaymentResult> {
+    try {
+      return await this.payer.pay({
+        scheme: "exact",
+        network: "kaspa",
+        asset: "KAS",
+        payTo,
+        amountSompi,
+        nonce: randomUUID(),
+      });
+    } finally {
+      await this.reconcile();
+    }
   }
 
   /**

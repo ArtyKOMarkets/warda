@@ -140,6 +140,8 @@ jobs:
         run: npm test --workspace growth
       - name: extension
         run: npm test --workspace extension
+      - name: runner
+        run: npm test --workspace runner
 
       # The site is built here and thrown away. Nothing is deployed from CI —
       # the point is that `build.py` DROPS a page whose data is missing, and
@@ -167,6 +169,7 @@ jobs:
           node ops/check-cli-deps.mjs
           node ops/check-alerts.mjs
           node ops/check-readings.mjs
+          node ops/check-runner.mjs
 
       # ops/ was typechecked by nothing and its one test file was run by
       # nothing. Both were true for as long as ops/ has existed, and neither

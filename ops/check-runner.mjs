@@ -1,0 +1,49 @@
+#!/usr/bin/env node
+/**
+ * The runner holds agent keys and nothing else. This fails the build if that
+ * stops being true in the source.
+ *
+ * The whole security argument of a hosted runner is one sentence: a breach
+ * loses at most what the grants it holds could still spend. That is true only
+ * while the runner cannot reach a principal or revocation key, and cannot
+ * perform an owner operation except by asking. So:
+ *
+ *  - no file under runner/src may read a key file or the funder's env key;
+ *  - no file under runner/src may import from cli/, ops/ or covenant/deploy,
+ *    which is where the tools that DO hold those keys live;
+ *  - every action type must declare an authority, and the only owner-level
+ *    action the engine knows is `approval`, which executes nothing.
+ */
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+
+const root = new URL("../runner/src/", import.meta.url).pathname;
+const bad = [];
+const FORBIDDEN = [
+  [/WARDA_SK\b/, "reads the funder's key from the environment"],
+  [/\.key["'`]/, "names a key file"],
+  [/revocation[-_.]?key/i, "mentions a revocation key"],
+  [/from\s+["'](\.\.\/)+(cli|ops|covenant)\//, "imports from a tool that holds owner keys"],
+  [/\b(signGenesis|signRevoke|buildRevoke|revokeGrant|reclaim)\b/, "calls an owner-key operation"],
+];
+
+for (const f of readdirSync(root).filter((f) => f.endsWith(".ts"))) {
+  const text = readFileSync(join(root, f), "utf8").replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "");
+  for (const [re, why] of FORBIDDEN) if (re.test(text)) bad.push(`runner/src/${f} ${why}`);
+}
+
+const wf = readFileSync(join(root, "workflow.ts"), "utf8");
+const table = /export const AUTHORITY[^=]*=\s*\{([\s\S]*?)\};/.exec(wf);
+if (!table) bad.push("runner/src/workflow.ts no longer has the AUTHORITY table");
+else {
+  const owners = [...table[1].matchAll(/"?([\w-]+)"?\s*:\s*"owner"/g)].map((m) => m[1]);
+  if (owners.join() !== "approval") {
+    bad.push(`owner-level actions must be exactly [approval]; found [${owners.join(", ")}]`);
+  }
+}
+
+if (bad.length) {
+  console.error("check-runner: the runner must hold agent keys and nothing else\n\n  " + bad.join("\n  "));
+  process.exit(1);
+}
+console.log("check-runner: agent keys only; owner operations are approvals");

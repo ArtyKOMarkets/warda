@@ -1,0 +1,22 @@
+{
+  "name": "@warda_protocol/runner",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Runs workflows for an agent inside its Warda grant: holds only the agent key, watches the grant, executes triggers and actions, and bills a flat fee per run out of the grant.",
+  "type": "module",
+  "license": "MIT",
+  "main": "./src/index.ts",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --test test/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@warda_protocol/core": "^0.3.1",
+    "@warda_protocol/kaspa": "^0.6.0",
+    "@warda_protocol/x402": "^0.6.0",
+    "@warda_protocol/agent": "^0.1.0"
+  }
+}
