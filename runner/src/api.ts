@@ -206,9 +206,13 @@ export function createApi(d: ApiDeps): (req: Request) => Promise<Response> {
          does, and when it last did it. Grants are read from the chain, so an
          agent whose grant cannot be read says so rather than showing zero. */
       const rows = await Promise.all(ids.map(async (agent) => {
+        /* One retry: a grant read in the instant a payment moves it finds its
+           old address empty, which is "undecided", not a problem. */
+        const read = async () => (await d.grants.read(agent)) ??
+          (await new Promise((r) => setTimeout(r, 1500)), await d.grants.read(agent));
         const [plan, grant, ledger, workflows, runs] = await Promise.all([
           d.registry.getPlan(agent),
-          d.grants.read(agent),
+          read(),
           d.store.getLedger(agent),
           d.store.listWorkflows(agent),
           d.store.listRuns(agent, 1),
@@ -217,7 +221,10 @@ export function createApi(d: ApiDeps): (req: Request) => Promise<Response> {
         const last = runs[0];
         return {
           agent,
-          state: grant ? grant.status.toLowerCase() : plan && plan.status !== "funded" ? plan.status : "undecided",
+          state: grant ? grant.status.toLowerCase()
+            : plan && plan.status !== "funded" ? plan.status
+            : last && last.status === "running" ? "paying"
+            : "undecided",
           spendableKas: grant ? formatKas(spendable(grant, owed)) : null,
           budgetKas: grant ? formatKas(grant.budgetTotal) : plan ? formatKas(BigInt(plan.limits.budget)) : null,
           spentKas: grant ? formatKas(grant.spentTotal) : null,

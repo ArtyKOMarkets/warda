@@ -69,6 +69,8 @@ export interface Store {
   claimRun(run: RunRecord): Promise<boolean>;
   updateRun(run: RunRecord): Promise<void>;
   listRuns(agent: string, limit?: number): Promise<RunRecord[]>;
+  /** Runs still marked running that started before `before` (ms). */
+  staleRuns(before: number): Promise<RunRecord[]>;
 
   getCursor(workflowId: string): Promise<number | null>;
   setCursor(workflowId: string, at: number): Promise<void>;
@@ -121,6 +123,9 @@ export function memoryStore(): Store {
         .sort((a, b) => b.startedAt - a.startedAt)
         .slice(0, limit)
         .map(clone);
+    },
+    async staleRuns(before) {
+      return [...runs.values()].filter((r) => r.status === "running" && r.startedAt < before).map(clone);
     },
     async getCursor(id) {
       return cursors.get(id) ?? null;

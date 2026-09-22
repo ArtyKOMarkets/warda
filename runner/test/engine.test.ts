@@ -204,3 +204,18 @@ test("conditions gate a run, and a skipped run is not charged", async () => {
   assert.equal(runs.find((r) => r.status === "skipped")!.charged, false);
   assert.equal(w.sent.length, 1);
 });
+
+test("a run the process died in is swept: undelivered with its txid if it paid, failed if not", async () => {
+  const w = world();
+  const base = { workflowId: "wf_x", agent: "agent-009", trigger: "manual", steps: [], charged: false, status: "running" as const };
+  await w.store.claimRun({ ...base, id: "r1", key: "a", startedAt: w.now() - 10 * 60_000,
+    inflight: { action: "pay-x402", status: "submitted", txid: "txdead", sompi: "3000000" } });
+  await w.store.claimRun({ ...base, id: "r2", key: "b", startedAt: w.now() - 10 * 60_000 });
+  await w.store.claimRun({ ...base, id: "r3", key: "c", startedAt: w.now() - 60_000 });
+  await w.engine.tick();
+  const by = Object.fromEntries((await w.store.listRuns("agent-009")).map((r) => [r.id, r]));
+  assert.equal(by.r1!.status, "undelivered");
+  assert.equal(by.r1!.steps[0]!.txid, "txdead");
+  assert.equal(by.r2!.status, "failed");
+  assert.equal(by.r3!.status, "running", "a run started a minute ago is left alone");
+});

@@ -6203,8 +6203,11 @@ ops/install-cron.sh</pre>
   var HA = { open: null };
   function haAgo(t) { return t ? ago(t) : "never"; }
   function haPill(state) {
+    /* "undecided" is not a fault: a grant moves with every payment, and a
+       read in that instant finds its old address empty. Said as what it is. */
     var m = { active: ["live", "live"], "awaiting-deposit": ["warn", "awaiting deposit"], submitting: ["warn", "creating grant"],
-              refunded: ["done", "refunded"], expired: ["done", "ended"], revoked: ["done", "revoked"], undecided: ["no", "unreadable"] };
+              paying: ["warn", "paying now"], refunded: ["done", "refunded"], expired: ["done", "ended"], revoked: ["done", "revoked"],
+              undecided: ["warn", "checking chain"] };
     var x = m[state] || ["done", state];
     var sp = document.createElement("span"); sp.className = "pill " + x[0]; sp.textContent = x[1]; return sp;
   }

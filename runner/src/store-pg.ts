@@ -115,6 +115,13 @@ export function pgStore(db: Queryable): Store {
       );
       return rows.map((r) => decode<RunRecord>(r.body));
     },
+    async staleRuns(before) {
+      const { rows } = await db.query(
+        `select body from runner_runs where started_at < $1 and body->>'status' = 'running' limit 100`,
+        [before],
+      );
+      return rows.map((r) => decode<RunRecord>(r.body));
+    },
     async getCursor(id) {
       const { rows } = await db.query(`select at from runner_cursors where workflow_id = $1`, [id]);
       return rows[0] ? Number(rows[0].at) : null;

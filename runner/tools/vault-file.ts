@@ -31,7 +31,7 @@ export function vaultFileStore(dir = AGENTS_DIR): Store {
       mkdirSync(dir, { recursive: true });
       writeFileSync(p, JSON.stringify(rec, null, 2) + "\n", { flag: "wx" });
     },
-    putWorkflow: no, getWorkflow: no, listWorkflows: no, claimRun: no, updateRun: no, listRuns: no,
+    putWorkflow: no, getWorkflow: no, listWorkflows: no, claimRun: no, updateRun: no, listRuns: no, staleRuns: no,
     getCursor: no, setCursor: no, getEdge: no, setEdge: no, getLedger: no, setLedger: no,
     putApproval: no, listApprovals: no,
   };

@@ -90,6 +90,9 @@ export interface TickReport {
   missed: number;
 }
 
+/** A run that has said "running" this long was interrupted. */
+const STALE_MS = 5 * 60_000;
+
 export class Engine {
   private readonly o: Required<EngineOptions>;
 
@@ -112,6 +115,7 @@ export class Engine {
   async tick(): Promise<TickReport> {
     const report: TickReport = { started: [], missed: 0 };
     const now = this.o.now();
+    await this.sweep(now);
     for (const wf of await this.o.store.listWorkflows()) {
       if (!wf.enabled) continue;
       if (wf.trigger.type === "schedule") {
@@ -133,6 +137,27 @@ export class Engine {
       }
     }
     return report;
+  }
+
+  /**
+   * Runs the process died in the middle of — a serverless function that hit
+   * its time limit, a restart. They would say "running" forever. A run with a
+   * payment in flight becomes `undelivered` and keeps its txid (the coin
+   * moved; never pay it again); anything else is `failed`, with the reason.
+   */
+  private async sweep(now: number): Promise<void> {
+    for (const r of await this.o.store.staleRuns(now - STALE_MS)) {
+      if (r.inflight?.txid) {
+        r.steps.push({ ...r.inflight, detail: "broadcast, then the runner stopped before the vendor answered; resume with this txid, do not pay again" });
+        r.status = "undelivered";
+      } else {
+        r.status = "failed";
+      }
+      delete r.inflight;
+      r.note = "the runner stopped in the middle of this run";
+      r.finishedAt = now;
+      await this.o.store.updateRun(r);
+    }
   }
 
   /** A webhook or a manual run. `key` makes a retried delivery a no-op. */
