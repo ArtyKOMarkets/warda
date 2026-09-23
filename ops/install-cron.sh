@@ -303,11 +303,11 @@ the Listener searches X at 08:13 and 20:13 and sends what is worth a reply
 to Telegram, with a link. It posts nothing and replies to nothing — the
 decision to speak stays with you.
 
-It is the only job here that spends DOLLARS rather than testnet KAS: X bills
+It spends twice over. The agent pays the seller in testnet KAS from a grant
+the network enforces — three searches an epoch, and the covenant refuses the
+fourth whatever any file here says. The seller then pays X in dollars,
 \$0.005 a post read, about \$0.15 a pass and \$2.10 a week, on the card behind
-your developer account. The cap is three searches a pass and it lives in
-growth/tools/listen.ts — there is no covenant behind this one yet, which is
-the reason the grant is the next thing rather than a nice-to-have.
+your developer account. The chain bounds the agent; nothing bounds the card.
   tail $LISTENERLOG
   ls $HOME/Desktop/warda/growth/listener/
 

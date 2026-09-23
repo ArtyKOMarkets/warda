@@ -8,11 +8,14 @@
 # Telegram with a link. Nothing is posted, replied to or liked; the decision
 # to speak stays with a person.
 #
-# SPENDS REAL MONEY, and not testnet KAS. X bills per post read — $0.005 —
-# against the card on the developer account. The cap is three searches a pass,
-# which is 30 reads, $0.15, and it is enforced by tools/listen.ts and by
-# nothing else. There is no covenant behind this one yet. That is the whole
-# reason it is opt-in and the whole reason the grant is the next thing.
+# It spends twice over, and the two are different in kind. The agent pays the
+# seller in testnet KAS from a grant the network enforces — three searches an
+# epoch, 0.05 each, and the covenant refuses the fourth whatever this file
+# says. The seller then pays X in dollars, $0.005 a post read, about $0.15 a
+# pass, on the card behind the developer account.
+#
+# So the chain bounds the agent and nothing bounds the card. That asymmetry is
+# the honest shape of this: the covenant can only govern what it can see.
 set -uo pipefail
 
 REPO="$HOME/Desktop/warda"
@@ -64,7 +67,7 @@ fi
 # files prune themselves after a day — X's terms allow keeping Post IDs, not
 # post content, and src/retain.ts holds that rule so nobody has to.
 node --experimental-strip-types growth/tools/listen.ts \
-  --direct --send \
+  --grant growth/listener-grant.json \
   --save "growth/listener/run-$(date +%Y%m%dT%H%M).json"
 code=$?
 
