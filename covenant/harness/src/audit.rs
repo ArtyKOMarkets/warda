@@ -351,6 +351,7 @@ fn html(
   }}
   * {{ box-sizing:border-box; }}
   html {{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }}
+  html {{ background:var(--bg); }}
   body {{ margin:0; background:var(--bg); color:var(--ink);
     font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif; }}
   .page {{ max-width:58rem; margin:0 auto; padding:52px 40px 72px; }}
@@ -451,10 +452,20 @@ fn html(
     color:var(--ink); }}
   footer {{ margin-top:44px; padding-top:16px; border-top:1px solid var(--line);
     font-size:12px; color:var(--dim); }}
-  @page {{ size:A4; margin:14mm 12mm; }}
+  /* A dark page has to be printed full-bleed. With a non-zero `@page`
+     margin the sheet outside the content box stays white, which on a dark
+     report reads as a printing fault rather than a margin. So the page margin
+     is zero and the breathing room is padding inside the box the background
+     paints. */
+  @page {{ size:A4; margin:0; }}
   @media print {{
-    .page {{ padding:0; max-width:none; }}
+    .page {{ max-width:none; padding:16mm 14mm; }}
     h2 {{ break-after:avoid; }}
+    /* Five tiles across A4 wraps every label. Three fit, and the two that
+       drop to a second row get their own rule. */
+    .kpis {{ grid-template-columns:repeat(3,1fr); }}
+    .kpi:nth-child(4), .kpi:nth-child(5) {{ border-top:1px solid var(--line); }}
+    .kpi:nth-child(4) {{ border-left:0; }}
   }}
 </style></head><body><div class="page">
 

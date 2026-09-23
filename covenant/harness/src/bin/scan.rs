@@ -130,13 +130,29 @@ fn main() {
         println!("  {:<24} {}", p.name, t);
     }
 
-    // ---- what it exposes --------------------------------------------------
-    let entries: Vec<_> = ast.functions.iter().filter(|f| f.entrypoint).collect();
-    println!("\nENTRYPOINTS  {}", entries.len());
-    for f in &entries {
+    /* ---- what it exposes -------------------------------------------------
+       `entrypoint` on the AST is true only for `entry` functions. A function
+       carrying a `#[covenant...]` attribute is ALSO callable — it appears in
+       the ABI as `__covenant_entrypoint_<name>` and is invoked through the
+       covenant-declaration sigscript builder rather than the plain one.
+
+       The first version of this pass counted only the first kind and told a
+       reader this covenant had three ways in. It has six, and the three it
+       omitted are the ones that move money. A tool that under-reports the
+       attack surface by half is worse than no tool, because the number looks
+       like it was checked. */
+    let callable: Vec<_> = ast.functions.iter()
+        .filter(|f| f.entrypoint || f.attributes.iter().any(|a| a.path.first().map(|p| p == "covenant").unwrap_or(false)))
+        .collect();
+    println!("\nENTRYPOINTS  {}", callable.len());
+    for f in &callable {
         let ps: Vec<String> = f.params.iter().map(|p| format!("{} {}", ty(&p.type_ref), p.name)).collect();
         let attrs: Vec<String> = f.attributes.iter().map(|a| format!("#[{}]", a.path.join("."))).collect();
-        println!("  {}{}({})", if attrs.is_empty() { String::new() } else { format!("{} ", attrs.join(" ")) }, f.name, ps.join(", "));
+        let kind = if f.entrypoint { "entry" } else { "covenant" };
+        println!("  {:<10} {}({})", kind, f.name, ps.join(", "));
+        if !attrs.is_empty() {
+            println!("             {}", attrs.join(" "));
+        }
     }
 
     // ---- the refusal surface ----------------------------------------------
@@ -169,7 +185,13 @@ fn main() {
             println!("  bytecode           {n} bytes, with every integer argument at {BASE_INT}");
             println!("  script-size limit  {MAX_SCRIPT_BYTES} — {:.3}% of it at these arguments",
                 (n as f64 / MAX_SCRIPT_BYTES as f64) * 100.0);
-            println!("  abi                {}", c.abi.iter().map(|e| e.name.clone()).collect::<Vec<_>>().join(", "));
+            /* A covenant function is `spend` in the source and
+               `__covenant_entrypoint_auth_spend` in the ABI. Printing the ABI
+               alone leaves a reader matching names by eye. */
+            println!("  abi                {} function{}", c.abi.len(), if c.abi.len() == 1 { "" } else { "s" });
+            for e in &c.abi {
+                println!("                     {}", e.name);
+            }
             println!("  state region       {} bytes at offset {}", c.state_layout.len, c.state_layout.start);
 
             /* Which arguments the SIZE depends on.
