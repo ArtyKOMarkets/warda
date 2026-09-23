@@ -81,6 +81,13 @@ jobs:
         working-directory: covenant/harness
         run: cargo run -q --bin audit
 
+      # The pass that needs no builder, run against this repo's own covenant.
+      # It is the tier a stranger can use, so a change that breaks it breaks
+      # the only thing here anybody else can run.
+      - name: harness — scan, the pass that needs no builder
+        working-directory: covenant/harness
+        run: cargo run -q --bin scan -- ../warda_grant.sil
+
       # The oracle that reads no specification: generate spend attempts
       # structurally, keep what the engine accepted, and assert that none of
       # them left the agent able to do more than before. The run ends by

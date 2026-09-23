@@ -148,6 +148,7 @@ builder panics.
 | `tests/spend.rs` | 33 tests: an accepted baseline per entrypoint, then single-field flips |
 | `src/bin/audit.rs` | the auditor — every claim in `GUARANTEES.md`, at its boundary |
 | `src/bin/fuzz.rs` | the oracle that reads no claim at all |
+| `src/bin/scan.rs` | the one pass that needs no builder, so it runs on anybody's `.sil` |
 | `src/audit.rs` · `src/oracle.rs` | both instruments with the covenant taken out — see [PORTING.md](PORTING.md) |
 
 The builders were inside `tests/spend.rs` until the auditor needed them. Copying
@@ -259,6 +260,33 @@ instrument checks bytecode against a written claim, so it cannot notice a rule
 that should exist and does not — the document it reads its claims from is the
 same one that would have omitted it. Of the five vulnerabilities this covenant
 has had, none would have been caught by it.
+
+## The pass that needs no builder
+
+```bash
+cargo run --bin scan -- path/to/covenant.sil
+```
+
+The claims suite and the oracle both need per-covenant code. This does not. It
+parses the contract, synthesises a constructor from the declared parameter
+types, compiles it, and reports what is true of the artefact: the ABI, the
+state layout, the size against the consensus ceiling, and **every condition it
+refuses on, taken from the AST and grouped by the entrypoint that enforces
+it** — 113 of them for this covenant, against the 39 its documentation names.
+The difference is what nobody has written down. Not necessarily a defect, and
+not necessarily not.
+
+It also reports **which constructor arguments move the script size**, by
+doubling each integer in turn and recompiling. For this covenant exactly one
+does: `maxProofDepth`, at +568 bytes per doubling — which is the same figure
+`LIMITS.md` measured by hand, arrived at from the other direction. A size or
+headroom figure quoted without its constructor is not a figure about the
+covenant.
+
+The first version of this pass reported 148,634 bytes, because its placeholder
+for every integer was 1,000 and `maxProofDepth` is a loop bound. The number was
+not wrong; it was the size of a covenant nobody asked about, which is worse
+than wrong, because it looks like an answer.
 
 ## Auditing something other than Warda
 
