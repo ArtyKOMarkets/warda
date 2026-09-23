@@ -1,0 +1,189 @@
+//! The oracle that needs no specification.
+//!
+//! `audit` checks the bytecode against what `GUARANTEES.md` claims. That is
+//! worth having and it has a hard ceiling: it cannot notice a rule that
+//! SHOULD exist and does not, because the document it reads its claims from
+//! is the same document that would have omitted it. Of the five
+//! vulnerabilities this covenant has had, none would have been caught that
+//! way.
+//!
+//! This binary asks a different question. It generates spend attempts
+//! structurally — no rule consulted, no claim read — hands each to
+//! `TxScriptEngine`, throws away everything the engine refused, and asserts
+//! ONE property of what is left:
+//!
+//!     An accepted spend must not leave the agent able to do more than it
+//!     could before, minus what it just paid.
+//!
+//! Nobody has to have written that down for it to be true. Authority that
+//! grows is a bug whatever the spec says, and it is the shape of three of
+//! the five recorded vulnerabilities: the covenant checked WHAT something
+//! was and not HOW MUCH of it there was.
+//!
+//! An oracle that has never fired is indistinguishable from one that cannot,
+//! so the run ends by removing `require(currentEpoch >= prevState.epochIndex)`
+//! from the covenant — reintroducing vulnerability 1, `a048b13e95125ad1` —
+//! and requiring the same oracle to catch it.
+
+use warda_harness::*;
+
+const KAS_: i64 = KAS;
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct St {
+    spent: i64,
+    reserved: i64,
+    epoch_index: i64,
+    epoch_spent: i64,
+}
+
+/// Every way an accepted spend can leave the agent better off than the
+/// arithmetic allows. Each line is a sentence about capacity, not a rule
+/// lifted from the covenant.
+fn grew(prev: St, next: St, paid: i64, budget: i64, epoch_limit: i64) -> Vec<&'static str> {
+    let mut out = Vec::new();
+    // What it may still cause to be paid, over the whole life of the grant.
+    let before = budget - prev.spent - prev.reserved;
+    let after = budget - next.spent - next.reserved;
+    if after > before - paid {
+        out.push("remaining authority did not fall by what was paid");
+    }
+    // A consumed epoch that becomes unconsumed is allowance coming back.
+    if next.epoch_index < prev.epoch_index {
+        out.push(if prev.epoch_spent + paid > epoch_limit {
+            "an exhausted epoch's allowance came back"
+        } else {
+            "the epoch index moved backwards"
+        });
+    }
+    if next.epoch_index == prev.epoch_index && next.epoch_spent < prev.epoch_spent + paid {
+        out.push("this epoch's allowance did not fall by what was paid");
+    }
+    if next.epoch_index > prev.epoch_index && next.epoch_spent < paid {
+        out.push("a fresh epoch opened without charging this payment to it");
+    }
+    if next.epoch_spent > epoch_limit {
+        out.push("more was charged to an epoch than the epoch allows");
+    }
+    // Reserve is a commitment to a child. Releasing it frees money the parent
+    // already promised away.
+    if next.reserved < prev.reserved {
+        out.push("reserve was released");
+    }
+    if next.spent < prev.spent {
+        out.push("lifetime spending went down");
+    }
+    out
+}
+
+struct Pass {
+    label: &'static str,
+    generated: usize,
+    accepted: usize,
+    findings: Vec<(String, Vec<&'static str>)>,
+}
+
+fn sweep(src: &'static str, label: &'static str) -> Pass {
+    /* The grid. Deliberately not derived from the rules — these are the
+       values an adversary would reach for, and several of them are states no
+       honest client would ever build. */
+    let prevs = [
+        St { spent: 0, reserved: 0, epoch_index: 0, epoch_spent: 0 },
+        St { spent: 3 * KAS_, reserved: 0, epoch_index: 3, epoch_spent: EPOCH_LIMIT },
+        St { spent: 3 * KAS_, reserved: 0, epoch_index: 3, epoch_spent: EPOCH_LIMIT - KAS_ },
+        St { spent: BUDGET_TOTAL - 2 * KAS_, reserved: KAS_, epoch_index: 1, epoch_spent: 0 },
+    ];
+    let epochs: [i64; 6] = [-1, 0, 1, 2, 3, 5];
+    let amounts = [1i64, KAS_ / 2, MAX_PER_SPEND, MAX_PER_SPEND + 1];
+
+    /* Successors an attacker would declare. The honest one is in the list so
+       the generator produces accepted transactions at all; the rest are the
+       lies that matter. */
+    let variants: [(&str, fn(St, i64, i64) -> St); 8] = [
+        ("honest", |p, amt, e| if e > p.epoch_index { St { spent: p.spent + amt, epoch_index: e, epoch_spent: amt, ..p } } else { St { spent: p.spent + amt, epoch_spent: p.epoch_spent + amt, ..p } }),
+        ("unchanged", |p, _a, _e| p),
+        ("epoch rewound", |p, amt, _e| St { spent: p.spent + amt, epoch_index: 0, epoch_spent: amt, ..p }),
+        ("epoch spend reset", |p, amt, e| St { spent: p.spent + amt, epoch_index: e.max(p.epoch_index), epoch_spent: 0, ..p }),
+        ("spend unrecorded", |p, _a, e| St { epoch_index: e.max(p.epoch_index), epoch_spent: p.epoch_spent, ..p }),
+        ("reserve released", |p, amt, e| St { spent: p.spent + amt, reserved: 0, epoch_index: e.max(p.epoch_index), epoch_spent: p.epoch_spent + amt }),
+        ("charged one sompi", |p, _a, e| St { spent: p.spent + 1, epoch_index: e.max(p.epoch_index), epoch_spent: p.epoch_spent + 1, ..p }),
+        ("banked ahead", |p, amt, e| St { spent: p.spent + amt * 2, epoch_index: e.max(p.epoch_index), epoch_spent: p.epoch_spent + amt * 2, ..p }),
+    ];
+
+    let mut out = Pass { label, generated: 0, accepted: 0, findings: Vec::new() };
+    for p in prevs {
+        for e in epochs {
+            let claimed = NOT_BEFORE + e * EPOCH_LENGTH + 500;
+            for amt in amounts {
+                for (name, f) in variants {
+                    let next = f(p, amt, e);
+                    out.generated += 1;
+                    let mut s = Spend::valid();
+                    s.src = src;
+                    s.prev = (p.spent, p.reserved, p.epoch_index, p.epoch_spent);
+                    s.claimed_daa = claimed;
+                    s.amount = amt;
+                    s.successor = Some((next.spent, next.reserved, next.epoch_index, next.epoch_spent));
+                    if s.run().is_err() {
+                        continue;
+                    }
+                    out.accepted += 1;
+                    let broke = grew(p, next, amt, BUDGET_TOTAL, EPOCH_LIMIT);
+                    if !broke.is_empty() {
+                        out.findings.push((format!("prev spent {} reserved {} epoch {}/{} · claimed epoch {e} · {amt} sompi · successor {name}",
+                            p.spent, p.reserved, p.epoch_index, p.epoch_spent), broke));
+                    }
+                }
+            }
+        }
+    }
+    out
+}
+
+fn show(p: &Pass) {
+    println!("\n{}", p.label);
+    println!("  generated        {}", p.generated);
+    println!("  engine accepted  {}", p.accepted);
+    println!("  authority grew   {}", p.findings.len());
+    for (what, why) in p.findings.iter().take(6) {
+        println!("    {what}\n      {}", why.join("; "));
+    }
+    if p.findings.len() > 6 {
+        println!("    … and {} more", p.findings.len() - 6);
+    }
+}
+
+fn main() {
+    let real = sweep(SOURCE, "warda_grant.sil v4, as written");
+    show(&real);
+
+    /* The self-check, and it is not optional. An oracle that has never fired
+       is indistinguishable from one that cannot, so the same sweep runs
+       against the covenant with `require(currentEpoch >= prevState.epochIndex)`
+       taken out — vulnerability 1, `a048b13e95125ad1`, put back. */
+    let mutant = sweep(source_without("require(currentEpoch >= prevState.epochIndex);"), "MUTANT — the epoch ratchet removed");
+    show(&mutant);
+
+    let json = format!(
+        "{{\n  \"oracle\": \"authority never grows\",\n  \"generated\": {},\n  \"accepted\": {},\n  \"findings\": {},\n  \"mutant\": {{ \"generated\": {}, \"accepted\": {}, \"findings\": {} }}\n}}\n",
+        real.generated, real.accepted, real.findings.len(),
+        mutant.generated, mutant.accepted, mutant.findings.len());
+    std::fs::write("../oracle.json", json).expect("write oracle.json");
+
+    println!("\n───────────────────────────────────────────────");
+    if mutant.findings.is_empty() {
+        println!("The oracle did NOT fire on a covenant with a known hole in it.");
+        println!("Nothing it reports about the real covenant can be trusted.");
+        std::process::exit(2);
+    }
+    println!("The oracle fires on a covenant that can grow its own authority: {} of the", mutant.findings.len());
+    println!("{} transactions the engine accepted there left the agent better off.", mutant.accepted);
+    if real.findings.is_empty() {
+        println!("Against v4 as written, none of {} did.", real.accepted);
+        println!("\ncovenant/oracle.json written");
+    } else {
+        println!("\nAgainst v4 as written, {} did. That is a bug whatever the guarantees say,", real.findings.len());
+        println!("because nothing was asked of them.");
+        std::process::exit(1);
+    }
+}

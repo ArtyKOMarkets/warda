@@ -209,6 +209,25 @@ because the case is a single field away from the accepted baseline.
 | reclaim conservation | a fee of exactly maxFee | accept | accepted | ok |
 | reclaim conservation | one sompi more than maxFee burned | refuse | refused | ok |
 
+## The check that reads no specification
+
+Everything above compares the bytecode to a written claim. A second pass
+asks a question nobody had to write down first: generate spend attempts
+structurally, discard everything the engine refused, and assert one property
+of what is left — **an accepted spend must not leave the agent able to do more
+than it could before, minus what it just paid.**
+
+| Covenant | Generated | Engine accepted | Authority grew |
+|---|---:|---:|---:|
+| `warda_grant.sil` v4, as written | 768 | 61 | 0 |
+| the same, epoch ratchet removed | 768 | 69 | **8** |
+
+The second row is the self-check. An oracle that has never fired is
+indistinguishable from one that cannot, so the run deletes
+`require(currentEpoch >= prevState.epochIndex)` — vulnerability 1,
+`a048b13e95125ad1`, put back — and requires the same oracle to catch it.
+
+
 ## What this run did not test
 
 - `settle` / `reabsorb` — the v4 splice path. It needs a real foreign-input

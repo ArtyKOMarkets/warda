@@ -81,6 +81,16 @@ jobs:
         working-directory: covenant/harness
         run: cargo run -q --bin audit
 
+      # The oracle that reads no specification: generate spend attempts
+      # structurally, keep what the engine accepted, and assert that none of
+      # them left the agent able to do more than before. The run ends by
+      # deleting the epoch ratchet — vulnerability 1 put back — and requires
+      # the same oracle to catch it. Exits 2 if it does not, because an oracle
+      # that cannot fire makes every clean run above meaningless.
+      - name: harness — authority never grows, and the oracle proves it can fire
+        working-directory: covenant/harness
+        run: cargo run -q --bin fuzz
+
       # 14 probes, each attack beside its nearest legitimate twin, judged in
       # BOTH directions: a covenant that refused everything would pass a suite
       # made only of refusals. Needs no keys and no network — the corpus is

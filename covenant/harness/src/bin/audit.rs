@@ -884,6 +884,33 @@ claims can only ever be flip grade.</p>
     }
     let _ = write!(s, "</tbody></table>");
 
+    if let Some(o) = oracle() {
+        let _ = write!(s, r#"
+<h2>The check that reads no specification</h2>
+<p>Everything above compares the bytecode to a written claim, which is why it
+cannot notice a rule that should exist and does not. A second pass asks a question
+nobody had to write down first: it generates spend attempts structurally, discards
+everything the engine refused, and asserts one property of what is left —
+<b>an accepted spend must not leave the agent able to do more than it could before,
+minus what it just paid.</b></p>
+<table><thead><tr><th>Covenant</th><th>Generated</th><th>Engine accepted</th><th>Authority grew</th></tr></thead><tbody>
+<tr><td><code>warda_grant.sil</code> v4, as written</td><td class="num">{gen}</td><td class="num">{acc}</td><td><span class="mark {fc}">{f}</span></td></tr>
+<tr><td>the same, with the epoch ratchet removed</td><td class="num">{gen}</td><td class="num">{macc}</td><td><span class="mark bad">{mf}</span></td></tr>
+</tbody></table>
+<p>The second row is the self-check, and it is not decoration. An oracle that has
+never fired is indistinguishable from one that cannot, so the run ends by deleting
+<code>require(currentEpoch &gt;= prevState.epochIndex)</code> from the covenant —
+reintroducing vulnerability 1, <code>a048b13e95125ad1</code> — and requiring the same
+oracle to catch it. It does: an agent whose epoch allowance is exhausted claims an
+earlier epoch, and the whole allowance comes back.</p>
+<p>That is the one line in this report that says a clean run above is worth
+something. The oracle can fire, it fires on a covenant this one used to be, and it
+is silent on the covenant as written.</p>"#,
+            gen = o.generated, acc = o.accepted, f = o.findings,
+            fc = if o.findings == 0 { "ok" } else { "bad" },
+            macc = o.m_accepted, mf = o.m_findings);
+    }
+
     let _ = write!(s, r#"
 <h2>What this run did not test</h2>
 <ul>
@@ -925,6 +952,29 @@ The engine and the Silverscript compiler are both pinned by revision in
 </div></body></html>
 "#, stamp = stamp);
     s
+}
+
+/// What `fuzz` last found, if it has been run. The report never claims an
+/// oracle result it does not have: an audit that describes a check nobody
+/// executed is the failure this whole directory exists to refuse.
+struct Oracle { generated: u64, accepted: u64, findings: u64, m_accepted: u64, m_findings: u64 }
+
+fn oracle() -> Option<Oracle> {
+    let t = std::fs::read_to_string("../oracle.json").ok()?;
+    let num = |k: &str, from: usize| -> Option<u64> {
+        let i = t[from..].find(&format!("\"{k}\":"))? + from + k.len() + 3;
+        let rest = t[i..].trim_start();
+        let end = rest.find(|c: char| !c.is_ascii_digit())?;
+        rest[..end].parse().ok()
+    };
+    let mi = t.find("\"mutant\"")?;
+    Some(Oracle {
+        generated: num("generated", 0)?,
+        accepted: num("accepted", 0)?,
+        findings: num("findings", 0)?,
+        m_accepted: num("accepted", mi)?,
+        m_findings: num("findings", mi)?,
+    })
 }
 
 fn main() {
@@ -1147,6 +1197,22 @@ fn report(
         let eng = if o.accepted { "accepted" } else { "refused" };
         let mark = if (o.expect == Expect::Accept) == o.accepted { "ok" } else { "**disagrees**" };
         let _ = writeln!(s, "| {} | {} | {spec} | {eng} | {mark} |", o.rule, o.what);
+    }
+    if let Some(o) = oracle() {
+        let _ = writeln!(s, "\n## The check that reads no specification\n");
+        let _ = writeln!(s, "Everything above compares the bytecode to a written claim. A second pass");
+        let _ = writeln!(s, "asks a question nobody had to write down first: generate spend attempts");
+        let _ = writeln!(s, "structurally, discard everything the engine refused, and assert one property");
+        let _ = writeln!(s, "of what is left — **an accepted spend must not leave the agent able to do more");
+        let _ = writeln!(s, "than it could before, minus what it just paid.**\n");
+        let _ = writeln!(s, "| Covenant | Generated | Engine accepted | Authority grew |");
+        let _ = writeln!(s, "|---|---:|---:|---:|");
+        let _ = writeln!(s, "| `warda_grant.sil` v4, as written | {} | {} | {} |", o.generated, o.accepted, o.findings);
+        let _ = writeln!(s, "| the same, epoch ratchet removed | {} | {} | **{}** |", o.generated, o.m_accepted, o.m_findings);
+        let _ = writeln!(s, "\nThe second row is the self-check. An oracle that has never fired is");
+        let _ = writeln!(s, "indistinguishable from one that cannot, so the run deletes");
+        let _ = writeln!(s, "`require(currentEpoch >= prevState.epochIndex)` — vulnerability 1,");
+        let _ = writeln!(s, "`a048b13e95125ad1`, put back — and requires the same oracle to catch it.\n");
     }
     let _ = writeln!(s, "\n## What this run did not test\n");
     let _ = writeln!(s, "- `settle` / `reabsorb` — the v4 splice path. It needs a real foreign-input");

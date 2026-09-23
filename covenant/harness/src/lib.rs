@@ -615,6 +615,8 @@ pub struct Spend {
     pub extra_fee: i64,
     /// Sign with a key that is not the agent's.
     pub wrong_key: bool,
+    /// The covenant to run against. Only the mutation runs change it.
+    pub src: &'static str,
 }
 
 impl Spend {
@@ -630,6 +632,7 @@ impl Spend {
             tx_daa: None,
             extra_fee: 0,
             wrong_key: false,
+            src: SOURCE,
         }
     }
 
@@ -638,12 +641,7 @@ impl Spend {
         let agent_xonly: [u8; 32] = kp.x_only_public_key().0.serialize();
         let tree = Tree::new(vec![[0xa1; 32], [0xa2; 32], [0xa3; 32], [0xa4; 32]]);
         let (ps, pr, pi, pe) = self.prev;
-        let c = compile_contract(
-            SOURCE,
-            &ctor_at_state(tree.root(), agent_xonly, 4, ps, pr, pi, pe),
-            CompileOptions::default(),
-        )
-        .expect("compiles");
+        let c = compiled(self.src, &ctor_at_state(tree.root(), agent_xonly, 4, ps, pr, pi, pe));
 
         /* The honest successor, which is what the covenant recomputes for
            itself. An epoch that has moved on resets the epoch spend to this
@@ -658,12 +656,7 @@ impl Spend {
             (ps + self.amount, pr, pi, pe + self.amount)
         };
         let (ss, sr, si, se) = self.successor.unwrap_or(honest);
-        let successor = compile_contract(
-            SOURCE,
-            &ctor_at_state(tree.root(), agent_xonly, 4, ss, sr, si, se),
-            CompileOptions::default(),
-        )
-        .expect("successor compiles");
+        let successor = compiled(self.src, &ctor_at_state(tree.root(), agent_xonly, 4, ss, sr, si, se));
 
         // A recipient outside the tree has no proof; borrowing a valid one is
         // the best an attacker can do, and is exactly what a rogue agent would
@@ -1182,4 +1175,51 @@ impl Exit {
         let sig = sign_input(build(vec![0u8; 65]), entries.clone(), 0, &kp);
         execute(build(sig), entries, 0)
     }
+}
+
+// ---------------------------------------------------------------------------
+// A compile cache, and a source that can be mutated.
+//
+// The claims suite compiles two contracts per case, which is fine for a
+// hundred cases and hopeless for a few thousand. The generator below reuses
+// the same instance and successor states over and over, so the compiler is
+// asked the same question repeatedly; the answer is leaked once and handed
+// back. Bounded by the number of distinct states in a run, which is small.
+// ---------------------------------------------------------------------------
+
+use std::cell::RefCell;
+use std::collections::HashMap;
+
+thread_local! {
+    static CACHE: RefCell<HashMap<String, &'static CompiledContract<'static>>> = RefCell::new(HashMap::new());
+}
+
+/// Compile, or hand back the compilation of this exact source and constructor.
+pub fn compiled(src: &'static str, ctor: &[Expr<'static>]) -> &'static CompiledContract<'static> {
+    let key = format!("{:p}|{:?}", src.as_ptr(), ctor);
+    CACHE.with(|c| {
+        if let Some(v) = c.borrow().get(&key) {
+            return *v;
+        }
+        let made: &'static CompiledContract<'static> =
+            Box::leak(Box::new(compile_contract(src, ctor, CompileOptions::default()).expect("compiles")));
+        c.borrow_mut().insert(key, made);
+        made
+    })
+}
+
+/// The covenant with one `require` removed, for proving that an oracle fires.
+///
+/// An oracle that has never fired is indistinguishable from one that cannot.
+/// So the auditor reintroduces a vulnerability this covenant actually had and
+/// checks that its own oracle catches it — the only evidence that a clean run
+/// means anything.
+pub fn source_without(line: &str) -> &'static str {
+    let out: String = SOURCE
+        .lines()
+        .map(|l| if l.trim() == line { format!("// MUTANT: removed — {l}") } else { l.to_string() })
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(out.contains("// MUTANT: removed"), "no line matched {line:?}");
+    Box::leak(out.into_boxed_str())
 }

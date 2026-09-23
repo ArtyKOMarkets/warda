@@ -147,6 +147,7 @@ builder panics.
 | `src/lib.rs` | the builders — constructor lists, state, the Merkle tree, signing, the engine call |
 | `tests/spend.rs` | 33 tests: an accepted baseline per entrypoint, then single-field flips |
 | `src/bin/audit.rs` | the auditor — every claim in `GUARANTEES.md`, at its boundary |
+| `src/bin/fuzz.rs` | the oracle that reads no claim at all |
 
 The builders were inside `tests/spend.rs` until the auditor needed them. Copying
 them would have been the eleventh instance of this repo's most expensive shape,
@@ -218,7 +219,37 @@ tested.
 Current run: **98 cases, 26 of 26 published claims covered, 12 rules at a
 measured boundary, 17 boundaries drawn, 0 violations, 0 over-refusals.**
 
-**A clean run is not a safety statement, and the report says why.** This
+## The oracle that reads no specification
+
+```bash
+cargo run --bin fuzz            # ~2 min; writes covenant/oracle.json
+```
+
+The auditor's ceiling is that its oracle is a document. This one has no
+document. It generates spend attempts structurally — no rule consulted —
+hands each to the engine, throws away everything refused, and asserts one
+property of what is left:
+
+> An accepted spend must not leave the agent able to do more than it could
+> before, minus what it just paid.
+
+Nobody has to have written that down for it to be true, and it is the shape of
+three of the five recorded vulnerabilities: the covenant checked WHAT
+something was and not HOW MUCH of it there was.
+
+**Then it checks itself, and that part is not optional.** An oracle that has
+never fired is indistinguishable from one that cannot, so the run ends by
+deleting `require(currentEpoch >= prevState.epochIndex)` from the covenant —
+vulnerability 1, `a048b13e95125ad1`, put back — and requires the same oracle to
+catch it. It exits 2 if it does not, because a silent oracle makes every clean
+result above worthless.
+
+Current run: **768 generated, 61 accepted by the engine, 0 grew. Against the
+mutant: 69 accepted, 8 grew** — an agent whose epoch allowance is exhausted
+claims an earlier epoch and the whole allowance comes back, which is the
+historical bug, found without consulting a single rule.
+
+**A clean run of the CLAIMS suite is not a safety statement, and the report says why.** This
 instrument checks bytecode against a written claim, so it cannot notice a rule
 that should exist and does not — the document it reads its claims from is the
 same one that would have omitted it. Of the five vulnerabilities this covenant

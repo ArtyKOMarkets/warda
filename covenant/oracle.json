@@ -1,0 +1,7 @@
+{
+  "oracle": "authority never grows",
+  "generated": 768,
+  "accepted": 61,
+  "findings": 0,
+  "mutant": { "generated": 768, "accepted": 69, "findings": 8 }
+}
