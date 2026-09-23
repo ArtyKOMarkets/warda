@@ -482,6 +482,22 @@ AGENTS = [
     ("agent-009.json", "agent-009.html",
      "node --experimental-strip-types growth/tools/reading.ts orchestrator \\\n"
      "    > site/src/agent-009.json.new && mv site/src/agent-009.json.new site/src/agent-009.json"),
+    # The Listener. A plain grant like #002-#006 rather than a weekly batch, so
+    # one fixed command — but it is the only agent here whose seller charges
+    # the OPERATOR in dollars for what it resells in KAS, and the page says so.
+    #
+    # --purchases points into growth/listener/, which is gitignored: the
+    # records hold the seller's answer, and X permits keeping Post IDs rather
+    # than post content. src/retain.ts strips the text after a day. The
+    # READING carries none of it, which is why this page can exist at all.
+    ("agent-012.json", "agent-012.html",
+     "node --experimental-strip-types agents/tools/dashboard.ts \\\n"
+     "    growth/listener-grant.json --id GROWTH-LISTENER \\\n"
+     "    --recipients growth/listener-payees.txt \\\n"
+     "    --purchases growth/listener/purchases \\\n"
+     "    --endpoint http://127.0.0.1:8788/search \\\n"
+     "    --mission \"Find the conversations where Warda has something to say, pay for the data it needs inside limits the network enforces, and never speak for anyone.\" \\\n"
+     "    > site/src/agent-012.json.new && mv site/src/agent-012.json.new site/src/agent-012.json"),
     ("agent-010.json", "agent-010.html",
      "node --experimental-strip-types growth/tools/reading.ts scout \\\n"
      "    > site/src/agent-010.json.new && mv site/src/agent-010.json.new site/src/agent-010.json"),

@@ -1,0 +1,42 @@
+<section>
+  <p class="eyebrow">The question this answers</p>
+  <h2>What does a bounded agent look like when you actually depend on it?</h2>
+  <p>
+    Every other agent on this site was built to demonstrate something. This one was built
+    because the person running Warda was spending an hour a day searching X by hand for
+    conversations worth joining, and stopped.
+  </p>
+  <p>
+    Twice a day it searches X for people talking about agent payments, spending limits for
+    autonomous agents, x402, agent wallets and Kaspa. It ranks what comes back by a rule written
+    down in <code>growth/src/listen.ts</code> &mdash; is somebody describing their own work or a
+    product&rsquo;s, is this a question or a headline, is anyone actually replying &mdash; and
+    sends the handful worth reading to one person&rsquo;s phone, with a link. Then it stops.
+    <strong>It has never posted, replied, liked or followed anything, and it is not built to.</strong>
+    The decision to speak stays with a person.
+  </p>
+  <p>
+    It cannot search without paying. The data comes from a seller that charges
+    <strong>0.05&nbsp;KAS a search</strong>, and the agent pays out of a grant that allows three
+    searches per twelve-hour epoch and 42 over its week. On its first run under that grant it
+    made three payments and was refused the fourth &mdash; not by a setting, by every Kaspa node
+    that checked it:
+  </p>
+  <pre>this invoice is 5000000 sompi and only 0 remains in the current epoch (0).
+The allowance refreshes as the chain advances &mdash; and cannot be refreshed
+by claiming an earlier epoch, which the covenant refuses.</pre>
+  <p>
+    <strong>Two honest gaps, and they are the interesting part.</strong> The seller is us: both
+    ends of that payment are Warda, on testnet, with coin that is worth nothing. And behind the
+    seller is a bill that is not play money &mdash; X charges $0.005 per post read, on a card,
+    and <em>nothing bounds that</em>. The chain bounds the agent; it cannot bound the card,
+    because it cannot see it. What this page shows is a limit holding, not a market working.
+  </p>
+  <p>
+    You will not find the posts it surfaced here, or the accounts that wrote them. X&rsquo;s
+    developer terms permit keeping post IDs and not post content, so the records behind this
+    reading drop the text after a day and keep the receipts. That is also the better page: what
+    matters is not what it found, it is that it could not have spent more looking.
+  </p>
+  {{LOCK}}
+</section>
