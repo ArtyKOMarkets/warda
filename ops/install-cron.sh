@@ -286,6 +286,27 @@ if [ -n "$WANT_INTEROP" ]; then
 fi
 echo
 if [ -f "$OPS/alerts.json" ]; then
+if [ -n "$WANT_LISTENER" ]; then
+  cat <<LISTENERNOTE
+
+the Listener searches X at 08:13 and 20:13 and sends what is worth a reply
+to Telegram, with a link. It posts nothing and replies to nothing — the
+decision to speak stays with you.
+
+It is the only job here that spends DOLLARS rather than testnet KAS: X bills
+\$0.005 a post read, about \$0.15 a pass and \$2.10 a week, on the card behind
+your developer account. The cap is three searches a pass and it lives in
+growth/tools/listen.ts — there is no covenant behind this one yet, which is
+the reason the grant is the next thing rather than a nice-to-have.
+  tail $LISTENERLOG
+  ls $HOME/Desktop/warda/growth/listener/
+
+It needs X_BEARER_TOKEN in growth/listener.env. A token exported into a
+terminal is invisible to cron, and the pass will tell you so on Telegram
+rather than dying into the log.
+LISTENERNOTE
+fi
+
   echo "your alert rules are watched at 8/23/38/53 past the hour. This NOTIFIES and"
   echo "never acts: it holds no key and builds no transaction, so the worst it can"
   echo "do is tell you something. Only CHANGES are sent, including the change back."
