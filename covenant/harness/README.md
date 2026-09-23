@@ -6,7 +6,8 @@ round-trip — a verdict in milliseconds.
 
 ```bash
 cd covenant/harness
-cargo test --test spend -- --nocapture
+cargo test --test spend -- --nocapture   # the 33 flip tests
+cargo run  --bin audit                   # the auditor, writing covenant/AUDIT.md
 ```
 
 First build takes a few minutes (it fetches rusty-kaspa); after that it is
@@ -139,11 +140,58 @@ Plain `entry` functions use `build_sig_script`; `#[covenant]` policy functions
 use `build_sig_script_for_covenant_decl`. Passing a plain entry to the covenant
 builder panics.
 
-## Next
+## Three things live here now
 
-The happy path — the piece that upgrades every rejection above from "refused" to
-"refused for this reason". It needs a real Merkle proof over the recipient root
-and a covenant-aware Rust signature (see REUSE.md: the WASM signer cannot do
-this). Then each vector in `vectors/vectors.json` is asserted against the
-engine, and the attack suite is proven twice — once in semantics, once in
-bytecode.
+| | |
+|---|---|
+| `src/lib.rs` | the builders — constructor lists, state, the Merkle tree, signing, the engine call |
+| `tests/spend.rs` | 33 tests: an accepted baseline per entrypoint, then single-field flips |
+| `src/bin/audit.rs` | the auditor — every claim in `GUARANTEES.md`, at its boundary |
+
+The builders were inside `tests/spend.rs` until the auditor needed them. Copying
+them would have been the eleventh instance of this repo's most expensive shape,
+and this file has already paid for it once: `ctor()` declared itself "v2
+constructor order" for two covenant versions while `covenant/deploy` moved on,
+and 32 of 33 tests failed to compile with nobody watching. There is one copy.
+
+## The auditor
+
+```bash
+cd covenant/harness
+cargo run --bin audit          # writes covenant/AUDIT.md, exits 1 on a violation
+```
+
+**What it adds over the flip tests.** A flip proves a rule is *present* by
+moving a field far outside it — 20 KAS against a 2 KAS cap. It cannot prove the
+rule is in the *right place*. An off-by-one on a spending cap passes every test
+in `tests/spend.rs` and is a defect with money behind it.
+
+So every numeric rule is exercised one sompi either side of its boundary: the
+tightest value that must be accepted and the loosest that must be refused. A
+rule is reported `enforced` at *boundary* grade only when both land. Rules whose
+refusal is attributable only because the case is one field from the accepted
+baseline are reported at *flip* grade and named as such.
+
+**What it does not do.** It does not declare the covenant secure. It reports
+what was tested, where the bytecode and `GUARANTEES.md` disagree, and which
+claims no constructed transaction could reach. The last list is in the report,
+not omitted from it.
+
+**The oracle is the published claim.** Each case quotes the sentence from
+`GUARANTEES.md` it is checking, rather than a paraphrase. A paraphrase is where
+an auditor starts agreeing with the thing it is auditing — the same shape as
+"a fake written from an assumption agrees with the bug it was meant to catch".
+
+Current run: **76 cases, 15 of 15 rules enforced, 10 of them at a measured
+boundary, 0 violations, 0 over-refusals.**
+
+## What is still not proven here
+
+- `settle` / `reabsorb`, the v4 splice path. It needs a real foreign-input
+  redeem script, which these builders do not yet produce.
+- The subset witness — a child narrowing its allowlist to a subtree.
+- Anything above the script engine: mempool policy, relay rules, or what a
+  wallet does with a transaction before it is broadcast.
+
+Each vector in `vectors/vectors.json` asserted against the engine is the next
+piece, and it is now a small one: the auditor already builds and runs cases.

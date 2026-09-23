@@ -71,6 +71,16 @@ jobs:
         working-directory: covenant/harness
         run: cargo test --test spend -- --nocapture
 
+      # The same engine, asked a different question: every claim in
+      # GUARANTEES.md at its BOUNDARY, one sompi either side. A flip test
+      # proves a rule is present; only a boundary pair proves it is in the
+      # right place, and an off-by-one on a spending cap is a defect with
+      # money behind it. Exits non-zero the moment the engine accepts
+      # something the published guarantees forbid.
+      - name: harness — auditor, every guarantee at its boundary
+        working-directory: covenant/harness
+        run: cargo run -q --bin audit
+
       # 14 probes, each attack beside its nearest legitimate twin, judged in
       # BOTH directions: a covenant that refused everything would pass a suite
       # made only of refusals. Needs no keys and no network — the corpus is
