@@ -107,19 +107,26 @@ lands and can only be ended, never edited.
 **3. The seller, always up.**
 
 ```
-mkdir -p ~/Library/LaunchAgents
-cp ops/com.wardaprotocol.xreads.plist ~/Library/LaunchAgents/
-launchctl load ~/Library/LaunchAgents/com.wardaprotocol.xreads.plist
+ops/install-cron.sh --listener
 curl -s http://127.0.0.1:8788/ | head -20
 ```
 
-`~/Library/LaunchAgents` does not exist on a Mac that has never had one, and
-everything else in `ops/` runs from cron — the plists beside this one are
-templates nobody has loaded. The `curl` is the check: it prints the seller's
-terms, or nothing, and `~/Library/Logs/warda-xreads.log` says why.
+`--listener` installs two lines: the pass at 08:13 and 20:13, and
+`ops/xreads-up.sh` every five minutes, which starts the seller if it is not
+answering. The `curl` is the check — it prints the seller's terms, or nothing,
+and `~/Library/Logs/warda-xreads.log` says why.
 
-A LaunchAgent rather than cron, because cron runs a thing periodically and
-this one has to STAY running: the pass at 08:13 needs something to buy from.
+**Not a LaunchAgent, and this is worth knowing before you try one.** launchd
+spawns outside cron's Full Disk Access grant, so it cannot read a script in
+`~/Desktop` at all — the log fills with `Operation not permitted` and nothing
+starts. Granting Full Disk Access to `/bin/bash` to fix one daemon is a wide
+permission for a narrow problem. Cron already has the grant, and this repo
+already keeps a process alive this way in `ops/proxy-up.sh`.
+
+(The same applies to the kaspad and tunnel plists in `ops/` — they were never
+loaded, and would hit the same wall.)
+
+To start it once, by hand, before cron gets to it: `ops/xreads-up.sh`.
 
 **No tunnel, and no hostname.** The grant's allowlist fixes who gets paid —
 the seller's address — not what URL it answers at, and both ends are on one
