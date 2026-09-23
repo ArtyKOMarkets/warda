@@ -62,6 +62,12 @@ LISTENER="$OPS/listener-pass.sh"
 LISTENERLOG="$HOME/Library/Logs/warda-listener.log"
 LISTENERENTRY="13 8,20 * * * $LISTENER >> $LISTENERLOG 2>&1"
 
+# The seller the Listener buys from, kept alive the way the proxy is. A
+# LaunchAgent cannot do this: launchd spawns outside cron's Full Disk Access
+# grant, so it cannot read a script in ~/Desktop at all. Installed with
+# --listener, because a pass with nothing to buy from is not a working pass.
+XREADSUP="$OPS/xreads-up.sh"
+
 # Is the endpoint /start sends a stranger at actually answering? Not opt-in:
 # it costs nothing, it touches no key and moves no coin, and the failure it
 # watches for went unnoticed for days the last time it happened.
@@ -228,6 +234,7 @@ printf '%s\n' "$current" \
   | grep -v -F "hourly-reading.sh" \
   | grep -v -F "weekly-growth.sh" \
   | grep -v -F "listener-pass.sh" \
+  | grep -v -F "xreads-up.sh" \
   | grep -v -F "daily-buy.sh" \
   | grep -v -F "daily-interop.sh" \
   | grep -v -F "check-vendor.sh" \
@@ -248,7 +255,10 @@ if [ -f "$OPS/alerts.env" ] && grep -q '^CONSOLE_CRON_SECRET=.' "$OPS/alerts.env
 if [ -n "$WANT_BUY" ]; then printf '%s\n' "$BUYENTRY" >> /tmp/warda-cron.$$; fi
 if [ -n "$WANT_INTEROP" ]; then printf '%s\n' "$INTEROPENTRY" >> /tmp/warda-cron.$$; fi
 if [ -n "$WANT_GROWTH" ]; then printf '%s\n' "$GROWTHENTRY" >> /tmp/warda-cron.$$; fi
-if [ -n "$WANT_LISTENER" ]; then printf '%s\n' "$LISTENERENTRY" >> /tmp/warda-cron.$$; fi
+if [ -n "$WANT_LISTENER" ]; then
+  printf '%s\n' "$LISTENERENTRY" >> /tmp/warda-cron.$$
+  printf '%s\n' "*/5 * * * * $XREADSUP >> $LISTENERLOG 2>&1" >> /tmp/warda-cron.$$
+fi
 crontab /tmp/warda-cron.$$
 rm -f /tmp/warda-cron.$$
 
