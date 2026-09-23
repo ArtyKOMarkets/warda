@@ -16,8 +16,22 @@
  * is exactly what it did and exactly which pages lacked the link.
  *
  * The link is injected by build.py now, so this checks the output rather than
- * the sources: exactly one stylesheet link, and every family the CSS names is
- * in it.
+ * the sources: every family the CSS names is loaded, by exactly one link.
+ *
+ * ## A page that names no family needs no link
+ *
+ * The rule used to be "exactly one link, always", which is a blunt proxy for
+ * the sentence at the top and overshoots it. /audit is a generated document
+ * copied in whole — it sets itself in system stacks on purpose, so that it
+ * renders the same offline, prints without fetching anything, and looks the
+ * same when the auditor produces it for somebody else's covenant on somebody
+ * else's machine. It claims no typeface, so there is nothing for it to be
+ * silently missing, and the guard demanding a link it does not use was the
+ * guard asking for the thing it exists to prevent: a stylesheet named but not
+ * needed rather than needed but not named.
+ *
+ * The six pages this was written for still fail: they DO name Barlow, Chakra
+ * Petch and JetBrains Mono in their tokens, and that is what is checked.
  */
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
@@ -44,16 +58,6 @@ for (const f of readdirSync(WEB)) {
   pages++;
 
   const links = html.match(/<link[^>]+fonts\.googleapis\.com[^>]*>/g) ?? [];
-  if (links.length !== 1) {
-    problems.push(
-      `${f}: ${links.length} Google Fonts link(s), expected exactly one.` +
-        (links.length === 0
-          ? "\n    The page's own CSS names faces it never loads, so it renders in a fallback\n" +
-            "    and a weight with no real face behind it is synthesised by the browser."
-          : ""),
-    );
-    continue;
-  }
 
   const want = new Set();
   for (const m of html.matchAll(DECLARED)) {
@@ -61,6 +65,24 @@ for (const f of readdirSync(WEB)) {
        are the fallbacks, which by definition need no link. */
     const first = /"([^"]+)"/.exec(m[1]);
     if (first) want.add(first[1]);
+  }
+
+  /* Two links is a problem whatever the page claims — they race, and the
+     second usually means a copied <head>. Zero is a problem only for a page
+     that names something. */
+  if (links.length > 1) {
+    problems.push(`${f}: ${links.length} Google Fonts links, expected one.`);
+    continue;
+  }
+  if (links.length === 0) {
+    if (want.size > 0) {
+      problems.push(
+        `${f}: names ${[...want].map((w) => `"${w}"`).join(", ")} in its tokens and loads no stylesheet.` +
+          "\n    It renders in a fallback, and a weight with no real face behind it is" +
+          "\n    synthesised by the browser.",
+      );
+    }
+    continue;
   }
   for (const family of want) {
     if (!links[0].includes(family.replace(/ /g, "+"))) {
