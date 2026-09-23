@@ -76,3 +76,7 @@
   [class*="text-fg"] { color: #111 !important; }
   .rise, .skeleton { animation: none !important; }
 }
+
+@keyframes fall {
+  to { transform: translate(var(--dx, 0), 110vh) rotate(var(--r, 180deg)); opacity: 0; }
+}

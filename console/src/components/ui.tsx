@@ -1,4 +1,4 @@
-import { useState, type ButtonHTMLAttributes, type ReactNode, type AnchorHTMLAttributes } from "react";
+import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode, type AnchorHTMLAttributes } from "react";
 import { Check, Copy as CopyIcon, ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { Status } from "@/lib/model";
@@ -78,12 +78,39 @@ export function Skeleton({ className }: { className?: string }) {
   return <span aria-hidden className={cn("skeleton inline-block h-4 w-20 align-middle", className)} />;
 }
 
+/* A number that changes while you are looking at it should be seen to change:
+   the eye catches the movement, not the new value. Respects reduced motion,
+   and never animates the first paint. */
+function useCountUp(text: string): string {
+  const [shown, setShown] = useState(text);
+  const from = useRef<number | null>(null);
+  useEffect(() => {
+    const to = Number(text.replace(/,/g, ""));
+    const start = from.current;
+    from.current = isFinite(to) ? to : null;
+    const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduced || start === null || !isFinite(to) || start === to || Math.abs(to - start) < 1e-9) { setShown(text); return; }
+    const dp = (text.split(".")[1] ?? "").length;
+    const t0 = performance.now(), ms = 420;
+    let raf = 0;
+    const tick = (now: number) => {
+      const f = Math.min(1, (now - t0) / ms), e = 1 - (1 - f) ** 3;
+      setShown((start + (to - start) * e).toLocaleString("en-US", { minimumFractionDigits: dp, maximumFractionDigits: dp }));
+      if (f < 1) raf = requestAnimationFrame(tick); else setShown(text);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [text]);
+  return shown;
+}
+
 /** A money figure: KAS first, always. */
 export function Kas({ value, className, unit = true, loading }: { value: string; className?: string; unit?: boolean; loading?: boolean }) {
+  const shown = useCountUp(value);
   if (loading) return <Skeleton className="h-[1em] w-16" />;
   return (
     <span className={cn("num", className)}>
-      {value}
+      {shown}
       {unit && value !== "—" && <span className="ml-[0.3em] text-[0.62em] font-medium tracking-normal text-fg-3">KAS</span>}
     </span>
   );

@@ -6,6 +6,7 @@ import { api, type RunnerConfig } from "@/lib/runner";
 import { href } from "@/lib/router";
 import { cn } from "@/lib/cn";
 import { Button, Card, CardHeader, Copy, LinkButton, Row, Tabs } from "./ui";
+import { Celebrate } from "./celebrate";
 import { Field, KasInput, Select, inputCls, kasOk } from "./form";
 
 function download(name: string, data: string, type: string) {
@@ -158,6 +159,7 @@ function Helpers({ agent, runner, a, reload }: { agent: string; runner: RunnerCo
           </>
         )}
         {msg && <p className={cn("mt-3 text-[12.5px]", msg.bad ? "text-bad" : "text-ok")}>{msg.text}</p>}
+        <Celebrate on={!!msg && !msg.bad} />
       </div>
     </Card>
   );

@@ -6,6 +6,7 @@ import { cn } from "@/lib/cn";
 import { href } from "@/lib/router";
 import { useData } from "@/lib/data";
 import { useWallet } from "@/lib/connect";
+import { ScopeSwitch } from "./scope";
 import { short } from "@/lib/format";
 import { ago } from "@/lib/format";
 
@@ -213,6 +214,7 @@ export function Shell({ active, children }: { active: string; children: ReactNod
           <button onClick={reload} className="grid size-8 place-items-center rounded-lg text-fg-3 transition hover:bg-raised hover:text-fg" aria-label="Refresh" title="Refresh">
             <RefreshCw className={cn("size-4", loading && "animate-spin")} />
           </button>
+          <ScopeSwitch className="hidden md:flex" />
           <div className="hidden sm:block"><NetworkPill /></div>
           <WalletChip />
         </header>

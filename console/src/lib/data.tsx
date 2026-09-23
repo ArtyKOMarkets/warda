@@ -125,6 +125,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const { wallet } = useWallet();
   const [runner, setRunnerState] = useState<RunnerConfig>(loadRunner);
   const [scope, setScope] = useState<Scope>("mine");
+  const [picked, setPicked] = useState(false);   // the person chose a scope; stop following the wallet
   const [range, setRange] = useState<Range>("30");
   const [filter, setFilter] = useState("");
   const [missing, setMissing] = useState(0);
@@ -212,11 +213,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const key = wallet?.family === "kaspa" ? wallet.key : null;
   const mine = useMemo(() => agents.filter((a) => a.source === "hosted" || (key && (a.principalKey === key || a.ownerKey === key || a.agentKey === key))), [agents, key]);
   const yours = mine.length > 0;
-  const inScope = scope === "warda" || !yours ? agents.filter((a) => a.source === "published") : mine;
+  /* Which set is on screen. A connected wallet means "mine"; disconnecting
+     goes back to Warda's own agents, which is what the console shows anyone
+     with nothing connected. Choosing a scope yourself sticks until the
+     wallet changes. */
+  useEffect(() => { if (!picked) setScope(wallet ? "mine" : "warda"); }, [wallet, picked]);
+  const want = picked ? scope : wallet ? "mine" : "warda";
+  const inScope = want === "warda" || !yours ? agents.filter((a) => a.source === "published") : mine;
   const readAt = inScope.map((a) => a.checkedAt).filter(Boolean).sort().pop() ?? null;
 
   const value = useMemo<Data>(() => ({
-    agents: inScope, all: agents, scope: yours ? scope : "warda", setScope, yours, readAt, missing,
+    agents: inScope, all: agents, scope: yours ? want : "warda", setScope: (x: Scope) => { setPicked(true); setScope(x); }, yours, readAt, missing,
     range, setRange, filter, setFilter,
     services, unlisted, registry, loading, errors, runner, updatedAt,
     setRunner: (c) => { saveRunner(c); setRunnerState(c); },

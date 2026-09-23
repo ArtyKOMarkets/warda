@@ -4,6 +4,7 @@ import { api, type RunnerConfig } from "@/lib/runner";
 import { explorerTx } from "@/lib/kaspa";
 import { hasKasware, kaswareSend, qrSvg } from "@/lib/wallet";
 import { Button, Card, LinkButton } from "./ui";
+import { Celebrate } from "./celebrate";
 import { cn } from "@/lib/cn";
 import { href } from "@/lib/router";
 import { FOR_KEY } from "@/pages/Stablecoin";
@@ -66,6 +67,7 @@ export function DepositPanel({ runner, agent, initial, onFunded, kind = "create"
   if (f.status === "funded") {
     return (
       <Card className="relative overflow-hidden p-8 text-center">
+        <Celebrate on />
         <div aria-hidden className="pointer-events-none absolute inset-x-0 -top-24 mx-auto h-48 w-96 rounded-full bg-accent/15 blur-3xl" />
         <div className="relative mx-auto grid size-14 place-items-center rounded-2xl bg-accent/15 ring-1 ring-accent/30"><Sparkles className="size-6 text-accent" /></div>
         <h2 className="relative mt-5 text-[22px] font-semibold tracking-[-0.02em]">{kind === "topup" ? "Topped up" : `${agent} is live`}</h2>
