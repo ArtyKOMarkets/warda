@@ -7,6 +7,7 @@
 #   ops/install-cron.sh --interop  and agent #005 buying from a third party
 #   ops/install-cron.sh --growth   and the growth fleet's weekly batch
 #   ops/install-cron.sh --listener and the Listener's twice-daily X pass
+#   ops/install-cron.sh --auditor  and keeps the covenant auditor answering
 #
 # This script exists because a crontab LINE and a shell COMMAND look identical
 # in a chat window, and pasting one where the other belongs does nothing
@@ -67,6 +68,14 @@ LISTENERENTRY="13 8,20 * * * $LISTENER >> $LISTENERLOG 2>&1"
 # grant, so it cannot read a script in ~/Desktop at all. Installed with
 # --listener, because a pass with nothing to buy from is not a working pass.
 XREADSUP="$OPS/xreads-up.sh"
+
+# The covenant auditor. Unlike everything else opt-in here it does not spend —
+# it EARNS, and it is LISTED: the registry re-fetches its manifest from that
+# host on every request, so when it is down a stranger looking for it is told
+# so in public. That is the honest behaviour and still a public one, which is
+# why it is worth a keepalive the Listener's private seller would not need.
+AUDITORUP="$OPS/auditor-up.sh"
+AUDITORLOG="$HOME/Library/Logs/warda-auditor.log"
 
 # Is the endpoint /start sends a stranger at actually answering? Not opt-in:
 # it costs nothing, it touches no key and moves no coin, and the failure it
@@ -135,6 +144,8 @@ NO_INTEROP=""
 WANT_GROWTH=""
 WANT_LISTENER=""
 NO_LISTENER=""
+WANT_AUDITOR=""
+NO_AUDITOR=""
 NO_GROWTH=""
 for a in "$@"; do
   [ "$a" = "--buy" ] && WANT_BUY=1
@@ -145,6 +156,8 @@ for a in "$@"; do
   [ "$a" = "--no-growth" ] && NO_GROWTH=1
   [ "$a" = "--listener" ] && WANT_LISTENER=1
   [ "$a" = "--no-listener" ] && NO_LISTENER=1
+  [ "$a" = "--auditor" ] && WANT_AUDITOR=1
+  [ "$a" = "--no-auditor" ] && NO_AUDITOR=1
 done
 
 if [ ! -x "$SCRIPT" ]; then
@@ -222,6 +235,14 @@ if printf '%s\n' "$current" | grep -q -F "weekly-growth.sh"; then
   fi
 fi
 
+if printf '%s\n' "$current" | grep -q -F "auditor-up.sh"; then
+  if [ -n "$NO_AUDITOR" ]; then
+    echo "removing the covenant auditor's keepalive, as asked."
+  else
+    WANT_AUDITOR=1
+  fi
+fi
+
 if printf '%s\n' "$current" | grep -q -F "listener-pass.sh"; then
   if [ -n "$NO_LISTENER" ]; then
     echo "removing the Listener's twice-daily X pass, as asked."
@@ -235,6 +256,7 @@ printf '%s\n' "$current" \
   | grep -v -F "weekly-growth.sh" \
   | grep -v -F "listener-pass.sh" \
   | grep -v -F "xreads-up.sh" \
+  | grep -v -F "auditor-up.sh" \
   | grep -v -F "daily-buy.sh" \
   | grep -v -F "daily-interop.sh" \
   | grep -v -F "check-vendor.sh" \
@@ -255,6 +277,7 @@ if [ -f "$OPS/alerts.env" ] && grep -q '^CONSOLE_CRON_SECRET=.' "$OPS/alerts.env
 if [ -n "$WANT_BUY" ]; then printf '%s\n' "$BUYENTRY" >> /tmp/warda-cron.$$; fi
 if [ -n "$WANT_INTEROP" ]; then printf '%s\n' "$INTEROPENTRY" >> /tmp/warda-cron.$$; fi
 if [ -n "$WANT_GROWTH" ]; then printf '%s\n' "$GROWTHENTRY" >> /tmp/warda-cron.$$; fi
+if [ -n "$WANT_AUDITOR" ]; then printf '%s\n' "*/5 * * * * $AUDITORUP >> $AUDITORLOG 2>&1" >> /tmp/warda-cron.$$; fi
 if [ -n "$WANT_LISTENER" ]; then
   printf '%s\n' "$LISTENERENTRY" >> /tmp/warda-cron.$$
   printf '%s\n' "*/5 * * * * $XREADSUP >> $LISTENERLOG 2>&1" >> /tmp/warda-cron.$$
