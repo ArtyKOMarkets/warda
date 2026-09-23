@@ -67,6 +67,15 @@ ops/alerts.json
 ops/alerts-state.json
 ops/alerts.env
 
+# The Listener's environment: QUOTE_SECRET signs the X-reads quotes and
+# X_BEARER_TOKEN is the credential X bills against — a leak is somebody else's
+# usage on our card.
+growth/listener.env
+
+# The Listener's state: which posts have already been sent, and the purchase
+# files for its searches. Machine-local, and it changes every pass.
+growth/listener/
+
 # The auditor's environment: QUOTE_SECRET signs its quotes and is a password.
 # ops/auditor.env.example is the committed shape.
 ops/auditor.env

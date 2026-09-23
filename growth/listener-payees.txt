@@ -1,0 +1,3 @@
+# The X-reads address, and nobody else. This is the allowlist, fixed at
+# genesis: the grant can pay what is listed here and no edit afterwards
+# changes what the covenant permits.
