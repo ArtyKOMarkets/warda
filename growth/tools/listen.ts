@@ -56,10 +56,37 @@ import { xFetcher } from "../src/xsearch.ts";
 import { plan } from "../src/rotate.ts";
 import { alert, summary } from "../src/alert.ts";
 
+/**
+ * `growth/listener.env`, loaded before anything reads process.env.
+ *
+ * X_BEARER_TOKEN is billed per read and QUOTE_SECRET signs quotes, so both are
+ * passwords. A password that has to be re-exported in every new terminal gets
+ * typed into one eventually, and a secret in shell history is a secret in a
+ * file nobody remembers is a file. The env file is gitignored; anything
+ * already set in the environment wins, so a one-off override still works.
+ */
+function loadEnv(file: string) {
+  if (!existsSync(file)) return;
+  for (const line of readFileSync(file, "utf8").split("\n")) {
+    const t = line.trim();
+    if (!t || t.startsWith("#")) continue;
+    const eq = t.indexOf("=");
+    if (eq < 1) continue;
+    const key = t.slice(0, eq).trim();
+    /* Quotes are stripped because a token pasted from a password manager
+       often arrives wearing them, and a bearer token with a quote in it fails
+       as a 401 that looks like a bad token rather than a bad file. */
+    const value = t.slice(eq + 1).trim().replace(/^(['"])(.*)\1$/, "$2");
+    if (!(key in process.env)) process.env[key] = value;
+  }
+}
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, "..", "..");
 const DIR = join(HERE, "..", "listener");
 const STATE = join(DIR, "state.json");
+
+loadEnv(join(dirname(fileURLToPath(import.meta.url)), "..", "listener.env"));
 
 const flag = (n: string, d?: string) => {
   const i = process.argv.indexOf(`--${n}`);
