@@ -148,6 +148,7 @@ builder panics.
 | `tests/spend.rs` | 33 tests: an accepted baseline per entrypoint, then single-field flips |
 | `src/bin/audit.rs` | the auditor — every claim in `GUARANTEES.md`, at its boundary |
 | `src/bin/fuzz.rs` | the oracle that reads no claim at all |
+| `src/audit.rs` · `src/oracle.rs` | both instruments with the covenant taken out — see [PORTING.md](PORTING.md) |
 
 The builders were inside `tests/spend.rs` until the auditor needed them. Copying
 them would have been the eleventh instance of this repo's most expensive shape,
@@ -254,6 +255,18 @@ instrument checks bytecode against a written claim, so it cannot notice a rule
 that should exist and does not — the document it reads its claims from is the
 same one that would have omitted it. Of the five vulnerabilities this covenant
 has had, none would have been caught by it.
+
+## Auditing something other than Warda
+
+`src/audit.rs` and `src/oracle.rs` know nothing about Warda: boundaries,
+grading, claim coverage, the three reports, the mutation self-check and the
+verdict are all generic. `src/bin/audit.rs` and `src/bin/fuzz.rs` are the
+covenant-specific half and the worked example of it.
+
+What cannot be config is building a valid transaction for a covenant's
+entrypoints — that is the covenant's design, not a parameter of it.
+[PORTING.md](PORTING.md) names the five things a second covenant supplies and
+is honest about that one.
 
 ## What is still not proven here
 

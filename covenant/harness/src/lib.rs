@@ -1223,3 +1223,5 @@ pub fn source_without(line: &str) -> &'static str {
     assert!(out.contains("// MUTANT: removed"), "no line matched {line:?}");
     Box::leak(out.into_boxed_str())
 }
+pub mod audit;
+pub mod oracle;

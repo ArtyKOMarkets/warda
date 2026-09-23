@@ -1,4 +1,4 @@
-# Covenant audit — `warda_grant.sil` v4
+# Covenant audit — warda_grant.sil · v4 · fingerprint b3e5eeefacf2021f
 
 Produced by `covenant/harness/src/bin/audit.rs`. Every line below is a
 verdict from `TxScriptEngine`, the same script engine a Kaspa node validates
@@ -224,36 +224,22 @@ than it could before, minus what it just paid.**
 
 The second row is the self-check. An oracle that has never fired is
 indistinguishable from one that cannot, so the run deletes
-`require(currentEpoch >= prevState.epochIndex)` — vulnerability 1,
-`a048b13e95125ad1`, put back — and requires the same oracle to catch it.
+`require(currentEpoch >= prevState.epochIndex)` — and requires the same oracle to catch it.
 
 
 ## What this run did not test
 
-- `settle` / `reabsorb` — the v4 splice path. It needs a real foreign-input
-  redeem script, which this harness does not yet build. It is also where the
-  fifth recorded vulnerability lived.
+- settle / reabsorb — the v4 splice path. It needs a real foreign-input redeem script, which this harness does not yet build. It is also where the fifth recorded vulnerability lived, which makes it the most important gap on this list.
 - The subset witness: a child narrowing its allowlist to a subtree.
-- **Any grant shape but one.** Every case runs against a single
-  parameterisation — 100 KAS, a 2 KAS cap, depth 2, a four-member allowlist,
-  `maxProofDepth` 4.
-- Anything above the script engine — a node's mempool policy, relay rules,
-  or what a wallet does with the transaction before it is broadcast.
-- The residual described in `GUARANTEES.md`: allowance from unused epochs
-  stays spendable after the chain passes `expiresAt`. That is a property of
-  the design, correctly implemented, not a defect the engine can report.
+- Any grant shape but one. Every case runs against a single parameterisation — 100 KAS, a 2 KAS per-spend cap, delegation depth 2, a four-member allowlist, maxProofDepth 4. Whether the same boundaries hold at depth 16, or with a 65,536-member tree, or a one-sompi budget, is untested.
+- Anything above the script engine — a node's mempool policy, relay rules, or what a wallet does with a transaction before it is broadcast.
+- The residual described in GUARANTEES.md: allowance from unused epochs stays spendable after the chain passes expiresAt. That is a property of the design, correctly implemented, not a defect the engine can report.
 
 ## What a clean run does not mean
 
-This instrument checks the bytecode against a WRITTEN CLAIM. It cannot notice
-a rule that should exist and does not, because the document it takes its
-claims from is the same document that would have omitted it.
+This instrument checks the bytecode against a written claim. It cannot notice a rule that should exist and does not, because the document it takes its claims from is the same document that would have omitted it.
 
-Of the five vulnerabilities this covenant has had, **none would have been
-caught by this auditor**. Two were absent from the guarantees at the time, one
-is not engine-visible, and one is in `settle`, which is still untested. Every
-one was found by a person asking what an adversary supplies at each input.
+That is not a hypothetical. Of the five vulnerabilities this covenant has had, none would have been caught by the claims suite. The epoch cap that limited nothing and the missing expiry check were both absent from the guarantees at the time. The template-id defect is not engine-visible. The fifth was in settle, which is still untested. Every one was found the same way: a person asked what an adversary supplies at each input, built it, and watched the engine accept it.
 
-Read this as a conformance and regression instrument: it proves the rules that
-exist are in the right place, and that they cannot silently move.
+The section above it is the answer to that, and the only one this tool has: an oracle that consults no document, and a covenant with a known hole in it to prove the oracle can fire.
 

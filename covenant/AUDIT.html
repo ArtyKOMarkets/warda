@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
-<title>Covenant audit — warda_grant.sil v4</title>
+<title>Covenant audit — warda_grant.sil · v4 · fingerprint b3e5eeefacf2021f</title>
 <style>
   :root {
     --ink:#14181d; --mute:#5b6470; --faint:#8b94a0;
@@ -307,46 +307,18 @@ minus what it just paid.</b></p>
 <p>The second row is the self-check, and it is not decoration. An oracle that has
 never fired is indistinguishable from one that cannot, so the run ends by deleting
 <code>require(currentEpoch &gt;= prevState.epochIndex)</code> from the covenant —
-reintroducing vulnerability 1, <code>a048b13e95125ad1</code> — and requiring the same
-oracle to catch it. It does: an agent whose epoch allowance is exhausted claims an
-earlier epoch, and the whole allowance comes back.</p>
+and requiring the same oracle to catch it. It does: an agent whose epoch allowance is exhausted claims an earlier epoch, and the whole allowance comes back.</p>
 <p>That is the one line in this report that says a clean run above is worth
 something. The oracle can fire, it fires on a covenant this one used to be, and it
 is silent on the covenant as written.</p>
 <h2>What this run did not test</h2>
-<ul>
-<li><code>settle</code> / <code>reabsorb</code> — the v4 splice path. It needs a real
-foreign-input redeem script, which this harness does not yet build. It is also where the
-fifth recorded vulnerability lived, which makes it the most important gap on this list.</li>
-<li>The subset witness: a child narrowing its allowlist to a subtree.</li>
-<li><b>Any grant shape but one.</b> Every case runs against a single parameterisation —
-100 KAS, a 2 KAS per-spend cap, delegation depth 2, a four-member allowlist,
-<code>maxProofDepth</code> 4. Whether the same boundaries hold at depth 16, or with a
-65,536-member tree, or a one-sompi budget, is untested.</li>
-<li>Anything above the script engine — a node's mempool policy, relay rules, or what a
-wallet does with a transaction before it is broadcast.</li>
-<li>The residual described in <code>GUARANTEES.md</code>: allowance from unused epochs
-stays spendable after the chain passes <code>expiresAt</code>. That is a property of the
-design, correctly implemented, not a defect the engine can report.</li>
-</ul>
+<ul><li><code>settle</code> / <code>reabsorb</code> — the v4 splice path. It needs a real foreign-input redeem script, which this harness does not yet build. It is also where the fifth recorded vulnerability lived, which makes it the most important gap on this list.</li><li>The subset witness: a child narrowing its allowlist to a subtree.</li><li><b>Any grant shape but one.</b> Every case runs against a single parameterisation — 100 KAS, a 2 KAS per-spend cap, delegation depth 2, a four-member allowlist, <code>maxProofDepth</code> 4. Whether the same boundaries hold at depth 16, or with a 65,536-member tree, or a one-sompi budget, is untested.</li><li>Anything above the script engine — a node's mempool policy, relay rules, or what a wallet does with a transaction before it is broadcast.</li><li>The residual described in <code>GUARANTEES.md</code>: allowance from unused epochs stays spendable after the chain passes <code>expiresAt</code>. That is a property of the design, correctly implemented, not a defect the engine can report.</li></ul>
 
 <h2>What a clean run does not mean</h2>
-<p>This instrument checks the bytecode against a written claim. It cannot notice a rule
-that <em>should</em> exist and does not, because the document it takes its claims from is
-the same document that would have omitted it.</p>
-<p>That is not a hypothetical. Of the five vulnerabilities this covenant has had,
-<b>none would have been caught by this auditor</b>. The epoch cap that limited nothing and
-the missing expiry check were both absent from the guarantees at the time, so there would
-have been no case for either. The template-id defect is not engine-visible. The fifth was
-in <code>settle</code>, which is still untested. Every one of them was found the same way:
-a person asked what an adversary supplies at each input, built it, and watched the engine
-accept it.</p>
-<p>Read this as a conformance and regression instrument. It proves the rules that exist are
-in the right place, to the sompi, and that they cannot silently move.</p>
-
+<p>This instrument checks the bytecode against a written claim. It cannot notice a rule that <em>should</em> exist and does not, because the document it takes its claims from is the same document that would have omitted it.</p><p>That is not a hypothetical. Of the five vulnerabilities this covenant has had, <b>none would have been caught by the claims suite</b>. The epoch cap that limited nothing and the missing expiry check were both absent from the guarantees at the time. The template-id defect is not engine-visible. The fifth was in <code>settle</code>, which is still untested. Every one was found the same way: a person asked what an adversary supplies at each input, built it, and watched the engine accept it.</p><p>The section above it is the answer to that, and the only one this tool has: an oracle that consults no document, and a covenant with a known hole in it to prove the oracle can fire.</p>
 <footer>
-Generated 2026-09-23 08:30 UTC by <code>covenant/harness/src/bin/audit.rs</code>.
-Reproduce with <code>cd covenant/harness &amp;&amp; cargo run --bin audit</code>.
+Generated 2026-09-23 08:41 UTC by <code>covenant/harness/src/bin/audit.rs</code>.
+Reproduce with <code>cd covenant/harness && cargo run --bin audit</code>.
 The engine and the Silverscript compiler are both pinned by revision in
 <code>Cargo.toml</code>; an unpinned compiler could alter the bytecode between runs.
 </footer>
