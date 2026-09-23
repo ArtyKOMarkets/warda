@@ -294,8 +294,38 @@ export function explain(status: number): string {
   }
 }
 
-/** X's shape, flattened. Exported because the paid service returns this too. */
+/**
+ * A response, as posts. X's raw shape, or the seller's already-flattened one.
+ *
+ * Two shapes because there are two upstreams and one of them is us: reading X
+ * directly gives `{data, includes}`, and buying from `xreads` gives the result
+ * of this same function, run on the seller's side. The first paid run went
+ * through cleanly — three payments, three 200s — and reported zero posts,
+ * because the flattened body has no `data` and this quietly returned nothing.
+ *
+ * Handled here rather than at the call site because this is the one place
+ * that turns a response into posts, and a caller that has to know which
+ * upstream it spoke to is a caller that will eventually get it wrong.
+ */
 export function postsFrom(body: string, matched: string): Post[] {
+  /* The seller's shape first: it is ours, it is exact, and it is cheap to
+     recognise. `matched` is re-applied rather than trusted, because the label
+     the seller saw is its own and the one that belongs on the post is the
+     query THIS run made. */
+  try {
+    const mine = JSON.parse(body) as { posts?: unknown };
+    if (Array.isArray(mine.posts)) {
+      return (mine.posts as Post[])
+        .filter((p) => p && typeof p.id === "string" && typeof p.url === "string")
+        .map((p) => ({ ...p, matched: [matched] }));
+    }
+  } catch {
+    return [];
+  }
+  return xPostsFrom(body, matched);
+}
+
+function xPostsFrom(body: string, matched: string): Post[] {
   let doc: {
     data?: { id?: string; text?: string; created_at?: string; author_id?: string;
              public_metrics?: { like_count?: number; reply_count?: number; retweet_count?: number } }[];

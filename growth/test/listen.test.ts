@@ -161,3 +161,40 @@ test("a status says what to do about it, and 401 is not 402", () => {
   assert.match(explain(503), /X is having trouble/);
   assert.equal(explain(200), "ok");
 });
+
+test("the seller's flattened body is read as posts, not as nothing", () => {
+  /* The first paid run: three payments, three 200s, zero posts. The seller
+     returns the result of postsFrom run on its own side, which has no `data`
+     key — so parsing it as X's raw shape found nothing and said nothing. */
+  const body = JSON.stringify({
+    query: "x402", since: "2026-09-22T12:00:00Z", maxResults: 10, reads: 1, costUsd: 0.005,
+    posts: [{
+      id: "9", url: "https://x.com/dev/status/9", text: "what stops an agent overspending?",
+      at: now(), author: { handle: "dev", name: "Dev", followers: 900, verified: false },
+      likes: 1, replies: 2, reposts: 0, matched: ["whatever the seller called it"],
+    }],
+  });
+  const got = postsFrom(body, "agent wallet");
+  assert.equal(got.length, 1);
+  assert.equal(got[0]!.id, "9");
+  assert.equal(got[0]!.author.handle, "dev");
+  /* The label is this run's query, not the one the seller recorded. */
+  assert.deepEqual(got[0]!.matched, ["agent wallet"]);
+});
+
+test("X's raw shape still parses, so reading direct is unaffected", () => {
+  const body = JSON.stringify({
+    data: [{ id: "1", text: "agents and money", created_at: now(), author_id: "u1",
+             public_metrics: { like_count: 2, reply_count: 1, retweet_count: 0 } }],
+    includes: { users: [{ id: "u1", username: "dev", name: "Dev", public_metrics: { followers_count: 400 } }] },
+  });
+  const got = postsFrom(body, "x402");
+  assert.equal(got.length, 1);
+  assert.equal(got[0]!.url, "https://x.com/dev/status/1");
+});
+
+test("a body that is neither shape is no posts, not a crash", () => {
+  assert.deepEqual(postsFrom("{}", "x402"), []);
+  assert.deepEqual(postsFrom("not json", "x402"), []);
+  assert.deepEqual(postsFrom(JSON.stringify({ posts: "no" }), "x402"), []);
+});
