@@ -1,10 +1,11 @@
 import { useMemo } from "react";
-import { Plus, ShieldCheck, Ban, ArrowRight, Bot, GitBranch, FileJson, ExternalLink } from "lucide-react";
+import { Plus, ShieldCheck, Ban, ArrowRight, Bot, FileJson, ExternalLink } from "lucide-react";
 import { useData, inRange, agentHit, paymentHit } from "@/lib/data";
 import { useAccount, ownKey } from "@/lib/account";
 import { totals, type AgentView } from "@/lib/model";
 import { kas, ago, short } from "@/lib/format";
 import { href } from "@/lib/router";
+import { Lineage } from "@/components/lineage";
 import { AgentCard, ActivityList, BlockedCard } from "@/components/agent";
 import { Badge, Card, CardHeader, Empty, Kas, LinkButton, PageHeader, Skeleton, Stat } from "@/components/ui";
 import { CumulativeChart, Donut, HBars } from "@/components/charts";
@@ -163,32 +164,13 @@ export function Overview() {
       </section>
 
       <GrowthFleet />
-      <Family agents={shownAgents} />
+      <Lineage className="mt-4" agents={shownAgents} />
       <Readings agents={shownAgents} />
     </>
   );
 }
 
 /** Who delegated to whom, and what replaced what. */
-function Family({ agents }: { agents: AgentView[] }) {
-  const rows = agents.filter((a) => a.parent || a.replaced);
-  if (!rows.length) return null;
-  return (
-    <Card className="mt-4">
-      <CardHeader title={<span className="flex items-center gap-2"><GitBranch className="size-4 text-fg-3" /> Delegation and succession</span>} sub="A helper gets less than its parent; a successor is a different grant with a different key" />
-      <ul className="mt-2 divide-y divide-line">
-        {rows.map((a) => (
-          <li key={a.key} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-3 text-[13px]">
-            <a href={href("agents", a.key)} className="font-medium hover:text-accent">{agentName(a)}</a>
-            {a.parent && <span className="text-fg-3">is a helper of <span className="text-fg-2">{a.parent}</span>{a.delegationDepth !== null && ` · depth ${a.delegationDepth}`}</span>}
-            {a.replaced && <span className="text-fg-3">replaced <span className="text-fg-2">{a.replaced}</span></span>}
-            {a.narrower && <Badge>{Object.keys(a.narrower).length} limits narrowed</Badge>}
-          </li>
-        ))}
-      </ul>
-    </Card>
-  );
-}
 
 /** The readings themselves: what this page is drawn from. */
 function Readings({ agents }: { agents: AgentView[] }) {

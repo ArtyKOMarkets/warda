@@ -22,7 +22,7 @@ export function LinkButton({ variant = "secondary", size = "md", className, ...p
 
 export function Card({ className, children, interactive, ...p }: { className?: string; children: ReactNode; interactive?: boolean } & React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn("rounded-[var(--radius-card)] border border-line bg-surface shadow-[var(--shadow-card)]",
+    <div className={cn("min-w-0 rounded-[var(--radius-card)] border border-line bg-surface shadow-[var(--shadow-card)]",
       interactive && "transition-[border-color,background,transform] duration-150 hover:border-line-strong hover:bg-[#101317]", className)} {...p}>
       {children}
     </div>

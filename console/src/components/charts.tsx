@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { kas } from "@/lib/format";
 import { cn } from "@/lib/cn";
 
@@ -79,32 +79,53 @@ export function CumulativeChart({ points, height = 180 }: { points: { at: number
   );
 }
 
-export const HUES = [172, 200, 228, 262, 292, 330, 18, 42, 140];
-export const hueOf = (i: number) => `hsl(${HUES[i % HUES.length]} 62% 52%)`;
+/* Eight categorical hues, stepped for this console's surface and checked with
+   the palette validator: every adjacent pair clears the colour-blind and
+   normal-vision floors against #0e1013. They are assigned in this order and
+   never cycled — a ninth series folds into "Other" rather than inventing a
+   colour that would collide with one already on screen. */
+export const SERIES = ["#199e70", "#d95926", "#3987e5", "#c98500", "#d55181", "#008300", "#9085e9", "#e66767"];
+export const OTHER = "#7a7a6f";
+export const hueOf = (i: number) => SERIES[i] ?? OTHER;
+
+/** Top eight by value; everything after that is one "Other" row. */
+export function fold<T extends { value: number; label: any; key: string }>(rows: T[], keep = 8): (T | { key: string; label: string; value: number })[] {
+  if (rows.length <= keep) return rows;
+  const sorted = [...rows].sort((a, b) => b.value - a.value);
+  const rest = sorted.slice(keep - 1).reduce((s, r) => s + r.value, 0);
+  return [...sorted.slice(0, keep - 1), { key: "__other", label: `Other (${rows.length - keep + 1})`, value: rest }];
+}
 
 /** Where it went, by agent. */
-export function Donut({ rows, size = 168 }: { rows: { key: string; label: string; value: number }[]; size?: number }) {
+export function Donut({ rows: all, size = 176 }: { rows: { key: string; label: string; value: number }[]; size?: number }) {
+  const rows = fold(all) as { key: string; label: string; value: number }[];
   const total = rows.reduce((s, r) => s + r.value, 0);
   if (!total) return <p className="py-6 text-center text-[13px] text-fg-3">Nothing spent in this range.</p>;
-  const R = size / 2, r = R * 0.62;
+  const R = size / 2, r = R * 0.64, GAP = 0.02;   // a hair of surface between segments
   let a0 = -Math.PI / 2;
   const arcs = rows.map((row, i) => {
-    const a1 = a0 + (row.value / total) * Math.PI * 2;
+    const a1 = a0 + (row.value / total) * Math.PI * 2 - GAP;
     const big = a1 - a0 > Math.PI ? 1 : 0;
     const p = (rad: number, rr: number) => `${(R + Math.cos(rad) * rr).toFixed(2)} ${(R + Math.sin(rad) * rr).toFixed(2)}`;
     const d = `M${p(a0, R)} A${R} ${R} 0 ${big} 1 ${p(a1, R)} L${p(a1, r)} A${r} ${r} 0 ${big} 0 ${p(a0, r)} Z`;
-    a0 = a1;
+    a0 = a1 + GAP;
     return { d, row, i };
   });
   return (
     <div className="flex flex-wrap items-center gap-6">
-      <svg viewBox={`0 0 ${size} ${size}`} style={{ width: size, height: size }} role="img" aria-label="Spending by agent">
-        {arcs.map(({ d, row, i }) => <path key={row.key} d={d} fill={hueOf(i)} opacity={0.9} />)}
-      </svg>
+      <div className="relative" style={{ width: size, height: size }}>
+        <svg viewBox={`0 0 ${size} ${size}`} style={{ width: size, height: size }} role="img" aria-label="Spending by agent">
+          {arcs.map(({ d, row, i }) => <path key={row.key} d={d} fill={row.key === "__other" ? OTHER : hueOf(i)}><title>{`${row.label}: ${kas(row.value)} KAS`}</title></path>)}
+        </svg>
+        <div className="pointer-events-none absolute inset-0 grid place-content-center text-center">
+          <div className="num text-[17px] font-semibold tracking-[-0.02em]">{kas(total)}</div>
+          <div className="text-[11px] text-fg-3">KAS</div>
+        </div>
+      </div>
       <ul className="min-w-[12rem] flex-1 space-y-1.5">
         {rows.map((row, i) => (
           <li key={row.key} className="flex items-center gap-2 text-[12.5px]">
-            <span className="size-2.5 shrink-0 rounded-sm" style={{ background: hueOf(i) }} />
+            <span className="size-2.5 shrink-0 rounded-sm" style={{ background: row.key === "__other" ? OTHER : hueOf(i) }} />
             <span className="min-w-0 flex-1 truncate">{row.label}</span>
             <span className="num text-fg-2">{kas(row.value)}</span>
             <span className="num w-10 text-right text-fg-3">{Math.round((row.value / total) * 100)}%</span>
@@ -116,7 +137,11 @@ export function Donut({ rows, size = 168 }: { rows: { key: string; label: string
 }
 
 /** Daily spend, stacked by agent. */
-export function StackedBars({ days, series, height = 200 }: { days: string[]; series: { key: string; label: string; values: number[] }[]; height?: number }) {
+export function StackedBars({ days, series: allSeries, height = 200 }: { days: string[]; series: { key: string; label: string; values: number[] }[]; height?: number }) {
+  const series = allSeries.length <= 8 ? allSeries : [...allSeries.slice(0, 7), {
+    key: "__other", label: `Other (${allSeries.length - 7})`,
+    values: days.map((_, i) => allSeries.slice(7).reduce((s, x) => s + (x.values[i] ?? 0), 0)),
+  }];
   const [hi, setHi] = useState<number | null>(null);
   const totals = days.map((_, i) => series.reduce((s, x) => s + (x.values[i] ?? 0), 0));
   const max = Math.max(0.0001, ...totals);
@@ -126,7 +151,7 @@ export function StackedBars({ days, series, height = 200 }: { days: string[]; se
         <div><div className="text-[12px] text-fg-3">{hi === null ? `Last ${days.length} days` : days[hi]}</div>
           <div className="num text-[22px] font-semibold tracking-[-0.03em]">{kas(hi === null ? totals.reduce((a, b) => a + b, 0) : totals[hi]!)}<span className="ml-1 text-[12px] font-medium text-fg-3">KAS</span></div></div>
         <ul className="flex flex-wrap justify-end gap-x-3 gap-y-1 text-[11.5px] text-fg-3">
-          {series.map((x, i) => <li key={x.key} className="flex items-center gap-1.5"><span className="size-2 rounded-sm" style={{ background: hueOf(i) }} />{x.label}</li>)}
+          {series.map((x, i) => <li key={x.key} className="flex items-center gap-1.5"><span className="size-2 rounded-sm" style={{ background: x.key === "__other" ? OTHER : hueOf(i) }} />{x.label}</li>)}
         </ul>
       </div>
       <div className="flex items-end gap-[3px]" style={{ height }} onMouseLeave={() => setHi(null)}>
@@ -134,7 +159,9 @@ export function StackedBars({ days, series, height = 200 }: { days: string[]; se
           <div key={d} className="flex h-full flex-1 flex-col justify-end" onMouseEnter={() => setHi(i)}>
             {series.map((x, si) => {
               const v = x.values[i] ?? 0;
-              return v > 0 ? <div key={x.key} style={{ height: `${(v / max) * 100}%`, background: hueOf(si), opacity: hi === null || hi === i ? 1 : 0.55 }} className="w-full first:rounded-t-[3px]" /> : null;
+              return v > 0 ? <div key={x.key} title={`${x.label} · ${d}: ${kas(v)} KAS`}
+                style={{ height: `${(v / max) * 100}%`, background: x.key === "__other" ? OTHER : hueOf(si), opacity: hi === null || hi === i ? 1 : 0.55, marginTop: si ? 2 : 0 }}
+                className="w-full first:rounded-t-[4px]" /> : null;
             })}
             {totals[i] === 0 && <div className="h-[2px] w-full bg-line" />}
           </div>
@@ -145,24 +172,61 @@ export function StackedBars({ days, series, height = 200 }: { days: string[]; se
   );
 }
 
-/** How much of a budget is gone, one ring per grant. */
-export function Rings({ rows }: { rows: { key: string; label: string; used: number }[] }) {
+/** One ring: a share of something, drawn as the arc that is gone. */
+export interface RingSeg { value: number; color: string; label?: string }
+
+/** One circular progress mark. Either a single percentage, or ordered segments
+    with a 2px surface gap between them so adjacent fills stay separable. */
+export function Ring({ pct, segments, total, size = 72, width = 7, center, sub, warn, muted, className, title }: {
+  pct?: number; segments?: RingSeg[]; total?: number; size?: number; width?: number;
+  center?: ReactNode; sub?: ReactNode; warn?: boolean; muted?: boolean; className?: string; title?: string;
+}) {
+  const r = (size - width) / 2, C = 2 * Math.PI * r;
+  const p = Math.max(0, Math.min(100, isFinite(pct ?? 0) ? (pct ?? 0) : 0));
+  const segs: RingSeg[] = segments?.filter((x) => x.value > 0) ?? [{ value: p, color: muted ? "var(--color-line-strong)" : warn ? "var(--color-warn)" : "var(--color-accent)" }];
+  const tot = total ?? (segments ? segs.reduce((s, x) => s + x.value, 0) : 100);
+  const gap = segs.length > 1 ? 2.5 : 0;
+  let off = 0;
+  const arcs = segs.map((sg, i) => {
+    const len = tot > 0 ? (sg.value / tot) * C : 0;
+    const draw = Math.max(0.5, len - gap);
+    const node = (
+      <circle key={i} cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={width}
+        stroke={sg.color} strokeLinecap={segs.length > 1 ? "butt" : "round"}
+        strokeDasharray={`${draw} ${Math.max(0, C - draw)}`} strokeDashoffset={-off}
+        style={{ transition: "stroke-dasharray .6s cubic-bezier(.3,.7,.3,1), stroke-dashoffset .6s cubic-bezier(.3,.7,.3,1)" }}>
+        {sg.label && <title>{sg.label}</title>}
+      </circle>
+    );
+    off += len;
+    return node;
+  });
   return (
-    <div className="flex flex-wrap gap-5">
-      {rows.map((r) => {
-        const pct = Math.max(0, Math.min(100, r.used));
-        const C = 2 * Math.PI * 26;
-        return (
-          <div key={r.key} className="w-[86px] text-center">
-            <svg viewBox="0 0 64 64" className="mx-auto size-[64px] -rotate-90">
-              <circle cx="32" cy="32" r="26" fill="none" stroke="var(--color-raised)" strokeWidth="7" />
-              <circle cx="32" cy="32" r="26" fill="none" stroke={pct > 80 ? "var(--color-warn)" : "var(--color-accent)"} strokeWidth="7" strokeLinecap="round" strokeDasharray={`${(pct / 100) * C} ${C}`} />
-            </svg>
-            <div className="num -mt-[42px] text-[13px] font-semibold">{Math.round(pct)}%</div>
-            <div className="mt-[26px] truncate text-[11.5px] text-fg-3" title={r.label}>{r.label}</div>
-          </div>
-        );
-      })}
+    <div className={cn("relative shrink-0", className)} style={{ width: size, height: size }} title={title}>
+      <svg viewBox={`0 0 ${size} ${size}`} className="-rotate-90" style={{ width: size, height: size }} role="img"
+        aria-label={title ?? `${Math.round(p)}%`}>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--color-raised)" strokeWidth={width} />
+        {arcs}
+      </svg>
+      <div className="absolute inset-0 grid place-content-center text-center">
+        <div className="num font-semibold leading-none" style={{ fontSize: Math.max(11, Math.round(size * 0.2)) }}>
+          {center ?? `${Math.round(p)}%`}
+        </div>
+        {sub && <div className="mt-1 text-[9.5px] uppercase tracking-[0.07em] text-fg-3">{sub}</div>}
+      </div>
+    </div>
+  );
+}
+export function Rings({ rows }: { rows: { key: string; label: string; used: number; sub?: string }[] }) {
+  return (
+    <div className="flex flex-wrap gap-x-6 gap-y-5">
+      {rows.map((r) => (
+        <div key={r.key} className="w-[92px] text-center" title={`${r.label}: ${Math.round(r.used)}% of the budget spent`}>
+          <Ring className="mx-auto" pct={r.used} warn={r.used > 80} sub="used" />
+          <div className="mt-2 truncate text-[11.5px] text-fg-2">{r.label}</div>
+          {r.sub && <div className="num truncate text-[11px] text-fg-3">{r.sub}</div>}
+        </div>
+      ))}
     </div>
   );
 }

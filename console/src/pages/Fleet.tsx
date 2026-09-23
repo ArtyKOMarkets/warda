@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { AlertTriangle, Check, ClipboardList, GitBranch, Layers, Wallet } from "lucide-react";
+import { AlertTriangle, Check, ClipboardList, Layers, Wallet } from "lucide-react";
 import { useData, agentHit } from "@/lib/data";
 import { useWallet } from "@/lib/connect";
 import { spendable, type AgentView } from "@/lib/model";
@@ -7,10 +7,11 @@ import { kas } from "@/lib/format";
 import { href } from "@/lib/router";
 import { commandFor } from "@/lib/commands";
 import { cn } from "@/lib/cn";
-import { AgentMark } from "@/components/agent";
+import { AgentMark, BudgetRing } from "@/components/agent";
 import { Badge, Button, Card, CardHeader, Copy, Empty, Kas, PageHeader, Stat, StatusBadge, Tabs } from "@/components/ui";
 import { ScopeBanner } from "@/components/scope";
 import { hueOf } from "@/components/charts";
+import { Lineage } from "@/components/lineage";
 import { agentName } from "./shared";
 
 /* The fleet: every grant at once, what each is short of, and the commands
@@ -141,7 +142,7 @@ export function Fleet() {
                     <td className="px-4"><a href={href("agents", a.key)} className="flex items-center gap-2.5"><AgentMark agent={a} size={24} className="rounded-md" />{agentName(a)}</a></td>
                     <td className="px-4"><StatusBadge status={a.status} /></td>
                     <td className="px-4"><Kas value={kas(spendable(a))} unit={false} /></td>
-                    <td className="num px-4 text-fg-2">{kas(a.budget)}</td>
+                    <td className="px-4"><span className="flex items-center gap-2"><BudgetRing a={a} size={22} width={3.5} bare /><span className="num text-fg-2">{kas(a.budget)}</span></span></td>
                     <td className="num px-4 text-fg-2">{kas(a.maxPerPayment)}</td>
                     <td className="px-4 text-fg-2">{a.status === "ended" || a.expired ? "ended" : a.expiresIn ?? "—"}</td>
                     <td className="px-4"><span className="flex flex-wrap gap-1">{flags.map((fl) => <Badge key={fl.word} tone={fl.tone}>{fl.word}</Badge>)}</span></td>
@@ -153,7 +154,7 @@ export function Fleet() {
         )}
       </Card>
 
-      <Tree agents={agents} />
+      <Lineage className="mt-4" agents={agents} title="Who delegated to whom" sub="A helper can only ever get less than its parent" />
 
       <div className="mt-4 grid items-start gap-4 lg:grid-cols-2">
       <Templates />
@@ -173,30 +174,6 @@ export function Fleet() {
 }
 
 /** Who delegated to whom. */
-function Tree({ agents }: { agents: AgentView[] }) {
-  const kids = new Map<string, AgentView[]>();
-  for (const a of agents) if (a.parent) kids.set(a.parent, [...(kids.get(a.parent) ?? []), a]);
-  const roots = agents.filter((a) => !a.parent && (kids.has(a.label) || kids.has(a.id)));
-  if (!roots.length) return null;
-  const row = (a: AgentView, depth: number) => (
-    <li key={a.key} className="px-5 py-2.5 text-[13px]" style={{ paddingLeft: 20 + depth * 22 }}>
-      <span className="flex flex-wrap items-center gap-2">
-        {depth > 0 && <span className="text-fg-3">↳</span>}
-        <a href={href("agents", a.key)} className="font-medium hover:text-accent">{agentName(a)}</a>
-        <StatusBadge status={a.status} />
-        <span className="num text-fg-2">{kas(spendable(a))} KAS left</span>
-        {a.delegationDepth !== null && <span className="text-[12px] text-fg-3">can delegate {a.delegationDepth} deep</span>}
-      </span>
-    </li>
-  );
-  const render = (a: AgentView, depth: number): React.ReactNode[] => [row(a, depth), ...(kids.get(a.label) ?? kids.get(a.id) ?? []).flatMap((k) => render(k, depth + 1))];
-  return (
-    <Card className="mt-4">
-      <CardHeader title={<span className="flex items-center gap-2"><GitBranch className="size-4 text-fg-3" /> Who delegated to whom</span>} sub="A helper can only ever get less than its parent" />
-      <ul className="mt-2 divide-y divide-line">{roots.flatMap((r) => render(r, 0))}</ul>
-    </Card>
-  );
-}
 
 /* Shapes for a new grant, kept in this browser. The three that come with the
    console are shapes, not recommendations, and delete like any other. */

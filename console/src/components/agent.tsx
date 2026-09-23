@@ -5,7 +5,8 @@ import { ago, kas, periodWords, short, dateTime } from "@/lib/format";
 import { explorerTx } from "@/lib/kaspa";
 import { href } from "@/lib/router";
 import { cn } from "@/lib/cn";
-import { Badge, Card, Kas, Meter, StatusBadge } from "./ui";
+import { Badge, Card, Kas, StatusBadge } from "./ui";
+import { Ring } from "./charts";
 
 const HUES = [172, 200, 228, 262, 292, 330, 18, 42, 140];
 function hash(s: string) { let h = 2166136261; for (const c of s) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; }
@@ -29,6 +30,41 @@ export function AgentMark({ agent, size = 36, className }: { agent: Pick<AgentVi
   );
 }
 
+
+/** One reading of a grant, split the way both the ring and its legend show it:
+    what it spent, what it can still pay, and the authority with nothing behind it. */
+export function budgetParts(a: AgentView) {
+  const dead = a.status === "ended" || a.status === "expired";
+  const budget = a.budget ?? 0;
+  const spent = Math.max(0, a.spent ?? 0);
+  const left = dead ? 0 : (spendable(a) ?? 0);
+  const idle = Math.max(0, budget - spent - left);
+  const unfunded = a.remaining === null && a.status === "waiting";
+  const idleLabel = dead ? "Returned unspent" : shortOfCoin(a) ? "No coin behind it" : "Not yet drawn";
+  const idleColor = dead ? "var(--color-line-strong)" : shortOfCoin(a) ? "var(--color-warn)" : "var(--color-line-strong)";
+  const pct = budget > 0 ? Math.round((left / budget) * 100) : 0;
+  return { dead, budget, spent, left, idle, unfunded, idleLabel, idleColor, pct };
+}
+
+/** The grant as a circle: what it can still pay, what it already spent.
+    Segments are ordered spent -> idle -> left and separated by a surface gap. */
+export function BudgetRing({ a, size = 82, width = 8, bare, className }: { a: AgentView; size?: number; width?: number; bare?: boolean; className?: string }) {
+  const { dead, budget, spent, left, idle, unfunded, idleLabel, idleColor, pct } = budgetParts(a);
+  if (unfunded || budget <= 0) {
+    return <Ring className={className} size={size} width={width} pct={0} muted center={bare ? false : <span className="text-fg-3">—</span>} sub={bare ? undefined : "not funded"} title="This grant has no coin at its address yet." />;
+  }
+  const segs = [
+    { value: spent, color: "var(--color-money-spent)", label: `Spent ${kas(spent)} KAS` },
+    ...(idle > 1e-7 ? [{ value: idle, color: idleColor, label: `${idleLabel}: ${kas(idle)} KAS` }] : []),
+    { value: left, color: "var(--color-money-left)", label: `Can still pay ${kas(left)} KAS` },
+  ];
+  return (
+    <Ring className={className} size={size} width={width} segments={segs} total={budget}
+      center={bare ? false : <span className={cn(dead && "text-fg-3")}>{pct}%</span>} sub={bare ? undefined : dead ? "closed" : "left"}
+      title={`${pct}% of the ${kas(budget)} KAS budget can still be paid`} />
+  );
+}
+
 export function AgentCard({ a }: { a: AgentView }) {
   const blocked = a.payments.filter((p) => p.outcome === "blocked").length;
   return (
@@ -46,17 +82,17 @@ export function AgentCard({ a }: { a: AgentView }) {
           <StatusBadge status={a.status} />
         </div>
 
-        <div className="mt-6 flex items-end justify-between gap-3">
-          <div>
+        <div className="mt-6 flex items-center justify-between gap-4">
+          <div className="min-w-0">
             <div className="text-[12px] text-fg-3">It can still pay</div>
             {a.remaining === null && a.status === "waiting" ? <span className="mt-1 block text-[20px] font-semibold leading-[26px] tracking-[-0.02em] text-fg-2">Not funded yet</span> : <Kas value={kas(spendable(a))} className="mt-1 block text-[26px] font-semibold leading-none tracking-[-0.03em]" />}
+            <div className="mt-2 text-[12px] text-fg-3">
+              of <span className="num text-fg-2">{kas(a.budget)}</span> KAS budget
+              {shortOfCoin(a) && <span className="block text-warn">coin below authority</span>}
+            </div>
           </div>
-          <div className="text-right text-[12px] text-fg-3">
-            of <span className="num text-fg-2">{kas(a.budget)}</span> KAS
-            {shortOfCoin(a) && <span className="block text-warn">coin below authority</span>}
-          </div>
+          <BudgetRing a={a} />
         </div>
-        <Meter className="mt-3" spent={a.spent} budget={a.budget} muted={a.status === "ended" || a.status === "expired" || a.remaining === null} />
 
         <div className="mt-5 grid grid-cols-3 gap-3 border-t border-line pt-4 text-[12px]">
           <Mini label="Per payment" value={a.maxPerPayment === null ? "—" : `${kas(a.maxPerPayment)}`} />
@@ -90,6 +126,7 @@ function Mini({ label, value }: { label: string; value: string }) {
 /** The one block that says what this agent may do. Every line is a rule the covenant checks. */
 export function AuthorityBlock({ a }: { a: AgentView }) {
   const ended = a.status === "ended";
+  const parts = budgetParts(a);
   const rules = [
     { icon: Gauge, label: "Max per payment", value: a.maxPerPayment === null ? "—" : `${kas(a.maxPerPayment)} KAS`, note: "Any single payment above this is refused." },
     { icon: Timer, label: "Limit per period", value: a.periodLimit === null ? "—" : `${kas(a.periodLimit)} KAS / ${periodWords(a.periodSeconds)}`, note: a.periodSeconds ? `The period is ${Math.round(a.periodSeconds * 10).toLocaleString("en-US")} DAA of network time (about ${periodWords(a.periodSeconds)}).` : "Resets with network time." },
@@ -115,13 +152,16 @@ export function AuthorityBlock({ a }: { a: AgentView }) {
                 : <>of a <span className="num text-fg-2">{kas(a.budget)} KAS</span> budget</>}
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-6 text-[13px] lg:min-w-[380px]">
-            <Legend color="bg-fg-3/60" label="Spent" value={kas(a.spent)} />
-            <Legend color="bg-accent" label="Authority left" value={kas(ended ? 0 : a.remaining)} />
-            <Legend color="bg-line-strong" label="On-chain" value={kas(a.onChain)} />
+          <div className="flex items-center gap-7">
+            <BudgetRing a={a} size={128} width={13} />
+            <div className="grid gap-3.5 text-[13px]">
+              <Legend color="bg-[var(--color-money-spent)]" label="Spent" value={kas(parts.spent)} />
+              <Legend color="bg-[var(--color-money-left)]" label="Can still pay" value={kas(parts.left)} />
+              {parts.idle > 1e-7 && <Legend style={{ background: parts.idleColor }} label={parts.idleLabel} value={kas(parts.idle)} />}
+              <div className="text-[12px] text-fg-3">On chain now <span className="num text-fg-2">{kas(a.onChain)}</span> KAS</div>
+            </div>
           </div>
         </div>
-        <Meter className="relative mt-6" height={8} spent={a.spent} budget={a.budget} muted={ended || a.expired} />
       </div>
       <div className="grid border-t border-line sm:grid-cols-2 lg:grid-cols-5">
         {rules.map((r, i) => (
@@ -136,10 +176,10 @@ export function AuthorityBlock({ a }: { a: AgentView }) {
   );
 }
 
-function Legend({ color, label, value }: { color: string; label: string; value: string }) {
+function Legend({ color, style, label, value }: { color?: string; style?: React.CSSProperties; label: string; value: string }) {
   return (
     <div>
-      <div className="flex items-center gap-1.5 text-fg-3"><span className={cn("size-2 rounded-full", color)} /> {label}</div>
+      <div className="flex items-center gap-1.5 text-fg-3"><span className={cn("size-2 rounded-full", color)} style={style} /> {label}</div>
       <div className="num mt-1.5 text-[15px] text-fg">{value}<span className="ml-1 text-[11px] text-fg-3">KAS</span></div>
     </div>
   );
