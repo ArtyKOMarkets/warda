@@ -758,6 +758,7 @@ impl Spend {
 // ---------------------------------------------------------------------------
 
 /// Child authority — deliberately narrower than the parent on every axis.
+#[derive(Clone)]
 pub struct Child {
     pub budget: i64,
     pub max_per_spend: i64,
@@ -835,17 +836,62 @@ pub fn child_ctor(root: [u8; 32], child_key: [u8; 32], ch: &Child, depth: i64) -
     ]
 }
 
+/// A delegation, with every lever the published guarantees name.
+///
+/// `run_delegation` is this with the defaults, kept because the flip tests
+/// call it. One implementation: the parent's coin, its prior state and the
+/// output count are all things the covenant checks, and a claim nobody can
+/// reach is a claim nobody has tested.
+pub struct Delegate {
+    pub child: Child,
+    pub parent_reserved_override: Option<i64>,
+    /// What the parent has already spent and reserved. The child's budget is
+    /// capped by what is left of those two, which is unreachable from genesis.
+    pub parent_prev: (i64, i64),
+    /// `outputs[1].value`, when it should not follow `child.budgetTotal`.
+    pub coin_override: Option<i64>,
+    /// A third output, to break `OpAuthOutputCount == 2`.
+    pub extra_output: bool,
+}
+
+impl Delegate {
+    pub fn valid() -> Self {
+        Delegate {
+            child: Child::narrower(),
+            parent_reserved_override: None,
+            parent_prev: (0, 0),
+            coin_override: None,
+            extra_output: false,
+        }
+    }
+
+    pub fn run(&self) -> Result<(), TxScriptError> {
+        run_delegation_full(self)
+    }
+}
+
 pub fn run_delegation(ch: &Child, parent_reserved_override: Option<i64>) -> Result<(), TxScriptError> {
+    run_delegation_full(&Delegate { child: ch.clone(), parent_reserved_override, ..Delegate::valid() })
+}
+
+fn run_delegation_full(d: &Delegate) -> Result<(), TxScriptError> {
+    let ch = &d.child;
+    let parent_reserved_override = d.parent_reserved_override;
+    let (prev_spent, prev_reserved) = d.parent_prev;
     let kp = agent_keypair();
     let agent_xonly: [u8; 32] = kp.x_only_public_key().0.serialize();
     let child_key = [0x99u8; 32];
     let tree = Tree::new(vec![[0xa1; 32], [0xa2; 32], [0xa3; 32], [0xa4; 32]]);
     let depth = 4;
 
-    let parent = compile_contract(SOURCE, &ctor_with(tree.root(), agent_xonly, depth), CompileOptions::default())
-        .expect("parent compiles");
+    let parent = compile_contract(
+        SOURCE,
+        &ctor_at_state(tree.root(), agent_xonly, depth, prev_spent, prev_reserved, 0, 0),
+        CompileOptions::default(),
+    )
+    .expect("parent compiles");
 
-    let reserved_after = parent_reserved_override.unwrap_or(ch.budget);
+    let reserved_after = parent_reserved_override.unwrap_or(prev_reserved + ch.budget);
 
     /* The child's identity, and the chain it pushes onto. Computed here rather
        than beside the declared state, because the parent's CONTINUATION must
@@ -867,7 +913,7 @@ pub fn run_delegation(ch: &Child, parent_reserved_override: Option<i64>) -> Resu
     // Parent continuation: same authority, reserved advanced, chain pushed.
     let parent_next = compile_contract(
         SOURCE,
-        &ctor_at_state_with_reserve(tree.root(), agent_xonly, depth, 0, reserved_after, 0, 0, pushed),
+        &ctor_at_state_with_reserve(tree.root(), agent_xonly, depth, prev_spent, reserved_after, 0, 0, pushed),
         CompileOptions::default(),
     )
     .expect("parent successor compiles");
@@ -876,7 +922,7 @@ pub fn run_delegation(ch: &Child, parent_reserved_override: Option<i64>) -> Resu
         .expect("child compiles");
 
     let mut parent_fields = authority_fields(tree.root(), agent_xonly);
-    parent_fields.push(("spentTotal", Expr::int(0)));
+    parent_fields.push(("spentTotal", Expr::int(prev_spent)));
     parent_fields.push(("reserved", Expr::int(reserved_after)));
     parent_fields.push(("epochIndex", Expr::int(0)));
     parent_fields.push(("epochSpent", Expr::int(0)));
@@ -926,11 +972,22 @@ pub fn run_delegation(ch: &Child, parent_reserved_override: Option<i64>) -> Resu
                     covenant: Some(CovenantBinding { authorizing_input: 0, covenant_id: COV }),
                 },
                 TransactionOutput {
-                    value: ch.budget.max(0) as u64,
+                    /* "Coin follows authority": the child's output must hold
+                       exactly what its budget says. An override is the only
+                       way to ask the engine whether that is checked. */
+                    value: d.coin_override.unwrap_or(ch.budget).max(0) as u64,
                     script_public_key: pay_to_script_hash_script(&child_contract.bytecode),
                     covenant: Some(CovenantBinding { authorizing_input: 0, covenant_id: COV }),
                 },
-            ],
+            ]
+            .into_iter()
+            .chain(d.extra_output.then(|| TransactionOutput {
+                // A second child, which the fanout of 2 must refuse.
+                value: 1_000,
+                script_public_key: pay_to_script_hash_script(&child_contract.bytecode),
+                covenant: Some(CovenantBinding { authorizing_input: 0, covenant_id: COV }),
+            }))
+            .collect::<Vec<_>>(),
             0,
             Default::default(),
             0,
@@ -1008,4 +1065,121 @@ pub fn strip_covenants(tx: &Transaction) -> Transaction {
         tx.gas,
         tx.payload.clone(),
     )
+}
+
+// ---------------------------------------------------------------------------
+// The exits. `revoke` and `reclaim` are plain entries — no continuation, no
+// successor, one signature and one output — and until now nothing in this
+// repo had ever run either of them to an accepted verdict. The report counted
+// five published claims it had never executed.
+// ---------------------------------------------------------------------------
+
+/// The principal's key, as a real keypair rather than the constant `[0x11; 32]`
+/// the default constructor carries. `checkSig` cannot be exercised against a
+/// key nobody holds.
+pub fn principal_keypair() -> Keypair {
+    let secp = Secp256k1::new();
+    Keypair::from_seckey_slice(&secp, &[0x31u8; 32]).expect("valid key")
+}
+
+/// The revocation key. Separate from the principal on purpose: a monitor that
+/// can stop a grant must not thereby be trusted with its balance.
+pub fn revocation_keypair() -> Keypair {
+    let secp = Secp256k1::new();
+    Keypair::from_seckey_slice(&secp, &[0x4du8; 32]).expect("valid key")
+}
+
+/// `ctor_with`, plus real principal and revocation keys in slots 0 and 1.
+pub fn ctor_with_authority(root: [u8; 32], agent_xonly: [u8; 32], depth: i64) -> Vec<Expr<'static>> {
+    let mut v = ctor_with(root, agent_xonly, depth);
+    v[0] = Expr::bytes(principal_keypair().x_only_public_key().0.serialize().to_vec());
+    v[1] = Expr::bytes(revocation_keypair().x_only_public_key().0.serialize().to_vec());
+    v
+}
+
+/// The 34-byte P2PK script the covenant builds for itself and compares against.
+pub fn p2pk(key: [u8; 32]) -> Vec<u8> {
+    let mut s = vec![0x20u8];
+    s.extend_from_slice(&key);
+    s.push(0xac);
+    s
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub enum Which {
+    Revoke,
+    Reclaim,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub enum Signer {
+    Principal,
+    Revocation,
+    Agent,
+}
+
+pub struct Exit {
+    pub which: Which,
+    pub signer: Signer,
+    /// Where the coin goes. `None` is P2PK(principalKey), which is the only
+    /// destination either exit permits.
+    pub pay_to: Option<[u8; 32]>,
+    /// Taken out of the output, on top of nothing. The covenant allows up to
+    /// `maxFee`.
+    pub fee: i64,
+    pub tx_daa: i64,
+}
+
+impl Exit {
+    /// `revoke`, correctly signed, paying the principal, at exactly maxFee.
+    pub fn revoke() -> Self {
+        Exit { which: Which::Revoke, signer: Signer::Revocation, pay_to: None, fee: MAX_FEE, tx_daa: 1_000_500 }
+    }
+
+    /// `reclaim`, at the first DAA the term allows.
+    pub fn reclaim() -> Self {
+        Exit { which: Which::Reclaim, signer: Signer::Principal, pay_to: None, fee: MAX_FEE, tx_daa: EXPIRES_AT }
+    }
+
+    pub fn run(&self) -> Result<(), TxScriptError> {
+        let agent = agent_keypair();
+        let agent_xonly: [u8; 32] = agent.x_only_public_key().0.serialize();
+        let principal = principal_keypair();
+        let revocation = revocation_keypair();
+        let tree = Tree::new(vec![[0xa1; 32], [0xa2; 32], [0xa3; 32], [0xa4; 32]]);
+        let c = compile_contract(SOURCE, &ctor_with_authority(tree.root(), agent_xonly, 4), CompileOptions::default())
+            .expect("compiles");
+
+        let payee = self.pay_to.unwrap_or_else(|| principal.x_only_public_key().0.serialize());
+        let script = p2pk(payee);
+        let in_value: u64 = IN_VALUE;
+        let name = if self.which == Which::Revoke { "revoke" } else { "reclaim" };
+        let tx_daa = self.tx_daa;
+        let fee = self.fee;
+
+        let build = |sig: Vec<u8>| {
+            Transaction::new(
+                1,
+                vec![tx_input(0, plain_sigscript(&c, name, vec![Expr::bytes(sig)]))],
+                vec![TransactionOutput {
+                    value: in_value.saturating_sub(fee.max(0) as u64),
+                    script_public_key: ScriptPublicKey::new(0, script.clone().into()),
+                    covenant: None,
+                }],
+                tx_daa.max(0) as u64,
+                Default::default(),
+                0,
+                vec![],
+            )
+        };
+
+        let entries = vec![covenant_utxo(&c, in_value)];
+        let kp = match self.signer {
+            Signer::Principal => principal,
+            Signer::Revocation => revocation,
+            Signer::Agent => agent,
+        };
+        let sig = sign_input(build(vec![0u8; 65]), entries.clone(), 0, &kp);
+        execute(build(sig), entries, 0)
+    }
 }

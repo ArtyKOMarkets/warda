@@ -25,6 +25,57 @@ use silverscript_lang::ast::Expr;
 use std::fmt::Write as _;
 use warda_harness::*;
 
+
+/// Every enforcement claim `GUARANTEES.md` makes, plus the two exits' own
+/// `require` lines, and the audit rule that covers it.
+///
+/// This list is the report's DENOMINATOR, and it exists because the first
+/// version did not have one. It printed "15 of 15 rules enforced", where the
+/// 15 in the denominator meant "rules I wrote cases for" — a number that can
+/// never go down and rises only when coverage does, which is the shape of a
+/// figure designed to flatter. Beside a paragraph honestly listing what was
+/// not tested, it was the number a reader would take away and the number that
+/// was wrong.
+struct Claim {
+    entry: &'static str,
+    text: &'static str,
+    /// The rule family that exercises it. Empty means nothing does, and the
+    /// report says so rather than leaving the claim out of the count.
+    rule: &'static str,
+}
+
+const CLAIMS: &[Claim] = &[
+    Claim { entry: "auth_spend", text: "the payee is on the allowlist", rule: "allowlist" },
+    Claim { entry: "auth_spend", text: "the amount is within the per-spend cap", rule: "per-spend cap" },
+    Claim { entry: "auth_spend", text: "total spending stays within budget", rule: "budget" },
+    Claim { entry: "auth_spend", text: "per-epoch spending stays within the epoch cap", rule: "epoch limit" },
+    Claim { entry: "auth_spend", text: "epochs are consumed once, in order", rule: "epoch ratchet" },
+    Claim { entry: "auth_spend", text: "the claimed time has actually arrived", rule: "cltv" },
+    Claim { entry: "auth_spend", text: "the window has opened", rule: "window opens" },
+    Claim { entry: "auth_spend", text: "the window has not closed", rule: "window closes" },
+    Claim { entry: "auth_spend", text: "authority is unchanged in the successor", rule: "authority immutable" },
+    Claim { entry: "auth_spend", text: "the successor state is exactly right", rule: "successor accounting" },
+    Claim { entry: "auth_spend", text: "the continuation keeps the remainder", rule: "continuation value" },
+    Claim { entry: "auth_spend", text: "the agent signed it", rule: "signature" },
+
+    Claim { entry: "delegate", text: "the child cannot exceed the parent's uncommitted budget", rule: "delegation budget" },
+    Claim { entry: "delegate", text: "every attenuable field only narrows", rule: "delegation attenuation" },
+    Claim { entry: "delegate", text: "the allowlist is inherited exactly", rule: "delegation allowlist" },
+    Claim { entry: "delegate", text: "the child starts clean", rule: "delegation start" },
+    Claim { entry: "delegate", text: "the parent changes in exactly one way", rule: "delegation reserve" },
+    Claim { entry: "delegate", text: "coin follows authority", rule: "delegation coin" },
+    Claim { entry: "delegate", text: "exactly one child", rule: "delegation fanout" },
+
+    Claim { entry: "revoke", text: "signed by the revocation key", rule: "revoke signature" },
+    Claim { entry: "revoke", text: "the output is P2PK(principalKey)", rule: "revoke destination" },
+    Claim { entry: "revoke", text: "the output keeps the balance, less maxFee", rule: "revoke conservation" },
+
+    Claim { entry: "reclaim", text: "the term is over — tx.daa >= expiresAt", rule: "reclaim term" },
+    Claim { entry: "reclaim", text: "signed by the principal key", rule: "reclaim signature" },
+    Claim { entry: "reclaim", text: "the output is P2PK(principalKey)", rule: "reclaim destination" },
+    Claim { entry: "reclaim", text: "the output keeps the balance, less maxFee", rule: "reclaim conservation" },
+];
+
 #[derive(PartialEq, Clone, Copy, Debug)]
 enum Expect {
     /// The spec permits this. The engine must return Ok(()).
@@ -366,6 +417,96 @@ fn cases() -> Vec<Case> {
         }));
     }
 
+    // -----------------------------------------------------------------------
+    // The rest of delegate: the four claims the first version left uncounted.
+    // -----------------------------------------------------------------------
+    const RB: &str = "child.budgetTotal <= budgetTotal - committed";
+    // A parent that has already spent 60 and reserved 15 of 100 has 25 left.
+    // That ceiling is unreachable from genesis, which is why it went untested.
+    for (b, exp, note) in [
+        (25 * KAS, Expect::Accept, "a child taking exactly the parent's uncommitted budget"),
+        (25 * KAS + 1, Expect::Reject, "one sompi more than the parent has left"),
+    ] {
+        v.push(probed("delegation budget", RB, note, exp, "child budgetTotal", "sompi", b, Dir::Upper, move || {
+            let mut d = Delegate::valid();
+            d.parent_prev = (60 * KAS, 15 * KAS);
+            d.child.budget = b;
+            d.run()
+        }));
+    }
+    v.push(case("delegation allowlist", "child.recipientsRoot == recipientsRoot",
+        "a child claiming a different allowlist with an empty witness", Expect::Reject, || {
+        let mut d = Delegate::valid(); d.child.root = Some([0x77; 32]); d.run()
+    }));
+    v.push(case("delegation coin", "outputs[1].value == child.budgetTotal",
+        "the child's coin exactly its budget", Expect::Accept, || Delegate::valid().run()));
+    for (delta, note) in [(-1i64, "the child's coin one sompi short of its budget"), (1, "one sompi over")] {
+        v.push(case("delegation coin", "outputs[1].value == child.budgetTotal", note, Expect::Reject, move || {
+            let mut d = Delegate::valid(); d.coin_override = Some(25 * KAS + delta); d.run()
+        }));
+    }
+    v.push(case("delegation fanout", "OpAuthOutputCount == 2, fanout(to = 2)",
+        "one child", Expect::Accept, || Delegate::valid().run()));
+    v.push(case("delegation fanout", "OpAuthOutputCount == 2, fanout(to = 2)",
+        "two children in one delegation", Expect::Reject, || {
+        let mut d = Delegate::valid(); d.extra_output = true; d.run()
+    }));
+
+    // -----------------------------------------------------------------------
+    // The exits. Neither had ever been run to an accepted verdict here, so
+    // five published claims had never been executed at all — including the
+    // value conservation added to `revoke` in v3, which exists because
+    // without it the revocation key was a DESTROY capability rather than a
+    // STOP one.
+    // -----------------------------------------------------------------------
+    v.push(case("revoke signature", "checkSig(s, revocationKey)", "the revocation key", Expect::Accept, || Exit::revoke().run()));
+    for (who, note) in [(Signer::Agent, "the agent's key"), (Signer::Principal, "the principal's key")] {
+        v.push(case("revoke signature", "checkSig(s, revocationKey)", format!("{note}, not the revocation key"), Expect::Reject, move || {
+            let mut e = Exit::revoke(); e.signer = who; e.run()
+        }));
+    }
+    v.push(case("revoke destination", "outputs[0].scriptPubKey == P2PK(principalKey)",
+        "paying anybody but the principal", Expect::Reject, || {
+        let mut e = Exit::revoke(); e.pay_to = Some([0xee; 32]); e.run()
+    }));
+    for (fee, exp, note) in [
+        (MAX_FEE, Expect::Accept, "a fee of exactly maxFee"),
+        (MAX_FEE + 1, Expect::Reject, "one sompi more than maxFee burned"),
+    ] {
+        v.push(probed("revoke conservation", "outputs[0].value >= inValue - maxFee", note, exp,
+            "revoke fee", "sompi", fee, Dir::Upper, move || {
+            let mut e = Exit::revoke(); e.fee = fee; e.run()
+        }));
+    }
+
+    v.push(case("reclaim signature", "checkSig(s, principalKey)", "the principal's key", Expect::Accept, || Exit::reclaim().run()));
+    for (who, note) in [(Signer::Agent, "the agent's key"), (Signer::Revocation, "the revocation key")] {
+        v.push(case("reclaim signature", "checkSig(s, principalKey)", format!("{note}, not the principal's"), Expect::Reject, move || {
+            let mut e = Exit::reclaim(); e.signer = who; e.run()
+        }));
+    }
+    v.push(case("reclaim destination", "outputs[0].scriptPubKey == P2PK(principalKey)",
+        "sweeping to anybody but the principal", Expect::Reject, || {
+        let mut e = Exit::reclaim(); e.pay_to = Some([0xee; 32]); e.run()
+    }));
+    for (daa, exp, note) in [
+        (EXPIRES_AT, Expect::Accept, "the first DAA the term allows"),
+        (EXPIRES_AT - 1, Expect::Reject, "one DAA before the term is over"),
+    ] {
+        v.push(probed("reclaim term", "tx.daa >= expiresAt", note, exp, "reclaim locktime", "DAA", daa, Dir::Lower, move || {
+            let mut e = Exit::reclaim(); e.tx_daa = daa; e.run()
+        }));
+    }
+    for (fee, exp, note) in [
+        (MAX_FEE, Expect::Accept, "a fee of exactly maxFee"),
+        (MAX_FEE + 1, Expect::Reject, "one sompi more than maxFee burned"),
+    ] {
+        v.push(probed("reclaim conservation", "outputs[0].value >= inValue - maxFee", note, exp,
+            "reclaim fee", "sompi", fee, Dir::Upper, move || {
+            let mut e = Exit::reclaim(); e.fee = fee; e.run()
+        }));
+    }
+
     v
 }
 
@@ -511,6 +652,7 @@ fn html(
 ) -> String {
     let mut s = String::new();
     let bnd = enforced.iter().filter(|(_, g)| *g == "boundary").count();
+    let covered = CLAIMS.iter().filter(|c| enforced.iter().any(|(r, _)| *r == c.rule)).count();
     let clean = violations.is_empty() && over.is_empty();
 
     let _ = write!(s, r#"<!doctype html>
@@ -621,14 +763,15 @@ not an omission.</div>
 
 <div class="kpis">
   <div class="kpi"><div class="k">Cases</div><div class="v num">{cases}</div><div class="n">transactions executed</div></div>
-  <div class="kpi"><div class="k">Rules enforced</div><div class="v num">{enf}</div><div class="n">{bnd} at a measured boundary</div></div>
+  <div class="kpi"><div class="k">Claims covered</div><div class="v num {cc}">{enf}</div><div class="n">{bnd} rules at a measured boundary</div></div>
   <div class="kpi"><div class="k">Violations</div><div class="v num {vc}">{viol}</div><div class="n">forbidden, yet accepted</div></div>
   <div class="kpi"><div class="k">Over-refusals</div><div class="v num {oc}">{ovr}</div><div class="n">permitted, yet refused</div></div>
   <div class="kpi"><div class="k">Baseline</div><div class="v">{base}</div><div class="n">every flip depends on it</div></div>
 </div>
 "#,
         cases = out.len(),
-        enf = format!("{} / {}", enforced.len(), enforced.len() + assumed.len()),
+        enf = format!("{} / {}", covered, CLAIMS.len()),
+        cc = if covered == CLAIMS.len() { "good" } else { "bad" },
         bnd = bnd,
         viol = violations.len(),
         vc = if violations.is_empty() { "good" } else { "bad" },
@@ -697,14 +840,25 @@ loosest it <b>refused</b>. Both were executed; neither is inferred.</p>
     }
 
     let _ = write!(s, r#"
-<h2>Rules</h2>
-<p><b>Boundary</b> — both halves were measured on the rule's own axis, one unit apart.
-<b>Flip</b> — only the refusal is in the family, and it is attributable because the case is
-a single field away from the accepted baseline.</p>
-<table><thead><tr><th style="width:11rem">Rule</th><th style="width:6rem">Grade</th><th>The claim it was checked against</th></tr></thead><tbody>"#);
-    for (r, g) in enforced {
-        let claim = out.iter().find(|o| o.rule == *r).map(|o| o.claim).unwrap_or("");
-        let _ = write!(s, "<tr><td>{}</td><td><span class=\"grade\">{g}</span></td><td><code>{}</code></td></tr>", esc(r), esc(claim));
+<h2>Every claim the guarantees make</h2>
+<p>This is the report's denominator: each enforcement claim <code>GUARANTEES.md</code>
+makes, and each <code>require</code> in the two exits, against what this run executed.
+A claim nothing covers is listed here as uncovered rather than left out of the count.</p>
+<p><b>Boundary</b> — a numeric pair was measured on the claim's own axis, one unit apart.
+<b>Flip</b> — only the refusal was executed, and it is attributable because the case is a
+single field away from an accepted baseline. A Merkle root has no number line, so its
+claims can only ever be flip grade.</p>
+<table><thead><tr><th style="width:6.5rem">Entry</th><th>Claim</th><th style="width:6rem">Grade</th></tr></thead><tbody>"#);
+    let mut ent = "";
+    for c in CLAIMS {
+        let g = enforced.iter().find(|(r, _)| *r == c.rule).map(|(_, g)| *g);
+        let _ = write!(s, "<tr><td><code>{}</code></td><td>{}</td><td>{}</td></tr>",
+            if c.entry == ent { "" } else { ent = c.entry; c.entry },
+            esc(c.text),
+            match g {
+                Some(g) => format!("<span class=\"grade\">{g}</span>"),
+                None => "<span class=\"mark bad\">not covered</span>".to_string(),
+            });
     }
     let _ = write!(s, "</tbody></table>");
 
@@ -733,17 +887,34 @@ a single field away from the accepted baseline.</p>
     let _ = write!(s, r#"
 <h2>What this run did not test</h2>
 <ul>
-<li><code>revoke</code> and <code>reclaim</code> — the exits. Both are signed by keys the
-agent does not hold, and neither moves the accounting this report is about.</li>
 <li><code>settle</code> / <code>reabsorb</code> — the v4 splice path. It needs a real
-foreign-input redeem script, which this harness does not yet build.</li>
+foreign-input redeem script, which this harness does not yet build. It is also where the
+fifth recorded vulnerability lived, which makes it the most important gap on this list.</li>
 <li>The subset witness: a child narrowing its allowlist to a subtree.</li>
+<li><b>Any grant shape but one.</b> Every case runs against a single parameterisation —
+100 KAS, a 2 KAS per-spend cap, delegation depth 2, a four-member allowlist,
+<code>maxProofDepth</code> 4. Whether the same boundaries hold at depth 16, or with a
+65,536-member tree, or a one-sompi budget, is untested.</li>
 <li>Anything above the script engine — a node's mempool policy, relay rules, or what a
 wallet does with a transaction before it is broadcast.</li>
 <li>The residual described in <code>GUARANTEES.md</code>: allowance from unused epochs
 stays spendable after the chain passes <code>expiresAt</code>. That is a property of the
 design, correctly implemented, not a defect the engine can report.</li>
 </ul>
+
+<h2>What a clean run does not mean</h2>
+<p>This instrument checks the bytecode against a written claim. It cannot notice a rule
+that <em>should</em> exist and does not, because the document it takes its claims from is
+the same document that would have omitted it.</p>
+<p>That is not a hypothetical. Of the five vulnerabilities this covenant has had,
+<b>none would have been caught by this auditor</b>. The epoch cap that limited nothing and
+the missing expiry check were both absent from the guarantees at the time, so there would
+have been no case for either. The template-id defect is not engine-visible. The fifth was
+in <code>settle</code>, which is still untested. Every one of them was found the same way:
+a person asked what an adversary supplies at each input, built it, and watched the engine
+accept it.</p>
+<p>Read this as a conformance and regression instrument. It proves the rules that exist are
+in the right place, to the sompi, and that they cannot silently move.</p>
 
 <footer>
 Generated {stamp} by <code>covenant/harness/src/bin/audit.rs</code>.
@@ -806,6 +977,7 @@ fn main() {
     // other is a rule that might be absent or might be refusing everything.
     let mut rules: Vec<&'static str> = out.iter().map(|o| o.rule).collect();
     rules.dedup();
+    let measured: Vec<&'static str> = bounds(&out).iter().map(|b| b.rule).collect();
     let mut enforced: Vec<(&'static str, &'static str)> = Vec::new();
     let mut assumed: Vec<&'static str> = Vec::new();
     for r in &rules {
@@ -819,11 +991,14 @@ fn main() {
         if !clean {
             continue;
         }
-        if has_accept && has_reject {
-            /* Both halves measured inside this family: the tightest value the
-               engine accepted and the loosest it refused, one unit apart. */
+        if has_reject && measured.contains(r) {
+            /* A numeric pair was measured on this rule's own axis: the
+               tightest value the engine accepted and the loosest it refused,
+               one unit apart. Having an accept and a reject somewhere in the
+               family is NOT the same thing — the allowlist has four of each
+               and no boundary, because a Merkle root has no number line. */
             enforced.push((*r, "boundary"));
-        } else if has_reject && baseline_ok {
+        } else if has_reject && (has_accept || baseline_ok) {
             /* Only the refusal is in this family, but every case in it is a
                single-field change from a baseline this run accepted — so the
                refusal is still attributable to the field that moved. Weaker
@@ -838,7 +1013,9 @@ fn main() {
     println!("baseline accepted      {}", if baseline_ok { "yes" } else { "NO — nothing below is attributable" });
     println!("cases                  {total}");
     let bnd = enforced.iter().filter(|(_, g)| *g == "boundary").count();
-    println!("rules enforced         {} of {}  ({bnd} at a measured boundary)", enforced.len(), rules.len() - 2);
+    let covered: Vec<&Claim> = CLAIMS.iter().filter(|c| enforced.iter().any(|(r, _)| *r == c.rule)).collect();
+    println!("published claims       {} of {} covered", covered.len(), CLAIMS.len());
+    println!("rules enforced         {}  ({bnd} at a measured boundary)", enforced.len());
     println!("violations             {}", violations.len());
     println!("over-refusals          {}", over.len());
     println!("rules only asserted    {} (no boundary pair)", assumed.len());
@@ -856,7 +1033,10 @@ fn main() {
     std::fs::write("../audit.json", json(&out, &enforced, &bs, &stamp)).expect("write json");
     std::fs::write("../AUDIT.html", html(&out, &enforced, &assumed, &violations, &over, &bs, baseline_ok, &stamp))
         .expect("write html");
-    println!("\nboundaries measured   {}", bs.len());
+    println!("boundaries measured    {}", bs.len());
+    for c in CLAIMS.iter().filter(|c| !enforced.iter().any(|(r, _)| *r == c.rule)) {
+        println!("  NOT COVERED          {} · {}", c.entry, c.text);
+    }
     println!("\ncovenant/AUDIT.md     the report in prose");
     println!("covenant/AUDIT.html   the printed report — open it and print to PDF");
     println!("covenant/audit.json   the same run, for anything that reads rather than looks");
@@ -887,6 +1067,8 @@ fn report(
     let _ = writeln!(s, "| Cases executed | {} |", out.len());
     let _ = writeln!(s, "| Baseline accepted | {} |", if baseline_ok { "yes" } else { "**no**" });
     let bnd = enforced.iter().filter(|(_, g)| *g == "boundary").count();
+    let covered = CLAIMS.iter().filter(|c| enforced.iter().any(|(r, _)| *r == c.rule)).count();
+    let _ = writeln!(s, "| Published claims covered | {covered} of {} |", CLAIMS.len());
     let _ = writeln!(s, "| Rules `enforced` | {} ({bnd} at a measured boundary) |", enforced.len());
     let _ = writeln!(s, "| Violations | {} |", violations.len());
     let _ = writeln!(s, "| Over-refusals | {} |", over.len());
@@ -924,6 +1106,16 @@ fn report(
         let _ = writeln!(s, "## Over-refusals\n\nNone. Every case the spec permits was accepted.\n");
     }
 
+    let _ = writeln!(s, "## Every claim the guarantees make\n");
+    let _ = writeln!(s, "The report's denominator. A claim nothing covers is listed as uncovered");
+    let _ = writeln!(s, "rather than left out of the count.\n");
+    let _ = writeln!(s, "| Entry | Claim | Grade |");
+    let _ = writeln!(s, "|---|---|---|");
+    for c in CLAIMS {
+        let g = enforced.iter().find(|(r, _)| *r == c.rule).map(|(_, g)| *g);
+        let _ = writeln!(s, "| `{}` | {} | {} |", c.entry, c.text, g.unwrap_or("**not covered**"));
+    }
+    let _ = writeln!(s);
     let _ = writeln!(s, "## Enforced\n");
 
     let _ = writeln!(s, "`boundary` means both halves were measured inside the rule's own family —");
@@ -957,15 +1149,27 @@ fn report(
         let _ = writeln!(s, "| {} | {} | {spec} | {eng} | {mark} |", o.rule, o.what);
     }
     let _ = writeln!(s, "\n## What this run did not test\n");
-    let _ = writeln!(s, "- `revoke` and `reclaim` — the exits. Both are signed by keys the agent does");
-    let _ = writeln!(s, "  not hold, and neither moves the accounting this report is about.");
     let _ = writeln!(s, "- `settle` / `reabsorb` — the v4 splice path. It needs a real foreign-input");
-    let _ = writeln!(s, "  redeem script, which this harness does not yet build.");
+    let _ = writeln!(s, "  redeem script, which this harness does not yet build. It is also where the");
+    let _ = writeln!(s, "  fifth recorded vulnerability lived.");
     let _ = writeln!(s, "- The subset witness: a child narrowing its allowlist to a subtree.");
+    let _ = writeln!(s, "- **Any grant shape but one.** Every case runs against a single");
+    let _ = writeln!(s, "  parameterisation — 100 KAS, a 2 KAS cap, depth 2, a four-member allowlist,");
+    let _ = writeln!(s, "  `maxProofDepth` 4.");
     let _ = writeln!(s, "- Anything above the script engine — a node's mempool policy, relay rules,");
     let _ = writeln!(s, "  or what a wallet does with the transaction before it is broadcast.");
     let _ = writeln!(s, "- The residual described in `GUARANTEES.md`: allowance from unused epochs");
     let _ = writeln!(s, "  stays spendable after the chain passes `expiresAt`. That is a property of");
     let _ = writeln!(s, "  the design, correctly implemented, not a defect the engine can report.\n");
+    let _ = writeln!(s, "## What a clean run does not mean\n");
+    let _ = writeln!(s, "This instrument checks the bytecode against a WRITTEN CLAIM. It cannot notice");
+    let _ = writeln!(s, "a rule that should exist and does not, because the document it takes its");
+    let _ = writeln!(s, "claims from is the same document that would have omitted it.\n");
+    let _ = writeln!(s, "Of the five vulnerabilities this covenant has had, **none would have been");
+    let _ = writeln!(s, "caught by this auditor**. Two were absent from the guarantees at the time, one");
+    let _ = writeln!(s, "is not engine-visible, and one is in `settle`, which is still untested. Every");
+    let _ = writeln!(s, "one was found by a person asking what an adversary supplies at each input.\n");
+    let _ = writeln!(s, "Read this as a conformance and regression instrument: it proves the rules that");
+    let _ = writeln!(s, "exist are in the right place, and that they cannot silently move.\n");
     s
 }

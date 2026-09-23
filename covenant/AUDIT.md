@@ -10,9 +10,10 @@ and which claims were not reachable by a constructed transaction.
 
 | | |
 |---|---|
-| Cases executed | 76 |
+| Cases executed | 98 |
 | Baseline accepted | yes |
-| Rules `enforced` | 15 (10 at a measured boundary) |
+| Published claims covered | 26 of 26 |
+| Rules `enforced` | 26 (12 at a measured boundary) |
 | Violations | 0 |
 | Over-refusals | 0 |
 | Rules `assumed` | 0 |
@@ -37,6 +38,40 @@ None. No case the spec forbids was accepted by the engine.
 
 None. Every case the spec permits was accepted.
 
+## Every claim the guarantees make
+
+The report's denominator. A claim nothing covers is listed as uncovered
+rather than left out of the count.
+
+| Entry | Claim | Grade |
+|---|---|---|
+| `auth_spend` | the payee is on the allowlist | flip |
+| `auth_spend` | the amount is within the per-spend cap | boundary |
+| `auth_spend` | total spending stays within budget | boundary |
+| `auth_spend` | per-epoch spending stays within the epoch cap | boundary |
+| `auth_spend` | epochs are consumed once, in order | flip |
+| `auth_spend` | the claimed time has actually arrived | boundary |
+| `auth_spend` | the window has opened | boundary |
+| `auth_spend` | the window has not closed | boundary |
+| `auth_spend` | authority is unchanged in the successor | flip |
+| `auth_spend` | the successor state is exactly right | flip |
+| `auth_spend` | the continuation keeps the remainder | boundary |
+| `auth_spend` | the agent signed it | flip |
+| `delegate` | the child cannot exceed the parent's uncommitted budget | boundary |
+| `delegate` | every attenuable field only narrows | boundary |
+| `delegate` | the allowlist is inherited exactly | flip |
+| `delegate` | the child starts clean | flip |
+| `delegate` | the parent changes in exactly one way | flip |
+| `delegate` | coin follows authority | flip |
+| `delegate` | exactly one child | flip |
+| `revoke` | signed by the revocation key | flip |
+| `revoke` | the output is P2PK(principalKey) | flip |
+| `revoke` | the output keeps the balance, less maxFee | boundary |
+| `reclaim` | the term is over — tx.daa >= expiresAt | boundary |
+| `reclaim` | signed by the principal key | flip |
+| `reclaim` | the output is P2PK(principalKey) | flip |
+| `reclaim` | the output keeps the balance, less maxFee | boundary |
+
 ## Enforced
 
 `boundary` means both halves were measured inside the rule's own family —
@@ -47,7 +82,7 @@ because the case is a single field away from the accepted baseline.
 - `per-spend cap` — *boundary* — amount <= maxPerSpend
 - `budget` — *boundary* — amount <= budgetTotal - (spentTotal + reserved)
 - `epoch limit` — *boundary* — amount <= epochLimit - spentThisEpoch
-- `epoch ratchet` — *boundary* — currentEpoch >= prevState.epochIndex
+- `epoch ratchet` — *flip* — currentEpoch >= prevState.epochIndex
 - `cltv` — *boundary* — tx.daa >= claimedDaa
 - `window opens` — *boundary* — claimedDaa >= notBefore
 - `window closes` — *boundary* — claimedDaa < expiresAt
@@ -55,10 +90,21 @@ because the case is a single field away from the accepted baseline.
 - `successor accounting` — *flip* — the successor state is exactly right (four checks on spent/reserved/epoch)
 - `continuation value` — *boundary* — outputs[0].value >= inValue - amount - maxFee
 - `signature` — *flip* — checkSig(agentSig, agentKey)
-- `allowlist` — *boundary* — merkleRoot(recipient, proof) == recipientsRoot
+- `allowlist` — *flip* — merkleRoot(recipient, proof) == recipientsRoot
 - `delegation attenuation` — *boundary* — every attenuable field only narrows
 - `delegation start` — *flip* — the child starts clean
 - `delegation reserve` — *flip* — the parent changes in exactly one way: reserved + child.budgetTotal
+- `delegation budget` — *boundary* — child.budgetTotal <= budgetTotal - committed
+- `delegation allowlist` — *flip* — child.recipientsRoot == recipientsRoot
+- `delegation coin` — *flip* — outputs[1].value == child.budgetTotal
+- `delegation fanout` — *flip* — OpAuthOutputCount == 2, fanout(to = 2)
+- `revoke signature` — *flip* — checkSig(s, revocationKey)
+- `revoke destination` — *flip* — outputs[0].scriptPubKey == P2PK(principalKey)
+- `revoke conservation` — *boundary* — outputs[0].value >= inValue - maxFee
+- `reclaim signature` — *flip* — checkSig(s, principalKey)
+- `reclaim destination` — *flip* — outputs[0].scriptPubKey == P2PK(principalKey)
+- `reclaim term` — *boundary* — tx.daa >= expiresAt
+- `reclaim conservation` — *boundary* — outputs[0].value >= inValue - maxFee
 
 ## Every case
 
@@ -140,17 +186,55 @@ because the case is a single field away from the accepted baseline.
 | delegation reserve | no reserve taken | refuse | refused | ok |
 | delegation reserve | reserve one KAS short | refuse | refused | ok |
 | delegation reserve | reserve one KAS over | refuse | refused | ok |
+| delegation budget | a child taking exactly the parent's uncommitted budget | accept | accepted | ok |
+| delegation budget | one sompi more than the parent has left | refuse | refused | ok |
+| delegation allowlist | a child claiming a different allowlist with an empty witness | refuse | refused | ok |
+| delegation coin | the child's coin exactly its budget | accept | accepted | ok |
+| delegation coin | the child's coin one sompi short of its budget | refuse | refused | ok |
+| delegation coin | one sompi over | refuse | refused | ok |
+| delegation fanout | one child | accept | accepted | ok |
+| delegation fanout | two children in one delegation | refuse | refused | ok |
+| revoke signature | the revocation key | accept | accepted | ok |
+| revoke signature | the agent's key, not the revocation key | refuse | refused | ok |
+| revoke signature | the principal's key, not the revocation key | refuse | refused | ok |
+| revoke destination | paying anybody but the principal | refuse | refused | ok |
+| revoke conservation | a fee of exactly maxFee | accept | accepted | ok |
+| revoke conservation | one sompi more than maxFee burned | refuse | refused | ok |
+| reclaim signature | the principal's key | accept | accepted | ok |
+| reclaim signature | the agent's key, not the principal's | refuse | refused | ok |
+| reclaim signature | the revocation key, not the principal's | refuse | refused | ok |
+| reclaim destination | sweeping to anybody but the principal | refuse | refused | ok |
+| reclaim term | the first DAA the term allows | accept | accepted | ok |
+| reclaim term | one DAA before the term is over | refuse | refused | ok |
+| reclaim conservation | a fee of exactly maxFee | accept | accepted | ok |
+| reclaim conservation | one sompi more than maxFee burned | refuse | refused | ok |
 
 ## What this run did not test
 
-- `revoke` and `reclaim` — the exits. Both are signed by keys the agent does
-  not hold, and neither moves the accounting this report is about.
 - `settle` / `reabsorb` — the v4 splice path. It needs a real foreign-input
-  redeem script, which this harness does not yet build.
+  redeem script, which this harness does not yet build. It is also where the
+  fifth recorded vulnerability lived.
 - The subset witness: a child narrowing its allowlist to a subtree.
+- **Any grant shape but one.** Every case runs against a single
+  parameterisation — 100 KAS, a 2 KAS cap, depth 2, a four-member allowlist,
+  `maxProofDepth` 4.
 - Anything above the script engine — a node's mempool policy, relay rules,
   or what a wallet does with the transaction before it is broadcast.
 - The residual described in `GUARANTEES.md`: allowance from unused epochs
   stays spendable after the chain passes `expiresAt`. That is a property of
   the design, correctly implemented, not a defect the engine can report.
+
+## What a clean run does not mean
+
+This instrument checks the bytecode against a WRITTEN CLAIM. It cannot notice
+a rule that should exist and does not, because the document it takes its
+claims from is the same document that would have omitted it.
+
+Of the five vulnerabilities this covenant has had, **none would have been
+caught by this auditor**. Two were absent from the guarantees at the time, one
+is not engine-visible, and one is in `settle`, which is still untested. Every
+one was found by a person asking what an adversary supplies at each input.
+
+Read this as a conformance and regression instrument: it proves the rules that
+exist are in the right place, and that they cannot silently move.
 

@@ -207,13 +207,28 @@ refused, on one axis, ascending left to right — a lower bound mirrors rather
 than relabels, so a larger number is never drawn to the left of a smaller one.
 Both marks were executed; neither is inferred.
 
-Current run: **76 cases, 15 of 15 rules enforced, 10 of them at a measured
-boundary, 13 boundaries drawn, 0 violations, 0 over-refusals.**
+**The denominator is the published claims, not the cases.** `CLAIMS` in
+`audit.rs` lists every enforcement row in `GUARANTEES.md` plus every `require`
+in the two exits, and a claim nothing covers is printed as uncovered rather
+than left out of the count. The first version said "15 of 15 rules enforced",
+where the 15 in the denominator meant "rules I wrote cases for" — a figure that
+can never go down, printed beside a paragraph honestly listing what was not
+tested.
+
+Current run: **98 cases, 26 of 26 published claims covered, 12 rules at a
+measured boundary, 17 boundaries drawn, 0 violations, 0 over-refusals.**
+
+**A clean run is not a safety statement, and the report says why.** This
+instrument checks bytecode against a written claim, so it cannot notice a rule
+that should exist and does not — the document it reads its claims from is the
+same one that would have omitted it. Of the five vulnerabilities this covenant
+has had, none would have been caught by it.
 
 ## What is still not proven here
 
 - `settle` / `reabsorb`, the v4 splice path. It needs a real foreign-input
-  redeem script, which these builders do not yet produce.
+  redeem script, which these builders do not yet produce — and it is where the
+  fifth recorded vulnerability lived, which makes it the gap that matters.
 - The subset witness — a child narrowing its allowlist to a subtree.
 - Anything above the script engine: mempool policy, relay rules, or what a
   wallet does with a transaction before it is broadcast.
