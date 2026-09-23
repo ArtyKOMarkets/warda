@@ -1,0 +1,9 @@
+{
+  "name": "warda-auditor-service",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Covenant analysis over HTTP, with the artifact behind a 402.",
+  "scripts": { "start": "node server.mjs" },
+  "dependencies": { "@warda_protocol/vendor": "^0.3.3" }
+}

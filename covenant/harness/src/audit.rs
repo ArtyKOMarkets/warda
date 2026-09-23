@@ -253,25 +253,8 @@ fn read_oracle() -> Option<Oracle> {
     })
 }
 
-fn oracle() -> Option<Oracle> {
-    let t = std::fs::read_to_string("../oracle.json").ok()?;
-    let num = |k: &str, from: usize| -> Option<u64> {
-        let i = t[from..].find(&format!("\"{k}\":"))? + from + k.len() + 3;
-        let rest = t[i..].trim_start();
-        let end = rest.find(|c: char| !c.is_ascii_digit())?;
-        rest[..end].parse().ok()
-    };
-    let mi = t.find("\"mutant\"")?;
-    Some(Oracle {
-        generated: num("generated", 0)?,
-        accepted: num("accepted", 0)?,
-        findings: num("findings", 0)?,
-        m_accepted: num("accepted", mi)?,
-        m_findings: num("findings", mi)?,
-    })
-}
 
-fn json(claims: &[Claim], out: &[Outcome], enforced: &[(&'static str, &'static str)], bs: &[Bound], stamp: &str) -> String {
+fn json(_claims: &[Claim], out: &[Outcome], enforced: &[(&'static str, &'static str)], bs: &[Bound], stamp: &str) -> String {
     let covenant = "see AUDIT.md";
     let mut s = String::from("{\n");
     let _ = writeln!(s, "  \"covenant\": \"{covenant}\",");
@@ -322,95 +305,153 @@ fn html(
     let covered = claims.iter().filter(|c| enforced.iter().any(|(r, _)| *r == c.rule)).count();
     let clean = violations.is_empty() && over.is_empty();
 
+    /* The verdict first, in a sentence, before anything that needs reading.
+       A reader who stops after one line should stop with the right belief. */
+    let headline = if !baseline_ok {
+        "<span class=\"no\">The baseline was refused.</span> Nothing below is attributable.".to_string()
+    } else if !violations.is_empty() {
+        format!("<span class=\"no\">{} case{} the guarantees forbid {} accepted by the engine.</span>",
+            violations.len(), if violations.len() == 1 { "" } else { "s" },
+            if violations.len() == 1 { "was" } else { "were" })
+    } else if !over.is_empty() {
+        format!("<span class=\"no\">{} case{} the guarantees permit {} refused.</span> Not an attack — a grant that would strand coin.",
+            over.len(), if over.len() == 1 { "" } else { "s" },
+            if over.len() == 1 { "was" } else { "were" })
+    } else {
+        format!("<b>{} of {} published claims</b> were exercised against the engine, {} of them at a \
+                 measured boundary. Nothing the guarantees forbid was accepted, and nothing they \
+                 permit was refused.", covered, claims.len(), bnd)
+    };
+    let sub = if baseline_ok && violations.is_empty() && over.is_empty() {
+        format!("{} transactions built and executed. This is a conformance result, not a safety one — \
+                 what that distinction costs is two sections down.", out.len())
+    } else {
+        format!("{} transactions built and executed.", out.len())
+    };
+
     let _ = write!(s, r#"<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <title>Covenant audit — {line}</title>
 <style>
+  /* The console's own surfaces and ink, so a report and the product it
+     describes look like one thing. Printed dark on purpose — this is read on
+     a screen far more often than on paper, and `print-color-adjust: exact`
+     keeps it as designed when it is not. */
   :root {{
-    --ink:#14181d; --mute:#5b6470; --faint:#8b94a0;
-    --line:#e4e7ec; --rule:#c8ced6;
-    --ok:#1a7f4f; --no:#2f343a; --bad:#b3261e;
-    --okwash:#1a7f4f14; --nowash:#2f343a0f;
+    --bg:#08090b; --surface:#0e1013; --raised:#14171b;
+    --line:#1f242b; --rule:#2b323b;
+    --ink:#eceef1; --mid:#a4abb4; --dim:#6b737d;
+    --accent:#14d7c1; --accent-ink:#032a25;
+    /* Three grades, checked against this surface with the palette validator:
+       every adjacent pair clears the colour-blind and normal-vision floors.
+       They are not a ramp — a Merkle root can only ever be flip grade, so
+       flip is a different kind of evidence, not a worse one. */
+    --boundary:#199e8f; --flip:#3987e5; --uncovered:#d95465;
+    --ok:#3ecf8e; --bad:#f06363;
   }}
   * {{ box-sizing:border-box; }}
   html {{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }}
-  body {{ margin:0; background:#fff; color:var(--ink);
-    font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif; }}
-  .page {{ max-width:56rem; margin:0 auto; padding:56px 44px 72px; }}
+  body {{ margin:0; background:var(--bg); color:var(--ink);
+    font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif; }}
+  .page {{ max-width:58rem; margin:0 auto; padding:52px 40px 72px; }}
   .num {{ font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
     font-variant-numeric:tabular-nums; }}
-  h1 {{ font-size:30px; line-height:1.15; letter-spacing:-.02em; margin:0 0 6px; }}
-  h2 {{ font-size:17px; letter-spacing:-.01em; margin:44px 0 6px; padding-top:14px;
+  h1 {{ font-size:34px; line-height:1.1; letter-spacing:-.03em; margin:0 0 10px; }}
+  h2 {{ font-size:17px; letter-spacing:-.01em; margin:44px 0 8px; padding-top:18px;
     border-top:1px solid var(--line); }}
   h2:first-of-type {{ border-top:0; }}
-  p {{ margin:.55em 0; }}
-  .sub {{ color:var(--mute); font-size:14px; margin:0 0 4px; }}
-  .lede {{ font-size:15px; color:var(--ink); max-width:44rem; }}
-  .caveat {{ margin:22px 0 0; padding:14px 16px; border:1px solid var(--rule);
-    border-left:3px solid var(--no); background:var(--nowash); font-size:14px; max-width:44rem; }}
-  .caveat b {{ font-weight:600; }}
+  p {{ margin:.6em 0; }}
+  .sub {{ color:var(--dim); font-size:13px; margin:0 0 6px; letter-spacing:.02em; }}
+  .lede {{ font-size:15.5px; color:var(--mid); max-width:44rem; }}
+  .caveat {{ margin:22px 0 0; padding:15px 17px; border:1px solid var(--rule);
+    border-left:2px solid var(--accent); background:var(--surface); font-size:14px;
+    max-width:44rem; border-radius:0 10px 10px 0; color:var(--mid); }}
+  .caveat b {{ color:var(--ink); font-weight:600; }}
 
-  .kpis {{ display:grid; grid-template-columns:repeat(5,1fr); gap:0;
-    margin:26px 0 0; border:1px solid var(--line); }}
-  .kpi {{ padding:14px 16px; border-left:1px solid var(--line); }}
+  /* The verdict, before anything that needs reading. */
+  .verdict {{ margin:28px 0 0; padding:22px 24px; border:1px solid var(--line);
+    border-radius:14px; background:var(--surface); }}
+  .verdict .big {{ font-size:26px; line-height:1.25; letter-spacing:-.02em; }}
+  .verdict .big b {{ color:var(--accent); font-weight:600; }}
+  .verdict .big .no {{ color:var(--bad); font-weight:600; }}
+  .verdict p {{ margin:.5em 0 0; font-size:13.5px; color:var(--dim); }}
+
+  .kpis {{ display:grid; grid-template-columns:repeat(5,1fr);
+    margin:14px 0 0; border:1px solid var(--line); border-radius:14px;
+    background:var(--surface); overflow:hidden; }}
+  .kpi {{ padding:15px 17px; border-left:1px solid var(--line); }}
   .kpi:first-child {{ border-left:0; }}
-  .kpi .k {{ font-size:11.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--faint); }}
-  .kpi .v {{ font-size:26px; line-height:1.1; margin-top:6px; letter-spacing:-.02em; }}
-  .kpi .n {{ font-size:12px; color:var(--mute); margin-top:3px; }}
-  .v.good {{ color:var(--ok); }} .v.bad {{ color:var(--bad); }}
+  .kpi .k {{ font-size:11px; letter-spacing:.07em; text-transform:uppercase; color:var(--dim); }}
+  .kpi .v {{ font-size:25px; line-height:1.15; margin-top:7px; letter-spacing:-.025em; }}
+  .kpi .n {{ font-size:12px; color:var(--dim); margin-top:4px; }}
+  .v.good {{ color:var(--accent); }} .v.bad {{ color:var(--bad); }}
 
+  /* Coverage: one row per entrypoint, one shared scale, three grades. */
+  .cov {{ display:grid; grid-template-columns:minmax(0,7rem) minmax(0,1fr) auto;
+    gap:10px 14px; align-items:center; margin-top:14px; }}
+  .cov .e {{ font-size:13px; color:var(--mid); }}
+  .cov .bar {{ display:flex; height:15px; }}
+  .cov .bar span {{ display:block; }}
+  .cov .bar span:first-child {{ border-radius:4px 0 0 4px; }}
+  .cov .bar span:last-child {{ border-radius:0 4px 4px 0; }}
+  .cov .n {{ font-size:12.5px; color:var(--dim); white-space:nowrap; }}
+  .key {{ display:flex; flex-wrap:wrap; gap:16px; margin-top:16px; font-size:12.5px; color:var(--mid); }}
+  .key i {{ display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:7px; vertical-align:-1px; }}
+
+  /* Where each boundary is: ascending left to right, always. */
   .bound {{ display:grid; grid-template-columns:minmax(0,13rem) 1fr;
     gap:18px; align-items:center; padding:13px 0; border-top:1px solid var(--line);
     break-inside:avoid; }}
-  .bound .ax {{ font-size:13.5px; }}
-  .bound .ax small {{ display:block; color:var(--faint); font-size:11.5px; }}
-  .track {{ position:relative; height:64px; }}
+  .bound .ax {{ font-size:13px; color:var(--ink); }}
+  .bound .ax small {{ display:block; color:var(--dim); font-size:11.5px; margin-top:2px; }}
+  .track {{ position:relative; height:70px; }}
   .zone {{ position:absolute; top:34px; height:20px; }}
-  .zone.permitted {{ left:0; right:50%; background:var(--okwash); border:1px solid var(--ok); border-right:0; }}
-  .zone.forbidden {{ left:50%; right:0; background:var(--nowash); border:1px solid var(--rule); border-left:0;
-    background-image:repeating-linear-gradient(135deg,transparent 0 5px,#2f343a1f 5px 6px); }}
-  /* A lower bound permits the HIGH side, so the row mirrors and the axis
-     still reads small-to-large from left to right. */
-  .rev .zone.permitted {{ left:50%; right:0; border:1px solid var(--ok); border-left:0; }}
+  .zone.permitted {{ left:0; right:50%; background:#199e8f26; border:1px solid var(--boundary); border-right:0; }}
+  .zone.forbidden {{ left:50%; right:0; background:#ffffff08; border:1px solid var(--rule); border-left:0;
+    background-image:repeating-linear-gradient(135deg,transparent 0 5px,#ffffff12 5px 6px); }}
+  .rev .zone.permitted {{ left:50%; right:0; border:1px solid var(--boundary); border-left:0; }}
   .rev .zone.forbidden {{ left:0; right:50%; border:1px solid var(--rule); border-right:0; }}
-  .barrier {{ position:absolute; left:50%; top:30px; height:28px; width:2px; background:var(--no);
+  .barrier {{ position:absolute; left:50%; top:30px; height:28px; width:2px; background:var(--mid);
     transform:translateX(-1px); }}
   .dot {{ position:absolute; top:37px; width:14px; height:14px; border-radius:50%; }}
-  .dot.ok {{ background:var(--ok); left:50%; transform:translateX(-26px); }}
-  .dot.no {{ border:2px solid var(--no); background:#fff; left:50%; transform:translateX(12px); }}
+  .dot.ok {{ background:var(--boundary); left:50%; transform:translateX(-26px); }}
+  .dot.no {{ border:2px solid var(--mid); background:var(--bg); left:50%; transform:translateX(12px); }}
+  .dot.no::after {{ content:""; position:absolute; left:1px; right:1px; top:4px; height:2px;
+    background:var(--mid); transform:rotate(-45deg); }}
   .rev .dot.ok {{ transform:translateX(12px); }}
   .rev .dot.no {{ transform:translateX(-26px); }}
-  .dot.no::after {{ content:""; position:absolute; left:1px; right:1px; top:4px; height:2px;
-    background:var(--no); transform:rotate(-45deg); }}
   .lab {{ position:absolute; top:0; font-size:11px; line-height:1.35; white-space:nowrap; }}
-  .lab.ok {{ right:50%; margin-right:8px; text-align:right; color:var(--ok); }}
-  .lab.no {{ left:50%; margin-left:8px; color:var(--no); }}
+  .lab.ok {{ right:50%; margin-right:8px; text-align:right; color:var(--boundary); }}
+  .lab.no {{ left:50%; margin-left:8px; color:var(--mid); }}
+  .lab b {{ display:block; font-weight:600; font-size:12.5px; }}
   .rev .lab.ok {{ right:auto; left:50%; margin:0 0 0 8px; text-align:left; }}
   .rev .lab.no {{ left:auto; right:50%; margin:0 8px 0 0; text-align:right; }}
-  .lab b {{ display:block; font-weight:600; font-size:12.5px; }}
-  .gap {{ position:absolute; bottom:0; left:50%; transform:translateX(-50%);
-    font-size:10.5px; color:var(--faint); white-space:nowrap;
-    background:#fff; padding:0 5px; }}
+  .gap {{ position:absolute; bottom:-1px; left:50%; transform:translateX(-50%);
+    font-size:10.5px; color:var(--dim); white-space:nowrap; background:var(--bg); padding:0 6px; }}
 
-  table {{ width:100%; border-collapse:collapse; margin-top:10px; font-size:13.5px; }}
-  th {{ text-align:left; font-weight:600; font-size:11.5px; letter-spacing:.05em;
-    text-transform:uppercase; color:var(--faint); padding:0 10px 7px 0;
+  table {{ width:100%; border-collapse:collapse; margin-top:12px; font-size:13.5px; }}
+  th {{ text-align:left; font-weight:600; font-size:11px; letter-spacing:.06em;
+    text-transform:uppercase; color:var(--dim); padding:0 10px 8px 0;
     border-bottom:1px solid var(--rule); }}
-  td {{ padding:7px 10px 7px 0; border-bottom:1px solid var(--line); vertical-align:top; }}
+  td {{ padding:8px 10px 8px 0; border-bottom:1px solid var(--line); vertical-align:top; color:var(--mid); }}
+  td:first-child {{ color:var(--ink); }}
   tr {{ break-inside:avoid; }}
   .mark {{ white-space:nowrap; font-size:12.5px; }}
-  .mark.ok::before {{ content:"● "; color:var(--ok); }}
-  .mark.no::before {{ content:"⊘ "; color:var(--no); }}
+  .mark.ok::before {{ content:"\25cf "; color:var(--boundary); }}
+  .mark.no::before {{ content:"\2298 "; color:var(--dim); }}
   .mark.bad {{ color:var(--bad); font-weight:600; }}
-  .mark.bad::before {{ content:"▲ "; }}
-  .grade {{ font-size:11px; letter-spacing:.04em; text-transform:uppercase;
-    border:1px solid var(--rule); padding:1px 6px; color:var(--mute); }}
-  ul {{ margin:.5em 0; padding-left:1.1em; }}
-  li {{ margin:.28em 0; }}
-  code {{ font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.92em; }}
-  footer {{ margin-top:40px; padding-top:14px; border-top:1px solid var(--line);
-    font-size:12px; color:var(--mute); }}
-  @page {{ size:A4; margin:16mm 14mm; }}
+  .mark.bad::before {{ content:"\25b2 "; }}
+  .grade {{ font-size:10.5px; letter-spacing:.05em; text-transform:uppercase;
+    border:1px solid var(--rule); border-radius:5px; padding:2px 7px; color:var(--mid); }}
+  .grade.b {{ border-color:var(--boundary); color:var(--boundary); }}
+  .grade.f {{ border-color:#3987e566; color:var(--flip); }}
+  ul {{ margin:.6em 0; padding-left:1.1em; color:var(--mid); }}
+  li {{ margin:.35em 0; }}
+  code {{ font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.92em;
+    color:var(--ink); }}
+  footer {{ margin-top:44px; padding-top:16px; border-top:1px solid var(--line);
+    font-size:12px; color:var(--dim); }}
+  @page {{ size:A4; margin:14mm 12mm; }}
   @media print {{
     .page {{ padding:0; max-width:none; }}
     h2 {{ break-after:avoid; }}
@@ -423,14 +464,19 @@ fn html(
 engine a Kaspa node validates a transaction with. Nothing here is inferred from reading
 the source.</p>
 
-<div class="caveat"><b>This is not a statement that the covenant is secure.</b> It reports
-the properties that were tested, where the bytecode and <code>{doc}</code> disagree,
-and which claims no constructed transaction could reach. The last of those is a section,
-not an omission.</div>
+<div class="verdict">
+  <div class="big">{headline}</div>
+  <p>{sub}</p>
+</div>
+
+<div class="caveat"><b>This is not a statement that the covenant is secure.</b> It reports the
+properties that were tested, where the bytecode and <code>{doc}</code> disagree, and which
+claims no constructed transaction could reach. The last of those is a section, not an
+omission.</div>
 
 <div class="kpis">
   <div class="kpi"><div class="k">Cases</div><div class="v num">{cases}</div><div class="n">transactions executed</div></div>
-  <div class="kpi"><div class="k">Claims covered</div><div class="v num {cc}">{enf}</div><div class="n">{bnd} rules at a measured boundary</div></div>
+  <div class="kpi"><div class="k">Claims covered</div><div class="v num">{enf}</div><div class="n">{bnd} rules at a measured boundary</div></div>
   <div class="kpi"><div class="k">Violations</div><div class="v num {vc}">{viol}</div><div class="n">forbidden, yet accepted</div></div>
   <div class="kpi"><div class="k">Over-refusals</div><div class="v num {oc}">{ovr}</div><div class="n">permitted, yet refused</div></div>
   <div class="kpi"><div class="k">Baseline</div><div class="v">{base}</div><div class="n">every flip depends on it</div></div>
@@ -438,16 +484,54 @@ not an omission.</div>
 "#,
         cases = out.len(),
         enf = format!("{} / {}", covered, claims.len()),
-        cc = if covered == claims.len() { "good" } else { "bad" },
+
         bnd = bnd,
         viol = violations.len(),
         vc = if violations.is_empty() { "good" } else { "bad" },
         ovr = over.len(),
         oc = if over.is_empty() { "good" } else { "bad" },
+        headline = headline, sub = sub,
         base = if baseline_ok { "<span class=\"v good\">accepted</span>" } else { "<span class=\"v bad\">FAILED</span>" },
     );
 
+    /* Coverage, drawn. A table of 39 rows answers "is this claim covered";
+       one bar per entrypoint answers "where is this audit strong and where is
+       it thin", which is the question somebody deciding whether to trust it
+       actually has. One shared scale, so a longer bar is more claims. */
+    let mut ents: Vec<&'static str> = claims.iter().map(|c| c.entry).collect();
+    ents.dedup();
+    let widest = ents.iter().map(|e| claims.iter().filter(|c| c.entry == *e).count()).max().unwrap_or(1);
     let _ = write!(s, r#"
+<h2>Where this audit is strong, and where it is thin</h2>
+<p>One bar per entrypoint, on one scale: a longer bar is more published claims.
+<b>Boundary</b> means a numeric pair was measured on the claim's own axis, one unit apart.
+<b>Flip</b> means only the refusal was executed, attributable because the case is a single
+field from an accepted baseline — a Merkle root has no number line, so its claims can only
+ever be flip grade. Neither is better; they are different evidence.</p>
+<div class="cov">"#);
+    for e in &ents {
+        let fam: Vec<&Claim> = claims.iter().filter(|c| c.entry == *e).collect();
+        let grade_of = |c: &Claim| enforced.iter().find(|(r, _)| *r == c.rule).map(|(_, g)| *g);
+        let b = fam.iter().filter(|c| grade_of(c) == Some("boundary")).count();
+        let f = fam.iter().filter(|c| grade_of(c) == Some("flip")).count();
+        let u = fam.len() - b - f;
+        let w = |n: usize| format!("{:.4}%", (n as f64 / widest as f64) * 100.0);
+        let _ = write!(s, r#"<div class="e"><code>{e}</code></div><div class="bar">"#);
+        for (n, col) in [(b, "var(--boundary)"), (f, "var(--flip)"), (u, "var(--uncovered)")] {
+            if n > 0 {
+                let _ = write!(s, r#"<span style="width:{};background:{col}" title="{n}"></span>"#, w(n));
+            }
+        }
+        let _ = write!(s, r#"</div><div class="n">{}</div>"#,
+            if u > 0 { format!("{} claims · {u} uncovered", fam.len()) } else { format!("{} claims", fam.len()) });
+    }
+    let _ = write!(s, r#"</div>
+<div class="key">
+  <span><i style="background:var(--boundary)"></i>Boundary</span>
+  <span><i style="background:var(--flip)"></i>Flip</span>
+  <span><i style="background:var(--uncovered)"></i>Not covered</span>
+</div>
+
 <h2>Why a rejection here means something</h2>
 <p>The engine collapses every failed <code>require</code> into one opaque
 <code>VerifyError</code>. It never says which rule rejected, so asserting that something
