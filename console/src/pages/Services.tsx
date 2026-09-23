@@ -37,17 +37,17 @@ export function Services() {
     <>
       <PageHeader title="Services" sub="Paid APIs your agents can buy from. Each listing is its operator's own claim; what they've actually been paid is on-chain."
         actions={
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             {registry && <Badge tone={registry.live ? "ok" : "warn"} dot>{registry.words}</Badge>}
             <External href="/network.html" className="text-[13px]">Full registry</External>
           </div>
         } />
-      {loading && !services.length ? <div className="grid gap-4 md:grid-cols-2">{[0, 1].map((i) => <Card key={i} className="h-44 p-5"><Skeleton className="w-40" /></Card>)}</div> : nothing ? (
+      {loading && !services.length ? <div className="grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-2">{[0, 1].map((i) => <Card key={i} className="h-44 p-5"><Skeleton className="w-40" /></Card>)}</div> : nothing ? (
         <Card><Empty icon={<Store className="size-5" />} title="Neither the registry nor the published list answered">That is not "no services". It is one reading that did not load; try again in a moment.</Empty></Card>
       ) : !services.length ? (
         <Card><Empty icon={<Store className="size-5" />} title="The registry is empty" /></Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-2">
           {services.map((s) => {
             /* Keyed by endpoint, and by payee only when the payment does not name
                a URL: one payee can serve several endpoints, and this figure is

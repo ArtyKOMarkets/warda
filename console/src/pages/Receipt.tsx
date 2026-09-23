@@ -46,7 +46,7 @@ export function Receipt({ id }: { id: string }) {
         </div>
       </Card>
 
-      <div className="mt-4 grid items-start gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+      <div className="mt-4 grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <Card><CardHeader title="Payments" /><div className="mt-3"><ActivityList rows={a.payments.filter((p) => p.outcome !== "blocked").map((p) => ({ p, a }))} empty={<Empty title="No payments yet" className="py-10" />} /></div></Card>
         <Card><CardHeader title="Blocked" sub="Attempts outside the grant" /><div className="space-y-3 p-5">{blocked.length ? blocked.map((p, i) => <BlockedCard key={i} p={p} a={a} />) : <p className="text-[13px] text-fg-3">Nothing refused so far.</p>}</div></Card>
       </div>

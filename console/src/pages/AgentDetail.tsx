@@ -77,7 +77,7 @@ export function AgentDetail({ id, tab }: { id: string; tab?: string }) {
 
       <div className="mt-6">
         {t === "overview" && (
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
             <Card>
               <CardHeader title="Recent payments" action={paid.length > 6 ? <button className="text-[13px] text-fg-3 hover:text-fg" onClick={() => setT("payments")}>View all</button> : null} />
               <div className="mt-3"><ActivityList rows={a.payments.slice(0, 6).map((p) => ({ p, a }))} empty={<Empty title="No payments yet" className="py-10">This agent has not paid for anything.</Empty>} /></div>
@@ -156,7 +156,7 @@ function Blocked({ a }: { a: AgentView }) {
       <RealRefusals a={a} />
       <Card>
         <CardHeader title="Refused attempts" sub="Payments this agent really tried that fell outside its grant" />
-        <div className="grid gap-3 p-5 md:grid-cols-2">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-3 p-5 md:grid-cols-2">
           {blocked.length ? blocked.map((p, i) => <BlockedCard key={i} p={p} a={a} />) : (
             <div className="md:col-span-2"><Empty icon={<ShieldCheck className="size-5" />} title="Nothing refused" className="py-8">Every payment this agent attempted was within its limits.</Empty></div>
           )}
@@ -190,7 +190,7 @@ function Proof({ a }: { a: AgentView }) {
     ["Revocation — can stop it, and receives nothing", a.ownerKey],
   ];
   return (
-    <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+    <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
       <div className="space-y-4">
       <Card>
         <CardHeader title="On-chain identity" sub="Everything here can be checked on the Kaspa explorer" />

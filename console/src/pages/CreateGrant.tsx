@@ -107,10 +107,10 @@ export function CreateGrant({ payee, budget0, cap0 }: { payee?: string; budget0?
         ))}
       </ol>
 
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         <Card className="p-6">
           {step === 0 && (
-            <div className="grid gap-5 sm:grid-cols-2">
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-5 sm:grid-cols-2">
               <Field label="Total budget" hint={usd(budget) ? `${usd(budget)} at the market price — the grant is in KAS, and nothing is enforced against a price.` : "The most it can ever spend from this grant."}><KasInput value={budget} onChange={(x) => setBudget(x.target.value)} /></Field>
               <Field label="Max per payment" hint={usd(cap) ? `${usd(cap)} · any single payment above this is refused.` : "Any single payment above this is refused."}><KasInput value={cap} onChange={(x) => setCap(x.target.value)} /></Field>
               <Field label="Limit per period" hint={`${usd(epoch) ? usd(epoch) + " · " : ""}per ~100 s of network time (1,000 DAA).`}><KasInput value={epoch} onChange={(x) => setEpoch(x.target.value)} /></Field>
@@ -123,7 +123,7 @@ export function CreateGrant({ payee, budget0, cap0 }: { payee?: string; budget0?
           {step === 1 && (
             <div>
               <div className="mb-3 flex items-center gap-2 text-[14px] font-semibold"><Store className="size-4 text-fg-3" /> Who it may pay</div>
-              <div className="grid gap-2 sm:grid-cols-2">
+              <div className="grid grid-cols-[minmax(0,1fr)] gap-2 sm:grid-cols-2">
                 {svc.map((s) => { const on = picked.includes(s.address!); return (
                   <button key={s.id} type="button" onClick={() => setPicked(on ? picked.filter((x) => x !== s.address) : [...picked, s.address!])}
                     className={cn("flex items-start gap-3 rounded-xl border p-3.5 text-left transition", on ? "border-accent/50 bg-accent/[0.06]" : "border-line-strong hover:bg-raised/50")}>

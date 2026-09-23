@@ -154,7 +154,7 @@ function Funder({ routes, chain0, token0, usd0 }: { routes: Routes; chain0?: str
   };
 
   return (
-    <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+    <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
       <div className="space-y-4">
         {fundFor && to.trim() === fundFor.address && (
           <Card className="border-accent/30 bg-accent/[0.05] p-4 text-[13px] leading-relaxed text-fg-2">
@@ -169,7 +169,7 @@ function Funder({ routes, chain0, token0, usd0 }: { routes: Routes; chain0?: str
           <Card className="overflow-hidden">
             <div className="p-5 sm:p-6">
               <div className="text-[12.5px] font-medium text-fg-3">You pay</div>
-              <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_130px_170px]">
+              <div className="mt-2 grid grid-cols-[minmax(0,1fr)] gap-2 sm:grid-cols-[1fr_130px_170px]">
                 <span className="relative block"><span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[18px] text-fg-3">$</span>
                   <input inputMode="decimal" aria-label="Amount" className={cn(inputCls, "num h-12 pl-8 text-[20px] font-semibold")} value={usd} onChange={(e) => { setUsd(e.target.value); changed(); }} /></span>
                 <Select value={token} onChange={(v) => { setTok(v); changed(); }} options={src.tokens.map((t) => ({ value: t, label: t }))} className="[&>button]:h-12" />

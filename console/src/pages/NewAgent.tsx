@@ -84,7 +84,7 @@ export function NewAgent() {
     return (
       <>
         <PageHeader title="New agent" sub="Every agent gets its own grant: money it can spend, and rules the network enforces on every payment." />
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-2">
           <Card className="p-6">
             <div className="grid size-11 place-items-center rounded-xl border border-line-strong bg-raised"><LogIn className="size-5 text-accent" /></div>
             <h2 className="mt-5 text-[18px] font-semibold">Sign in to the runner</h2>
@@ -122,7 +122,7 @@ export function NewAgent() {
       </ol>
 
       {step >= 2 && funding ? (
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
           <DepositPanel runner={runner} agent={funding.agent} initial={funding.f} onFunded={() => { setStep(3); setRunner({ ...runner, agent: undefined }); reload(); }} />
           <Card className="h-fit p-5">
             <div className="text-[15px] font-semibold">{funding.agent}</div>
@@ -134,10 +134,10 @@ export function NewAgent() {
           </Card>
         </div>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
           <Card className="p-6">
             {step === 0 && (
-              <div className="grid gap-5 sm:grid-cols-2">
+              <div className="grid grid-cols-[minmax(0,1fr)] gap-5 sm:grid-cols-2">
                 <Field label="Name" hint="3–40 letters, digits, - or _. It can't be changed." className="sm:col-span-2">
                   <input className={inputCls} value={d.name} onChange={(e) => set({ name: e.target.value })} placeholder="research-bot" autoCapitalize="off" spellCheck={false} autoFocus />
                 </Field>
@@ -155,7 +155,7 @@ export function NewAgent() {
               <div className="space-y-7">
                 <div>
                   <div className="mb-3 flex items-center gap-2 text-[14px] font-semibold"><Store className="size-4 text-fg-3" /> Who it may pay</div>
-                  <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="grid grid-cols-[minmax(0,1fr)] gap-2 sm:grid-cols-2">
                     {svc.map((s) => {
                       const on = d.picked.includes(s.address!);
                       return (

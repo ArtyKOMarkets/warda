@@ -44,7 +44,7 @@ function RunnerPanel() {
   const input = "h-10 w-full rounded-lg border border-line-strong bg-bg px-3 text-[14px] placeholder:text-fg-3 focus:border-accent/60 focus:outline-none";
   return (
     <>
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <Card>
           <CardHeader title="Runner" sub={runner.key ? (errors.hosted ? "Signed in, but the runner did not answer" : `Signed in · ${hosted} hosted agent${hosted === 1 ? "" : "s"}`) : "Not signed in"} />
           <form className="space-y-4 p-5" onSubmit={(e) => { e.preventDefault(); save(); }}>
@@ -111,12 +111,12 @@ export function Account({ tab }: { tab?: string }) {
         { value: "runner", label: <span className="flex items-center gap-2">Runner{!runner.key && <span className="size-1.5 rounded-full bg-warn" />}</span> },
       ]} />
       {t === "wallet" && (
-        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+        <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
           <div className="space-y-4"><WalletCard /><Holdings /><KeyGrants /></div>
           <div className="space-y-4"><UseIt /><SignedNote /></div>
         </div>
       )}
-      {t === "console" && <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]"><ConsoleAccount /><div className="space-y-4">{!wallet && <WalletCard />}<SignedNote /></div></div>}
+      {t === "console" && <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]"><ConsoleAccount /><div className="space-y-4">{!wallet && <WalletCard />}<SignedNote /></div></div>}
       {t === "grants" && <TrackedGrants />}
       {t === "runner" && <RunnerPanel />}
     </>

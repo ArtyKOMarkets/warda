@@ -30,7 +30,7 @@ const esc = (s: unknown) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&
 export function ManageTab({ agent, runner, detail, reload }: { agent: string; runner: RunnerConfig; detail: any; reload: () => void }) {
   if (!detail) return <Card className="p-6"><Loader2 className="size-4 animate-spin text-fg-3" /></Card>;
   return (
-    <div className="grid items-start gap-4 lg:grid-cols-2">
+    <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-2">
       <div className="space-y-4">
         <Facts agent={agent} runner={runner} a={detail} reload={reload} />
         <Helpers agent={agent} runner={runner} a={detail} reload={reload} />

@@ -104,11 +104,11 @@ export function AlertRules({ watch }: { watch?: string }) {
   const measured = { "balance-at-or-above": "what the address holds", "budget-low": "the smaller of authority left and coin held", expiring: "time left in the term", "spending-anomaly": "KAS spent in the last 24 hours" }[kind];
 
   return (
-    <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+    <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
       <div className="space-y-4">
         <Card className="p-5">
           <div className="text-[15px] font-semibold">What to watch</div>
-          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-2 sm:grid-cols-2">
             {KINDS.map((x) => (
               <button key={x.k} type="button" aria-pressed={kind === x.k} onClick={() => { setKind(x.k); setSay(null); }}
                 className={cn("flex items-start gap-3 rounded-xl border p-3.5 text-left transition", kind === x.k ? "border-accent/50 bg-accent/[0.06]" : "border-line-strong hover:border-fg-3/50 hover:bg-raised/50")}>
@@ -119,7 +119,7 @@ export function AlertRules({ watch }: { watch?: string }) {
           </div>
           <p className="mt-4 text-[12.5px] leading-relaxed text-fg-2">{SAY[kind]}</p>
 
-          <div className="mt-5 grid gap-4 border-t border-line pt-5 sm:grid-cols-2">
+          <div className="mt-5 grid grid-cols-[minmax(0,1fr)] gap-4 border-t border-line pt-5 sm:grid-cols-2">
             {kind === "balance-at-or-above" ? (
               <>
                 <Field label="The address to watch" className="sm:col-span-2" hint="A public address and nothing else — this rule can't spend from it, and what checks it holds no key."
@@ -170,7 +170,7 @@ export function AlertRules({ watch }: { watch?: string }) {
           {local && (
             <div className="rise space-y-4 border-t border-line p-5">
               {(kind === "budget-low" || kind === "expiring") && (
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid grid-cols-[minmax(0,1fr)] gap-4 sm:grid-cols-2">
                   <Field label="The grant's manifest, as your machine sees it" hint="A path, relative to the repository."><input className={cn(inputCls, "num text-[13px]")} value={path} onChange={(e) => setPath(e.target.value)} /></Field>
                   {kind === "budget-low" && <Field label="Your funding address — optional" hint="Then the message also says whether the next grant can be paid for."><input className={cn(inputCls, "num text-[13px]")} value={funder} onChange={(e) => setFunder(e.target.value)} placeholder="kaspatest:qq…" /></Field>}
                 </div>

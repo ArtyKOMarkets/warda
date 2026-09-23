@@ -190,7 +190,7 @@ export function Operator() {
     return (
       <>
         {header}
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{[0, 1, 2, 3].map((i) => <Card key={i} className="p-5"><Skeleton className="h-3 w-24" /><Skeleton className="mt-3 h-6 w-20" /><Skeleton className="mt-3 h-3 w-32" /></Card>)}</div>
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 sm:grid-cols-2 xl:grid-cols-4">{[0, 1, 2, 3].map((i) => <Card key={i} className="p-5"><Skeleton className="h-3 w-24" /><Skeleton className="mt-3 h-6 w-20" /><Skeleton className="mt-3 h-3 w-32" /></Card>)}</div>
         <Card className="mt-4 p-5"><Skeleton className="h-40 w-full" /></Card>
       </>
     );
@@ -210,7 +210,7 @@ export function Operator() {
 
       {err && <p className="mb-4 flex items-start gap-2 rounded-lg bg-bad/10 px-3 py-2.5 text-[13px] text-bad"><CircleAlert className="mt-0.5 size-4 shrink-0" />{err}</p>}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Tile label="Last tick" tone={ticking ? "ok" : "warn"} icon={<ShieldCheck className="size-4" />}
           value={when(data.lastTickAt)}
           hint={ticking ? "the minute schedule is running" : "the schedule should tick every minute — check QStash"} />
@@ -283,7 +283,7 @@ export function Operator() {
         )}
       </Card>
 
-      <div className="mt-4 grid items-start gap-4 lg:grid-cols-2">
+      <div className="mt-4 grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-2">
         <Card className="overflow-hidden">
           <CardHeader title="Problems" sub={problems.length ? `${problems.length} in ${days.length} days` : undefined} />
           {!problems.length ? (

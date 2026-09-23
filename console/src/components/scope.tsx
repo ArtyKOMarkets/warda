@@ -39,8 +39,10 @@ export function ScopeSwitch({ className }: { className?: string }) {
   if (!yours) return null;
   return (
     <div className={cn("flex rounded-lg border border-line-strong bg-surface p-0.5", className)}>
-      {([["mine", "Yours"], ["warda", "Warda's agents"]] as const).map(([v, l]) => (
-        <button key={v} onClick={() => setScope(v)} className={cn("h-7 rounded-md px-2.5 text-[12.5px] font-medium transition", scope === v ? "bg-raised text-fg" : "text-fg-3 hover:text-fg-2")}>{l}</button>
+      {([["mine", "Yours", "Yours"], ["warda", "Warda's agents", "Warda's"]] as const).map(([v, l, shortl]) => (
+        <button key={v} onClick={() => setScope(v)} className={cn("h-8 whitespace-nowrap rounded-md px-2.5 text-[12.5px] font-medium transition md:h-7", scope === v ? "bg-raised text-fg" : "text-fg-3 hover:text-fg-2")}>
+          <span className="md:hidden">{shortl}</span><span className="hidden md:inline">{l}</span>
+        </button>
       ))}
     </div>
   );

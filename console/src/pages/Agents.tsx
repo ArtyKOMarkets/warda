@@ -72,12 +72,12 @@ export function Agents() {
       </div>
 
       {loading && !agents.length ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{[0, 1, 2, 3, 4, 5].map((i) => <Card key={i} className="h-[268px] p-5"><Skeleton className="size-9" /><Skeleton className="mt-8 h-7 w-28" /></Card>)}</div>
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 sm:grid-cols-2 xl:grid-cols-3">{[0, 1, 2, 3, 4, 5].map((i) => <Card key={i} className="h-[268px] p-5"><Skeleton className="size-9" /><Skeleton className="mt-8 h-7 w-28" /></Card>)}</div>
       ) : !list.length ? (
         <Card><Empty icon={<Bot className="size-5" />} title={q ? "No agents match" : "Nothing here"}>{q ? "Try another name." : "Agents in this group will show up here."}</Empty></Card>
       ) : grid ? (
         // Helpers sit under the parent they were delegated from, not beside it.
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {ordered.map(({ a, child }, i) => (
             <div key={a.key} className={cn("rise", child && "sm:col-span-1")} style={{ animationDelay: `${Math.min(i, 8) * 30}ms` }}>
               {child && <div className="mb-1 flex items-center gap-1.5 pl-1 text-[11.5px] text-fg-3">↳ helper of {a.parent}</div>}

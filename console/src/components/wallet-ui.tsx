@@ -159,7 +159,7 @@ export function WalletCard() {
       )}
       {w.problem && <p className="mx-5 mb-4 rounded-lg bg-warn/10 px-3 py-2.5 text-[12.5px] leading-relaxed text-warn">{w.problem}</p>}
       {err && <p className="mx-5 mb-4 rounded-lg bg-bad/10 px-3 py-2 text-[12.5px] text-bad">{err}</p>}
-      <div className="grid border-t border-line sm:grid-cols-3 [&>*+*]:border-t [&>*+*]:border-line sm:[&>*+*]:border-l sm:[&>*+*]:border-t-0">
+      <div className="grid grid-cols-[minmax(0,1fr)] border-t border-line sm:grid-cols-3 [&>*+*]:border-t [&>*+*]:border-line sm:[&>*+*]:border-l sm:[&>*+*]:border-t-0">
         {tiles.map((t) => <Tile key={t.label} {...t} />)}
       </div>
       {w.family === "kaspa" && (

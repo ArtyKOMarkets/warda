@@ -88,7 +88,7 @@ function HostedAlerts() {
 
   return (
     <>
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
         <Card>
           <CardHeader title="Per agent" sub="Checked by the runner every minute" />
           {err && <p className="mx-5 mt-3 rounded-lg bg-bad/10 px-3 py-2 text-[12.5px] text-bad">{err}</p>}

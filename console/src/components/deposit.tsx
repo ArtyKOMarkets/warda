@@ -86,7 +86,7 @@ export function DepositPanel({ runner, agent, initial, onFunded, kind = "create"
   const seen = f.seenKas && f.seenKas !== "0" ? f.seenKas : null;
   return (
     <Card className="overflow-hidden">
-      <div className="grid gap-0 md:grid-cols-[1fr_260px]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-0 md:grid-cols-[1fr_260px]">
         <div className="p-6">
           <div className="text-[13px] text-fg-3">Send exactly</div>
           <div className="num mt-1 text-[40px] font-semibold leading-none tracking-[-0.04em]">{f.amountKas}<span className="ml-2 text-[16px] font-medium text-fg-3">KAS</span></div>

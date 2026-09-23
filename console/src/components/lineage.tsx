@@ -30,7 +30,7 @@ function Node({ a, kids, depth, last }: { a: AgentView; kids: (p: AgentView) => 
           <span aria-hidden className="absolute left-[25px] top-[25px] h-px w-[26px] bg-line-strong" />
         </>
       )}
-      <a href={href("agents", a.key)} className="group flex items-center gap-3 rounded-[11px] px-2.5 py-2.5 transition hover:bg-raised">
+      <a href={href("agents", a.key)} className="group flex items-start gap-3 rounded-[11px] px-2.5 py-2.5 transition hover:bg-raised">
         <AgentMark agent={a} size={30} className="rounded-[9px]" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -40,11 +40,11 @@ function Node({ a, kids, depth, last }: { a: AgentView; kids: (p: AgentView) => 
           </div>
           <Chips a={a} />
         </div>
-        <div className="hidden text-right sm:block">
+        <div className="hidden shrink-0 text-right sm:block">
           <div className="num text-[13.5px] text-fg">{kas(spendable(a))}<span className="ml-1 text-[11px] text-fg-3">KAS</span></div>
           <div className="text-[11px] text-fg-3">can still pay</div>
         </div>
-        <BudgetRing a={a} size={34} width={4.5} bare className="hidden sm:block" />
+        <BudgetRing a={a} size={34} width={4.5} bare className="mt-0.5 shrink-0" />
       </a>
       {children.length > 0 && (
         <ul>{children.map((k, i) => <Node key={k.key} a={k} kids={kids} depth={depth + 1} last={i === children.length - 1} />)}</ul>
@@ -84,7 +84,7 @@ export function Lineage({ agents, className, title = "Delegation and succession"
               <li key={o.key} className="relative pl-[44px]">
                 <span aria-hidden className="absolute left-[25px] top-0 h-[25px] w-px bg-line-strong" />
                 <span aria-hidden className="absolute left-[25px] top-[25px] h-px w-[26px] bg-line-strong" />
-                <a href={href("agents", o.key)} className="group flex items-center gap-3 rounded-[11px] px-2.5 py-2.5 transition hover:bg-raised">
+                <a href={href("agents", o.key)} className="group flex items-start gap-3 rounded-[11px] px-2.5 py-2.5 transition hover:bg-raised">
                   <AgentMark agent={o} size={30} className="rounded-[9px]" />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -94,7 +94,7 @@ export function Lineage({ agents, className, title = "Delegation and succession"
                     </div>
                     <Chips a={o} />
                   </div>
-                  <BudgetRing a={o} size={34} width={4.5} bare className="hidden sm:block" />
+                  <BudgetRing a={o} size={34} width={4.5} bare className="mt-0.5 shrink-0" />
                 </a>
               </li>
             ))}

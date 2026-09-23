@@ -34,8 +34,35 @@ export function Grants() {
       <Card className="overflow-hidden">
         {loading && !agents.length ? <div className="space-y-3 p-5">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-12 w-full" />)}</div> : !list.length ? (
           <Empty icon={<FileKey2 className="size-5" />} title={filter ? "No grant matches" : "No grants here"}>{filter ? "Clear the filter to see them all." : "Create an agent and its grant is made for you."}</Empty>
-        ) : (
-          <div className="overflow-x-auto">
+        ) : (<>
+          {/* One card per grant on a phone: the same figures, stacked. */}
+          <ul className="divide-y divide-line lg:hidden">
+            {list.map((a) => (
+              <li key={a.key}>
+                <a href={href("agents", a.key, "proof")} className="block px-4 py-4 transition active:bg-raised/60">
+                  <div className="flex items-start gap-3">
+                    <AgentMark agent={a} size={28} className="rounded-lg" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="truncate text-[14px] font-medium">{agentName(a)}</span>
+                        <StatusBadge status={a.status} />
+                      </div>
+                      <div className="num mt-1 truncate text-[12px] text-fg-3">{a.grantAddress ? short(a.grantAddress, 14, 6) : "Not funded yet"}</div>
+                    </div>
+                  </div>
+                  <dl className="mt-3 grid grid-cols-3 gap-y-3 text-[12px]">
+                    <div><dt className="text-fg-3">Budget</dt><dd className="num mt-0.5 text-[13.5px] text-fg">{kas(a.budget)}</dd></div>
+                    <div><dt className="text-fg-3">Spent</dt><dd className="num mt-0.5 text-[13.5px] text-fg-2">{kas(a.spent)}</dd></div>
+                    <div><dt className="text-fg-3">Left</dt><dd className="num mt-0.5 text-[13.5px] text-fg">{kas(a.status === "ended" ? 0 : a.remaining)}</dd></div>
+                    <div><dt className="text-fg-3">In its account</dt><dd className={cn("num mt-0.5 text-[13.5px]", shortOfCoin(a) ? "text-warn" : "text-fg-2")}>{kas(a.onChain)}</dd></div>
+                    <div><dt className="text-fg-3">Per payment</dt><dd className="num mt-0.5 text-[13.5px] text-fg-2">{kas(a.maxPerPayment)}</dd></div>
+                    <div><dt className="text-fg-3">Term</dt><dd className="mt-0.5 text-[13.5px] text-fg-2">{a.status === "ended" || a.expired ? "Ended" : a.expiresIn ? `${a.expiresIn} left` : "—"}</dd></div>
+                  </dl>
+                </a>
+              </li>
+            ))}
+          </ul>
+          <div className="hidden overflow-x-auto lg:block">
             <table className="w-full min-w-[980px] text-left text-[13.5px]">
               <thead className="border-b border-line text-[12px] text-fg-3">
                 <tr>{["Grant", "Agent", "State", "Budget", "Spent", "Left", "In its account", "Per payment", "Helpers", "Term"].map((h) => <th key={h} className="px-4 py-3 font-medium">{h}</th>)}</tr>
@@ -65,7 +92,7 @@ export function Grants() {
               </tbody>
             </table>
           </div>
-        )}
+        </>)}
         <p className="border-t border-line px-5 py-3 text-[12px] leading-relaxed text-fg-3">
           Two numbers can end an agent: what its authority still allows, and the coin actually at its address. The smaller one is the answer — that is what "can still pay" means everywhere else.
           {list.some(shortOfCoin) && " Amber means the coin is below the authority."}

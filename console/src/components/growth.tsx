@@ -68,7 +68,7 @@ export function GrowthFleet() {
         ))}
       </div>
 
-      <div className="grid gap-6 border-t border-line px-5 py-5 lg:grid-cols-[minmax(0,1fr)_auto]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 border-t border-line px-5 py-5 lg:grid-cols-[minmax(0,1fr)_auto]">
         <div>
           <div className="text-[11.5px] uppercase tracking-[0.07em] text-fg-3">What one run produced</div>
           <ul className="mt-3 space-y-2.5">

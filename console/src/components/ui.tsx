@@ -31,8 +31,8 @@ export function Card({ className, children, interactive, ...p }: { className?: s
 
 export function CardHeader({ title, sub, action, className }: { title: ReactNode; sub?: ReactNode; action?: ReactNode; className?: string }) {
   return (
-    <div className={cn("flex items-start justify-between gap-4 px-5 pt-5", className)}>
-      <div className="min-w-0">
+    <div className={cn("flex flex-wrap items-start justify-between gap-x-4 gap-y-2 px-5 pt-5", className)}>
+      <div className="min-w-[12rem] flex-1">
         <h3 className="text-[15px] font-semibold tracking-[-0.01em]">{title}</h3>
         {sub && <p className="mt-1 text-[13px] text-fg-3">{sub}</p>}
       </div>
@@ -121,7 +121,7 @@ export function Stat({ label, children, hint, className }: { label: ReactNode; c
     <div className={cn("min-w-0", className)}>
       <div className="text-[12px] font-medium text-fg-3">{label}</div>
       <div className="mt-1.5 truncate text-[22px] font-semibold leading-none tracking-[-0.02em] text-fg">{children}</div>
-      {hint && <div className="mt-2 truncate text-[12px] text-fg-3">{hint}</div>}
+      {hint && <div className="mt-2 text-[12px] leading-snug text-fg-3 sm:truncate">{hint}</div>}
     </div>
   );
 }
@@ -196,16 +196,16 @@ export function PageHeader({ title, sub, actions, eyebrow }: { title: ReactNode;
         <h1 className="text-[26px] font-semibold leading-tight tracking-[-0.025em] sm:text-[28px]">{title}</h1>
         {sub && <p className="mt-1.5 max-w-2xl text-[14px] leading-relaxed text-fg-2">{sub}</p>}
       </div>
-      {actions && <div className="flex shrink-0 flex-wrap gap-2">{actions}</div>}
+      {actions && <div className="flex min-w-0 shrink-0 flex-wrap items-center gap-2">{actions}</div>}
     </div>
   );
 }
 
 export function Row({ label, children, className }: { label: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <div className={cn("flex items-baseline justify-between gap-4 py-2.5", className)}>
+    <div className={cn("flex flex-col gap-0.5 py-2.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4", className)}>
       <dt className="shrink-0 text-[13px] text-fg-3">{label}</dt>
-      <dd className="min-w-0 text-right text-[13.5px] text-fg">{children}</dd>
+      <dd className="min-w-0 break-words text-[13.5px] text-fg sm:text-right">{children}</dd>
     </div>
   );
 }

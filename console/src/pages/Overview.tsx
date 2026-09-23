@@ -67,7 +67,7 @@ export function Overview() {
         actions={<LinkButton variant="primary" href={href("new")}><Plus className="size-4" /> New agent</LinkButton>}
       />
 
-      <Card className="grid grid-cols-2 items-start gap-x-6 gap-y-6 p-5 sm:p-6 lg:grid-cols-4">
+      <Card className="grid grid-cols-[minmax(0,1fr)] grid-cols-2 items-start gap-x-6 gap-y-6 p-5 sm:p-6 lg:grid-cols-4">
         <Stat label="They can still pay" hint={first ? <Skeleton className="w-24" /> : `across ${live.length} live agent${live.length === 1 ? "" : "s"}`}>
           <Kas value={kas(t.remaining)} loading={first} />
         </Stat>
@@ -96,9 +96,9 @@ export function Overview() {
           <a href={href("agents")} className="flex items-center gap-1 text-[13px] text-fg-3 transition hover:text-fg">All agents <ArrowRight className="size-3.5" /></a>
         </div>
         {first ? (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{[0, 1, 2].map((i) => <Card key={i} className="h-[268px] p-5"><Skeleton className="size-9 rounded-[10px]" /><Skeleton className="mt-8 h-7 w-28" /><Skeleton className="mt-4 h-1.5 w-full" /></Card>)}</div>
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-4 sm:grid-cols-2 xl:grid-cols-3">{[0, 1, 2].map((i) => <Card key={i} className="h-[268px] p-5"><Skeleton className="size-9 rounded-[10px]" /><Skeleton className="mt-8 h-7 w-28" /><Skeleton className="mt-4 h-1.5 w-full" /></Card>)}</div>
         ) : cards.length ? (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{cards.map((a, i) => <div key={a.key} className="rise" style={{ animationDelay: `${i * 40}ms` }}><AgentCard a={a} /></div>)}</div>
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-4 sm:grid-cols-2 xl:grid-cols-3">{cards.map((a, i) => <div key={a.key} className="rise" style={{ animationDelay: `${i * 40}ms` }}><AgentCard a={a} /></div>)}</div>
         ) : (
           <Card><Empty icon={<Bot className="size-5" />} title={filter ? "No agent matches" : "No agents yet"} action={!filter ? <LinkButton variant="primary" href={href("new")}><Plus className="size-4" /> New agent</LinkButton> : undefined}>
             {filter ? "Clear the filter to see them all." : "Give an agent a budget, a per-payment cap and a list of who it may pay. The network enforces all three."}
@@ -108,7 +108,7 @@ export function Overview() {
 
       <Tracked />
 
-      <section className="mt-10 grid gap-4 lg:grid-cols-2">
+      <section className="mt-10 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2">
         <Card className="p-5 sm:p-6">
           <div className="text-[15px] font-semibold">What it has spent</div>
           <div className="mt-3">{first ? <Skeleton className="h-40 w-full" /> : <CumulativeChart points={cumulative} />}</div>
@@ -119,7 +119,7 @@ export function Overview() {
         </Card>
       </section>
 
-      <section className="mt-4 grid gap-4 lg:grid-cols-2">
+      <section className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader title="Top payees" sub="By what they have actually been paid" />
           <div className="p-5">{topPayees.length ? <HBars rows={topPayees} /> : <Empty title="No payments in this range" className="py-8" />}</div>
@@ -142,7 +142,7 @@ export function Overview() {
         </Card>
       </section>
 
-      <section className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+      <section className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <Card>
           <CardHeader title="Recent activity" sub="Payments and refusals, newest first" action={<a href={href("activity")} className="text-[13px] text-fg-3 hover:text-fg">View all</a>} />
           <div className="mt-3">

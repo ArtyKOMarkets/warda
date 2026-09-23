@@ -158,7 +158,7 @@ function Plan({ me, setMsg }: { me: Me; setMsg: (s: string) => void }) {
   const cards = [...(cur === "beta" ? [{ id: "beta", name: "Beta", px: "free", say: `Everything in Pro while accounts are new${b.enforced ? "" : " — nothing to pay yet"}.` }] : []), ...PLANS.filter((p) => !(cur === "beta" && p.id === "free"))];
   return (
     <Section title="Plan">
-      <div className="grid gap-2 sm:grid-cols-3">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-2 sm:grid-cols-3">
         {cards.map((p) => {
           const now = p.id === cur;
           return (
@@ -361,7 +361,7 @@ function OwnRow({ x, rd }: { x: Own; rd: Reading | undefined }) {
         {role.length > 0 && <Badge tone="accent">you are its {role.join(" and ")}</Badge>}
         <span className="text-[12px] text-fg-3">added {String(x.added).slice(0, 10)}</span>
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mt-3 grid grid-cols-[minmax(0,1fr)] grid-cols-2 gap-3 lg:grid-cols-4">
         {[
           ["Left to spend", r ? `${K(r.remaining)} KAS` : "—", `of a ${K2(m.budget)} KAS budget`],
           ["Next payment, at most", r ? `${K(r.maxNextSpend)} KAS` : "—", r?.boundBy ? `bound by ${BOUND[r.boundBy] ?? r.boundBy}` : `cap ${K2(m.max_per_spend)} KAS each`],

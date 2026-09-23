@@ -152,8 +152,9 @@ export function AuthorityBlock({ a }: { a: AgentView }) {
                 : <>of a <span className="num text-fg-2">{kas(a.budget)} KAS</span> budget</>}
             </div>
           </div>
-          <div className="flex items-center gap-7">
-            <BudgetRing a={a} size={128} width={13} />
+          <div className="flex items-center gap-5 sm:gap-7">
+            <BudgetRing a={a} size={104} width={11} className="sm:hidden" />
+            <BudgetRing a={a} size={128} width={13} className="hidden sm:block" />
             <div className="grid gap-3.5 text-[13px]">
               <Legend color="bg-[var(--color-money-spent)]" label="Spent" value={kas(parts.spent)} />
               <Legend color="bg-[var(--color-money-left)]" label="Can still pay" value={kas(parts.left)} />
@@ -163,7 +164,7 @@ export function AuthorityBlock({ a }: { a: AgentView }) {
           </div>
         </div>
       </div>
-      <div className="grid border-t border-line sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-[minmax(0,1fr)] border-t border-line sm:grid-cols-2 lg:grid-cols-5">
         {rules.map((r, i) => (
           <div key={r.label} className={cn("p-5", i > 0 && "border-t border-line sm:border-t-0", i % 2 === 1 && "sm:border-l", i >= 2 && "sm:border-t lg:border-t-0", i > 0 && "lg:border-l")}>
             <div className="flex items-center gap-2 text-[12px] text-fg-3"><r.icon className="size-3.5" /> {r.label}</div>

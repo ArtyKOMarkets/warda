@@ -107,7 +107,7 @@ export function Analytics() {
       <PageHeader title="Analytics" sub={`Where the money went${range === "all" ? "" : `, over the last ${range} days`} — from the payments these agents logged, and what the covenant itself counted.`}
         actions={<><Button size="sm" onClick={csv}><Download className="size-3.5" /> Summary CSV</Button><Button size="sm" variant="ghost" onClick={() => print()}><Printer className="size-3.5" /> Print</Button></>} />
 
-      <Card className="grid grid-cols-2 items-start gap-x-6 gap-y-6 p-5 sm:p-6 lg:grid-cols-5">
+      <Card className="grid grid-cols-[minmax(0,1fr)] grid-cols-2 items-start gap-x-6 gap-y-6 p-5 sm:p-6 lg:grid-cols-5">
         <Stat label="Spent, per the covenant"><Kas value={kas(t.spent)} loading={first} /></Stat>
         <Stat label="Payments" hint={`${settled.length} settled in range`} className="lg:border-l lg:border-line lg:pl-6">{first ? <Skeleton className="h-[1em] w-10" /> : <span className="num">{t.payments}</span>}</Stat>
         <Stat label="Average payment" className="lg:border-l lg:border-line lg:pl-6"><Kas value={kas(avg)} loading={first} /></Stat>
@@ -124,7 +124,7 @@ export function Analytics() {
 
       <Runway agents={list} />
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+      <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader title="By agent" sub="Spent per the covenant" />
           <div className="p-5">{byAgent.length ? <HBars rows={byAgent} /> : <Empty title="No spending yet" className="py-8" />}</div>
@@ -141,7 +141,7 @@ export function Analytics() {
         <div className="mt-5">{list.filter((a) => a.budget).length ? <Rings rows={list.filter((a) => a.budget).map((a) => ({ key: a.key, label: agentName(a), used: ((a.spent ?? 0) / a.budget!) * 100 }))} /> : <Empty title="No grants yet" className="py-6" />}</div>
       </Card>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+      <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader title="How close to the limit" sub="Each payment as a share of its grant's per-payment cap" />
           <div className="p-5">
@@ -170,7 +170,23 @@ export function Analytics() {
 
       <Card className="mt-4">
         <CardHeader title="Cost by endpoint" sub="What each URL has been paid, and how concentrated that is" />
-        <div className="overflow-x-auto">
+        {endpoints.length ? (
+          <ul className="mt-2 divide-y divide-line md:hidden">
+            {endpoints.map(([k, v]) => (
+              <li key={k} className="px-5 py-3">
+                <div className="num truncate text-[12.5px] text-fg-2" title={k}>{k}</div>
+                <div className="mt-2 flex items-center gap-3">
+                  <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-raised"><span className="block h-full rounded-full bg-accent" style={{ width: `${(v.kas / endTotal) * 100}%` }} /></span>
+                  <span className="num text-[12px] text-fg-3">{Math.round((v.kas / endTotal) * 100)}%</span>
+                </div>
+                <div className="num mt-2 text-[12px] text-fg-3">
+                  <span className="text-fg">{kas(v.kas)}</span> KAS · {v.n} payment{v.n === 1 ? "" : "s"} · {kas(v.kas / v.n, { max: 4 })} each · {new Date(v.last).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        <div className="hidden overflow-x-auto md:block">
           {endpoints.length ? (
             <table className="w-full min-w-[640px] text-left text-[13px]">
               <thead className="border-b border-line text-[12px] text-fg-3"><tr>{["Endpoint", "Payments", "Total", "Average", "Share", "Last"].map((h) => <th key={h} className="px-5 py-2.5 font-medium">{h}</th>)}</tr></thead>
@@ -196,7 +212,7 @@ export function Analytics() {
         )}
       </Card>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+      <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader title="Active against idle" sub="Live grants that paid in the last 7 days" />
           <ul className="mt-2 divide-y divide-line">
@@ -221,7 +237,17 @@ export function Analytics() {
       {tasks.length > 0 && (
         <Card className="mt-4">
           <CardHeader title="Cost per task" sub="From what each agent said it was buying (warda pay --task)" />
-          <div className="overflow-x-auto">
+          <ul className="mt-2 divide-y divide-line md:hidden">
+            {tasks.map(([k, v]) => (
+              <li key={k} className="px-5 py-3">
+                <div className="truncate text-[13px]">{k}</div>
+                <div className="num mt-1.5 text-[12px] text-fg-3">
+                  <span className="text-fg">{kas(v.kas)}</span> KAS · {v.ok} of {v.n} settled · {v.ok ? `${kas(v.kas / v.ok, { max: 4 })} each` : "none settled"} · {new Date(v.last).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                </div>
+              </li>
+            ))}
+          </ul>
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[620px] text-left text-[13px]">
               <thead className="border-b border-line text-[12px] text-fg-3"><tr>{["Task", "Attempts", "Settled", "Total", "Per settled payment", "Last"].map((h) => <th key={h} className="px-5 py-2.5 font-medium">{h}</th>)}</tr></thead>
               <tbody className="divide-y divide-line">
@@ -252,7 +278,7 @@ function Runway({ agents }: { agents: AgentView[] }) {
   return (
     <Card className="mt-4">
       <CardHeader title="Burn rate and runway" sub="From the covenant's own spend since each grant opened" />
-      <div className="grid gap-y-5 border-b border-line p-5 sm:grid-cols-3">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-y-5 border-b border-line p-5 sm:grid-cols-3">
         <Stat label="Fleet burn rate" hint="per day, across these agents"><Kas value={kas(rate, { max: 3 })} /></Stat>
         <Stat label="Fleet runway" hint="at that pace" className="sm:border-l sm:border-line sm:pl-6"><span className="num">{rate > 0 ? Math.round(left / rate) : "—"}<span className="ml-1.5 text-[12px] font-medium text-fg-3">days</span></span></Stat>
         <Stat label="Measured over" hint="since each grant opened" className="sm:border-l sm:border-line sm:pl-6"><span className="num">{Math.round(Math.max(...rows.map((x) => x.r.days)))}<span className="ml-1.5 text-[12px] font-medium text-fg-3">days</span></span></Stat>

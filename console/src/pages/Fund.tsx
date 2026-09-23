@@ -40,7 +40,7 @@ function TopUpPage({ agent }: { agent?: string }) {
 
   return (
     <>
-      <div className="grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
         <Card className="h-fit overflow-hidden">
           <div className="px-5 pb-2 pt-4 text-[12px] font-medium text-fg-3">Choose an agent</div>
           {loading && !agents.length ? <div className="space-y-2 p-4"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div> : hosted.length ? (
@@ -119,7 +119,7 @@ function TopUp({ agent, current, onDone }: { agent: string; current: { budget: n
     <Card>
       <CardHeader title={<span className="flex items-center gap-2">Top up {agent}{round && round > 1 ? <Badge>grant {round}</Badge> : null}</span>}
         sub={`Now ${kas(current.remaining)} KAS left${current.expiresIn ? ` · ends in ${current.expiresIn}` : ""}`} />
-      <div className="grid gap-5 p-5 sm:grid-cols-3">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 p-5 sm:grid-cols-3">
         <Field label="New budget" hint="For the new grant."><KasInput value={budget} onChange={(e) => setBudget(e.target.value)} /></Field>
         <Field label="Max per payment"><KasInput value={cap} onChange={(e) => setCap(e.target.value)} /></Field>
         <Field label="Lasts">
