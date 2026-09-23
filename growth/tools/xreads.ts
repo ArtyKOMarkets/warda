@@ -32,8 +32,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 import { openNode, type SpentStore } from "@warda_protocol/vendor";
-import { DEFAULT_MAX_RESULTS, FLOOR_SOMPI, USD_PER_READ, xsearch, type XSearchConfig } from "../src/xsearch.ts";
-import type { Fetcher } from "../src/listen.ts";
+import { DEFAULT_MAX_RESULTS, FLOOR_SOMPI, USD_PER_READ, xFetcher, xsearch, type XSearchConfig } from "../src/xsearch.ts";
 
 const flag = (name: string, fallback?: string) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -84,14 +83,6 @@ function fileSpent(path: string): SpentStore {
     },
   };
 }
-
-const xFetcher = (token: string): Fetcher => async (u) => {
-  const res = await fetch(u, {
-    headers: { authorization: `Bearer ${token}`, "user-agent": "warda-growth-xreads" },
-    signal: AbortSignal.timeout(20_000),
-  });
-  return { status: res.status, body: await res.text() };
-};
 
 const spent = fileSpent(SPENT_FILE);
 const cfg: XSearchConfig = {

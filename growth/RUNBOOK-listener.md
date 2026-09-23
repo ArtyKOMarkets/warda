@@ -41,7 +41,42 @@ you want to know.
 
 ---
 
-## Once
+## First: is the ranking any good?
+
+Do this before the grant, the tunnel and the signed listing, because if the
+posts coming back are not worth tapping then none of the rest is worth
+building.
+
+Get an X bearer token — <https://developer.x.com>, pay-per-use, $0.005 per post
+read — and run a trial pass on your own card:
+
+```
+export X_BEARER_TOKEN=…
+node --experimental-strip-types growth/tools/listen.ts --direct
+```
+
+It calls X directly, with no grant and no payment, prints every candidate with
+its score broken down, and **sends nothing**. A rule still being tuned should
+not be interrupting anybody.
+
+Default cap is 60 reads a pass, about $0.30. `--max-reads` moves it. Run it a
+few times over a day — the rotation advances, so a day covers every query — and
+read the rejected ones as carefully as the kept ones. A ranking is judged by
+what it threw away.
+
+What you are looking for: the top of the list should be people with the problem
+Warda solves, not people with opinions about the category. If the takes are
+outranking the builders, the weights in `src/listen.ts` are wrong, and that is
+a ten-line change rather than a redesign.
+
+**This is the one path here with no covenant behind it.** The cap is in
+`tools/listen.ts` and nothing but that file stops it — which is precisely the
+arrangement the rest of this repo exists to argue against. It is fine for a
+trial you are watching. It is not how this runs.
+
+---
+
+## Then: make it an agent
 
 **1. Keys and the allowlist.**
 

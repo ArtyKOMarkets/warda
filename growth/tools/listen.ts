@@ -22,6 +22,24 @@
  * Exit 3 from that tool is the covenant refusing. That is not an error here:
  * it is the limit doing its job, it gets said plainly, and the pass ends.
  *
+ * ## --direct, and why it exists at all
+ *
+ * `--dry-run` prints the searches it would buy and calls nothing, which tells
+ * you the rotation works and nothing about whether the RANKING does. The
+ * ranking is the part that decides whether this is worth having, and it can
+ * only be judged against real posts.
+ *
+ * So `--direct` calls X with your own bearer token, no grant and no payment,
+ * prints every candidate with its score broken down, and sends nothing. It is
+ * the cheapest way to find out the rule is wrong — before there is a grant, a
+ * tunnel and a signed listing standing in front of it.
+ *
+ * It is also the one path here with no covenant behind it, so it carries its
+ * own limit: a read cap, checked before every search, that it will not exceed.
+ * Same shape as the epoch limit and for the same reason. The difference is
+ * that this one is only software, which is exactly the weakness the rest of
+ * this repo exists to argue about.
+ *
  * ## What is written down
  *
  * `growth/listener/state.json` — the rotation cursor, the posts already sent,
@@ -34,6 +52,7 @@ import { spawn } from "node:child_process";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { listen, QUERIES, type Fetcher, type Scored } from "../src/listen.ts";
+import { xFetcher } from "../src/xsearch.ts";
 import { plan } from "../src/rotate.ts";
 import { alert, summary } from "../src/alert.ts";
 
@@ -49,6 +68,10 @@ const flag = (n: string, d?: string) => {
 const has = (n: string) => process.argv.includes(`--${n}`);
 
 const DRY = has("dry-run");
+const DIRECT = has("direct");
+/** `--direct` only. What a trial pass may read before it stops, whatever else
+ *  it was going to do. 60 reads is $0.30 at X's $0.005. */
+const MAX_READS = Number(flag("max-reads", "60"));
 const PRICE = Number(flag("price", "5000000"));
 const EPOCH_HOURS = Number(flag("epoch-hours", "12"));
 const EPOCH_LIMIT = Number(flag("epoch-limit", "15000000")); // 0.15 KAS: three searches
@@ -132,11 +155,18 @@ async function notify(text: string) {
 async function main() {
   let state = rollEpoch(load());
 
+  /* In --direct there is no grant, so the rotation is bounded by the read cap
+     rather than by an allowance. Expressed in the same units so `plan` does
+     not need to know which mode it is in. */
+  const epochRemaining = DIRECT
+    ? Math.floor(MAX_READS / PER_QUERY) * PRICE
+    : Math.max(0, EPOCH_LIMIT - state.spentThisEpochSompi);
+
   const p = plan({
     queries: QUERIES,
     cursor: state.cursor,
     priceSompi: PRICE,
-    epochRemainingSompi: Math.max(0, EPOCH_LIMIT - state.spentThisEpochSompi),
+    epochRemainingSompi: epochRemaining,
     always: ALWAYS,
   });
   console.error(`listener: ${p.why}`);
@@ -152,7 +182,24 @@ async function main() {
      query into a purchase, so `listen` stays the same pure function the tests
      exercise and the money lives in one place. */
   let spent = 0;
+  let reads = 0;
   let refused: string | null = null;
+
+  /* Your card, not a grant. Announced on every pass rather than once in a
+     README, because the argument this whole repo makes is that an unbounded
+     spender should be visibly unbounded. */
+  const direct: Fetcher = async (url) => {
+    if (reads >= MAX_READS) {
+      refused = `the trial read cap is spent: ${reads} of ${MAX_READS}. Nothing on chain bounded this — the cap is in tools/listen.ts, and that is the point.`;
+      return { status: 0, body: "" };
+    }
+    const token = process.env.X_BEARER_TOKEN;
+    if (!token) { console.error("--direct needs X_BEARER_TOKEN."); process.exit(2); }
+    const r = await xFetcher(token)(url);
+    if (r.status === 200) reads += PER_QUERY;
+    return r;
+  };
+
   const bought: Fetcher = async (url) => {
     if (refused) return { status: 0, body: "" };
     const target = `${XREADS}/search?${new URL(url).searchParams}`;
@@ -174,10 +221,35 @@ async function main() {
     } catch { return { status: 0, body: r.stdout }; }
   };
 
-  const since = new Date(Date.now() - 2 * EPOCH_HOURS * 3_600_000).toISOString();
-  const result = await listen(bought, { since, seen: new Set(state.seen), limit: LIMIT, perQuery: PER_QUERY, mute: MUTE }, p.queries);
+  if (DIRECT) {
+    console.error(`\nlistener --direct: calling X on your own token, no grant, no payment.`);
+    console.error(`  at most ${MAX_READS} reads this pass — about $${(MAX_READS * 0.005).toFixed(2)}.\n`);
+  }
 
-  const send: Scored[] = result.found;
+  const since = new Date(Date.now() - 2 * EPOCH_HOURS * 3_600_000).toISOString();
+  const result = await listen(DIRECT ? direct : bought,
+    { since, seen: new Set(state.seen), limit: LIMIT, perQuery: PER_QUERY, mute: MUTE }, p.queries);
+
+  /* The trial's actual output: every candidate with its reasons, the rejected
+     ones included and named as rejected. A ranking is judged by what it threw
+     away at least as much as by what it kept. */
+  if (DIRECT) {
+    for (const r of result.searched) {
+      console.log(`  ${r.status === 200 ? "ok " : String(r.status).padEnd(3)} ${r.label}: ${r.found} posts`);
+    }
+    console.log("");
+    const show = (x: Scored, mark: string) => {
+      console.log(`${mark} ${String(x.score).padStart(3)}  @${x.post.author.handle}  ${x.post.text.replace(/\s+/g, " ").slice(0, 88)}`);
+      console.log(`        ${x.why.join("  ")}`);
+      console.log(`        ${x.post.url}\n`);
+    };
+    for (const x of result.found) show(x, x.band === "high" ? "HIGH" : "look");
+    for (const x of result.rejected) show(x, "  --");
+  }
+
+  /* A trial sends nothing. The point is to read the reasons yourself, and a
+     rule still being tuned should not be interrupting anybody. */
+  const send: Scored[] = DIRECT ? [] : result.found;
   for (const [i, s] of send.entries()) {
     const a = alert(s, { n: i + 1, of: send.length });
     await notify(a.text);
@@ -199,9 +271,14 @@ async function main() {
      message that teaches you to stop reading them. */
   if (send.length > 0 || refused) await notify(line);
 
-  state = { ...state, cursor: p.nextCursor, spentThisEpochSompi: state.spentThisEpochSompi + spent, lastRunAt: new Date().toISOString() };
+  /* A trial advances the rotation, so a day of passes covers every query — but
+     records nothing as seen and nothing as spent. The posts it looked at must
+     still be reportable once this is real. */
+  state = DIRECT
+    ? { ...state, cursor: p.nextCursor, lastRunAt: new Date().toISOString() }
+    : { ...state, cursor: p.nextCursor, spentThisEpochSompi: state.spentThisEpochSompi + spent, lastRunAt: new Date().toISOString() };
   save(state);
-  if (refused) process.exit(3);
+  if (refused && !DIRECT) process.exit(3);
 }
 
 void main().catch((e: Error) => { console.error(e.stack ?? e.message); process.exit(1); });

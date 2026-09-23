@@ -121,6 +121,22 @@ warda pay "${esc(o)}/search?q=x402" --grant grant.json</pre>
 </main></body></html>`;
 }
 
+/**
+ * Calls X. One definition, because `tools/xreads.ts` sells these reads and
+ * `tools/listen.ts --direct` buys them without the covenant in between, and a
+ * second copy is where a header or a timeout quietly diverges — which would
+ * show up as the seller and the trial disagreeing about what X returned.
+ */
+export function xFetcher(token: string): Fetcher {
+  return async (u) => {
+    const res = await fetch(u, {
+      headers: { authorization: `Bearer ${token}`, "user-agent": "warda-growth-xreads" },
+      signal: AbortSignal.timeout(20_000),
+    });
+    return { status: res.status, body: await res.text() };
+  };
+}
+
 /** Longest query X will take, and the longest worth taking from a stranger. */
 const MAX_QUERY = 512;
 
