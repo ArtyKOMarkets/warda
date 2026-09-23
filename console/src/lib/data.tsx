@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { fromHostedRow, fromReading, hostedMeta, type AgentView } from "./model";
+import { allPayments, fromHostedRow, fromReading, hasGrant, hostedMeta, type AgentView } from "./model";
 import { useWallet } from "./connect";
 import { api, loadRunner, saveRunner, type RunnerConfig } from "./runner";
 import { pubkeyToAddress } from "./kaspa";
@@ -258,4 +258,40 @@ export function paymentHit(p: { url?: string | null; payTo?: string | null; host
   if (!q) return true;
   const s = q.toLowerCase();
   return [p.url, p.payTo, p.host, p.task, a.label, a.id].some((v) => String(v ?? "").toLowerCase().includes(s));
+}
+
+/**
+ * How much is in each section — the numbers the sidebar puts beside its links.
+ *
+ * ## What they count, and what they deliberately do not
+ *
+ * Scope and the filter box apply, because both are global: the filter's own
+ * contract in `Data` is that it filters every view, so a badge that ignored it
+ * would contradict the page one click away. A page's own tabs and its local
+ * search do not apply — the badge answers "how much is in here", which is the
+ * question you ask BEFORE clicking, and the tab bar answers the rest on
+ * arrival. Landing on Agents shows Live while the badge counts all of them,
+ * and the tab bar says `All n` beside it with the same n.
+ *
+ * ## Why null is a value here
+ *
+ * A count of 0 is a claim: there is nothing. `null` is the other thing that
+ * can be true — nothing was read. The Services page already draws this
+ * distinction in prose ("that is not 'no services'; it is one reading that did
+ * not load"), and a sidebar that flattened it to `0` would put the stronger
+ * claim next to the link to the page that refuses to make it.
+ */
+export function useCounts(): Record<string, number | null> {
+  const { agents, services, registry, filter, loading } = useData();
+  return useMemo(() => {
+    const hit = agents.filter((a) => agentHit(a, filter));
+    const read = !loading || agents.length > 0;
+    return {
+      agents: read ? hit.length : null,
+      grants: read ? hit.filter(hasGrant).length : null,
+      activity: read ? allPayments(agents).filter(({ p, a }) => paymentHit(p, a, filter)).length : null,
+      /* Neither source answered: not zero services, no reading. */
+      services: !services.length && !registry ? null : services.length,
+    };
+  }, [agents, services, registry, filter, loading]);
 }

@@ -9,7 +9,7 @@ import { KasInput, Select, inputCls } from "@/components/form";
 import { useData } from "@/lib/data";
 import { kas, short } from "@/lib/format";
 import { Badge, Card, CardHeader, Copy, Empty, External, PageHeader, Skeleton } from "@/components/ui";
-import { allPayments } from "./shared";
+import { allPayments } from "@/lib/model";
 
 /** A payment's URL without its query, so one call and the next are the same endpoint. */
 const bare = (url: string) => url.split(/[?#]/)[0]!.replace(/\/+$/, "");

@@ -1,10 +1,6 @@
-import type { AgentView, Payment } from "@/lib/model";
+import type { AgentView } from "@/lib/model";
 import { ExternalLink } from "lucide-react";
 import { Card, Empty, LinkButton, PageHeader } from "@/components/ui";
-
-export function allPayments(agents: AgentView[]): { p: Payment; a: AgentView }[] {
-  return agents.flatMap((a) => a.payments.map((p) => ({ p, a }))).sort((x, y) => (y.p.at > x.p.at ? 1 : -1));
-}
 
 export const agentName = (a: AgentView) => (a.source === "hosted" ? a.label : `Agent ${a.label}`);
 

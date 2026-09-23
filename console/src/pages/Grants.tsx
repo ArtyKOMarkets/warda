@@ -5,7 +5,7 @@ import { useAccount, ownKey } from "@/lib/account";
 import { kas, short } from "@/lib/format";
 import { explorerAddress } from "@/lib/kaspa";
 import { href, go } from "@/lib/router";
-import { shortOfCoin } from "@/lib/model";
+import { hasGrant, shortOfCoin } from "@/lib/model";
 import { AgentMark } from "@/components/agent";
 import { Badge, Card, Copy, Empty, Kas, LinkButton, PageHeader, Skeleton, StatusBadge, Tabs } from "@/components/ui";
 import { ScopeBanner } from "@/components/scope";
@@ -17,7 +17,12 @@ export function Grants() {
   const { own, readings } = useAccount();
   const [f, setF] = useState<"live" | "ended" | "all">("live");
   const isLive = (s: string) => s !== "ended" && s !== "expired";
-  const list = agents.filter((a) => (a.grantAddress || a.budget !== null) && agentHit(a, filter) && (f === "all" || (f === "live") === isLive(a.status)));
+  /* The base the tabs describe: agents that HAVE a grant and match the
+     filter. The tab counts used to be taken from `agents` itself, so on any
+     filter — or any agent without a grant — the labels counted a larger set
+     than the rows beneath them. */
+  const held = agents.filter((a) => hasGrant(a) && agentHit(a, filter));
+  const list = held.filter((a) => f === "all" || (f === "live") === isLive(a.status));
 
   return (
     <>
@@ -26,9 +31,9 @@ export function Grants() {
         actions={<LinkButton href={href("create")}>Create a grant</LinkButton>} />
 
       <Tabs className="mb-5" value={f} onChange={setF} items={[
-        { value: "live", label: "Live", count: agents.filter((a) => isLive(a.status)).length },
-        { value: "ended", label: "Ended", count: agents.filter((a) => !isLive(a.status)).length },
-        { value: "all", label: "All", count: agents.length },
+        { value: "live", label: "Live", count: held.filter((a) => isLive(a.status)).length },
+        { value: "ended", label: "Ended", count: held.filter((a) => !isLive(a.status)).length },
+        { value: "all", label: "All", count: held.length },
       ]} />
 
       <Card className="overflow-hidden">

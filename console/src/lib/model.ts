@@ -276,6 +276,28 @@ export function runway(a: AgentView): { days: number; rate: number; lasts: numbe
   return { days, rate, lasts: can === null ? null : can / rate, ends: a.expiresInDaa != null ? a.expiresInDaa / 864_000 : null };
 }
 
+/**
+ * This agent has a grant: an address on chain, or a budget read from one.
+ *
+ * One definition rather than a predicate repeated at each call site, because
+ * the Grants page's list, its tab counts and the sidebar badge are three
+ * places that must not be able to disagree about what a grant is. They did:
+ * the tab counts said `agents.length` while the list they labelled filtered
+ * on this.
+ */
+export const hasGrant = (a: AgentView) => Boolean(a.grantAddress) || a.budget !== null;
+
+/**
+ * Every payment across a set of agents, newest first.
+ *
+ * Lives here rather than in pages/shared.tsx, where it was: five pages and now
+ * the sidebar need it, and a component importing a page module to count things
+ * is the wrong direction for a dependency to point.
+ */
+export function allPayments(agents: AgentView[]): { p: Payment; a: AgentView }[] {
+  return agents.flatMap((a) => a.payments.map((p) => ({ p, a }))).sort((x, y) => (y.p.at > x.p.at ? 1 : -1));
+}
+
 export interface Totals { agents: number; active: number; budget: number; remaining: number; spent: number; payments: number; blocked: number }
 
 export function totals(list: AgentView[]): Totals {

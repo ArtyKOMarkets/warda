@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Plus, Search, Bot, LayoutGrid, List } from "lucide-react";
-import { useData } from "@/lib/data";
+import { agentHit, useData } from "@/lib/data";
 import { kas, ago } from "@/lib/format";
 import { href, go } from "@/lib/router";
 import { AgentCard, AgentMark } from "@/components/agent";
@@ -13,7 +13,12 @@ import { spendable, shortOfCoin } from "@/lib/model";
 type F = "live" | "hosted" | "published" | "ended" | "all";
 
 export function Agents() {
-  const { agents, loading } = useData();
+  const { agents: inScope, loading, filter } = useData();
+  /* The global box first, then this page's own. The sidebar badge counts the
+     same set as `all` below, and the local search narrows what is drawn
+     without moving either number — two boxes, and it should be obvious which
+     one each number answers to. */
+  const agents = inScope.filter((a) => agentHit(a, filter));
   const [f, setF] = useState<F>("live");
   const [q, setQ] = useState("");
   const [grid, setGrid] = useState(() => { try { return localStorage.getItem("warda.next.grid") !== "0"; } catch { return true; } });

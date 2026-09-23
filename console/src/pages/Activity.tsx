@@ -1,18 +1,20 @@
 import { useState } from "react";
 import { Activity as Icon, Download } from "lucide-react";
-import { useData } from "@/lib/data";
+import { paymentHit, useData } from "@/lib/data";
 import { ActivityList } from "@/components/agent";
 import { Button, Card, Empty, PageHeader, Skeleton, Tabs } from "@/components/ui";
 import { agentName } from "./shared";
 import { ScopeBanner } from "@/components/scope";
-import { allPayments } from "./shared";
+import { allPayments } from "@/lib/model";
 
 type F = "all" | "paid" | "blocked" | "issues";
 
-export function Activity({ filter }: { filter?: string }) {
-  const { agents, loading } = useData();
-  const [f, setF] = useState<F>((["paid", "blocked", "issues"].includes(filter ?? "") ? filter : "all") as F);
-  const rows = allPayments(agents);
+export function Activity({ tab }: { tab?: string }) {
+  const { agents, loading, filter } = useData();
+  const [f, setF] = useState<F>((["paid", "blocked", "issues"].includes(tab ?? "") ? tab : "all") as F);
+  /* Overview and Analytics both narrow by the filter box; this view did not,
+     which made it the one place where typing in that box changed nothing. */
+  const rows = allPayments(agents).filter(({ p, a }) => paymentHit(p, a, filter));
   const pick = (x: F) => rows.filter(({ p }) => x === "all" || (x === "paid" && p.outcome === "paid") || (x === "blocked" && p.outcome === "blocked") || (x === "issues" && (p.outcome === "failed" || p.outcome === "paid-not-served")));
   const shown = pick(f);
   return (

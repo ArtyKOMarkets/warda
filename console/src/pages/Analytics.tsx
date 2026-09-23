@@ -4,11 +4,11 @@ import { useData, inRange, agentHit, paymentHit } from "@/lib/data";
 import { useAccount, ownKey } from "@/lib/account";
 import { kas, short } from "@/lib/format";
 import { href } from "@/lib/router";
-import { runway, spendable, totals, type AgentView } from "@/lib/model";
+import { allPayments, runway, spendable, totals, type AgentView } from "@/lib/model";
 import { BarChart, HBars, StackedBars, Rings, FlowBars, hueOf } from "@/components/charts";
 import { Badge, Button, Card, CardHeader, Empty, Kas, PageHeader, Skeleton, Stat } from "@/components/ui";
 import { ScopeBanner } from "@/components/scope";
-import { allPayments, agentName } from "./shared";
+import { agentName } from "./shared";
 
 const DAY = 86_400_000;
 

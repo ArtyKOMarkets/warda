@@ -4,7 +4,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { href } from "@/lib/router";
-import { useData } from "@/lib/data";
+import { useCounts, useData } from "@/lib/data";
 import { useWallet } from "@/lib/connect";
 import { ScopeSwitch } from "./scope";
 import { short } from "@/lib/format";
@@ -42,8 +42,8 @@ function Logo() {
 }
 
 function Nav({ active, onPick }: { active: string; onPick?: () => void }) {
-  const { agents, runner } = useData();
-  const counts: Record<string, number> = { agents: agents.length };
+  const { runner } = useData();
+  const counts = useCounts();
   return (
     <nav className="flex flex-col gap-6">
       {NAV.map((g) => (
@@ -61,7 +61,18 @@ function Nav({ active, onPick }: { active: string; onPick?: () => void }) {
                     {on && <span className="absolute -left-3 top-1.5 bottom-1.5 w-[2px] rounded-full bg-accent" />}
                     <it.icon className={cn("size-4", on ? "text-accent" : "text-fg-3 group-hover:text-fg-2")} strokeWidth={1.8} />
                     <span className="flex-1">{it.label}</span>
-                    {counts[it.id] ? <span className="num text-[11px] text-fg-3">{counts[it.id]}</span> : null}
+                    {/* A pill rather than bare digits: the number sits at the
+                        end of a row of words and needs an edge to stop being
+                        read as part of the label. `bg-line` rather than
+                        `bg-raised` so it still separates from the row's own
+                        hover and active backgrounds, which are raised.
+                        Null means nothing was read — see useCounts. */}
+                    {counts[it.id] !== null && counts[it.id] !== undefined && (
+                      <span className={cn("num rounded-md px-1.5 py-px text-[11px] leading-[1.45] tabular-nums",
+                        on ? "bg-accent/15 text-accent" : "bg-line text-fg-3 group-hover:text-fg-2")}>
+                        {counts[it.id]}
+                      </span>
+                    )}
                     {warn && <span className="size-1.5 rounded-full bg-warn" title="Not signed in to the runner" />}
                   </a>
                 </li>

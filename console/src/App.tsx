@@ -21,7 +21,7 @@ export function App() {
   const view = (() => {
     switch (page) {
       case "agents": return a ? <AgentDetail key={a} id={a} tab={b} /> : <Agents />;
-      case "activity": return <Activity key={a ?? "all"} filter={a} />;
+      case "activity": return <Activity key={a ?? "all"} tab={a} />;
       case "grants": return <Grants />;
       case "fleet": return <Fleet />;
       case "operator": return <Operator />;

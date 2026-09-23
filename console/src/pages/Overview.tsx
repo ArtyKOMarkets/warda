@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Plus, ShieldCheck, Ban, ArrowRight, Bot, FileJson, ExternalLink } from "lucide-react";
 import { useData, inRange, agentHit, paymentHit } from "@/lib/data";
 import { useAccount, ownKey } from "@/lib/account";
-import { totals, type AgentView } from "@/lib/model";
+import { allPayments, totals, type AgentView } from "@/lib/model";
 import { kas, ago, short } from "@/lib/format";
 import { href } from "@/lib/router";
 import { Lineage } from "@/components/lineage";
@@ -11,7 +11,7 @@ import { Badge, Card, CardHeader, Empty, Kas, LinkButton, PageHeader, Skeleton, 
 import { CumulativeChart, Donut, HBars } from "@/components/charts";
 import { Notices, ScopeBanner } from "@/components/scope";
 import { GrowthFleet } from "@/components/growth";
-import { allPayments, agentName } from "./shared";
+import { agentName } from "./shared";
 
 export function Overview() {
   const { agents, loading, scope, yours, range, filter } = useData();
