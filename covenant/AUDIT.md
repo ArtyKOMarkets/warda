@@ -10,10 +10,10 @@ and which claims were not reachable by a constructed transaction.
 
 | | |
 |---|---|
-| Cases executed | 98 |
+| Cases executed | 118 |
 | Baseline accepted | yes |
-| Published claims covered | 26 of 26 |
-| Rules `enforced` | 26 (12 at a measured boundary) |
+| Published claims covered | 38 of 39 |
+| Rules `enforced` | 36 (13 at a measured boundary) |
 | Violations | 0 |
 | Over-refusals | 0 |
 | Rules `assumed` | 0 |
@@ -71,6 +71,19 @@ rather than left out of the count.
 | `reclaim` | signed by the principal key | flip |
 | `reclaim` | the output is P2PK(principalKey) | flip |
 | `reclaim` | the output keeps the balance, less maxFee | boundary |
+| `reabsorb` | the child is a real input, and not the parent itself | flip |
+| `reabsorb` | the pop is proven — the parent carried exactly this child | flip |
+| `reabsorb` | the child has no outstanding children of its own | flip |
+| `reabsorb` | reserve is released by exactly the child's budget | flip |
+| `reabsorb` | the child's spending becomes the parent's | flip |
+| `reabsorb` | everything else about the parent stands still | flip |
+| `reabsorb` | the parent's agent signed it | flip |
+| `reabsorb` | one continuation, and the coin from both inputs lands in it | boundary |
+| `settle` | signed by the revocation key | flip |
+| `settle` | the co-input is a grant of this template | flip |
+| `settle` | exactly two inputs | flip |
+| `settle` | output 0 is that grant's single authorised continuation | **not covered** |
+| `settle` | the output keeps both inputs' coin, less maxFee | boundary |
 
 ## Enforced
 
@@ -105,6 +118,16 @@ because the case is a single field away from the accepted baseline.
 - `reclaim destination` — *flip* — outputs[0].scriptPubKey == P2PK(principalKey)
 - `reclaim term` — *boundary* — tx.daa >= expiresAt
 - `reclaim conservation` — *boundary* — outputs[0].value >= inValue - maxFee
+- `settle child index` — *flip* — childIdx is a real input, and not the active one
+- `settle pop` — *flip* — reserveRoot == blake2b(prevRoot || childId), newState.reserveRoot == prevRoot
+- `settle leaves first` — *flip* — child.reserved == 0
+- `settle reserve` — *flip* — newState.reserved == reserved - child.budgetTotal
+- `settle charge` — *flip* — newState.spentTotal == spentTotal + child.spentTotal
+- `settle parent still` — *flip* — everything else about the parent stands still
+- `settle parent signature` — *flip* — checkSig(agentSig, pubkey(agentKey))
+- `settle child signature` — *flip* — checkSig(s, revocationKey)
+- `settle co-input` — *flip* — the co-input is a grant of this template, and there are exactly two inputs
+- `settle conservation` — *boundary* — outputs[0].value >= inputs[0].value + inputs[1].value - maxFee
 
 ## Every case
 
@@ -208,6 +231,26 @@ because the case is a single field away from the accepted baseline.
 | reclaim term | one DAA before the term is over | refuse | refused | ok |
 | reclaim conservation | a fee of exactly maxFee | accept | accepted | ok |
 | reclaim conservation | one sompi more than maxFee burned | refuse | refused | ok |
+| settle baseline | a child settled home, its spending charged and its reserve released | accept | accepted | ok |
+| settle child index | the child claimed at the parent's own index | refuse | refused | ok |
+| settle child index | the child claimed at an input that does not exist | refuse | refused | ok |
+| settle child index | the child claimed at a negative index | refuse | refused | ok |
+| settle pop | a previous reserve root the parent never carried | refuse | refused | ok |
+| settle leaves first | a child that still has coin committed to a grandchild | refuse | refused | ok |
+| settle reserve | the reserve not released | refuse | refused | ok |
+| settle reserve | more reserve released than was held | refuse | refused | ok |
+| settle charge | the child's spending never charged to the parent | refuse | refused | ok |
+| settle charge | one sompi less charged than the child spent | refuse | refused | ok |
+| settle parent still | the parent raising its own per-payment cap | refuse | refused | ok |
+| settle parent still | the parent extending its own expiry | refuse | refused | ok |
+| settle parent still | the parent inflating its own budget | refuse | refused | ok |
+| settle parent signature | the parent's half signed by the revocation key | refuse | refused | ok |
+| settle child signature | the revocation key | accept | accepted | ok |
+| settle child signature | the child's half signed by the agent's key | refuse | refused | ok |
+| settle child signature | the child's half signed by the principal's key | refuse | refused | ok |
+| settle co-input | the revocation key settling a child against its own dust | refuse | refused | ok |
+| settle conservation | a fee of exactly maxFee across both inputs | accept | accepted | ok |
+| settle conservation | one sompi more than maxFee | refuse | refused | ok |
 
 ## The check that reads no specification
 
@@ -229,7 +272,7 @@ indistinguishable from one that cannot, so the run deletes
 
 ## What this run did not test
 
-- settle / reabsorb — the v4 splice path. It needs a real foreign-input redeem script, which this harness does not yet build. It is also where the fifth recorded vulnerability lived, which makes it the most important gap on this list.
+- One claim on settle: that output 0 is the co-input grant's single authorised continuation. The baseline builds exactly that shape, so there is no transaction in this run where it is the only thing wrong — the refusals that would prove it are indistinguishable from the co-input check firing first.
 - The subset witness: a child narrowing its allowlist to a subtree.
 - Any grant shape but one. Every case runs against a single parameterisation — 100 KAS, a 2 KAS per-spend cap, delegation depth 2, a four-member allowlist, maxProofDepth 4. Whether the same boundaries hold at depth 16, or with a 65,536-member tree, or a one-sompi budget, is untested.
 - Anything above the script engine — a node's mempool policy, relay rules, or what a wallet does with a transaction before it is broadcast.
@@ -239,7 +282,7 @@ indistinguishable from one that cannot, so the run deletes
 
 This instrument checks the bytecode against a written claim. It cannot notice a rule that should exist and does not, because the document it takes its claims from is the same document that would have omitted it.
 
-That is not a hypothetical. Of the five vulnerabilities this covenant has had, none would have been caught by the claims suite. The epoch cap that limited nothing and the missing expiry check were both absent from the guarantees at the time. The template-id defect is not engine-visible. The fifth was in settle, which is still untested. Every one was found the same way: a person asked what an adversary supplies at each input, built it, and watched the engine accept it.
+That is not a hypothetical. Of the five vulnerabilities this covenant has had, none would have been caught by the claims suite. The epoch cap that limited nothing and the missing expiry check were both absent from the guarantees at the time. The template-id defect is not engine-visible. The fifth was in settle, The fifth is now covered — but only because it has already been found: the claim it violates was written as part of its fix, and a suite whose oracle is the documentation learns about a hole the day somebody else closes it. Every one of the five was found the same way, and it was not this way: a person asked what an adversary supplies at each input, built it, and watched the engine accept it.
 
 The section above it is the answer to that, and the only one this tool has: an oracle that consults no document, and a covenant with a known hole in it to prove the oracle can fire.
 

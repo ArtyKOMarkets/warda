@@ -217,8 +217,12 @@ where the 15 in the denominator meant "rules I wrote cases for" — a figure tha
 can never go down, printed beside a paragraph honestly listing what was not
 tested.
 
-Current run: **98 cases, 26 of 26 published claims covered, 12 rules at a
-measured boundary, 17 boundaries drawn, 0 violations, 0 over-refusals.**
+Current run: **118 cases, 38 of 39 published claims covered, 13 rules at a
+measured boundary, 18 boundaries drawn, 0 violations, 0 over-refusals.**
+
+The denominator went UP and the ratio went DOWN when settlement was added,
+which is the whole point of having one: a figure that only ever improves is a
+figure nobody should read.
 
 ## The oracle that reads no specification
 
@@ -270,9 +274,9 @@ is honest about that one.
 
 ## What is still not proven here
 
-- `settle` / `reabsorb`, the v4 splice path. It needs a real foreign-input
-  redeem script, which these builders do not yet produce — and it is where the
-  fifth recorded vulnerability lived, which makes it the gap that matters.
+- One `settle` claim — that output 0 is the co-input grant's single authorised
+  continuation. The baseline builds exactly that shape, so no transaction here
+  has it as the only thing wrong.
 - The subset witness — a child narrowing its allowlist to a subtree.
 - Anything above the script engine: mempool policy, relay rules, or what a
   wallet does with a transaction before it is broadcast.

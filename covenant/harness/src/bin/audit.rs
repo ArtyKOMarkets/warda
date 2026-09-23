@@ -43,6 +43,19 @@ const CLAIMS: &[Claim] = &[
     Claim { entry: "reclaim", text: "signed by the principal key", rule: "reclaim signature" },
     Claim { entry: "reclaim", text: "the output is P2PK(principalKey)", rule: "reclaim destination" },
     Claim { entry: "reclaim", text: "the output keeps the balance, less maxFee", rule: "reclaim conservation" },
+    Claim { entry: "reabsorb", text: "the child is a real input, and not the parent itself", rule: "settle child index" },
+    Claim { entry: "reabsorb", text: "the pop is proven — the parent carried exactly this child", rule: "settle pop" },
+    Claim { entry: "reabsorb", text: "the child has no outstanding children of its own", rule: "settle leaves first" },
+    Claim { entry: "reabsorb", text: "reserve is released by exactly the child's budget", rule: "settle reserve" },
+    Claim { entry: "reabsorb", text: "the child's spending becomes the parent's", rule: "settle charge" },
+    Claim { entry: "reabsorb", text: "everything else about the parent stands still", rule: "settle parent still" },
+    Claim { entry: "reabsorb", text: "the parent's agent signed it", rule: "settle parent signature" },
+    Claim { entry: "reabsorb", text: "one continuation, and the coin from both inputs lands in it", rule: "settle conservation" },
+    Claim { entry: "settle", text: "signed by the revocation key", rule: "settle child signature" },
+    Claim { entry: "settle", text: "the co-input is a grant of this template", rule: "settle co-input" },
+    Claim { entry: "settle", text: "exactly two inputs", rule: "settle co-input" },
+    Claim { entry: "settle", text: "output 0 is that grant's single authorised continuation", rule: "" },
+    Claim { entry: "settle", text: "the output keeps both inputs' coin, less maxFee", rule: "settle conservation" },
 ];
 
 /// A spend that differs from the accepted baseline in exactly the ways the
@@ -403,6 +416,73 @@ fn cases() -> Vec<Case> {
         }));
     }
 
+    // -----------------------------------------------------------------------
+    // Settlement. The parent runs `reabsorb`, the child runs `settle`, in one
+    // transaction under two keys — and until now nothing in this repo had ever
+    // built one. `GUARANTEES.md` said "still not built". It is the path the
+    // fifth recorded vulnerability lived in, which made it the most important
+    // gap in every report this tool has produced.
+    // -----------------------------------------------------------------------
+    fn settle(f: impl Fn(&mut Settle)) -> Result<(), TxScriptError> {
+        let mut s = Settle::valid();
+        f(&mut s);
+        s.run()
+    }
+    v.push(case("settle baseline", "a parent reabsorbs a child that has spent",
+        "a child settled home, its spending charged and its reserve released", Expect::Accept, || settle(|_| {})));
+
+    const RC: &str = "childIdx is a real input, and not the active one";
+    for (i, note) in [(0i64, "the parent's own index"), (7, "an input that does not exist"), (-1, "a negative index")] {
+        v.push(case("settle child index", RC, format!("the child claimed at {note}"), Expect::Reject, move || settle(|s| s.child_idx = i)));
+    }
+    v.push(case("settle pop", "reserveRoot == blake2b(prevRoot || childId), newState.reserveRoot == prevRoot",
+        "a previous reserve root the parent never carried", Expect::Reject, || settle(|s| s.wrong_prev_root = true)));
+    v.push(case("settle leaves first", "child.reserved == 0",
+        "a child that still has coin committed to a grandchild", Expect::Reject, || settle(|s| s.child_reserved = KAS)));
+    for (succ, note) in [
+        ((5 * KAS, 25 * KAS), "the reserve not released"),
+        ((5 * KAS, -1), "more reserve released than was held"),
+    ] {
+        v.push(case("settle reserve", "newState.reserved == reserved - child.budgetTotal", note, Expect::Reject, move || settle(|s| s.successor = Some(succ))));
+    }
+    for (succ, note) in [
+        ((0i64, 0i64), "the child's spending never charged to the parent"),
+        ((5 * KAS - 1, 0), "one sompi less charged than the child spent"),
+    ] {
+        v.push(case("settle charge", "newState.spentTotal == spentTotal + child.spentTotal", note, Expect::Reject, move || settle(|s| s.successor = Some(succ))));
+    }
+    for (name, val, note) in [
+        ("maxPerSpend", 100 * KAS, "the parent raising its own per-payment cap"),
+        ("expiresAt", 9_999_999, "the parent extending its own expiry"),
+        ("budgetTotal", 1_000_000_000_000, "the parent inflating its own budget"),
+    ] {
+        v.push(case("settle parent still", "everything else about the parent stands still", note, Expect::Reject,
+            move || settle(|s| s.authority_override = Some((name, Expr::int(val))))));
+    }
+    v.push(case("settle parent signature", "checkSig(agentSig, pubkey(agentKey))",
+        "the parent's half signed by the revocation key", Expect::Reject, || settle(|s| s.parent_signer = Signer::Revocation)));
+    v.push(case("settle child signature", "checkSig(s, revocationKey)",
+        "the revocation key", Expect::Accept, || settle(|_| {})));
+    for (who, note) in [(Signer::Agent, "the agent's key"), (Signer::Principal, "the principal's key")] {
+        v.push(case("settle child signature", "checkSig(s, revocationKey)", format!("the child's half signed by {note}"), Expect::Reject,
+            move || settle(|s| s.child_signer = who)));
+    }
+    /* Vulnerability 5, in its own shape: the revocation key alone, plus any
+       dust it already owned as a second input, spending a child under `settle`.
+       The engine refuses it at the template slice rather than at a `require` —
+       a one-byte script has no state region to read — so the verdict is
+       InvalidIndex rather than VerifyError. Still a refusal; a different one,
+       and worth saying so. */
+    v.push(case("settle co-input", "the co-input is a grant of this template, and there are exactly two inputs",
+        "the revocation key settling a child against its own dust", Expect::Reject, || settle(|s| s.lone_child = true)));
+    for (fee, exp, note) in [
+        (MAX_FEE, Expect::Accept, "a fee of exactly maxFee across both inputs"),
+        (MAX_FEE + 1, Expect::Reject, "one sompi more than maxFee"),
+    ] {
+        v.push(probed("settle conservation", "outputs[0].value >= inputs[0].value + inputs[1].value - maxFee", note, exp,
+            "settlement fee", "sompi", fee, Dir::Upper, move || settle(|s| s.extra_fee = fee - 1_000)));
+    }
+
     v
 }
 
@@ -419,9 +499,10 @@ fn subject() -> Subject {
         out_html: "../AUDIT.html".into(),
         out_json: "../audit.json".into(),
         untested: vec![
-            "<code>settle</code> / <code>reabsorb</code> — the v4 splice path. It needs a real \
-             foreign-input redeem script, which this harness does not yet build. It is also where \
-             the fifth recorded vulnerability lived, which makes it the most important gap on this list.".into(),
+            "One claim on <code>settle</code>: that output 0 is the co-input grant's single \
+             authorised continuation. The baseline builds exactly that shape, so there is no \
+             transaction in this run where it is the only thing wrong — the refusals that would \
+             prove it are indistinguishable from the co-input check firing first.".into(),
             "The subset witness: a child narrowing its allowlist to a subtree.".into(),
             "<b>Any grant shape but one.</b> Every case runs against a single parameterisation — \
              100 KAS, a 2 KAS per-spend cap, delegation depth 2, a four-member allowlist, \
@@ -441,8 +522,11 @@ fn subject() -> Subject {
              <b>none would have been caught by the claims suite</b>. The epoch cap that limited \
              nothing and the missing expiry check were both absent from the guarantees at the time. \
              The template-id defect is not engine-visible. The fifth was in <code>settle</code>, \
-             which is still untested. Every one was found the same way: a person asked what an \
-             adversary supplies at each input, built it, and watched the engine accept it.".into(),
+             The fifth is now covered — but only because it has already been found: the claim it \
+             violates was written as part of its fix, and a suite whose oracle is the documentation \
+             learns about a hole the day somebody else closes it. Every one of the five was found \
+             the same way, and it was not this way: a person asked what an adversary supplies at \
+             each input, built it, and watched the engine accept it.".into(),
             "The section above it is the answer to that, and the only one this tool has: an oracle \
              that consults no document, and a covenant with a known hole in it to prove the oracle \
              can fire.".into(),

@@ -1,7 +1,7 @@
 {
   "covenant": "see AUDIT.md",
-  "generated": "2026-09-23 08:41 UTC",
-  "cases": 98,
+  "generated": "2026-09-23 08:53 UTC",
+  "cases": 118,
   "violations": 0,
   "over_refusals": 0,
   "rules": [
@@ -30,7 +30,17 @@
     { "rule": "reclaim signature", "grade": "flip" },
     { "rule": "reclaim destination", "grade": "flip" },
     { "rule": "reclaim term", "grade": "boundary" },
-    { "rule": "reclaim conservation", "grade": "boundary" }
+    { "rule": "reclaim conservation", "grade": "boundary" },
+    { "rule": "settle child index", "grade": "flip" },
+    { "rule": "settle pop", "grade": "flip" },
+    { "rule": "settle leaves first", "grade": "flip" },
+    { "rule": "settle reserve", "grade": "flip" },
+    { "rule": "settle charge", "grade": "flip" },
+    { "rule": "settle parent still", "grade": "flip" },
+    { "rule": "settle parent signature", "grade": "flip" },
+    { "rule": "settle child signature", "grade": "flip" },
+    { "rule": "settle co-input", "grade": "flip" },
+    { "rule": "settle conservation", "grade": "boundary" }
   ],
   "boundaries": [
     { "axis": "amount, against the per-spend cap", "unit": "sompi", "accepted": 200000000, "refused": 200000001 },
@@ -49,7 +59,8 @@
     { "axis": "child budgetTotal", "unit": "sompi", "accepted": 2500000000, "refused": 2500000001 },
     { "axis": "revoke fee", "unit": "sompi", "accepted": 100000, "refused": 100001 },
     { "axis": "reclaim locktime", "unit": "DAA", "accepted": 1007000, "refused": 1006999 },
-    { "axis": "reclaim fee", "unit": "sompi", "accepted": 100000, "refused": 100001 }
+    { "axis": "reclaim fee", "unit": "sompi", "accepted": 100000, "refused": 100001 },
+    { "axis": "settlement fee", "unit": "sompi", "accepted": 100000, "refused": 100001 }
   ],
   "results": [
     { "rule": "baseline", "case": "0.5 KAS to an allowlisted payee, in the window, within every cap", "spec": "accept", "engine": "accepted" },
@@ -149,6 +160,26 @@
     { "rule": "reclaim term", "case": "the first DAA the term allows", "spec": "accept", "engine": "accepted" },
     { "rule": "reclaim term", "case": "one DAA before the term is over", "spec": "refuse", "engine": "refused" },
     { "rule": "reclaim conservation", "case": "a fee of exactly maxFee", "spec": "accept", "engine": "accepted" },
-    { "rule": "reclaim conservation", "case": "one sompi more than maxFee burned", "spec": "refuse", "engine": "refused" }
+    { "rule": "reclaim conservation", "case": "one sompi more than maxFee burned", "spec": "refuse", "engine": "refused" },
+    { "rule": "settle baseline", "case": "a child settled home, its spending charged and its reserve released", "spec": "accept", "engine": "accepted" },
+    { "rule": "settle child index", "case": "the child claimed at the parent's own index", "spec": "refuse", "engine": "refused" },
+    { "rule": "settle child index", "case": "the child claimed at an input that does not exist", "spec": "refuse", "engine": "refused" },
+    { "rule": "settle child index", "case": "the child claimed at a negative index", "spec": "refuse", "engine": "refused" },
+    { "rule": "settle pop", "case": "a previous reserve root the parent never carried", "spec": "refuse", "engine": "refused" },
+    { "rule": "settle leaves first", "case": "a child that still has coin committed to a grandchild", "spec": "refuse", "engine": "refused" },
+    { "rule": "settle reserve", "case": "the reserve not released", "spec": "refuse", "engine": "refused" },
+    { "rule": "settle reserve", "case": "more reserve released than was held", "spec": "refuse", "engine": "refused" },
+    { "rule": "settle charge", "case": "the child's spending never charged to the parent", "spec": "refuse", "engine": "refused" },
+    { "rule": "settle charge", "case": "one sompi less charged than the child spent", "spec": "refuse", "engine": "refused" },
+    { "rule": "settle parent still", "case": "the parent raising its own per-payment cap", "spec": "refuse", "engine": "refused" },
+    { "rule": "settle parent still", "case": "the parent extending its own expiry", "spec": "refuse", "engine": "refused" },
+    { "rule": "settle parent still", "case": "the parent inflating its own budget", "spec": "refuse", "engine": "refused" },
+    { "rule": "settle parent signature", "case": "the parent's half signed by the revocation key", "spec": "refuse", "engine": "refused" },
+    { "rule": "settle child signature", "case": "the revocation key", "spec": "accept", "engine": "accepted" },
+    { "rule": "settle child signature", "case": "the child's half signed by the agent's key", "spec": "refuse", "engine": "refused" },
+    { "rule": "settle child signature", "case": "the child's half signed by the principal's key", "spec": "refuse", "engine": "refused" },
+    { "rule": "settle co-input", "case": "the revocation key settling a child against its own dust", "spec": "refuse", "engine": "refused" },
+    { "rule": "settle conservation", "case": "a fee of exactly maxFee across both inputs", "spec": "accept", "engine": "accepted" },
+    { "rule": "settle conservation", "case": "one sompi more than maxFee", "spec": "refuse", "engine": "refused" }
   ]
 }

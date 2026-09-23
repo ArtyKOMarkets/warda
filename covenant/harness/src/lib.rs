@@ -53,10 +53,33 @@ pub const SOURCE: &str = include_str!("../../warda_grant.sil");
 /// Keep this list beside `ctor()` in `covenant/deploy/src` — they are the same
 /// list twice, which is the repo's most expensive recurring shape. The fix is
 /// to share it; until then, change one and search for the other.
+/// Both keys the template hash covers. The id is a property of the PAIR:
+/// `principalKey` and `revocationKey` are constructor constants compiled into
+/// the suffix, so a function taking only one of them cannot be correct. That
+/// was vulnerability 4, and making it unrepresentable is the fix.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct Authority {
+    pub principal: [u8; 32],
+    pub revocation: [u8; 32],
+}
+
+impl Authority {
+    pub fn new(principal: [u8; 32], revocation: [u8; 32]) -> Self { Self { principal, revocation } }
+}
+
+/// The authority the spend and delegate suites compile against: two distinct
+/// constants, so anything keyed on the pair cannot accidentally pass with one.
+pub fn default_authority() -> Authority { Authority::new([0x11; 32], [0x44; 32]) }
+
 pub fn ctor(max_proof_depth: i64) -> Vec<Expr<'static>> {
+    ctor_full(max_proof_depth, default_authority(), template_id_for(default_authority()), template_geometry())
+}
+
+#[allow(clippy::needless_range_loop)]
+pub fn ctor_full(max_proof_depth: i64, authority: Authority, template_id: [u8; 32], geometry: (i64, i64)) -> Vec<Expr<'static>> {
     vec![
-        Expr::bytes(vec![0x11; 32]),      //  0 principalKey
-        Expr::bytes(vec![0x44; 32]),      //  1 revocationKey
+        Expr::bytes(authority.principal.to_vec()),  //  0 principalKey
+        Expr::bytes(authority.revocation.to_vec()), //  1 revocationKey
         Expr::int(100_000),               //  2 maxFee
         Expr::bytes(vec![0x22; 32]),      //  3 genesisAgentKey
         Expr::int(10_000_000_000),        //  4 genesisBudgetTotal    100 KAS
@@ -71,13 +94,13 @@ pub fn ctor(max_proof_depth: i64) -> Vec<Expr<'static>> {
         // the covenant's own comment says it simply yields a different address,
         // one nobody funded. Only the splice path reads it, and nothing here
         // exercises that path yet.
-        Expr::bytes(vec![0x55; 32]),      // 12 genesisTemplateId
+        Expr::bytes(template_id.to_vec()),          // 12 genesisTemplateId
         // Geometry. These are LENGTHS, and the deploy tool derives them from
         // the compiled size by iterating to a fixed point. They must stay small
         // and plausible: a large value lands in a for-loop bound and the
         // compiler refuses it far from where the mistake was made.
-        Expr::int(64),                    // 13 templatePrefixLen
-        Expr::int(64),                    // 14 templateSuffixLen
+        Expr::int(geometry.0),                      // 13 templatePrefixLen
+        Expr::int(geometry.1),                      // 14 templateSuffixLen
         Expr::int(max_proof_depth),       // 15 maxProofDepth   (was 12 in v2)
         Expr::int(0),                     // 16 initSpentTotal
         Expr::int(0),                     // 17 initReserved
@@ -103,7 +126,7 @@ pub fn authority_fields(root: [u8; 32], agent_xonly: [u8; 32]) -> Vec<(&'static 
         ("delegationDepth", Expr::int(2)),
         // v4. Authority, not accounting: `spend` asserts it unchanged, so it
         // must equal ctor slot 12 or every successor is a different grant.
-        ("templateId", Expr::bytes(vec![0x55; 32])),
+        ("templateId", Expr::bytes(template_id_for(default_authority()).to_vec())),
     ]
 }
 
@@ -792,7 +815,7 @@ pub fn child_state(root: [u8; 32], child_key: [u8; 32], ch: &Child) -> Expr<'sta
             ("notBefore", Expr::int(ch.not_before)),
             ("expiresAt", Expr::int(ch.expires_at)),
             ("delegationDepth", Expr::int(ch.delegation_depth)),
-            ("templateId", Expr::bytes(vec![0x55; 32])),
+            ("templateId", Expr::bytes(template_id_for(default_authority()).to_vec())),
             ("spentTotal", Expr::int(s)),
             ("reserved", Expr::int(r)),
             ("epochIndex", Expr::int(ei)),
@@ -817,9 +840,9 @@ pub fn child_ctor(root: [u8; 32], child_key: [u8; 32], ch: &Child, depth: i64) -
         Expr::int(ch.not_before),
         Expr::int(ch.expires_at),
         Expr::int(ch.delegation_depth),
-        Expr::bytes(vec![0x55; 32]),   // 12 genesisTemplateId — same template
-        Expr::int(64),                 // 13 templatePrefixLen
-        Expr::int(64),                 // 14 templateSuffixLen
+        Expr::bytes(template_id_for(default_authority()).to_vec()), // 12 genesisTemplateId — same template
+        Expr::int(template_geometry().0),                           // 13 templatePrefixLen
+        Expr::int(template_geometry().1),                           // 14 templateSuffixLen
         Expr::int(depth),              // 15 maxProofDepth  (was 12 in v2)
         Expr::int(s),
         Expr::int(r),
@@ -1225,3 +1248,321 @@ pub fn source_without(line: &str) -> &'static str {
 }
 pub mod audit;
 pub mod oracle;
+
+
+// ---------------------------------------------------------------------------
+// The template: where a grant's state sits inside its own bytecode, and the
+// hash that lets one grant read another's state without trusting it.
+//
+// Ported from `covenant/deploy`, which is the second copy of this and one too
+// many — but the alternative was a harness that cannot exercise the splice
+// path at all, which is where the fifth recorded vulnerability lived. Change
+// one and search for the other.
+// ---------------------------------------------------------------------------
+
+/// Where the state region sits: (prefix length, suffix length).
+///
+/// A fixed point — these are constructor arguments derived from the compiled
+/// size, so changing them changes the bytecode, which changes them. Solved
+/// once, cached, and it refuses to guess if it does not settle.
+pub fn template_geometry() -> (i64, i64) {
+    *TEMPLATE_GEOMETRY.get_or_init(|| solve_geometry().expect("template geometry must settle"))
+}
+static TEMPLATE_GEOMETRY: std::sync::OnceLock<(i64, i64)> = std::sync::OnceLock::new();
+
+fn solve_geometry() -> Result<(i64, i64), String> {
+    let a = default_authority();
+    let (mut prefix, mut suffix) = (1i64, 2900i64);
+    for round in 0..8 {
+        let probe = compile_contract(SOURCE, &ctor_full(4, a, [0x51; 32], (prefix, suffix)), CompileOptions::default())
+            .map_err(|e| format!("{e:?}"))?;
+        let (p, sfx) = measure_state_region(&probe.bytecode, a, (prefix, suffix))?;
+        if (p, sfx) == (prefix, suffix) {
+            return Ok((prefix, suffix));
+        }
+        if round == 7 {
+            return Err(format!("template geometry did not settle: {prefix}/{suffix} then {p}/{sfx}"));
+        }
+        prefix = p;
+        suffix = sfx;
+    }
+    unreachable!()
+}
+
+/// Diff two compilations that differ ONLY in fixed-width state fields.
+///
+/// Integers compile at minimal width, so two probes with different numbers
+/// have different lengths and cannot be diffed positionally. `agentKey` is the
+/// first state field and `reserveRoot` the last, both `byte[32]`, so they
+/// bracket the region exactly. Off by one is not cosmetic: a foreign redeem
+/// script sliced one byte early decodes every field shifted and reads garbage
+/// as a budget.
+fn measure_state_region(reference: &[u8], authority: Authority, geometry: (i64, i64)) -> Result<(i64, i64), String> {
+    let other = compile_contract(SOURCE, &ctor_probe(authority, geometry), CompileOptions::default())
+        .map_err(|e| format!("{e:?}"))?;
+    let (a, b) = (reference, &other.bytecode);
+    if a.len() != b.len() {
+        return Err(format!("state probes differ in length: {} vs {}", a.len(), b.len()));
+    }
+    let first = (0..a.len()).find(|&i| a[i] != b[i]).ok_or("state probes are identical")?;
+    let last = (0..a.len()).rev().find(|&i| a[i] != b[i]).unwrap();
+    if a[first - 1] != 0x20 {
+        return Err(format!("expected OP_DATA_32 before the state region at {}, found {:#04x}", first - 1, a[first - 1]));
+    }
+    Ok(((first - 1) as i64, (a.len() - last - 1) as i64))
+}
+
+/// The same constructor with every byte[32] state field moved and every
+/// integer left alone.
+fn ctor_probe(authority: Authority, geometry: (i64, i64)) -> Vec<Expr<'static>> {
+    let mut v = ctor_full(4, authority, [0x47; 32], geometry);
+    v[3] = Expr::bytes(vec![0x44; 32]);   // genesisAgentKey
+    v[8] = Expr::bytes(vec![0x46; 32]);   // genesisRecipientsRoot
+    v[20] = Expr::bytes(vec![0x48; 32]);  // initReserveRoot
+    v
+}
+
+/// blake3 over `len(prefix) || prefix || len(suffix) || suffix`.
+///
+/// The lengths are in the preimage on purpose: they bind WHERE the state is
+/// inserted, so a covenant cannot be passed off as one with a differently
+/// placed state region. Keyed on the authority, because both keys live in the
+/// suffix the hash covers — which is the binding that stops a parent
+/// reabsorbing a child it does not own.
+pub fn template_id_for(authority: Authority) -> [u8; 32] {
+    if let Some(v) = TEMPLATE_IDS.lock().unwrap().get(&authority) {
+        return *v;
+    }
+    let (p, sfx) = template_geometry();
+    let probe = compile_contract(SOURCE, &ctor_full(4, authority, [0u8; 32], (p, sfx)), CompileOptions::default())
+        .expect("template id probe must compile");
+    let code = &probe.bytecode;
+    let mut pre = Vec::new();
+    pre.extend_from_slice(&(p).to_le_bytes());
+    pre.extend_from_slice(&code[..p as usize]);
+    pre.extend_from_slice(&(sfx).to_le_bytes());
+    pre.extend_from_slice(&code[code.len() - sfx as usize..]);
+    let id = *blake3::hash(&pre).as_bytes();
+    TEMPLATE_IDS.lock().unwrap().insert(authority, id);
+    id
+}
+
+static TEMPLATE_IDS: std::sync::LazyLock<std::sync::Mutex<HashMap<Authority, [u8; 32]>>> =
+    std::sync::LazyLock::new(|| std::sync::Mutex::new(HashMap::new()));
+
+/// Run the engine over EVERY input, not just one.
+///
+/// Settlement is the first transaction this repo builds with two inputs under
+/// two entrypoints and two keys. Judging only input 0 would run the parent's
+/// `reabsorb` and never run the child's `settle` at all — so the half
+/// authorised by the revocation key, which is the half vulnerability 5 lived
+/// in, would go untested. The first failing input is returned, so a caller
+/// still gets one verdict.
+pub fn execute_all(tx: Transaction, entries: Vec<UtxoEntry>) -> Result<(), TxScriptError> {
+    if entries.len() != tx.inputs.len() {
+        return Err(TxScriptError::MalformedPush(entries.len(), tx.inputs.len()));
+    }
+    let reused = SigHashReusedValuesUnsync::new();
+    let sig_cache = Cache::new(10_000);
+    let populated = PopulatedTransaction::new(&tx, entries);
+    let cov_ctx = CovenantsContext::from_tx(&populated).map_err(TxScriptError::from)?;
+    for idx in 0..tx.inputs.len() {
+        let input = tx.inputs[idx].clone();
+        let utxo = populated.utxo(idx).expect("utxo");
+        let mut vm = TxScriptEngine::from_transaction_input(
+            &populated, &input, idx, utxo,
+            EngineCtx::new(&sig_cache).with_reused(&reused).with_covenants_ctx(&cov_ctx),
+            EngineFlags { covenants_enabled: true, sigop_script_units: 0.into() },
+        );
+        vm.execute()?;
+    }
+    Ok(())
+}
+
+/// Settlement: the parent runs `reabsorb`, the child runs `settle`, in one
+/// transaction, under two different keys.
+///
+/// The child's half is signed by the REVOCATION key on purpose — if
+/// settlement needed the child's cooperation, an unresponsive child could lock
+/// its parent's budget forever, which is the failure this path exists to
+/// remove.
+pub struct Settle {
+    /// What the child has spent by the time it is settled.
+    pub child_spent: i64,
+    pub child_budget: i64,
+    /// The parent's state before settlement: spent, reserved.
+    pub parent_spent: i64,
+    pub parent_reserved: i64,
+    /// The parent's declared successor, defaulted from the arithmetic the
+    /// covenant requires.
+    pub successor: Option<(i64, i64)>,
+    /// Taken out of the single continuation, beyond the 1,000 the baseline
+    /// already leaves. The covenant allows up to `maxFee` across both inputs.
+    pub extra_fee: i64,
+    /// Sign the child's half with something other than the revocation key.
+    pub child_signer: Signer,
+    /// Sign the parent's half with something other than its agent key.
+    pub parent_signer: Signer,
+    /// Declare a reserve root the parent does not actually carry.
+    pub wrong_prev_root: bool,
+    /// Give the child a child of its own, which must be refused: a subtree
+    /// settles from the leaves up.
+    pub child_reserved: i64,
+    /// Which input the parent claims its child is. The covenant bounds it and
+    /// refuses the parent's own index.
+    pub child_idx: i64,
+    /// Move one of the parent's authority fields in the declared successor.
+    /// Everything about the parent must stand still across a settlement.
+    pub authority_override: Option<(&'static str, Expr<'static>)>,
+    /// Drop the child's input, leaving the revocation key holding a `settle`
+    /// with nothing tying it to a parent. This is vulnerability 5's shape.
+    pub lone_child: bool,
+}
+
+impl Settle {
+    pub fn valid() -> Self {
+        Settle {
+            child_spent: 5 * KAS,
+            child_budget: 25 * KAS,
+            parent_spent: 0,
+            parent_reserved: 25 * KAS,
+            successor: None,
+            extra_fee: 0,
+            child_signer: Signer::Revocation,
+            parent_signer: Signer::Agent,
+            wrong_prev_root: false,
+            child_reserved: 0,
+            child_idx: 1,
+            authority_override: None,
+            lone_child: false,
+        }
+    }
+
+    pub fn run(&self) -> Result<(), TxScriptError> {
+        let agent = agent_keypair();
+        let agent_xonly: [u8; 32] = agent.x_only_public_key().0.serialize();
+        let principal = principal_keypair();
+        let revocation = revocation_keypair();
+        let authority = Authority::new(
+            principal.x_only_public_key().0.serialize(),
+            revocation.x_only_public_key().0.serialize(),
+        );
+        let tid = template_id_for(authority);
+        let geo = template_geometry();
+        let tree = Tree::new(vec![[0xa1; 32], [0xa2; 32], [0xa3; 32], [0xa4; 32]]);
+        let child_key = [0x99u8; 32];
+        let depth = 4;
+
+        let ch = Child {
+            budget: self.child_budget,
+            max_per_spend: KAS,
+            epoch_limit: 5 * KAS,
+            expires_at: EXPIRES_AT,
+            not_before: NOT_BEFORE,
+            delegation_depth: 1,
+            root: None,
+            accounting: (self.child_spent, self.child_reserved, 0, 0),
+        };
+
+        /* The child's identity, rebuilt from its IMMUTABLE fields — which is
+           why a child that has been spending still matches what the parent
+           committed to when it delegated. */
+        let cid = child_id(child_key, ch.budget, ch.max_per_spend, ch.epoch_limit, EPOCH_LENGTH,
+            tree.root(), ch.not_before, ch.expires_at, ch.delegation_depth);
+        let carried = push_child(empty_reserve(), cid);
+        let prev_root = if self.wrong_prev_root { [0x66u8; 32] } else { empty_reserve() };
+
+        let parent_ctor = |spent: i64, reserved: i64, root: [u8; 32]| {
+            let mut v = ctor_full(depth, authority, tid, geo);
+            v[3] = Expr::bytes(agent_xonly.to_vec());
+            v[8] = Expr::bytes(tree.root().to_vec());
+            v[16] = Expr::int(spent);
+            v[17] = Expr::int(reserved);
+            v[20] = Expr::bytes(root.to_vec());
+            v
+        };
+        let parent = compiled(SOURCE, &parent_ctor(self.parent_spent, self.parent_reserved, carried));
+
+        let (ns, nr) = self.successor.unwrap_or((
+            self.parent_spent + self.child_spent,
+            self.parent_reserved - self.child_budget,
+        ));
+        let parent_next = compiled(SOURCE, &parent_ctor(ns, nr, prev_root));
+
+        /* The child must share the parent's authority, because the template
+           id is keyed on the pair — which is the binding that stops a parent
+           reabsorbing a child it does not own. */
+        let mut child_c = child_ctor(tree.root(), child_key, &ch, depth);
+        child_c[0] = Expr::bytes(authority.principal.to_vec());
+        child_c[1] = Expr::bytes(authority.revocation.to_vec());
+        child_c[12] = Expr::bytes(tid.to_vec());
+        child_c[13] = Expr::int(geo.0);
+        child_c[14] = Expr::int(geo.1);
+        let child = compiled(SOURCE, &child_c);
+
+        let parent_value: u64 = 50 * KAS as u64;
+        let child_value: u64 = self.child_budget.max(1) as u64;
+        let combined = parent_value + child_value;
+        let extra = self.extra_fee;
+
+        let mut fields = authority_fields(tree.root(), agent_xonly);
+        for f in fields.iter_mut() {
+            if f.0 == "templateId" { f.1 = Expr::bytes(tid.to_vec()); }
+            if let Some((name, ref v)) = self.authority_override {
+                if f.0 == name { f.1 = v.clone(); }
+            }
+        }
+        fields.push(("spentTotal", Expr::int(ns)));
+        fields.push(("reserved", Expr::int(nr)));
+        fields.push(("epochIndex", Expr::int(0)));
+        fields.push(("epochSpent", Expr::int(0)));
+        fields.push(("reserveRoot", Expr::bytes(prev_root.to_vec())));
+        let new_states = Expr::array(
+            TypeRef { base: TypeBase::Custom("State".to_string()), array_dims: vec![ArrayDim::Dynamic] },
+            vec![struct_object("State", fields)],
+        );
+
+        let lone = self.lone_child;
+        let build = |psig: Vec<u8>, csig: Vec<u8>| {
+            let mut inputs = vec![tx_input(0, sigscript(parent, "reabsorb", vec![
+                new_states.clone(),
+                Expr::int(self.child_idx),
+                Expr::bytes(prev_root.to_vec()),
+                Expr::bytes(psig),
+            ]))];
+            let child_in = tx_input(1, plain_sigscript(child, "settle", vec![Expr::bytes(csig)]));
+            if lone {
+                // The revocation key alone, with its own dust as the co-input.
+                inputs = vec![child_in, tx_input(2, vec![OpTrue])];
+            } else {
+                inputs.push(child_in);
+            }
+            Transaction::new(
+                1,
+                inputs,
+                vec![TransactionOutput {
+                    value: combined.saturating_sub(1_000).saturating_sub(extra.max(0) as u64),
+                    script_public_key: pay_to_script_hash_script(&parent_next.bytecode),
+                    covenant: Some(CovenantBinding { authorizing_input: 0, covenant_id: COV }),
+                }],
+                0, Default::default(), 0, vec![],
+            )
+        };
+
+        let entries = if lone {
+            vec![covenant_utxo(child, child_value), UtxoEntry::new(parent_value, pay_to_script_hash_script(&[OpTrue]), 0, false, None)]
+        } else {
+            vec![covenant_utxo(parent, parent_value), covenant_utxo(child, child_value)]
+        };
+
+        let pick = |w: Signer| match w {
+            Signer::Principal => principal,
+            Signer::Revocation => revocation,
+            Signer::Agent => agent,
+        };
+        let unsigned = build(vec![0u8; 65], vec![0u8; 65]);
+        let psig = sign_input(unsigned.clone(), entries.clone(), if lone { 1 } else { 0 }, &pick(self.parent_signer));
+        let csig = sign_input(unsigned, entries.clone(), if lone { 0 } else { 1 }, &pick(self.child_signer));
+        execute_all(build(psig, csig), entries)
+    }
+}

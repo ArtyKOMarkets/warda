@@ -18,4 +18,6 @@ kaspa-txscript-errors = { git = "https://github.com/kaspanet/rusty-kaspa", rev =
 # Same blake2b the script engine's OpBlake2b uses:
 # Params::new().hash_length(32) — unkeyed, no personalization.
 blake2b_simd = "1"
+# The template hash `readInputStateWithTemplate` recomputes.
+blake3 = "1"
 secp256k1 = { version = "0.29", features = ["global-context", "rand-std"] }
