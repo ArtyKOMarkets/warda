@@ -1,6 +1,6 @@
 {
   "_comment": "Written by agents/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, the purchase log or the chain — none is typed. Each payee's LABEL is re-derived on every run from the artefact agents/known-payees.json names, and a label that stops matching is dropped rather than published: an address with no name is honest, an address with the wrong name is not.",
-  "checkedAt": "2026-09-23T05:35:02.533Z",
+  "checkedAt": "2026-09-23T07:35:02.235Z",
   "network": "testnet-10",
   "identity": {
     "agentId": "WARDA-003",
@@ -53,13 +53,13 @@
   },
   "timelock": {
     "notBefore": "564404779",
-    "virtualDaaScore": "578077650",
+    "virtualDaaScore": "578150158",
     "open": true,
     "lockedFor": "5 minutes",
     "openedAgo": "16 days",
     "expiresAt": "590324779",
     "expired": false,
-    "expiresInDaa": "12247129",
+    "expiresInDaa": "12174621",
     "expiresIn": "14 days",
     "expiredAgo": null,
     "enforcedBy": "the covenant, on every spend: claimedDaa >= notBefore. Not a scheduler, not this process, and not revocable by whoever issued the grant.",
@@ -603,6 +603,20 @@
       "payTo": "kaspatest:qq7xj0mpl0p46875mnkzhwatdy478pjkum745srhaey44l9jx566zefjaam3e",
       "refusal": null,
       "sellerClaimed": null
+    },
+    {
+      "at": "2026-09-23T06:41:00.964Z",
+      "outcome": "bought",
+      "url": "https://warda-demo-api.vercel.app/digest",
+      "task": "daily digest",
+      "reason": null,
+      "txid": "99e46f742d92ed61c83cf6a2c73a89ba56217278f92f1e9df64aa58430e93fd9",
+      "paid": null,
+      "quoted": null,
+      "amountSompi": null,
+      "payTo": null,
+      "refusal": null,
+      "sellerClaimed": "WARDA-001"
     }
   ],
   "reconciliation": {

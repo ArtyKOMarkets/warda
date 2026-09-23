@@ -5,7 +5,7 @@ import { useAccount, ownKey } from "@/lib/account";
 import { kas, short } from "@/lib/format";
 import { href } from "@/lib/router";
 import { runway, spendable, totals, type AgentView } from "@/lib/model";
-import { BarChart, HBars, StackedBars, Rings, hueOf } from "@/components/charts";
+import { BarChart, HBars, StackedBars, Rings, FlowBars, hueOf } from "@/components/charts";
 import { Badge, Button, Card, CardHeader, Empty, Kas, PageHeader, Skeleton, Stat } from "@/components/ui";
 import { ScopeBanner } from "@/components/scope";
 import { allPayments, agentName } from "./shared";
@@ -38,11 +38,50 @@ export function Analytics() {
   const thisWeek = week(Date.now() - 7 * DAY, Date.now() + DAY), lastWeek = week(Date.now() - 14 * DAY, Date.now() - 7 * DAY);
   const wow = lastWeek > 0 ? Math.round(((thisWeek - lastWeek) / lastWeek) * 100) : null;
 
-  const byAgent = list.map((a) => ({ key: a.key, label: agentName(a), value: a.spent ?? 0 })).filter((r) => r.value > 0).sort((x, y) => y.value - x.value).slice(0, 8);
   const svcName = new Map(services.filter((s) => s.address).map((s) => [s.address!, s.name]));
   const bySvc = new Map<string, number>();
   for (const { p } of settled) { const k = (p.payTo && svcName.get(p.payTo)) || p.host || "Unlisted"; bySvc.set(k, (bySvc.get(k) ?? 0) + (p.amount ?? 0)); }
-  const svcRows = [...bySvc].filter(([, v]) => v > 0).map(([label, value]) => ({ key: label, label, value })).sort((x, y) => y.value - x.value).slice(0, 8);
+
+  /* Who paid whom. The services are the series, in one fixed order so a
+     filter that drops a row never repaints the survivors; the agents are the
+     rows, on one shared scale. The last segment of each row is the gap
+     between the covenant's own figure and what that agent's log names — the
+     same thing the "spending with no receipt" flag counts, shown as money
+     rather than as a badge. */
+  const flow = useMemo(() => {
+    const names = [...bySvc].filter(([, v]) => v > 0).sort((x, y) => y[1] - x[1]).map(([k]) => k);
+    const series = names.slice(0, 7).map((k) => ({ key: k, label: k }));
+    const folded = names.length > 7;
+    if (folded) series.push({ key: "__other", label: `Other (${names.length - 7})` });
+    const idx = (k: string) => { const i = names.indexOf(k); return i < 0 ? -1 : i < 7 ? i : series.length - 1; };
+    const byAgentSvc = new Map<string, number[]>();
+    for (const { p, a } of settled) {
+      const k = (p.payTo && svcName.get(p.payTo)) || p.host || "Unlisted";
+      const i = idx(k);
+      if (i < 0) continue;
+      const arr = byAgentSvc.get(a.key) ?? new Array(series.length).fill(0);
+      arr[i] += p.amount ?? 0;
+      byAgentSvc.set(a.key, arr);
+    }
+    /* The covenant's figure is a grant's whole life; the log is filtered to
+       the range. Subtracting one from the other while a range is on would
+       render the payments the filter excluded as "money with no receipt",
+       which is a filter narrowing half a row of figures and not the other
+       half — two halves describing different populations. So the gap is
+       shown only when the range is everything. */
+    const whole = range === "all";
+    const rows = list
+      .map((a) => {
+        const values = byAgentSvc.get(a.key) ?? new Array(series.length).fill(0);
+        const logged = values.reduce((x: number, y: number) => x + y, 0);
+        const covenant = a.spent ?? 0;
+        const unlogged = whole ? Math.max(0, covenant - logged) : 0;
+        return { key: a.key, label: agentName(a), values, unlogged, total: logged + unlogged };
+      })
+      .filter((r) => r.total > 0)
+      .sort((x, y) => y.total - x.total);
+    return { series, rows };
+  }, [settled, list, services, range]);
   const avg = settled.length ? settled.reduce((s, r) => s + (r.p.amount ?? 0), 0) / settled.length : null;
 
   const endpoints = useMemo(() => {
@@ -124,16 +163,17 @@ export function Analytics() {
 
       <Runway agents={list} />
 
-      <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader title="By agent" sub="Spent per the covenant" />
-          <div className="p-5">{byAgent.length ? <HBars rows={byAgent} /> : <Empty title="No spending yet" className="py-8" />}</div>
-        </Card>
-        <Card>
-          <CardHeader title="By service" sub="Named from the Services registry" />
-          <div className="p-5">{svcRows.length ? <HBars rows={svcRows} /> : <Empty title="No payments logged" className="py-8" />}</div>
-        </Card>
-      </div>
+      <Card className="mt-4">
+        <CardHeader title="Who spent it, and who they paid"
+          sub={range === "all"
+            ? "Every agent's spending, split by the service its log names"
+            : `What each agent paid in the last ${range} days, by service`} />
+        <div className="p-5">
+          {flow.rows.length
+            ? <FlowBars series={flow.series} rows={flow.rows} />
+            : <Empty title="No spending yet" className="py-8" />}
+        </div>
+      </Card>
 
       <Card className="mt-4 p-5 sm:p-6">
         <div className="text-[15px] font-semibold">Budget used</div>

@@ -230,3 +230,76 @@ export function Rings({ rows }: { rows: { key: string; label: string; used: numb
     </div>
   );
 }
+
+/* Who spent it, and who they paid — one chart, one scale.
+   This replaced two ranked lists sitting side by side, each normalised to its
+   own widest bar: an agent's 1.62 KAS and a service's 1.2 KAS were drawn the
+   same length, a few hundred pixels apart, in the same colour. Two panels
+   showing the same measure on different scales is the chart mistake that
+   actually misleads people, and it also threw away the only interesting
+   structure in the data — WHICH agent paid WHICH service.
+   The last segment is the covenant's own figure minus what the logs name:
+   money a grant provably spent that no receipt accounts for. */
+export function FlowBars({ series, rows, unlogged = "No receipt" }: {
+  series: { key: string; label: string }[];
+  rows: { key: string; label: string; values: number[]; unlogged: number; total: number }[];
+  unlogged?: string;
+}) {
+  const max = Math.max(0.0001, ...rows.map((r) => r.total));
+  const totals = series.map((_, i) => rows.reduce((s, r) => s + (r.values[i] ?? 0), 0));
+  const grand = totals.reduce((a, b) => a + b, 0) + rows.reduce((s, r) => s + r.unlogged, 0);
+  const anyUnlogged = rows.some((r) => r.unlogged > 0);
+  return (
+    <div>
+      <ul className="mb-4 flex flex-wrap gap-x-4 gap-y-1.5 text-[12px]">
+        {series.map((x, i) => (
+          <li key={x.key} className="flex items-center gap-1.5">
+            <span className="size-2.5 rounded-sm" style={{ background: hueOf(i) }} />
+            <span className="text-fg-2">{x.label}</span>
+            <span className="num text-fg-3">{kas(totals[i]!)}</span>
+          </li>
+        ))}
+        {anyUnlogged && (
+          <li className="flex items-center gap-1.5">
+            <span className="size-2.5 rounded-sm" style={{ background: OTHER }} />
+            <span className="text-fg-2">{unlogged}</span>
+            <span className="num text-fg-3">{kas(rows.reduce((s, r) => s + r.unlogged, 0))}</span>
+          </li>
+        )}
+      </ul>
+      <ul className="space-y-3">
+        {rows.map((r) => {
+          const segs = [
+            ...series.map((x, i) => ({ key: x.key, label: x.label, v: r.values[i] ?? 0, color: hueOf(i) })),
+            { key: "__unlogged", label: unlogged, v: r.unlogged, color: OTHER },
+          ].filter((sg) => sg.v > 0);
+          return (
+            /* A phone has no room for a label column AND a bar worth reading,
+               so the bar takes the whole width on its own line there. */
+            <li key={r.key} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 sm:grid-cols-[minmax(0,7.5rem)_minmax(0,1fr)_auto] sm:gap-y-0">
+              <span className="order-1 truncate text-[13px] text-fg-2">{r.label}</span>
+              <span className="order-3 col-span-2 flex h-[14px] w-full items-stretch sm:order-2 sm:col-span-1">
+                {segs.map((sg, si) => (
+                  <span key={sg.key} title={`${r.label} → ${sg.label}: ${kas(sg.v)} KAS`}
+                    className={cn("overflow-hidden", si === 0 && "rounded-l-[4px]", si === segs.length - 1 && "rounded-r-[4px]")}
+                    style={{
+                      width: `${(sg.v / max) * 100}%`,
+                      background: sg.color,
+                      marginLeft: si ? 2 : 0,
+                      transition: "width .5s cubic-bezier(.3,.7,.3,1)",
+                    }} />
+                ))}
+                {!segs.length && <span className="h-[2px] w-full self-center bg-line" />}
+              </span>
+              <span className="num order-2 text-right text-[13px] text-fg sm:order-3">{kas(r.total)}<span className="ml-1 text-[11px] text-fg-3">KAS</span></span>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="mt-4 text-[12px] leading-relaxed text-fg-3">
+        One scale across every row: a bar twice as long is twice the money.
+        {anyUnlogged && <> The grey is what the covenant says a grant spent that its own log does not name — <span className="num text-fg-2">{kas(rows.reduce((s, r) => s + r.unlogged, 0))}</span> of <span className="num text-fg-2">{kas(grand)}</span> KAS.</>}
+      </p>
+    </div>
+  );
+}

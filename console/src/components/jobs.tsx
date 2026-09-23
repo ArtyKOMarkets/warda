@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { Share2, Copy as CopyIco, Play, Pause, Sparkles, CircleCheck, CircleAlert, Ban, Clock, Hand, Loader2, Plus, Zap } from "lucide-react";
+import {
+  Share2, Copy as CopyIco, Play, Pause, Sparkles, CircleCheck, CircleAlert, Ban, Clock, Hand, Loader2, Plus, Zap,
+  TrendingDown, Hourglass, Bot, Scale, CreditCard, ArrowUpRight, Bell, ChevronRight,
+} from "lucide-react";
 import { api, type RunnerConfig } from "@/lib/runner";
 import { useData } from "@/lib/data";
 import { dateTime, ago } from "@/lib/format";
@@ -11,7 +14,14 @@ import { Field, KasInput, Select, inputCls, kasOk } from "./form";
 import { isAddress } from "@/lib/kaspa";
 import { kas } from "@/lib/format";
 
-interface Workflow { id: string; name: string; enabled: boolean; trigger: { type: string; cron?: string; when?: string; percent?: number; hours?: number }; then?: { type: string }[] }
+interface Cond { field: string; op: string; value: number | string }
+interface Act { type: string; url?: string; maxKas?: number | string; to?: string; kas?: number | string; text?: string; approve?: boolean }
+interface Workflow {
+  id: string; name: string; enabled: boolean;
+  trigger: { type: string; cron?: string; when?: string; percent?: number; hours?: number };
+  if?: Cond[];
+  then?: Act[];
+}
 interface Step { action: string; status: string; detail?: string; txid?: string; sompi?: string }
 interface Run { id: string; startedAt: number; status: string; trigger: string; steps: Step[]; note?: string }
 interface Approval { id: string; status: string; op: string; note?: string; createdAt: number }
@@ -29,6 +39,94 @@ export function triggerWords(t: Workflow["trigger"]): string {
   if (t.type === "grant") return t.when === "budget-below" ? `When budget drops below ${t.percent}%` : `When the grant has ${t.hours} h left`;
   if (t.type === "mcp") return "From an AI assistant";
   return t.type;
+}
+
+
+/* A job drawn as what it is: when, if, then.
+   A one-line summary says a job fires "every day at 07:00"; it does not say
+   that the next thing is a CONDITION and the thing after that spends money.
+   The three kinds are what somebody is agreeing to when they press Add, so
+   they are drawn as three kinds rather than described in a sentence. */
+type Node = { kind: "trigger" | "condition" | "action"; icon: typeof Clock; title: string; sub?: string };
+
+const hostOf = (u?: string) => { try { return new URL(u!).host; } catch { return u ?? ""; } };
+
+const FIELD: Record<string, [string, string]> = {
+  "grant.availableKas": ["KAS left", ""],
+  "grant.spentPercent": ["Budget spent", "%"],
+  "grant.hoursToExpiry": ["Hours left", " h"],
+};
+
+/** Placeholders read as what they will say: "{{grant.availa" helps nobody. */
+const SAYS: Record<string, string> = {
+  "grant.availableKas": "KAS left", "grant.spentPercent": "% spent", "grant.hoursToExpiry": "hours left",
+  "grant.address": "grant address", agent: "agent name", "run.lastTxid": "transaction", "workflow.name": "job name",
+};
+
+export function nodesOf(w: Workflow): Node[] {
+  const t = w.trigger ?? { type: "manual" };
+  let trig: Node;
+  if (t.type === "schedule") {
+    const [m, h, dom, , dow] = String(t.cron ?? "").split(" ");
+    trig = dom === "*" && dow === "*" && /^\d+$/.test(h ?? "") && /^\d+$/.test(m ?? "")
+      ? { kind: "trigger", icon: Clock, title: "Every day", sub: `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")} UTC` }
+      : { kind: "trigger", icon: Clock, title: "On a schedule", sub: t.cron };
+  } else if (t.type === "webhook") trig = { kind: "trigger", icon: Zap, title: "When a webhook fires", sub: "a secret URL" };
+  else if (t.type === "grant" && t.when === "budget-below") trig = { kind: "trigger", icon: TrendingDown, title: "Budget running low", sub: `under ${t.percent}% left` };
+  else if (t.type === "grant") trig = { kind: "trigger", icon: Hourglass, title: "Grant ending", sub: `${t.hours} h before it ends` };
+  else if (t.type === "mcp") trig = { kind: "trigger", icon: Bot, title: "From an AI assistant", sub: "over MCP" };
+  else trig = { kind: "trigger", icon: Play, title: "When you run it", sub: "by hand or over MCP" };
+
+  const conds: Node[] = (w.if ?? []).map((c) => {
+    const nice = FIELD[c.field];
+    return { kind: "condition", icon: Scale, title: nice ? nice[0] : String(c.field).replace("trigger.body.", "webhook "), sub: `${c.op} ${c.value}${nice ? nice[1] : ""}` };
+  });
+
+  const acts: Node[] = (w.then ?? []).map((a) => {
+    if (a.type === "pay-x402") return { kind: "action", icon: CreditCard, title: `Buy from ${hostOf(a.url)}`, sub: `at most ${a.maxKas} KAS` };
+    if (a.type === "send") return { kind: "action", icon: ArrowUpRight, title: `Pay ${String(a.to ?? "").length > 20 ? String(a.to).slice(0, 14) + "…" : a.to}`, sub: `${a.kas} KAS` };
+    if (a.type === "notify") {
+      const txt = String(a.text ?? "").replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_m, k: string) => `‹${SAYS[k] ?? k}›`);
+      return { kind: "action", icon: Bell, title: "Tell you", sub: txt.length > 64 ? txt.slice(0, 61).replace(/\s+\S*$/, "") + "…" : txt };
+    }
+    if (a.type === "approve" || a.approve) return { kind: "action", icon: Hand, title: "Ask you first", sub: "waits for your OK" };
+    return { kind: "action", icon: Sparkles, title: a.type };
+  });
+
+  return [trig, ...conds, ...acts];
+}
+
+const KIND: Record<Node["kind"], [string, string]> = {
+  trigger: ["Trigger", "bg-accent/12 text-accent"],
+  condition: ["Condition", "bg-raised text-fg-2"],
+  action: ["Action", "bg-accent/12 text-accent"],
+};
+
+export function JobFlow({ w, className }: { w: Workflow; className?: string }) {
+  const nodes = nodesOf(w);
+  return (
+    <div className={cn("flex flex-col items-stretch gap-0 sm:flex-row sm:items-stretch", className)}>
+      {nodes.map((n, i) => (
+        <div key={i} className="flex flex-1 flex-col items-stretch sm:contents">
+          <div className="flex min-w-0 flex-1 flex-col rounded-[11px] border border-line-strong bg-raised/40 p-3">
+            <div className="flex items-center gap-2">
+              <span className={cn("grid size-6 shrink-0 place-items-center rounded-lg", KIND[n.kind][1])}><n.icon className="size-3.5" /></span>
+              <span className="truncate text-[12.5px] font-medium">{n.title}</span>
+            </div>
+            {n.sub && <span className="num mt-1.5 line-clamp-2 text-[11.5px] leading-snug text-fg-3">{n.sub}</span>}
+            <span className="mt-2 text-[10px] uppercase tracking-[0.08em] text-fg-3">{KIND[n.kind][0]}</span>
+          </div>
+          {i < nodes.length - 1 && (
+            <div className="flex shrink-0 items-center justify-center py-1 sm:px-1.5 sm:py-0">
+              <span className="grid size-5 place-items-center rounded-full border border-line-strong bg-raised text-fg-3">
+                <ChevronRight className="size-3 rotate-90 sm:rotate-0" />
+              </span>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 const RUN: Record<string, [Tone, string, typeof CircleCheck]> = {
@@ -195,7 +293,18 @@ function Spending({ runs }: { runs: Run[] | null }) {
   );
 }
 
-function DraftJob({ agent, runner, onAdded }: { agent: string; runner: RunnerConfig; onAdded: () => void }) {
+/* The four the classic console offered, whole rather than cut at 34
+   characters — a suggestion you cannot read is not a suggestion. Each wears
+   the icon of the trigger it will draft, so the shape of the job is visible
+   before the runner has drafted anything. */
+const SUGGESTIONS: [typeof Clock, string][] = [
+  [Clock, "Buy a fact from the Warda demo API every morning at 8 UTC, never more than 0.05 KAS"],
+  [Bell, "Message me on Telegram when less than 25% of the budget is left"],
+  [Hand, "Every day at 9 UTC buy from the Warda demo API, up to 0.05 KAS, but ask me on Telegram first"],
+  [Hourglass, "Two days before the grant ends, tell me on Telegram and ask me to renew it"],
+];
+
+export function DraftJob({ agent, runner, onAdded, standalone = true }: { agent: string; runner: RunnerConfig; onAdded: () => void; standalone?: boolean }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState<{ workflow: Workflow; summary?: string; notes?: string[] } | null>(null);
@@ -220,12 +329,20 @@ function DraftJob({ agent, runner, onAdded }: { agent: string; runner: RunnerCon
     } catch (e) { setMsg({ bad: true, text: (e as Error).message }); } finally { setBusy(false); }
   };
 
-  return (
-    <Card className="p-5">
-      <div className="flex items-center gap-2 text-[15px] font-semibold"><Sparkles className="size-4 text-accent" /> Describe a job</div>
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        {["Buy the Kaspa digest every morning at 7, and ask me first", "Pay 0.05 KAS when a webhook fires", "Tell me when the budget drops below 20%"].map((x) => (
-          <button key={x} type="button" onClick={() => setText(x)} className="rounded-full border border-line-strong px-2.5 py-1 text-[11.5px] text-fg-3 transition hover:border-fg-3/50 hover:text-fg-2">{x.slice(0, 34)}…</button>
+  const body = (
+    <>
+      <div className="flex items-center gap-2 text-[15px] font-semibold"><Sparkles className="size-4 text-accent" /> Say it in a sentence</div>
+      <p className="mt-1.5 text-[13px] leading-relaxed text-fg-3">
+        You get a card to check before anything is added — and whatever you write, it can only ever do what the grant allows.
+      </p>
+      <div className="mt-3 flex flex-col gap-1.5">
+        {SUGGESTIONS.map(([Ico, x]) => (
+          <button key={x} type="button" onClick={() => setText(x)}
+            className="group flex items-center gap-2.5 rounded-lg border border-line-strong px-3 py-2 text-left text-[12.5px] text-fg-2 transition hover:border-accent/40 hover:bg-raised/60">
+            <Ico className="size-3.5 shrink-0 text-fg-3 transition group-hover:text-accent" />
+            <span className="min-w-0 flex-1">{x}</span>
+            <ChevronRight className="size-3.5 shrink-0 text-fg-3" />
+          </button>
         ))}
       </div>
       <textarea value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) make(); }}
@@ -238,15 +355,19 @@ function DraftJob({ agent, runner, onAdded }: { agent: string; runner: RunnerCon
       {draft && (
         <div className="rise mt-4 rounded-xl border border-line-strong bg-bg/60 p-4">
           <div className="text-[13.5px] font-medium">{draft.summary ?? draft.workflow.name}</div>
-          <div className="mt-1 text-[12.5px] text-fg-3">{triggerWords(draft.workflow.trigger)}</div>
-          <p className={cn("mt-2 text-[12.5px]", draft.notes?.length ? "text-warn" : "text-ok")}>{draft.notes?.length ? draft.notes.join(" · ") : "Inside this agent's grant."}</p>
+          <JobFlow w={draft.workflow} className="mt-3" />
+          <p className={cn("mt-3 flex items-start gap-1.5 text-[12.5px]", draft.notes?.length ? "text-warn" : "text-ok")}>
+            {draft.notes?.length ? <CircleAlert className="mt-px size-3.5 shrink-0" /> : <CircleCheck className="mt-px size-3.5 shrink-0" />}
+            {draft.notes?.length ? draft.notes.join(" · ") : "Inside this agent's grant. Whatever it says, the covenant still refuses anything outside it."}
+          </p>
           <div className="mt-3 flex gap-2"><Button size="sm" variant="primary" onClick={add} disabled={busy}><Plus className="size-3.5" /> Add job</Button><Button size="sm" variant="ghost" onClick={() => setDraft(null)}>Discard</Button></div>
         </div>
       )}
       {msg && <p className={cn("mt-3 text-[12.5px]", msg.bad ? "text-bad" : "text-ok")}>{msg.text}</p>}
       {secret && <pre className="num mt-3 whitespace-pre-wrap break-all rounded-lg border border-line-strong bg-bg p-3 text-[11.5px] text-fg-2">{secret}{"\n\n"}The secret is shown once. Store it where the sender can read it.</pre>}
-    </Card>
+    </>
   );
+  return standalone ? <Card className="p-5">{body}</Card> : body;
 }
 
 function QuickJob({ agent, runner, onAdded }: { agent: string; runner: RunnerConfig; onAdded: () => void }) {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, KeyRound, Plus, ShieldCheck, Store, Trash2, Wallet, LogIn } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, KeyRound, Plus, ShieldCheck, Store, Trash2, Wallet, LogIn , CircleCheck } from "lucide-react";
 import { useData } from "@/lib/data";
 import { api, RunnerError } from "@/lib/runner";
 import { isAddress, ownerKey } from "@/lib/kaspa";
@@ -10,8 +10,9 @@ import { cn } from "@/lib/cn";
 import { Button, Card, LinkButton, PageHeader, Row } from "@/components/ui";
 import { Field, KasInput, inputCls, kasOk } from "@/components/form";
 import { DepositPanel, type Funding } from "@/components/deposit";
+import { DraftJob } from "@/components/jobs";
 
-const STEPS = ["Limits", "Payees & owner", "Fund"];
+const STEPS = ["Limits", "Payees & owner", "Fund", "Give it a job"];
 const DRAFT = "warda.next.draft";
 
 interface Draft { name: string; budget: string; cap: string; days: string; picked: string[]; custom: string[]; owner: string }
@@ -121,7 +122,30 @@ export function NewAgent() {
         ))}
       </ol>
 
-      {step >= 2 && funding ? (
+      {step >= 3 && funding ? (
+        /* The last step of the classic console, and the one that makes the
+           two minutes worth anything: an agent with a grant and no job is a
+           funded thing that does nothing. */
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <Card className="p-6">
+            <h2 className="text-[18px] font-semibold tracking-[-0.01em]">Give it a job</h2>
+            <p className="mt-1.5 max-w-xl text-[13.5px] leading-relaxed text-fg-2">
+              {funding.agent} is funded and its grant is live. Tell it what to do in a sentence — the runner drafts the job,
+              you see exactly what it will fire on and what it will pay before anything is added.
+            </p>
+            <div className="mt-5"><DraftJob agent={funding.agent} runner={runner} onAdded={reload} standalone={false} /></div>
+          </Card>
+          <Card className="h-fit p-5">
+            <div className="flex items-center gap-2 text-[15px] font-semibold"><CircleCheck className="size-4 text-ok" /> {funding.agent}</div>
+            <p className="mt-2 text-[13px] leading-relaxed text-fg-2">Funded, with you as its owner. It can only pay the payees you listed, and only within the limits you set.</p>
+            <div className="mt-5 flex flex-col gap-2">
+              <Button variant="primary" onClick={() => go("agents", `h:${funding.agent}`)}>Open agent</Button>
+              <LinkButton variant="ghost" href={href("agents", `h:${funding.agent}`, "jobs")}>All its jobs</LinkButton>
+            </div>
+            <p className="mt-4 text-[12px] leading-relaxed text-fg-3">A job is optional — you can add one any time, and an agent with none simply never spends.</p>
+          </Card>
+        </div>
+      ) : step >= 2 && funding ? (
         <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
           <DepositPanel runner={runner} agent={funding.agent} initial={funding.f} onFunded={() => { setStep(3); setRunner({ ...runner, agent: undefined }); reload(); }} />
           <Card className="h-fit p-5">
