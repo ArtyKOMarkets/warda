@@ -47,7 +47,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 import { openNode, type SpentStore } from "@warda_protocol/vendor";
-import { DEFAULT_MAX_RESULTS, FLOOR_SOMPI, USD_PER_READ, xFetcher, xsearch, type XSearchConfig } from "../src/xsearch.ts";
+import { FLOOR_SOMPI, USD_PER_READ, xFetcher, xsearch, type XSearchConfig } from "../src/xsearch.ts";
+import { LISTENER } from "../src/shape.ts";
 
 const flag = (name: string, fallback?: string) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -56,8 +57,10 @@ const flag = (name: string, fallback?: string) => {
 
 const PORT = Number(flag("port", "8788"));
 const NETWORK = flag("network", process.env.WARDA_NETWORK ?? "testnet-10")!;
-const PRICE = BigInt(flag("price", "5000000")!); // 0.05 KAS
-const MAX = Number(flag("max-results", String(DEFAULT_MAX_RESULTS)));
+/* The same two numbers the buyer uses, from the same file. A seller capping
+   at 10 while the buyer asks for 25 is not an error either side can see. */
+const PRICE = BigInt(flag("price", String(LISTENER.priceSompi))!);
+const MAX = Number(flag("max-results", String(LISTENER.maxResults)));
 const PAY_TO = flag("pay-to", process.env.XREADS_ADDRESS);
 const SECRET = process.env.QUOTE_SECRET;
 const BEARER = process.env.X_BEARER_TOKEN;

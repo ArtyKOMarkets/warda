@@ -57,6 +57,7 @@ import { plan } from "../src/rotate.ts";
 import { alert, summary } from "../src/alert.ts";
 import { score } from "../src/listen.ts";
 import { pruneDir } from "../src/retain.ts";
+import { LISTENER } from "../src/shape.ts";
 
 /**
  * `growth/listener.env`, loaded before anything reads process.env.
@@ -134,14 +135,16 @@ const SAVE = flag("save");
  * renders wrong on a phone is as much a failure as one that never arrives.
  */
 const TEST_TELEGRAM = has("test-telegram");
-const PRICE = Number(flag("price", "5000000"));
-const EPOCH_HOURS = Number(flag("epoch-hours", "12"));
-const EPOCH_LIMIT = Number(flag("epoch-limit", "15000000")); // 0.15 KAS: three searches
+/* Defaults from src/shape.ts, which is the one place they are decided. A
+   flag still overrides for a one-off, but nothing here restates a number. */
+const PRICE = Number(flag("price", String(LISTENER.priceSompi)));
+const EPOCH_HOURS = Number(flag("epoch-hours", String(LISTENER.epochHours)));
+const EPOCH_LIMIT = Number(flag("epoch-limit", String(LISTENER.epochLimitSompi)));
 const LIMIT = Number(flag("limit", "6"));
 /* What one search buys. It must match the seller's --max-results: the seller
    caps the cost either way, but a buyer asking for 25 and paying for 10 has a
    request that disagrees with its own receipt. */
-const PER_QUERY = Number(flag("per-query", "10"));
+const PER_QUERY = Number(flag("per-query", String(LISTENER.maxResults)));
 const XREADS = flag("xreads", process.env.XREADS_URL ?? "http://127.0.0.1:8788")!;
 const GRANT = flag("grant", process.env.LISTENER_GRANT);
 const PAYEES = flag("recipients", join(HERE, "..", "listener-payees.txt"));

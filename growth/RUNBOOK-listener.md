@@ -33,6 +33,12 @@ spend the day's allowance and the next pass's too. Matched to the cadence, the
 allowance refills exactly when the next pass needs it, and a pass that burns
 through it is visibly a pass that went wrong.
 
+**These numbers live in `src/shape.ts`,** and both tools take their defaults
+from it. The table above is checked against that file by
+`ops/check-listener.mjs`, in CI — along with a grant, once one exists. A grant's
+terms are fixed at genesis, so if they ever disagree the grant is the truth and
+`shape.ts` is what moves.
+
 **The limit is the backstop, not the budget.** `src/rotate.ts` decides what a
 pass can afford and buys that; the covenant's epoch limit exists for the case
 where that file is wrong. Which is also the only arrangement where the limit

@@ -178,6 +178,14 @@ jobs:
       - name: auditor service — one payment, one report, across a restart
         run: npm test --prefix covenant/auditor-service
 
+      # The Listener's numbers live in shape.ts, in a table in its runbook and
+      # — once it exists — in a grant whose terms cannot be edited. None of
+      # the ways they drift produce an error: the buyer asks for more results
+      # than the seller serves, or the software budget outruns the epoch
+      # limit and the covenant refuses a pass at eight in the morning.
+      - name: listener — the numbers still agree with each other
+        run: node ops/check-listener.mjs
+
       # The site is built here and thrown away. Nothing is deployed from CI —
       # the point is that `build.py` DROPS a page whose data is missing, and
       # everything linking to that page is published anyway, so the site can
