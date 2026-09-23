@@ -67,6 +67,10 @@ ops/alerts.json
 ops/alerts-state.json
 ops/alerts.env
 
+# The auditor's environment: QUOTE_SECRET signs its quotes and is a password.
+# ops/auditor.env.example is the committed shape.
+ops/auditor.env
+
 # Turnkey spike: local install only
 runner/spike/package.json
 runner/spike/package-lock.json

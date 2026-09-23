@@ -74,15 +74,20 @@ live: this needs a machine with a Rust toolchain on it, published somehow.
 `ops/README.md` has both routes already, and the choice is not free.
 
 **Tailscale Funnel** is what the node uses and needs no DNS at all. Funnel
-serves 443, 8443 and 10000, and 443 is taken by the node, so this goes on
-8443:
+allows three public ports — 443, 8443, 10000 — and the node has 443, so this
+takes 8443. `--bg` stores the configuration rather than holding a terminal, so
+it comes back with tailscaled after a reboot:
 
-    sudo /Applications/Tailscale.app/Contents/MacOS/Tailscale funnel --bg 8443 http://127.0.0.1:8787
+    /Applications/Tailscale.app/Contents/MacOS/Tailscale funnel --bg --https=8443 localhost:8787
 
-The endpoint is then `https://<machine>.tailXXXX.ts.net:8443/v1/report`. Do
-NOT mount it on a path instead — the registry derives the listing's location
-by resolving `/.well-known/warda-service.json` against the endpoint, which
-lands at the host root, and the host root is the node.
+It prints the public URL. The endpoint is that plus `/v1/report`, and the port
+is part of it: `https://<machine>.tailXXXX.ts.net:8443/v1/report`.
+
+Do NOT use `--set-path` to put it under a path on 443 instead. The registry
+finds a listing by resolving `/.well-known/warda-service.json` against the
+endpoint, which lands at the host ROOT — and on 443 the host root is the node.
+A separate port keeps the origin this service's own, which is the whole basis
+of the check.
 
 **A named Cloudflare tunnel** gives `auditor.wardaprotocol.com`, and needs the
 zone in a Cloudflare account. As of this writing `wardaprotocol.com` answers
@@ -92,9 +97,30 @@ change, not a step in this file. `ops/README.md` §"The other path" is the
 install; the binary lands at `~/.local/bin/cloudflared`, which is not on PATH,
 so every command names it in full.
 
-Either way, run it under something that restarts it — `ops/` has launchd plists
-for the node and the tunnel to copy. `SPENT_FILE` must point somewhere that
-survives a reboot, which is the whole reason it is a file.
+### Running it
+
+`ops/run-auditor.sh` and `ops/com.wardaprotocol.auditor.plist`, beside the
+node's. The script refuses to start on any of the three things that otherwise
+fail after a buyer has been charged: no `PAY_TO`, no `QUOTE_SECRET`, no release
+build of `scan`. It also puts `SPENT_FILE` at an absolute path outside the repo
+— a relative one would land wherever launchd happened to start the process,
+which is not the same place twice, and that file is the only thing between one
+payment and unlimited reports.
+
+```bash
+cargo build --release --bin scan --manifest-path ../harness/Cargo.toml
+cp ../../ops/auditor.env.example ../../ops/auditor.env
+```
+
+Fill in `QUOTE_SECRET` with `openssl rand -hex 32`. It must be the same across
+restarts: a secret generated per process makes every quote issued before a
+restart unverifiable after it, so a buyer who paid against an old quote is
+refused having paid. `ops/auditor.env` is gitignored.
+
+```bash
+cp ../../ops/com.wardaprotocol.auditor.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.wardaprotocol.auditor.plist
+```
 
 **A laptop is not a host, and this repo has already paid for learning that.**
 A restart took the demo vendor's tunnel down, the dead hostname stayed in its

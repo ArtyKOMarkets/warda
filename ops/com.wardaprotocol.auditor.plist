@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Keeps the auditor running: starts at login, restarts if it dies.
+
+  A LaunchAgent, like kaspad beside it, so nothing runs as root — and with the
+  same limit, which matters more here than it does for the node: this one is
+  listed publicly as an endpoint somebody can pay. The node going quiet costs
+  us a reading. This going quiet costs a stranger 0.04 KAS and gives them an
+  error page, which is exactly what happened to agent #002 in September.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.wardaprotocol.auditor</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/artautasjasinskas/Desktop/warda/ops/run-auditor.sh</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/Users/artautasjasinskas/Library/Logs/warda-auditor.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/artautasjasinskas/Library/Logs/warda-auditor.log</string>
+</dict>
+</plist>
