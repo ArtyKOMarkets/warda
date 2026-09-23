@@ -15,8 +15,16 @@ set -uo pipefail
 
 REPO="$HOME/Desktop/warda"
 export PATH="$HOME/.local/node/bin:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin"
+# `set -a`, because sourcing a file of bare KEY=value assignments sets shell
+# variables and does not EXPORT them — so node, a child process, sees none of
+# them. ops/alerts.env writes `export` on every line and works either way;
+# growth/listener.env does not, and the seller started, printed its address,
+# and then exited saying it had no QUOTE_SECRET that was sitting in the file
+# it had just read. ops/run-auditor.sh does this correctly; this did not.
+set -a
 [ -f "$REPO/ops/alerts.env" ] && . "$REPO/ops/alerts.env"
 [ -f "$REPO/growth/listener.env" ] && . "$REPO/growth/listener.env"
+set +a
 
 cd "$REPO" || exit 1
 
