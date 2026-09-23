@@ -179,6 +179,22 @@ interface State {
   spentThisEpochSompi: number;
   seen: string[];
   lastRunAt?: string;
+  /**
+   * Which purse the last pass drew on.
+   *
+   * The epoch counter measures one thing and there are two of them. Before
+   * the grant existed, `--direct --send` counted dollars on a card at the
+   * price a search WILL cost, deliberately, so the arithmetic was exercised
+   * at the covenant's budget before a covenant enforced it. The moment a
+   * grant takes over, that number is about a purse nobody is spending from
+   * any more — and on the first real run it said the epoch was exhausted
+   * while the grant on chain had spent nothing.
+   *
+   * So the source is recorded, and changing it resets the count. Carrying it
+   * across is not conservative, it is wrong in a direction that looks like
+   * the covenant refusing.
+   */
+  fundedBy?: "card" | "grant";
 }
 
 function load(): State {
@@ -186,7 +202,8 @@ function load(): State {
   try {
     const s = JSON.parse(readFileSync(STATE, "utf8")) as State;
     return { cursor: s.cursor ?? 0, epochStartedAt: s.epochStartedAt ?? new Date().toISOString(),
-             spentThisEpochSompi: s.spentThisEpochSompi ?? 0, seen: Array.isArray(s.seen) ? s.seen : [] };
+             spentThisEpochSompi: s.spentThisEpochSompi ?? 0, seen: Array.isArray(s.seen) ? s.seen : [],
+             fundedBy: s.fundedBy };
   } catch {
     /* A corrupt state file must not stop a pass. The cost of starting over is
        duplicate messages for a day; the cost of not running is a silent gap
@@ -209,6 +226,28 @@ function rollEpoch(s: State): State {
   const age = Date.now() - new Date(s.epochStartedAt).getTime();
   if (age < EPOCH_HOURS * 3_600_000) return s;
   return { ...s, epochStartedAt: new Date().toISOString(), spentThisEpochSompi: 0 };
+}
+
+/**
+ * Switching purses starts the epoch again.
+ *
+ * The count is only meaningful against the thing it was counted from. A
+ * card-funded pass that used this epoch's three searches says nothing about
+ * what the grant may still spend, and treating it as if it did produces a
+ * refusal with the covenant's shape and none of its cause.
+ */
+function rollFunding(s: State, now: "card" | "grant"): State {
+  if (s.fundedBy === now) return { ...s, fundedBy: now };
+  /* Announced whenever a real count is being thrown away, including the first
+     time — when there is no recorded source to have changed FROM, because the
+     state predates this field. Discarding a number silently is how you later
+     wonder whether it was ever right. */
+  if (s.fundedBy || s.spentThisEpochSompi > 0) {
+    const from = s.fundedBy ?? "an unrecorded source";
+    console.error(`listener: funding changed from ${from} to ${now} — the epoch count starts again.`);
+    console.error(`  ${s.spentThisEpochSompi} sompi was counted against ${from}, which is not what this pass draws on.`);
+  }
+  return { ...s, fundedBy: now, epochStartedAt: new Date().toISOString(), spentThisEpochSompi: 0 };
 }
 
 function run(cmd: string, args: string[], env: Record<string, string> = {}) {
@@ -295,7 +334,7 @@ async function main() {
     console.error(`pruned ${done.file}: ${done.posts} posts older than a day, IDs kept, X's content dropped`);
   }
 
-  let state = rollEpoch(load());
+  let state = rollFunding(rollEpoch(load()), DIRECT ? "card" : "grant");
 
   /* In --direct there is no grant, so the rotation is bounded by the read cap
      rather than by an allowance. Expressed in the same units so `plan` does
