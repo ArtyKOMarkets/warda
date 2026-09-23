@@ -107,9 +107,19 @@ lands and can only be ended, never edited.
 **3. The seller, always up.**
 
 ```
+mkdir -p ~/Library/LaunchAgents
 cp ops/com.wardaprotocol.xreads.plist ~/Library/LaunchAgents/
 launchctl load ~/Library/LaunchAgents/com.wardaprotocol.xreads.plist
+curl -s http://127.0.0.1:8788/ | head -20
 ```
+
+`~/Library/LaunchAgents` does not exist on a Mac that has never had one, and
+everything else in `ops/` runs from cron — the plists beside this one are
+templates nobody has loaded. The `curl` is the check: it prints the seller's
+terms, or nothing, and `~/Library/Logs/warda-xreads.log` says why.
+
+A LaunchAgent rather than cron, because cron runs a thing periodically and
+this one has to STAY running: the pass at 08:13 needs something to buy from.
 
 **No tunnel, and no hostname.** The grant's allowlist fixes who gets paid —
 the seller's address — not what URL it answers at, and both ends are on one
