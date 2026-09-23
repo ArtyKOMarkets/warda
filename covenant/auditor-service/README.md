@@ -69,22 +69,39 @@ instance is refused by the next one — and CI runs it.
 ## Hosting
 
 The `scan` binary rules out Vercel, which is where the other Warda services
-live. What is left is a machine you already have, published through a tunnel,
-the same way `registry.wardaprotocol.com` is:
+live: this needs a machine with a Rust toolchain on it, published somehow.
 
-```bash
-# once: create the tunnel, then point it at this service's port
-cloudflared tunnel create auditor
-# ~/.cloudflared/config.yml — see ops/cloudflared-config.yml for the template
-#   ingress:
-#     - hostname: auditor.wardaprotocol.com
-#       service: http://127.0.0.1:8787
-cloudflared tunnel route dns auditor auditor.wardaprotocol.com
-```
+`ops/README.md` has both routes already, and the choice is not free.
 
-Run it under whatever keeps it alive across reboots — `ops/` already has launchd
-plists for the node and the tunnel to copy from. `SPENT_FILE` must point
-somewhere that survives a restart, which is the whole reason it is a file.
+**Tailscale Funnel** is what the node uses and needs no DNS at all. Funnel
+serves 443, 8443 and 10000, and 443 is taken by the node, so this goes on
+8443:
+
+    sudo /Applications/Tailscale.app/Contents/MacOS/Tailscale funnel --bg 8443 http://127.0.0.1:8787
+
+The endpoint is then `https://<machine>.tailXXXX.ts.net:8443/v1/report`. Do
+NOT mount it on a path instead — the registry derives the listing's location
+by resolving `/.well-known/warda-service.json` against the endpoint, which
+lands at the host root, and the host root is the node.
+
+**A named Cloudflare tunnel** gives `auditor.wardaprotocol.com`, and needs the
+zone in a Cloudflare account. As of this writing `wardaprotocol.com` answers
+from `ns35/ns36.domaincontrol.com` — GoDaddy — so `cloudflared tunnel route
+dns` has nothing to write to and moving the nameservers is a production DNS
+change, not a step in this file. `ops/README.md` §"The other path" is the
+install; the binary lands at `~/.local/bin/cloudflared`, which is not on PATH,
+so every command names it in full.
+
+Either way, run it under something that restarts it — `ops/` has launchd plists
+for the node and the tunnel to copy. `SPENT_FILE` must point somewhere that
+survives a reboot, which is the whole reason it is a file.
+
+**A laptop is not a host, and this repo has already paid for learning that.**
+A restart took the demo vendor's tunnel down, the dead hostname stayed in its
+environment, and agent #002's first purchase settled 0.04 KAS on chain and got
+an HTML error page back. A registry entry is a public claim that an endpoint is
+payable; pointing one at a machine that sleeps repeats that failure with
+strangers' money instead of our own.
 
 ## Listing it in the registry
 
