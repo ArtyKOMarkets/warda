@@ -160,6 +160,33 @@ feed teaches you to stop reading it.
 
 ---
 
+## X's terms, and what they decided
+
+Two things here are shaped by [X's Developer Policy](https://docs.x.com/developer-terms/policy)
+rather than by preference, and both were found after the code was written.
+
+**The X-reads service is never listed.** The policy lets you distribute Post
+IDs to third parties and not Post objects. A service handing out post text and
+metrics, automatically, to whoever pays, is redistribution. So it is not in
+`site/src/services.json`, not in the registry's sources, and serves no
+`.well-known` listing — the 404 there says why. The on-chain demonstration is
+unchanged: one operator's agent paying that same operator's endpoint under
+limits the network enforces is exactly what was always claimed.
+
+**Saved runs keep their text for a day.** Post objects stored offline carry a
+24-hour obligation to reflect deletions on X; Post IDs carry none. Refreshing a
+tuning fixture forever would cost a read per post forever, so a saved run keeps
+its content for a day and then keeps only what is ours — the IDs, the URLs, why
+we looked. `src/retain.ts`, run at the top of every pass rather than written
+down here, because a retention rule somebody has to remember holds until the
+week they are busy.
+
+**Nothing is posted, replied, liked, reposted, followed or messaged
+automatically**, which is what the developer application says and what the
+design has to keep true.
+
+---
+
 ## Honest limits
 
 **Both ends are ours.** The buyer is our agent and the seller is us. The coin is

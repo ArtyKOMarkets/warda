@@ -55,6 +55,8 @@ import { explain, listen, QUERIES, type Fetcher, type Scored } from "../src/list
 import { xFetcher } from "../src/xsearch.ts";
 import { plan } from "../src/rotate.ts";
 import { alert, summary } from "../src/alert.ts";
+import { score } from "../src/listen.ts";
+import { pruneDir } from "../src/retain.ts";
 
 /**
  * `growth/listener.env`, loaded before anything reads process.env.
@@ -72,7 +74,9 @@ function loadEnv(file: string) {
     if (!t || t.startsWith("#")) continue;
     const eq = t.indexOf("=");
     if (eq < 1) continue;
-    const key = t.slice(0, eq).trim();
+    /* `export FOO=bar` as well as `FOO=bar`: ops/alerts.env is a file meant
+       to be `source`d by shell scripts, and it is read here too. */
+    const key = t.slice(0, eq).trim().replace(/^export\s+/, "");
     /* Quotes are stripped because a token pasted from a password manager
        often arrives wearing them, and a bearer token with a quote in it fails
        as a 401 that looks like a bad token rather than a bad file. */
@@ -86,7 +90,14 @@ const REPO = join(HERE, "..", "..");
 const DIR = join(HERE, "..", "listener");
 const STATE = join(DIR, "state.json");
 
-loadEnv(join(dirname(fileURLToPath(import.meta.url)), "..", "listener.env"));
+/* The Listener's own file first, then the alerts bot. `ops/alerts.env`
+   already holds a working WARDA_TELEGRAM_TOKEN and chat — the one the growth
+   week and the runner's ops messages use — and standing up a second bot to
+   send to the same person is a second thing to keep alive for no gain. First
+   file to set a key wins, so listener.env still overrides it. */
+const growth = dirname(fileURLToPath(import.meta.url));
+loadEnv(join(growth, "..", "listener.env"));
+loadEnv(join(growth, "..", "..", "ops", "alerts.env"));
 
 const flag = (n: string, d?: string) => {
   const i = process.argv.indexOf(`--${n}`);
@@ -110,6 +121,19 @@ const MAX_READS = Number(flag("max-reads", "60"));
  * under the change you are trying to judge.
  */
 const SAVE = flag("save");
+/**
+ * `--test-telegram`: send one message shaped exactly like a real alert, and
+ * stop.
+ *
+ * This is the link nothing has ever exercised, and it is the only one whose
+ * failure is silent by design: `notify` catches its own errors and prints
+ * instead, because a pass that found something should not be lost to a
+ * Telegram outage. That is right, and it means a token that has never worked
+ * looks identical to a quiet week. So it gets tested on purpose, with an
+ * alert built from the same `alert()` the real path uses — a message that
+ * renders wrong on a phone is as much a failure as one that never arrives.
+ */
+const TEST_TELEGRAM = has("test-telegram");
 const PRICE = Number(flag("price", "5000000"));
 const EPOCH_HOURS = Number(flag("epoch-hours", "12"));
 const EPOCH_LIMIT = Number(flag("epoch-limit", "15000000")); // 0.15 KAS: three searches
@@ -191,6 +215,63 @@ async function notify(text: string) {
 }
 
 async function main() {
+  if (TEST_TELEGRAM) {
+    const token = (process.env.WARDA_TELEGRAM_TOKEN ?? "").trim();
+    const chat = (process.env.WARDA_TELEGRAM_CHAT ?? "").trim();
+    console.error(`telegram: token ${token ? "set" : "MISSING"}, chat ${chat ? "set" : "MISSING"}`);
+    if (!token || !chat) {
+      console.error("Put them in growth/listener.env, or let ops/alerts.env supply them.");
+      process.exit(2);
+    }
+    /* A real post, from the second run, so what arrives is what an alert
+       actually looks like rather than a placeholder that proves nothing about
+       length, wrapping or the link preview. */
+    const sample = score({
+      id: "2102689461955936645",
+      url: "https://x.com/AngelFamadr/status/2102689461955936645",
+      text: "@AEON_Community What safeguards exist against hacking/unauthorized transactions when giving an agent a wallet?",
+      at: new Date(Date.now() - 40 * 60_000).toISOString(),
+      author: { handle: "AngelFamadr", name: null, followers: 3_000, verified: false },
+      likes: 0, replies: 0, reposts: 0, matched: ["agent wallet"],
+    });
+    const a = alert(sample, { n: 1, of: 1 });
+    console.error(`\n${a.text}\n`);
+    let r: Response;
+    try {
+      r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ chat_id: chat, text: a.text }),
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch (e) {
+      /* Not a stack trace. "fetch failed" from undici means the request never
+         left, which is a network or a proxy — a different problem from a
+         token Telegram rejected, and the one a stack trace disguises worst. */
+      console.error(`could not reach api.telegram.org: ${(e as Error).message}`);
+      console.error("The message above is what would have been sent. Nothing is wrong with it.");
+      process.exit(1);
+    }
+    const body = await r.text();
+    if (!r.ok) {
+      /* Telegram's own words. `chat not found` and `unauthorized` are
+         different problems and the status alone tells you neither. */
+      console.error(`telegram refused it: ${r.status}\n${body}`);
+      process.exit(1);
+    }
+    console.error("sent. Check your phone: it should be one message, with a tappable link at the end.");
+    return;
+  }
+
+  /* First, before anything else and whatever mode this is.
+     X allows keeping Post objects offline only with a 24-hour obligation to
+     reflect deletions; Post IDs have no such condition. A saved run keeps its
+     text for a day of tuning and then keeps only what is ours. Run here
+     rather than written in the runbook, because a retention rule somebody has
+     to remember holds until the week they are busy. */
+  for (const done of pruneDir(DIR)) {
+    console.error(`pruned ${done.file}: ${done.posts} posts older than a day, IDs kept, X's content dropped`);
+  }
+
   let state = rollEpoch(load());
 
   /* In --direct there is no grant, so the rotation is bounded by the read cap

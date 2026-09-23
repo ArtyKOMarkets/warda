@@ -18,6 +18,21 @@
  * same way the covenant auditor does — one process, one credential, one place
  * to revoke it.
  *
+ * ## It is never listed, and that is X's rule rather than a choice
+ *
+ * X's Developer Policy lets you distribute Post IDs to third parties and not
+ * Post objects — a service handing out post text and metrics, automatically,
+ * to whoever pays, is redistribution, and that clause forbids it. So this is
+ * not in `site/src/services.json`, is not in the registry's sources, and does
+ * not serve a `.well-known` listing. There is nothing here for a stranger to
+ * find, because a stranger buying from it is the thing that would be wrong.
+ *
+ * The on-chain demonstration is unaffected. One operator's agent paying that
+ * same operator's endpoint, under limits the network enforces, is exactly
+ * what was always claimed — `src/xsearch.ts` says both ends are ours in its
+ * own response body. Nothing was lost by this except a listing that would
+ * have been a breach.
+ *
  * ## The spent store is a file, and that is a decision
  *
  * In memory, a restart forgets which payments were served and every past
@@ -97,8 +112,6 @@ const cfg: XSearchConfig = {
   origin: process.env.XREADS_ORIGIN,
 };
 
-const LISTING = process.env.XREADS_LISTING ?? new URL("../xreads-listing.json", import.meta.url).pathname;
-
 createServer((req, res) => {
   const url = new URL(req.url ?? "/", "http://xreads");
   const send = (status: number, type: string, body: string) => {
@@ -106,13 +119,14 @@ createServer((req, res) => {
     res.end(body);
   };
 
-  /* Served from this origin because that is the binding the registry checks:
-     a manifest naming this endpoint, fetched from this endpoint's host. */
+  /* Deliberately absent: /.well-known/warda-service.json.
+     A listing is how a stranger finds a service and buys from it, and X's
+     policy forbids redistributing post content to third parties. The 404 is
+     the feature. */
   if (url.pathname === "/.well-known/warda-service.json") {
-    if (!existsSync(LISTING)) {
-      return send(404, "text/plain", "no signed listing on this host yet — see growth/RUNBOOK-listener.md\n");
-    }
-    return send(200, "application/json", readFileSync(LISTING, "utf8"));
+    return send(404, "text/plain",
+      "not listed, on purpose: X's Developer Policy forbids redistributing post content\n" +
+      "to third parties. This endpoint serves one buyer, run by the same operator.\n");
   }
 
   const header = req.headers["x-payment"];
