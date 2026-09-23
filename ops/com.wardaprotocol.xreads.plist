@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Keeps the Listener's seller running: starts at login, restarts if it dies.
+
+  It has to be up before the pass at 08:13, or the pass finds nothing to buy
+  from and reports a failure it cannot fix. A LaunchAgent, like kaspad and the
+  auditor beside it, so nothing runs as root — and with the same honest limit:
+  it runs while you are logged in.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.wardaprotocol.xreads</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/artautasjasinskas/Desktop/warda/ops/run-xreads.sh</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/Users/artautasjasinskas/Library/Logs/warda-xreads.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/artautasjasinskas/Library/Logs/warda-xreads.log</string>
+</dict>
+</plist>

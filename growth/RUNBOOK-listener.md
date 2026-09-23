@@ -84,43 +84,57 @@ trial you are watching. It is not how this runs.
 
 ## Then: make it an agent
 
-**1. Keys and the allowlist.**
+**1. Keys, the allowlist and the grant — one command.**
 
 ```
-npx warda key --out growth/keys/listener.key
-npx warda key --out growth/keys/xreads.key
+growth/tools/first-listener-grant.sh --dry-run
+growth/tools/first-listener-grant.sh
 ```
 
-Put the X-reads address — the one `warda key` printed for `xreads.key` — in
-`growth/listener-payees.txt`, one line, nothing else. That file is the
-allowlist, fixed at genesis; the grant can pay that address and no other, and
-no edit to any file here changes it afterwards.
+It creates both keys without ever overwriting one, writes the allowlist from
+the seller key's own address rather than from anything typed, refuses if the
+funder has no single coin big enough (genesis takes one input), submits genesis
+with the numbers from `src/shape.ts`, and finishes by checking the chain and
+the code agree.
 
-**2. The seller.**
+Genesis is the irreversible step here. A grant's terms are fixed the moment it
+lands and can only be ended, never edited.
 
-```
-export X_BEARER_TOKEN=…
-export QUOTE_SECRET=$(openssl rand -hex 32)
-export XREADS_ADDRESS=kaspatest:…
-node --experimental-strip-types growth/tools/xreads.ts
-```
+**2. The seller's environment.** `growth/listener.env` needs `QUOTE_SECRET`
+(`openssl rand -hex 32`, and the same value across restarts) alongside the
+`X_BEARER_TOKEN` already there.
 
-`QUOTE_SECRET` must be the same across restarts — a secret generated per
-process makes every quote issued before a restart unverifiable after it, and a
-buyer who paid against one is refused having paid. Keep it in
-`growth/listener.env`, which is gitignored.
-
-**3. A public hostname**, so the listing can be checked and so the buyer is not
-talking to localhost. Tailscale Funnel, third port:
+**3. The seller, always up.**
 
 ```
-/Applications/Tailscale.app/Contents/MacOS/Tailscale funnel --bg --https=10000 localhost:8788
+cp ops/com.wardaprotocol.xreads.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.wardaprotocol.xreads.plist
 ```
 
-Then sign the listing against the X-reads key and serve it from that origin —
-same two steps as `covenant/auditor-service/README.md`.
+**No tunnel, and no hostname.** The grant's allowlist fixes who gets paid —
+the seller's address — not what URL it answers at, and both ends are on one
+machine, so `127.0.0.1:8788` is all the payment needs. Given X forbids
+redistributing post content to third parties, an endpoint strangers cannot
+reach is the strongest compliance available rather than a compromise. There is
+no signed listing and no registry entry, deliberately.
 
-**4. The grant.** `sdk/tools/genesis.ts`, with the numbers in the table above.
+It must be running before 08:13 or the pass finds nothing to buy from. The pass
+checks and says so on Telegram if it is down — a seller that is not answering
+produces refusals that look exactly like the covenant refusing, and that is the
+one misreading worth preventing.
+
+**4. Hand the pass to the grant.** In `ops/listener-pass.sh`, drop
+`--direct --send` and add `--grant growth/listener-grant.json`. One attended
+run first:
+
+```
+node --experimental-strip-types growth/tools/listen.ts --grant growth/listener-grant.json
+```
+
+Nothing else changes — same cadence, same three searches, same cost. The only
+difference is that the limit stops being a number in a file and becomes a rule
+the network enforces. That is why it ran at the covenant's budget from the
+first day: the switch should be invisible except on chain.
 
 ---
 

@@ -39,6 +39,18 @@ say() {
 # once, which is invisible to cron — so the first scheduled pass would have
 # exited 2 into warda-listener.log and the feed would simply never have
 # started. A missing credential and a quiet week look identical from a phone.
+# Once the grant exists the pass buys from the seller rather than from a card,
+# and the seller has to be up. A pass that cannot reach it reports a failure
+# that looks like the covenant refusing, which is the one misreading worth
+# spending four lines to prevent.
+if [ -f growth/listener-grant.json ]; then
+  curl -sS -m 5 -o /dev/null "${XREADS_URL:-http://127.0.0.1:8788}/" 2>/dev/null || \
+    say "Listener: the X-reads seller is not answering on ${XREADS_URL:-http://127.0.0.1:8788}.
+The pass will find nothing to buy. Start it, or load the LaunchAgent:
+
+  launchctl load ~/Library/LaunchAgents/com.wardaprotocol.xreads.plist"
+fi
+
 if [ -z "${X_BEARER_TOKEN:-}" ]; then
   say "Listener: no X_BEARER_TOKEN in growth/listener.env, so the pass did not run.
 A token exported into a terminal is not visible to cron. Put it in the file:
