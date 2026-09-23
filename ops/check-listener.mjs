@@ -60,16 +60,32 @@ for (const [what, n] of [["searches over the term", derived.searchesPerTerm], ["
 }
 
 /* ---- a grant, if one has been made ---------------------------------- */
+/*
+ * The field names are the manifest's own, which are snake_case. The first
+ * version of this guessed camelCase and `budget` matched by luck — so it
+ * reported three missing fields while appearing to check four, and a guard
+ * that half-matches is worse than one that fails, because the half that
+ * passed looked verified.
+ */
 const grantPath = join(root, "growth/listener-grant.json");
 if (existsSync(grantPath)) {
   let g;
   try { g = JSON.parse(readFileSync(grantPath, "utf8")); } catch { fail("growth/listener-grant.json is not JSON"); }
-  const got = (k) => Number(g[k] ?? g.terms?.[k] ?? NaN);
+  const num = (k) => (g[k] === undefined ? NaN : Number(g[k]));
+
   const check = [
-    ["budget", got("budget"), LISTENER.budgetSompi],
-    ["maxPerSpend", got("maxPerSpend"), LISTENER.priceSompi],
-    ["epochLimit", got("epochLimit"), LISTENER.epochLimitSompi],
-    ["epochLength", got("epochLength"), derived.epochLengthDaa],
+    ["budget", num("budget"), LISTENER.budgetSompi],
+    ["max_per_spend", num("max_per_spend"), LISTENER.priceSompi],
+    ["epoch_limit", num("epoch_limit"), LISTENER.epochLimitSompi],
+    ["epoch_length", num("epoch_length"), derived.epochLengthDaa],
+    /* Never checked before, and it is the one term that is about authority
+       rather than money: this agent hires nobody, and a grant that can
+       delegate when it never will is authority handed out for no reason. */
+    ["delegation_depth", num("delegation_depth"), 0],
+    /* The term, as the covenant actually expresses it — two absolute DAA
+       scores rather than a length. A window that is not 7 days means the
+       budget is spread over the wrong number of epochs. */
+    ["the term (expires_at - not_before)", num("expires_at") - num("not_before"), derived.termDaa],
   ];
   for (const [field, have, want] of check) {
     if (Number.isNaN(have)) problems.push(`the grant has no ${field}`);
@@ -77,7 +93,7 @@ if (existsSync(grantPath)) {
        the truth and shape.ts is the lie, so the message says which to move. */
     else if (have !== want) problems.push(`grant ${field} is ${have}, shape.ts says ${want} — the grant cannot be edited, so change shape.ts`);
   }
-} 
+}
 
 if (problems.length) {
   console.error(`\nlistener: ${problems.length} disagreement(s).\n`);

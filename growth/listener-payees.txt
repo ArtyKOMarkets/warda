@@ -1,3 +1,4 @@
 # The X-reads address, and nobody else. This is the allowlist, fixed at
 # genesis: the grant can pay what is listed here and no edit afterwards
 # changes what the covenant permits.
+kaspatest:qplrzkf5xst4zugy4qc27m58fsq374y38dvrfznx7ss52v4dnpx5qwk5vpk76
