@@ -51,7 +51,7 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { listen, QUERIES, type Fetcher, type Scored } from "../src/listen.ts";
+import { explain, listen, QUERIES, type Fetcher, type Scored } from "../src/listen.ts";
 import { xFetcher } from "../src/xsearch.ts";
 import { plan } from "../src/rotate.ts";
 import { alert, summary } from "../src/alert.ts";
@@ -262,7 +262,13 @@ async function main() {
      away at least as much as by what it kept. */
   if (DIRECT) {
     for (const r of result.searched) {
-      console.log(`  ${r.status === 200 ? "ok " : String(r.status).padEnd(3)} ${r.label}: ${r.found} posts`);
+      console.log(r.status === 200 ? `  ok  ${r.label}: ${r.found} posts` : `  --  ${r.label}: ${explain(r.status)}`);
+    }
+    /* One line, not one per query: six identical explanations is the same
+       failure to say anything that the six bare numbers were. */
+    const stuck = [...new Set(result.searched.filter((r) => r.status !== 200).map((r) => r.status))];
+    if (stuck.length === 1 && result.searched.every((r) => r.status !== 200)) {
+      console.log(`\n  every search answered the same way. ${explain(stuck[0]!)}`);
     }
     console.log("");
     const show = (x: Scored, mark: string) => {

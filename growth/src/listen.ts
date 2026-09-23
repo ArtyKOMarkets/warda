@@ -174,6 +174,34 @@ export function searchUrl(query: Query, sinceIso: string, perQuery = 25): string
   return `https://api.x.com/2/tweets/search/recent?${p}`;
 }
 
+/**
+ * What a status from X actually means, in the words you need to act on.
+ *
+ * A search that answers `402: 0 posts` is not a bug report, it is a number,
+ * and the number is the one thing about the situation that is already on
+ * screen. The first real run of this printed six of them and nothing else —
+ * the token was fine, the account had no credits, and there was no way to
+ * tell that from the output.
+ *
+ * Every line here is a state somebody will hit on their first day, and the
+ * distinction that matters most is 401 against 402: a bad token and an empty
+ * balance look identical until one of them sends you to the portal to
+ * regenerate a credential that was never the problem.
+ */
+export function explain(status: number): string {
+  switch (status) {
+    case 200: return "ok";
+    case 0: return "no answer — the request never completed";
+    case 401: return "401 — X rejected the token. Wrong value, or regenerated since it was copied.";
+    case 402: return "402 — the token is fine; the account has no credits. Buy them at console.x.com.";
+    case 403: return "403 — the token is valid but not allowed this endpoint.";
+    case 429: return "429 — rate limited. Wait, then run fewer queries a pass.";
+    default:
+      if (status >= 500) return `${status} — X is having trouble. Nothing to fix here; try later.`;
+      return `${status} — unexpected; X's response body says more than the code does.`;
+  }
+}
+
 /** X's shape, flattened. Exported because the paid service returns this too. */
 export function postsFrom(body: string, matched: string): Post[] {
   let doc: {

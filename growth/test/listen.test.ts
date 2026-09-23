@@ -9,7 +9,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { listen, score, searchUrl, postsFrom, type Fetcher, type Post, type Query } from "../src/listen.ts";
+import { explain, listen, score, searchUrl, postsFrom, type Fetcher, type Post, type Query } from "../src/listen.ts";
 
 const Q: Query[] = [
   { label: "x402", q: "x402" },
@@ -145,4 +145,16 @@ test("nothing found is not the same as everything skipped", async () => {
   assert.equal(r.found.length, 0);
   assert.equal(r.rejected.length, 1, "a run that reports nothing must still say what it looked at and rejected");
   assert.equal(r.reads, 1);
+});
+
+test("a status says what to do about it, and 401 is not 402", () => {
+  assert.match(explain(402), /no credits/);
+  assert.match(explain(402), /console\.x\.com/);
+  assert.match(explain(401), /token/);
+  /* The two that look identical on screen and send you to different places:
+     a bad token, and a fine token with an empty balance. */
+  assert.notEqual(explain(401), explain(402));
+  assert.match(explain(429), /rate limited/i);
+  assert.match(explain(503), /X is having trouble/);
+  assert.equal(explain(200), "ok");
 });
