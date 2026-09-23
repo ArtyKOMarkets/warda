@@ -40,6 +40,19 @@
  * that this one is only software, which is exactly the weakness the rest of
  * this repo exists to argue about.
  *
+ * ## --direct --send: running before the grant exists
+ *
+ * A trial you are watching sends nothing. A trial on cron has to, or there is
+ * nothing to judge and nobody looking. So `--send` turns the messages on, and
+ * the cap drops from a browsing 60 reads to what the grant will allow — three
+ * searches an epoch, from src/shape.ts.
+ *
+ * That last part is the point. Running unattended at the budget the covenant
+ * will enforce means switching to the grant changes nothing except WHERE the
+ * limit lives: same cadence, same cost, same rotation. If the software budget
+ * and the covenant disagreed, the switch would look like a regression and the
+ * covenant would get the blame.
+ *
  * ## What is written down
  *
  * `growth/listener/state.json` — the rotation cursor, the posts already sent,
@@ -110,7 +123,14 @@ const DRY = has("dry-run");
 const DIRECT = has("direct");
 /** `--direct` only. What a trial pass may read before it stops, whatever else
  *  it was going to do. 60 reads is $0.30 at X's $0.005. */
-const MAX_READS = Number(flag("max-reads", "60"));
+const SEND = has("send");
+/**
+ * A watched trial browses: 60 reads, about $0.30, and you read the rejects.
+ * An unattended one spends what the grant will allow and no more — otherwise
+ * twice daily at 60 is $4.20 a week against a budget of $2.10.
+ */
+const CAP_UNATTENDED = (LISTENER.epochLimitSompi / LISTENER.priceSompi) * LISTENER.maxResults;
+const MAX_READS = Number(flag("max-reads", String(SEND ? CAP_UNATTENDED : 60)));
 /**
  * `--save <file>`: write the posts a trial read, so the weights can be
  * changed and re-checked against them for nothing.
@@ -345,7 +365,9 @@ async function main() {
 
   if (DIRECT) {
     console.error(`\nlistener --direct: calling X on your own token, no grant, no payment.`);
-    console.error(`  at most ${MAX_READS} reads this pass — about $${(MAX_READS * 0.005).toFixed(2)}.\n`);
+    console.error(`  at most ${MAX_READS} reads this pass — about $${(MAX_READS * 0.005).toFixed(2)}.`);
+    if (SEND) console.error(`  --send: messages go to Telegram, and the cap is what the grant will allow.`);
+    console.error("");
   }
 
   const since = new Date(Date.now() - 2 * EPOCH_HOURS * 3_600_000).toISOString();
@@ -382,9 +404,11 @@ async function main() {
     for (const x of result.rejected) show(x, "  --");
   }
 
-  /* A trial sends nothing. The point is to read the reasons yourself, and a
-     rule still being tuned should not be interrupting anybody. */
-  const send: Scored[] = DIRECT ? [] : result.found;
+  /* A watched trial sends nothing: the point is to read the reasons yourself,
+     and a rule still being tuned should not be interrupting anybody. On cron
+     there is nobody reading a terminal, so --send is what makes it a product
+     rather than an exercise. */
+  const send: Scored[] = DIRECT && !SEND ? [] : result.found;
   for (const [i, s] of send.entries()) {
     const a = alert(s, { n: i + 1, of: send.length });
     await notify(a.text);
@@ -398,7 +422,7 @@ async function main() {
     skipped: result.rejected.length,
     costUsd: result.reads * 0.005,
     spentKas: spent / 1e8,
-    note: refused ?? undefined,
+    note: refused ?? (DIRECT && SEND ? "No covenant behind this yet — the cap is in tools/listen.ts." : undefined),
   });
   console.error(`\n${line}`);
   /* The summary goes to the phone only when it carries news: something was
@@ -406,12 +430,19 @@ async function main() {
      message that teaches you to stop reading them. */
   if (send.length > 0 || refused) await notify(line);
 
-  /* A trial advances the rotation, so a day of passes covers every query — but
-     records nothing as seen and nothing as spent. The posts it looked at must
-     still be reportable once this is real. */
-  state = DIRECT
+  /* A watched trial advances the rotation, so a day of passes covers every
+     query — but records nothing as seen and nothing as spent, because the
+     posts it looked at must still be reportable once this is real.
+ 
+     --send is different on both counts. What was sent must not be sent again
+     twelve hours later, and the epoch accounting has to run exactly as it
+     will under the grant — it is the same arithmetic, and the whole reason
+     for running it here is to find out whether it is right before a covenant
+     is enforcing it. Reads are counted at the price a search will cost. */
+  const spentThisPass = DIRECT ? (reads / LISTENER.maxResults) * LISTENER.priceSompi : spent;
+  state = DIRECT && !SEND
     ? { ...state, cursor: p.nextCursor, lastRunAt: new Date().toISOString() }
-    : { ...state, cursor: p.nextCursor, spentThisEpochSompi: state.spentThisEpochSompi + spent, lastRunAt: new Date().toISOString() };
+    : { ...state, cursor: p.nextCursor, spentThisEpochSompi: state.spentThisEpochSompi + spentThisPass, lastRunAt: new Date().toISOString() };
   save(state);
   if (refused && !DIRECT) process.exit(3);
 }

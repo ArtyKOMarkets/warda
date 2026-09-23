@@ -6,6 +6,7 @@
 #   ops/install-cron.sh --buy      that, and agent #003's daily purchase
 #   ops/install-cron.sh --interop  and agent #005 buying from a third party
 #   ops/install-cron.sh --growth   and the growth fleet's weekly batch
+#   ops/install-cron.sh --listener and the Listener's twice-daily X pass
 #
 # This script exists because a crontab LINE and a shell COMMAND look identical
 # in a chat window, and pasting one where the other belongs does nothing
@@ -50,6 +51,16 @@ INTEROPENTRY="23 9 * * * $INTEROP >> $INTEROPLOG 2>&1"
 GROWTH="$OPS/weekly-growth.sh"
 GROWTHLOG="$HOME/Library/Logs/warda-growth.log"
 GROWTHENTRY="13 10 * * 1 $GROWTH >> $GROWTHLOG 2>&1"
+
+# The Listener: X conversations worth replying to, twice a day, to Telegram.
+# Opt-in, because it SPENDS — and unlike everything else here it spends
+# DOLLARS, on the X developer account, about $0.15 a pass. No covenant bounds
+# it yet; the cap is in tools/listen.ts. 08:13 and 20:13, twelve hours apart
+# to match the grant's epoch, and off the hour so it is not queued behind the
+# jobs that touch the chain.
+LISTENER="$OPS/listener-pass.sh"
+LISTENERLOG="$HOME/Library/Logs/warda-listener.log"
+LISTENERENTRY="13 8,20 * * * $LISTENER >> $LISTENERLOG 2>&1"
 
 # Is the endpoint /start sends a stranger at actually answering? Not opt-in:
 # it costs nothing, it touches no key and moves no coin, and the failure it
@@ -116,6 +127,8 @@ NO_BUY=""
 WANT_INTEROP=""
 NO_INTEROP=""
 WANT_GROWTH=""
+WANT_LISTENER=""
+NO_LISTENER=""
 NO_GROWTH=""
 for a in "$@"; do
   [ "$a" = "--buy" ] && WANT_BUY=1
@@ -124,6 +137,8 @@ for a in "$@"; do
   [ "$a" = "--no-interop" ] && NO_INTEROP=1
   [ "$a" = "--growth" ] && WANT_GROWTH=1
   [ "$a" = "--no-growth" ] && NO_GROWTH=1
+  [ "$a" = "--listener" ] && WANT_LISTENER=1
+  [ "$a" = "--no-listener" ] && NO_LISTENER=1
 done
 
 if [ ! -x "$SCRIPT" ]; then
@@ -201,9 +216,18 @@ if printf '%s\n' "$current" | grep -q -F "weekly-growth.sh"; then
   fi
 fi
 
+if printf '%s\n' "$current" | grep -q -F "listener-pass.sh"; then
+  if [ -n "$NO_LISTENER" ]; then
+    echo "removing the Listener's twice-daily X pass, as asked."
+  else
+    WANT_LISTENER=1
+  fi
+fi
+
 printf '%s\n' "$current" \
   | grep -v -F "hourly-reading.sh" \
   | grep -v -F "weekly-growth.sh" \
+  | grep -v -F "listener-pass.sh" \
   | grep -v -F "daily-buy.sh" \
   | grep -v -F "daily-interop.sh" \
   | grep -v -F "check-vendor.sh" \
@@ -224,6 +248,7 @@ if [ -f "$OPS/alerts.env" ] && grep -q '^CONSOLE_CRON_SECRET=.' "$OPS/alerts.env
 if [ -n "$WANT_BUY" ]; then printf '%s\n' "$BUYENTRY" >> /tmp/warda-cron.$$; fi
 if [ -n "$WANT_INTEROP" ]; then printf '%s\n' "$INTEROPENTRY" >> /tmp/warda-cron.$$; fi
 if [ -n "$WANT_GROWTH" ]; then printf '%s\n' "$GROWTHENTRY" >> /tmp/warda-cron.$$; fi
+if [ -n "$WANT_LISTENER" ]; then printf '%s\n' "$LISTENERENTRY" >> /tmp/warda-cron.$$; fi
 crontab /tmp/warda-cron.$$
 rm -f /tmp/warda-cron.$$
 

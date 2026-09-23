@@ -135,11 +135,32 @@ node --experimental-strip-types growth/tools/listen.ts
 first: it is the only way to see the queries against the real rotation without
 paying for the answer.
 
-Cron, twice daily:
+### Launched before the grant
+
+The discovery half runs now; the payment half does not exist yet. That is a
+deliberate split — the ranking is reversible and the value is immediate, while
+a grant's terms are fixed at genesis and the payment path has never run.
 
 ```
-13 8,20 * * *  cd ~/Desktop/warda && node --experimental-strip-types growth/tools/listen.ts
+ops/install-cron.sh --listener
 ```
+
+08:13 and 20:13, twelve hours apart to match the epoch the grant will have, and
+off the hour so it is not queued behind the jobs that touch the chain.
+`--no-listener` removes it.
+
+Each pass runs `--direct --send`: X on your own token, messages to Telegram,
+and **no covenant behind it**. The cap is three searches — the same three the
+grant will allow — enforced by `tools/listen.ts` and by nothing else. Running
+at the budget the covenant will enforce means switching to the grant changes
+nothing except where the limit lives; if the two disagreed, the switch would
+look like a regression and the covenant would get the blame.
+
+Every pass saves its run, and the files prune themselves after a day.
+
+**It spends dollars, not testnet KAS.** About $0.15 a pass, $2.10 a week, on
+the card behind the X developer account. That is the one thing here that is
+not play money, and it is why this job is opt-in.
 
 Exit 3 means the covenant refused — the epoch's allowance is spent. That is the
 limit working, it is reported to Telegram, and the next pass is twelve hours
