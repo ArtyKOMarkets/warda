@@ -138,6 +138,8 @@ AGENT_PAGES = {
            "sub-agent, charged for what it spent, and revoked when the week is done.",
     "010": "Scout, the growth fleet's buyer: a sub-agent that may pay one address, buys one "
            "checkable record per project from Researcher, and settles home.",
+    "012": "The Listener: an agent built because searching X by hand was the real problem. It "
+           "pays for the data it needs inside limits the network enforces, and never speaks for anyone.",
 }
 
 CRYPTO = (here / "src" / "_crypto.js").read_text()
