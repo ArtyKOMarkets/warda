@@ -119,7 +119,7 @@ const MOSTLY_LINKS = (text: string) => text.replace(/https?:\/\/\S+/g, "").repla
  * person says "I built", "my agent", "we shipped"; a launch says "X is
  * building". The grammar is the tell, and it costs one regex.
  */
-const FIRST_PERSON = /\b(i|we|my|our)\s+\w{0,6}\s?(built|build|building|shipped|made|wrote|ran|running|run|deployed|tried|hit|use|using|switched|tested)\b|\bmy (agent|bot|wallet|script|setup)\b/i;
+const FIRST_PERSON = /\b(i|we|my|our)\s+\w{0,6}\s?(built|build|building|shipped|made|wrote|ran|running|run|deployed|tried|hit|use|using|switched|tested)\b|\b(my|our)\s+(@?[\w.-]+\s+){0,2}(agent|agents|bot|wallet|script|setup)\b/i;
 
 /** Concrete nouns. Weak on their own — a topic, not a person with a problem. */
 const TECHNICAL = /\b(402|sdk|endpoint|repo|github|testnet|mainnet|webhook|api key|signature|private key|rate limit)\b/i;
@@ -179,10 +179,17 @@ export function score(post: Post, options: ScoreOptions = {}): Scored {
 
   const hours = (Date.now() - new Date(post.at).getTime()) / 3_600_000;
 
-  if (THE_QUESTION(post.text)) add(5, "asking what bounds an agent — the question Warda answers");
-  if (FIRST_PERSON.test(post.text)) add(4, "describing their own work, not a product's");
+  /* The three signals about the POST rather than about the search. At least
+     one has to fire or nothing below can lift this over the floor — see the
+     band rule at the end. */
+  const theQuestion = THE_QUESTION(post.text);
+  const firstPerson = FIRST_PERSON.test(post.text);
+  const asking = ASKING.test(post.text);
+
+  if (theQuestion) add(5, "asking what bounds an agent — the question Warda answers");
+  if (firstPerson) add(4, "describing their own work, not a product's");
   else if (TECHNICAL.test(post.text)) add(1, "concrete, but not first-hand");
-  if (ASKING.test(post.text)) add(3, "actually asking, not a headline");
+  if (asking) add(3, "actually asking, not a headline");
 
   /* Account quality. Followers are a weak proxy and treated as one: a bounded
      bonus, never a multiplier, because a 500k-follower take is not worth more
@@ -213,7 +220,37 @@ export function score(post: Post, options: ScoreOptions = {}): Scored {
   if (hours > 48) add(-6, `${Math.round(hours)}h old, the thread has moved on`);
   else if (hours > 24) add(-2, `${Math.round(hours)}h old`);
 
-  return { post, score: n, why, band: n >= high ? "high" : n >= floor ? "worth a look" : "skip" };
+  /**
+   * Keywords and a clock are not a reason to interrupt somebody.
+   *
+   * The second real run put three posts in the top six on `+4 matched two
+   * queries` and `+1 early` alone — five points, nothing of it about the post.
+   * A post can match two searches by coincidence and be recent by luck; that
+   * combination says the search worked, not that there is a conversation to
+   * join. So the floor needs one signal about the post itself, and the score
+   * is left alone rather than fudged: it reports what it found, and this
+   * decides what that is worth.
+   */
+  const band = !(theQuestion || firstPerson || asking)
+    ? "skip" as const
+    : n >= high ? "high" as const : n >= floor ? "worth a look" as const : "skip" as const;
+  if (band === "skip" && n >= floor) why.push("(nothing about the post itself, only the search)");
+
+  return { post, score: n, why, band };
+}
+
+/**
+ * What makes two posts the same post.
+ *
+ * Handle included, because two people saying "23.2M transactions in four
+ * weeks" in the same thread are two people, and only one of them is a
+ * duplicate of themselves. Links and mentions stripped, because a reposted
+ * line usually differs only in its trailing t.co.
+ */
+export function fingerprint(p: Post): string {
+  const t = p.text.toLowerCase().replace(/https?:\/\/\S+/g, "").replace(/[@#]\S+/g, "")
+    .replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim().slice(0, 120);
+  return `${p.author.handle.toLowerCase()}::${t}`;
 }
 
 /** The X search request. Separate so a test can assert the URL without a network. */
@@ -334,6 +371,7 @@ export interface ListenResult {
 export async function listen(fetcher: Fetcher, options: ListenOptions, queries: Query[] = QUERIES): Promise<ListenResult> {
   const seen = options.seen ?? new Set<string>();
   const byId = new Map<string, Post>();
+  const byText = new Map<string, string>();
   const searched: Reading[] = [];
   let reads = 0;
 
@@ -351,6 +389,19 @@ export async function listen(fetcher: Fetcher, options: ListenOptions, queries: 
         if (!have.matched.includes(query.label)) have.matched.push(query.label);
         continue;
       }
+      /* The same words posted twice under two ids. The second run had four
+         accounts doing it — reposting their own line minutes apart — and each
+         copy arrived as a separate candidate competing for the same slot. The
+         first one seen wins and the rest fold into it, exactly as a
+         cross-query duplicate does. */
+      const key = fingerprint(p);
+      const twin = byText.get(key);
+      if (twin) {
+        const first = byId.get(twin);
+        if (first && !first.matched.includes(query.label)) first.matched.push(query.label);
+        continue;
+      }
+      byText.set(key, p.id);
       byId.set(p.id, p);
     }
   }

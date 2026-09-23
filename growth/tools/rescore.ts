@@ -13,7 +13,7 @@
  * weight, run this, read the order. Seconds, and free.
  */
 import { readFileSync } from "node:fs";
-import { score, type Post } from "../src/listen.ts";
+import { fingerprint, score, type Post } from "../src/listen.ts";
 
 const file = process.argv.find((a) => !a.startsWith("--") && a.endsWith(".json"));
 if (!file) {
@@ -34,7 +34,14 @@ const mute = new Set((flag("mute", "warda_protocol")!).split(",").map((x) => x.t
 const drift = doc.at ? Date.now() - new Date(doc.at).getTime() : 0;
 const posts = doc.posts.map((p) => ({ ...p, at: new Date(new Date(p.at).getTime() + drift).toISOString() }));
 
-const scored = posts.map((p) => score(p, { mute })).sort((a, b) => b.score - a.score);
+/* The same fold a real pass does, so the list read here is the list that
+   would have been produced. Without it a saved file shows the near-duplicates
+   a pass would have merged, and the count at the bottom is wrong. */
+const byText = new Map<string, Post>();
+for (const post of posts) if (!byText.has(fingerprint(post))) byText.set(fingerprint(post), post);
+const folded = [...byText.values()];
+
+const scored = folded.map((p) => score(p, { mute })).sort((a, b) => b.score - a.score);
 const floor = scored.filter((s) => s.band !== "skip").length;
 
 for (const s of scored) {
@@ -42,4 +49,5 @@ for (const s of scored) {
   console.log(`${mark} ${String(s.score).padStart(3)}  @${s.post.author.handle}  ${s.post.text.replace(/\s+/g, " ").slice(0, 88)}`);
   console.log(`        ${s.why.join("  ")}`);
 }
-console.log(`\n${scored.length} posts, ${floor} above the floor, ${scored.filter((s) => s.band === "high").length} high.`);
+const dropped = posts.length - folded.length;
+console.log(`\n${scored.length} posts${dropped ? ` (${dropped} near-duplicates folded)` : ""}, ${floor} above the floor, ${scored.filter((s) => s.band === "high").length} high.`);

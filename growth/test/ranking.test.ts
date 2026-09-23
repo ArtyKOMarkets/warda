@@ -83,3 +83,46 @@ test("our own account is muted, underscore and all", () => {
   });
   assert.equal(score(ours, { mute: new Set(["warda_protocol"]) }).band, "skip");
 });
+
+/* ------------------------------------------------------------------------ *
+ * The second real run. Three posts reached the top six on keywords and a
+ * clock alone, and the best organic post in the first run fell out of it.
+ * ------------------------------------------------------------------------ */
+
+test("keywords and a clock are not a reason to interrupt somebody", () => {
+  /* Two queries matched by coincidence plus being recent is five points and
+     nothing about the post. It cleared the floor in run 2, three times. */
+  const s = score(p("@jerrymuse66 first move made. i turned the map into actual targets: Circle Agent Stack",
+    { matched: ["x402", "agent wallet"] }));
+  assert.ok(s.score >= 5, `expected it to still SCORE ${s.score}`);
+  assert.equal(s.band, "skip", s.why.join(" "));
+  assert.ok(s.why.some((w) => w.includes("only the search")), s.why.join(" "));
+});
+
+test("a post about their own agent counts even with a handle in the way", () => {
+  /* Run 1 scored this 9. The rewrite required `my` immediately before the
+     noun, so "My @CreaoAI agent" stopped matching and run 2 scored it 5 and
+     cut it — the best organic post in either run, lost to a regression. */
+  const s = score(p("My @CreaoAI agent has a wallet and a real-world job: keeping my phone topped up",
+    { replies: 24, reposts: 2 }));
+  assert.ok(s.why.some((w) => w.includes("their own work")), s.why.join(" "));
+  assert.equal(s.band, "high", `scored ${s.score}`);
+});
+
+test("the same line posted twice is one candidate", async () => {
+  const { listen, searchUrl } = await import("../src/listen.ts");
+  const q = [{ label: "kaspa", q: "kaspa" }];
+  const twice = (id: string) => ({
+    id, text: "Kaspa is purpose-built for the agentic money use case BlackRock just described https://t.co/a",
+    created_at: mins(20), author_id: "u1",
+    public_metrics: { like_count: 1, reply_count: 0, retweet_count: 0 },
+  });
+  const fetcher = async (url: string) => url === searchUrl(q[0]!, "2026-09-23T00:00:00Z")
+    ? { status: 200, body: JSON.stringify({
+        data: [twice("1"), { ...twice("2"), text: twice("2").text.replace("/a", "/b") }],
+        includes: { users: [{ id: "u1", username: "dup", name: "D", public_metrics: { followers_count: 900 } }] },
+      }) }
+    : { status: 0, body: "" };
+  const r = await listen(fetcher, { since: "2026-09-23T00:00:00Z", limit: 10 }, q);
+  assert.equal(r.found.length + r.rejected.length, 1, "the repost should have folded into the first");
+});
