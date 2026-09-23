@@ -9,12 +9,12 @@
 
 use kaspa_consensus_core::tx::{
     CovenantBinding, ScriptPublicKey, Transaction, TransactionId, TransactionInput,
-    TransactionOutpoint, TransactionOutput, UtxoEntry,
+    TransactionOutpoint, TransactionOutput,
 };
-use kaspa_txscript::{pay_to_script_hash_script, EngineFlags};
+use kaspa_txscript::pay_to_script_hash_script;
 use kaspa_txscript_errors::TxScriptError;
 use silverscript_lang::ast::Expr;
-use silverscript_lang::compiler::{compile_contract, CompileOptions, struct_object};
+use silverscript_lang::compiler::{compile_contract, CompileOptions};
 use warda_harness::*;
 
 #[test]
