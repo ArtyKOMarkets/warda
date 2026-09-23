@@ -1,0 +1,162 @@
+<!-- Campaign cards, 1600x900, rendered at 2x with Playwright.
+     Same system as cards.html: same palette, same type, same 1600x900.
+     One change: the small uppercase labels use --dim rather than --faint.
+     #5D6B73 on #06090C is 3.63:1, under AA for text that size; #8D989E is
+     6.76:1. Measured, not guessed.
+     Every figure here comes from a published reading, a grant manifest or a
+     transaction id. A card that cannot be regenerated goes stale the first
+     time one of them changes.
+       npm i @fontsource/barlow @fontsource/chakra-petch @fontsource/jetbrains-mono
+       node shoot.mjs -->
+<!doctype html><meta charset="utf-8">
+<style>
+@font-face{font-family:CP;src:url("node_modules/@fontsource/chakra-petch/files/chakra-petch-latin-700-normal.woff2")format("woff2");font-weight:700}
+@font-face{font-family:BA;src:url("node_modules/@fontsource/barlow/files/barlow-latin-400-normal.woff2")format("woff2");font-weight:400}
+@font-face{font-family:BA;src:url("node_modules/@fontsource/barlow/files/barlow-latin-600-normal.woff2")format("woff2");font-weight:600}
+@font-face{font-family:JB;src:url("node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-400-normal.woff2")format("woff2");font-weight:400}
+@font-face{font-family:JB;src:url("node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-700-normal.woff2")format("woff2");font-weight:700}
+:root{--void:#06090C;--ground:#0A1014;--edge:#1E2E37;--edgeb:#2C4350;
+--chrome:#DDE0E2;--dim:#8D989E;--teal:#14D7C1;--teald:#06BBA1;--refuse:#FF6B5A;--amber:#E8B23A}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#000}
+.card{width:1600px;height:900px;background:var(--void);color:var(--chrome);
+ font-family:BA,sans-serif;padding:74px 86px;position:relative;overflow:hidden;
+ display:flex;flex-direction:column}
+.card::after{content:"";position:absolute;inset:auto -300px -420px auto;width:900px;height:900px;
+ border-radius:50%;background:radial-gradient(circle,rgba(20,215,193,.055),transparent 62%)}
+.eye{font-family:JB,monospace;font-size:19px;letter-spacing:.17em;text-transform:uppercase;
+ color:var(--teal);display:flex;align-items:center;gap:16px;position:relative;z-index:1}
+.eye::before{content:"";width:38px;height:2px;background:var(--teald)}
+h1{font-family:CP,sans-serif;font-weight:700;font-size:62px;line-height:1.06;letter-spacing:-.025em;
+ margin-top:26px;max-width:24ch;position:relative;z-index:1}
+h1 .t{color:var(--teal)}
+h1 .r{color:var(--refuse)}
+.body{flex:1;display:flex;align-items:center;margin-top:36px;position:relative;z-index:1}
+.foot{display:flex;align-items:flex-end;justify-content:space-between;position:relative;z-index:1;
+ font-family:JB,monospace;font-size:18px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+.foot .wm{font-family:CP,sans-serif;font-weight:700;font-size:26px;letter-spacing:.02em;
+ text-transform:none;color:var(--chrome)}
+.foot .wm b{color:var(--teal);font-weight:700}
+.pane{background:var(--ground);border:1px solid var(--edge);border-radius:14px;padding:30px 34px;width:100%}
+.pane.no{border-color:rgba(255,107,90,.42)}
+.quote{font-family:JB,monospace;font-size:27px;line-height:1.55;color:var(--chrome)}
+.quote .hl{color:var(--refuse)}
+.rows{width:100%;display:flex;flex-direction:column;gap:14px}
+.row{display:flex;align-items:center;gap:26px;background:var(--ground);border:1px solid var(--edge);
+ border-radius:12px;padding:20px 28px}
+.row .k{font-family:JB,monospace;font-size:26px;color:var(--chrome);flex:1;letter-spacing:-.01em}
+.row .v{font-family:JB,monospace;font-size:26px;color:var(--dim)}
+.tag{font-family:JB,monospace;font-size:17px;letter-spacing:.14em;text-transform:uppercase;
+ padding:6px 14px;border:1px solid var(--edgeb);color:var(--dim);border-radius:5px;white-space:nowrap}
+.tag.ok{border-color:var(--teald);color:var(--teal)}
+.tag.no{border-color:var(--refuse);color:var(--refuse)}
+.terms{display:grid;grid-template-columns:1fr 1fr;gap:16px 26px;width:100%}
+.term{display:flex;align-items:baseline;justify-content:space-between;gap:20px;
+ border-bottom:1px solid var(--edge);padding-bottom:14px}
+.term .k{font-size:27px;color:var(--dim)}
+.term .v{font-family:JB,monospace;font-size:29px;color:var(--chrome)}
+.stat{display:flex;align-items:baseline;gap:34px;width:100%}
+.stat .n{font-family:JB,monospace;font-weight:700;font-size:150px;line-height:1;letter-spacing:-.04em}
+.stat .n.t{color:var(--teal)} .stat .n.r{color:var(--refuse)}
+.stat .s{font-size:30px;color:var(--dim);line-height:1.4;max-width:20ch}
+.lede{font-size:31px;color:var(--dim);line-height:1.46;max-width:34ch}
+</style><body>
+<div class="card" id="c1">
+  <div class="eye">Bring your agent</div>
+  <h1>We fund it.<br>Then you <span class="r">try to break it</span>.</h1>
+  <div class="body"><div class="terms"><div class="term"><span class="k">Budget</span><span class="v">5 testnet KAS</span></div><div class="term"><span class="k">Max per payment</span><span class="v">0.5 KAS</span></div><div class="term"><span class="k">Rate limit</span><span class="v">2 per ~100s</span></div><div class="term"><span class="k">Allowlist</span><span class="v">fixed at genesis</span></div><div class="term"><span class="k">Term</span><span class="v">30 days</span></div><div class="term"><span class="k">Your secret</span><span class="v">never leaves you</span></div></div></div>
+  <div class="foot"><span>If you break it, we publish it</span><span class="wm">warda<b>protocol</b>.com</span></div>
+</div>
+
+<div class="card" id="c2">
+  <div class="eye">Live on testnet-10</div>
+  <h1>The private key is<br><span class="t">published on the site</span>.</h1>
+  <div class="body"><p class="lede">Not a hash of it. The key. It holds funded testnet money, anyone can take it, and the most anyone has managed is buying one vendor&rsquo;s API a few more times.</p></div>
+  <div class="foot"><span>wardaprotocol.com/attack</span><span class="wm">warda<b>protocol</b>.com</span></div>
+</div>
+
+<div class="card" id="c3">
+  <div class="eye">23 September 2026</div>
+  <h1>The network<br><span class="r">said no</span>.</h1>
+  <div class="body"><div class="pane no"><p class="quote">this invoice is 5000000 sompi and only <span class="hl">0 remains in the current epoch (0)</span>. The allowance refreshes as the chain advances &mdash; and cannot be refreshed by claiming an earlier epoch, which the covenant refuses.</p></div></div>
+  <div class="foot"><span>No coin moved &middot; no fee</span><span class="wm">warda<b>protocol</b>.com</span></div>
+</div>
+
+<div class="card" id="c4">
+  <div class="eye">Agent #005</div>
+  <h1>A vendor that has<br>never heard of us.</h1>
+  <div class="body"><div class="rows"><div class="row"><span class="k">demo.kaspa-x402.org</span><span class="v">0.2 KAS &times; 5</span><span class="tag ok">served</span></div><div class="row"><span class="k">attempts</span><span class="v">8</span><span class="tag no">3 did not</span></div><div class="row"><span class="k">who runs it</span><span class="v">not us</span><span class="tag ">third party</span></div></div></div>
+  <div class="foot"><span>Unattended, every morning</span><span class="wm">warda<b>protocol</b>.com</span></div>
+</div>
+
+<div class="card" id="c5">
+  <div class="eye">18 September 2026</div>
+  <h1>Paid, and<br><span class="r">never served</span>.</h1>
+  <div class="body"><div class="rows"><div class="row"><span class="k">285057ed7d6b63e5&hellip;</span><span class="v">0.2 KAS</span><span class="tag ok">settled</span></div><div class="row"><span class="k">what came back</span><span class="v">nothing</span><span class="tag no">not served</span></div><div class="row"><span class="k">where it is published</span><span class="v">/agent-005</span><span class="tag ">beside the wins</span></div></div></div>
+  <div class="foot"><span>The receipts include the failures</span><span class="wm">warda<b>protocol</b>.com</span></div>
+</div>
+
+<div class="card" id="c6">
+  <div class="eye">Agent #004</div>
+  <h1>Hired by an agent,<br>not by a person.</h1>
+  <div class="body"><div class="rows"><div class="row"><span class="k">hired by</span><span class="v">agent #003</span><span class="tag ok">parent</span></div><div class="row"><span class="k">authority</span><span class="v">could only shrink</span><span class="tag ">never grow</span></div><div class="row"><span class="k">spent, then settled back</span><span class="v">0.04 KAS</span><span class="tag ok">returned</span></div></div></div>
+  <div class="foot"><span>Delegation the chain enforces</span><span class="wm">warda<b>protocol</b>.com</span></div>
+</div>
+
+<div class="card" id="c7">
+  <div class="eye">Agent #011</div>
+  <h1>A key no machine<br>of ours has held.</h1>
+  <div class="body"><div class="rows"><div class="row"><span class="k">created in</span><span class="v">a signing enclave</span><span class="tag ok">never exported</span></div><div class="row"><span class="k">first purchase</span><span class="v">fa5dfe7282d87fe3&hellip;</span><span class="tag ok">served</span></div><div class="row"><span class="k">what the custodian cannot do</span><span class="v">exceed the grant</span><span class="tag no"></span></div></div></div>
+  <div class="foot"><span>The bound is not ours to relax</span><span class="wm">warda<b>protocol</b>.com</span></div>
+</div>
+
+<div class="card" id="c8">
+  <div class="eye">Agent #002</div>
+  <h1>Refused by its<br>own <span class="r">start time</span>.</h1>
+  <div class="body"><p class="lede">Twice, before it could spend anything. Not a scheduler and not a feature flag &mdash; a transaction the network would not count as valid yet.</p></div>
+  <div class="foot"><span>notBefore, enforced by consensus</span><span class="wm">warda<b>protocol</b>.com</span></div>
+</div>
+
+<div class="card" id="c9">
+  <div class="eye">The audit</div>
+  <h1><div class="stat"><span class="n t">118</span><span class="s">transactions run through the same script engine a Kaspa node validates with</span></div></h1>
+  <div class="body"><div class="terms"><div class="term"><span class="k">Claims exercised</span><span class="v">38 of 39</span></div><div class="term"><span class="k">Violations</span><span class="v">0</span></div><div class="term"><span class="k">Over-refusals</span><span class="v">0</span></div><div class="term"><span class="k">The 39th</span><span class="v">named, uncovered</span></div></div></div>
+  <div class="foot"><span>wardaprotocol.com/audit</span><span class="wm">warda<b>protocol</b>.com</span></div>
+</div>
+
+<div class="card" id="c10">
+  <div class="eye">What our own tool cannot find</div>
+  <h1>It would have caught<br><span class="r">zero of five</span>.</h1>
+  <div class="body"><p class="lede">We built a tool that checks a covenant against its own claims, then checked it against the five real vulnerabilities we have found in ours. A claims test cannot find the rule you never wrote.</p></div>
+  <div class="foot"><span>So we built a different one</span><span class="wm">warda<b>protocol</b>.com</span></div>
+</div>
+
+<div class="card" id="c11">
+  <div class="eye">The limit we cannot enforce</div>
+  <h1>The allowlist stops<br>at the relay hop.</h1>
+  <div class="body"><p class="lede">x402&rsquo;s exact scheme cannot take a covenant spend, so agent #005 pays a single-use key and that key pays the vendor. Budget, cap and rate limit still hold. The allowlist does not reach past it.</p></div>
+  <div class="foot"><span>Stated on the page, not discovered</span><span class="wm">warda<b>protocol</b>.com</span></div>
+</div>
+
+<div class="card" id="c12">
+  <div class="eye">Every Monday</div>
+  <h1>An agent hires<br>an agent.</h1>
+  <div class="body"><div class="rows"><div class="row"><span class="k">given a budget</span><span class="v">agent #009</span><span class="tag ok">orchestrator</span></div><div class="row"><span class="k">hired with part of it</span><span class="v">agent #010</span><span class="tag ok">scout</span></div><div class="row"><span class="k">unspent, taken back</span><span class="v">then revoked</span><span class="tag ">ends itself</span></div></div></div>
+  <div class="foot"><span>Nobody presses anything</span><span class="wm">warda<b>protocol</b>.com</span></div>
+</div>
+
+<div class="card" id="c13">
+  <div class="eye">What your agent gets</div>
+  <h1>Limits it cannot<br>argue with.</h1>
+  <div class="body"><div class="terms"><div class="term"><span class="k">Total budget</span><span class="v">5 KAS</span></div><div class="term"><span class="k">Per payment</span><span class="v">0.5 KAS max</span></div><div class="term"><span class="k">Rate</span><span class="v">2 per ~100s</span></div><div class="term"><span class="k">Payees</span><span class="v">allowlist, fixed</span></div><div class="term"><span class="k">Expiry</span><span class="v">30 days</span></div><div class="term"><span class="k">Enforced by</span><span class="v">every Kaspa node</span></div></div></div>
+  <div class="foot"><span>wardaprotocol.com/grant</span><span class="wm">warda<b>protocol</b>.com</span></div>
+</div>
+
+<div class="card" id="c14">
+  <div class="eye">Why we are asking</div>
+  <h1>No third party<br>has audited this.</h1>
+  <div class="body"><p class="lede">It has never held real money. Which is exactly why we would rather your agent attacked it than ours kept proving it works. Bring one. We will fund it. If you break it, we publish it.</p></div>
+  <div class="foot"><span>wardaprotocol.com/grant</span><span class="wm">warda<b>protocol</b>.com</span></div>
+</div>
+
+</body>

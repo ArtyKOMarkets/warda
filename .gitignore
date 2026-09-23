@@ -76,6 +76,12 @@ growth/listener.env
 # files for its searches. Machine-local, and it changes every pass.
 growth/listener/
 
+# Rendered cards. marketing/cards/ commits the source and not the output, for
+# the reason its own header gives: a graphic that cannot be regenerated goes
+# stale the first time a figure in it changes. `node shoot.mjs` remakes them.
+marketing/cards/campaign/out/
+marketing/cards/campaign/node_modules/
+
 # The auditor's environment: QUOTE_SECRET signs its quotes and is a password.
 # ops/auditor.env.example is the committed shape.
 ops/auditor.env
