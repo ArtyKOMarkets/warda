@@ -75,3 +75,4 @@ runner/spike/node_modules/
 # Runner secrets (DATABASE_URL etc.) — never committed
 runner/.env
 runner/.tmp/
+covenant/AUDIT.pdf

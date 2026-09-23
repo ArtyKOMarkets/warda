@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Covenant audit — warda_grant.sil v4</title>
+<style>
+  :root {
+    --ink:#14181d; --mute:#5b6470; --faint:#8b94a0;
+    --line:#e4e7ec; --rule:#c8ced6;
+    --ok:#1a7f4f; --no:#2f343a; --bad:#b3261e;
+    --okwash:#1a7f4f14; --nowash:#2f343a0f;
+  }
+  * { box-sizing:border-box; }
+  html { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  body { margin:0; background:#fff; color:var(--ink);
+    font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif; }
+  .page { max-width:56rem; margin:0 auto; padding:56px 44px 72px; }
+  .num { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-variant-numeric:tabular-nums; }
+  h1 { font-size:30px; line-height:1.15; letter-spacing:-.02em; margin:0 0 6px; }
+  h2 { font-size:17px; letter-spacing:-.01em; margin:44px 0 6px; padding-top:14px;
+    border-top:1px solid var(--line); }
+  h2:first-of-type { border-top:0; }
+  p { margin:.55em 0; }
+  .sub { color:var(--mute); font-size:14px; margin:0 0 4px; }
+  .lede { font-size:15px; color:var(--ink); max-width:44rem; }
+  .caveat { margin:22px 0 0; padding:14px 16px; border:1px solid var(--rule);
+    border-left:3px solid var(--no); background:var(--nowash); font-size:14px; max-width:44rem; }
+  .caveat b { font-weight:600; }
+
+  .kpis { display:grid; grid-template-columns:repeat(5,1fr); gap:0;
+    margin:26px 0 0; border:1px solid var(--line); }
+  .kpi { padding:14px 16px; border-left:1px solid var(--line); }
+  .kpi:first-child { border-left:0; }
+  .kpi .k { font-size:11.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--faint); }
+  .kpi .v { font-size:26px; line-height:1.1; margin-top:6px; letter-spacing:-.02em; }
+  .kpi .n { font-size:12px; color:var(--mute); margin-top:3px; }
+  .v.good { color:var(--ok); } .v.bad { color:var(--bad); }
+
+  .bound { display:grid; grid-template-columns:minmax(0,13rem) 1fr;
+    gap:18px; align-items:center; padding:13px 0; border-top:1px solid var(--line);
+    break-inside:avoid; }
+  .bound .ax { font-size:13.5px; }
+  .bound .ax small { display:block; color:var(--faint); font-size:11.5px; }
+  .track { position:relative; height:64px; }
+  .zone { position:absolute; top:34px; height:20px; }
+  .zone.permitted { left:0; right:50%; background:var(--okwash); border:1px solid var(--ok); border-right:0; }
+  .zone.forbidden { left:50%; right:0; background:var(--nowash); border:1px solid var(--rule); border-left:0;
+    background-image:repeating-linear-gradient(135deg,transparent 0 5px,#2f343a1f 5px 6px); }
+  /* A lower bound permits the HIGH side, so the row mirrors and the axis
+     still reads small-to-large from left to right. */
+  .rev .zone.permitted { left:50%; right:0; border:1px solid var(--ok); border-left:0; }
+  .rev .zone.forbidden { left:0; right:50%; border:1px solid var(--rule); border-right:0; }
+  .barrier { position:absolute; left:50%; top:30px; height:28px; width:2px; background:var(--no);
+    transform:translateX(-1px); }
+  .dot { position:absolute; top:37px; width:14px; height:14px; border-radius:50%; }
+  .dot.ok { background:var(--ok); left:50%; transform:translateX(-26px); }
+  .dot.no { border:2px solid var(--no); background:#fff; left:50%; transform:translateX(12px); }
+  .rev .dot.ok { transform:translateX(12px); }
+  .rev .dot.no { transform:translateX(-26px); }
+  .dot.no::after { content:""; position:absolute; left:1px; right:1px; top:4px; height:2px;
+    background:var(--no); transform:rotate(-45deg); }
+  .lab { position:absolute; top:0; font-size:11px; line-height:1.35; white-space:nowrap; }
+  .lab.ok { right:50%; margin-right:8px; text-align:right; color:var(--ok); }
+  .lab.no { left:50%; margin-left:8px; color:var(--no); }
+  .rev .lab.ok { right:auto; left:50%; margin:0 0 0 8px; text-align:left; }
+  .rev .lab.no { left:auto; right:50%; margin:0 8px 0 0; text-align:right; }
+  .lab b { display:block; font-weight:600; font-size:12.5px; }
+  .gap { position:absolute; bottom:0; left:50%; transform:translateX(-50%);
+    font-size:10.5px; color:var(--faint); white-space:nowrap;
+    background:#fff; padding:0 5px; }
+
+  table { width:100%; border-collapse:collapse; margin-top:10px; font-size:13.5px; }
+  th { text-align:left; font-weight:600; font-size:11.5px; letter-spacing:.05em;
+    text-transform:uppercase; color:var(--faint); padding:0 10px 7px 0;
+    border-bottom:1px solid var(--rule); }
+  td { padding:7px 10px 7px 0; border-bottom:1px solid var(--line); vertical-align:top; }
+  tr { break-inside:avoid; }
+  .mark { white-space:nowrap; font-size:12.5px; }
+  .mark.ok::before { content:"● "; color:var(--ok); }
+  .mark.no::before { content:"⊘ "; color:var(--no); }
+  .mark.bad { color:var(--bad); font-weight:600; }
+  .mark.bad::before { content:"▲ "; }
+  .grade { font-size:11px; letter-spacing:.04em; text-transform:uppercase;
+    border:1px solid var(--rule); padding:1px 6px; color:var(--mute); }
+  ul { margin:.5em 0; padding-left:1.1em; }
+  li { margin:.28em 0; }
+  code { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.92em; }
+  footer { margin-top:40px; padding-top:14px; border-top:1px solid var(--line);
+    font-size:12px; color:var(--mute); }
+  @page { size:A4; margin:16mm 14mm; }
+  @media print {
+    .page { padding:0; max-width:none; }
+    h2 { break-after:avoid; }
+  }
+</style></head><body><div class="page">
+
+<p class="sub num">warda_grant.sil · v4 · fingerprint b3e5eeefacf2021f</p>
+<h1>Covenant audit</h1>
+<p class="lede">Every verdict below comes from <code>TxScriptEngine</code>, the same script
+engine a Kaspa node validates a transaction with. Nothing here is inferred from reading
+the source.</p>
+
+<div class="caveat"><b>This is not a statement that the covenant is secure.</b> It reports
+the properties that were tested, where the bytecode and <code>GUARANTEES.md</code> disagree,
+and which claims no constructed transaction could reach. The last of those is a section,
+not an omission.</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="k">Cases</div><div class="v num">76</div><div class="n">transactions executed</div></div>
+  <div class="kpi"><div class="k">Rules enforced</div><div class="v num">15 / 15</div><div class="n">10 at a measured boundary</div></div>
+  <div class="kpi"><div class="k">Violations</div><div class="v num good">0</div><div class="n">forbidden, yet accepted</div></div>
+  <div class="kpi"><div class="k">Over-refusals</div><div class="v num good">0</div><div class="n">permitted, yet refused</div></div>
+  <div class="kpi"><div class="k">Baseline</div><div class="v"><span class="v good">accepted</span></div><div class="n">every flip depends on it</div></div>
+</div>
+
+<h2>Why a rejection here means something</h2>
+<p>The engine collapses every failed <code>require</code> into one opaque
+<code>VerifyError</code>. It never says which rule rejected, so asserting that something
+was refused proves nothing on its own — a malformed signature script looks exactly like a
+working spending cap.</p>
+<p>Every case is a single field changed from a baseline this run proved the engine accepts.
+A rejection can therefore only be caused by the field that moved. Numeric rules are
+exercised one unit either side of their boundary, so a rule that is present but in the
+wrong place shows up as a disagreement rather than as a pass.</p>
+
+<h2>Where each boundary actually is</h2>
+<p>The filled mark is the tightest value the engine <b>accepted</b>. The barred mark is the
+loosest it <b>refused</b>. Both were executed; neither is inferred.</p>
+<div class="bound">
+  <div class="ax">amount, against the per-spend cap<small>per-spend cap · sompi</small></div>
+  <div class="track">
+    <div class="zone permitted"></div><div class="zone forbidden"></div><div class="barrier"></div>
+    <div class="dot ok"></div><div class="dot no"></div>
+    <div class="lab ok">accepted<br><b class="num">200,000,000</b></div>
+    <div class="lab no">refused<br><b class="num">200,000,001</b></div>
+    <div class="gap">1 sompi apart</div>
+  </div>
+</div><div class="bound">
+  <div class="ax">amount, against an unreserved budget<small>budget · sompi</small></div>
+  <div class="track">
+    <div class="zone permitted"></div><div class="zone forbidden"></div><div class="barrier"></div>
+    <div class="dot ok"></div><div class="dot no"></div>
+    <div class="lab ok">accepted<br><b class="num">150,000,000</b></div>
+    <div class="lab no">refused<br><b class="num">150,000,001</b></div>
+    <div class="gap">1 sompi apart</div>
+  </div>
+</div><div class="bound">
+  <div class="ax">amount, with 1.5 KAS reserved<small>budget · sompi</small></div>
+  <div class="track">
+    <div class="zone permitted"></div><div class="zone forbidden"></div><div class="barrier"></div>
+    <div class="dot ok"></div><div class="dot no"></div>
+    <div class="lab ok">accepted<br><b class="num">150,000,000</b></div>
+    <div class="lab no">refused<br><b class="num">150,000,001</b></div>
+    <div class="gap">1 sompi apart</div>
+  </div>
+</div><div class="bound">
+  <div class="ax">amount, against this epoch's allowance<small>epoch limit · sompi</small></div>
+  <div class="track">
+    <div class="zone permitted"></div><div class="zone forbidden"></div><div class="barrier"></div>
+    <div class="dot ok"></div><div class="dot no"></div>
+    <div class="lab ok">accepted<br><b class="num">150,000,000</b></div>
+    <div class="lab no">refused<br><b class="num">150,000,001</b></div>
+    <div class="gap">1 sompi apart</div>
+  </div>
+</div><div class="bound">
+  <div class="ax">transaction locktime<small>cltv · DAA</small></div>
+  <div class="track rev">
+    <div class="zone permitted"></div><div class="zone forbidden"></div><div class="barrier"></div>
+    <div class="dot ok"></div><div class="dot no"></div>
+    <div class="lab ok">accepted<br><b class="num">1,000,500</b></div>
+    <div class="lab no">refused<br><b class="num">1,000,499</b></div>
+    <div class="gap">1 DAA apart</div>
+  </div>
+</div><div class="bound">
+  <div class="ax">claimed DAA, at the window's start<small>window opens · DAA</small></div>
+  <div class="track rev">
+    <div class="zone permitted"></div><div class="zone forbidden"></div><div class="barrier"></div>
+    <div class="dot ok"></div><div class="dot no"></div>
+    <div class="lab ok">accepted<br><b class="num">1,000,000</b></div>
+    <div class="lab no">refused<br><b class="num">999,999</b></div>
+    <div class="gap">1 DAA apart</div>
+  </div>
+</div><div class="bound">
+  <div class="ax">claimed DAA, at the window's end<small>window closes · DAA</small></div>
+  <div class="track">
+    <div class="zone permitted"></div><div class="zone forbidden"></div><div class="barrier"></div>
+    <div class="dot ok"></div><div class="dot no"></div>
+    <div class="lab ok">accepted<br><b class="num">1,006,999</b></div>
+    <div class="lab no">refused<br><b class="num">1,007,000</b></div>
+    <div class="gap">1 DAA apart</div>
+  </div>
+</div><div class="bound">
+  <div class="ax">fee taken from the grant<small>continuation value · sompi</small></div>
+  <div class="track">
+    <div class="zone permitted"></div><div class="zone forbidden"></div><div class="barrier"></div>
+    <div class="dot ok"></div><div class="dot no"></div>
+    <div class="lab ok">accepted<br><b class="num">100,000</b></div>
+    <div class="lab no">refused<br><b class="num">100,001</b></div>
+    <div class="gap">1 sompi apart</div>
+  </div>
+</div><div class="bound">
+  <div class="ax">child maxPerSpend<small>delegation attenuation · sompi</small></div>
+  <div class="track">
+    <div class="zone permitted"></div><div class="zone forbidden"></div><div class="barrier"></div>
+    <div class="dot ok"></div><div class="dot no"></div>
+    <div class="lab ok">accepted<br><b class="num">200,000,000</b></div>
+    <div class="lab no">refused<br><b class="num">200,000,001</b></div>
+    <div class="gap">1 sompi apart</div>
+  </div>
+</div><div class="bound">
+  <div class="ax">child epochLimit<small>delegation attenuation · sompi</small></div>
+  <div class="track">
+    <div class="zone permitted"></div><div class="zone forbidden"></div><div class="barrier"></div>
+    <div class="dot ok"></div><div class="dot no"></div>
+    <div class="lab ok">accepted<br><b class="num">1,000,000,000</b></div>
+    <div class="lab no">refused<br><b class="num">1,000,000,001</b></div>
+    <div class="gap">1 sompi apart</div>
+  </div>
+</div><div class="bound">
+  <div class="ax">child notBefore<small>delegation attenuation · DAA</small></div>
+  <div class="track rev">
+    <div class="zone permitted"></div><div class="zone forbidden"></div><div class="barrier"></div>
+    <div class="dot ok"></div><div class="dot no"></div>
+    <div class="lab ok">accepted<br><b class="num">1,000,000</b></div>
+    <div class="lab no">refused<br><b class="num">999,999</b></div>
+    <div class="gap">1 DAA apart</div>
+  </div>
+</div><div class="bound">
+  <div class="ax">child expiresAt<small>delegation attenuation · DAA</small></div>
+  <div class="track">
+    <div class="zone permitted"></div><div class="zone forbidden"></div><div class="barrier"></div>
+    <div class="dot ok"></div><div class="dot no"></div>
+    <div class="lab ok">accepted<br><b class="num">1,007,000</b></div>
+    <div class="lab no">refused<br><b class="num">1,007,001</b></div>
+    <div class="gap">1 DAA apart</div>
+  </div>
+</div><div class="bound">
+  <div class="ax">child delegationDepth<small>delegation attenuation · levels</small></div>
+  <div class="track">
+    <div class="zone permitted"></div><div class="zone forbidden"></div><div class="barrier"></div>
+    <div class="dot ok"></div><div class="dot no"></div>
+    <div class="lab ok">accepted<br><b class="num">1</b></div>
+    <div class="lab no">refused<br><b class="num">2</b></div>
+    <div class="gap">1 level apart</div>
+  </div>
+</div>
+<h2>Findings</h2>
+<p><span class="mark ok">No violations</span> — nothing the guarantees forbid was accepted.
+<span class="mark ok">No over-refusals</span> — nothing they permit was refused.</p>
+<h2>Rules</h2>
+<p><b>Boundary</b> — both halves were measured on the rule's own axis, one unit apart.
+<b>Flip</b> — only the refusal is in the family, and it is attributable because the case is
+a single field away from the accepted baseline.</p>
+<table><thead><tr><th style="width:11rem">Rule</th><th style="width:6rem">Grade</th><th>The claim it was checked against</th></tr></thead><tbody><tr><td>per-spend cap</td><td><span class="grade">boundary</span></td><td><code>amount &lt;= maxPerSpend</code></td></tr><tr><td>budget</td><td><span class="grade">boundary</span></td><td><code>amount &lt;= budgetTotal - (spentTotal + reserved)</code></td></tr><tr><td>epoch limit</td><td><span class="grade">boundary</span></td><td><code>amount &lt;= epochLimit - spentThisEpoch</code></td></tr><tr><td>epoch ratchet</td><td><span class="grade">boundary</span></td><td><code>currentEpoch &gt;= prevState.epochIndex</code></td></tr><tr><td>cltv</td><td><span class="grade">boundary</span></td><td><code>tx.daa &gt;= claimedDaa</code></td></tr><tr><td>window opens</td><td><span class="grade">boundary</span></td><td><code>claimedDaa &gt;= notBefore</code></td></tr><tr><td>window closes</td><td><span class="grade">boundary</span></td><td><code>claimedDaa &lt; expiresAt</code></td></tr><tr><td>authority immutable</td><td><span class="grade">flip</span></td><td><code>authority is unchanged in the successor (nine equality checks)</code></td></tr><tr><td>successor accounting</td><td><span class="grade">flip</span></td><td><code>the successor state is exactly right (four checks on spent/reserved/epoch)</code></td></tr><tr><td>continuation value</td><td><span class="grade">boundary</span></td><td><code>outputs[0].value &gt;= inValue - amount - maxFee</code></td></tr><tr><td>signature</td><td><span class="grade">flip</span></td><td><code>checkSig(agentSig, agentKey)</code></td></tr><tr><td>allowlist</td><td><span class="grade">boundary</span></td><td><code>merkleRoot(recipient, proof) == recipientsRoot</code></td></tr><tr><td>delegation attenuation</td><td><span class="grade">boundary</span></td><td><code>every attenuable field only narrows</code></td></tr><tr><td>delegation start</td><td><span class="grade">flip</span></td><td><code>the child starts clean</code></td></tr><tr><td>delegation reserve</td><td><span class="grade">flip</span></td><td><code>the parent changes in exactly one way: reserved + child.budgetTotal</code></td></tr></tbody></table>
+<h2>Every case</h2>
+<table><thead><tr><th style="width:10rem">Rule</th><th>Transaction</th><th style="width:6rem">Guarantee</th><th style="width:7rem">Engine</th></tr></thead><tbody><tr><td>baseline</td><td>0.5 KAS to an allowlisted payee, in the window, within every cap</td><td>permits</td><td><span class="mark ok">accepted</span></td></tr><tr><td>per-spend cap</td><td>exactly the cap</td><td>permits</td><td><span class="mark ok">accepted</span></td></tr><tr><td>per-spend cap</td><td>one sompi under the cap</td><td>permits</td><td><span class="mark ok">accepted</span></td></tr><tr><td>per-spend cap</td><td>one sompi over the cap</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>per-spend cap</td><td>a hundred times the cap</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>per-spend cap</td><td>one sompi</td><td>permits</td><td><span class="mark ok">accepted</span></td></tr><tr><td>per-spend cap</td><td>nothing at all</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>per-spend cap</td><td>a negative amount</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>budget</td><td>exactly the uncommitted budget</td><td>permits</td><td><span class="mark ok">accepted</span></td></tr><tr><td>budget</td><td>one sompi past the uncommitted budget</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>budget</td><td>exactly what is left once reserve is counted</td><td>permits</td><td><span class="mark ok">accepted</span></td></tr><tr><td>budget</td><td>one sompi into the reserve</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>epoch limit</td><td>exactly this epoch's remaining allowance</td><td>permits</td><td><span class="mark ok">accepted</span></td></tr><tr><td>epoch limit</td><td>one sompi past this epoch's allowance</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>epoch ratchet</td><td>a later epoch, with its own fresh allowance</td><td>permits</td><td><span class="mark ok">accepted</span></td></tr><tr><td>epoch ratchet</td><td>the recorded epoch, which is already exhausted</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>epoch ratchet</td><td>an EARLIER epoch — the v1 allowance reset</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>epoch ratchet</td><td>the first epoch, long past</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>cltv</td><td>locktime exactly the claimed DAA</td><td>permits</td><td><span class="mark ok">accepted</span></td></tr><tr><td>cltv</td><td>locktime one DAA below the claim</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>window opens</td><td>the first DAA of the window</td><td>permits</td><td><span class="mark ok">accepted</span></td></tr><tr><td>window opens</td><td>one DAA before the window opens</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>window closes</td><td>the last DAA of the window</td><td>permits</td><td><span class="mark ok">accepted</span></td></tr><tr><td>window closes</td><td>the first DAA after expiry</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>window closes</td><td>well past expiry</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>authority immutable</td><td>budgetTotal raised by one in the successor</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>authority immutable</td><td>budgetTotal lowered by one in the successor</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>authority immutable</td><td>maxPerSpend raised by one in the successor</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>authority immutable</td><td>maxPerSpend lowered by one in the successor</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>authority immutable</td><td>epochLimit raised by one in the successor</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>authority immutable</td><td>epochLimit lowered by one in the successor</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>authority immutable</td><td>epochLength raised by one in the successor</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>authority immutable</td><td>epochLength lowered by one in the successor</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>authority immutable</td><td>notBefore raised by one in the successor</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>authority immutable</td><td>notBefore lowered by one in the successor</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>authority immutable</td><td>expiresAt raised by one in the successor</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>authority immutable</td><td>expiresAt lowered by one in the successor</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>authority immutable</td><td>delegationDepth raised by one in the successor</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>authority immutable</td><td>delegationDepth lowered by one in the successor</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>authority immutable</td><td>agentKey swapped in the successor</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>authority immutable</td><td>recipientsRoot swapped in the successor</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>authority immutable</td><td>templateId swapped in the successor</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>successor accounting</td><td>spend the money, record nothing</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>successor accounting</td><td>spentTotal short by one</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>successor accounting</td><td>spentTotal over by one</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>successor accounting</td><td>reserved raised by one</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>successor accounting</td><td>reserved lowered by one</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>successor accounting</td><td>epochSpent short by one</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>successor accounting</td><td>epochSpent over by one</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>successor accounting</td><td>epochIndex pushed forward</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>successor accounting</td><td>epochIndex pushed backward</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>continuation value</td><td>a fee of exactly maxFee</td><td>permits</td><td><span class="mark ok">accepted</span></td></tr><tr><td>continuation value</td><td>a fee one sompi over maxFee</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>continuation value</td><td>the whole remainder taken as fee</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>signature</td><td>signed by a key that is not the agent's</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>allowlist</td><td>member 0xa1 of the allowlist</td><td>permits</td><td><span class="mark ok">accepted</span></td></tr><tr><td>allowlist</td><td>member 0xa2 of the allowlist</td><td>permits</td><td><span class="mark ok">accepted</span></td></tr><tr><td>allowlist</td><td>member 0xa3 of the allowlist</td><td>permits</td><td><span class="mark ok">accepted</span></td></tr><tr><td>allowlist</td><td>member 0xa4 of the allowlist</td><td>permits</td><td><span class="mark ok">accepted</span></td></tr><tr><td>allowlist</td><td>a payee absent from the allowlist</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>allowlist</td><td>a proof naming an allowlisted payee, money going elsewhere</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>delegation baseline</td><td>a child narrower on every axis</td><td>permits</td><td><span class="mark ok">accepted</span></td></tr><tr><td>delegation attenuation</td><td>child maxPerSpend exactly equal to the parent's</td><td>permits</td><td><span class="mark ok">accepted</span></td></tr><tr><td>delegation attenuation</td><td>child maxPerSpend one step wider than the parent's</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>delegation attenuation</td><td>child epochLimit exactly equal to the parent's</td><td>permits</td><td><span class="mark ok">accepted</span></td></tr><tr><td>delegation attenuation</td><td>child epochLimit one step wider than the parent's</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>delegation attenuation</td><td>child notBefore exactly equal to the parent's</td><td>permits</td><td><span class="mark ok">accepted</span></td></tr><tr><td>delegation attenuation</td><td>child notBefore one step wider than the parent's</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>delegation attenuation</td><td>child expiresAt exactly equal to the parent's</td><td>permits</td><td><span class="mark ok">accepted</span></td></tr><tr><td>delegation attenuation</td><td>child expiresAt one step wider than the parent's</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>delegation attenuation</td><td>child delegationDepth one below the parent's</td><td>permits</td><td><span class="mark ok">accepted</span></td></tr><tr><td>delegation attenuation</td><td>child delegationDepth exactly equal to the parent's</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>delegation start</td><td>a child born already having spent one sompi</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>delegation reserve</td><td>no reserve taken</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>delegation reserve</td><td>reserve one KAS short</td><td>forbids</td><td><span class="mark no">refused</span></td></tr><tr><td>delegation reserve</td><td>reserve one KAS over</td><td>forbids</td><td><span class="mark no">refused</span></td></tr></tbody></table>
+<h2>What this run did not test</h2>
+<ul>
+<li><code>revoke</code> and <code>reclaim</code> — the exits. Both are signed by keys the
+agent does not hold, and neither moves the accounting this report is about.</li>
+<li><code>settle</code> / <code>reabsorb</code> — the v4 splice path. It needs a real
+foreign-input redeem script, which this harness does not yet build.</li>
+<li>The subset witness: a child narrowing its allowlist to a subtree.</li>
+<li>Anything above the script engine — a node's mempool policy, relay rules, or what a
+wallet does with a transaction before it is broadcast.</li>
+<li>The residual described in <code>GUARANTEES.md</code>: allowance from unused epochs
+stays spendable after the chain passes <code>expiresAt</code>. That is a property of the
+design, correctly implemented, not a defect the engine can report.</li>
+</ul>
+
+<footer>
+Generated 2026-09-23 07:27 UTC by <code>covenant/harness/src/bin/audit.rs</code>.
+Reproduce with <code>cd covenant/harness &amp;&amp; cargo run --bin audit</code>.
+The engine and the Silverscript compiler are both pinned by revision in
+<code>Cargo.toml</code>; an unpinned compiler could alter the bytecode between runs.
+</footer>
+</div></body></html>

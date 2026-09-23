@@ -158,8 +158,27 @@ and 32 of 33 tests failed to compile with nobody watching. There is one copy.
 
 ```bash
 cd covenant/harness
-cargo run --bin audit          # writes covenant/AUDIT.md, exits 1 on a violation
+cargo run --bin audit          # exits 1 the moment a guarantee is violated
 ```
+
+Three files, one run:
+
+| | |
+|---|---|
+| `covenant/AUDIT.md` | the report in prose, for the repo |
+| `covenant/AUDIT.html` | the printed report — one self-contained file, no network, no script |
+| `covenant/audit.json` | the same run, for anything that reads rather than looks |
+
+`AUDIT.html` is the one to send somebody. Open it and print to PDF, or:
+
+```bash
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+  --headless --disable-gpu --no-pdf-header-footer \
+  --print-to-pdf=covenant/AUDIT.pdf covenant/AUDIT.html
+```
+
+The PDF is not committed: it is derived from a run, and a binary that changes
+on every run is a diff nobody can read.
 
 **What it adds over the flip tests.** A flip proves a rule is *present* by
 moving a field far outside it — 20 KAS against a 2 KAS cap. It cannot prove the
@@ -182,8 +201,14 @@ not omitted from it.
 an auditor starts agreeing with the thing it is auditing — the same shape as
 "a fake written from an assumption agrees with the bug it was meant to catch".
 
+**Where each boundary actually is** is the section worth printing. For every
+numeric rule it draws the tightest value the engine accepted and the loosest it
+refused, on one axis, ascending left to right — a lower bound mirrors rather
+than relabels, so a larger number is never drawn to the left of a smaller one.
+Both marks were executed; neither is inferred.
+
 Current run: **76 cases, 15 of 15 rules enforced, 10 of them at a measured
-boundary, 0 violations, 0 over-refusals.**
+boundary, 13 boundaries drawn, 0 violations, 0 over-refusals.**
 
 ## What is still not proven here
 
