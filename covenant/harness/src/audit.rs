@@ -331,6 +331,7 @@ fn html(
 
     let _ = write!(s, r#"<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Covenant audit — {line}</title>
 <style>
   /* The console's own surfaces and ink, so a report and the product it
@@ -457,6 +458,48 @@ fn html(
      report reads as a printing fault rather than a margin. So the page margin
      is zero and the breathing room is padding inside the box the background
      paints. */
+  /* A phone. The report is the thing you send somebody, so it is read on one
+     at least as often as on a desktop, and every grid above assumes width it
+     does not have there. Each rule below is one layout that breaks: five
+     tiles in a row, a label column beside a bar, a barrier diagram with two
+     nowrap labels either side of a centre line, and three tables carrying
+     inline rem widths that together exceed the screen. */
+  @media (max-width:640px) {{
+    .page {{ padding:30px 18px 56px; }}
+    h1 {{ font-size:27px; }}
+    h2 {{ margin-top:34px; }}
+    .lede, .caveat {{ max-width:none; }}
+    .caveat {{ padding:13px 14px; }}
+    .verdict {{ padding:18px 16px; border-radius:12px; }}
+    .verdict .big {{ font-size:21px; }}
+
+    /* Two tiles across, so the fifth sits alone on the last row. The rules
+       follow the columns rather than the source order: no left border on the
+       odd children that start a row, a top border on everything below row 1. */
+    .kpis {{ grid-template-columns:repeat(2,1fr); }}
+    .kpi {{ padding:13px 14px; }}
+    .kpi .v {{ font-size:22px; }}
+    .kpi:nth-child(odd) {{ border-left:0; }}
+    .kpi:nth-child(n+3) {{ border-top:1px solid var(--line); }}
+
+    /* The entrypoint name goes above its bar instead of beside it. */
+    .cov {{ grid-template-columns:minmax(0,1fr) auto; gap:7px 10px; }}
+    .cov .e {{ grid-column:1 / -1; padding-top:7px; }}
+    .cov .e:first-child {{ padding-top:0; }}
+
+    /* Same, for the boundary diagrams: axis above, track full width. The
+       labels either side of the barrier have to be allowed to wrap, and then
+       bounded, or the long ones run off both edges of a 350px track. */
+    .bound {{ grid-template-columns:minmax(0,1fr); gap:8px; }}
+    .track {{ height:96px; }}
+    .lab {{ white-space:normal; max-width:calc(50% - 30px); }}
+    .gap {{ font-size:10px; }}
+
+    /* The inline widths are sized for a desktop column — 10rem + 6rem + 7rem
+       leaves a negative remainder here — so the cells share what there is. */
+    table {{ font-size:12.5px; }}
+    th, td {{ width:auto !important; padding-right:8px; }}
+  }}
   @page {{ size:A4; margin:0; }}
   @media print {{
     .page {{ max-width:none; padding:16mm 14mm; }}
