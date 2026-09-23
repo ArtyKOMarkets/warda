@@ -3832,6 +3832,7 @@ name = "warda-harness"
 version = "0.1.0"
 dependencies = [
  "blake2b_simd",
+ "blake3",
  "kaspa-consensus-core",
  "kaspa-txscript",
  "kaspa-txscript-errors",
