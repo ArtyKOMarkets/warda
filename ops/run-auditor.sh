@@ -38,6 +38,28 @@ else
   exit 1
 fi
 
+# Named here rather than left to the vendor package, which throws an uncaught
+# Error with a stack trace. The message is right; the presentation says "this
+# program is broken" when what happened is "one line of a config file is
+# blank", and the file it is blank in is not mentioned anywhere in the trace.
+if [ -z "${PAY_TO:-}" ]; then
+  echo "PAY_TO is empty in $here/auditor.env." >&2
+  echo "It is the address every quote tells a buyer to pay." >&2
+  exit 1
+fi
+if [ -z "${QUOTE_SECRET:-}" ]; then
+  echo "QUOTE_SECRET is empty in $here/auditor.env." >&2
+  echo >&2
+  echo "Generate one straight into the file, so it is never on screen or in" >&2
+  echo "your shell history:" >&2
+  echo >&2
+  echo "    printf 'QUOTE_SECRET=%s\\n' \"\$(openssl rand -hex 32)\" >> $here/auditor.env" >&2
+  echo >&2
+  echo "Then delete the earlier blank QUOTE_SECRET= line. Keep the value: every" >&2
+  echo "restart must use the same one, or quotes issued before it stop verifying." >&2
+  exit 1
+fi
+
 SCAN_BIN="${SCAN_BIN:-$here/../covenant/harness/target/release/scan}"
 if [ ! -x "$SCAN_BIN" ]; then
   echo "no scan binary at $SCAN_BIN" >&2
