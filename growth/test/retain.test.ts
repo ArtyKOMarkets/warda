@@ -5,7 +5,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync, readFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { isStale, prune, pruneDir, stripped, KEEP_MS, type SavedRun } from "../src/retain.ts";
@@ -68,4 +68,59 @@ test("a directory is walked, and it reports what it changed", () => {
   assert.equal(after.posts[0]!.id, "1");
   const untouched = JSON.parse(readFileSync(join(dir, "fresh.json"), "utf8")) as SavedRun;
   assert.notEqual(untouched.posts[0]!.text, "");
+});
+
+/* ------------------------------------------------------------------------ *
+ * The second place X content lands, and the one the first version walked
+ * past: buy.ts's purchase records, in a subdirectory, with the seller's whole
+ * answer under `response`.
+ * ------------------------------------------------------------------------ */
+
+const purchase = (at: string) => ({
+  at, txid: "91cfa8e8a484f1ac", outcome: "bought",
+  quoted: { payTo: "kaspatest:q…", amountSompi: "5000000" },
+  response: { query: "x402", reads: 10, costUsd: 0.05, posts: [post("1"), post("2")] },
+});
+
+test("a purchase record is pruned too, and keeps its receipt", () => {
+  const dir = mkdtempSync(join(tmpdir(), "buys-"));
+  const sub = join(dir, "purchases");
+  mkdirSync(sub);
+  writeFileSync(join(sub, "old.json"), JSON.stringify(purchase(new Date(Date.now() - 2 * KEEP_MS).toISOString())));
+
+  const done = pruneDir(dir);
+  assert.deepEqual(done.map((d) => d.file), ["purchases/old.json"], "the subdirectory must be walked");
+  assert.equal(done[0]!.posts, 2);
+
+  const after = JSON.parse(readFileSync(join(sub, "old.json"), "utf8"));
+  /* The receipt is ours and stays forever: what was paid, to whom, and that
+     it was served. None of that is X's. */
+  assert.equal(after.txid, "91cfa8e8a484f1ac");
+  assert.equal(after.outcome, "bought");
+  assert.equal(after.quoted.amountSompi, "5000000");
+  assert.equal(after.response.reads, 10);
+  /* The posts are not. */
+  assert.equal(after.response.posts[0].text, "");
+  assert.equal(after.response.posts[0].id, "1", "the Post ID is the thing X lets us keep");
+});
+
+test("a fresh purchase keeps its posts, so a run can still be judged", () => {
+  const dir = mkdtempSync(join(tmpdir(), "buys-"));
+  const sub = join(dir, "purchases");
+  mkdirSync(sub);
+  writeFileSync(join(sub, "new.json"), JSON.stringify(purchase(new Date().toISOString())));
+  assert.deepEqual(pruneDir(dir), []);
+  const after = JSON.parse(readFileSync(join(sub, "new.json"), "utf8"));
+  assert.notEqual(after.response.posts[0].text, "");
+});
+
+test("a purchase with no posts is left alone rather than rewritten", () => {
+  /* The refused ones: a 400 or a covenant refusal has no posts in it, and
+     rewriting them every pass would churn files that are already correct. */
+  const dir = mkdtempSync(join(tmpdir(), "buys-"));
+  const sub = join(dir, "purchases");
+  mkdirSync(sub);
+  const refused = { at: new Date(Date.now() - 2 * KEEP_MS).toISOString(), txid: null, outcome: "failed", response: { error: "refused" } };
+  writeFileSync(join(sub, "refused.json"), JSON.stringify(refused));
+  assert.deepEqual(pruneDir(dir), []);
 });
