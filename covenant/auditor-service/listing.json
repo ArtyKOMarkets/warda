@@ -2,7 +2,7 @@
   "version": 1,
   "name": "Covenant auditor",
   "description": "Analysis of a Silverscript covenant you upload: its ABI, its state layout, its compiled size against the consensus ceiling, which constructor arguments move that size, and every condition it refuses on, grouped by the entrypoint enforcing it. Paid requests return that analysis dated and rendered as a self-contained document; the same analysis is free and unrendered at /v1/scan. Not a statement that a covenant is secure \u2014 whether the conditions are the right ones needs a transaction the engine accepts, and that needs a builder written for the covenant. Your file is compiled in a subprocess and deleted, never executed. Run by the Warda project, not an independent vendor.",
-  "endpoint": "https://auditor.wardaprotocol.com/v1/report",
+  "endpoint": "https://warda-node.tailc0c0ec.ts.net:8443/v1/report",
   "capabilities": [
     "covenant.analyse",
     "silverscript.scan"

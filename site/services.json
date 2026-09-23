@@ -1,7 +1,7 @@
 {
-  "_comment": "The Warda service registry, version 1: a file, served as JSON and rendered by /network. It is a file and not a service on purpose \u2014 a registry with two entries does not need an API, and the shape below is the shape the API will serve, so nothing about a listing has to change when one exists. Every entry is a claim BY ITS OPERATOR about its own service. The registry does not verify prices or availability and says so on the page; what it can show, and what no other directory can, is what has actually been paid to each payee on chain.",
+  "_comment": "The Warda service registry, version 1: a file, served as JSON and rendered by /network. It is a file and not a service on purpose — a registry with two entries does not need an API, and the shape below is the shape the API will serve, so nothing about a listing has to change when one exists. Every entry is a claim BY ITS OPERATOR about its own service. The registry does not verify prices or availability and says so on the page; what it can show, and what no other directory can, is what has actually been paid to each payee on chain.",
   "version": 1,
-  "_registry_comment": "The hosted registry, which re-fetches every source from its operator's own domain and re-checks its signature on each request. /network prefers it and falls back to the `services` array below when it cannot be reached \u2014 saying which reading it is showing, because a cached list and a live one are different claims. Empty means the page renders the file only, which is the correct behaviour and not a degraded one.",
+  "_registry_comment": "The hosted registry, which re-fetches every source from its operator's own domain and re-checks its signature on each request. /network prefers it and falls back to the `services` array below when it cannot be reached — saying which reading it is showing, because a cached list and a live one are different claims. Empty means the page renders the file only, which is the correct behaviour and not a degraded one.",
   "registry": "https://registry.wardaprotocol.com",
   "services": [
     {
@@ -53,7 +53,7 @@
     },
     {
       "id": "warda-growth-research",
-      "name": "Warda Growth \u00b7 Researcher",
+      "name": "Warda Growth · Researcher",
       "description": "A checkable record about a software project: facts from GitHub, each with the URL it came from, and a named list of what could not be established. Never a score. Bought every week by Warda's own growth agents, and sold to anyone.",
       "endpoint": "https://warda-growth.vercel.app/verify",
       "capabilities": [
@@ -74,6 +74,30 @@
       "operator": "warda",
       "operatorNote": "Run by this project. The growth fleet's Scout is its main buyer, through a grant that may pay this address and nothing else.",
       "listedAt": "2026-09-21"
+    },
+    {
+      "id": "warda-auditor",
+      "name": "Covenant auditor",
+      "description": "Analysis of a Silverscript covenant you upload: its ABI, its state layout, its size against the consensus ceiling, and every condition it refuses on. Paid requests return it dated and rendered as a document you can send. Never a statement that a covenant is secure.",
+      "endpoint": "https://warda-node.tailc0c0ec.ts.net:8443/v1/report",
+      "capabilities": [
+        "covenant.analyse",
+        "silverscript.scan"
+      ],
+      "pricing": {
+        "asset": "KAS",
+        "amount": "0.04",
+        "unit": "request"
+      },
+      "payment": {
+        "protocol": "x402",
+        "network": "kaspa:testnet-10",
+        "warda": true
+      },
+      "payee": "8e5ec153d5e3f099b64d90d8664acb62133d86fc64e693d7330a3dc4abf12724",
+      "operator": "warda",
+      "operatorNote": "Run by this project. The same analysis is free and unrendered at /v1/scan, and it is the only tier here a stranger can run on their own covenant. Hosted on a laptop through a tunnel, so it sleeps when the machine does.",
+      "listedAt": "2026-09-23"
     }
   ],
   "known_but_unlisted": [
@@ -87,6 +111,7 @@
   "_sources_comment": "Signed manifests, at their operators' own domains. THIS is the registry's index and the list above is what it has read: a service is listed by publishing a signed manifest at /.well-known/warda-service.json on the host its endpoint runs on, and the registry stores only the URL. ops/build-registry-sources.mjs generates registry/deploy/sources.json from this, so the hosted endpoint and this file cannot drift.",
   "sources": [
     "https://warda-demo-api.vercel.app/.well-known/warda-service.json",
-    "https://warda-growth.vercel.app/.well-known/warda-service.json"
+    "https://warda-growth.vercel.app/.well-known/warda-service.json",
+    "https://warda-node.tailc0c0ec.ts.net:8443/.well-known/warda-service.json"
   ]
 }
