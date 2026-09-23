@@ -19,8 +19,9 @@
  * something this service cannot deliver.
  */
 import { priced } from "@warda_protocol/vendor";
+import { fileSpent } from "./spent.mjs";
 import { execFile } from "node:child_process";
-import { mkdtemp, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, writeFile, rm, readFile } from "node:fs/promises";
 import { promisify } from "node:util";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -29,6 +30,27 @@ import http from "node:http";
 const run = promisify(execFile);
 const SCAN = process.env.SCAN_BIN ?? "../harness/target/release/scan";
 const MAX_BYTES = 256 * 1024;
+const PRICE_SOMPI = BigInt(process.env.PRICE_SOMPI ?? "4000000");
+
+/* The signed listing, served from this origin because that is the binding:
+   the registry checks that a manifest naming this endpoint was fetched from
+   this endpoint's host, which is what makes it a claim by whoever controls
+   the domain rather than by whoever typed it. */
+const MANIFEST = process.env.MANIFEST_FILE ?? "./public/.well-known/warda-service.json";
+
+/* One payment, one report. See spent.mjs — the default this would otherwise
+   take forgets every sale on restart. */
+const SPENT = fileSpent(process.env.SPENT_FILE ?? "./spent.log");
+
+/* Refused at startup rather than at the first sale. Without PAY_TO the quote
+   names no address, so a buyer pays nobody and the failure surfaces after
+   their money has moved. `priced` already refuses to invent a quote secret
+   for the same reason; the address deserves the same treatment. */
+if (!process.env.PAY_TO) {
+  console.error("PAY_TO is not set. It is the address every quote tells a buyer to pay,\n" +
+                "and there is no sensible default for where somebody else's money goes.");
+  process.exit(2);
+}
 
 /** The covenant is somebody else's text. It is never executed, only compiled
  *  by the Silverscript compiler in a subprocess with no arguments it did not
@@ -86,12 +108,45 @@ entrypoints.</div>
 source with <code>cargo run --bin scan</code>; this document adds a date and a shape you can send.</footer>
 </div></body></html>`;
 
+/** What this sells, for anyone who arrives without a registry. */
+const terms = () => ({
+  name: "Covenant auditor",
+  free: {
+    "POST /v1/scan":
+      "The analysis: ABI, state layout, script size against the consensus ceiling, which " +
+      "constructor arguments move that size, and every condition the covenant refuses on, " +
+      "grouped by the entrypoint that enforces it. Needs no builder, so it runs on any .sil.",
+  },
+  paid: {
+    "POST /v1/report": "The same analysis, dated and rendered as a self-contained document.",
+    price: { asset: "KAS", amount: (Number(PRICE_SOMPI) / 1e8).toFixed(2), unit: "request" },
+    protocol: "x402",
+    network: process.env.WARDA_NETWORK ?? "testnet-10",
+    payTo: process.env.PAY_TO,
+  },
+  notSold:
+    "The claims suite and the conservation oracle. Both need a builder for this covenant's " +
+    "entrypoints — a function that constructs a transaction the engine accepts — which is code " +
+    "a person writes, not a parameter. See covenant/harness/PORTING.md.",
+  notAnAudit:
+    "Nothing here is a statement that a covenant is secure. It reports what is true of the " +
+    "compiled artefact and what the source refuses on; whether those are the right conditions, " +
+    "and whether each sits where its author thinks it does, needs a transaction the engine accepts.",
+  yourFile:
+    "Written to a temporary file, compiled in a subprocess with a 60-second limit, and deleted " +
+    "whether or not that succeeds. It is never executed — a covenant is a script for the Kaspa " +
+    "engine, not for this machine. Bodies over 256 KB are refused.",
+  operator: "Run by the Warda project. This is the project's own service, not an independent vendor.",
+  listing: "/.well-known/warda-service.json",
+});
+
 const paid = priced(
   {
     payTo: process.env.PAY_TO,
-    sompi: BigInt(process.env.PRICE_SOMPI ?? "4000000"),
+    sompi: PRICE_SOMPI,
     network: process.env.WARDA_NETWORK ?? "testnet-10",
     secret: process.env.QUOTE_SECRET,
+    spent: SPENT,
   },
   async (req) => {
     const text = await analyse(req.__source);
@@ -103,6 +158,29 @@ http
   .createServer(async (req, res) => {
     const send = (code, type, payload) => { res.writeHead(code, { "content-type": type }); res.end(payload); };
     try {
+      const path = (req.url ?? "/").split("?")[0];
+
+      if (req.method === "GET") {
+        /* Free, and on this host on purpose: an agent that has found this
+           endpoint can read its terms without paying, and the registry can
+           re-fetch the listing from the domain it describes. */
+        if (path === "/.well-known/warda-service.json") {
+          let listing;
+          try {
+            listing = await readFile(MANIFEST, "utf8");
+          } catch {
+            return send(404, "text/plain",
+              "no signed listing on this host yet.\n" +
+              "  node --experimental-strip-types registry/tools/sign-listing.ts \\\n" +
+              "    covenant/auditor-service/listing.json --key <the payee's key> \\\n" +
+              `    > ${MANIFEST}\n`);
+          }
+          return send(200, "application/json; charset=utf-8", listing);
+        }
+        if (path === "/") return send(200, "application/json; charset=utf-8", JSON.stringify(terms(), null, 2) + "\n");
+        return send(404, "text/plain", "GET / or /.well-known/warda-service.json\n");
+      }
+
       if (req.method !== "POST") return send(405, "text/plain", "POST a .sil body\n");
       const source = await body(req);
       if (!source.trim()) return send(400, "text/plain", "empty body\n");
@@ -127,5 +205,8 @@ http
   .listen(process.env.PORT ?? 8787, () => {
     console.log(`auditor on :${process.env.PORT ?? 8787}`);
     console.log(`  POST /v1/scan     free`);
-    console.log(`  POST /v1/report   402, ${process.env.PRICE_SOMPI ?? "4000000"} sompi to ${process.env.PAY_TO ?? "PAY_TO unset"}`);
+    console.log(`  POST /v1/report   402, ${PRICE_SOMPI} sompi to ${process.env.PAY_TO}`);
+    console.log(`  GET  /            free, the terms above as JSON`);
+    console.log(`  GET  /.well-known/warda-service.json`);
+    console.log(`  replay protection ${process.env.SPENT_FILE ?? "./spent.log"}, ${SPENT.count()} payments already served`);
   });

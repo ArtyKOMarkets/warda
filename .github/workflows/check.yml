@@ -170,6 +170,14 @@ jobs:
       - name: runner
         run: npm test --workspace runner
 
+      # Not a workspace — the auditor service is three files beside the
+      # covenant it analyses, and it depends on the vendor package rather than
+      # being one. Its store is the only thing between one payment and
+      # unlimited reports, so the tests run here where node already is,
+      # rather than in a place somebody has to remember.
+      - name: auditor service — one payment, one report, across a restart
+        run: npm test --prefix covenant/auditor-service
+
       # The site is built here and thrown away. Nothing is deployed from CI —
       # the point is that `build.py` DROPS a page whose data is missing, and
       # everything linking to that page is published anyway, so the site can

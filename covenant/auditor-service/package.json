@@ -4,6 +4,11 @@
   "type": "module",
   "version": "0.1.0",
   "description": "Covenant analysis over HTTP, with the artifact behind a 402.",
-  "scripts": { "start": "node server.mjs" },
-  "dependencies": { "@warda_protocol/vendor": "^0.3.3" }
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test \"test/*.test.mjs\""
+  },
+  "dependencies": {
+    "@warda_protocol/vendor": "^0.3.3"
+  }
 }
