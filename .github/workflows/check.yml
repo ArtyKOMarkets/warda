@@ -183,6 +183,7 @@ jobs:
           node growth/deploy/sync.mjs --check
           node ops/check-deploys.mjs
           node ops/check-releasable.mjs
+          node ops/check-audit.mjs
           python3 site/build.py
           node ops/check-links.mjs
           node ops/check-sitemap.mjs
