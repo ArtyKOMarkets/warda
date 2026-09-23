@@ -21,13 +21,26 @@ export PATH="$HOME/.local/node/bin:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bi
 cd "$REPO" || exit 1
 
 # The address it is paid at is the one the grant's allowlist names, and that
-# is fixed on chain. Reading it from the key rather than from an env var means
-# the two cannot disagree — a seller paid at a different address than the
-# grant permits produces refusals that look like a covenant bug.
-if [ -z "${XREADS_ADDRESS:-}" ] && [ -f growth/keys/xreads.key ]; then
-  XREADS_ADDRESS="$(npx warda wallet --key growth/keys/xreads.key 2>/dev/null \
-    | sed -n 's/.*address[ :]*\(kaspa[a-z]*:[0-9a-z]\{20,\}\).*/\1/p' | head -1)"
+# is fixed on chain — so it is read from the allowlist itself. The two cannot
+# disagree, because they are the same line of the same file: a seller paid at
+# an address the grant does not permit produces refusals that look exactly
+# like a covenant bug.
+#
+# Read from the file rather than derived from the key, because deriving it
+# meant `warda wallet`, which asks the CHAIN for a balance nobody here wants.
+# Under launchd that is a network call at startup with no node configured: it
+# hangs or fails, the address comes back empty, and the seller exits saying it
+# has no --pay-to. A daemon must not need the network to know its own name.
+if [ -z "${XREADS_ADDRESS:-}" ] && [ -f growth/listener-payees.txt ]; then
+  XREADS_ADDRESS="$(sed -n 's/^\(kaspa[a-z]*:[0-9a-z]\{20,\}\).*/\1/p' growth/listener-payees.txt | head -1)"
   export XREADS_ADDRESS
 fi
+if [ -z "${XREADS_ADDRESS:-}" ]; then
+  echo "no payee address: growth/listener-payees.txt has no kaspa address in it." >&2
+  echo "That file is the grant's allowlist. Without it this would be paid at an" >&2
+  echo "address the covenant does not permit, so it refuses to start." >&2
+  exit 2
+fi
+echo "xreads: paid at $XREADS_ADDRESS (from the grant's allowlist)" >&2
 
 exec node --experimental-strip-types growth/tools/xreads.ts
