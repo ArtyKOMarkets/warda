@@ -117,3 +117,28 @@ test("a price under Kaspa's floor is refused rather than quoted", async () => {
   assert.equal(r.status, 500);
   assert.match(JSON.stringify(r.body), /floor/);
 });
+
+test("the seller reads the names the buyer sends", async () => {
+  /* The buyer builds a real X URL — `query`, `start_time` — and the seller's
+     contract is `q` and `since`. They disagreed, and only the paid path could
+     show it: three 400s on the first run against the grant, refused before
+     any quote so nothing was charged. This pins the translation from the
+     seller's side: given what tools/listen.ts now sends, it serves. */
+  const calls: string[] = [];
+  const sent = new URLSearchParams();
+  sent.set("q", "x402 -is:retweet lang:en");
+  sent.set("since", "2026-09-22T12:48:17.110Z");
+  const r = await xsearch(u(`/search?${sent}`), null, cfg({}, calls));
+  assert.equal(r.status, 402, `expected a quote, got ${r.status}: ${JSON.stringify(r.body)}`);
+  const upstream = new URL(calls[0]!);
+  assert.equal(upstream.searchParams.get("query"), "x402 -is:retweet lang:en");
+  assert.equal(upstream.searchParams.get("start_time"), "2026-09-22T12:48:17.110Z");
+});
+
+test("X's own parameter names are not what this sells", async () => {
+  /* The failing shape, kept: forwarding X's names gets a 400 and no quote,
+     which is the correct refusal and the one that cost nothing. */
+  const r = await xsearch(u("/search?query=x402&start_time=2026-09-22T12:48:17.110Z"), null, cfg());
+  assert.equal(r.status, 400);
+  assert.match(JSON.stringify(r.body), /\?q=/);
+});

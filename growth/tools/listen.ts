@@ -383,7 +383,23 @@ async function main() {
 
   const bought: Fetcher = async (url) => {
     if (refused) return { status: 0, body: "" };
-    const target = `${XREADS}/search?${new URL(url).searchParams}`;
+    /* The seller's contract is `q` and `since`; what arrives here is X's own
+       URL, with `query` and `start_time`. Forwarding the parameters wholesale
+       sent the seller names it does not read, and it answered 400 three times
+       — correctly, and before quoting, so nothing was charged for it.
+    
+       Translated rather than aligned, because the two names are right on
+       their own sides: `listen` builds a real X request so its tests can
+       assert a real X request, and the seller takes a query and a window
+       because that is all it sells. `max_results` is deliberately not
+       forwarded: what a search costs is the seller's decision, not the
+       buyer's ask. */
+    const x = new URL(url).searchParams;
+    const want = new URLSearchParams();
+    want.set("q", x.get("query") ?? "");
+    const since = x.get("start_time");
+    if (since) want.set("since", since);
+    const target = `${XREADS}/search?${want}`;
     if (DRY) { console.error(`would buy ${target}`); return { status: 0, body: "" }; }
     if (!GRANT) { console.error("no --grant: pass one, or use --dry-run"); process.exit(2); }
     const r = await run(join(REPO, "agents/tools/buy.ts"), [
