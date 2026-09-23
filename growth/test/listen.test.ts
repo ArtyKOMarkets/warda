@@ -56,11 +56,14 @@ test("a post two searches found outranks a post one search found", () => {
   assert.ok(two.why.some((w) => w.includes("x402, agent wallet")));
 });
 
-test("somebody building outranks somebody commenting, at equal reach", () => {
+test("somebody describing their own work outranks somebody commenting", () => {
   const take = score(base({ text: "agents will need payments eventually" }));
   const doing = score(base({ text: "shipped a 402 endpoint for my agent, the budget cap broke" }));
   assert.ok(doing.score > take.score, `${doing.score} should beat ${take.score}`);
-  assert.ok(doing.why.some((w) => w.includes("building")));
+  /* The reason, not the wording: first-hand is the thing being rewarded, and
+     the first run showed why — `building` alone is what a press release says
+     about itself. */
+  assert.ok(doing.why.some((w) => w.includes("their own work")), doing.why.join(" "));
 });
 
 test("a question scores as an opening", () => {

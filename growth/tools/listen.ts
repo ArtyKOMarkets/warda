@@ -99,6 +99,17 @@ const DIRECT = has("direct");
 /** `--direct` only. What a trial pass may read before it stops, whatever else
  *  it was going to do. 60 reads is $0.30 at X's $0.005. */
 const MAX_READS = Number(flag("max-reads", "60"));
+/**
+ * `--save <file>`: write the posts a trial read, so the weights can be
+ * changed and re-checked against them for nothing.
+ *
+ * The first real run cost $0.30 and taught this project more than the
+ * previous day of building did — and then it was gone, because nothing kept
+ * it. A ranking is tuned by argument about specific posts, and buying a fresh
+ * set every time you move a weight both costs money and changes the evidence
+ * under the change you are trying to judge.
+ */
+const SAVE = flag("save");
 const PRICE = Number(flag("price", "5000000"));
 const EPOCH_HOURS = Number(flag("epoch-hours", "12"));
 const EPOCH_LIMIT = Number(flag("epoch-limit", "15000000")); // 0.15 KAS: three searches
@@ -111,7 +122,7 @@ const XREADS = flag("xreads", process.env.XREADS_URL ?? "http://127.0.0.1:8788")
 const GRANT = flag("grant", process.env.LISTENER_GRANT);
 const PAYEES = flag("recipients", join(HERE, "..", "listener-payees.txt"));
 /** Handles never worth reporting: ours, and anyone already in a thread with you. */
-const MUTE = new Set((process.env.LISTENER_MUTE ?? "wardaprotocol").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean));
+const MUTE = new Set((process.env.LISTENER_MUTE ?? "warda_protocol").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean));
 /** The topics worth checking every twelve hours, not every other pass. */
 const ALWAYS = (process.env.LISTENER_ALWAYS ?? "x402,agent payments").split(",").map((s) => s.trim()).filter(Boolean);
 
@@ -256,6 +267,13 @@ async function main() {
   const since = new Date(Date.now() - 2 * EPOCH_HOURS * 3_600_000).toISOString();
   const result = await listen(DIRECT ? direct : bought,
     { since, seen: new Set(state.seen), limit: LIMIT, perQuery: PER_QUERY, mute: MUTE }, p.queries);
+
+  if (SAVE) {
+    mkdirSync(dirname(SAVE), { recursive: true });
+    const posts = [...result.found, ...result.rejected].map((x) => x.post);
+    writeFileSync(SAVE, `${JSON.stringify({ at: new Date().toISOString(), since, queries: p.queries.map((q) => q.label), posts }, null, 2)}\n`);
+    console.error(`saved ${posts.length} posts to ${SAVE} — rescore them with tools/rescore.ts`);
+  }
 
   /* The trial's actual output: every candidate with its reasons, the rejected
      ones included and named as rejected. A ranking is judged by what it threw

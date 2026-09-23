@@ -77,26 +77,76 @@ export interface Scored {
 }
 
 /**
- * Accounts that match every payments query and are never a conversation:
- * price bots, airdrop farms, and the engagement accounts that post the same
- * thread weekly. Cheap to list, and each one saves a Telegram message that
- * would have taught you to ignore Telegram messages.
+ * ## What the first real run taught this file
+ *
+ * Six queries, sixty posts, $0.30. Of the six it surfaced, four were
+ * marketing or news and one was a real thread — and the best post in the run,
+ * a stranger asking "what safeguards exist against unauthorized transactions
+ * when giving an agent a wallet", was scored 5 and cut.
+ *
+ * Three causes, and all three were the rule rewarding the SHAPE of a sentence
+ * rather than the fact behind it:
+ *
+ *   - "someone is building" fired on `built|building`, which is what a press
+ *     release says about itself. "BAI Is Building The Infrastructure That
+ *     Connects AI Intelligence" is not a person with a problem.
+ *   - "a question, so there is an opening" fired on any `?`, including
+ *     "BLACKROCK MAKES A BET ON WEB4?", which is a headline.
+ *   - "no discussion yet" penalised posts with no replies, which on a
+ *     twice-daily agent is exactly backwards: being early is the advantage,
+ *     and a post forty minutes old has not had time to have replies.
+ *
+ * So the signals below are narrower and mostly first-person. A marketing
+ * sentence is written about a product; a person with the problem writes about
+ * themselves. That distinction is cheap to test for and it is the whole
+ * difference between the two lists above.
  */
-const NOT_A_CONVERSATION = /\b(airdrop|giveaway|pump|1000x|presale|whitelist|free \$|claim now|dm me|guaranteed)\b/i;
+
+/** Promotion, which matches every payments query and is never a conversation. */
+const NOT_A_CONVERSATION = /\b(airdrop|giveaway|presale|whitelist|claim now|dm me|guaranteed|1000x|moon|pump)\b/i;
+
+/** A launch announcement. Adjacent to relevant and never somewhere to reply. */
+const PROMO = /(\bintroducing\b|\bnow live\b|\bwe'?re live\b|\bearly access\b|\bwaitlist\b|\bjoin the\b|\bdon'?t miss\b|\bis building the\b|🚀)/i;
+
+/** Coverage of somebody else's announcement. Relevant topic, no opening. */
+const NEWSY = /\b(report|study|paper|whitepaper|announces|announced|unveils|unveiled|launches|launched|according to|just put out|just released)\b/i;
 
 /** A post that is only a link and some tags is an announcement, not a discussion. */
 const MOSTLY_LINKS = (text: string) => text.replace(/https?:\/\/\S+/g, "").replace(/[#@]\S+/g, "").trim().length < 40;
 
 /**
- * Words that mean somebody is working on the problem rather than talking
- * about the category. This is the single most useful signal here: "agents
- * will need payments" is a take, and "I gave my agent a wallet and it drained
- * it" is a person with the problem Warda solves.
+ * Somebody describing their OWN work. This is the signal that survived: a
+ * person says "I built", "my agent", "we shipped"; a launch says "X is
+ * building". The grammar is the tell, and it costs one regex.
  */
-const TECHNICAL = /\b(implement|implementing|built|building|shipped|repo|github|api|sdk|spec|endpoint|402|http|signature|key|testnet|mainnet|deploy|prototype|bug|broke|drained|limit|cap|budget)\b/i;
+const FIRST_PERSON = /\b(i|we|my|our)\s+\w{0,6}\s?(built|build|building|shipped|made|wrote|ran|running|run|deployed|tried|hit|use|using|switched|tested)\b|\bmy (agent|bot|wallet|script|setup)\b/i;
 
-/** Somebody asking is an opening; somebody declaring is a wall. */
-const ASKING = /(\?|\bhow do (i|you)\b|\banyone (know|tried|using)\b|\blooking for\b|\bwhat('s| is) the best\b|\bproblem\b|\bstruggling\b)/i;
+/** Concrete nouns. Weak on their own — a topic, not a person with a problem. */
+const TECHNICAL = /\b(402|sdk|endpoint|repo|github|testnet|mainnet|webhook|api key|signature|private key|rate limit)\b/i;
+
+/**
+ * Somebody actually asking. Not any `?` — headlines end in those too. Only
+ * the forms a person uses when they want an answer.
+ */
+const ASKING = /\b(how do (i|you)|how are (you|people)|anyone (know|tried|using|else|got)|does anyone|has anyone|looking for|what'?s the best|is there a|any (recommendations|suggestions|ideas)|struggling with|can'?t figure|not sure how|what safeguards|what stops)\b/i;
+
+/**
+ * The question Warda answers, asked by somebody who does not know Warda
+ * exists: an agent, and a worry about what it is able to spend.
+ *
+ * Two tests rather than one pattern, because the first attempt required the
+ * agent word to come BEFORE the worry — and the post this was written for
+ * puts them the other way round ("What safeguards exist … when giving an
+ * agent a wallet"). Co-occurrence is what matters in 280 characters; order
+ * is an accident of how the sentence was built.
+ *
+ * The authority list is phrases, not words. Bare `budget` and bare `limit`
+ * are everywhere — "my AI budget has been 60% openai" is a real post from the
+ * same run, and it is not somebody asking what bounds an agent.
+ */
+const AGENTY = /\b(agents?|agentic|bot|ai)\b/i;
+const AUTHORITY = /(\bsafeguards?\b|\bunauthori[sz]ed\b|\boverspend\w*|\bdrain(ed|ing)?\b|\bgoes rogue\b|\bguardrails?\b|\bblast radius\b|\bdelegated consent\b|\bspend(ing)? (limit|cap)s?\b|\bbudget cap\b|\bcap on\b|\blimits? on what\b|\b(allowed|able) to spend\b|\bcan spend\b|\bstops? it spending\b|\bwithout a human\b)/i;
+const THE_QUESTION = (text: string) => AGENTY.test(text) && AUTHORITY.test(text);
 
 export interface ScoreOptions {
   /** Below this, it is not sent. Default 5. */
@@ -127,34 +177,39 @@ export function score(post: Post, options: ScoreOptions = {}): Scored {
      flat "matched". */
   add(post.matched.length * 2, post.matched.length === 1 ? `matched ${post.matched[0]}` : `matched ${post.matched.join(", ")}`);
 
-  if (TECHNICAL.test(post.text)) add(3, "someone is building, not commenting");
-  if (ASKING.test(post.text)) add(3, "a question, so there is an opening");
+  const hours = (Date.now() - new Date(post.at).getTime()) / 3_600_000;
+
+  if (THE_QUESTION(post.text)) add(5, "asking what bounds an agent — the question Warda answers");
+  if (FIRST_PERSON.test(post.text)) add(4, "describing their own work, not a product's");
+  else if (TECHNICAL.test(post.text)) add(1, "concrete, but not first-hand");
+  if (ASKING.test(post.text)) add(3, "actually asking, not a headline");
 
   /* Account quality. Followers are a weak proxy and treated as one: a bounded
      bonus, never a multiplier, because a 500k-follower take is not worth more
      of your time than a 500-follower person with the actual problem. */
-  if (post.author.followers >= 20_000) add(2, "large account");
-  else if (post.author.followers >= 2_000) add(1, "established account");
+  if (post.author.followers >= 20_000) add(1, "large account");
   else if (post.author.followers < 50) add(-2, "almost no followers");
-  if (post.author.verified) add(1, "verified");
 
   /* Engagement, and replies count double: likes mean people saw it, replies
-     mean people are TALKING, and a conversation is the thing being looked
-     for. */
+     mean people are TALKING. But silence on a post that is an hour old is not
+     evidence of anything — it is a post that is an hour old, and being there
+     first is the advantage a twice-daily agent has. */
   const talk = post.replies * 2 + post.reposts;
   if (talk >= 20) add(3, `${post.replies} replies, ${post.reposts} reposts`);
   else if (talk >= 5) add(2, `${post.replies} replies, ${post.reposts} reposts`);
+  else if (hours <= 3) add(1, "early — no replies yet, and that is the opening");
   else if (post.likes >= 50) add(1, `${post.likes} likes but few replies`);
-  else add(-1, "no discussion yet");
+  else add(-1, "no discussion, and old enough that there should be");
 
   if (NOT_A_CONVERSATION.test(post.text)) add(-8, "reads like promotion");
+  if (PROMO.test(post.text)) add(-5, "a launch announcement");
+  if (NEWSY.test(post.text) && !FIRST_PERSON.test(post.text)) add(-3, "coverage of somebody else's news");
   if (MOSTLY_LINKS(post.text)) add(-4, "a link and tags, not a point");
   if (options.mute?.has(post.author.handle.toLowerCase())) add(-99, "muted handle");
 
   /* Age. Not a penalty on a curve — a hard statement about whether you can
      still join. A thread from Tuesday is not a smaller opportunity than one
      from an hour ago; it is not an opportunity. */
-  const hours = (Date.now() - new Date(post.at).getTime()) / 3_600_000;
   if (hours > 48) add(-6, `${Math.round(hours)}h old, the thread has moved on`);
   else if (hours > 24) add(-2, `${Math.round(hours)}h old`);
 
@@ -302,9 +357,12 @@ export async function listen(fetcher: Fetcher, options: ListenOptions, queries: 
 
   const all = [...byId.values()].map((p) => score(p, options)).sort((a, b) => b.score - a.score);
   const keep = all.filter((s) => s.band !== "skip");
+  /* Sorted, so the printed list reads top to bottom. Before this, the
+     above-floor overflow was appended after the skips and a 7 appeared below
+     a -2, which made the output impossible to scan. */
   return {
     found: keep.slice(0, options.limit),
-    rejected: [...all.filter((s) => s.band === "skip"), ...keep.slice(options.limit)],
+    rejected: all.filter((x) => !keep.slice(0, options.limit).includes(x)),
     searched,
     reads,
   };
