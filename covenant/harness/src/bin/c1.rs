@@ -447,7 +447,10 @@ struct Flip {
 fn sighash_of(tx: &Transaction, entries: &[UtxoEntry], idx: usize) -> [u8; 32] {
     let mtx = MutableTransaction::with_entries(tx.clone(), entries.to_vec());
     let reused = SigHashReusedValuesUnsync::new();
-    calc_schnorr_signature_hash(&mtx.as_verifiable(), idx, SIG_HASH_ALL, &reused).as_bytes()
+    // Bound to a local: the verifiable view borrows `mtx`, and returning the
+    // expression directly drops `mtx` while that borrow is still live.
+    let h = calc_schnorr_signature_hash(&mtx.as_verifiable(), idx, SIG_HASH_ALL, &reused).as_bytes();
+    h
 }
 
 fn delegate2_run(a: &Child, b: &Child, f: &Flip) -> Result<(), TxScriptError> {
@@ -839,6 +842,13 @@ fn settle_suite() {
 // vector containing one would fail against an SDK that is behaving perfectly.
 // ---------------------------------------------------------------------------
 
+/* The compute budget `tx_input` commits to. The field on TransactionInput is
+   `compute_commit`, an encoded form rather than the number, so the number is
+   named here instead of decoded back out of it — and a drift cannot pass
+   silently: the commit is covered by the sighash, so a harness that changed it
+   would produce a vector whose sighash no SDK could reproduce. */
+const COMPUTE_BUDGET: u64 = 1000;
+
 fn hexs(b: &[u8]) -> String {
     b.iter().map(|x| format!("{x:02x}")).collect()
 }
@@ -932,7 +942,7 @@ fn emit_golden(path: &str) {
         hexs(&sighash), hexs(&tx.inputs[0].signature_script),
         tx.version, tx.lock_time, tx.gas, hexs(&tx.payload),
         hexs(tx.inputs[0].previous_outpoint.transaction_id.as_bytes().as_slice()), tx.inputs[0].previous_outpoint.index,
-        tx.inputs[0].sequence, tx.inputs[0].compute_budget,
+        tx.inputs[0].sequence, COMPUTE_BUDGET,
         outs);
 
     std::fs::write(path, &json).expect("write the golden vector");
