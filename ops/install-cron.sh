@@ -81,6 +81,12 @@ AUTOISSUE="$OPS/auto-issue.sh"
 AUTOISSUELOG="$HOME/Library/Logs/warda-grants.log"
 AUTOISSUEENTRY="7,22,37,52 * * * * $AUTOISSUE >> $AUTOISSUELOG 2>&1"
 
+# And once a day, what the fifteen-minute job is deliberately quiet about: a
+# float that has emptied or fragmented looks exactly like a quiet week, and
+# /grant goes back to queueing people behind a page promising fifteen minutes.
+GRANTSBEAT="$OPS/grants-heartbeat.sh"
+GRANTSBEATENTRY="10 21 * * * $GRANTSBEAT >> $AUTOISSUELOG 2>&1"
+
 HEARTBEAT="$OPS/listener-heartbeat.sh"
 HEARTBEATENTRY="5 21 * * * $HEARTBEAT >> $LISTENERLOG 2>&1"
 
@@ -289,6 +295,7 @@ printf '%s\n' "$current" \
   | grep -v -F "listener-pass.sh" \
   | grep -v -F "listener-heartbeat.sh" \
   | grep -v -F "auto-issue.sh" \
+  | grep -v -F "grants-heartbeat.sh" \
   | grep -v -F "xreads-up.sh" \
   | grep -v -F "auditor-up.sh" \
   | grep -v -F "daily-buy.sh" \
@@ -314,6 +321,7 @@ if [ -n "$WANT_GROWTH" ]; then printf '%s\n' "$GROWTHENTRY" >> /tmp/warda-cron.$
 if [ -n "$WANT_AUDITOR" ]; then printf '%s\n' "*/5 * * * * $AUDITORUP >> $AUDITORLOG 2>&1" >> /tmp/warda-cron.$$; fi
 if [ -n "$WANT_GRANTS" ]; then
   printf '%s\n' "$AUTOISSUEENTRY" >> /tmp/warda-cron.$$
+  printf '%s\n' "$GRANTSBEATENTRY" >> /tmp/warda-cron.$$
 fi
 if [ -n "$WANT_LISTENER" ]; then
   printf '%s\n' "$LISTENERENTRY" >> /tmp/warda-cron.$$
@@ -377,6 +385,11 @@ message says to consolidate rather than refill.
   node --experimental-strip-types ops/grants.ts auto --dry-run
   tail $AUTOISSUELOG
   ops/install-cron.sh --no-grants     to stop it
+
+A heartbeat at 21:10 reports the float and the queue once a day, and
+shouts if the float cannot fund a grant or something has been pending
+more than an hour. The fifteen-minute job stays quiet; this is what
+makes its silence readable.
 TXT
 fi
 

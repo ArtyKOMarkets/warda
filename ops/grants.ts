@@ -141,6 +141,11 @@ async function main() {
     return;
   }
 
+  if (verb === "heartbeat") {
+    await heartbeat();
+    return;
+  }
+
   if (verb === "publish") {
     /* For a genesis that broadcast but whose publish did not happen. */
     const id = argv[1] ?? die("publish <id>");
@@ -156,7 +161,9 @@ async function main() {
       "ops/grants.ts auto [--budget 5] [--max-per-day 10] [--dry-run]\n" +
       "                               issue every pending request from the float key,\n" +
       "                               up to the day's cap. Installed as a cron job by\n" +
-      "                               ops/install-cron.sh --grants.",
+      "                               ops/install-cron.sh --grants.\n" +
+      "ops/grants.ts heartbeat        once a day: the float, the queue, and the two\n" +
+      "                               states that need a person. Exits 1 on those.",
   );
   process.exit(verb ? 1 : 0);
 }
@@ -217,6 +224,82 @@ async function issueOne(r: Req, budgetKas: number, funderPath: string, dryRun: b
  * applicant keeps their place, and the Telegram message is the same one a
  * by-hand issue would have produced. Nothing is lost by the robot stopping.
  */
+type Float = { address: string; totalSompi: string; fundableSompi: string; largestSompi: string };
+
+/** What the float holds. One definition, because `auto` acts on it and
+ *  `heartbeat` reports it, and two readings that could disagree about the
+ *  same wallet is how a watchdog ends up reassuring you about a number the
+ *  thing it watches never saw. */
+async function readFloat(): Promise<Float | null> {
+  const w = await run([join(SDK, "tools/wallet.ts"), "--key", AUTO_KEY, "--json"], {});
+  if (w.code !== 0) return null;
+  try { return JSON.parse(w.out.slice(w.out.indexOf("{"))) as Float; } catch { return null; }
+}
+
+/**
+ * Once a day, say out loud what the fifteen-minute job is deliberately quiet
+ * about.
+ *
+ * `auto` says nothing when there is nothing pending, which is correct — it
+ * runs ninety-six times a day and "nothing pending" that often is how a feed
+ * teaches you to ignore it. The cost is that a float which has quietly emptied
+ * or fragmented looks exactly like a quiet week, and /grant goes back to
+ * silently queueing people. That became a promise worth keeping the day the
+ * page started claiming fifteen minutes in public.
+ *
+ * Exits 1 on the two states that need a person: the float cannot fund one
+ * more grant, or something has been pending long enough that the issuer is
+ * plainly not serving it.
+ */
+async function heartbeat() {
+  const budgetKas = Number(flag("budget", "5"));
+  const need = BigInt(Math.round(budgetKas * 1e8));
+  const perDay = Number(flag("max-per-day", String(AUTO_PER_DAY)));
+  const pad = (s: string) => s.padEnd(16);
+  const lines = ["Grants · last 24h", ""];
+
+  if (!existsSync(AUTO_KEY)) {
+    console.log(`Grants: there is no float key at ${AUTO_KEY}, so /grant is queueing people while the page says fifteen minutes.`);
+    process.exit(1);
+  }
+  const bal = await readFloat();
+  if (!bal) {
+    console.log(`Grants: could not read the float at ${AUTO_KEY}. /grant may be queueing people while the page says fifteen minutes.`);
+    process.exit(1);
+  }
+
+  const now = Date.now();
+  const entries = existsSync(AUTO_LEDGER)
+    ? readFileSync(AUTO_LEDGER, "utf8").split("\n").filter(Boolean)
+        .flatMap((l) => { try { return [JSON.parse(l) as { at?: string }]; } catch { return []; } })
+    : [];
+  const since = (h: number) => entries.filter((e) => now - new Date(e.at ?? 0).getTime() < h * 3_600_000).length;
+
+  const { requests } = (await api("requests", "GET")) as unknown as { requests: Req[] };
+  const pending = requests.filter((r) => r.status === "pending");
+  const oldest = pending.map((r) => now - new Date(r.createdAt).getTime()).sort((a, b) => b - a)[0] ?? 0;
+  const stuck = oldest > 60 * 60_000;                  // four passes should have served it
+  const dry = BigInt(bal.fundableSompi) < need;
+
+  lines.push(`${pad("issued")}${since(24)} today · ${since(24 * 7)} this week`);
+  lines.push(`${pad("pending")}${pending.length}${pending.length ? ` · oldest ${Math.round(oldest / 60_000)}m` : ""}`);
+  lines.push(`${pad("float")}${Number(bal.totalSompi) / 1e8} KAS · ${Math.floor(Number(bal.fundableSompi) / Number(need))} more grant(s)`);
+  lines.push(`${pad("cap")}${perDay} a day at ${budgetKas} KAS`);
+
+  if (dry) {
+    lines.push("");
+    lines.push(Number(bal.totalSompi) >= Number(need)
+      ? `THE FLOAT CANNOT FUND A GRANT. It holds ${Number(bal.totalSompi) / 1e8} KAS but its largest single coin is ${Number(bal.largestSompi) / 1e8} — genesis takes one input, so this needs CONSOLIDATING, not refilling:\n  node --experimental-strip-types sdk/tools/consolidate.ts`
+      : `THE FLOAT CANNOT FUND A GRANT. ${Number(bal.totalSompi) / 1e8} KAS left at ${bal.address}. /grant is promising fifteen minutes and queueing people.`);
+  }
+  if (stuck) {
+    lines.push("");
+    lines.push(`SOMETHING HAS BEEN PENDING ${Math.round(oldest / 60_000)} MINUTES. The issuer runs every fifteen, so it is not serving it.\n  tail ~/Library/Logs/warda-grants.log`);
+  }
+  console.log(lines.join("\n"));
+  process.exit(dry || stuck ? 1 : 0);
+}
+
 async function auto() {
   const dryRun = has("dry-run");
   const budgetKas = Number(flag("budget", "5"));
@@ -243,10 +326,8 @@ async function auto() {
     : [];
   let todayCount = ledger.filter((e) => (e.at ?? "").slice(0, 10) === today).length;
 
-  const w = await run([join(SDK, "tools/wallet.ts"), "--key", AUTO_KEY, "--json"], {});
-  if (w.code !== 0) return console.log(`auto: could not read the float at ${AUTO_KEY}. Nothing issued.`);
-  const bal = JSON.parse(w.out.slice(w.out.indexOf("{"))) as
-    { address: string; totalSompi: string; fundableSompi: string; largestSompi: string };
+  const bal = await readFloat();
+  if (!bal) return console.log(`auto: could not read the float at ${AUTO_KEY}. Nothing issued.`);
   const need = BigInt(Math.round(budgetKas * 1e8));
 
   const { requests } = (await api("requests", "GET")) as unknown as { requests: Req[] };
