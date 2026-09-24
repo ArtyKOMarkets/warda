@@ -111,3 +111,47 @@ genuinely novel — every x402 demo shows a payment that works.
   kind of claim one counter-example destroys.
 - **"we fixed the seller"** is ours to say — the seller is Warda's own Covenant
   Auditor, and the bug and the fix are both in the repo.
+
+---
+
+## Option D — "you asked, it already works"  (chosen register)
+
+Warm and confident rather than defensive. The distinction that keeps it honest:
+the CAPABILITY already shipped — delegation landed in v4 and the subset witness
+in `6b7e355`, both before the post being answered — while the RUN happened on
+24 September. "It already works, so we ran it this morning" says both. "We
+already had this" would say the second thing falsely, and it is the kind of
+sentence one screenshot of a commit date undoes.
+
+**Post**
+
+> Good news: this already works.
+>
+> We ran it this morning. A coordinator hired two agents, gave each a slice of
+> its own budget, and each one could pay exactly one address — enforced by
+> Kaspa, not by their code.
+>
+> Two jobs, two sellers, seven transactions, start to finish.
+
+**Reply 1**
+
+> The whole run, every txid, both sellers: wardaprotocol.com/one-job
+
+**Reply 2**
+
+> One caveat worth saying out loud: it is not atomic. The covenant allows
+> parent plus one child per transaction, so hiring two agents is two of them,
+> and every payee has to exist before the job does. That part needs the
+> covenant to change, not the tooling.
+
+### D2 — same register, the refusal instead of the summary
+
+**Post**
+
+> You asked. It already works — so we ran it this morning.
+>
+> A coordinator hired two agents and gave each a slice of its own budget.
+> RESEARCH could only pay the researcher. VERIFY could only pay the auditor.
+> The chain refuses anything else.
+>
+> Seven transactions, start to finish.
