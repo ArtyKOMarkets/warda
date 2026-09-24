@@ -323,11 +323,16 @@ async function main() {
           generated: new Date().toISOString(),
           target: TARGET_REPO,
           coordinator: JSON.parse(readFileSync(P.grant, "utf8")),
-          plan: Object.fromEntries(Object.entries(PLAN).map(([k, v]) => [k, typeof v === "bigint" ? String(v) : v])),
+          plan: PLAN,
+          massed: preflight().map((r) => ({ ...r, mass: r.mass })),
           sellers: { researcher: RESEARCHER_PAYEE, auditor: AUDITOR_PAYEE },
           steps: s.done,
           batchLog: batch.log,
-        }, null, 2) + "\n");
+          /* A REPLACER, not a shallow map over PLAN's own entries. The first
+             version mapped the top level and missed the bigints one layer down
+             in `research` and `verify`, so the whole run finished and the trace
+             — the only durable product of it — threw on the last line. */
+        }, (_k, v) => (typeof v === "bigint" ? String(v) : v), 2) + "\n");
         mark(s, step, { note: P.trace });
         break;
       }
