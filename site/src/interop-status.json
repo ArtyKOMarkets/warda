@@ -1,11 +1,11 @@
 {
-  "checkedAt": "2026-09-22T06:23:19.335Z",
+  "checkedAt": "2026-09-24T06:23:14.936Z",
   "vendor": "https://demo.kaspa-x402.org/exact",
   "ok": true,
   "httpStatus": 200,
-  "txid": "9bb7ecc4deae1c1177fbc6bc536f521ebac2f09ac5f89d88c84ba70eec0244e1",
+  "txid": "45ae88d47253baf0173e761364812ec9ff1a276c7af7fab99e39afd0489afaad",
   "paidSompi": "20000000",
   "feeSompi": "2000000",
-  "remaining": 144635840,
-  "body": "{\"ok\":true,\"network\":\"kaspa:testnet-10\",\"profile\":\"exact\",\"resource\":\"https://demo.kaspa-x402.org/exact\",\"requestFingerprint\":\"9fa68a396140be6a666dfdaf7b6da2b4c28517069691439e42c97a3cff7f65ab\",\"paymentIdentifier\":\"9bb7ecc4deae1c1177fbc6bc536f521ebac2f09ac5f89d88c84ba70eec0244e1\",\"payment\":{\"scheme\":\"exact\",\"transactionId\":\"9bb7ecc4deae1c1177fbc6bc536f521ebac2f09ac5f89d88c84ba70eec0244e1\",\"paymentO"
+  "remaining": 100246080,
+  "body": "{\"ok\":true,\"network\":\"kaspa:testnet-10\",\"profile\":\"exact\",\"resource\":\"https://demo.kaspa-x402.org/exact\",\"requestFingerprint\":\"9fa68a396140be6a666dfdaf7b6da2b4c28517069691439e42c97a3cff7f65ab\",\"paymentIdentifier\":\"45ae88d47253baf0173e761364812ec9ff1a276c7af7fab99e39afd0489afaad\",\"payment\":{\"scheme\":\"exact\",\"transactionId\":\"45ae88d47253baf0173e761364812ec9ff1a276c7af7fab99e39afd0489afaad\",\"paymentO"
 }

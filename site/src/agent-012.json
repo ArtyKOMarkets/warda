@@ -1,0 +1,234 @@
+{
+  "_comment": "Written by agents/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, the purchase log or the chain — none is typed. Each payee's LABEL is re-derived on every run from the artefact agents/known-payees.json names, and a label that stops matching is dropped rather than published: an address with no name is honest, an address with the wrong name is not.",
+  "checkedAt": "2026-09-23T13:03:37.084Z",
+  "network": "testnet-10",
+  "identity": {
+    "agentId": "GROWTH-LISTENER",
+    "agent": "1da3d1e26bb993a7cb85a857afa467301d498d0a7bb36d617c37f792e5e8ee41",
+    "principal": "0393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34f",
+    "revocation": "0393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34f",
+    "grantAddress": "kaspatest:pp82dan6mz33extw33xvnep0rd8qukc4w4cmjn74yukfn5jvtpfcc0dtw0ukp",
+    "covenantId": "35ce520c1885e9ff4db47a25360140eb674507ef31bc0b98daec7f33e5796ade",
+    "template": "b3e5eeefacf2021f"
+  },
+  "buysFrom": {
+    "endpoint": "http://127.0.0.1:8788/search",
+    "payees": [
+      {
+        "address": "kaspatest:qplrzkf5xst4zugy4qc27m58fsq374y38dvrfznx7ss52v4dnpx5qwk5vpk76",
+        "key": "7e3159343417517104a830af6e874c011f54913b58348a66f4214532ad984d40",
+        "label": "X reads (the Listener's seller)",
+        "derivation": "the pay-to-public-key address of growth/keys/xreads.key.pub, which growth/listener-payees.txt names as the only address agent #012's grant may ever pay",
+        "ours": true
+      }
+    ],
+    "address": "kaspatest:qplrzkf5xst4zugy4qc27m58fsq374y38dvrfznx7ss52v4dnpx5qwk5vpk76",
+    "bothEndsAreOurs": true,
+    "disclosure": {
+      "title": "Both ends of this are ours",
+      "paragraphs": [
+        "Every agent on this site was built here, and the vendor this one buys from is ours too. This is therefore NOT a market, and saying otherwise would be the easiest claim on this site to catch out.",
+        "What it is: a payment between independent grants, with different keys, each able to pay a fixed list of addresses, settled on a public chain where anyone can look it up. The demonstration is that the rails work — not that a third party chose to trade with us.",
+        "Agent #001's digest is published free at wardaprotocol.com/agent-001.json, because pretending it was scarce would have traded the checkable claim for a flattering one."
+      ]
+    }
+  },
+  "timelock": {
+    "notBefore": "578327427",
+    "virtualDaaScore": "578346636",
+    "open": true,
+    "lockedFor": "0 seconds",
+    "openedAgo": "32 minutes",
+    "expiresAt": "584375427",
+    "expired": false,
+    "expiresInDaa": "6028791",
+    "expiresIn": "7 days",
+    "expiredAgo": null,
+    "enforcedBy": "the covenant, on every spend: claimedDaa >= notBefore. Not a scheduler, not this process, and not revocable by whoever issued the grant.",
+    "termEnforcedBy": "the covenant, on every spend: claimedDaa < expiresAt. After it, the grant refuses everything whatever its budget says, and the balance is the principal's to reclaim."
+  },
+  "authority": {
+    "budget": "2.1 KAS",
+    "spent": "0.15 KAS",
+    "remaining": "1.95 KAS",
+    "maxPerPayment": "0.05 KAS",
+    "epochLimit": "0.15 KAS",
+    "epochLengthDaa": 432000,
+    "authorizedPayees": 1,
+    "payees": [
+      "kaspatest:qplrzkf5xst4zugy4qc27m58fsq374y38dvrfznx7ss52v4dnpx5qwk5vpk76"
+    ],
+    "delegationDepth": 0,
+    "onChain": "1.89 KAS",
+    "sompi": {
+      "budget": "210000000",
+      "spent": "15000000",
+      "reserved": "0",
+      "maxPerPayment": "5000000",
+      "epochLimit": "15000000",
+      "onChain": "189000000"
+    }
+  },
+  "activity": {
+    "payments": 3,
+    "paid": "0.15 KAS",
+    "paidOutsideTheAllowlist": "0 KAS",
+    "coins": [
+      {
+        "amount": "0.05 KAS",
+        "daaScore": "578338205",
+        "txid": "91cfa8e8a484f1ac1590b260950c23adb067215e5cf61712a32649a325557a5b",
+        "index": 1
+      },
+      {
+        "amount": "0.05 KAS",
+        "daaScore": "578338240",
+        "txid": "c1be036ad512eef7e5363ee631188687322dcee68d66df67755a3396dcaf34f5",
+        "index": 1
+      },
+      {
+        "amount": "0.05 KAS",
+        "daaScore": "578338266",
+        "txid": "fec9f8a7670530992d06cb590a823c51dee0a162bc6340cbf646f7e8fb03b29d",
+        "index": 1
+      }
+    ]
+  },
+  "purchases": [
+    {
+      "at": "2026-09-23T12:48:17.183Z",
+      "outcome": "paid-but-refused",
+      "url": "http://127.0.0.1:8788/search?query=x402+-is%3Aretweet+lang%3Aen&start_time=2026-09-22T12%3A48%3A17.110Z&max_results=10&tweet.fields=created_at%2Cpublic_metrics%2Cauthor_id%2Clang&user.fields=username%2Cname%2Cpublic_metrics%2Cverified&expansions=author_id",
+      "task": "x search",
+      "reason": null,
+      "txid": null,
+      "paid": null,
+      "quoted": null,
+      "amountSompi": null,
+      "payTo": null,
+      "refusal": null,
+      "sellerClaimed": null
+    },
+    {
+      "at": "2026-09-23T12:48:17.283Z",
+      "outcome": "paid-but-refused",
+      "url": "http://127.0.0.1:8788/search?query=%28%22agent+payments%22+OR+%22agentic+payments%22+OR+%22agents+pay%22%29+-is%3Aretweet+lang%3Aen&start_time=2026-09-22T12%3A48%3A17.110Z&max_results=10&tweet.fields=created_at%2Cpublic_metrics%2Cauthor_id%2Clang&user.fields=username%2Cname%2Cpublic_metrics%2Cverified&expansions=author_id",
+      "task": "x search",
+      "reason": null,
+      "txid": null,
+      "paid": null,
+      "quoted": null,
+      "amountSompi": null,
+      "payTo": null,
+      "refusal": null,
+      "sellerClaimed": null
+    },
+    {
+      "at": "2026-09-23T12:48:17.370Z",
+      "outcome": "paid-but-refused",
+      "url": "http://127.0.0.1:8788/search?query=kaspa+%28agent+OR+agents+OR+payments+OR+x402%29+-is%3Aretweet+lang%3Aen&start_time=2026-09-22T12%3A48%3A17.110Z&max_results=10&tweet.fields=created_at%2Cpublic_metrics%2Cauthor_id%2Clang&user.fields=username%2Cname%2Cpublic_metrics%2Cverified&expansions=author_id",
+      "task": "x search",
+      "reason": null,
+      "txid": null,
+      "paid": null,
+      "quoted": null,
+      "amountSompi": null,
+      "payTo": null,
+      "refusal": null,
+      "sellerClaimed": null
+    },
+    {
+      "at": "2026-09-23T12:49:23.025Z",
+      "outcome": "bought",
+      "url": "http://127.0.0.1:8788/search?q=x402+-is%3Aretweet+lang%3Aen&since=2026-09-22T12%3A49%3A22.952Z",
+      "task": "x search",
+      "reason": null,
+      "txid": "91cfa8e8a484f1ac1590b260950c23adb067215e5cf61712a32649a325557a5b",
+      "paid": "0.05 KAS",
+      "quoted": "0.05 KAS",
+      "amountSompi": "5000000",
+      "payTo": "kaspatest:qplrzkf5xst4zugy4qc27m58fsq374y38dvrfznx7ss52v4dnpx5qwk5vpk76",
+      "refusal": null,
+      "sellerClaimed": null
+    },
+    {
+      "at": "2026-09-23T12:49:27.217Z",
+      "outcome": "bought",
+      "url": "http://127.0.0.1:8788/search?q=%28%22agent+payments%22+OR+%22agentic+payments%22+OR+%22agents+pay%22%29+-is%3Aretweet+lang%3Aen&since=2026-09-22T12%3A49%3A22.952Z",
+      "task": "x search",
+      "reason": null,
+      "txid": "c1be036ad512eef7e5363ee631188687322dcee68d66df67755a3396dcaf34f5",
+      "paid": "0.05 KAS",
+      "quoted": "0.05 KAS",
+      "amountSompi": "5000000",
+      "payTo": "kaspatest:qplrzkf5xst4zugy4qc27m58fsq374y38dvrfznx7ss52v4dnpx5qwk5vpk76",
+      "refusal": null,
+      "sellerClaimed": null
+    },
+    {
+      "at": "2026-09-23T12:49:30.420Z",
+      "outcome": "bought",
+      "url": "http://127.0.0.1:8788/search?q=%28%22spending+limit%22+OR+%22spend+limit%22+OR+%22budget%22%29+%28agent+OR+agents+OR+AI%29+-is%3Aretweet+lang%3Aen&since=2026-09-22T12%3A49%3A22.952Z",
+      "task": "x search",
+      "reason": null,
+      "txid": "fec9f8a7670530992d06cb590a823c51dee0a162bc6340cbf646f7e8fb03b29d",
+      "paid": "0.05 KAS",
+      "quoted": "0.05 KAS",
+      "amountSompi": "5000000",
+      "payTo": "kaspatest:qplrzkf5xst4zugy4qc27m58fsq374y38dvrfznx7ss52v4dnpx5qwk5vpk76",
+      "refusal": null,
+      "sellerClaimed": null
+    },
+    {
+      "at": "2026-09-23T12:55:07.110Z",
+      "outcome": "failed",
+      "url": "http://127.0.0.1:8788/search?q=x402+-is%3Aretweet+lang%3Aen&since=2026-09-22T12%3A55%3A07.035Z",
+      "task": "x search",
+      "reason": null,
+      "txid": null,
+      "paid": null,
+      "quoted": "0.05 KAS",
+      "amountSompi": "5000000",
+      "payTo": "kaspatest:qplrzkf5xst4zugy4qc27m58fsq374y38dvrfznx7ss52v4dnpx5qwk5vpk76",
+      "refusal": "this invoice is 5000000 sompi and only 0 remains in the current epoch (0). The allowance refreshes as the chain advances — and cannot be refreshed by claiming an earlier epoch, which the covenant refuses.",
+      "sellerClaimed": null
+    }
+  ],
+  "reconciliation": {
+    "spentPerTheCovenant": "0.15 KAS",
+    "namedByTheLog": "0.15 KAS",
+    "stillVisibleAtThePayee": "0.15 KAS",
+    "chargedHomeBySettlement": null,
+    "unrecorded": "0 KAS",
+    "overclaimedByTheLog": null,
+    "couldAccountForIt": [],
+    "note": "Every sompi the covenant says this grant spent is named by a purchase it recorded. The two halves of this page agree."
+  },
+  "refusals": [
+    {
+      "rule": "start time (not_before)",
+      "attempted": "spend before the grant opens",
+      "refusal": "this grant could not spend anything until DAA 578327427. The covenant checks the claimed DAA score against that number on every spend, so the delay was not a policy in the agent's process and could not be brought forward by whoever issued it. It opened 32 minutes ago.",
+      "derived": true
+    },
+    {
+      "rule": "payee allowlist",
+      "attempted": "pay any address other than agent #001",
+      "refusal": "kaspatest:qrxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvc3rysjr0d is not on this grant's allowlist, so no inclusion proof places it in the recipients tree. There is no valid transaction that pays them — not one the network would reject, none at all. A grant's payees are fixed at genesis: to pay this vendor you need a grant that committed to them.",
+      "derived": true
+    },
+    {
+      "rule": "per-payment cap",
+      "attempted": "pay 0.05000001 KAS to agent #001",
+      "refusal": "this invoice is 5000001 sompi and the grant's per-payment cap is 5000000. The cap exists to bound what a single decision can do, so it binds here regardless of how much budget remains.",
+      "derived": true
+    },
+    {
+      "rule": "lifetime budget",
+      "attempted": "pay 2.1 KAS to agent #001",
+      "refusal": "this invoice is 210000000 sompi and the grant's per-payment cap is 5000000. The cap exists to bound what a single decision can do, so it binds here regardless of how much budget remains.",
+      "derived": true
+    }
+  ],
+  "mission": "Find the conversations where Warda has something to say, pay for the data it needs inside limits the network enforces, and never speak for anyone."
+}

@@ -1023,7 +1023,12 @@ function drawGraph(loaded) {
       does: "Runs the growth fleet's week: a batch grant that may pay Researcher and nobody else, a piece of it delegated to Scout, the unspent part taken back, and the grant revoked when the week is done." },
     { id: "010", href: "/agent-010", json: "/agent-010.json", weekly: true,
       name: "Scout",
-      does: "Finds projects building agents that pay for things and buys one checkable record about each from Researcher — facts with sources, never a score. Hired by #009, not by a person." }
+      does: "Finds projects building agents that pay for things and buys one checkable record about each from Researcher — facts with sources, never a score. Hired by #009, not by a person." },
+    /* Not part of the weekly fleet: its own grant, its own rhythm, twice a
+       day. The only agent here somebody depends on rather than watches. */
+    { id: "012", href: "/agent-012", json: "/agent-012.json",
+      name: "The Listener",
+      does: "Searches X twice a day for conversations about agent payments and sends the ones worth reading to one person, with a link. It pays 0.05 KAS a search and may make three per twelve-hour epoch — the fourth is refused by consensus. It has never posted or replied to anything." }
   ];
 
   var PLANNED = [];
