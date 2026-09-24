@@ -55,7 +55,8 @@
  * halfway costs the rest of that step and nothing before it — which matters
  * when the failure is after a genesis that broadcast.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -198,7 +199,10 @@ async function main() {
   const childManifest = (n: string) => childManifestPath(P.grant, agentPub(n));
 
   for (const step of STEPS) {
-    if (done(step)) continue;
+    /* `trace` is a projection of what the other steps recorded, not an action:
+       it broadcasts nothing and reading it twice costs nothing. Re-running it
+       is how a finished run picks up a better trace, so it never skips. */
+    if (done(step) && step !== "trace") continue;
     switch (step) {
       case "keys": {
         /* Three keys, and the third is the point. The COORDINATOR signs the
@@ -318,6 +322,23 @@ async function main() {
         /* What the page is built from. Every figure here came from a step that
            ran, so a claim on the page can be traced to a transaction. */
         const batch = JSON.parse(readFileSync(P.batch, "utf8")) as { log: unknown[] };
+        /* The purchases, by what can be checked rather than by their contents.
+           The audit is 12 KB of HTML and the record already holds it; what a
+           reader needs here is which transaction bought it and a digest they
+           can compare against the file. */
+        const purchases = readdirSync(P.purchases).filter((f) => f.endsWith(".json")).sort().map((f) => {
+          const rec = JSON.parse(readFileSync(join(P.purchases, f), "utf8")) as Record<string, unknown>;
+          const body = JSON.stringify(rec.response ?? null);
+          return {
+            record: f,
+            at: rec.at, url: rec.url, task: rec.task,
+            outcome: rec.outcome, status: rec.status,
+            txid: (rec.proof as { txid?: string } | undefined)?.txid ?? rec.txid,
+            resumedFrom: rec.resumedFrom ?? null,
+            responseBytes: body.length,
+            responseSha256: createHash("sha256").update(body).digest("hex"),
+          };
+        });
         writeFileSync(P.trace, JSON.stringify({
           _comment: "Written by growth/tools/one-job.ts. Every txid is a transaction this run broadcast.",
           generated: new Date().toISOString(),
@@ -327,6 +348,7 @@ async function main() {
           massed: preflight().map((r) => ({ ...r, mass: r.mass })),
           sellers: { researcher: RESEARCHER_PAYEE, auditor: AUDITOR_PAYEE },
           steps: s.done,
+          purchases,
           batchLog: batch.log,
           /* A REPLACER, not a shallow map over PLAN's own entries. The first
              version mapped the top level and missed the bigints one layer down
