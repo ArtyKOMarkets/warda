@@ -247,7 +247,8 @@
                  short window with no way to reach the last item. It has grown
                  by one entry three times now; this is the cap it needed before
                  the growth found a laptop. */
-              max-height: calc(100vh - 5.5rem); overflow-y: auto; overscroll-behavior: contain; }
+              max-height: calc(100vh - 5.5rem); max-height: calc(100dvh - 5.5rem);
+              overflow-y: auto; overscroll-behavior: contain; }
   .topnav .nv-sheet a { display: block; padding: 0.6rem 0.75rem; border-radius: 8px;
                 transition: background 120ms ease; white-space: normal; }
   .topnav .nv-sheet a:hover { background: var(--nv-panel); }
@@ -305,7 +306,16 @@
                 flex-direction: column; align-items: stretch; gap: 0; margin: 0;
                 background: var(--nv-ground); border-bottom: 1px solid var(--nv-edge);
                 padding: 0.3rem var(--nv-gutter) 1rem; }
-    .topnav .nv-links[data-open="1"] { display: flex; }
+    /* The panel is ABSOLUTE under a sticky bar, so it is out of flow: the
+       body does not grow to fit it and its bottom is simply unreachable
+       once the list is taller than the phone. So the panel is the scroller
+       — one of them, the whole menu — and `dvh` rather than `vh` because
+       iOS counts the collapsed toolbar in `vh` and hides the last item
+       behind it. */
+    .topnav .nv-links[data-open="1"] { display: flex;
+                max-height: calc(100vh - 4.2rem); max-height: calc(100dvh - 4.2rem);
+                overflow-y: auto; -webkit-overflow-scrolling: touch;
+                overscroll-behavior: contain; }
     .topnav .nv-links a { padding: 0.85rem 0; border-bottom: 1px solid var(--nv-edge); font-size: 0.95rem; }
     /* Stacked, the sheet is part of the list rather than floating over it:
        an absolutely-positioned panel inside a full-width menu opens off the
@@ -314,8 +324,15 @@
     .topnav .nv-menu > summary { justify-content: space-between; width: 100%; border: 0;
                          border-bottom: 1px solid var(--nv-edge); border-radius: 0;
                          padding: 0.85rem 0; font-size: 0.95rem; }
+    /* And the sheet is NOT a scroller here. Stacked, it is part of the list
+       rather than a panel of its own, so the desktop cap above would make a
+       100vh box inside a box that also scrolls — which is what broke this:
+       the list clipped at Sandbox and neither container would move. Reset
+       explicitly; a media query that overrides six properties and forgets
+       the two that matter is the failure mode. */
     .topnav .nv-sheet { position: static; min-width: 0; border: 0; border-radius: 0; padding: 0 0 0 0.9rem;
-                box-shadow: none; background: transparent; }
+                box-shadow: none; background: transparent;
+                max-height: none; overflow: visible; overscroll-behavior: auto; }
     .topnav .nv-sheet a { padding: 0.7rem 0; border-bottom: 1px solid var(--nv-edge); border-radius: 0; }
     .topnav .nv-sheet a:hover { background: transparent; }
     .topnav .wrap { gap: 0.9rem; }
