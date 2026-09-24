@@ -134,7 +134,13 @@
   .topnav .nv-sheet { position: absolute; top: calc(100% + 0.7rem); right: 0; z-index: 70;
               min-width: 20rem; display: grid; gap: 0.1rem;
               background: var(--nv-ground); border: 1px solid var(--nv-edge);
-              border-radius: 12px; padding: 0.5rem; box-shadow: 0 24px 60px rgba(0,0,0,0.55); }
+              border-radius: 12px; padding: 0.5rem; box-shadow: 0 24px 60px rgba(0,0,0,0.55);
+              /* The sheet is absolutely positioned, so it cannot push the page
+                 down and a long enough list simply runs off the bottom of a
+                 short window with no way to reach the last item. It has grown
+                 by one entry three times now; this is the cap it needed before
+                 the growth found a laptop. */
+              max-height: calc(100vh - 5.5rem); overflow-y: auto; overscroll-behavior: contain; }
   .topnav .nv-sheet a { display: block; padding: 0.6rem 0.75rem; border-radius: 8px;
                 transition: background 120ms ease; white-space: normal; }
   .topnav .nv-sheet a:hover { background: var(--nv-panel); }

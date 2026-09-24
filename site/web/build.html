@@ -336,7 +336,13 @@
   .topnav .nv-sheet { position: absolute; top: calc(100% + 0.7rem); right: 0; z-index: 70;
               min-width: 20rem; display: grid; gap: 0.1rem;
               background: var(--nv-ground); border: 1px solid var(--nv-edge);
-              border-radius: 12px; padding: 0.5rem; box-shadow: 0 24px 60px rgba(0,0,0,0.55); }
+              border-radius: 12px; padding: 0.5rem; box-shadow: 0 24px 60px rgba(0,0,0,0.55);
+              /* The sheet is absolutely positioned, so it cannot push the page
+                 down and a long enough list simply runs off the bottom of a
+                 short window with no way to reach the last item. It has grown
+                 by one entry three times now; this is the cap it needed before
+                 the growth found a laptop. */
+              max-height: calc(100vh - 5.5rem); overflow-y: auto; overscroll-behavior: contain; }
   .topnav .nv-sheet a { display: block; padding: 0.6rem 0.75rem; border-radius: 8px;
                 transition: background 120ms ease; white-space: normal; }
   .topnav .nv-sheet a:hover { background: var(--nv-panel); }
@@ -565,6 +571,7 @@
         <div class="nv-sheet">
           <a href="/protocol" data-nv="protocol.html"><b>Protocol</b><span>The covenant, the grant, the three keys</span></a>
           <a href="/proof" data-nv="proof.html"><b>Proof</b><span>Every claim, and what would refute it</span></a>
+          <a href="/authority" data-nv="authority.html"><b>Authority</b><span>What a bounded authority declares, on any chain</span></a>
           <a href="/one-job" data-nv="one-job.html"><b>One job</b><span>A coordinator hired two agents, start to finish</span></a>
           <a href="/grant" data-nv="grant.html"><b>Get a grant</b><span>We fund your agent on testnet, free</span></a>
           <a href="/verify" data-nv="verify.html"><b>Verify</b><span>Check a grant against the chain yourself</span></a>
