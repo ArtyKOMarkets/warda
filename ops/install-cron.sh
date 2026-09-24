@@ -357,6 +357,29 @@ if [ -n "$WANT_INTEROP" ]; then
 fi
 echo
 if [ -f "$OPS/alerts.json" ]; then
+if [ -n "$WANT_GRANTS" ]; then
+  cat <<TXT
+
+pending grant requests are issued at 7/22/37/52 past the hour, without
+waiting for you. Oldest first, ten a day, five KAS each by default
+(ops/grants.ts --budget, --max-per-day). A request it
+cannot serve stays PENDING and you get the message you always got — the
+applicant keeps their place, so nothing is lost by the robot stopping.
+
+It funds from ops/auto-issue.key and refuses to run against the main
+funder. That refusal is the whole safety story: genesis is created FROM an
+ordinary wallet, so no covenant bounds it and the float's balance is the
+only limit there is. Keep in it what a bad week may cost.
+
+Few large coins, not many small ones: genesis takes ONE input, so a float
+of faucet drips fails with money in the wallet. If that happens the
+message says to consolidate rather than refill.
+  node --experimental-strip-types ops/grants.ts auto --dry-run
+  tail $AUTOISSUELOG
+  ops/install-cron.sh --no-grants     to stop it
+TXT
+fi
+
 if [ -n "$WANT_LISTENER" ]; then
   cat <<LISTENERNOTE
 

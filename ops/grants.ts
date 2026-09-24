@@ -280,7 +280,7 @@ async function auto() {
   const parts: string[] = [];
   if (issued.length) parts.push(`issued ${issued.length} grant${issued.length === 1 ? "" : "s"} of ${budgetKas} KAS: ${issued.join(", ")}`);
   if (left > 0) parts.push(`${left} left pending — ${stopped || "nothing stopped it, which should not happen"}`);
-  if (!pending.length) parts.push("nothing pending.");
+  if (!pending.length) parts.push("nothing pending");
   parts.push(`float ${Number(bal.totalSompi) / 1e8} KAS · ${todayCount}/${perDay} today`);
   console.log(`auto: ${parts.join(". ")}`);
 }
