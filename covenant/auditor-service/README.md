@@ -66,6 +66,30 @@ same interface against Neon and it is a one-line swap here.
 `npm test` covers the property that matters — a payment recorded by one
 instance is refused by the next one — and CI runs it.
 
+### When a delivery fails after the payment settled
+
+`settle` records the txid as spent **before** it calls deliver. That is the
+right way round — recorded after, a crash leaves a payment that can be replayed
+forever — but it means a delivery that throws leaves a buyer who paid, got a
+502, and cannot present the same proof again: it is in `spent.log`, and the
+next attempt is refused as a replay.
+
+This is recoverable only by the operator, and only deliberately:
+
+```bash
+# the buyer's txid is in the 502 body, as `settledBy`
+grep -v '^<txid>$' spent.log > spent.log.new && mv spent.log.new spent.log
+# restart — the store is read once, at startup
+```
+
+Do that **only** when the 502 body shows the delivery failed, never because a
+buyer says it did. The coin is still in the UTXO set and always will be, so a
+proof presented twice proves nothing about whether the goods arrived; the
+seller's own log of the failure is the evidence, not the buyer's word.
+
+It has happened once, on 24 September 2026, on the first paid request this
+service ever took. See `deliver.mjs`.
+
 ## Hosting
 
 The `scan` binary rules out Vercel, which is where the other Warda services

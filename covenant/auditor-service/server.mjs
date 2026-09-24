@@ -20,6 +20,7 @@
  */
 import { priced } from "@warda_protocol/vendor";
 import { fileSpent } from "./spent.mjs";
+import { makeDeliver, withSource } from "./deliver.mjs";
 import { execFile } from "node:child_process";
 import { mkdtemp, writeFile, rm, readFile } from "node:fs/promises";
 import { promisify } from "node:util";
@@ -148,10 +149,7 @@ const paid = priced(
     secret: process.env.QUOTE_SECRET,
     spent: SPENT,
   },
-  async (req) => {
-    const text = await analyse(req.__source);
-    return { html: report(text, new Date().toISOString().slice(0, 16).replace("T", " ") + " UTC") };
-  },
+  makeDeliver(analyse, report),
 );
 
 http
@@ -189,13 +187,14 @@ http
         return send(200, "text/plain; charset=utf-8", await analyse(source));
       }
       if (req.url.startsWith("/v1/report")) {
-        req.__source = source;
-        // `priced` answers 402 with a quote when there is no payment header,
-        // and looks the claimed transaction up in the UTXO set when there is.
-        // It never reads the header as truth.
-        const out = await paid(req, res);
-        if (out && out.html) return send(200, "text/html; charset=utf-8", out.html);
-        return;
+        /* `priced` answers 402 with a quote when there is no payment header,
+           and looks the claimed transaction up in the UTXO set when there is.
+           It never reads the header as truth. It also writes the response
+           itself — the report comes back as `html` inside its JSON body — so
+           there is nothing to send afterwards. An earlier version had a
+           `send(200, "text/html", out.html)` line here that could never run,
+           because `priced` returns undefined. */
+        return await withSource(source, () => paid(req, res));
       }
       send(404, "text/plain", "POST /v1/scan or /v1/report\n");
     } catch (e) {
