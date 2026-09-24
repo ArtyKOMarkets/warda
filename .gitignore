@@ -102,3 +102,7 @@ covenant/AUDIT.pdf
 # The .pub is NOT ignored: a public key is meant to be readable, and the
 # float's address is something anyone auditing this should be able to look up.
 ops/auto-issue.key
+
+# Materialised by covenant/probes/run-fanout.sh: generated .sil files and
+# compiler logs. The template and the script are the sources; these are output.
+covenant/probes/out/

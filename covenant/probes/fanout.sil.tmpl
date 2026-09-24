@@ -1,0 +1,34 @@
+pragma silverscript ^0.1.0;
+
+// Does Silverscript's fanout attribute actually take a value above 2?
+//
+// V5.md's C1 — atomic 1:N delegation — rests entirely on this. The attribute
+// is documented as a 1:N construct, but Warda has only ever compiled it at
+// `to = 2`, and "documented" is not "compiles". Everything downstream of that
+// question is a plan against a feature nobody here has run.
+//
+// This file is a TEMPLATE, materialised at several values of N by
+// run-fanout.sh, so the only difference between the artefacts is the number.
+// A probe whose variants differ in two ways answers neither question — the
+// same discipline as the harness's cases, each a single field away from a
+// baseline that passes.
+//
+// It deliberately does NOT model a grant. Attenuation, conservation and the
+// reserve chain are C1's real work; none of it matters if the attribute
+// refuses the value, and all of it would produce compiler errors that mask
+// the one being asked about.
+
+contract FanoutProbe(pubkey ownerKey, int initCounter) {
+    int counter = initCounter;
+
+    #[covenant.fanout(to = __N__)]
+    function split(State prevState, State[] newStates, sig ownerSig) {
+        require(OpAuthOutputCount(this.activeInputIndex) == __N__);
+__CHILDREN__
+        require(checkSig(ownerSig, ownerKey));
+    }
+
+    entry close(sig ownerSig) {
+        require(checkSig(ownerSig, ownerKey));
+    }
+}
