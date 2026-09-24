@@ -1,0 +1,280 @@
+<title>One job, two agents &mdash; a coordinator hiring on Kaspa</title>
+<style>
+  /* The console's tokens, because this page reports the same objects the
+     console reports and a grant should not be two different colours depending
+     on which surface a reader found it on. Fonts stay the site's: the console
+     ships Geist, and loading a fourth family for one page is not worth the
+     consistency it would buy. */
+  :root {
+    --bg:#08090b; --surface:#0e1013; --raised:#14171b; --hover:#1a1e23;
+    --line:#1f242b; --line-strong:#2b323b;
+    --fg:#eceef1; --fg-2:#a4abb4; --fg-3:#6b737d;
+    --accent:#14d7c1; --accent-strong:#3ff0dc;
+    --ok:#3ecf8e; --warn:#f0b429; --bad:#f06363; --info:#6aa7ff;
+    --spent:#a4abb4; --left:#14d7c1;
+    --display:"Chakra Petch","Arial Narrow",sans-serif;
+    --body:"Barlow","Helvetica Neue",Arial,sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+    --radius:14px;
+    --gutter:clamp(1.15rem,4vw,3.4rem);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);line-height:1.6}
+  .wrap{max-width:68rem;margin:0 auto;padding:0 var(--gutter)}
+  a{color:var(--accent)}
+  .num{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-0.02em}
+
+  header.hero{border-bottom:1px solid var(--line);padding:3rem 0 2.6rem}
+  .eyebrow{font-family:var(--mono);font-size:.66rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin:0}
+  h1{font-family:var(--display);font-size:clamp(2rem,5vw,3.2rem);line-height:1.05;margin:1rem 0 0;font-weight:600;letter-spacing:-.01em;max-width:20ch}
+  .lede{color:var(--fg-2);max-width:62ch;margin-top:1.1rem;font-size:1.02rem}
+  section{border-bottom:1px solid var(--line);padding:2.8rem 0}
+  h2{font-family:var(--display);font-size:clamp(1.3rem,3vw,1.85rem);margin:.6rem 0 0;font-weight:600}
+  h3{font-family:var(--display);font-size:1.02rem;margin:0;font-weight:600}
+  p{max-width:66ch;color:var(--fg-2)}
+  p.tight{margin-top:.6rem}
+  strong{color:var(--fg);font-weight:600}
+  code{font-family:var(--mono);font-size:.88em;color:var(--fg-2)}
+
+  /* ---- card ---------------------------------------------------------- */
+  .card{min-width:0;border:1px solid var(--line);background:var(--surface);border-radius:var(--radius);
+        box-shadow:0 1px 0 rgba(255,255,255,.03) inset,0 1px 2px rgba(0,0,0,.4)}
+  .cards{display:grid;gap:1rem;margin-top:1.6rem;grid-template-columns:repeat(auto-fit,minmax(19rem,1fr))}
+  .ac{padding:1.25rem;display:flex;flex-direction:column;height:100%}
+  .ac-top{display:flex;align-items:flex-start;gap:.75rem}
+  .mark{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;flex:none;
+        font-family:var(--display);font-weight:700;font-size:.95rem;color:var(--accent);
+        background:linear-gradient(140deg,rgba(20,215,193,.16),rgba(20,215,193,.04));
+        border:1px solid rgba(20,215,193,.22)}
+  .mark.w{color:var(--info);background:linear-gradient(140deg,rgba(106,167,255,.16),rgba(106,167,255,.04));
+          border-color:rgba(106,167,255,.22)}
+  .ac-name{min-width:0;flex:1}
+  .ac-name .n{font-size:.98rem;font-weight:600;color:var(--fg);display:block}
+  .ac-name .m{font-size:.82rem;color:var(--fg-3);display:block;margin-top:.1rem}
+  .badge{display:inline-flex;align-items:center;gap:.4rem;height:22px;padding:0 .55rem;border-radius:999px;
+         font-size:.74rem;font-weight:500;line-height:1;white-space:nowrap;
+         color:var(--fg-2);background:var(--raised);box-shadow:inset 0 0 0 1px var(--line-strong)}
+  .badge i{width:6px;height:6px;border-radius:999px;background:currentColor;display:block}
+  .badge.ok{color:var(--ok);background:rgba(62,207,142,.1);box-shadow:inset 0 0 0 1px rgba(62,207,142,.25)}
+  .badge.acc{color:var(--accent);background:rgba(20,215,193,.1);box-shadow:inset 0 0 0 1px rgba(20,215,193,.25)}
+  .badge.bad{color:var(--bad);background:rgba(240,99,99,.1);box-shadow:inset 0 0 0 1px rgba(240,99,99,.25)}
+  .badge.warn{color:var(--warn);background:rgba(240,180,41,.1);box-shadow:inset 0 0 0 1px rgba(240,180,41,.25)}
+
+  .ac-mid{margin-top:1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem}
+  .ac-mid .lbl{font-size:.76rem;color:var(--fg-3)}
+  .ac-mid .big{font-family:var(--mono);font-size:1.65rem;font-weight:600;letter-spacing:-.03em;line-height:1;margin-top:.35rem;display:block}
+  .ac-mid .of{font-size:.76rem;color:var(--fg-3);margin-top:.5rem}
+  .ac-mid .of b{color:var(--fg-2);font-family:var(--mono);font-weight:500}
+
+  .ring{flex:none;position:relative}
+  .ring svg{display:block;transform:rotate(-90deg)}
+  .ring .pct{position:absolute;inset:0;display:grid;place-items:center;text-align:center;line-height:1.1}
+  .ring .pct b{font-family:var(--mono);font-size:.86rem;font-weight:600;display:block}
+  .ring .pct span{font-size:.62rem;color:var(--fg-3);display:block}
+
+  .minis{margin-top:1.15rem;padding-top:.95rem;border-top:1px solid var(--line);
+         display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem}
+  .mini .k{font-size:.72rem;color:var(--fg-3)}
+  .mini .v{font-family:var(--mono);font-size:.86rem;color:var(--fg);margin-top:.15rem}
+  .ac-foot{margin-top:1rem;font-size:.75rem;color:var(--fg-3);display:flex;justify-content:space-between;gap:.75rem;align-items:center}
+  .ac-foot a{font-family:var(--mono);font-size:.72rem}
+
+  /* ---- tree ---------------------------------------------------------- */
+  .tree{margin-top:1.6rem;padding:.5rem .25rem}
+  .tree ul{list-style:none;margin:0;padding:0}
+  .tree li{position:relative}
+  .tree li.kid{padding-left:44px}
+  .tree li.kid>.vline{position:absolute;left:25px;top:0;width:1px;background:var(--line-strong)}
+  .tree li.kid>.hline{position:absolute;left:25px;top:25px;height:1px;width:26px;background:var(--line-strong)}
+  .node{display:flex;align-items:flex-start;gap:.75rem;padding:.6rem .65rem;border-radius:11px}
+  .node .mark{width:30px;height:30px;border-radius:9px;font-size:.8rem}
+  .node .who{min-width:0;flex:1}
+  .node .who .n{font-size:.88rem;font-weight:500}
+  .node .chips{margin-top:.35rem;display:flex;flex-wrap:wrap;gap:.35rem}
+  .chip{display:inline-flex;align-items:center;height:19px;padding:0 .4rem;border-radius:999px;font-size:.7rem;
+        color:var(--fg-2);background:var(--raised);box-shadow:inset 0 0 0 1px var(--line-strong)}
+  .chip b{color:var(--fg-3);font-weight:400;margin-right:.3rem}
+  .node .amt{text-align:right;flex:none}
+  .node .amt .a{font-family:var(--mono);font-size:.86rem}
+  .node .amt .a i{font-style:normal;font-size:.68rem;color:var(--fg-3);margin-left:.25rem}
+  .node .amt .s{font-size:.68rem;color:var(--fg-3)}
+
+  /* ---- tables -------------------------------------------------------- */
+  .tscroll{overflow-x:auto;margin-top:1.4rem}
+  table{width:100%;border-collapse:collapse;font-size:.88rem}
+  th,td{text-align:left;padding:.62rem .85rem .62rem 0;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-family:var(--mono);font-size:.64rem;letter-spacing:.14em;text-transform:uppercase;color:var(--fg-3);font-weight:400}
+  td.v{font-family:var(--mono);font-size:.78rem;white-space:nowrap}
+  td.v.ok{color:var(--accent)} td.v.no{color:var(--bad)} td.v.dim{color:var(--fg-3)}
+  td .tx{font-family:var(--mono);font-size:.74rem}
+
+  .note{border:1px solid var(--line-strong);background:var(--surface);border-radius:var(--radius);
+        padding:1.05rem 1.15rem;margin-top:1.5rem}
+  .note.bad{border-left:3px solid var(--bad)}
+  .note.acc{border-left:3px solid var(--accent)}
+  .note p{margin:.45rem 0 0;font-size:.94rem;max-width:72ch}
+  .note p:first-child{margin-top:0}
+  .note h3{font-family:var(--display);font-size:1rem;margin:0 0 .3rem}
+
+  .limits{display:grid;gap:1rem;margin-top:1.5rem}
+  .lim{border:1px solid var(--line);border-left:3px solid var(--fg-3);background:var(--surface);
+       border-radius:0 var(--radius) var(--radius) 0;padding:1rem 1.15rem}
+  .lim h3{margin:0 0 .35rem}
+  .lim p{margin:0;font-size:.92rem}
+
+  footer{padding:2.4rem 0 3.5rem;color:var(--fg-3);font-size:.84rem}
+  footer a{color:var(--fg-2)}
+  .ac-mid .warnline{display:block;margin-top:.35rem;font-size:.74rem;color:var(--warn)}
+  @media (max-width:640px){ .minis{grid-template-columns:repeat(2,minmax(0,1fr))} }
+{{NAV_CSS}}
+</style>
+
+{{NAV}}
+
+<header class="hero">
+  <div class="wrap">
+    <p class="eyebrow">testnet-10 &middot; {{OJ_DATE}}</p>
+    <h1>One job, two agents, and every step on chain</h1>
+    <p class="lede">
+      A coordinator took a job, split it, hired a specialist for each part, and paid each one
+      for its own piece. The rules were enforced by Kaspa rather than by anybody&rsquo;s good
+      behaviour. This is the whole run, from the first transaction to the last &mdash;
+      including the payment that settled and delivered nothing, and how that was recovered
+      without paying twice.
+    </p>
+    <p class="lede" style="font-size:.92rem">
+      Every figure on this page is read from
+      <a href="/one-job.json">one-job.json</a>, written by
+      <a href="https://github.com/ArtyKOMarkets/warda/blob/main/growth/tools/one-job.ts" rel="noopener">the script that ran it</a>.
+    </p>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">The cast</p>
+    <h2>Three grants, three keys, one of which can spend nothing</h2>
+    <p class="tight">
+      The coordinator signs the genesis spend and both delegations and never signs a purchase.
+      Each worker signs its own purchase and nothing else. A fourth key &mdash; the stopper &mdash;
+      can end any of it at any moment and receives nothing, and no agent here holds it.
+    </p>
+    {{OJ_CARDS}}
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">The narrowing</p>
+    <h2>Each worker may pay exactly one seller</h2>
+    <p class="tight">
+      The coordinator&rsquo;s allowlist has two members. Each child was delegated down to
+      <strong>one</strong> of them &mdash; and the child does not merely promise that. It commits to a
+      <em>node</em> of the parent&rsquo;s allowlist tree and carries the path from that node up to the
+      parent&rsquo;s root, so the chain can check the narrowing without ever seeing the list. That is
+      why the roots below differ: a different root is the narrowing, visible rather than asserted.
+    </p>
+    <div class="card tree">{{OJ_TREE}}</div>
+    <p class="tight" style="font-size:.92rem">
+      RESEARCH could not have paid the Auditor. VERIFY could not have paid the Researcher.
+      Neither could have paid anyone else at any price, however their code was written.
+    </p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">The sequence</p>
+    <h2>Eleven steps, seven transactions</h2>
+    <p class="tight">
+      Hiring is serial because a grant is one UTXO: the second delegation&rsquo;s input is the
+      first one&rsquo;s output and does not exist until it confirms. Settlement runs backwards
+      because the reserve chain is popped from the end &mdash; VERIFY was hired second, so it came
+      home first, and a child settled out of order is refused before anything is built.
+    </p>
+    <div class="tscroll">{{OJ_STEPS}}</div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">What was bought</p>
+    <h2>Two different jobs, two sellers, neither told about this</h2>
+    <p class="tight">
+      RESEARCH bought a checkable record about <span class="num">{{OJ_TARGET}}</span> from Warda&rsquo;s
+      Researcher. VERIFY bought an audit of <code>covenant/warda_grant.sil</code> from the Covenant
+      Auditor &mdash; so the thing being audited is the thing that enforced the payment. Both
+      services were already running and neither was told anything about this demonstration.
+    </p>
+    <div class="tscroll">{{OJ_PURCHASES}}</div>
+    {{OJ_INCIDENT}}
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">What the network would carry</p>
+    <h2>The budgets are not about the job</h2>
+    <p class="tight">
+      KIP-9 storage mass counts <code>1/value</code> over a transaction&rsquo;s <em>outputs</em>, and a
+      grant that pays out creates two: the payment, and the grant&rsquo;s own successor. A covenant
+      output carries a 32-byte binding that pushes it into a second storage unit and squares its
+      weight, so the successor dominates. <strong>What costs is what the grant has left.</strong>
+      A nearly-empty grant is the expensive one.
+    </p>
+    <p class="tight">
+      This is consensus, not the covenant, and no grant term relaxes it. The per-payment caps
+      below are the sellers&rsquo; listed prices to the sompi; the budgets are the smallest amounts
+      the network will let a worker pay out of, with headroom. Every transaction is massed before
+      anything is built.
+    </p>
+    <div class="tscroll">{{OJ_MASS}}</div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">What this does not show</p>
+    <h2>Three limits, all deliberate</h2>
+    <div class="limits">
+      <div class="lim">
+        <h3>It is not atomic</h3>
+        <p>Everyone joining one agreement in a single step is the shape people usually describe,
+        and it is what the covenant forbids: <code>#[covenant.fanout(to = 2)]</code> with
+        <code>require(OpAuthOutputCount == 2)</code> fixes the topology at parent plus
+        <em>one</em> child. Two workers is two delegations, in two transactions.</p>
+      </div>
+      <div class="lim">
+        <h3>They are not even concurrent</h3>
+        <p>A grant is one UTXO, so the second delegation&rsquo;s input is the first one&rsquo;s
+        output. Hiring is serial by construction, not by scheduling.</p>
+      </div>
+      <div class="lim">
+        <h3>The workers had to be known before the job existed</h3>
+        <p>A grant&rsquo;s payee set is fixed at genesis and a child may only narrow it, so a
+        coordinator can hire from the cast it was created with and nobody else. An agent
+        discovered at run time cannot be paid, at any delegation depth. That is the honest
+        distance between this and an open market, and no amount of tooling closes it &mdash; it
+        needs the covenant to change.</p>
+      </div>
+    </div>
+    <div class="note">
+      <h3>And one thing it does show that is easy to miss</h3>
+      <p>The reserve came back. <code>reabsorb</code> requires
+      <code>newState.reserved == reserved - child.budgetTotal</code>, so settling a worker
+      restores the coordinator&rsquo;s capacity to delegate again rather than consuming it for the
+      grant&rsquo;s whole life. The cost is ordering: <code>child.reserved == 0</code> means a
+      subtree settles from the leaves up, and a long-lived child at the bottom of the chain holds
+      everything above it.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    testnet-10, unaudited, no real money.
+    &middot; <a href="https://github.com/ArtyKOMarkets/warda/blob/main/growth/ONE-JOB.md" rel="noopener">the runbook</a>
+    &middot; <a href="/one-job.json">the trace</a>
+    &middot; <a href="/proof">what would refute this</a>
+  </div>
+</footer>

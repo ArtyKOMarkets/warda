@@ -1,0 +1,583 @@
+<title>One job, two agents &mdash; a coordinator hiring on Kaspa</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+  /* The console's tokens, because this page reports the same objects the
+     console reports and a grant should not be two different colours depending
+     on which surface a reader found it on. Fonts stay the site's: the console
+     ships Geist, and loading a fourth family for one page is not worth the
+     consistency it would buy. */
+  :root {
+    --bg:#08090b; --surface:#0e1013; --raised:#14171b; --hover:#1a1e23;
+    --line:#1f242b; --line-strong:#2b323b;
+    --fg:#eceef1; --fg-2:#a4abb4; --fg-3:#6b737d;
+    --accent:#14d7c1; --accent-strong:#3ff0dc;
+    --ok:#3ecf8e; --warn:#f0b429; --bad:#f06363; --info:#6aa7ff;
+    --spent:#a4abb4; --left:#14d7c1;
+    --display:"Chakra Petch","Arial Narrow",sans-serif;
+    --body:"Barlow","Helvetica Neue",Arial,sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+    --radius:14px;
+    --gutter:clamp(1.15rem,4vw,3.4rem);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);line-height:1.6}
+  .wrap{max-width:68rem;margin:0 auto;padding:0 var(--gutter)}
+  a{color:var(--accent)}
+  .num{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-0.02em}
+
+  header.hero{border-bottom:1px solid var(--line);padding:3rem 0 2.6rem}
+  .eyebrow{font-family:var(--mono);font-size:.66rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin:0}
+  h1{font-family:var(--display);font-size:clamp(2rem,5vw,3.2rem);line-height:1.05;margin:1rem 0 0;font-weight:600;letter-spacing:-.01em;max-width:20ch}
+  .lede{color:var(--fg-2);max-width:62ch;margin-top:1.1rem;font-size:1.02rem}
+  section{border-bottom:1px solid var(--line);padding:2.8rem 0}
+  h2{font-family:var(--display);font-size:clamp(1.3rem,3vw,1.85rem);margin:.6rem 0 0;font-weight:600}
+  h3{font-family:var(--display);font-size:1.02rem;margin:0;font-weight:600}
+  p{max-width:66ch;color:var(--fg-2)}
+  p.tight{margin-top:.6rem}
+  strong{color:var(--fg);font-weight:600}
+  code{font-family:var(--mono);font-size:.88em;color:var(--fg-2)}
+
+  /* ---- card ---------------------------------------------------------- */
+  .card{min-width:0;border:1px solid var(--line);background:var(--surface);border-radius:var(--radius);
+        box-shadow:0 1px 0 rgba(255,255,255,.03) inset,0 1px 2px rgba(0,0,0,.4)}
+  .cards{display:grid;gap:1rem;margin-top:1.6rem;grid-template-columns:repeat(auto-fit,minmax(19rem,1fr))}
+  .ac{padding:1.25rem;display:flex;flex-direction:column;height:100%}
+  .ac-top{display:flex;align-items:flex-start;gap:.75rem}
+  .mark{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;flex:none;
+        font-family:var(--display);font-weight:700;font-size:.95rem;color:var(--accent);
+        background:linear-gradient(140deg,rgba(20,215,193,.16),rgba(20,215,193,.04));
+        border:1px solid rgba(20,215,193,.22)}
+  .mark.w{color:var(--info);background:linear-gradient(140deg,rgba(106,167,255,.16),rgba(106,167,255,.04));
+          border-color:rgba(106,167,255,.22)}
+  .ac-name{min-width:0;flex:1}
+  .ac-name .n{font-size:.98rem;font-weight:600;color:var(--fg);display:block}
+  .ac-name .m{font-size:.82rem;color:var(--fg-3);display:block;margin-top:.1rem}
+  .badge{display:inline-flex;align-items:center;gap:.4rem;height:22px;padding:0 .55rem;border-radius:999px;
+         font-size:.74rem;font-weight:500;line-height:1;white-space:nowrap;
+         color:var(--fg-2);background:var(--raised);box-shadow:inset 0 0 0 1px var(--line-strong)}
+  .badge i{width:6px;height:6px;border-radius:999px;background:currentColor;display:block}
+  .badge.ok{color:var(--ok);background:rgba(62,207,142,.1);box-shadow:inset 0 0 0 1px rgba(62,207,142,.25)}
+  .badge.acc{color:var(--accent);background:rgba(20,215,193,.1);box-shadow:inset 0 0 0 1px rgba(20,215,193,.25)}
+  .badge.bad{color:var(--bad);background:rgba(240,99,99,.1);box-shadow:inset 0 0 0 1px rgba(240,99,99,.25)}
+  .badge.warn{color:var(--warn);background:rgba(240,180,41,.1);box-shadow:inset 0 0 0 1px rgba(240,180,41,.25)}
+
+  .ac-mid{margin-top:1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem}
+  .ac-mid .lbl{font-size:.76rem;color:var(--fg-3)}
+  .ac-mid .big{font-family:var(--mono);font-size:1.65rem;font-weight:600;letter-spacing:-.03em;line-height:1;margin-top:.35rem;display:block}
+  .ac-mid .of{font-size:.76rem;color:var(--fg-3);margin-top:.5rem}
+  .ac-mid .of b{color:var(--fg-2);font-family:var(--mono);font-weight:500}
+
+  .ring{flex:none;position:relative}
+  .ring svg{display:block;transform:rotate(-90deg)}
+  .ring .pct{position:absolute;inset:0;display:grid;place-items:center;text-align:center;line-height:1.1}
+  .ring .pct b{font-family:var(--mono);font-size:.86rem;font-weight:600;display:block}
+  .ring .pct span{font-size:.62rem;color:var(--fg-3);display:block}
+
+  .minis{margin-top:1.15rem;padding-top:.95rem;border-top:1px solid var(--line);
+         display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem}
+  .mini .k{font-size:.72rem;color:var(--fg-3)}
+  .mini .v{font-family:var(--mono);font-size:.86rem;color:var(--fg);margin-top:.15rem}
+  .ac-foot{margin-top:1rem;font-size:.75rem;color:var(--fg-3);display:flex;justify-content:space-between;gap:.75rem;align-items:center}
+  .ac-foot a{font-family:var(--mono);font-size:.72rem}
+
+  /* ---- tree ---------------------------------------------------------- */
+  .tree{margin-top:1.6rem;padding:.5rem .25rem}
+  .tree ul{list-style:none;margin:0;padding:0}
+  .tree li{position:relative}
+  .tree li.kid{padding-left:44px}
+  .tree li.kid>.vline{position:absolute;left:25px;top:0;width:1px;background:var(--line-strong)}
+  .tree li.kid>.hline{position:absolute;left:25px;top:25px;height:1px;width:26px;background:var(--line-strong)}
+  .node{display:flex;align-items:flex-start;gap:.75rem;padding:.6rem .65rem;border-radius:11px}
+  .node .mark{width:30px;height:30px;border-radius:9px;font-size:.8rem}
+  .node .who{min-width:0;flex:1}
+  .node .who .n{font-size:.88rem;font-weight:500}
+  .node .chips{margin-top:.35rem;display:flex;flex-wrap:wrap;gap:.35rem}
+  .chip{display:inline-flex;align-items:center;height:19px;padding:0 .4rem;border-radius:999px;font-size:.7rem;
+        color:var(--fg-2);background:var(--raised);box-shadow:inset 0 0 0 1px var(--line-strong)}
+  .chip b{color:var(--fg-3);font-weight:400;margin-right:.3rem}
+  .node .amt{text-align:right;flex:none}
+  .node .amt .a{font-family:var(--mono);font-size:.86rem}
+  .node .amt .a i{font-style:normal;font-size:.68rem;color:var(--fg-3);margin-left:.25rem}
+  .node .amt .s{font-size:.68rem;color:var(--fg-3)}
+
+  /* ---- tables -------------------------------------------------------- */
+  .tscroll{overflow-x:auto;margin-top:1.4rem}
+  table{width:100%;border-collapse:collapse;font-size:.88rem}
+  th,td{text-align:left;padding:.62rem .85rem .62rem 0;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-family:var(--mono);font-size:.64rem;letter-spacing:.14em;text-transform:uppercase;color:var(--fg-3);font-weight:400}
+  td.v{font-family:var(--mono);font-size:.78rem;white-space:nowrap}
+  td.v.ok{color:var(--accent)} td.v.no{color:var(--bad)} td.v.dim{color:var(--fg-3)}
+  td .tx{font-family:var(--mono);font-size:.74rem}
+
+  .note{border:1px solid var(--line-strong);background:var(--surface);border-radius:var(--radius);
+        padding:1.05rem 1.15rem;margin-top:1.5rem}
+  .note.bad{border-left:3px solid var(--bad)}
+  .note.acc{border-left:3px solid var(--accent)}
+  .note p{margin:.45rem 0 0;font-size:.94rem;max-width:72ch}
+  .note p:first-child{margin-top:0}
+  .note h3{font-family:var(--display);font-size:1rem;margin:0 0 .3rem}
+
+  .limits{display:grid;gap:1rem;margin-top:1.5rem}
+  .lim{border:1px solid var(--line);border-left:3px solid var(--fg-3);background:var(--surface);
+       border-radius:0 var(--radius) var(--radius) 0;padding:1rem 1.15rem}
+  .lim h3{margin:0 0 .35rem}
+  .lim p{margin:0;font-size:.92rem}
+
+  footer{padding:2.4rem 0 3.5rem;color:var(--fg-3);font-size:.84rem}
+  footer a{color:var(--fg-2)}
+  .ac-mid .warnline{display:block;margin-top:.35rem;font-size:.74rem;color:var(--warn)}
+  @media (max-width:640px){ .minis{grid-template-columns:repeat(2,minmax(0,1fr))} }
+  /* One bar, every page, injected by build.py.
+     There were seven public pages and the only way between any two of them
+     was back to the home page first. Sticky because the landing page is very
+     tall and a reader six sections down had no way out of it at all. */
+  /* `body > .topnav`, not `.topnav`. The landing page carries
+     `body > *:not(.field) { position: relative }` for its background field,
+     and that selector scores 0,1,1 against a bare class's 0,1,0 — so it won
+     on specificity wherever this bar was declared, and the nav silently
+     scrolled away on the one page long enough to need it. */
+  /* ---- the precondition, which is why the bar kept scrolling away --------
+     `position: sticky` sticks to the nearest SCROLLING ancestor, and
+     `overflow-x: hidden` on an element makes it one. Five pages carried
+     `body { overflow-x: hidden }` to stop sideways drag, so on every one of
+     them the bar was stuck to a box that scrolls with the page — which looks
+     exactly like sticky not working at all.
+
+     It was diagnosed once before, as the specificity problem described below,
+     and that fix was real but was not this. Two causes, one symptom; fixing
+     the first made no visible difference and the second went on standing.
+
+     `clip` instead of `hidden`: it clips identically and does NOT create a
+     scroll container, so the viewport stays the scrollport and the bar stays
+     put. It is declared here rather than per page because it is not a page's
+     styling choice — it is what this bar requires in order to work, and a page
+     that sets its own `overflow-x: hidden` on body silently breaks the
+     navigation for its readers with no error anywhere. */
+  html, body { overflow-x: clip; }
+
+  /* ---- every selector below is scoped to .topnav ------------------------
+     Not tidiness — specificity, and the second half of the same bug the
+     token block above describes.
+
+     Six pages carry `a:hover { color: var(--teal-bright) }`. That is a type
+     selector plus a pseudo-class, 0-1-1, and `.nv-go` was a bare class, 0-1-0.
+     So on those pages the page won: the "Get started" label turned the same
+     colour as the button it sits on and the control rendered as a blank teal
+     pill. It read as the button changing when you navigate, because it did.
+
+     A bar that appears on every page cannot be written at the specificity of a
+     page's own prose rules. `.topnav .nv-go` is 0-2-0 and beats any `a:hover`
+     a page can reasonably write, without a single `!important` — which would
+     have fixed this one case and left the next one to be found by eye.
+     `ops/check-nav-tokens.mjs` keeps it true. */
+
+  /* ---- the bar brings its own palette ----------------------------------
+     Every colour below is `the page's token, or this literal`. That is not
+     belt-and-braces; it is a bug that shipped.
+
+     `.nv-go:hover` was `background: var(--teal-bright)`, and eleven pages —
+     network, rail, proof, console, verify and every agent page — never define
+     `--teal-bright`. An invalid var() with no fallback does not fall back to
+     the declaration below it: the property computes to its initial value. So
+     on those pages the one solid button in the bar turned TRANSPARENT the
+     moment you pointed at it, and was fine everywhere else, which is why it
+     read as "the button changes when I click Network".
+
+     Focus rings had the same hole, silently, on the same pages.
+
+     The rule this file already argues for the bar's WIDTH applies to its
+     colours too: a bar that appears on every page should not be styled by
+     whichever page it landed on. A page that defines a token still wins — the
+     literal is only what happens when nobody said. */
+  .topnav {
+    --nv-void: var(--void, #06090C);
+    --nv-ground: var(--ground, #0A1014);
+    --nv-panel: var(--panel, #101A20);
+    --nv-edge: var(--edge, #1E2E37);
+    --nv-edge-bright: var(--edge-bright, #2C4350);
+    --nv-chrome: var(--chrome, #DDE0E2);
+    --nv-chrome-dim: var(--chrome-dim, #8D989E);
+    --nv-chrome-faint: var(--chrome-faint, #5D6B73);
+    --nv-teal: var(--teal, #14D7C1);
+    --nv-teal-bright: var(--teal-bright, #38F9E9);
+    --nv-teal-deep: var(--teal-deep, #06BBA1);
+    --nv-amber: var(--amber, #E8B23A);
+    --nv-display: var(--display, "Chakra Petch", "Arial Narrow", sans-serif);
+    --nv-body: var(--body, "Barlow", "Helvetica Neue", Arial, sans-serif);
+    --nv-mono: var(--mono, "JetBrains Mono", ui-monospace, Menlo, monospace);
+    --nv-gutter: var(--gutter, clamp(1.15rem, 4vw, 3.4rem));
+  }
+
+
+
+  body > .topnav { position: sticky; top: 0; z-index: 60; background: rgba(6,9,12,0.86);
+                   border-bottom: 1px solid var(--nv-edge); backdrop-filter: blur(12px); }
+  /* ---- the bar's width is the bar's own -------------------------------
+     `.wrap` is each page's content column, and the pages do not agree: the
+     landing page is 74rem and network/proof/rail are 62rem. Inheriting that
+     squeezed nine links, a status line and a button into 992px, and the
+     button went off the right edge between 1250 and 1280 — the same symptom
+     fixed once already by breakpoints, on the pages wide enough to hide it.
+     A bar that appears on every page should not be sized by whichever page
+     it landed on. */
+  .topnav .wrap { display: flex; align-items: center; gap: 1.6rem;
+                  max-width: 74rem;
+                  padding-top: 0; padding-bottom: 0; height: 3.7rem; }
+  .topnav a { text-decoration: none; white-space: nowrap; }
+  .topnav .nv-brand { font-family: var(--nv-display); font-weight: 700; font-size: 1.12rem;
+              letter-spacing: 0.01em; color: var(--nv-chrome); margin-right: 0.4rem; }
+  .topnav .nv-brand:hover { color: var(--nv-teal); }
+  /* `flex: 1` so the row fills the bar, which is what lets the menu button sit
+     at the far right of the links rather than bunched against "Funding". The
+     ranking is the point: five words a newcomer understands, then one control
+     that opens everything a sceptic wants. */
+  .topnav .nv-links { display: flex; align-items: center; gap: 1.5rem; flex: 1 1 auto; margin-right: auto; }
+  .topnav .nv-links a { font-family: var(--nv-body); font-size: 0.88rem; color: var(--nv-chrome-dim);
+                transition: color 140ms ease; }
+  .topnav .nv-links a:hover { color: var(--nv-chrome); }
+  /* The page you are on, said in the markup rather than guessed by script:
+     these are static files and build.py knows which one it is writing. */
+  .topnav .nv-links a[aria-current="page"] { color: var(--nv-chrome); }
+
+  /* ---- the Check protocol menu -----------------------------------------
+     A <details>/<summary> with a panel, not a scripted dropdown. The element
+     already opens on click and on Enter, closes on Escape, sits in the tab
+     order and works with scripting off; the only thing added in markup is the
+     look. Every dropdown bug this could have had — focus trapped in a closed
+     panel, a summary that is not reachable by keyboard, a menu that eats the
+     first tap on touch — is a bug in code that is not here. */
+  .topnav .nv-menu { position: relative; margin-left: auto; }
+  .topnav .nv-menu > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center;
+                       gap: 0.4rem; font-family: var(--nv-body); font-size: 0.88rem;
+                       color: var(--nv-chrome); padding: 0.34rem 0.8rem;
+                       border: 1px solid var(--nv-edge-bright); border-radius: 999px;
+                       transition: border-color 140ms ease, color 140ms ease; }
+  .topnav .nv-menu > summary::-webkit-details-marker { display: none; }
+  .topnav .nv-menu > summary::after { content: ""; width: 0.36rem; height: 0.36rem; margin-top: -0.18rem;
+                              border-right: 1.4px solid currentColor; border-bottom: 1.4px solid currentColor;
+                              transform: rotate(45deg); transition: transform 180ms ease; }
+  .topnav .nv-menu[open] > summary::after { transform: rotate(-135deg) translate(-0.1rem, -0.1rem); }
+  .topnav .nv-menu > summary:hover { border-color: var(--nv-teal-deep); color: var(--nv-teal); }
+  .topnav .nv-menu > summary:focus-visible { outline: 2px solid var(--nv-teal-bright); outline-offset: 3px; }
+
+  .topnav .nv-sheet { position: absolute; top: calc(100% + 0.7rem); right: 0; z-index: 70;
+              min-width: 20rem; display: grid; gap: 0.1rem;
+              background: var(--nv-ground); border: 1px solid var(--nv-edge);
+              border-radius: 12px; padding: 0.5rem; box-shadow: 0 24px 60px rgba(0,0,0,0.55); }
+  .topnav .nv-sheet a { display: block; padding: 0.6rem 0.75rem; border-radius: 8px;
+                transition: background 120ms ease; white-space: normal; }
+  .topnav .nv-sheet a:hover { background: var(--nv-panel); }
+  .topnav .nv-sheet b { display: block; font-family: var(--nv-body); font-size: 0.9rem; font-weight: 600;
+                color: var(--nv-chrome); }
+  .topnav .nv-sheet span { display: block; font-size: 0.76rem; color: var(--nv-chrome-faint); margin-top: 0.1rem; }
+  .topnav .nv-sheet a[aria-current="page"] b { color: var(--nv-teal); }
+
+  .topnav .nv-status { font-family: var(--nv-mono); font-size: 0.6rem; letter-spacing: 0.09em;
+               text-transform: uppercase; color: var(--nv-chrome-faint); opacity: 0.8;
+               white-space: nowrap; }
+  .topnav .nv-status b { color: var(--nv-amber); font-weight: 600; }
+  .topnav .nv-go { font-family: var(--nv-body); font-size: 0.85rem; font-weight: 600;
+           background: var(--nv-teal); color: var(--nv-void); padding: 0.5rem 1.05rem;
+           border-radius: 999px; transition: background 140ms ease; }
+  .topnav .nv-go:hover { background: var(--nv-teal-bright); }
+  .topnav a:focus-visible, .topnav .nv-burger:focus-visible { outline: 2px solid var(--nv-teal-bright); outline-offset: 3px; }
+
+  .topnav .nv-burger { display: none; background: none; border: 1px solid var(--nv-edge-bright);
+               border-radius: 7px; width: 2.4rem; height: 2.1rem; cursor: pointer;
+               flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+  .topnav .nv-burger span { width: 14px; height: 1.5px; background: var(--nv-chrome); transition: 200ms ease; }
+  .topnav .nv-burger[aria-expanded="true"] span:nth-child(1) { transform: translateY(5.5px) rotate(45deg); }
+  .topnav .nv-burger[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+  .topnav .nv-burger[aria-expanded="true"] span:nth-child(3) { transform: translateY(-5.5px) rotate(-45deg); }
+
+  /* ---- where the bar stops fitting -------------------------------------
+     Measured, not guessed, and re-measured after /sandbox made nine links out
+     of eight. The failure is invisible in the usual way: `overflow-x: clip`
+     above means a bar that is too wide does not scroll and does not report an
+     overflow — the "Get started" button is simply not on the screen, and the
+     page looks fine. At 1024px it was already 20px off the right edge with
+     eight links and nothing said so.
+
+     Two steps rather than one, because the two things have different value.
+     The status line is the widest item and the most repeatable — it is on
+     every page and says the same thing — so it goes first. The links go
+     second, into the menu that already exists. */
+  /* 1320, not 1200. Ten links, the status and the button stop fitting together
+     somewhere between 1280 and 1366, and the button is the thing that went off
+     the right edge. The status is the part that can go: it is a sticky-bar
+     convenience, and the same disclosure is in the footer of every page and in
+     the page content itself, so nothing honest is lost by dropping it on a
+     narrower screen. Measured at sixteen widths on four pages. */
+  /* 1180 now, not 1320. Five links plus one menu button is materially
+     narrower than the ten links this was measured for, so the status line
+     survives further down the range than it used to. Re-measured rather than
+     left alone: a breakpoint kept from a layout that no longer exists is a
+     breakpoint that hides something for no reason. */
+  @media (max-width: 1180px) { .nv-status { display: none; } }
+
+  @media (max-width: 900px) {
+    .topnav .nv-burger { display: flex; }
+    .topnav .nv-links { position: absolute; left: 0; right: 0; top: 100%; display: none;
+                flex-direction: column; align-items: stretch; gap: 0; margin: 0;
+                background: var(--nv-ground); border-bottom: 1px solid var(--nv-edge);
+                padding: 0.3rem var(--nv-gutter) 1rem; }
+    .topnav .nv-links[data-open="1"] { display: flex; }
+    .topnav .nv-links a { padding: 0.85rem 0; border-bottom: 1px solid var(--nv-edge); font-size: 0.95rem; }
+    /* Stacked, the sheet is part of the list rather than floating over it:
+       an absolutely-positioned panel inside a full-width menu opens off the
+       right edge of a phone, which is the one place this menu matters most. */
+    .topnav .nv-menu { width: 100%; margin-left: 0; }
+    .topnav .nv-menu > summary { justify-content: space-between; width: 100%; border: 0;
+                         border-bottom: 1px solid var(--nv-edge); border-radius: 0;
+                         padding: 0.85rem 0; font-size: 0.95rem; }
+    .topnav .nv-sheet { position: static; min-width: 0; border: 0; border-radius: 0; padding: 0 0 0 0.9rem;
+                box-shadow: none; background: transparent; }
+    .topnav .nv-sheet a { padding: 0.7rem 0; border-bottom: 1px solid var(--nv-edge); border-radius: 0; }
+    .topnav .nv-sheet a:hover { background: transparent; }
+    .topnav .wrap { gap: 0.9rem; }
+    .topnav .nv-go { margin-left: auto; }
+  }
+
+</style>
+
+<nav class="topnav" aria-label="Site">
+  <div class="wrap">
+    <a class="nv-brand" href="/" data-nv="index.html">Warda</a>
+    <div class="nv-links" id="nv-links">
+      <a href="/build" data-nv="build.html">How it works</a>
+      <a href="/agents" data-nv="agents.html">Agents</a>
+      <a href="/start" data-nv="start.html">Developers</a>
+      <a href="/network" data-nv="network.html">Network</a>
+      <a href="/rail" data-nv="rail.html">Funding</a>
+
+      <!-- The technical world, behind one control.
+           There were ten links in this bar and every one of them was a page a
+           first-time visitor had no way to rank: /attack and /console and
+           /verify are the best things here and they are the last things to
+           show somebody who does not yet know what a grant is. They are not
+           deleted, they are ranked — one button, and everything that proves
+           the claims is one click behind it.
+
+           A <details> element rather than a scripted menu: it opens on click
+           and on Enter, closes on Escape, is focusable in the tab order and
+           works with JavaScript off, all without a line of code. The script
+           below adds only the two things <details> does not do by itself —
+           close when you click elsewhere, and close when you follow a link. -->
+      <details class="nv-menu" id="nv-menu">
+        <summary>Check protocol</summary>
+        <div class="nv-sheet">
+          <a href="/protocol" data-nv="protocol.html"><b>Protocol</b><span>The covenant, the grant, the three keys</span></a>
+          <a href="/proof" data-nv="proof.html"><b>Proof</b><span>Every claim, and what would refute it</span></a>
+          <a href="/one-job" data-nv="one-job.html" aria-current="page"><b>One job</b><span>A coordinator hired two agents, start to finish</span></a>
+          <a href="/grant" data-nv="grant.html"><b>Get a grant</b><span>We fund your agent on testnet, free</span></a>
+          <a href="/verify" data-nv="verify.html"><b>Verify</b><span>Check a grant against the chain yourself</span></a>
+          <a href="/sandbox" data-nv="sandbox.html"><b>Sandbox</b><span>Ask the covenant for money, in the browser</span></a>
+          <a href="/attack" data-nv="attack.html"><b>Attack</b><span>A live agent&rsquo;s key is published. Take it</span></a>
+          <a href="/console" data-nv="console.html"><b>Console</b><span>Watch a grant from your browser</span></a>
+          <a href="https://github.com/ArtyKOMarkets/warda" rel="noopener"><b>GitHub</b><span>The source, the tests and the probes</span></a>
+        </div>
+      </details>
+    </div>
+    <!-- Last, and not a link. The honest status of the whole thing, on every
+         page, so nobody has to reach a footer to learn it. Stated once and
+         calmly: a warning repeated in six places reads as either panic or
+         decoration, and this is neither. -->
+    <span class="nv-status">testnet-10 &middot; unaudited &middot; <b>no real money</b></span>
+    <!-- The console is the product a person uses; the developer path is one
+         link to the left, as "Developers". -->
+    <a class="nv-go" href="/app">Launch console &rarr;</a>
+    <button class="nv-burger" id="nv-burger" aria-expanded="false" aria-controls="nv-links" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</nav>
+<script>
+/* The menu, on every page. A link that scrolls or navigates also closes it —
+   leaving the panel covering the thing you just asked to see is the classic
+   mobile-nav bug. */
+(function () {
+  var b = document.getElementById("nv-burger");
+  var l = document.getElementById("nv-links");
+  var m = document.getElementById("nv-menu");
+  if (b && l) {
+    b.addEventListener("click", function () {
+      var open = b.getAttribute("aria-expanded") !== "true";
+      b.setAttribute("aria-expanded", String(open));
+      l.setAttribute("data-open", open ? "1" : "");
+    });
+  }
+  if (l) {
+    Array.prototype.forEach.call(l.querySelectorAll("a"), function (a) {
+      a.addEventListener("click", function () {
+        if (b) { b.setAttribute("aria-expanded", "false"); l.setAttribute("data-open", ""); }
+        if (m) m.open = false;
+      });
+    });
+  }
+  /* The two behaviours <details> does not have on its own. Escape and
+     click-outside, and nothing else — every other part of this menu is the
+     element doing its job, which is why there is no focus-trap or roving
+     tabindex here to get wrong. */
+  if (m) {
+    document.addEventListener("click", function (e) {
+      if (m.open && !m.contains(e.target)) m.open = false;
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && m.open) {
+        m.open = false;
+        var s = m.querySelector("summary");
+        if (s) s.focus();
+      }
+    });
+  }
+})();
+</script>
+
+
+<header class="hero">
+  <div class="wrap">
+    <p class="eyebrow">testnet-10 &middot; 2026-09-24</p>
+    <h1>One job, two agents, and every step on chain</h1>
+    <p class="lede">
+      A coordinator took a job, split it, hired a specialist for each part, and paid each one
+      for its own piece. The rules were enforced by Kaspa rather than by anybody&rsquo;s good
+      behaviour. This is the whole run, from the first transaction to the last &mdash;
+      including the payment that settled and delivered nothing, and how that was recovered
+      without paying twice.
+    </p>
+    <p class="lede" style="font-size:.92rem">
+      Every figure on this page is read from
+      <a href="/one-job.json">one-job.json</a>, written by
+      <a href="https://github.com/ArtyKOMarkets/warda/blob/main/growth/tools/one-job.ts" rel="noopener">the script that ran it</a>.
+    </p>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">The cast</p>
+    <h2>Three grants, three keys, one of which can spend nothing</h2>
+    <p class="tight">
+      The coordinator signs the genesis spend and both delegations and never signs a purchase.
+      Each worker signs its own purchase and nothing else. A fourth key &mdash; the stopper &mdash;
+      can end any of it at any moment and receives nothing, and no agent here holds it.
+    </p>
+    <div class="cards"><div class="card ac"><div class="ac-top"><div class="mark ">C</div><div class="ac-name"><span class="n">Coordinator</span><span class="m">Took the job, hired both workers, signed no purchase</span></div><span class="badge acc"><i></i>Settled</span></div><div class="ac-mid"><div><div class="lbl">It can still pay</div><span class="big">0.71<span style="font-size:.6em;color:var(--fg-3);margin-left:.3em">KAS</span></span><div class="of">of <b>0.8</b> KAS budget</div><span class="warnline">coin below authority: it holds 0.562 KAS, fees having come out of the balance</span></div><div class="ring" style="width:76px;height:76px"><svg width="76" height="76" role="img" aria-label="89% of the 0.8 KAS budget could still be paid"><circle cx="38.0" cy="38.0" r="34.0" fill="none" stroke="var(--line)" stroke-width="8"/><circle cx="38.0" cy="38.0" r="34.0" fill="none" stroke="var(--spent)" stroke-width="8" stroke-linecap="butt" stroke-dasharray="24.033 213.628" stroke-dashoffset="-0.000"/><circle cx="38.0" cy="38.0" r="34.0" fill="none" stroke="var(--left)" stroke-width="8" stroke-linecap="butt" stroke-dasharray="189.595 213.628" stroke-dashoffset="-24.033"/></svg><span class="pct"><b>89%</b><span>left</span></span></div></div><div class="minis"><div class="mini"><div class="k">Per payment</div><div class="v">0.05 KAS</div></div><div class="mini"><div class="k">Payees</div><div class="v">2</div></div><div class="mini"><div class="k">Can delegate</div><div class="v">2 deep</div></div></div><div class="ac-foot"><span>Enforced on chain</span><a class="tx" href="https://explorer-tn10.kaspa.org/txs/b5338f8f3fbaa91030c2e817e3e1460add198151f575da613a22a848aead6b58" rel="noopener">b5338f8f3fbaa910&hellip;</a></div></div><div class="card ac"><div class="ac-top"><div class="mark w">R</div><div class="ac-name"><span class="n">RESEARCH</span><span class="m">Bought a record about a repository</span></div><span class="badge ok"><i></i>Settled</span></div><div class="ac-mid"><div><div class="lbl">It can still pay</div><span class="big">0.2<span style="font-size:.6em;color:var(--fg-3);margin-left:.3em">KAS</span></span><div class="of">of <b>0.25</b> KAS budget</div></div><div class="ring" style="width:76px;height:76px"><svg width="76" height="76" role="img" aria-label="80% of the 0.25 KAS budget could still be paid"><circle cx="38.0" cy="38.0" r="34.0" fill="none" stroke="var(--line)" stroke-width="8"/><circle cx="38.0" cy="38.0" r="34.0" fill="none" stroke="var(--spent)" stroke-width="8" stroke-linecap="butt" stroke-dasharray="42.726 213.628" stroke-dashoffset="-0.000"/><circle cx="38.0" cy="38.0" r="34.0" fill="none" stroke="var(--left)" stroke-width="8" stroke-linecap="butt" stroke-dasharray="170.903 213.628" stroke-dashoffset="-42.726"/></svg><span class="pct"><b>80%</b><span>left</span></span></div></div><div class="minis"><div class="mini"><div class="k">Per payment</div><div class="v">0.05 KAS</div></div><div class="mini"><div class="k">Payees</div><div class="v">1 of 2</div></div><div class="mini"><div class="k">Per epoch</div><div class="v">0.15 KAS</div></div></div><div class="ac-foot"><span>Paid 0.05 KAS to one address</span><a class="tx" href="https://explorer-tn10.kaspa.org/txs/186570c82688f2636e94be1203078bd509b085228db0252ae8578b82c3026be1" rel="noopener">186570c82688f263&hellip;</a></div></div><div class="card ac"><div class="ac-top"><div class="mark w">V</div><div class="ac-name"><span class="n">VERIFY</span><span class="m">Bought an audit of the covenant that paid it</span></div><span class="badge ok"><i></i>Settled</span></div><div class="ac-mid"><div><div class="lbl">It can still pay</div><span class="big">0.18<span style="font-size:.6em;color:var(--fg-3);margin-left:.3em">KAS</span></span><div class="of">of <b>0.22</b> KAS budget</div></div><div class="ring" style="width:76px;height:76px"><svg width="76" height="76" role="img" aria-label="82% of the 0.22 KAS budget could still be paid"><circle cx="38.0" cy="38.0" r="34.0" fill="none" stroke="var(--line)" stroke-width="8"/><circle cx="38.0" cy="38.0" r="34.0" fill="none" stroke="var(--spent)" stroke-width="8" stroke-linecap="butt" stroke-dasharray="38.842 213.628" stroke-dashoffset="-0.000"/><circle cx="38.0" cy="38.0" r="34.0" fill="none" stroke="var(--left)" stroke-width="8" stroke-linecap="butt" stroke-dasharray="174.787 213.628" stroke-dashoffset="-38.842"/></svg><span class="pct"><b>82%</b><span>left</span></span></div></div><div class="minis"><div class="mini"><div class="k">Per payment</div><div class="v">0.04 KAS</div></div><div class="mini"><div class="k">Payees</div><div class="v">1 of 2</div></div><div class="mini"><div class="k">Per epoch</div><div class="v">0.12 KAS</div></div></div><div class="ac-foot"><span>Paid 0.04 KAS to one address</span><a class="tx" href="https://explorer-tn10.kaspa.org/txs/e92bd705f312383036fefecc9dce69b55d16bf4f55c4e1656e39ee5f9b9afebe" rel="noopener">e92bd705f3123830&hellip;</a></div></div></div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">The narrowing</p>
+    <h2>Each worker may pay exactly one seller</h2>
+    <p class="tight">
+      The coordinator&rsquo;s allowlist has two members. Each child was delegated down to
+      <strong>one</strong> of them &mdash; and the child does not merely promise that. It commits to a
+      <em>node</em> of the parent&rsquo;s allowlist tree and carries the path from that node up to the
+      parent&rsquo;s root, so the chain can check the narrowing without ever seeing the list. That is
+      why the roots below differ: a different root is the narrowing, visible rather than asserted.
+    </p>
+    <div class="card tree"><ul><li><div class="node"><div class="mark ">C</div><div class="who"><span class="n">Coordinator</span><div class="chips"><span class="chip"><b>allowlist root</b> 8c5b3907aedb&hellip;</span><span class="chip"><b>payees</b> 2</span><span class="chip"><b>may delegate</b> 2 deep</span></div></div><div class="amt"><div class="a">0.8<i>KAS</i></div><div class="s">its whole budget</div></div></div><ul><li class="kid"><span class="vline" style="height:100%"></span><span class="hline"></span><div class="node"><div class="mark w">R</div><div class="who"><span class="n">RESEARCH</span><div class="chips"><span class="chip"><b>allowlist root</b> 27c1371f6316&hellip;</span><span class="chip"><b>may pay</b> 254385aa03ab&hellip;</span><span class="chip"><b>cap</b> 0.05 KAS</span></div></div><div class="amt"><div class="a">0.25<i>KAS</i></div><div class="s">delegated to it</div></div></div></li><li class="kid"><span class="vline" style="height:25px"></span><span class="hline"></span><div class="node"><div class="mark w">V</div><div class="who"><span class="n">VERIFY</span><div class="chips"><span class="chip"><b>allowlist root</b> f873e14df1e3&hellip;</span><span class="chip"><b>may pay</b> 8e5ec153d5e3&hellip;</span><span class="chip"><b>cap</b> 0.04 KAS</span></div></div><div class="amt"><div class="a">0.22<i>KAS</i></div><div class="s">delegated to it</div></div></div></li></ul></li></ul></div>
+    <p class="tight" style="font-size:.92rem">
+      RESEARCH could not have paid the Auditor. VERIFY could not have paid the Researcher.
+      Neither could have paid anyone else at any price, however their code was written.
+    </p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">The sequence</p>
+    <h2>Eleven steps, seven transactions</h2>
+    <p class="tight">
+      Hiring is serial because a grant is one UTXO: the second delegation&rsquo;s input is the
+      first one&rsquo;s output and does not exist until it confirms. Settlement runs backwards
+      because the reserve chain is popped from the end &mdash; VERIFY was hired second, so it came
+      home first, and a child settled out of order is refused before anything is built.
+    </p>
+    <div class="tscroll"><table><thead><tr><th>UTC</th><th>Step</th><th>Transaction</th></tr></thead><tbody><tr><td class="v dim">11:49:35</td><td><strong>Generated three keys</strong><div style="color:var(--fg-3);font-size:.84rem">one coordinator, two workers; the stopper is a fourth nobody here holds</div></td><td class="v">&mdash;</td></tr><tr><td class="v dim">11:49:36</td><td><strong>Created the coordinator grant</strong><div style="color:var(--fg-3);font-size:.84rem">0.8 KAS, two payees, may delegate 2 deep</div></td><td class="v"><a class="tx" href="https://explorer-tn10.kaspa.org/txs/b5338f8f3fbaa91030c2e817e3e1460add198151f575da613a22a848aead6b58" rel="noopener">b5338f8f3fbaa910&hellip;</a></td></tr><tr><td class="v dim">11:49:51</td><td><strong>Opened the batch</strong><div style="color:var(--fg-3);font-size:.84rem">a local record of what is committed to whom</div></td><td class="v">&mdash;</td></tr><tr><td class="v dim">11:49:52</td><td><strong>Delegated to RESEARCH</strong><div style="color:var(--fg-3);font-size:.84rem">narrowed to 1 of 2 payees, proven by witness</div></td><td class="v"><a class="tx" href="https://explorer-tn10.kaspa.org/txs/e889c208983f033d3f84822c3d1a54771f1d5399987fea5632dc27765ec6a787" rel="noopener">e889c208983f033d&hellip;</a></td></tr><tr><td class="v dim">11:50:09</td><td><strong>Delegated to VERIFY</strong><div style="color:var(--fg-3);font-size:.84rem">narrowed to the other one, same way</div></td><td class="v"><a class="tx" href="https://explorer-tn10.kaspa.org/txs/a7f3ea9f5d1c32d91f70cdd4905737653a5b96966f1cfc5a5ab410599fa26361" rel="noopener">a7f3ea9f5d1c32d9&hellip;</a></td></tr><tr><td class="v dim">11:50:29</td><td><strong>RESEARCH bought its record</strong><div style="color:var(--fg-3);font-size:.84rem">from the Researcher, at its listed price</div></td><td class="v"><a class="tx" href="https://explorer-tn10.kaspa.org/txs/186570c82688f2636e94be1203078bd509b085228db0252ae8578b82c3026be1" rel="noopener">186570c82688f263&hellip;</a></td></tr><tr><td class="v dim">11:57:36</td><td><strong>VERIFY bought the audit</strong><div style="color:var(--fg-3);font-size:.84rem">paid at 11:50, delivered at 11:57 &mdash; see below</div></td><td class="v"><a class="tx" href="https://explorer-tn10.kaspa.org/txs/e92bd705f312383036fefecc9dce69b55d16bf4f55c4e1656e39ee5f9b9afebe" rel="noopener">e92bd705f3123830&hellip;</a></td></tr><tr><td class="v dim">11:57:38</td><td><strong>Settled VERIFY</strong><div style="color:var(--fg-3);font-size:.84rem">reserve released, the parent charged what it spent</div></td><td class="v"><a class="tx" href="https://explorer-tn10.kaspa.org/txs/1c6b956e4e601101a1b070bc036ecf3267df02c97a1b19bd1ec5c6f5168be534" rel="noopener">1c6b956e4e601101&hellip;</a></td></tr><tr><td class="v dim">11:57:54</td><td><strong>Settled RESEARCH</strong><div style="color:var(--fg-3);font-size:.84rem">last hired settles first; the chain pops from the end</div></td><td class="v"><a class="tx" href="https://explorer-tn10.kaspa.org/txs/290e06f53a5d39369dd756b552ef83064fab3b950a739c85cd19f10be1c65887" rel="noopener">290e06f53a5d3936&hellip;</a></td></tr><tr><td class="v dim">11:58:10</td><td><strong>Closed the batch</strong><div style="color:var(--fg-3);font-size:.84rem">nothing outstanding</div></td><td class="v">&mdash;</td></tr><tr><td class="v dim">12:02:45</td><td><strong>Wrote the trace</strong><div style="color:var(--fg-3);font-size:.84rem">this page is built from it</div></td><td class="v">&mdash;</td></tr></tbody></table></div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">What was bought</p>
+    <h2>Two different jobs, two sellers, neither told about this</h2>
+    <p class="tight">
+      RESEARCH bought a checkable record about <span class="num">kaspanet/silverscript</span> from Warda&rsquo;s
+      Researcher. VERIFY bought an audit of <code>covenant/warda_grant.sil</code> from the Covenant
+      Auditor &mdash; so the thing being audited is the thing that enforced the payment. Both
+      services were already running and neither was told anything about this demonstration.
+    </p>
+    <div class="tscroll"><table><thead><tr><th>UTC</th><th>What</th><th>Result</th><th>Payment</th><th>&nbsp;</th></tr></thead><tbody><tr><td class="v dim">11:50:24</td><td>research https://github.com/kaspanet/silverscript<div style="color:var(--fg-3);font-size:.84rem">warda-growth.vercel.app</div></td><td class="v ok">200 bought</td><td class="v"><a class="tx" href="https://explorer-tn10.kaspa.org/txs/186570c82688f2636e94be1203078bd509b085228db0252ae8578b82c3026be1" rel="noopener">186570c82688&hellip;</a></td><td class="v dim">first try</td></tr><tr><td class="v dim">11:50:29</td><td>audit warda_grant.sil<div style="color:var(--fg-3);font-size:.84rem">warda-node.tailc0c0ec.ts.net:8443</div></td><td class="v no">502 paid-but-refused</td><td class="v"><a class="tx" href="https://explorer-tn10.kaspa.org/txs/e92bd705f312383036fefecc9dce69b55d16bf4f55c4e1656e39ee5f9b9afebe" rel="noopener">e92bd705f312&hellip;</a></td><td class="v dim">first try</td></tr><tr><td class="v dim">11:53:58</td><td>audit warda_grant.sil<div style="color:var(--fg-3);font-size:.84rem">warda-node.tailc0c0ec.ts.net:8443</div></td><td class="v no">409 paid-but-refused</td><td class="v"><a class="tx" href="https://explorer-tn10.kaspa.org/txs/e92bd705f312383036fefecc9dce69b55d16bf4f55c4e1656e39ee5f9b9afebe" rel="noopener">e92bd705f312&hellip;</a></td><td class="v dim">resumed</td></tr><tr><td class="v dim">11:55:13</td><td>audit warda_grant.sil<div style="color:var(--fg-3);font-size:.84rem">warda-node.tailc0c0ec.ts.net:8443</div></td><td class="v no">409 paid-but-refused</td><td class="v"><a class="tx" href="https://explorer-tn10.kaspa.org/txs/e92bd705f312383036fefecc9dce69b55d16bf4f55c4e1656e39ee5f9b9afebe" rel="noopener">e92bd705f312&hellip;</a></td><td class="v dim">resumed</td></tr><tr><td class="v dim">11:57:35</td><td>audit warda_grant.sil<div style="color:var(--fg-3);font-size:.84rem">warda-node.tailc0c0ec.ts.net:8443</div></td><td class="v ok">200 bought</td><td class="v"><a class="tx" href="https://explorer-tn10.kaspa.org/txs/e92bd705f312383036fefecc9dce69b55d16bf4f55c4e1656e39ee5f9b9afebe" rel="noopener">e92bd705f312&hellip;</a></td><td class="v dim">resumed</td></tr></tbody></table></div>
+    <div class="note bad"><h3>The payment that settled and delivered nothing</h3><p>VERIFY&rsquo;s 0.04 KAS reached the Auditor and the report did not come back. The fault was the seller&rsquo;s: its delivery callback read the covenant off an argument that carries the payment&rsquo;s metadata, not the request, so it compiled <code>undefined</code>. The free endpoint never had the bug, which is why it survived &mdash; the paid path was the only one that could break and the only one never run end to end.</p><p>The seller records a payment as spent <em>before</em> it delivers, on purpose: recorded after, a crash leaves a payment that can be replayed forever. So the second attempt was refused as a replay, correctly. Only the operator could undo that &mdash; and the buyer never paid twice, because it keeps the proof it was issued and re-presents it rather than buying again.</p><p>Fixed, then redeemed: <strong><a class="tx" href="https://explorer-tn10.kaspa.org/txs/e92bd705f312383036fefecc9dce69b55d16bf4f55c4e1656e39ee5f9b9afebe" rel="noopener">e92bd705f312&hellip;</a></strong> paid at 11:50:29 and delivered at 11:57:35 UTC, against the same proof. Four records of one payment, one delivery.</p></div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">What the network would carry</p>
+    <h2>The budgets are not about the job</h2>
+    <p class="tight">
+      KIP-9 storage mass counts <code>1/value</code> over a transaction&rsquo;s <em>outputs</em>, and a
+      grant that pays out creates two: the payment, and the grant&rsquo;s own successor. A covenant
+      output carries a 32-byte binding that pushes it into a second storage unit and squares its
+      weight, so the successor dominates. <strong>What costs is what the grant has left.</strong>
+      A nearly-empty grant is the expensive one.
+    </p>
+    <p class="tight">
+      This is consensus, not the covenant, and no grant term relaxes it. The per-payment caps
+      below are the sellers&rsquo; listed prices to the sompi; the budgets are the smallest amounts
+      the network will let a worker pay out of, with headroom. Every transaction is massed before
+      anything is built.
+    </p>
+    <div class="tscroll"><table><thead><tr><th>Transaction</th><th>Storage mass</th><th>Against a ceiling of 500,000</th></tr></thead><tbody><tr><td>delegate research</td><td class="v ok">185,329</td><td class="v dim">37% of the ceiling</td></tr><tr><td>delegate verify</td><td class="v ok">243,476</td><td class="v dim">48% of the ceiling</td></tr><tr><td>buy research</td><td class="v ok">262,222</td><td class="v dim">52% of the ceiling</td></tr><tr><td>buy verify</td><td class="v ok">318,182</td><td class="v dim">63% of the ceiling</td></tr><tr><td>settle verify</td><td class="v ok">0</td><td class="v dim">0% of the ceiling</td></tr><tr><td>settle research</td><td class="v ok">0</td><td class="v dim">0% of the ceiling</td></tr></tbody></table></div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">What this does not show</p>
+    <h2>Three limits, all deliberate</h2>
+    <div class="limits">
+      <div class="lim">
+        <h3>It is not atomic</h3>
+        <p>Everyone joining one agreement in a single step is the shape people usually describe,
+        and it is what the covenant forbids: <code>#[covenant.fanout(to = 2)]</code> with
+        <code>require(OpAuthOutputCount == 2)</code> fixes the topology at parent plus
+        <em>one</em> child. Two workers is two delegations, in two transactions.</p>
+      </div>
+      <div class="lim">
+        <h3>They are not even concurrent</h3>
+        <p>A grant is one UTXO, so the second delegation&rsquo;s input is the first one&rsquo;s
+        output. Hiring is serial by construction, not by scheduling.</p>
+      </div>
+      <div class="lim">
+        <h3>The workers had to be known before the job existed</h3>
+        <p>A grant&rsquo;s payee set is fixed at genesis and a child may only narrow it, so a
+        coordinator can hire from the cast it was created with and nobody else. An agent
+        discovered at run time cannot be paid, at any delegation depth. That is the honest
+        distance between this and an open market, and no amount of tooling closes it &mdash; it
+        needs the covenant to change.</p>
+      </div>
+    </div>
+    <div class="note">
+      <h3>And one thing it does show that is easy to miss</h3>
+      <p>The reserve came back. <code>reabsorb</code> requires
+      <code>newState.reserved == reserved - child.budgetTotal</code>, so settling a worker
+      restores the coordinator&rsquo;s capacity to delegate again rather than consuming it for the
+      grant&rsquo;s whole life. The cost is ordering: <code>child.reserved == 0</code> means a
+      subtree settles from the leaves up, and a long-lived child at the bottom of the chain holds
+      everything above it.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    testnet-10, unaudited, no real money.
+    &middot; <a href="https://github.com/ArtyKOMarkets/warda/blob/main/growth/ONE-JOB.md" rel="noopener">the runbook</a>
+    &middot; <a href="/one-job.json">the trace</a>
+    &middot; <a href="/proof">what would refute this</a>
+  </div>
+</footer>

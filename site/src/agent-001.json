@@ -1,6 +1,6 @@
 {
   "_comment": "Written by agent/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, or the chain — none is typed. The refusal sentences are produced by running the same explainRefusal the payer calls, except the one marked derived:false, which is consensus's answer quoted from a node's actual rejection.",
-  "checkedAt": "2026-09-24T09:35:02.024Z",
+  "checkedAt": "2026-09-24T11:35:01.649Z",
   "network": "testnet-10",
   "elsewhere": {
     "vendor": "kaspatest:qr50gmc7t3jp33gg68aj63s9av54yc7w9kyjpwqdjhva9tt8j0a7wz2h6cnll",
@@ -22,13 +22,13 @@
   },
   "timelock": {
     "notBefore": "560669431",
-    "virtualDaaScore": "579092120",
+    "virtualDaaScore": "579164753",
     "open": true,
     "lockedFor": "0 seconds",
     "openedAgo": "21 days",
     "expiresAt": "586589431",
     "expired": false,
-    "expiresInDaa": "7497311",
+    "expiresInDaa": "7424678",
     "expiresIn": "9 days",
     "expiredAgo": null,
     "enforcedBy": "the covenant, on every spend: claimedDaa >= notBefore. Not a scheduler, not this process, and not revocable by whoever issued the grant.",
@@ -119,8 +119,8 @@
   ],
   "mission": "Monitor the Kaspa network and publish an independent daily digest, unattended. It holds a bounded Warda grant and may buy an approved service when it needs one.",
   "lastRun": {
-    "at": "2026-09-24T09:17:02.491Z",
-    "runs": 450,
+    "at": "2026-09-24T11:17:02.191Z",
+    "runs": 452,
     "since": "2026-09-03T08:18:38.642Z",
     "servicesUsed": 0,
     "spent": "0 KAS",
@@ -128,8 +128,8 @@
   },
   "digest": {
     "window": "24 h",
-    "from": "2026-09-23T09:17:01.525Z",
-    "to": "2026-09-24T09:17:02.491Z",
-    "text": "Kaspa testnet-10 · 24 h to 2026-09-24 09:17 UTC\n\n  blue score  +868,649           10.05 blue blocks/s\n  DAA score   +870,947           now 579,082,050\n  minted      +2,688,416.71 KAS  26,967,245,101 KAS in existence\n  hashrate    17.38 MH/s         node estimate over its last 1,000 blocks\n  mempool     50 tx              held, unaccepted, at the closing reading\n  DAG         2 tips             1,241,716 blocks held by this node\n\nmeasured between two readings of one node (kaspad 2.0.1)\n"
+    "from": "2026-09-23T11:17:01.541Z",
+    "to": "2026-09-24T11:17:02.191Z",
+    "text": "Kaspa testnet-10 · 24 h to 2026-09-24 11:17 UTC\n\n  blue score  +868,568           10.05 blue blocks/s\n  DAA score   +870,859           now 579,153,933\n  minted      +2,688,145.07 KAS  26,967,466,984 KAS in existence\n  hashrate    17.92 MH/s         node estimate over its last 1,000 blocks\n  mempool     0 tx               held, unaccepted, at the closing reading\n  DAG         2 tips             1,313,599 blocks held by this node\n\nmeasured between two readings of one node (kaspad 2.0.1)\n"
   }
 }

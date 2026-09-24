@@ -41,6 +41,234 @@ if CONSOLE_ZIP:
 else:
     print("! extension/build/*.zip missing — /console not published. `npm run zip` in extension/.")
 
+
+# ---------------------------------------------------------------------------
+# /one-job — a coordinator hiring two agents, rendered from the run's own trace.
+#
+# Same rule as /attack and /console: no trace, no page. Every figure here is
+# read from src/one-job.json, which growth/tools/one-job.ts writes from the
+# steps that actually ran — so a number on the page cannot drift from the
+# transaction behind it without the trace changing first. Nothing on this page
+# is typed twice.
+ONE_JOB = here / "src" / "one-job.json"
+ONE_JOB_SUBS = {}
+
+
+def _kas(sompi):
+    """Sompi as KAS, trimmed. Money is never rendered by hand elsewhere here."""
+    d = int(sompi) / 1e8
+    return f"{d:.8f}".rstrip("0").rstrip(".") or "0"
+
+
+def _tx(txid, short=16):
+    return (f'<a class="tx" href="https://explorer-tn10.kaspa.org/txs/{txid}" rel="noopener">'
+            f"{txid[:short]}&hellip;</a>")
+
+
+def _ring(spent, budget, size=76, width=8):
+    """The console's budget ring: what was spent, and what could still be paid.
+
+    Two arcs on one circle, drawn with stroke-dasharray, because a donut of two
+    segments does not need a chart library and a chart library for two segments
+    is how a page stops being auditable.
+    """
+    r = (size - width) / 2
+    circ = 2 * 3.141592653589793 * r
+    spent, budget = int(spent), int(budget)
+    f = 0 if budget <= 0 else max(0.0, min(1.0, spent / budget))
+    pct = 0 if budget <= 0 else round((budget - spent) * 100 / budget)
+    seg = lambda frac, off, col: (
+        f'<circle cx="{size/2}" cy="{size/2}" r="{r}" fill="none" stroke="{col}" '
+        f'stroke-width="{width}" stroke-linecap="butt" '
+        f'stroke-dasharray="{circ*frac:.3f} {circ:.3f}" stroke-dashoffset="{-circ*off:.3f}"/>')
+    return (
+        f'<div class="ring" style="width:{size}px;height:{size}px">'
+        f'<svg width="{size}" height="{size}" role="img" '
+        f'aria-label="{pct}% of the {_kas(budget)} KAS budget could still be paid">'
+        f'<circle cx="{size/2}" cy="{size/2}" r="{r}" fill="none" stroke="var(--line)" stroke-width="{width}"/>'
+        + (seg(f, 0, "var(--spent)") if f > 0 else "")
+        + (seg(1 - f, f, "var(--left)") if f < 1 else "")
+        + f'</svg><span class="pct"><b>{pct}%</b><span>left</span></span></div>')
+
+
+def _card(mark, cls, name, mission, badge, left, budget, spent, minis, foot, warn=""):
+    m = "".join(f'<div class="mini"><div class="k">{k}</div><div class="v">{v}</div></div>' for k, v in minis)
+    return (
+        f'<div class="card ac"><div class="ac-top"><div class="mark {cls}">{mark}</div>'
+        f'<div class="ac-name"><span class="n">{name}</span><span class="m">{mission}</span></div>{badge}</div>'
+        f'<div class="ac-mid"><div><div class="lbl">It can still pay</div>'
+        f'<span class="big">{_kas(left)}<span style="font-size:.6em;color:var(--fg-3);margin-left:.3em">KAS</span></span>'
+        f'<div class="of">of <b>{_kas(budget)}</b> KAS budget</div>{warn}</div>{_ring(spent, budget)}</div>'
+        f'<div class="minis">{m}</div><div class="ac-foot">{foot}</div></div>')
+
+
+def one_job_blocks(t):
+    co = t["coordinator"]
+    workers = {w["name"]: w for w in t["workers"]}
+    steps = t["steps"]
+    hires = {e["who"]: e for e in t["batchLog"] if e.get("what") == "hire"}
+    settles = {e["who"]: e for e in t["batchLog"] if e.get("what") == "settle"}
+    sold = [p for p in t["purchases"] if p["outcome"] == "bought"]
+    by_task = {p["task"]: p for p in sold}
+    failed = [p for p in t["purchases"] if p["outcome"] != "bought"]
+
+    # ---- the three cards -------------------------------------------------
+    cards = [_card(
+        "C", "", "Coordinator", "Took the job, hired both workers, signed no purchase",
+        '<span class="badge acc"><i></i>Settled</span>',
+        co["budget"] - co["spent_total"] - co["reserved"], co["budget"], co["spent_total"],
+        [("Per payment", f'{_kas(co["max_per_spend"])} KAS'),
+         ("Payees", "2"),
+         ("Can delegate", f'{co["delegation_depth"]} deep')],
+        f'<span>Enforced on chain</span>{_tx(steps["genesis"]["txid"])}',
+        # The authority and the coin are different facts, and the console says so
+        # rather than showing the larger of the two. Fees come out of the grant's
+        # balance and not out of its budget, so a grant that has delegated twice
+        # and settled twice holds less than it is allowed to pay.
+        warn=("" if co["grant_value"] >= co["budget"] - co["spent_total"] - co["reserved"]
+              else f'<span class="warnline">coin below authority: it holds '
+                   f'{_kas(co["grant_value"])} KAS, fees having come out of the balance</span>'))]
+
+    for key, who, mission, task in (
+        ("research", "RESEARCH", "Bought a record about a repository", "research " + t["target"]),
+        ("verify", "VERIFY", "Bought an audit of the covenant that paid it", "audit warda_grant.sil"),
+    ):
+        w = workers[key]
+        g = w["grant"]
+        bought = by_task.get(task)
+        cards.append(_card(
+            who[0], "w", who, mission,
+            '<span class="badge ok"><i></i>Settled</span>',
+            g["budget"] - g["spent_total"], g["budget"], g["spent_total"],
+            [("Per payment", f'{_kas(g["max_per_spend"])} KAS'),
+             ("Payees", "1 of 2"),
+             ("Per epoch", f'{_kas(g["epoch_limit"])} KAS')],
+            f'<span>Paid {_kas(g["spent_total"])} KAS to one address</span>'
+            + (_tx(bought["txid"]) if bought else "")))
+    cards_html = '<div class="cards">' + "".join(cards) + "</div>"
+
+    # ---- the delegation tree --------------------------------------------
+    def node(mark, cls, name, chips, amount, sub):
+        c = "".join(f'<span class="chip">{x}</span>' for x in chips)
+        return (f'<div class="node"><div class="mark {cls}">{mark}</div>'
+                f'<div class="who"><span class="n">{name}</span><div class="chips">{c}</div></div>'
+                f'<div class="amt"><div class="a">{amount}<i>KAS</i></div><div class="s">{sub}</div></div></div>')
+
+    kids = []
+    for i, (key, who) in enumerate((("research", "RESEARCH"), ("verify", "VERIFY"))):
+        w, g = workers[key], workers[key]["grant"]
+        last = i == 1
+        kids.append(
+            f'<li class="kid"><span class="vline" style="height:{"25px" if last else "100%"}"></span>'
+            f'<span class="hline"></span>'
+            + node(who[0], "w", who,
+                   [f'<b>allowlist root</b> {g["recipients_root"][:12]}&hellip;',
+                    f'<b>may pay</b> {w["payee"][:12]}&hellip;',
+                    f'<b>cap</b> {_kas(g["max_per_spend"])} KAS'],
+                   _kas(g["budget"]), "delegated to it")
+            + "</li>")
+
+    tree_html = (
+        "<ul><li>"
+        + node("C", "", "Coordinator",
+               [f'<b>allowlist root</b> {co["recipients_root"][:12]}&hellip;',
+                "<b>payees</b> 2", f'<b>may delegate</b> {co["delegation_depth"]} deep'],
+               _kas(co["budget"]), "its whole budget")
+        + "<ul>" + "".join(kids) + "</ul></li></ul>")
+
+    # ---- the sequence ----------------------------------------------------
+    WORDS = {
+        "keys": ("Generated three keys", "one coordinator, two workers; the stopper is a fourth nobody here holds"),
+        "genesis": ("Created the coordinator grant", "0.8 KAS, two payees, may delegate 2 deep"),
+        "open": ("Opened the batch", "a local record of what is committed to whom"),
+        "hire-research": ("Delegated to RESEARCH", "narrowed to 1 of 2 payees, proven by witness"),
+        "hire-verify": ("Delegated to VERIFY", "narrowed to the other one, same way"),
+        "buy-research": ("RESEARCH bought its record", "from the Researcher, at its listed price"),
+        "buy-verify": ("VERIFY bought the audit", "paid at 11:50, delivered at 11:57 &mdash; see below"),
+        "settle-verify": ("Settled VERIFY", "reserve released, the parent charged what it spent"),
+        "settle-research": ("Settled RESEARCH", "last hired settles first; the chain pops from the end"),
+        "close": ("Closed the batch", "nothing outstanding"),
+        "trace": ("Wrote the trace", "this page is built from it"),
+    }
+    buy_tx = {"buy-research": by_task.get("research " + t["target"]),
+              "buy-verify": by_task.get("audit warda_grant.sil")}
+    rows = []
+    for name, rec in steps.items():
+        title, why = WORDS.get(name, (name, ""))
+        txid = rec.get("txid") or (buy_tx.get(name) or {}).get("txid")
+        rows.append(
+            f'<tr><td class="v dim">{rec["at"][11:19]}</td>'
+            f'<td><strong>{title}</strong><div style="color:var(--fg-3);font-size:.84rem">{why}</div></td>'
+            f'<td class="v">{_tx(txid) if txid else "&mdash;"}</td></tr>')
+    steps_html = ("<table><thead><tr><th>UTC</th><th>Step</th><th>Transaction</th></tr></thead><tbody>"
+                  + "".join(rows) + "</tbody></table>")
+
+    # ---- the purchases ---------------------------------------------------
+    TONE = {200: "ok", 502: "no", 409: "no"}
+    prows = []
+    for p in t["purchases"]:
+        host = p["url"].split("/")[2]
+        prows.append(
+            f'<tr><td class="v dim">{p["at"][11:19]}</td>'
+            f'<td>{p["task"]}<div style="color:var(--fg-3);font-size:.84rem">{host}</div></td>'
+            f'<td class="v {TONE.get(p["status"], "dim")}">{p["status"]} {p["outcome"]}</td>'
+            f'<td class="v">{_tx(p["txid"], 12)}</td>'
+            f'<td class="v dim">{"resumed" if p["resumedFrom"] else "first try"}</td></tr>')
+    purch_html = ("<table><thead><tr><th>UTC</th><th>What</th><th>Result</th><th>Payment</th>"
+                  "<th>&nbsp;</th></tr></thead><tbody>" + "".join(prows) + "</tbody></table>")
+
+    incident = ""
+    if failed:
+        first = failed[0]
+        incident = (
+            '<div class="note bad"><h3>The payment that settled and delivered nothing</h3>'
+            f'<p>VERIFY&rsquo;s {_kas(4_000_000)} KAS reached the Auditor and the report did not come back. '
+            "The fault was the seller&rsquo;s: its delivery callback read the covenant off an argument "
+            "that carries the payment&rsquo;s metadata, not the request, so it compiled "
+            "<code>undefined</code>. The free endpoint never had the bug, which is why it survived &mdash; "
+            "the paid path was the only one that could break and the only one never run end to end.</p>"
+            "<p>The seller records a payment as spent <em>before</em> it delivers, on purpose: recorded "
+            "after, a crash leaves a payment that can be replayed forever. So the second attempt was "
+            "refused as a replay, correctly. Only the operator could undo that &mdash; and the buyer "
+            "never paid twice, because it keeps the proof it was issued and re-presents it rather than "
+            "buying again.</p>"
+            f'<p>Fixed, then redeemed: <strong>{_tx(first["txid"], 12)}</strong> paid at '
+            f'{first["at"][11:19]} and delivered at {sold[-1]["at"][11:19]} UTC, against the same proof. '
+            "Four records of one payment, one delivery.</p></div>")
+
+    # ---- the mass table --------------------------------------------------
+    CEIL = 500_000
+    mrows = "".join(
+        f'<tr><td>{r["step"]}</td><td class="v {"ok" if int(r["mass"]) <= CEIL else "no"}">{int(r["mass"]):,}</td>'
+        f'<td class="v dim">{int(r["mass"])*100//CEIL}% of the ceiling</td></tr>'
+        for r in t["massed"])
+    mass_html = ('<table><thead><tr><th>Transaction</th><th>Storage mass</th>'
+                 f'<th>Against a ceiling of {CEIL:,}</th></tr></thead><tbody>{mrows}</tbody></table>')
+
+    return {
+        "{{OJ_DATE}}": t["steps"]["genesis"]["at"][:10],
+        "{{OJ_TARGET}}": t["target"].replace("https://github.com/", ""),
+        "{{OJ_CARDS}}": cards_html,
+        "{{OJ_TREE}}": tree_html,
+        "{{OJ_STEPS}}": steps_html,
+        "{{OJ_PURCHASES}}": purch_html,
+        "{{OJ_INCIDENT}}": incident,
+        "{{OJ_MASS}}": mass_html,
+    }
+
+
+if ONE_JOB.exists():
+    try:
+        ONE_JOB_SUBS = one_job_blocks(json.loads(ONE_JOB.read_text()))
+        PAGES.append("one-job.html")
+    except (ValueError, KeyError, OSError) as e:
+        # A trace this cannot read is a trace that has changed shape. Dropping
+        # the page says so loudly at build time; rendering half of it would say
+        # nothing at all and publish the half that still worked.
+        print(f"! src/one-job.json unreadable ({e}) — /one-job not published.")
+else:
+    print("! src/one-job.json missing — /one-job not published. Copy one-job-*/trace.json there.")
+
 def data_uri(p):
     return "data:image/png;base64," + base64.b64encode(p.read_bytes()).decode()
 
@@ -187,6 +415,10 @@ flavours = {
     # file-referencing, for a real host
     "web": {"{{LOCKUP}}": "assets/lockup-hero.png", "{{MARK}}": "assets/mark-200.png"},
 }
+# The /one-job blocks are flavour-independent — they carry no image paths — so
+# both get the same ones rather than each growing its own copy.
+for _f in flavours.values():
+    _f.update(ONE_JOB_SUBS)
 if CONSOLE_ZIP:
     import hashlib
     _bytes = CONSOLE_ZIP.read_bytes()
@@ -620,6 +852,8 @@ if (here / "src" / "interop-status.json").exists():
 # If it is ever absent that is a broken checkout, not a machine that does not
 # run the monitor.
 COPIES.append("services.json")
+if ONE_JOB.exists() and "one-job.html" in PAGES:
+    COPIES.append("one-job.json")
 # The growth fleet's latest finished week, as counts. Written by
 # growth/tools/week.ts; the Console's Fleet and /agents read it.
 if (here / "src" / "growth.json").exists():
