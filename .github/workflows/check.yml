@@ -71,6 +71,15 @@ jobs:
         working-directory: covenant/harness
         run: cargo test --test spend -- --nocapture
 
+      # C1's suite, against covenant/warda_grant_v5.sil — v4 plus delegate2,
+      # which is not deployed and which no grant runs. It is in CI anyway: an
+      # unreleased covenant with a passing suite is a covenant somebody can
+      # finish, and one with a suite nobody runs rots into a file that looks
+      # like work. Exits non-zero the moment a flip is accepted.
+      - name: harness — C1, conservation across two children
+        working-directory: covenant/harness
+        run: cargo run --release --bin c1
+
       # The same engine, asked a different question: every claim in
       # GUARANTEES.md at its BOUNDARY, one sompi either side. A flip test
       # proves a rule is present; only a boundary pair proves it is in the
