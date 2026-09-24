@@ -40,7 +40,34 @@ use silverscript_lang::compiler::{
 use std::error::Error;
 
 const DEFAULT_URL: &str = "ws://127.0.0.1:17210";
-const SOURCE: &str = include_str!("../warda_grant.sil");
+/* The covenant itself, read from covenant/ rather than from a copy beside
+   this tool.
+   It was `include_str!("../warda_grant.sil")`, which resolves to
+   covenant/deploy/warda_grant.sil — a SECOND file, tracked in git, identical
+   by habit and by nothing else. Nothing compared them. The harness audits
+   covenant/warda_grant.sil, the auditor scans it, GUARANTEES.md describes it,
+   and the tool that emits the template every grant address is derived from was
+   reading a different file that happened to agree. */
+const SOURCE: &str = include_str!("../../warda_grant.sil");
+
+/// C1's draft: v4 plus `delegate2`. Selected with `--v5`, never by default.
+/// See covenant/V5.md — not audited, and until this tool emits its template
+/// there is nothing on chain that could run it.
+const SOURCE_V5: &str = include_str!("../../warda_grant_v5.sil");
+
+/// Which covenant this run compiles. Set once, from the command line, before
+/// anything is built.
+static SRC: std::sync::OnceLock<&'static str> = std::sync::OnceLock::new();
+
+fn src() -> &'static str {
+    SRC.get().copied().unwrap_or(SOURCE)
+}
+
+/// True when this run was asked for v5. Read where the OUTPUT is named, so a
+/// v5 build cannot overwrite the template v4's grants are derived from.
+fn is_v5() -> bool {
+    std::ptr::eq(src(), SOURCE_V5)
+}
 const KAS: i64 = 100_000_000;
 /// Fees are charged per unit of transaction MASS, at 100 sompi per unit.
 /// A spend carries the ~3KB redeem script in its signature script, so its mass
@@ -350,7 +377,7 @@ fn measure_state_region(reference: &[u8], authority: Authority, geometry: (i64, 
 }
 
 fn compile(ctor: Vec<Expr<'static>>) -> Result<CompiledContract<'static>, Box<dyn Error>> {
-    compile_contract(SOURCE, &ctor, CompileOptions::default()).map_err(|e| format!("compile: {e:?}").into())
+    compile_contract(src(), &ctor, CompileOptions::default()).map_err(|e| format!("compile: {e:?}").into())
 }
 
 // ---- keys ----------------------------------------------------------------
@@ -932,6 +959,14 @@ fn validate_locally(tx: &Transaction, entries: Vec<UtxoEntry>) -> Result<(), TxS
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let cmd = std::env::args().nth(1).unwrap_or_else(|| "status".into());
+    /* Which covenant, decided once and before anything compiles. Default is
+       v4 — the one 45 grants run — and --v5 is the only way to get anything
+       else. A flag that had to be remembered per subcommand would eventually
+       be forgotten on the one that writes a file. */
+    if std::env::args().any(|a| a == "--v5") {
+        SRC.set(SOURCE_V5).ok();
+        eprintln!("covenant: v5 (covenant/warda_grant_v5.sil) — a draft, unaudited");
+    }
     let url = std::env::var("WARDA_RPC").unwrap_or_else(|_| DEFAULT_URL.to_string());
 
     match cmd.as_str() {
@@ -1453,8 +1488,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 hex(&principal), hex(&revocation), hex(&agent), hex(&root), nb, ex,
                 fields.join(",\n"), vectors.join(",\n"));
 
-            std::fs::write("covenant-template.json", &manifest)?;
-            println!("\nwrote covenant-template.json");
+            let out = if is_v5() { "covenant-template-v5.json" } else { "covenant-template.json" };
+            std::fs::write(out, &manifest)?;
+            println!("\nwrote {out}");
             if ok {
                 println!("every field is a fixed-width slice, and splicing reproduces the compiler.");
                 println!("a JS SDK can derive grant addresses with no compiler.");
