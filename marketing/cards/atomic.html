@@ -1,0 +1,96 @@
+<!-- The atomic delegation card, 1600x900, rendered at 2x with Playwright.
+
+     Same shape and the same stylesheet as cards.html — see its header for why
+     the typefaces come from npm rather than Google Fonts. Every figure is a
+     real one: the budgets are the grant's, the arithmetic is the conservation
+     line the builder printed, and 1387b839 is on chain.
+
+       npm i @fontsource/barlow @fontsource/chakra-petch @fontsource/jetbrains-mono
+       node shoot-atomic.mjs
+-->
+<!doctype html><meta charset="utf-8">
+<style>
+@font-face{font-family:CP;src:url("node_modules/@fontsource/chakra-petch/files/chakra-petch-latin-700-normal.woff2")format("woff2");font-weight:700}
+@font-face{font-family:CP;src:url("node_modules/@fontsource/chakra-petch/files/chakra-petch-latin-600-normal.woff2")format("woff2");font-weight:600}
+@font-face{font-family:BA;src:url("node_modules/@fontsource/barlow/files/barlow-latin-400-normal.woff2")format("woff2");font-weight:400}
+@font-face{font-family:BA;src:url("node_modules/@fontsource/barlow/files/barlow-latin-600-normal.woff2")format("woff2");font-weight:600}
+@font-face{font-family:JB;src:url("node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-400-normal.woff2")format("woff2");font-weight:400}
+@font-face{font-family:JB;src:url("node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-700-normal.woff2")format("woff2");font-weight:700}
+:root{--void:#06090C;--ground:#0A1014;--panel:#101A20;--edge:#1E2E37;--edgeb:#2C4350;
+--chrome:#DDE0E2;--dim:#8D989E;--faint:#5D6B73;--teal:#14D7C1;--tealb:#38F9E9;--teald:#06BBA1;
+--ghost:rgba(20,215,193,.10);--refuse:#FF6B5A;--refuseg:rgba(255,107,90,.12);--amber:#E8B23A}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#000}
+.card{width:1600px;height:900px;background:var(--void);color:var(--chrome);
+ font-family:BA,sans-serif;padding:76px 88px;position:relative;overflow:hidden;
+ display:flex;flex-direction:column}
+.card::after{content:"";position:absolute;inset:auto -300px -420px auto;width:900px;height:900px;
+ border-radius:50%;background:radial-gradient(circle,rgba(20,215,193,.055),transparent 62%)}
+.eye{font-family:JB,monospace;font-size:19px;letter-spacing:.17em;text-transform:uppercase;
+ color:var(--teal);display:flex;align-items:center;gap:16px}
+.eye::before{content:"";width:38px;height:2px;background:var(--teald)}
+h1{font-family:CP,sans-serif;font-weight:700;font-size:66px;line-height:1.04;letter-spacing:-.025em;
+ margin-top:24px;max-width:26ch}
+h1 .d,h1 .t,h1 .r{display:block}
+h1 .d{color:var(--faint)}
+h1 .t{color:var(--teal)}
+h1 .r{color:var(--refuse)}
+.sub{font-size:27px;color:var(--dim);max-width:52ch;margin-top:24px;line-height:1.45}
+.body{flex:1;display:flex;align-items:center;margin-top:34px}
+.foot{display:flex;align-items:center;justify-content:space-between;
+ font-family:JB,monospace;font-size:17px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+.foot .wm{font-family:CP,sans-serif;font-weight:700;font-size:26px;letter-spacing:.02em;
+ text-transform:none;color:var(--chrome)}
+.foot .wm b{color:var(--teal);font-weight:700}
+/* shared bits */
+.mono{font-family:JB,monospace}
+.pane{background:var(--ground);border:1px solid var(--edge);border-radius:14px;padding:30px 32px}
+.plabel{font-family:JB,monospace;font-size:16px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.big{font-family:JB,monospace;font-size:34px;color:var(--chrome);margin-top:12px}
+.tag{display:inline-block;font-family:JB,monospace;font-size:15px;letter-spacing:.14em;
+ text-transform:uppercase;padding:5px 12px;border:1px solid var(--edgeb);color:var(--faint);border-radius:4px}
+.tag.ok{border-color:var(--teald);color:var(--teal)}
+.tag.no{border-color:var(--refuse);color:var(--refuse)}
+</style>
+<!-- ATOMIC DELEGATION — 24 September 2026 -------------------------------->
+<div class="card" id="c1">
+  <p class="eye">On chain, testnet-10</p>
+  <h1>Two agents, hired in<span class="t">one transaction.</span><span class="d">Not one after the other.</span></h1>
+  <div class="body">
+    <div style="display:grid;grid-template-columns:1fr 210px 1fr;align-items:center;width:100%;gap:0">
+      <div class="pane">
+        <p class="plabel">the coordinator</p>
+        <p class="big" style="font-size:27px">0.8 KAS</p>
+        <p class="mono" style="font-size:20px;color:var(--dim);margin-top:12px;line-height:1.7">0.05 KAS a payment<br>2 payees<br>may delegate twice</p>
+      </div>
+      <div style="text-align:center;font-family:JB,monospace;font-size:14px;color:var(--faint);line-height:1.7">
+        <div style="font-size:30px;color:var(--teal)">&rarr;</div>
+        <div style="margin-top:6px;color:var(--teal)">HIRES BOTH</div>
+        <div style="margin-top:4px">1387b839…</div>
+        <div style="margin-top:10px;font-size:13px">1 INPUT &middot; 3 OUTPUTS</div>
+        <div style="font-size:13px">1 SIGNATURE</div>
+      </div>
+      <div style="display:grid;gap:14px">
+        <div class="pane" style="border-color:var(--teald);padding:20px 26px">
+          <p class="plabel" style="color:var(--teal)">child A</p>
+          <p class="big" style="font-size:24px;color:var(--teal);margin-top:6px">0.25 KAS</p>
+          <p class="mono" style="font-size:18px;color:var(--dim);margin-top:6px">settles last</p>
+        </div>
+        <div class="pane" style="border-color:var(--teald);padding:20px 26px">
+          <p class="plabel" style="color:var(--teal)">child B</p>
+          <p class="big" style="font-size:24px;color:var(--teal);margin-top:6px">0.22 KAS</p>
+          <p class="mono" style="font-size:18px;color:var(--dim);margin-top:6px">settles first</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="sub" style="max-width:88ch;font-size:23px;margin-bottom:26px">
+    Hiring two agents one at a time is two transactions &mdash; the second one&rsquo;s input is the
+    first one&rsquo;s output, so it does not exist until the first confirms. These two exist from the
+    same moment, and each is its own coin from that moment.
+    <span class="mono" style="color:var(--chrome)">80000000 = 30600000 + 25000000 + 22000000 + 2400000</span>
+  </p>
+  <div class="foot"><span>covenant v5 &middot; unaudited &middot; no real money</span>
+    <span class="wm">Warda<b> Protocol</b></span></div>
+</div>
+
