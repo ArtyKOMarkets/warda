@@ -943,7 +943,11 @@ fn peak_stack(trace: &str) -> (usize, usize) {
         let end = tail.find(']').unwrap_or(tail.len());
         count_to_end(&tail[..end.min(tail.len())])
     };
-    let section = |l: &str, key: &str| l.split(key).nth(1).unwrap_or("");
+    // A `fn`, not a closure: a closure over two `&str` gets two independent
+    // inferred lifetimes and cannot return one tied to the first.
+    fn section<'a>(l: &'a str, key: &str) -> &'a str {
+        l.split(key).nth(1).unwrap_or("")
+    }
     let legacy = trace
         .lines()
         .map(|l| count_to_end(section(l, "astack: [")) + count_to_end(section(l, "dstack: [")))
