@@ -281,6 +281,7 @@
     <div class="row"><span class="k">Grant address</span><span class="v" id="b-address">&mdash;</span></div>
     <div class="row"><span class="k">Agent key</span><span class="v" id="b-agent">&mdash;</span></div>
     <div class="row"><span class="k">Principal</span><span class="v" id="b-principal">&mdash;</span></div>
+    <div class="row"><span class="k">Covenant</span><span class="v" id="b-template">&mdash;</span></div>
     <div class="row"><span class="k">Covenant ID</span><span class="v" id="b-covenant">&mdash;</span></div>
     <div class="row"><span class="k">Buys from</span><span class="v" id="b-endpoint">&mdash;</span></div>
   </div>
@@ -622,6 +623,24 @@ WARDA_SK=$(cat ../covenant/deploy/agent-002.key) \
       set("b-agent", d.identity.agent);
       set("b-principal", d.identity.principal);
       set("b-covenant", d.identity.covenantId);
+      /* Which covenant this grant RUNS, which is not the same fact as its
+         covenant id: the id covers the authority too, so two grants under one
+         template with different principals have different ids. The template
+         fingerprint is the version, and the map comes from
+         covenant/versions.json — every entry re-derived from its archived
+         template by ops/check-versions.mjs. A fingerprint with no entry shows
+         as itself rather than as a guess. */
+      (function () {
+        var V = {{COVENANT_VERSIONS}};
+        var fp = d.identity.template;
+        if (!fp) return;                       // an older reading; say nothing
+        var v = V[fp];
+        set("b-template", v
+          ? v.version + " \u00b7 " + fp + (v.status === "current" ? "" : " \u00b7 " + v.status)
+          : fp);
+        var el = document.getElementById("b-template");
+        if (el && v) el.title = v.summary;
+      })();
       set("b-endpoint", d.buysFrom.endpoint);
 
       /* No disclosure in the reading means an OLD reading, written before this

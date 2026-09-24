@@ -43,6 +43,34 @@ else:
 
 
 # ---------------------------------------------------------------------------
+# Which covenant a grant runs. covenant/versions.json maps the fingerprint a
+# manifest already carries to a version name; ops/check-versions.mjs re-derives
+# every one of them from its archived template, so this is read rather than
+# typed. A fingerprint with no entry renders as itself — the honest display of
+# a template nobody has accounted for, and the reason v5 needs nothing here
+# beyond one more entry.
+COVENANT_VERSIONS = json.loads((here.parent / "covenant" / "versions.json").read_text())
+VERSION_BY_FP = {v["fingerprint"]: v for v in COVENANT_VERSIONS["versions"]}
+
+
+def covenant_label(fp):
+    """`v4` for a known template, the bare fingerprint for anything else."""
+    v = VERSION_BY_FP.get(fp)
+    return v["version"] if v else fp
+
+
+def covenant_badge(fp, extra=""):
+    v = VERSION_BY_FP.get(fp)
+    if not v:
+        return f'<span class="badge" title="No entry in covenant/versions.json">{fp}</span>'
+    tone = "acc" if v["status"] == "current" else ""
+    title = v["summary"] + " \u2014 " + v["status"]
+    suffix = "" if v["status"] == "current" else " \u00b7 " + v["status"]
+    return (f'<span class="badge {tone}" title="{title}">covenant {v["version"]}{suffix}'
+            f'</span>{extra}')
+
+
+# ---------------------------------------------------------------------------
 # /one-job — a coordinator hiring two agents, rendered from the run's own trace.
 #
 # Same rule as /attack and /console: no trace, no page. Every figure here is
@@ -254,6 +282,10 @@ def one_job_blocks(t):
         "{{OJ_PURCHASES}}": purch_html,
         "{{OJ_INCIDENT}}": incident,
         "{{OJ_MASS}}": mass_html,
+        # Which covenant this run used, from the manifest rather than typed.
+        # When a run happens under a different one, this line says so with no
+        # edit here — which is the whole point of having the map.
+        "{{OJ_COVENANT}}": covenant_badge(co["covenant"]),
     }
 
 
@@ -268,6 +300,7 @@ if ONE_JOB.exists():
         print(f"! src/one-job.json unreadable ({e}) — /one-job not published.")
 else:
     print("! src/one-job.json missing — /one-job not published. Copy one-job-*/trace.json there.")
+
 
 def data_uri(p):
     return "data:image/png;base64," + base64.b64encode(p.read_bytes()).decode()
@@ -419,6 +452,14 @@ flavours = {
 # both get the same ones rather than each growing its own copy.
 for _f in flavours.values():
     _f.update(ONE_JOB_SUBS)
+
+# The agent pages derive their Covenant row in the browser, from the reading's
+# `identity.template`. One object, injected, rather than a version name typed
+# into a page that will be wrong the first time a grant runs something else.
+for _f in flavours.values():
+    _f["{{COVENANT_VERSIONS}}"] = json.dumps(
+        {v["fingerprint"]: {"version": v["version"], "status": v["status"], "summary": v["summary"]}
+         for v in COVENANT_VERSIONS["versions"]}, separators=(",", ":"))
 if CONSOLE_ZIP:
     import hashlib
     _bytes = CONSOLE_ZIP.read_bytes()

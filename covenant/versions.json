@@ -1,0 +1,47 @@
+{
+  "_comment": "Which covenant a grant runs, by the fingerprint its manifest already carries. A version is NOT a fingerprint: templateFingerprint is blake2b over the full baseline bytecode, and the baked parameters (maxProofDepth, maxFee) are in that bytecode — so the same source compiled at a different depth is a different fingerprint under the same version. Each entry therefore names its template FILE, and ops/check-versions.mjs re-derives the fingerprint from it rather than trusting this line. An entry that stops re-deriving is an entry that has been edited by hand, which is the only failure this file can have. A grant whose fingerprint is not here is rendered as its bare fingerprint: that is the honest display of a template nobody has accounted for, and not an error.",
+  "_source": "The version column agrees with the table in GUARANTEES.md, and check-versions.mjs compares the two so the prose and the data cannot drift.",
+  "current": "b3e5eeefacf2021f",
+  "versions": [
+    {
+      "fingerprint": "a048b13e95125ad1",
+      "version": "v1",
+      "template": "sdk/covenant-template-v1.json",
+      "baked": { "maxProofDepth": 4, "maxFee": 5000000 },
+      "payees": 16,
+      "summary": "epoch hole, no expiry, exits could burn",
+      "status": "withdrawn",
+      "note": "Two of the six recorded vulnerabilities were live in this one. Kept because a grant issued under a template is addressable only through that template."
+    },
+    {
+      "fingerprint": "4af9600b1d35e87b",
+      "version": "v2",
+      "template": null,
+      "baked": { "maxProofDepth": 4, "maxFee": 5000000 },
+      "payees": 16,
+      "summary": "ratchet and expiry",
+      "status": "withdrawn",
+      "note": "No archived template file. v2 was overwritten before archiving became the habit, so this entry is from GUARANTEES.md rather than re-derived — and check-versions.mjs says so out loud rather than passing it quietly. No grant in this repo runs it."
+    },
+    {
+      "fingerprint": "4612a19b16911c6e",
+      "version": "v3",
+      "template": "sdk/covenant-template-v3.json",
+      "baked": { "maxProofDepth": 4, "maxFee": 5000000 },
+      "payees": 16,
+      "summary": "exits conserve value",
+      "status": "superseded",
+      "note": "Archived BEFORE v4 overwrote covenant-template.json, which is the only order that works: the live v3 grant is addressable only through this file, and it is the sole copy."
+    },
+    {
+      "fingerprint": "b3e5eeefacf2021f",
+      "version": "v4",
+      "template": "sdk/covenant-template.json",
+      "baked": { "maxProofDepth": 4, "maxFee": 5000000 },
+      "payees": 16,
+      "summary": "reserve accumulator, settlement, subset witness",
+      "status": "current",
+      "note": "What every grant issued since 15 September runs. Delegation narrows to a subtree of the parent's allowlist and proves it; a settled child returns its reserve. Unaudited by a third party."
+    }
+  ]
+}

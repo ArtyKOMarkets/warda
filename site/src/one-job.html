@@ -152,12 +152,20 @@
 
 <section>
   <div class="wrap">
-    <p class="eyebrow">The cast</p>
+    <p class="eyebrow">The cast &middot; {{OJ_COVENANT}}</p>
     <h2>Three grants, three keys, one of which can spend nothing</h2>
     <p class="tight">
       The coordinator signs the genesis spend and both delegations and never signs a purchase.
       Each worker signs its own purchase and nothing else. A fourth key &mdash; the stopper &mdash;
       can end any of it at any moment and receives nothing, and no agent here holds it.
+    </p>
+    <p class="tight" style="font-size:.9rem">
+      All three run the covenant version above &mdash; read from the manifests, not typed here.
+      A grant&rsquo;s script is committed in its address, so a version is not an upgrade: it is a
+      second covenant, and grants issued under the first keep running it until they are reissued.
+      <a href="https://github.com/ArtyKOMarkets/warda/blob/main/covenant/versions.json" rel="noopener">covenant/versions.json</a>
+      maps every fingerprint to its version, and each one is re-derived from its archived template
+      rather than asserted.
     </p>
     {{OJ_CARDS}}
   </div>

@@ -186,6 +186,15 @@ jobs:
       - name: listener — the numbers still agree with each other
         run: node ops/check-listener.mjs
 
+      # A grant's manifest already names the template it runs; covenant/versions.json
+      # turns that fingerprint into a version the console and the site can show.
+      # A map like that is worth nothing asserted, so every entry is re-derived
+      # from its archived template here, GUARANTEES.md's table is compared
+      # against it, and a manifest naming a template nobody has accounted for
+      # fails rather than rendering as a guess.
+      - name: covenant versions — every fingerprint re-derives
+        run: node ops/check-versions.mjs
+
       # The site is built here and thrown away. Nothing is deployed from CI —
       # the point is that `build.py` DROPS a page whose data is missing, and
       # everything linking to that page is published anyway, so the site can

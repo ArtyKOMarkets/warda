@@ -815,6 +815,7 @@
     <div class="row"><span class="k">Grant address</span><span class="v" id="a-address">&mdash;</span></div>
     <div class="row"><span class="k">Agent key</span><span class="v" id="a-agent">&mdash;</span></div>
     <div class="row"><span class="k">Principal</span><span class="v" id="a-principal">&mdash;</span></div>
+    <div class="row"><span class="k">Covenant</span><span class="v" id="a-template">&mdash;</span></div>
     <div class="row"><span class="k">Covenant ID</span><span class="v" id="a-covenant">&mdash;</span></div>
     <div class="row"><span class="k">Template</span><span class="v" id="a-template">&mdash;</span></div>
   </div>
@@ -1235,6 +1236,21 @@ function renderWallet(d) {
         set("a-id", i.agentId); set("a-network", d.network);
         set("a-address", i.grantAddress); set("a-agent", i.agent);
         set("a-principal", i.principal); set("a-covenant", i.covenantId);
+        /* Which covenant this grant runs. Not the covenant id, which covers
+           the authority as well and so differs between two grants under one
+           template. covenant/versions.json is the map, and every entry in it
+           is re-derived from its archived template by ops/check-versions.mjs;
+           a fingerprint with no entry shows as itself. */
+        (function () {
+          var V = {"a048b13e95125ad1":{"version":"v1","status":"withdrawn","summary":"epoch hole, no expiry, exits could burn"},"4af9600b1d35e87b":{"version":"v2","status":"withdrawn","summary":"ratchet and expiry"},"4612a19b16911c6e":{"version":"v3","status":"superseded","summary":"exits conserve value"},"b3e5eeefacf2021f":{"version":"v4","status":"current","summary":"reserve accumulator, settlement, subset witness"}}, fp = i.template;
+          if (!fp) return;
+          var v = V[fp];
+          set("a-template", v
+            ? v.version + " \u00b7 " + fp + (v.status === "current" ? "" : " \u00b7 " + v.status)
+            : fp);
+          var el = document.getElementById("a-template");
+          if (el && v) el.title = v.summary;
+        })();
         set("a-template", i.template);
 
         /* No explorer link. There is no testnet-10 explorer this page can name
