@@ -372,6 +372,18 @@ fn v5_child_ctor(root: [u8; 32], key: [u8; 32], ch: &Child) -> Vec<Expr<'static>
     v[9] = Expr::int(ch.not_before);
     v[10] = Expr::int(ch.expires_at);
     v[11] = Expr::int(ch.delegation_depth);
+    /* The child's ACCOUNTING, which this dropped. A grant's state is compiled
+       into its address, so a child that has spent is a different script from
+       the one it was born as. Leaving these at zero built a child whose script
+       said spentTotal = 0 while the settlement declared it had spent 5 KAS,
+       and `reabsorb` — which reads the child's real state out of its redeem
+       script — refused the arithmetic it was handed.
+       It was invisible in the delegate2 suite because a newborn child's
+       accounting IS all zeroes. Only settling reads a child that has moved. */
+    v[16] = Expr::int(ch.accounting.0);
+    v[17] = Expr::int(ch.accounting.1);
+    v[18] = Expr::int(ch.accounting.2);
+    v[19] = Expr::int(ch.accounting.3);
     v
 }
 
