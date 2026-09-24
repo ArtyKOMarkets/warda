@@ -16,7 +16,7 @@ import base64, json, pathlib, re, sys
 
 here = pathlib.Path(__file__).parent
 PAGES = ["index.html", "protocol.html", "app.html", "build.html", "verify.html", "proof.html", "agents.html", "start.html",
-         "network.html", "sandbox.html", "rail.html", "agent-001.html", "grant.html"]
+         "network.html", "sandbox.html", "rail.html", "agent-001.html", "grant.html", "authority.html"]
 
 # The attack page publishes a live grant's key and terms, so it can only be
 # built when there IS one. src/demo-grant.json is written by
@@ -65,6 +65,8 @@ GRAPH_JS = (here / "src" / "_graph.js").read_text()
 WALLET_HTML = (here / "src" / "_wallet.html").read_text()
 WALLET_CSS = (here / "src" / "_wallet.css").read_text()
 WALLET_JS = (here / "src" / "_wallet.js").read_text()
+
+import md
 
 QS_HTML = (here / "src" / "_quickstart.html").read_text()
 QS_CSS = (here / "src" / "_quickstart.css").read_text()
@@ -228,6 +230,11 @@ for _f in flavours.values():
     _f["{{WALLET}}"] = WALLET_HTML
     _f["{{WALLET_CSS}}"] = WALLET_CSS
     _f["{{WALLET_JS}}"] = WALLET_JS
+    # The authority format is rendered FROM AUTHORITY.md, never transcribed.
+    # Two copies of a specification drift, and the copy that drifts is always
+    # the one somebody is implementing from. site/md.py raises rather than
+    # dropping a construct it does not know.
+    _f["{{AUTHORITY_BODY}}"] = md.render((here / ".." / "AUTHORITY.md").read_text())
     _f["{{QUICKSTART}}"] = QS_HTML
     _f["{{QUICKSTART_CSS}}"] = QS_CSS
     _f["{{CRYPTO}}"] = CRYPTO

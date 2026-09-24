@@ -1,6 +1,6 @@
 {
   "_comment": "Written by agents/tools/dashboard.ts. Every figure is derived from the grant's manifest, its allowlist, the purchase log or the chain — none is typed. Each payee's LABEL is re-derived on every run from the artefact agents/known-payees.json names, and a label that stops matching is dropped rather than published: an address with no name is honest, an address with the wrong name is not.",
-  "checkedAt": "2026-09-24T08:35:02.509Z",
+  "checkedAt": "2026-09-24T09:35:02.518Z",
   "network": "testnet-10",
   "identity": {
     "agentId": "WARDA-003",
@@ -53,13 +53,13 @@
   },
   "timelock": {
     "notBefore": "564404779",
-    "virtualDaaScore": "579056717",
+    "virtualDaaScore": "579092124",
     "open": true,
     "lockedFor": "5 minutes",
     "openedAgo": "17 days",
     "expiresAt": "590324779",
     "expired": false,
-    "expiresInDaa": "11268062",
+    "expiresInDaa": "11232655",
     "expiresIn": "13 days",
     "expiredAgo": null,
     "enforcedBy": "the covenant, on every spend: claimedDaa >= notBefore. Not a scheduler, not this process, and not revocable by whoever issued the grant.",

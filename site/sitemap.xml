@@ -24,6 +24,7 @@
   <url><loc>https://wardaprotocol.com/sandbox</loc><priority>0.9</priority></url>
   <url><loc>https://wardaprotocol.com/attack</loc><priority>0.9</priority></url>
   <url><loc>https://wardaprotocol.com/proof</loc><priority>0.9</priority></url>
+  <url><loc>https://wardaprotocol.com/authority</loc><priority>0.9</priority></url>
   <url><loc>https://wardaprotocol.com/verify</loc><priority>0.8</priority></url>
   <url><loc>https://wardaprotocol.com/console</loc><priority>0.8</priority></url>
   <url><loc>https://wardaprotocol.com/llms.txt</loc><priority>0.6</priority></url>
