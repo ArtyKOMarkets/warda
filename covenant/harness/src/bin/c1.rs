@@ -42,7 +42,7 @@ use warda_harness::{
     agent_keypair, authority_fields, child_ctor, child_id, child_state, covenant_utxo,
     ctor_at_state, ctor_at_state_with_reserve, empty_reserve, execute, members, proof_depth,
     execute_all, plain_sigscript, push_child, revocation_keypair, sign_input, sigscript,
-    template_geometry_of, template_id_of, tx_input,
+    template_geometry_of, tx_input,
     Authority, Child, Tree, COV, KAS, SOURCE, SOURCE_V5,
 };
 use warda_harness::{ctor_full, principal_keypair};
@@ -371,10 +371,38 @@ fn v5_authority() -> Authority {
 /// 11,120-byte signature script — which is where it surfaced.
 const TEMPLATE_MAX_FEE: i64 = 5_000_000;
 
+/// v5's template id AT THE DEPLOYED maxFee.
+///
+/// `template_id_of` computes the hash from `ctor_full`, which bakes the
+/// harness's 100,000 — and maxFee sits in the SUFFIX, so the id it returns is
+/// the id of a contract nobody deploys. The width is the same (both encode in
+/// three script bytes, so the geometry is unchanged), which is exactly why
+/// this hid: every address still derived, every delegate2 case still passed,
+/// because `delegate2` only requires the child's templateId to EQUAL the
+/// parent's and both were the same wrong value.
+///
+/// `reabsorb` and `settle` are the only paths that USE it — they slice a
+/// foreign redeem script with it — and they refused, which is how it surfaced.
+/// A grant issued at one maxFee and settled against an id computed at another
+/// can delegate and can never come home.
+fn v5_template_id() -> [u8; 32] {
+    let (p, sfx) = template_geometry_of(SOURCE_V5);
+    let mut ctor = ctor_full(proof_depth(), v5_authority(), [0u8; 32], (p, sfx));
+    ctor[2] = Expr::int(TEMPLATE_MAX_FEE);
+    let probe = compile_contract(SOURCE_V5, &ctor, CompileOptions::default())
+        .expect("template id probe must compile");
+    let code = &probe.bytecode;
+    let mut pre = Vec::new();
+    pre.extend_from_slice(&p.to_le_bytes());
+    pre.extend_from_slice(&code[..p as usize]);
+    pre.extend_from_slice(&sfx.to_le_bytes());
+    pre.extend_from_slice(&code[code.len() - sfx as usize..]);
+    *blake3::hash(&pre).as_bytes()
+}
+
 fn v5_ctor_base() -> Vec<Expr<'static>> {
     let geo = template_geometry_of(SOURCE_V5);
-    let tid = template_id_of(SOURCE_V5, v5_authority());
-    let mut v = ctor_full(proof_depth(), v5_authority(), tid, geo);
+    let mut v = ctor_full(proof_depth(), v5_authority(), v5_template_id(), geo);
     v[2] = Expr::int(TEMPLATE_MAX_FEE);
     v
 }
@@ -428,7 +456,7 @@ fn v5_child_state(root: [u8; 32], key: [u8; 32], ch: &Child) -> Expr<'static> {
             ("notBefore", Expr::int(ch.not_before)),
             ("expiresAt", Expr::int(ch.expires_at)),
             ("delegationDepth", Expr::int(ch.delegation_depth)),
-            ("templateId", Expr::bytes(template_id_of(SOURCE_V5, v5_authority()).to_vec())),
+            ("templateId", Expr::bytes(v5_template_id().to_vec())),
             ("spentTotal", Expr::int(ch.accounting.0)),
             ("reserved", Expr::int(ch.accounting.1)),
             ("epochIndex", Expr::int(ch.accounting.2)),
@@ -515,7 +543,7 @@ fn delegate2_artifacts(
     // authority_fields bakes v4's templateId, and this covenant is not v4.
     for field in pf.iter_mut() {
         if field.0 == "templateId" {
-            field.1 = Expr::bytes(template_id_of(SOURCE_V5, v5_authority()).to_vec());
+            field.1 = Expr::bytes(v5_template_id().to_vec());
         }
     }
     pf.push(("spentTotal", Expr::int(0)));
@@ -661,7 +689,7 @@ fn reabsorb_step(
 ) -> (Result<(), TxScriptError>, Unwind) {
     let agent_kp = agent_keypair();
     let rev_kp = revocation_keypair();
-    let tid = template_id_of(SOURCE_V5, v5_authority());
+    let tid = v5_template_id();
 
     let parent = compile_contract(
         SOURCE_V5,
@@ -876,7 +904,7 @@ fn emit_golden(path: &str) {
     let key_a = [0x90u8; 32];
     let key_b = [0x91u8; 32];
     let auth = v5_authority();
-    let tid = template_id_of(SOURCE_V5, auth);
+    let tid = v5_template_id();
 
     // Exactly what the accepted baseline builds, rebuilt here so the vector and
     // the verdict cannot describe two different transactions.
