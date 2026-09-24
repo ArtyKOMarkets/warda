@@ -501,7 +501,7 @@ process.stdout.write(JSON.stringify(toWire(tx, built.entry, "@warda_protocol/kas
 if (process.argv.includes("--submit")) {
   const submitter = await NodeClient.connect({ url: rpcFrom(flag("rpc")) });
   try {
-    const { txid } = await submitCorrectingFee({
+    const { txid, tx: accepted, fee: paidFee, corrected } = await submitCorrectingFee({
       client: submitter,
       tx,
       fee: plan.fee,
@@ -513,6 +513,12 @@ if (process.argv.includes("--submit")) {
       },
     });
     console.error(`\nSUBMITTED: ${txid}`);
+    if (corrected) {
+      console.error(
+        "  NOTE: the JSON on stdout is the build the node refused. What is on chain is\n" +
+          "  the rebuild at the fee it named; the manifest is written from that one.",
+      );
+    }
     /**
      * Submitting is not accepting.
      *
@@ -551,7 +557,12 @@ if (process.argv.includes("--submit")) {
       JSON.stringify(
         {
           ...m,
-          grant_value: Number(built.parentChange),
+          /* From the ACCEPTED transaction, not from `built.parentChange` —
+             that figure was computed at the fee this tool proposed, and a
+             node that names a higher one gets a rebuild. See the note in
+             build-settlement.ts: the error is invisible, because grant_value
+             is not part of the address. */
+          grant_value: Number(accepted.outputs[0]!.value),
           spent_total: Number(ps.spentTotal),
           reserved: Number(ps.reserved),
           epoch_index: Number(ps.epochIndex),

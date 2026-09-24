@@ -68,34 +68,44 @@ import { resolveNetwork, rpcFrom } from "./network.ts";
 import { requiredFeeFrom, submitCorrectingFee } from "./fee.ts";
 
 /**
- * A settlement has TWO covenant inputs — the parent reabsorbing and the child
- * settling — so it carries two redeem scripts and masses roughly twice a
- * spend. 2,000,000 was set before either half had ever been broadcast; this is
- * headroom rather than a measurement, and the rejection path below turns the
- * node's own figure into a --fee flag if it is still short.
+ * What a settlement costs, DERIVED from the template rather than pinned.
  *
- * The headroom is not paranoia. build-exit kept an ordinary transfer's
- * 1,000,000 for the same reason this file kept 2,000,000 — nothing it produced
- * had ever been sent — and the first real revoke was refused for needing
- * 1,437,200. A fee is not part of the shape a script engine verifies, so
- * `cargo run -- verify` accepts a transaction no node will relay.
+ * A settlement has two covenant inputs, so it carries two full redeem scripts
+ * and its mass is dominated by how long the covenant is. That is why a
+ * constant kept being wrong in one direction or the other:
+ *
+ *   - 5,000,000 was chosen before either half had ever been broadcast. Pure
+ *     headroom, and it overpaid every v4 settlement by roughly double.
+ *   - 3,500,000 replaced it after a v4 settlement was measured at 29,052 mass
+ *     and the node required 2,905,200 — 100 sompi per unit of mass, which has
+ *     never varied across seven transaction shapes. About 20% over the
+ *     measurement, so ordinary variation would not trip the corrector.
+ *   - Then v5 arrived. Its covenant is 10,375 bytes where v4's is 6,912, and
+ *     the first two real settlements were both refused for needing 4,290,400.
+ *     The default was not too low by a margin; it was measuring a different
+ *     covenant.
+ *
+ * Two measurements, and they fit one line exactly:
+ *
+ *     mass = 4 x scriptBytes + 1404
+ *       v4 : 4 x  6,912 + 1404 = 29,052   (the node asked 2,905,200)
+ *       v5 : 4 x 10,375 + 1404 = 42,904   (the node asked 4,290,400)
+ *
+ * Two points always fit a line, so this is a model rather than a law — the
+ * constant 1404 is the rest of the transaction, and a deeper recipients tree
+ * puts more Merkle siblings in each signature script and lifts both terms.
+ * Hence the 10% margin, and `submitCorrectingFee` behind it for the rest.
+ *
+ * The important part is not the number. It is that the number now moves when
+ * the covenant does, so the next version does not rediscover this by being
+ * refused twice.
  */
-/**
- * Measured, not guessed: a settlement, two covenant inputs massed 29,052 and the node required
- * 2,905,200 sompi — 100 per unit of mass, which is now six measurements
- * across six transaction shapes and has never varied.
- *
- * This was 5,000,000, so every one of these overpaid by roughly double — a
- * number chosen to be safely too big back when being refused meant a failed
- * command rather than an automatic retry.
- *
- * About 20% over the measured figure rather than exactly it. Mass varies with
- * the shape: a deeper recipients tree means a longer Merkle proof, more bytes
- * and more mass, so a default pinned to one measurement would make the
- * corrector fire on every slightly larger grant. The headroom covers ordinary
- * variation; `submitCorrectingFee` covers the rest and says so out loud.
- */
-const DEFAULT_FEE = 3_500_000n;
+const SOMPI_PER_MASS = 100n;
+function settlementFee(tpl: CovenantTemplate): bigint {
+  const scriptBytes = BigInt(tpl.baselineHex.length / 2);
+  const mass = 4n * scriptBytes + 1404n;
+  return (mass * SOMPI_PER_MASS * 110n) / 100n;
+}
 const SETTLE_COMPUTE_BUDGET = 32;
 
 function flag(name: string, fallback?: string): string | undefined {
@@ -308,7 +318,7 @@ try {
       isCoinbase: c.entry.isCoinbase,
       covenantId: c.entry.covenantId!,
     },
-    fee: BigInt(flag("fee", DEFAULT_FEE.toString())!),
+    fee: BigInt(flag("fee", settlementFee(template).toString())!),
     computeBudget: SETTLE_COMPUTE_BUDGET,
   };
   built = buildUnsignedReabsorb(plan);
@@ -373,7 +383,7 @@ if (process.argv.includes("--submit")) {
        child's REVOCATION signs the settle. A rebuild has to redo both, and
        getting one right and the other stale would fail as an unverifiable
        signature rather than as anything about a fee. */
-    const { txid } = await submitCorrectingFee({
+    const { txid, tx: accepted, fee: paidFee, corrected } = await submitCorrectingFee({
       client: submitter,
       tx,
       fee: plan.fee,
@@ -424,7 +434,15 @@ if (process.argv.includes("--submit")) {
      */
     const advanced = {
       ...pm,
-      grant_value: Number(built.tx.outputs[0]!.value),
+      /* The ACCEPTED transaction's output, not the one this tool first built.
+         `built` was made at `plan.fee`; when the node names a higher figure,
+         `submitCorrectingFee` rebuilds and it is the rebuild that is on chain.
+         Reading `built` here wrote a balance that was too high by exactly the
+         correction — 790,400 sompi on each of the first two real settlements —
+         and the error is invisible, because grant_value is not part of the
+         address: every tool finds the grant and disagrees with the chain about
+         what it holds. */
+      grant_value: Number(accepted.outputs[0]!.value),
       spent_total: Number(successor.spentTotal),
       reserved: Number(successor.reserved),
       epoch_index: Number(successor.epochIndex),
@@ -432,6 +450,13 @@ if (process.argv.includes("--submit")) {
       reserve_root: successor.reserveRoot,
     };
     writeFileSync(parentPath, JSON.stringify(advanced, null, 2) + "\n");
+    if (corrected) {
+      console.error(
+        `\n  NOTE: the JSON on stdout is the ${plan.fee}-fee build, which the node\n` +
+          `  refused. What is on chain is the rebuild at ${paidFee}. The manifest above\n` +
+          `  is written from the accepted one; re-run with --fee ${paidFee} to emit it.`,
+      );
+    }
     console.error(
       `\n  parent advanced : ${parentPath}\n` +
         `    holds ${advanced.grant_value}, spent ${advanced.spent_total}, reserved ${advanced.reserved}\n` +

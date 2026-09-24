@@ -14,9 +14,20 @@
   "epoch_limit": 80000000,
   "epoch_length": 1000,
   "delegation_depth": 2,
-  "grant_value": 80000000,
+  "grant_value": 69019200,
   "spent_total": 0,
   "reserved": 0,
   "epoch_index": 0,
-  "epoch_spent": 0
+  "epoch_spent": 0,
+  "reserve_root": "803b111f3c3952f7b7c9cb2bd240759e755a85ab2c6223614d08f216dd6a3bd1",
+  "reserve_stack": [
+    {
+      "prev_root": "803b111f3c3952f7b7c9cb2bd240759e755a85ab2c6223614d08f216dd6a3bd1",
+      "child": "kaspatest:pzsvq49x8gghzc3aey95k3mkp7a9wypakhz64yccktu7guwxgyzcxgejkp6e3"
+    },
+    {
+      "prev_root": "fa5765a4483476ce6fc4baa113e54cf1ae6b589ed08b1245a759d8075524b044",
+      "child": "kaspatest:pph3yysrfwm5624thtdy3drj44e7lrp2v4h3rxdcy6mzkmmlknexwlpr8qv0t"
+    }
+  ]
 }

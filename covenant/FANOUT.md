@@ -76,9 +76,33 @@ nothing back on the way out unless settlement becomes 1:N too, which is a
 second change with its own conservation proof.
 
 **And the stack is the tightest budget we have.** Size has 115× headroom and
-compute 4,096×, but peak stack is 118 of 244 — 2.07×. A `delegate` that reads
-and checks N children rather than one would grow it. That needs measuring
-against the engine before anyone says it fits.
+compute 4,096×, but the stack is the one that is close — and it is now measured
+against the engine rather than inferred. `c1`'s COST section, on the same run
+that reports the verdicts:
+
+| entrypoint | states read | peak stack | of 244 |
+|---|---|---|---|
+| v4 `delegate`, one child | 2 | 161 | 66% |
+| v5 `delegate2`, two children | 3 | 189 | 77% |
+
+The 118 quoted here before was a SPEND's, from `LIMITS.md` — the figure for a
+probe whose body is trivial, standing in for a `delegate` nobody had measured.
+Reading and checking a second child costs 28 slots, so 1:3 would land near 217
+and 1:4 past the cap. Two caveats on that arithmetic: it is one interval
+between two points, and the two points are different covenants, so 28 is the
+gap between v4-with-two-states and v5-with-three rather than the price of a
+state. The measurement that isolates it is v5's own `delegate` at N = 1 —
+same covenant, same geometry, one state fewer — and it has not been taken.
+
+KIP-9 storage mass refuses 1:3 anyway, so the stack is not what bounds fanout
+today. It is what would bound it if the mass ceiling ever moved.
+
+**One figure in that table is not understood.** `delegate2` measures 30,308
+script units where `delegate` measures 80,999, and it does strictly more work:
+three states, two subset witnesses, two chain pushes. Both run at the same
+`maxProofDepth`, both push empty witnesses, both use solved geometry. Nothing
+here explains a 2.7× drop, so the compute column is reported and not relied on.
+The same v5-`delegate`-at-N-1 run would settle this too.
 
 ## 3 — payees fixed at genesis
 

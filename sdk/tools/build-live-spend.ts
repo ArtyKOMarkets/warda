@@ -392,7 +392,7 @@ if (process.argv.includes("--submit")) {
        changes the successor's VALUE but not its state, so the address the
        grant moves to is the same either way — a correction here cannot send
        the grant somewhere the caller was not already told about. */
-    const { txid } = await submitCorrectingFee({
+    const { txid, tx: accepted, corrected } = await submitCorrectingFee({
       client: submitter,
       tx,
       fee: plan.fee,
@@ -400,6 +400,12 @@ if (process.argv.includes("--submit")) {
       rebuild: (corrected) => signSpend({ ...plan, fee: corrected }, secret).tx,
     });
     console.error(`\nSUBMITTED: ${txid}`);
+    if (corrected) {
+      console.error(
+        "  NOTE: the JSON on stdout is the build the node refused. What is on chain is\n" +
+          "  the rebuild at the fee it named; the manifest is written from that one.",
+      );
+    }
     if (txid !== wire.txid) {
       console.error(
         `  NOTE: the node calls it ${txid}, this package predicted ${wire.txid}. ` +
@@ -431,7 +437,9 @@ if (process.argv.includes("--submit")) {
      */
     const advanced = {
       ...m,
-      grant_value: Number(tx.outputs[0]!.value),
+      /* The ACCEPTED transaction's change, not this tool's first build. See
+         build-settlement.ts. */
+      grant_value: Number(accepted.outputs[0]!.value),
       spent_total: Number(unsigned.successorState.spentTotal),
       epoch_index: Number(unsigned.successorState.epochIndex),
       epoch_spent: Number(unsigned.successorState.epochSpent),
