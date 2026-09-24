@@ -37,7 +37,8 @@ use silverscript_lang::compiler::{compile_contract, struct_object, CompileOption
 use warda_harness::{
     agent_keypair, authority_fields, child_ctor, child_id, child_state, covenant_utxo,
     ctor_at_state, ctor_at_state_with_reserve, empty_reserve, execute, members, proof_depth,
-    push_child, sign_input, sigscript, template_geometry_of, template_id_of, tx_input,
+    execute_all, plain_sigscript, push_child, revocation_keypair, sign_input, sigscript,
+    template_geometry_of, template_id_of, tx_input,
     Child, Tree, COV, KAS, SOURCE, SOURCE_V5,
 };
 use warda_harness::{ctor_full, default_authority};
@@ -311,6 +312,7 @@ fn main() {
     println!("check written for one child and applied N times carelessly.");
 
     v5_suite();
+    settle_suite();
 }
 
 // ===========================================================================
@@ -540,6 +542,177 @@ fn v5_suite() {
         println!("  {} flips, every one refused, each one field from an accepted baseline.", cases.len());
     } else {
         println!("  {wrong} of {} did not behave as delegate2 claims. Read the covenant.", cases.len());
+        std::process::exit(1);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Settling what delegate2 created.
+//
+// C2 (a 1:N reabsorb) is an optimisation, not a prerequisite: v4's `reabsorb`
+// should settle delegate2's children unchanged, because the chain it built is
+// H(H(empty || cidA) || cidB) and popping from the end gives B then A — which
+// is exactly what reabsorb checks. `should` is the word that preceded the v4
+// pre-release bug where a child with live grandchildren released its parent's
+// full reserve and the grandchildren's coin left every grant's accounting.
+//
+// So this walks it. Two settlements, in order, each one a real transaction the
+// engine either accepts or does not.
+// ---------------------------------------------------------------------------
+
+/// One `reabsorb` + `settle` pair against v5. Returns the parent's state after
+/// it, so the caller can walk the chain down.
+struct Unwind {
+    spent: i64,
+    reserved: i64,
+    chain: [u8; 32],
+    value: u64,
+}
+
+fn reabsorb_step(
+    root: [u8; 32],
+    agent: [u8; 32],
+    before: &Unwind,
+    child: &Child,
+    child_key: [u8; 32],
+    child_spent: i64,
+    prev_root: [u8; 32],
+) -> (Result<(), TxScriptError>, Unwind) {
+    let agent_kp = agent_keypair();
+    let rev_kp = revocation_keypair();
+    let tid = template_id_of(SOURCE_V5, default_authority());
+
+    let parent = compile_contract(
+        SOURCE_V5,
+        &v5_parent_ctor(root, agent, before.spent, before.reserved, before.chain),
+        CompileOptions::default(),
+    )
+    .expect("parent compiles");
+
+    let after = Unwind {
+        spent: before.spent + child_spent,
+        reserved: before.reserved - child.budget,
+        chain: prev_root,
+        value: 0, // filled below
+    };
+    let parent_next = compile_contract(
+        SOURCE_V5,
+        &v5_parent_ctor(root, agent, after.spent, after.reserved, after.chain),
+        CompileOptions::default(),
+    )
+    .expect("successor compiles");
+
+    // The child AS IT IS when settled: its identity is immutable, so a child
+    // that has been spending still matches the id its parent committed to.
+    let mut spent_child = child.clone();
+    spent_child.accounting = (child_spent, 0, 0, 0);
+    let child_c = compile_contract(
+        SOURCE_V5,
+        &v5_child_ctor(root, child_key, &spent_child),
+        CompileOptions::default(),
+    )
+    .expect("child compiles");
+
+    let mut fields = authority_fields(root, agent);
+    for f in fields.iter_mut() {
+        if f.0 == "templateId" { f.1 = Expr::bytes(tid.to_vec()); }
+    }
+    fields.push(("spentTotal", Expr::int(after.spent)));
+    fields.push(("reserved", Expr::int(after.reserved)));
+    fields.push(("epochIndex", Expr::int(0)));
+    fields.push(("epochSpent", Expr::int(0)));
+    fields.push(("reserveRoot", Expr::bytes(prev_root.to_vec())));
+    let new_states = Expr::array(
+        TypeRef { base: TypeBase::Custom("State".to_string()), array_dims: vec![ArrayDim::Dynamic] },
+        vec![struct_object("State", fields)],
+    );
+
+    let child_value = (child.budget - child_spent).max(0) as u64;
+    let combined = before.value + child_value;
+    let out_value = combined.saturating_sub(1_000);
+
+    let build = |psig: Vec<u8>, csig: Vec<u8>| {
+        Transaction::new(
+            1,
+            vec![
+                tx_input(0, sigscript(&parent, "reabsorb", vec![
+                    new_states.clone(),
+                    Expr::int(1),
+                    Expr::bytes(prev_root.to_vec()),
+                    Expr::bytes(psig),
+                ])),
+                tx_input(1, plain_sigscript(&child_c, "settle", vec![Expr::bytes(csig)])),
+            ],
+            vec![TransactionOutput {
+                value: out_value,
+                script_public_key: pay_to_script_hash_script(&parent_next.bytecode),
+                covenant: Some(CovenantBinding { authorizing_input: 0, covenant_id: COV }),
+            }],
+            0, Default::default(), 0, vec![],
+        )
+    };
+
+    let entries = vec![covenant_utxo(&parent, before.value), covenant_utxo(&child_c, child_value)];
+    let unsigned = build(vec![0u8; 65], vec![0u8; 65]);
+    let psig = sign_input(unsigned.clone(), entries.clone(), 0, &agent_kp);
+    let csig = sign_input(unsigned, entries.clone(), 1, &rev_kp);
+    let verdict = execute_all(build(psig, csig), entries);
+    (verdict, Unwind { value: out_value, ..after })
+}
+
+fn settle_suite() {
+    println!("\nSETTLING WHAT delegate2 CREATED  (v4's reabsorb, unchanged)\n");
+    let kp = agent_keypair();
+    let agent: [u8; 32] = kp.x_only_public_key().0.serialize();
+    let tree = Tree::new(members());
+    let root = tree.root();
+    let a = Child::narrower();
+    let b = Child::narrower();
+    let key_a = [0x90u8; 32];
+    let key_b = [0x91u8; 32];
+    let cid = |key: [u8; 32], ch: &Child| {
+        child_id(key, ch.budget, ch.max_per_spend, ch.epoch_limit, 1_000,
+                 ch.root.unwrap_or(root), ch.not_before, ch.expires_at, ch.delegation_depth)
+    };
+    let after_a = push_child(empty_reserve(), cid(key_a, &a));
+    let after_b = push_child(after_a, cid(key_b, &b));
+
+    // Exactly what delegate2 leaves behind, with the same arithmetic the
+    // builder above uses — so this starts where that ended rather than at a
+    // state somebody typed.
+    let total = a.budget + b.budget;
+    let start = Unwind {
+        spent: 0,
+        reserved: total,
+        chain: after_b,
+        value: 10_000_000_000u64.saturating_sub(total as u64).saturating_sub(1_000),
+    };
+
+    // B first: the chain pops from the end, and B was pushed last.
+    let (v1, mid) = reabsorb_step(root, agent, &start, &b, key_b, 5 * KAS, after_a);
+    println!("  settle B (hired last)         {}",
+        match &v1 { Ok(()) => "ACCEPTED   — v4's reabsorb settles a delegate2 child unchanged".to_string(), Err(e) => format!("REFUSED — {e}") });
+
+    if v1.is_ok() {
+        let (v2, end) = reabsorb_step(root, agent, &mid, &a, key_a, 5 * KAS, empty_reserve());
+        println!("  then settle A                 {}",
+            match &v2 { Ok(()) => format!("ACCEPTED   — reserved back to {}, chain empty again", end.reserved), Err(e) => format!("REFUSED — {e}") });
+        if v2.is_ok() && end.reserved != 0 {
+            println!("  reserve did NOT return to zero: {} left committed", end.reserved);
+            std::process::exit(1);
+        }
+    }
+
+    // A first, which the LIFO discipline must refuse: no prevRoot the prover
+    // can supply satisfies reserveRoot == H(prevRoot || cidA) when the chain
+    // ends in cidB.
+    let (out_of_order, _) = reabsorb_step(root, agent, &start, &a, key_a, 5 * KAS, after_a);
+    println!("  settle A first, out of order  {}",
+        match &out_of_order { Ok(()) => "ACCEPTED   <-- the LIFO discipline is NOT enforced".to_string(), Err(e) => format!("refused — {e}") });
+
+    if v1.is_err() || out_of_order.is_ok() {
+        println!("\n  delegate2 does not compose with v4's reabsorb. C2 is a prerequisite");
+        println!("  after all, and V5.md says the opposite — fix the file before the covenant.");
         std::process::exit(1);
     }
 }
