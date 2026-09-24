@@ -55,18 +55,27 @@ const SOURCE: &str = include_str!("../../warda_grant.sil");
 /// there is nothing on chain that could run it.
 const SOURCE_V5: &str = include_str!("../../warda_grant_v5.sil");
 
-/// Which covenant this run compiles. Set once, from the command line, before
-/// anything is built.
-static SRC: std::sync::OnceLock<&'static str> = std::sync::OnceLock::new();
+/* Which covenant this run compiles. ONE flag, set once from the command line,
+   and both `src()` and the output filename read it.
 
-fn src() -> &'static str {
-    SRC.get().copied().unwrap_or(SOURCE)
-}
+   It was two: a OnceLock holding the source, and `is_v5()` asking
+   `std::ptr::eq(src(), SOURCE_V5)`. That comparison is always false. SOURCE_V5
+   is a `const`, so it is inlined at every use site and two mentions of it need
+   not share an address — the pointer identity a const &str seems to have is
+   not something the language promises. The build compiled v5 correctly and
+   then named its output `covenant-template.json`, overwriting the template
+   every v4 grant address is derived from. Restored from git; the lesson is
+   that a safety check must not rest on an identity nobody guarantees. */
+static IS_V5: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
 
 /// True when this run was asked for v5. Read where the OUTPUT is named, so a
 /// v5 build cannot overwrite the template v4's grants are derived from.
 fn is_v5() -> bool {
-    std::ptr::eq(src(), SOURCE_V5)
+    *IS_V5.get().unwrap_or(&false)
+}
+
+fn src() -> &'static str {
+    if is_v5() { SOURCE_V5 } else { SOURCE }
 }
 const KAS: i64 = 100_000_000;
 /// Fees are charged per unit of transaction MASS, at 100 sompi per unit.
@@ -964,7 +973,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
        else. A flag that had to be remembered per subcommand would eventually
        be forgotten on the one that writes a file. */
     if std::env::args().any(|a| a == "--v5") {
-        SRC.set(SOURCE_V5).ok();
+        IS_V5.set(true).ok();
         eprintln!("covenant: v5 (covenant/warda_grant_v5.sil) — a draft, unaudited");
     }
     let url = std::env::var("WARDA_RPC").unwrap_or_else(|_| DEFAULT_URL.to_string());
