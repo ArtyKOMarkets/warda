@@ -346,7 +346,7 @@ if (process.argv.includes("--submit")) {
         const p2 = { ...plan, fee: corrected };
         const b2 = buildUnsignedDelegation2(p2);
         const s2 = signDigest(b2.sighash, parentSecret);
-        return { tx: attachDelegation2Signature(p2, b2.tx, s2), entry: b2.entry };
+        return attachDelegation2Signature(p2, b2.tx, s2);
       },
     });
     console.error(`\nSUBMITTED: ${sent}`);

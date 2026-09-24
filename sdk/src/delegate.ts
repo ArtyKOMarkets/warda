@@ -421,3 +421,208 @@ export function attachDelegationSignature(
 }
 
 export { fromHex };
+
+// ===========================================================================
+// delegate2 — two children in one transaction.
+//
+// Covenant v5 (157b64e3eeea9c01) only. `delegate` is untouched and still makes
+// one child, because #[covenant.fanout(to = N)] fixes the authorised output
+// count exactly: a covenant with only delegate2 could not hire one worker.
+//
+// It lives beside `delegate` rather than in a file of its own so the two move
+// together. Every rule below is the single-child rule applied twice, plus the
+// three that only a second child creates — and those three are the reason this
+// is not a loop over an array: written out, a reviewer can see that A and B are
+// checked the same way.
+// ===========================================================================
+
+const DELEGATE2_ENTRYPOINT = "__covenant_entrypoint_auth_delegate2";
+const DELEGATE2_ARG_TYPES = ["State[]", "byte[32][]", "bool[]", "byte[32][]", "bool[]", "sig"];
+
+export interface Delegation2Plan extends Omit<DelegationPlan, "child"> {
+  /** Created at output 1, and pushed onto the reserve chain FIRST. */
+  childA: ChildTerms;
+  /** Created at output 2, pushed SECOND — so it settles first. */
+  childB: ChildTerms;
+}
+
+export interface UnsignedDelegation2 {
+  tx: Transaction;
+  entry: UtxoEntry;
+  sighash: Uint8Array;
+  parentSuccessorState: GrantState;
+  parentSuccessorScriptPublicKey: ScriptPublicKey;
+  childStates: [GrantState, GrantState];
+  childScriptPublicKeys: [ScriptPublicKey, ScriptPublicKey];
+  parentChange: bigint;
+}
+
+/**
+ * The parent after delegating twice: the reserve grows by BOTH budgets and the
+ * chain carries both children, in OUTPUT ORDER.
+ *
+ * The order is not a convention. Settlement pops the chain from the end, so
+ * pushing B second is what makes B settle first — and a successor computed
+ * from the other order is a different address the covenant refuses.
+ */
+export function parentSuccessorState2(
+  state: GrantState,
+  childA: GrantState,
+  childB: GrantState,
+): GrantState {
+  return {
+    ...state,
+    reserved: state.reserved + childA.budgetTotal + childB.budgetTotal,
+    reserveRoot: pushChild(pushChild(state.reserveRoot, childA), childB),
+  };
+}
+
+export function delegate2SignatureScript(plan: Delegation2Plan, signature: Uint8Array): Uint8Array {
+  if (signature.length !== 65) {
+    throw new Error(`a signature is 64 bytes plus a sighash type byte, got ${signature.length}`);
+  }
+  const a = childStateFrom(plan.state, plan.childA, plan.recipients);
+  const b = childStateFrom(plan.state, plan.childB, plan.recipients);
+  const parentNext = parentSuccessorState2(plan.state, a, b);
+
+  // TWO witnesses, not one shared. The children narrow independently, and a
+  // single witness would silently bind them to the same subtree.
+  const wa = subsetWitness(plan.state, plan.childA, plan.recipients).proof;
+  const wb = subsetWitness(plan.state, plan.childB, plan.recipients).proof;
+
+  const s = new ScriptBuilder();
+  // Parent first, then A, then B — that is what binds each state to its output.
+  pushStateArray(s, [parentNext, a, b]);
+  s.addData(concat(...wa.siblings));
+  s.addData(Uint8Array.from(wa.left, (x) => (x ? 1 : 0)));
+  s.addData(concat(...wb.siblings));
+  s.addData(Uint8Array.from(wb.left, (x) => (x ? 1 : 0)));
+  s.addData(signature);
+  s.addData(dispatchTag(DELEGATE2_ENTRYPOINT, DELEGATE2_ARG_TYPES));
+  s.addData(bytecodeFor(plan.template, { authority: plan.authority, state: plan.state }));
+  return s.drain();
+}
+
+export function buildUnsignedDelegation2(plan: Delegation2Plan): UnsignedDelegation2 {
+  const { childA, childB } = plan;
+  for (const [name, c] of [["A", childA], ["B", childB]] as const) {
+    if (c.budgetTotal <= 0n) throw new Error(`child ${name} must carry a positive budget`);
+    if (c.maxPerSpend > plan.state.maxPerSpend) throw new Error(`child ${name} cannot raise the per-spend cap`);
+    if (c.epochLimit > plan.state.epochLimit) throw new Error(`child ${name} cannot raise the epoch limit`);
+    if (c.delegationDepth >= plan.state.delegationDepth) {
+      throw new Error(`child ${name}'s delegation depth must be strictly less than its parent's`);
+    }
+    if (c.notBefore !== undefined && c.notBefore < plan.state.notBefore) {
+      throw new Error(`child ${name} cannot open before its parent (${c.notBefore} < ${plan.state.notBefore})`);
+    }
+    if (c.expiresAt !== undefined && c.expiresAt > plan.state.expiresAt) {
+      throw new Error(`child ${name} cannot outlive its parent (${c.expiresAt} > ${plan.state.expiresAt})`);
+    }
+    const opens = c.notBefore ?? plan.state.notBefore;
+    const ends = c.expiresAt ?? plan.state.expiresAt;
+    if (opens >= ends) throw new Error(`child ${name} opens at ${opens} and ends at ${ends}, so it can never spend`);
+  }
+
+  // SEQUENTIAL, and this is the check that makes two children safe: B is
+  // measured against what is left after A, not against the same headroom A was
+  // measured on. Checking each against the full uncommitted amount is the
+  // mistake that lets a tree hold more authority than its budget.
+  const committed = plan.state.spentTotal + plan.state.reserved;
+  const uncommitted = plan.state.budgetTotal - committed;
+  if (childA.budgetTotal > uncommitted) {
+    throw new Error(`child A's budget ${childA.budgetTotal} exceeds the parent's uncommitted ${uncommitted}`);
+  }
+  if (childB.budgetTotal > uncommitted - childA.budgetTotal) {
+    throw new Error(
+      `child B's budget ${childB.budgetTotal} exceeds what is left after child A: ` +
+        `${uncommitted - childA.budgetTotal} of ${uncommitted}. They fit separately and not together.`,
+    );
+  }
+
+  // Two children, not one child twice. Both outputs under one key is ONE
+  // authority issued twice: they share a child id, the chain carries it twice,
+  // and the second settlement releases a reserve the parent never took.
+  if (childA.agentKey.toLowerCase() === childB.agentKey.toLowerCase()) {
+    throw new Error("both children carry the same agent key, which is one authority issued twice");
+  }
+
+  const handedOut = childA.budgetTotal + childB.budgetTotal;
+  const parentChange = plan.utxo.value - handedOut - plan.fee;
+  if (parentChange < 0n) {
+    throw new Error(
+      `the parent UTXO holds ${plan.utxo.value}, not enough for children of ${childA.budgetTotal} ` +
+        `and ${childB.budgetTotal} plus fee ${plan.fee}`,
+    );
+  }
+
+  const a = childStateFrom(plan.state, childA, plan.recipients);
+  const b = childStateFrom(plan.state, childB, plan.recipients);
+  const parentNext = parentSuccessorState2(plan.state, a, b);
+
+  const spkFor = (state: GrantState) =>
+    payToScriptHashScript(scriptHash(bytecodeFor(plan.template, { authority: plan.authority, state })));
+
+  const grantSpk = spkFor(plan.state);
+  const parentNextSpk = spkFor(parentNext);
+  // Both children share the parent's AUTHORITY. Delegation subdivides a
+  // budget; it does not hand over the right to revoke or reclaim.
+  const aSpk = spkFor(a);
+  const bSpk = spkFor(b);
+
+  const entry: UtxoEntry = {
+    value: plan.utxo.value,
+    scriptPublicKey: grantSpk,
+    blockDaaScore: plan.utxo.blockDaaScore,
+    isCoinbase: plan.utxo.isCoinbase,
+    covenantId: plan.utxo.covenantId,
+  };
+
+  const binding = { authorizingInput: 0, covenantId: plan.utxo.covenantId };
+  const tx: Transaction = {
+    version: 1,
+    inputs: [
+      {
+        previousOutpoint: {
+          transactionId: plan.utxo.outpointTransactionId,
+          index: plan.utxo.outpointIndex,
+        },
+        signatureScript: delegate2SignatureScript(plan, PLACEHOLDER_SIGNATURE),
+        sequence: 0n,
+        computeBudget: plan.computeBudget,
+      },
+    ],
+    outputs: [
+      { value: parentChange, scriptPublicKey: parentNextSpk, covenant: binding },
+      { value: childA.budgetTotal, scriptPublicKey: aSpk, covenant: binding },
+      { value: childB.budgetTotal, scriptPublicKey: bSpk, covenant: binding },
+    ],
+    lockTime: 0n,
+    subnetworkId: SUBNETWORK_ID_NATIVE,
+    gas: 0n,
+    payload: new Uint8Array(0),
+  };
+
+  return {
+    tx,
+    entry,
+    sighash: sighash(tx, 0, entry),
+    parentSuccessorState: parentNext,
+    parentSuccessorScriptPublicKey: parentNextSpk,
+    childStates: [a, b],
+    childScriptPublicKeys: [aSpk, bSpk],
+    parentChange,
+  };
+}
+
+/** The same attachment as a one-child delegation: the script is rebuilt with
+ *  the real signature in the placeholder's position. */
+export function attachDelegation2Signature(
+  plan: Delegation2Plan,
+  tx: Transaction,
+  signature: Uint8Array,
+): Transaction {
+  return {
+    ...tx,
+    inputs: [{ ...tx.inputs[0]!, signatureScript: delegate2SignatureScript(plan, signature) }],
+  };
+}

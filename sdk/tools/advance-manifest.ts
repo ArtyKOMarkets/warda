@@ -19,6 +19,26 @@
  * which was fine while there was one grant. Delegation makes trees, and a
  * child's manifest is a separate file that nothing was advancing.
  *
+ * An ATOMIC delegation — v5's `delegate2`, one transaction and two children —
+ * has three outputs, and nothing here could read that shape at all. The parent
+ * was therefore LOST to the tooling the moment it delegated atomically: the
+ * reserve root is part of the address, so a manifest left at the old root
+ * derives an address the grant has already left, and every tool afterwards
+ * reports a healthy grant as missing. It takes its own form, because both
+ * children derive from the same parent state and the successor is a pure
+ * function of the two manifests `build-delegation2` wrote:
+ *
+ *   node --experimental-strip-types tools/advance-manifest.ts \
+ *     ../v5-demo/grant.json --atomic \
+ *     --child-a ../v5-demo/grant-child-A.json \
+ *     --child-b ../v5-demo/grant-child-B.json
+ *
+ * That form needs a node. Every other shape here checks the derived successor
+ * against the address the transaction pays; an atomic delegation usually
+ * leaves no transaction file behind, so it is checked against the UTXO SET
+ * instead — all three outputs, not just the parent's. The chain is a stronger
+ * oracle than a file, not a weaker one.
+ *
  * ## Why this cannot quietly write the wrong thing
  *
  * The new state is not what we intended to do. It is derived from the
@@ -32,25 +52,49 @@ import { readFileSync, writeFileSync } from "node:fs";
 
 import { EMPTY_RESERVE } from "../src/keys.ts";
 import { scriptHashToAddress, type NetworkPrefix } from "../src/address.ts";
-import { childStateFrom, parentSuccessorState, type ChildTerms } from "../src/delegate.ts";
+import { childStateFrom, parentSuccessorState, parentSuccessorState2, pushChild, type ChildTerms } from "../src/delegate.ts";
+import { NodeClient } from "../src/node.ts";
 import { reabsorbSuccessorState } from "../src/reabsorb.ts";
 import { successorState } from "../src/spend.ts";
 import { scriptHashFor, templateFingerprint, type CovenantTemplate, type GrantState, templateIdFor } from "../src/template.ts";
-import { resolveNetwork } from "./network.ts";
+import { resolveNetwork, rpcFrom } from "./network.ts";
 
 function flag(name: string, fallback?: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
   return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : fallback;
 }
 
-const [manifestPath, txPath] = process.argv.slice(2).filter((a) => !a.startsWith("--"));
-if (!manifestPath || !txPath) {
-  console.error("usage: advance-manifest.ts <manifest.json> <wire-tx.json>");
+/**
+ * An ATOMIC delegation leaves no wire file behind in the common case -- it is
+ * piped to a node and the JSON is gone -- and unlike every other shape, the
+ * parent's successor is fully determined by the two child manifests the tool
+ * wrote. So this mode derives it and then asks the CHAIN to agree, which is a
+ * stronger oracle than a file on disk, not a weaker one.
+ */
+const atomic = process.argv.includes("--atomic");
+
+const positional = process.argv.slice(2).filter((a, i, all) => {
+  if (a.startsWith("--")) return false;
+  const prev = all[i - 1];
+  // A flag's VALUE is not a positional. Without this, `--child-a a.json`
+  // donates a.json to the transaction slot and the tool reads a manifest as a
+  // transaction.
+  return !(prev && prev.startsWith("--") && prev !== "--atomic");
+});
+const [manifestPath, txPath] = positional;
+if (!manifestPath || (!txPath && !atomic)) {
+  console.error(
+    "usage: advance-manifest.ts <manifest.json> <wire-tx.json>\n" +
+      "       advance-manifest.ts <parent.json> --atomic --child-a a.json --child-b b.json\n\n" +
+      "The second form advances a parent past an ATOMIC delegation (delegate2),\n" +
+      "which has three outputs and no single child. It needs a node: the derived\n" +
+      "successor must be found on chain before anything is written.",
+  );
   process.exit(2);
 }
 
 const m = JSON.parse(readFileSync(manifestPath, "utf8"));
-const wire = JSON.parse(readFileSync(txPath, "utf8"));
+const wire = atomic ? null : JSON.parse(readFileSync(txPath!, "utf8"));
 /**
  * Which covenant this grant was issued under. Missed here when the other four
  * tools got it, and the omission was invisible until a v1 grant needed
@@ -116,8 +160,151 @@ const p2sh = (scriptHashHex: string) => "aa20" + scriptHashHex + "87";
 /** P2PK is OP_DATA_32 <x-only key> OP_CHECKSIG. */
 const p2pk = (xonly: string) => "20" + xonly + "ac";
 
+/**
+ * An ATOMIC DELEGATION: one input, THREE outputs, all three covenants.
+ *
+ * `delegate2` shipped with no way to move the parent's manifest past it, and
+ * that is not a cosmetic gap -- the reserve root is part of the address, so a
+ * parent left at its pre-delegation state derives an address it has already
+ * left, and every tool afterwards reports a healthy grant as missing. The
+ * grant was, to the tooling, lost the moment it delegated atomically.
+ *
+ * Both children derive from the SAME parent state -- `buildUnsignedDelegation2`
+ * measures B against what is left after A, but builds both from `plan.state` --
+ * so the successor is a pure function of this manifest and the two the tool
+ * wrote. Deriving it is easy; being sure is the work, and the three addresses
+ * below are checked against the chain before a byte is written.
+ */
+if (atomic) {
+  const pathA = flag("child-a"), pathB = flag("child-b");
+  if (!pathA || !pathB) {
+    console.error(
+      "--atomic needs both children: --child-a <a.json> --child-b <b.json>.\n" +
+        "Order is not a preference. A was pushed onto the reserve chain first and B\n" +
+        "second, so the successor's root is push(push(root, A), B) -- the other order\n" +
+        "is a different address. Each child manifest records which it is in\n" +
+        "`atomic_position`, and the pair is cross-checked below.",
+    );
+    process.exit(1);
+  }
+  const cms = [JSON.parse(readFileSync(pathA, "utf8")), JSON.parse(readFileSync(pathB, "utf8"))];
+  const [cmA, cmB] = cms;
+
+  // Are these two actually siblings, and this way round? Each manifest names
+  // the other and its own position, so a swapped pair is caught here rather
+  // than as an address that holds nothing.
+  if (cmA.atomic_sibling !== cmB.agent || cmB.atomic_sibling !== cmA.agent) {
+    console.error(
+      `these two children were not created by the same transaction.\n` +
+        `  ${pathA} names sibling ${cmA.atomic_sibling}\n` +
+        `  ${pathB} names sibling ${cmB.atomic_sibling}\nNothing changed.`,
+    );
+    process.exit(1);
+  }
+  if (cmA.parent_txid !== cmB.parent_txid) {
+    console.error(`these two children name different parent transactions. Nothing changed.`);
+    process.exit(1);
+  }
+
+  const termsOf = (cm: Record<string, any>): ChildTerms => ({
+    agentKey: cm.agent,
+    budgetTotal: BigInt(cm.budget),
+    maxPerSpend: BigInt(cm.max_per_spend),
+    epochLimit: BigInt(cm.epoch_limit),
+    delegationDepth: BigInt(cm.delegation_depth),
+    notBefore: BigInt(cm.not_before),
+    expiresAt: BigInt(cm.expires_at),
+  });
+  // Birth states, deliberately -- the reserve root commits to each child as it
+  // was created, so a child that has since spent must not be read at its
+  // current numbers.
+  const childA = childStateFrom(state, termsOf(cmA));
+  const childB = childStateFrom(state, termsOf(cmB));
+  const next = parentSuccessorState2(state, childA, childB);
+
+  // The order the manifests claim, re-derived. `parent_reserve_root_before` is
+  // the one number settlement cannot recover, so a pair that disagrees with
+  // the chain it describes would strand a child permanently.
+  const rootAfterA = pushChild(state.reserveRoot, childA);
+  if (cmA.parent_reserve_root_before !== state.reserveRoot || cmB.parent_reserve_root_before !== rootAfterA) {
+    console.error(
+      `the children's recorded reserve roots do not describe this parent.\n` +
+        `  A should sit on ${state.reserveRoot}\n` +
+        `    it records    ${cmA.parent_reserve_root_before}\n` +
+        `  B should sit on ${rootAfterA}\n` +
+        `    it records    ${cmB.parent_reserve_root_before}\n\n` +
+        `Either --child-a and --child-b are the wrong way round, or this manifest\n` +
+        `has already been advanced. Nothing changed.`,
+    );
+    process.exit(1);
+  }
+
+  const addr = (g: GrantState) => scriptHashToAddress(scriptHashFor(template, { authority, state: g }), prefix);
+  const [succAddr, addrA, addrB] = [addr(next), addr(childA), addr(childB)];
+
+  // The chain is the oracle. Every other shape here checks the derived
+  // successor against the address the transaction pays; an atomic delegation
+  // usually leaves no transaction file, so it is checked against the UTXO set
+  // instead -- and against all three outputs, not just the parent's, because a
+  // parent that lands right while a child lands wrong is the failure that
+  // strands money.
+  const client = await NodeClient.connect({ url: rpcFrom(flag("rpc")) });
+  let values: bigint[];
+  try {
+    const found = await Promise.all([succAddr, addrA, addrB].map((a) => client.getUtxosByAddresses([a])));
+    const missing = (["the parent's successor", "child A", "child B"] as const)
+      .map((label, i) => [label, [succAddr, addrA, addrB][i]!, found[i]!.length] as const)
+      .filter(([, , n]) => n !== 1);
+    if (missing.length) {
+      console.error(`\nREFUSING to advance ${manifestPath}: the chain does not show this delegation.`);
+      for (const [label, a, n] of missing) {
+        console.error(`  ${label} at ${a}\n    ${n === 0 ? "holds nothing" : `${n} UTXOs -- a grant holds exactly one`}`);
+      }
+      console.error(
+        `\nA grant's address is a hash of its state, so an address that holds nothing\n` +
+          `means the state derived here is not the state on chain. Three things reach\n` +
+          `this line: the wrong template, a manifest already advanced, or a child that\n` +
+          `has since spent and so is no longer at its birth address. Nothing changed.`,
+      );
+      process.exit(1);
+    }
+    values = found.map((u) => BigInt(u[0]!.entry.value));
+  } finally {
+    client.close();
+  }
+
+  const updated = {
+    ...m,
+    grant_value: Number(values[0]),
+    reserved: Number(next.reserved),
+    reserve_root: next.reserveRoot,
+    reserve_stack: [
+      ...(m.reserve_stack ?? []),
+      { prev_root: state.reserveRoot, child: addrA },
+      { prev_root: rootAfterA, child: addrB },
+    ],
+  };
+  writeFileSync(manifestPath, JSON.stringify(updated, null, 2) + "\n");
+
+  console.log(`advanced ${manifestPath} (read as an ATOMIC delegation, one transaction, two children)`);
+  console.log(`  now at  : ${succAddr}`);
+  console.log(`  holds   : ${values[0]} sompi, reserved ${next.reserved}`);
+  console.log(`  child A : ${values[1]} sompi at ${addrA}`);
+  console.log(`  child B : ${values[2]} sompi at ${addrB}`);
+  console.log(`  confirmed on chain: all three outputs are where this derivation says they are.`);
+  console.log(`  settlement order  : B (${cmB.agent.slice(0, 8)}) first, then A (${cmA.agent.slice(0, 8)}).`);
+  process.exit(0);
+}
+
 if (wire.outputs.length !== 1 && wire.outputs.length !== 2) {
-  console.error(`this transaction has ${wire.outputs.length} outputs; nothing this covenant builds does.`);
+  console.error(
+    wire.outputs.length === 3
+      ? `this is an ATOMIC delegation -- three outputs, two children in one transaction.\n` +
+        `Advance the parent with --atomic --child-a <a.json> --child-b <b.json>; the\n` +
+        `successor commits to BOTH children's birth states, which a transaction's\n` +
+        `outputs do not carry.`
+      : `this transaction has ${wire.outputs.length} outputs; nothing this covenant builds does.`,
+  );
   process.exit(1);
 }
 

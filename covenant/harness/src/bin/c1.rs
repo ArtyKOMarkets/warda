@@ -41,8 +41,8 @@ use silverscript_lang::compiler::{compile_contract, struct_object, CompileOption
 use warda_harness::{
     agent_keypair, authority_fields, child_ctor, child_id, child_state, covenant_utxo,
     ctor_at_state, ctor_at_state_with_reserve, empty_reserve, execute, members, proof_depth,
-    execute_all, plain_sigscript, push_child, revocation_keypair, sign_input, sigscript,
-    template_geometry_of, tx_input,
+    execute_all, execute_traced, measure_units, plain_sigscript, push_child, revocation_keypair,
+    sign_input, sigscript, template_geometry_of, tx_input,
     Authority, Child, Tree, COV, KAS, SOURCE, SOURCE_V5,
 };
 use warda_harness::{ctor_full, principal_keypair};
@@ -74,6 +74,16 @@ impl Default for ParentClaim {
 /// A delegation with N children, built the way `run_delegation_full` builds
 /// one — same helpers, same order, so the two cannot drift.
 fn delegate_n(kids: &[Kid], claim: &ParentClaim) -> Result<(), TxScriptError> {
+    delegate_n_artifacts(kids, claim).0
+}
+
+/// The same build, handing back what it built, so cost can be measured on the
+/// exact transaction whose verdict is reported. Measuring a separately-built
+/// transaction is how a figure ends up describing a shape nobody accepted.
+fn delegate_n_artifacts(
+    kids: &[Kid],
+    claim: &ParentClaim,
+) -> (Result<(), TxScriptError>, Transaction, Vec<UtxoEntry>) {
     let kp = agent_keypair();
     let agent_xonly: [u8; 32] = kp.x_only_public_key().0.serialize();
     let tree = Tree::new(members());
@@ -186,7 +196,8 @@ fn delegate_n(kids: &[Kid], claim: &ParentClaim) -> Result<(), TxScriptError> {
 
     let entries = vec![covenant_utxo(&parent, in_value)];
     let sig = sign_input(build(vec![0u8; 65]), entries.clone(), 0, &kp);
-    execute(build(sig), entries, 0)
+    let tx = build(sig);
+    (execute(tx.clone(), entries.clone(), 0), tx, entries)
 }
 
 fn kid(i: u8) -> Kid {
@@ -317,6 +328,7 @@ fn main() {
 
     v5_suite();
     settle_suite();
+    cost_suite();
 
     let argv: Vec<String> = std::env::args().collect();
     if let Some(i) = argv.iter().position(|a| a == "--emit") {
@@ -888,6 +900,109 @@ fn settle_suite() {
    named here instead of decoded back out of it — and a drift cannot pass
    silently: the commit is covered by the sighash, so a harness that changed it
    would produce a vector whose sighash no SDK could reproduce. */
+// ---------------------------------------------------------------------------
+// What it COSTS at the N that ships.
+//
+// `FANOUT.md` and `V5.md` both carry "peak stack is 118 of 244", and that
+// figure is v4's `delegate`: one parent state and one child. `delegate2` reads
+// THREE states where `delegate` reads two, and the engine accepting the real
+// transaction proves only that the number is under the cap, not what it is.
+// A limit you have not measured is a limit you are guessing at, and the guess
+// is the one that gets quoted.
+//
+// So: measure both, on the same run, against the same cap.
+// ---------------------------------------------------------------------------
+
+/// The engine's hard ceiling on combined stack depth (`MAX_STACK_SIZE`).
+const MAX_STACK: usize = 244;
+/// One signature verification, in script units — GRAMS_PER_SIGOP_COUNT_UNIT
+/// 1000 x SCRIPT_UNITS_PER_GRAM 100. The harness runs with
+/// `sigop_script_units: 0`, so `measure_units` returns the covenant's
+/// arithmetic and NOTHING of its signature cost; a budget computed from the
+/// bare figure understates the real charge several times over.
+const SIGOP_UNITS: u64 = 100_000;
+/// SCRIPT_UNITS_PER_COMPUTE_BUDGET_UNIT.
+const UNITS_PER_BUDGET: u64 = 10_000;
+
+/// Peak combined stack depth, read out of the per-opcode trace.
+///
+/// Two figures, deliberately. The parser this project has used since v4 splits
+/// the line at `astack: [` and at `dstack: [` and counts `0x` in each tail —
+/// and a tail runs to the end of the LINE, not to its own closing bracket, so
+/// whichever section is printed first also counts the other. That is the
+/// method behind the published 118, so it is kept and labelled; `bounded`
+/// stops each section at its own `]`. If the two agree, the overlap never
+/// happened on these lines. If they do not, the published figure is the high
+/// one and the real depth is the low one — and saying that out loud is the
+/// only way a number that has been quoted three times gets corrected.
+fn peak_stack(trace: &str) -> (usize, usize) {
+    let count_to_end = |tail: &str| {
+        if tail.trim_start().starts_with(']') { 0 } else { tail.matches("0x").count() }
+    };
+    let count_bounded = |tail: &str| {
+        let end = tail.find(']').unwrap_or(tail.len());
+        count_to_end(&tail[..end.min(tail.len())])
+    };
+    let section = |l: &str, key: &str| l.split(key).nth(1).unwrap_or("");
+    let legacy = trace
+        .lines()
+        .map(|l| count_to_end(section(l, "astack: [")) + count_to_end(section(l, "dstack: [")))
+        .max()
+        .unwrap_or(0);
+    let bounded = trace
+        .lines()
+        .map(|l| count_bounded(section(l, "astack: [")) + count_bounded(section(l, "dstack: [")))
+        .max()
+        .unwrap_or(0);
+    (legacy, bounded)
+}
+
+fn report_cost(label: &str, verdict: &Result<(), TxScriptError>, used: u64, trace: &str) {
+    let (legacy, bounded) = peak_stack(trace);
+    let real = used + SIGOP_UNITS;
+    println!("  {label}");
+    println!(
+        "    verdict       {}",
+        match verdict { Ok(()) => "ACCEPTED".to_string(), Err(e) => format!("REFUSED — {e}") }
+    );
+    println!(
+        "    script units  {used} without the signature, {real} with it — {} budget units of 65,535",
+        real.div_ceil(UNITS_PER_BUDGET)
+    );
+    println!(
+        "    peak stack    {bounded} of {MAX_STACK}  ({}% of the cap)",
+        bounded * 100 / MAX_STACK
+    );
+    if legacy != bounded {
+        println!("                  the older overlapping parser reads {legacy} on the same trace;");
+        println!("                  {bounded} is the depth, and the published 118 was read the older way.");
+    }
+}
+
+fn cost_suite() {
+    println!("\n\nCOST at the N that ships\n");
+
+    // v4's `delegate`, one child — the shape the 118-of-244 figure describes.
+    let (v4, tx4, e4) = delegate_n_artifacts(&[kid(0)], &ParentClaim::default());
+    let (_, used4) = measure_units(tx4.clone(), e4.clone(), 0);
+    let (_, trace4) = execute_traced(tx4, e4, 0);
+    report_cost("v4 delegate, one child  (two states read)", &v4, used4, &trace4);
+
+    println!();
+
+    // v5's `delegate2` at N = 2 — the shape on chain, three states read.
+    let base = Child::narrower();
+    let (v5, tx5, entry5, _) = delegate2_artifacts(&base, &base, &Flip::default());
+    let (_, used5) = measure_units(tx5.clone(), vec![entry5.clone()], 0);
+    let (_, trace5) = execute_traced(tx5, vec![entry5], 0);
+    report_cost("v5 delegate2, two children (three states read)", &v5, used5, &trace5);
+
+    println!();
+    println!("  The engine accepting the real transaction proved the stack fits. This is");
+    println!("  the figure it fits BY — which is the number that says whether 1:3 has room");
+    println!("  left, and the only one KIP-9 storage mass does not already decide.");
+}
+
 const COMPUTE_BUDGET: u64 = 1000;
 
 fn hexs(b: &[u8]) -> String {
