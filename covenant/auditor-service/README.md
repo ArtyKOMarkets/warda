@@ -78,9 +78,19 @@ This is recoverable only by the operator, and only deliberately:
 
 ```bash
 # the buyer's txid is in the 502 body, as `settledBy`
-grep -v '^<txid>$' spent.log > spent.log.new && mv spent.log.new spent.log
-# restart — the store is read once, at startup
+TX=<txid>
+SPENT="$HOME/Library/Application Support/warda/auditor-spent.log"   # run-auditor.sh's default
+grep -v "^$TX$" "$SPENT" > "$SPENT.new" || true   # NOT &&: grep exits 1 when
+mv "$SPENT.new" "$SPENT"                          # it selects no lines, which
+                                                  # is what a one-line log does
+kill -9 $(lsof -ti tcp:8787) && sleep 2 && ops/auditor-up.sh
 ```
+
+The store is read once, into memory, at startup — `fileSpent` never re-reads —
+so editing the file does nothing at all until the process restarts, and
+`auditor-up.sh` only starts one when nothing is answering. Check the startup
+line in `~/Library/Logs/warda-auditor.log`: it says how many payments it
+loaded, which is the only confirmation that both halves took.
 
 Do that **only** when the 502 body shows the delivery failed, never because a
 buyer says it did. The coin is still in the UTXO set and always will be, so a
