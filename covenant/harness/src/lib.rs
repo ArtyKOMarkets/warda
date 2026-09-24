@@ -1398,7 +1398,7 @@ fn solve_geometry(src: &'static str) -> Result<(i64, i64), String> {
     for round in 0..8 {
         let probe = compile_contract(src, &ctor_full(proof_depth(), a, [0x51; 32], (prefix, suffix)), CompileOptions::default())
             .map_err(|e| format!("{e:?}"))?;
-        let (p, sfx) = measure_state_region(&probe.bytecode, a, (prefix, suffix))?;
+        let (p, sfx) = measure_state_region(src, &probe.bytecode, a, (prefix, suffix))?;
         if (p, sfx) == (prefix, suffix) {
             return Ok((prefix, suffix));
         }
@@ -1419,8 +1419,13 @@ fn solve_geometry(src: &'static str) -> Result<(i64, i64), String> {
 /// bracket the region exactly. Off by one is not cosmetic: a foreign redeem
 /// script sliced one byte early decodes every field shifted and reads garbage
 /// as a budget.
-fn measure_state_region(reference: &[u8], authority: Authority, geometry: (i64, i64)) -> Result<(i64, i64), String> {
-    let other = compile_contract(SOURCE, &ctor_probe(authority, geometry), CompileOptions::default())
+fn measure_state_region(src: &'static str, reference: &[u8], authority: Authority, geometry: (i64, i64)) -> Result<(i64, i64), String> {
+    /* The SAME source as the reference probe. This read SOURCE outright, which
+       is invisible while there is one covenant and a panic the moment there are
+       two: the reference was v5 at 10,375 bytes, the other was v4 at 6,912, and
+       "state probes differ in length" is what a positional diff says when it
+       has been handed two different contracts. */
+    let other = compile_contract(src, &ctor_probe(authority, geometry), CompileOptions::default())
         .map_err(|e| format!("{e:?}"))?;
     let (a, b) = (reference, &other.bytecode);
     if a.len() != b.len() {
