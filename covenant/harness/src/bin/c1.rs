@@ -39,9 +39,9 @@ use warda_harness::{
     ctor_at_state, ctor_at_state_with_reserve, empty_reserve, execute, members, proof_depth,
     execute_all, plain_sigscript, push_child, revocation_keypair, sign_input, sigscript,
     template_geometry_of, template_id_of, tx_input,
-    Child, Tree, COV, KAS, SOURCE, SOURCE_V5,
+    Authority, Child, Tree, COV, KAS, SOURCE, SOURCE_V5,
 };
-use warda_harness::{ctor_full, default_authority};
+use warda_harness::{ctor_full, principal_keypair};
 
 /// One child, and the key it will be created under.
 struct Kid {
@@ -328,10 +328,27 @@ fn main() {
 /// a different suffix and therefore a different templateId — driving v5 with
 /// v4's numbers compiles children whose templateId never matches, and the
 /// engine refuses each one for a reason that names nothing.
+/// The authority every v5 grant here is built under, and it is built from the
+/// REAL keypairs rather than from `default_authority`'s 0x11/0x44 placeholders.
+///
+/// `delegate` and `delegate2` never check it — they verify the agent's
+/// signature and nothing else — so the placeholders work fine right up until a
+/// child runs `settle`, which requires `checkSig(s, revocationKey)`. A
+/// signature cannot verify against 0x44 repeated thirty-two times, and the
+/// engine says only "verification failed". The whole v5 section uses one
+/// authority so that what delegate2 creates is a thing the settle suite can
+/// actually settle.
+fn v5_authority() -> Authority {
+    Authority::new(
+        principal_keypair().x_only_public_key().0.serialize(),
+        revocation_keypair().x_only_public_key().0.serialize(),
+    )
+}
+
 fn v5_ctor_base() -> Vec<Expr<'static>> {
     let geo = template_geometry_of(SOURCE_V5);
-    let tid = template_id_of(SOURCE_V5, default_authority());
-    ctor_full(proof_depth(), default_authority(), tid, geo)
+    let tid = template_id_of(SOURCE_V5, v5_authority());
+    ctor_full(proof_depth(), v5_authority(), tid, geo)
 }
 
 fn v5_parent_ctor(root: [u8; 32], agent: [u8; 32], spent: i64, reserved: i64, chain: [u8; 32]) -> Vec<Expr<'static>> {
@@ -371,7 +388,7 @@ fn v5_child_state(root: [u8; 32], key: [u8; 32], ch: &Child) -> Expr<'static> {
             ("notBefore", Expr::int(ch.not_before)),
             ("expiresAt", Expr::int(ch.expires_at)),
             ("delegationDepth", Expr::int(ch.delegation_depth)),
-            ("templateId", Expr::bytes(template_id_of(SOURCE_V5, default_authority()).to_vec())),
+            ("templateId", Expr::bytes(template_id_of(SOURCE_V5, v5_authority()).to_vec())),
             ("spentTotal", Expr::int(ch.accounting.0)),
             ("reserved", Expr::int(ch.accounting.1)),
             ("epochIndex", Expr::int(ch.accounting.2)),
@@ -437,7 +454,7 @@ fn delegate2_run(a: &Child, b: &Child, f: &Flip) -> Result<(), TxScriptError> {
     // authority_fields bakes v4's templateId, and this covenant is not v4.
     for field in pf.iter_mut() {
         if field.0 == "templateId" {
-            field.1 = Expr::bytes(template_id_of(SOURCE_V5, default_authority()).to_vec());
+            field.1 = Expr::bytes(template_id_of(SOURCE_V5, v5_authority()).to_vec());
         }
     }
     pf.push(("spentTotal", Expr::int(0)));
@@ -580,7 +597,7 @@ fn reabsorb_step(
 ) -> (Result<(), TxScriptError>, Unwind) {
     let agent_kp = agent_keypair();
     let rev_kp = revocation_keypair();
-    let tid = template_id_of(SOURCE_V5, default_authority());
+    let tid = template_id_of(SOURCE_V5, v5_authority());
 
     let parent = compile_contract(
         SOURCE_V5,
