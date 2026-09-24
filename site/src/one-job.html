@@ -119,8 +119,23 @@
   .limits{display:grid;gap:1rem;margin-top:1.5rem}
   .lim{border:1px solid var(--line);border-left:3px solid var(--fg-3);background:var(--surface);
        border-radius:0 var(--radius) var(--radius) 0;padding:1rem 1.15rem}
-  .lim h3{margin:0 0 .35rem}
+  .lim h3{margin:0 0 .35rem;display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
   .lim p{margin:0;font-size:.92rem}
+  /* A limit that has since been removed keeps its original text — it is what
+     this run actually hit — and says so in a line of its own rather than by
+     being rewritten. The left rule carries the state, which is the console's
+     convention for anything that has a status. */
+  .lim.lifted{border-left-color:var(--accent)}
+  .lim .since{margin-top:.6rem;padding-top:.6rem;border-top:1px solid var(--line);
+              font-size:.88rem;color:var(--fg-2)}
+  .lim .since b{color:var(--fg);font-weight:600}
+  /* Accent only where the news is good. A limit that still stands must not
+     borrow the colour of the two that were removed. */
+  .lim.lifted .since b{color:var(--accent-strong)}
+
+  .oja-chart{margin:1.6rem 0 0;padding:0}
+  .oja-chart svg{display:block}
+  .oja-chart figcaption{margin-top:.5rem;font-size:.8rem;color:var(--fg-3);max-width:66ch}
 
   footer{padding:2.4rem 0 3.5rem;color:var(--fg-3);font-size:.84rem}
   footer a{color:var(--fg-2)}
@@ -245,17 +260,21 @@
     <p class="eyebrow">What this does not show</p>
     <h2>Three limits, all deliberate</h2>
     <div class="limits">
-      <div class="lim">
-        <h3>It is not atomic</h3>
+      <div class="lim lifted">
+        <h3>It is not atomic <span class="badge acc"><i></i>lifted the same day</span></h3>
         <p>Everyone joining one agreement in a single step is the shape people usually describe,
         and it is what the covenant forbids: <code>#[covenant.fanout(to = 2)]</code> with
         <code>require(OpAuthOutputCount == 2)</code> fixes the topology at parent plus
         <em>one</em> child. Two workers is two delegations, in two transactions.</p>
+        <p class="since"><b>Since:</b> it needed the covenant to change, and the covenant
+        changed. <code>delegate2</code> hires two in one transaction &mdash; below.</p>
       </div>
-      <div class="lim">
-        <h3>They are not even concurrent</h3>
+      <div class="lim lifted">
+        <h3>They are not even concurrent <span class="badge acc"><i></i>lifted the same day</span></h3>
         <p>A grant is one UTXO, so the second delegation&rsquo;s input is the first one&rsquo;s
         output. Hiring is serial by construction, not by scheduling.</p>
+        <p class="since"><b>Since:</b> two children out of one input are each their own coin
+        from the same moment, so they are parallel rather than merely quick.</p>
       </div>
       <div class="lim">
         <h3>The workers had to be known before the job existed</h3>
@@ -264,6 +283,8 @@
         discovered at run time cannot be paid, at any delegation depth. That is the honest
         distance between this and an open market, and no amount of tooling closes it &mdash; it
         needs the covenant to change.</p>
+        <p class="since"><b>Still true.</b> Two of the three above were removed by a covenant
+        change on the day this ran. This one was not, and it is the one that matters most.</p>
       </div>
     </div>
     <div class="note">
@@ -277,6 +298,62 @@
     </div>
   </div>
 </section>
+
+<!--OJA-->
+<section>
+  <div class="wrap">
+    <p class="eyebrow">What changed after this run &middot; {{OJA_COVENANT}}</p>
+    <h2>Two hired in one transaction, and both of them came home</h2>
+    <p class="tight">The run above is v4, and it stays that way: it is a record of what
+    happened, not a claim about what is possible today. Two of its three limits were removed
+    hours later by a new covenant entrypoint, <code>delegate2</code>, and this is that
+    transaction and the two that unwound it. A different covenant, so a different grant &mdash;
+    nothing above was re-run.</p>
+
+    {{OJA_KIDS}}
+
+    <p class="tight">One input, three outputs, one signature. The coordinator keeps its change
+    and <em>reserves</em> the rest: reserved coin has left the coordinator&rsquo;s reach without
+    leaving its budget, which is what makes the next part possible.</p>
+
+    {{OJA_CHART}}
+
+    <div class="tscroll">{{OJA_STEPS}}</div>
+
+    <div class="note acc">
+      <h3>The loop closed</h3>
+      <p>Both children settled, in the only order the chain allows: the reserve is a hash chain
+      and settlement pops it from the end, so the worker hired <em>last</em> comes home
+      <em>first</em>. After the second one the coordinator holds
+      <span class="num">{{OJA_HOLDS}}</span> KAS of its original
+      <span class="num">{{OJA_BUDGET}}</span>, with nothing reserved and an empty chain &mdash;
+      and because a grant&rsquo;s address is a hash of its state, it is back at
+      {{OJA_ADDR_SAME}}. The difference is <span class="num">{{OJA_FEES}}</span> KAS of fees.
+      Nobody spent anything; the money was lent and returned.</p>
+      <p>This is the part a budget alone cannot do. Handing a worker a limit and waiting for it
+      to expire returns the coin to the <em>human</em>. Settling returns it to the
+      <em>coordinator</em>, mid-task, ready to hire again.</p>
+    </div>
+
+    <div class="note">
+      <h3>Two, and not more &mdash; that is consensus, not a choice</h3>
+      <p>Kaspa&rsquo;s storage mass counts <code>1/value</code> over a transaction&rsquo;s
+      outputs, so each extra child costs a whole term rather than a slice of one. An atomic 1:2
+      masses <span class="num">{{OJA_MASS_TWO}}</span> against a ceiling of
+      <span class="num">{{OJA_CEIL}}</span>; 1:3 masses
+      <span class="num">{{OJA_MASS_THREE}}</span> and is refused by the network. The covenant
+      would allow it. The chain will not.</p>
+      <p>The second budget is the engine&rsquo;s stack, and it is now measured rather than
+      assumed: <code>delegate</code> peaks at <span class="num">{{OJA_STACK_ONE}}</span> of
+      <span class="num">{{OJA_STACK_CAP}}</span> and <code>delegate2</code> at
+      <span class="num">{{OJA_STACK_TWO}}</span>. It is not what bounds fanout today. It is
+      what would, if the mass ceiling ever moved.</p>
+      <p>The covenant this section describes is a draft with a passing probe suite and
+      <strong>no audit</strong>. The run above is the audited-shape one.</p>
+    </div>
+  </div>
+</section>
+<!--/OJA-->
 
 <footer>
   <div class="wrap">

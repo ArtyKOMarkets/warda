@@ -1596,7 +1596,7 @@ function renderWallet(d) {
          template by ops/check-versions.mjs. A fingerprint with no entry shows
          as itself rather than as a guess. */
       (function () {
-        var V = {"a048b13e95125ad1":{"version":"v1","status":"withdrawn","summary":"epoch hole, no expiry, exits could burn"},"4af9600b1d35e87b":{"version":"v2","status":"withdrawn","summary":"ratchet and expiry"},"4612a19b16911c6e":{"version":"v3","status":"superseded","summary":"exits conserve value"},"b3e5eeefacf2021f":{"version":"v4","status":"current","summary":"reserve accumulator, settlement, subset witness"}};
+        var V = {"a048b13e95125ad1":{"version":"v1","status":"withdrawn","summary":"epoch hole, no expiry, exits could burn"},"4af9600b1d35e87b":{"version":"v2","status":"withdrawn","summary":"ratchet and expiry"},"4612a19b16911c6e":{"version":"v3","status":"superseded","summary":"exits conserve value"},"b3e5eeefacf2021f":{"version":"v4","status":"current","summary":"reserve accumulator, settlement, subset witness"},"157b64e3eeea9c01":{"version":"v5","status":"draft","summary":"delegate2 \u2014 two children in one transaction"}};
         var fp = d.identity.template;
         if (!fp) return;                       // an older reading; say nothing
         var v = V[fp];

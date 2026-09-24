@@ -126,8 +126,23 @@
   .limits{display:grid;gap:1rem;margin-top:1.5rem}
   .lim{border:1px solid var(--line);border-left:3px solid var(--fg-3);background:var(--surface);
        border-radius:0 var(--radius) var(--radius) 0;padding:1rem 1.15rem}
-  .lim h3{margin:0 0 .35rem}
+  .lim h3{margin:0 0 .35rem;display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
   .lim p{margin:0;font-size:.92rem}
+  /* A limit that has since been removed keeps its original text — it is what
+     this run actually hit — and says so in a line of its own rather than by
+     being rewritten. The left rule carries the state, which is the console's
+     convention for anything that has a status. */
+  .lim.lifted{border-left-color:var(--accent)}
+  .lim .since{margin-top:.6rem;padding-top:.6rem;border-top:1px solid var(--line);
+              font-size:.88rem;color:var(--fg-2)}
+  .lim .since b{color:var(--fg);font-weight:600}
+  /* Accent only where the news is good. A limit that still stands must not
+     borrow the colour of the two that were removed. */
+  .lim.lifted .since b{color:var(--accent-strong)}
+
+  .oja-chart{margin:1.6rem 0 0;padding:0}
+  .oja-chart svg{display:block}
+  .oja-chart figcaption{margin-top:.5rem;font-size:.8rem;color:var(--fg-3);max-width:66ch}
 
   footer{padding:2.4rem 0 3.5rem;color:var(--fg-3);font-size:.84rem}
   footer a{color:var(--fg-2)}
@@ -557,17 +572,21 @@
     <p class="eyebrow">What this does not show</p>
     <h2>Three limits, all deliberate</h2>
     <div class="limits">
-      <div class="lim">
-        <h3>It is not atomic</h3>
+      <div class="lim lifted">
+        <h3>It is not atomic <span class="badge acc"><i></i>lifted the same day</span></h3>
         <p>Everyone joining one agreement in a single step is the shape people usually describe,
         and it is what the covenant forbids: <code>#[covenant.fanout(to = 2)]</code> with
         <code>require(OpAuthOutputCount == 2)</code> fixes the topology at parent plus
         <em>one</em> child. Two workers is two delegations, in two transactions.</p>
+        <p class="since"><b>Since:</b> it needed the covenant to change, and the covenant
+        changed. <code>delegate2</code> hires two in one transaction &mdash; below.</p>
       </div>
-      <div class="lim">
-        <h3>They are not even concurrent</h3>
+      <div class="lim lifted">
+        <h3>They are not even concurrent <span class="badge acc"><i></i>lifted the same day</span></h3>
         <p>A grant is one UTXO, so the second delegation&rsquo;s input is the first one&rsquo;s
         output. Hiring is serial by construction, not by scheduling.</p>
+        <p class="since"><b>Since:</b> two children out of one input are each their own coin
+        from the same moment, so they are parallel rather than merely quick.</p>
       </div>
       <div class="lim">
         <h3>The workers had to be known before the job existed</h3>
@@ -576,6 +595,8 @@
         discovered at run time cannot be paid, at any delegation depth. That is the honest
         distance between this and an open market, and no amount of tooling closes it &mdash; it
         needs the covenant to change.</p>
+        <p class="since"><b>Still true.</b> Two of the three above were removed by a covenant
+        change on the day this ran. This one was not, and it is the one that matters most.</p>
       </div>
     </div>
     <div class="note">
@@ -589,6 +610,62 @@
     </div>
   </div>
 </section>
+
+<!--OJA-->
+<section>
+  <div class="wrap">
+    <p class="eyebrow">What changed after this run &middot; <span class="badge " title="delegate2 — two children in one transaction — draft">covenant v5 · draft</span></p>
+    <h2>Two hired in one transaction, and both of them came home</h2>
+    <p class="tight">The run above is v4, and it stays that way: it is a record of what
+    happened, not a claim about what is possible today. Two of its three limits were removed
+    hours later by a new covenant entrypoint, <code>delegate2</code>, and this is that
+    transaction and the two that unwound it. A different covenant, so a different grant &mdash;
+    nothing above was re-run.</p>
+
+    <table><thead><tr><th>Hired</th><th>Budget</th><th>Reserve chain</th><th>Agent key</th></tr></thead><tbody><tr><td>child A</td><td class="v">0.25 KAS</td><td class="v dim">pushed first, settles last</td><td class="v dim">3333bd46&hellip;</td></tr><tr><td>child B</td><td class="v">0.22 KAS</td><td class="v dim">pushed second, settles first</td><td class="v dim">fb3e774e&hellip;</td></tr></tbody></table>
+
+    <p class="tight">One input, three outputs, one signature. The coordinator keeps its change
+    and <em>reserves</em> the rest: reserved coin has left the coordinator&rsquo;s reach without
+    leaving its budget, which is what makes the next part possible.</p>
+
+    <figure class="oja-chart"><svg viewBox="0 0 720 200" width="100%" role="img" aria-label="The coordinator's reserved balance across four transactions: 0, then 0.47 KAS, then 0.25, then 0 again."><line x1="8" y1="166" x2="712" y2="166" stroke="var(--line-strong)" stroke-width="1"/><rect x="36.2" y="164.0" width="119.7" height="2" rx="1" fill="var(--line-strong)"/><text x="96.0" y="157.0" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="var(--fg-3)">0</text><text x="96.0" y="186.0" text-anchor="middle" font-family="var(--mono)" font-size="10.5" fill="var(--fg-2)">genesis</text><rect x="212.2" y="26.0" width="119.7" height="140" rx="4" fill="var(--accent)" fill-opacity=".85"/><text x="272.0" y="19.0" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="var(--accent-strong)">0.47</text><text x="272.0" y="186.0" text-anchor="middle" font-family="var(--mono)" font-size="10.5" fill="var(--fg-2)">delegate2</text><rect x="388.2" y="92.0" width="119.7" height="74" rx="4" fill="var(--accent)" fill-opacity=".85"/><text x="448.0" y="85.0" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="var(--accent-strong)">0.25</text><text x="448.0" y="186.0" text-anchor="middle" font-family="var(--mono)" font-size="10.5" fill="var(--fg-2)">settle B</text><rect x="564.2" y="164.0" width="119.7" height="2" rx="1" fill="var(--line-strong)"/><text x="624.0" y="157.0" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="var(--fg-3)">0</text><text x="624.0" y="186.0" text-anchor="middle" font-family="var(--mono)" font-size="10.5" fill="var(--fg-2)">settle A</text></svg><figcaption>Reserved, in KAS, after each transaction. It is held, not spent &mdash; <code>reabsorb</code> gives it back.</figcaption></figure>
+
+    <div class="tscroll"><table><thead><tr><th>Transaction</th><th>What it did</th><th>On chain</th></tr></thead><tbody><tr><td>genesis</td><td class="v dim">0.8 KAS, nothing delegated</td><td><a class="tx" href="https://explorer-tn10.kaspa.org/txs/b488d1e3492e2a03c37c622747225ed246fdd8ecf5081443879bcb5e50bbde50" rel="noopener">b488d1e3492e2a03&hellip;</a></td></tr><tr><td>delegate2</td><td class="v dim">two children, one transaction</td><td><a class="tx" href="https://explorer-tn10.kaspa.org/txs/1387b839f03b588256b1b1727a3ba774eb423b62eb985598a17a960866d8cf74" rel="noopener">1387b839f03b5882&hellip;</a></td></tr><tr><td>settle B</td><td class="v dim">B comes home first</td><td><a class="tx" href="https://explorer-tn10.kaspa.org/txs/01973e8f784e5041cee3c355786d7213ba8e41e4afa91e00001f6b7a2636d8a4" rel="noopener">01973e8f784e5041&hellip;</a></td></tr><tr><td>settle A</td><td class="v dim">reserve empty again</td><td><a class="tx" href="https://explorer-tn10.kaspa.org/txs/d54690e3db9b883ce07e10816db7f92b0b9e5a25b9714056af5cedfb2f4346bf" rel="noopener">d54690e3db9b883c&hellip;</a></td></tr></tbody></table></div>
+
+    <div class="note acc">
+      <h3>The loop closed</h3>
+      <p>Both children settled, in the only order the chain allows: the reserve is a hash chain
+      and settlement pops it from the end, so the worker hired <em>last</em> comes home
+      <em>first</em>. After the second one the coordinator holds
+      <span class="num">0.690192</span> KAS of its original
+      <span class="num">0.8</span>, with nothing reserved and an empty chain &mdash;
+      and because a grant&rsquo;s address is a hash of its state, it is back at
+      the address it was born at. The difference is <span class="num">0.109808</span> KAS of fees.
+      Nobody spent anything; the money was lent and returned.</p>
+      <p>This is the part a budget alone cannot do. Handing a worker a limit and waiting for it
+      to expire returns the coin to the <em>human</em>. Settling returns it to the
+      <em>coordinator</em>, mid-task, ready to hire again.</p>
+    </div>
+
+    <div class="note">
+      <h3>Two, and not more &mdash; that is consensus, not a choice</h3>
+      <p>Kaspa&rsquo;s storage mass counts <code>1/value</code> over a transaction&rsquo;s
+      outputs, so each extra child costs a whole term rather than a slice of one. An atomic 1:2
+      masses <span class="num">420,435</span> against a ceiling of
+      <span class="num">500,000</span>; 1:3 masses
+      <span class="num">770,994</span> and is refused by the network. The covenant
+      would allow it. The chain will not.</p>
+      <p>The second budget is the engine&rsquo;s stack, and it is now measured rather than
+      assumed: <code>delegate</code> peaks at <span class="num">161</span> of
+      <span class="num">244</span> and <code>delegate2</code> at
+      <span class="num">189</span>. It is not what bounds fanout today. It is
+      what would, if the mass ceiling ever moved.</p>
+      <p>The covenant this section describes is a draft with a passing probe suite and
+      <strong>no audit</strong>. The run above is the audited-shape one.</p>
+    </div>
+  </div>
+</section>
+<!--/OJA-->
 
 <footer>
   <div class="wrap">

@@ -302,6 +302,157 @@ else:
     print("! src/one-job.json missing — /one-job not published. Copy one-job-*/trace.json there.")
 
 
+# /one-job's v5 follow-up — the atomic delegation and the round trip.
+#
+# Deliberately a SEPARATE file from one-job.json, and deliberately not
+# generated. The run /one-job renders was driven by a step machine that wrote
+# its own trace; this one was driven from a command line, one step at a time,
+# and inventing a trace format for it after the fact would be a worse lie than
+# typing the figures. So they are typed — and then checked, below, against the
+# manifests on disk, which is the difference between typed and asserted.
+ONE_JOB_ATOMIC = here / "src" / "one-job-atomic.json"
+ONE_JOB_ATOMIC_SUBS = {}
+
+
+def one_job_atomic_blocks(a):
+    kids = a["children"]
+
+    # The check that makes the typing safe. A child manifest is the record
+    # build-delegation2 wrote at the moment it built the transaction, so if
+    # these two disagree the page is wrong and the build should stop rather
+    # than publish a figure nobody can trace.
+    for k in kids:
+        m = here.parent / k["manifest"]
+        if not m.exists():
+            print(f"  (no {k['manifest']} in this checkout — child {k['label']} unverified)")
+            continue
+        cm = json.loads(m.read_text())
+        for field, mine in (("agent", k["agent"]), ("budget", k["budget"]), ("covenant", a["covenant"])):
+            if str(cm[field]) != str(mine):
+                raise ValueError(
+                    f"one-job-atomic.json child {k['label']} disagrees with {k['manifest']} "
+                    f"on {field}: {mine!r} here, {cm[field]!r} there"
+                )
+
+    # Conservation, re-derived rather than asserted: the parent's closing
+    # balance must be its budget less every fee the round trip paid. A figure
+    # that does not close is a figure somebody mistyped.
+    fees = a["delegation"]["fee"] + sum(k["settled_fee"] for k in kids)
+    if a["grant"]["budget"] - fees != a["after"]["holds"]:
+        raise ValueError(
+            f"one-job-atomic.json does not close: {a['grant']['budget']} - {fees} "
+            f"!= {a['after']['holds']}"
+        )
+    d = a["delegation"]
+    if d["keeps"] + sum(k["budget"] for k in kids) + d["fee"] != a["grant"]["budget"]:
+        raise ValueError("one-job-atomic.json: the delegation's three outputs do not sum to the input")
+
+    # ---- the reserve, over the four transactions -----------------------
+    #
+    # One series, one axis, four steps: 0 -> both budgets -> one -> 0. The
+    # shape IS the argument — the reserve is not spent, it is held and then
+    # released — so it is drawn as a step rather than a line, because the
+    # amount does not drift between transactions, it jumps at each one.
+    steps = [
+        ("genesis", 0, a["grant"]["genesis_txid"], "0.8 KAS, nothing delegated"),
+        ("delegate2", d["reserves"], d["txid"], "two children, one transaction"),
+        ("settle B", kids[0]["budget"], kids[1]["settled_txid"], "B comes home first"),
+        ("settle A", 0, kids[0]["settled_txid"], "reserve empty again"),
+    ]
+    peak = max(v for _, v, _, _ in steps) or 1
+    # PAD_T has to clear the value label above the TALLEST bar, which is drawn
+    # 7px above it. At 14 the first label was cut off by the viewBox edge —
+    # visible only by looking at the rendered page, which is why that step is
+    # in the loop.
+    W, H, PAD_L, PAD_B, PAD_T = 720, 200, 8, 34, 26
+    plot_h = H - PAD_B - PAD_T
+    col = (W - PAD_L * 2) / len(steps)
+
+    bars = []
+    for i, (name, val, _txid, _sub) in enumerate(steps):
+        h = round(plot_h * val / peak)
+        x = PAD_L + i * col + col * 0.16
+        w = col * 0.68
+        y = PAD_T + plot_h - h
+        if h:
+            # 4px rounded top, anchored to the baseline — the console's bar.
+            bars.append(
+                f'<rect x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h}" rx="4" '
+                f'fill="var(--accent)" fill-opacity=".85"/>'
+            )
+        else:
+            bars.append(
+                f'<rect x="{x:.1f}" y="{PAD_T + plot_h - 2:.1f}" width="{w:.1f}" height="2" rx="1" '
+                f'fill="var(--line-strong)"/>'
+            )
+        bars.append(
+            f'<text x="{x + w / 2:.1f}" y="{(y - 7) if h else (PAD_T + plot_h - 9):.1f}" '
+            f'text-anchor="middle" font-family="var(--mono)" font-size="11" '
+            f'fill="{"var(--accent-strong)" if h else "var(--fg-3)"}">{_kas(val)}</text>'
+        )
+        bars.append(
+            f'<text x="{x + w / 2:.1f}" y="{H - 14:.1f}" text-anchor="middle" '
+            f'font-family="var(--mono)" font-size="10.5" fill="var(--fg-2)">{name}</text>'
+        )
+    axis = (f'<line x1="{PAD_L}" y1="{PAD_T + plot_h}" x2="{W - PAD_L}" y2="{PAD_T + plot_h}" '
+            f'stroke="var(--line-strong)" stroke-width="1"/>')
+    chart = (
+        f'<figure class="oja-chart"><svg viewBox="0 0 {W} {H}" width="100%" role="img" '
+        f'aria-label="The coordinator\'s reserved balance across four transactions: '
+        f'0, then 0.47 KAS, then 0.25, then 0 again.">{axis}{"".join(bars)}</svg>'
+        f'<figcaption>Reserved, in KAS, after each transaction. It is held, not spent &mdash; '
+        f'<code>reabsorb</code> gives it back.</figcaption></figure>'
+    )
+
+    rows = "".join(
+        f'<tr><td>{name}</td><td class="v dim">{sub}</td><td>{_tx(txid)}</td></tr>'
+        for name, _v, txid, sub in steps)
+    table = ('<table><thead><tr><th>Transaction</th><th>What it did</th><th>On chain</th>'
+             f'</tr></thead><tbody>{rows}</tbody></table>')
+
+    kid_rows = "".join(
+        f'<tr><td>child {k["label"]}</td><td class="v">{_kas(k["budget"])} KAS</td>'
+        f'<td class="v dim">{k["position"]}</td>'
+        f'<td class="v dim">{k["agent"][:8]}&hellip;</td></tr>'
+        for k in kids)
+    kid_table = ('<table><thead><tr><th>Hired</th><th>Budget</th><th>Reserve chain</th>'
+                 f'<th>Agent key</th></tr></thead><tbody>{kid_rows}</tbody></table>')
+
+    return {
+        "{{OJA_COVENANT}}": covenant_badge(a["covenant"]),
+        "{{OJA_CHART}}": chart,
+        "{{OJA_STEPS}}": table,
+        "{{OJA_KIDS}}": kid_table,
+        "{{OJA_FEES}}": f'{_kas(fees)}',
+        "{{OJA_HOLDS}}": f'{_kas(a["after"]["holds"])}',
+        "{{OJA_BUDGET}}": f'{_kas(a["grant"]["budget"])}',
+        "{{OJA_ADDR_SAME}}": (
+            "the address it was born at"
+            if a["after"]["address"] == a["grant"]["address"]
+            else "a different address"
+        ),
+        "{{OJA_MASS_TWO}}": f'{a["mass"]["n2"]:,}',
+        "{{OJA_MASS_THREE}}": f'{a["mass"]["n3"]:,}',
+        "{{OJA_CEIL}}": f'{a["mass"]["ceiling"]:,}',
+        "{{OJA_STACK_ONE}}": str(a["stack"]["delegate"]),
+        "{{OJA_STACK_TWO}}": str(a["stack"]["delegate2"]),
+        "{{OJA_STACK_CAP}}": str(a["stack"]["cap"]),
+    }
+
+
+# No follow-up file, no follow-up section: the page still renders the run it
+# always rendered. That is the same rule as the page itself, applied one level
+# in — a section about a thing that happened must come from a record of it.
+if ONE_JOB_ATOMIC.exists() and "one-job.html" in PAGES:
+    try:
+        ONE_JOB_ATOMIC_SUBS = one_job_atomic_blocks(json.loads(ONE_JOB_ATOMIC.read_text()))
+    except (ValueError, KeyError, OSError) as e:
+        print(f"! src/one-job-atomic.json unusable ({e}) — /one-job ships without the v5 section.")
+# Left EMPTY on purpose when there is no record: the render loop reads that
+# emptiness as "strip the section", which is the only honest rendering of a
+# claim whose evidence is not in the checkout.
+
+
 def data_uri(p):
     return "data:image/png;base64," + base64.b64encode(p.read_bytes()).decode()
 
@@ -452,6 +603,7 @@ flavours = {
 # both get the same ones rather than each growing its own copy.
 for _f in flavours.values():
     _f.update(ONE_JOB_SUBS)
+    _f.update(ONE_JOB_ATOMIC_SUBS)
 
 # The agent pages derive their Covenant row in the browser, from the reading's
 # `identity.template`. One object, injected, rather than a version name typed
@@ -1158,6 +1310,11 @@ for outdir, subs in flavours.items():
     d.mkdir(exist_ok=True)
     for name in PAGES:
         html = (here / "src" / name).read_text()
+        # A section whose record is absent is REMOVED, not left with its
+        # placeholders showing. The markers are in the template so the prose
+        # stays editable as prose rather than as Python string literals.
+        if not ONE_JOB_ATOMIC_SUBS:
+            html = re.sub(r"<!--OJA-->.*?<!--/OJA-->", "", html, flags=re.S)
         for k, v in subs.items():
             html = html.replace(k, v)
         # Per page, after the shared substitutions, so the active item is right.
@@ -1176,7 +1333,9 @@ for outdir, subs in flavours.items():
         # The attack and console pages are SKIPPED when their artefact is
         # missing, for exactly this reason; every other page gets the same
         # protection here rather than only the two somebody thought of.
-        left = re.findall(r"\{\{[A-Z_]+\}\}", html)
+        # [A-Z0-9_], not [A-Z_]: {{OJA_MASS2}} was invisible to the older
+        # pattern, which is the one failure mode a guard must not have.
+        left = re.findall(r"\{\{[A-Z0-9_]+\}\}", html)
         if left:
             print(f"! {outdir}/{name} still contains {', '.join(sorted(set(left)))}")
             print(f"  Nothing was written. A page that says {left[0]} to a stranger is worse")

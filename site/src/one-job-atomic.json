@@ -1,0 +1,47 @@
+{
+  "_comment": "The v5 follow-up to the run /one-job renders. NOT written by a tool, unlike one-job.json — the run happened from the command line, one step at a time, and inventing a trace format for it afterwards would be a worse lie than typing it. Every figure here is a txid on testnet-10 or a number in v5-demo/*.json, and build.py cross-checks the children against those manifests when they are present, so a typo here fails the build rather than reaching the page.",
+  "covenant": "157b64e3eeea9c01",
+  "date": "2026-09-24",
+  "grant": {
+    "genesis_txid": "b488d1e3492e2a03c37c622747225ed246fdd8ecf5081443879bcb5e50bbde50",
+    "address": "kaspatest:prhjj9thzdxtzcmc8dfr5t5uhw4sfc4yczjhl0x6kleknhacqmavct2zq5dmx",
+    "budget": 80000000
+  },
+  "delegation": {
+    "txid": "1387b839f03b588256b1b1727a3ba774eb423b62eb985598a17a960866d8cf74",
+    "inputs": 1,
+    "outputs": 3,
+    "signatures": 1,
+    "fee": 2400000,
+    "keeps": 30600000,
+    "reserves": 47000000
+  },
+  "children": [
+    {
+      "label": "A",
+      "manifest": "v5-demo/grant-child-3333bd46.json",
+      "agent": "3333bd46c101732450da6f47ebcefb7521fda4ca083e050e5e572f6a568cdb97",
+      "budget": 25000000,
+      "position": "pushed first, settles last",
+      "settled_txid": "d54690e3db9b883ce07e10816db7f92b0b9e5a25b9714056af5cedfb2f4346bf",
+      "settled_fee": 4290400
+    },
+    {
+      "label": "B",
+      "manifest": "v5-demo/grant-child-fb3e774e.json",
+      "agent": "fb3e774e1efe6b7915eab90d2b20cdd44154596ae23506841d566b20ba478aa9",
+      "budget": 22000000,
+      "position": "pushed second, settles first",
+      "settled_txid": "01973e8f784e5041cee3c355786d7213ba8e41e4afa91e00001f6b7a2636d8a4",
+      "settled_fee": 4290400
+    }
+  ],
+  "after": {
+    "holds": 69019200,
+    "reserved": 0,
+    "spent_total": 0,
+    "address": "kaspatest:prhjj9thzdxtzcmc8dfr5t5uhw4sfc4yczjhl0x6kleknhacqmavct2zq5dmx"
+  },
+  "mass": { "ceiling": 500000, "n2": 420435, "n3": 770994 },
+  "stack": { "cap": 244, "delegate": 161, "delegate2": 189 }
+}
