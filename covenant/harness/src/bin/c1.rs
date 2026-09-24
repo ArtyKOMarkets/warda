@@ -677,6 +677,34 @@ fn settle_suite() {
     let after_a = push_child(empty_reserve(), cid(key_a, &a));
     let after_b = push_child(after_a, cid(key_b, &b));
 
+    // THE CONTROL, and it comes first because without it nothing below is
+    // readable. This settle builder is new — a fresh construction against v5,
+    // never proved against anything. A refusal from an unproved builder says
+    // "this builder produced a transaction the engine would not take", which
+    // is a sentence about the builder and not about the covenant.
+    //
+    // So: settle a child of a SINGLE-child delegate, where the chain is
+    // H(empty || cidA) and reabsorb's own tests already say the shape works.
+    // If this is refused, every line after it is noise.
+    let single = Unwind {
+        spent: 0,
+        reserved: a.budget,
+        chain: after_a,
+        value: 10_000_000_000u64.saturating_sub(a.budget as u64).saturating_sub(1_000),
+    };
+    let (control, _) = reabsorb_step(root, agent, &single, &a, key_a, 5 * KAS, empty_reserve());
+    match &control {
+        Ok(()) => println!("  CONTROL: one child, one chain ACCEPTED   — the settle builder works"),
+        Err(e) => {
+            println!("  CONTROL: one child, one chain REFUSED — {e}");
+            println!();
+            println!("  The builder cannot settle even a single-child chain, which v4's own");
+            println!("  tests do settle. So this is the construction, not the covenant, and");
+            println!("  nothing below would mean anything. Fix the builder first.");
+            return;
+        }
+    }
+
     // Exactly what delegate2 leaves behind, with the same arithmetic the
     // builder above uses — so this starts where that ended rather than at a
     // state somebody typed.
@@ -710,9 +738,17 @@ fn settle_suite() {
     println!("  settle A first, out of order  {}",
         match &out_of_order { Ok(()) => "ACCEPTED   <-- the LIFO discipline is NOT enforced".to_string(), Err(e) => format!("refused — {e}") });
 
-    if v1.is_err() || out_of_order.is_ok() {
-        println!("\n  delegate2 does not compose with v4's reabsorb. C2 is a prerequisite");
-        println!("  after all, and V5.md says the opposite — fix the file before the covenant.");
+    if out_of_order.is_ok() {
+        println!("\n  The LIFO discipline is NOT enforced: a parent settled its first child");
+        println!("  while the chain ended in its second. That is the door the grandchildren");
+        println!("  bug came through.");
+        std::process::exit(1);
+    }
+    if v1.is_err() {
+        println!("\n  The control passed and this did not, so the two-child chain is the");
+        println!("  difference: v4's reabsorb does NOT settle what delegate2 created, and C2");
+        println!("  is a prerequisite rather than an optimisation. V5.md says the opposite.");
+        println!("  Fix the file before touching the covenant.");
         std::process::exit(1);
     }
 }
