@@ -29,7 +29,11 @@
 //!
 //! When C1 lands, `SOURCE` becomes the new covenant and this file becomes the
 //! test suite without a single expectation changing.
-use kaspa_consensus_core::tx::{CovenantBinding, Transaction, TransactionOutput};
+use kaspa_consensus_core::hashing::sighash::{calc_schnorr_signature_hash, SigHashReusedValuesUnsync};
+use kaspa_consensus_core::hashing::sighash_type::SIG_HASH_ALL;
+use kaspa_consensus_core::tx::{
+    CovenantBinding, MutableTransaction, Transaction, TransactionOutput, UtxoEntry,
+};
 use kaspa_txscript::pay_to_script_hash_script;
 use kaspa_txscript_errors::TxScriptError;
 use silverscript_lang::ast::{ArrayDim, Expr, TypeBase, TypeRef};
@@ -313,6 +317,17 @@ fn main() {
 
     v5_suite();
     settle_suite();
+
+    let argv: Vec<String> = std::env::args().collect();
+    if let Some(i) = argv.iter().position(|a| a == "--emit") {
+        match argv.get(i + 1) {
+            Some(path) => emit_golden(path),
+            None => {
+                println!("\n--emit needs a path: --emit ../../sdk/golden-delegation2.json");
+                std::process::exit(2);
+            }
+        }
+    }
 }
 
 // ===========================================================================
@@ -427,7 +442,25 @@ struct Flip {
     prev_reserved: i64,
 }
 
+/// The sighash the agent signs, recomputed rather than taken on trust — the
+/// golden vector's whole job is to let the SDK check its own against it.
+fn sighash_of(tx: &Transaction, entries: &[UtxoEntry], idx: usize) -> [u8; 32] {
+    let mtx = MutableTransaction::with_entries(tx.clone(), entries.to_vec());
+    let reused = SigHashReusedValuesUnsync::new();
+    calc_schnorr_signature_hash(&mtx.as_verifiable(), idx, SIG_HASH_ALL, &reused).as_bytes()
+}
+
 fn delegate2_run(a: &Child, b: &Child, f: &Flip) -> Result<(), TxScriptError> {
+    delegate2_artifacts(a, b, f).0
+}
+
+/// The same build, returning what it built. One implementation, so the vector
+/// and the verdict cannot describe two different transactions.
+fn delegate2_artifacts(
+    a: &Child,
+    b: &Child,
+    f: &Flip,
+) -> (Result<(), TxScriptError>, Transaction, UtxoEntry, [u8; 32]) {
     let kp = agent_keypair();
     let agent_xonly: [u8; 32] = kp.x_only_public_key().0.serialize();
     let tree = Tree::new(members());
@@ -511,8 +544,11 @@ fn delegate2_run(a: &Child, b: &Child, f: &Flip) -> Result<(), TxScriptError> {
     };
 
     let entries = vec![covenant_utxo(&parent, in_value)];
-    let sig = sign_input(build(vec![0u8; 65]), entries.clone(), 0, &kp);
-    execute(build(sig), entries, 0)
+    let unsigned = build(vec![0u8; 65]);
+    let sighash = sighash_of(&unsigned, &entries, 0);
+    let sig = sign_input(unsigned.clone(), entries.clone(), 0, &kp);
+    let verdict = execute(build(sig), entries.clone(), 0);
+    (verdict, unsigned, entries[0].clone(), sighash)
 }
 
 fn v5_suite() {
@@ -778,6 +814,131 @@ fn settle_suite() {
         println!("  difference: v4's reabsorb does NOT settle what delegate2 created, and C2");
         println!("  is a prerequisite rather than an optimisation. V5.md says the opposite.");
         println!("  Fix the file before touching the covenant.");
+        std::process::exit(1);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// The golden vector, for the SDK.
+//
+// Nothing in JavaScript can build a delegate2 transaction yet. When it can,
+// the question is whether what it builds is what the chain accepts — and the
+// SDK has no engine to ask. The repo's answer for `delegate` is a golden
+// vector emitted by the Rust side and compared byte-for-byte in
+// sdk/test/delegate.test.ts.
+//
+// This is the same thing for delegate2, with one difference worth having: the
+// existing goldens are emitted by a builder, and this one is emitted by a
+// transaction the ENGINE ACCEPTED two functions above. A vector that merely
+// records what some code produced pins that code's behaviour; this pins
+// behaviour the engine agreed with.
+//
+// It emits the UNSIGNED form. The signature script with a placeholder, the
+// sighash, and every output's scriptPublicKey are deterministic; the signature
+// is not — secp256k1's schnorr signing takes auxiliary randomness — so a
+// vector containing one would fail against an SDK that is behaving perfectly.
+// ---------------------------------------------------------------------------
+
+fn hexs(b: &[u8]) -> String {
+    b.iter().map(|x| format!("{x:02x}")).collect()
+}
+
+fn emit_golden(path: &str) {
+    let kp = agent_keypair();
+    let agent: [u8; 32] = kp.x_only_public_key().0.serialize();
+    let tree = Tree::new(members());
+    let root = tree.root();
+    let a = Child::narrower();
+    let b = Child::narrower();
+    let key_a = [0x90u8; 32];
+    let key_b = [0x91u8; 32];
+    let auth = v5_authority();
+    let tid = template_id_of(SOURCE_V5, auth);
+
+    // Exactly what the accepted baseline builds, rebuilt here so the vector and
+    // the verdict cannot describe two different transactions.
+    let (verdict, tx, entry, sighash) = delegate2_artifacts(&a, &b, &Flip::default());
+
+    let outs = tx.outputs.iter().map(|o| format!(
+        "    {{ \"value\": {}, \"scriptPublicKeyVersion\": {}, \"scriptPublicKeyHex\": \"{}\", \"covenant\": {{ \"authorizingInput\": 0, \"covenantId\": \"{}\" }} }}",
+        o.value, o.script_public_key.version(), hexs(o.script_public_key.script()), hexs(COV.as_bytes().as_slice())
+    )).collect::<Vec<_>>().join(",\n");
+
+    let members_json = members().iter().map(|m| format!("\"{}\"", hexs(m))).collect::<Vec<_>>().join(", ");
+
+    let json = format!(
+"{{
+  \"generatedBy\": \"warda-harness c1 --emit\",
+  \"note\": \"An atomic 1:3 fanout: the parent continues at output 0 and TWO children are created at 1 and 2. Emitted from a transaction TxScriptEngine accepted, not from a builder — the engine verdict is recorded below. Unsigned: the signature script carries a 65-byte placeholder, because schnorr signing is randomised and a signature here would fail an SDK that is correct.\",
+  \"engine\": \"{}\",
+  \"params\": {{
+    \"principalKey\": \"{}\",
+    \"revocationKey\": \"{}\",
+    \"agentKey\": \"{}\",
+    \"templateId\": \"{}\",
+    \"recipientsRoot\": \"{}\",
+    \"recipients\": [{}],
+    \"budgetTotal\": {},
+    \"maxPerSpend\": {},
+    \"epochLimit\": {},
+    \"epochLength\": {},
+    \"notBefore\": {},
+    \"expiresAt\": {},
+    \"delegationDepth\": {},
+    \"spentTotal\": 0,
+    \"reserved\": 0,
+    \"epochIndex\": 0,
+    \"epochSpent\": 0,
+    \"reserveRoot\": \"{}\"
+  }},
+  \"children\": [
+    {{ \"agentKey\": \"{}\", \"budgetTotal\": {}, \"maxPerSpend\": {}, \"epochLimit\": {}, \"notBefore\": {}, \"expiresAt\": {}, \"delegationDepth\": {} }},
+    {{ \"agentKey\": \"{}\", \"budgetTotal\": {}, \"maxPerSpend\": {}, \"epochLimit\": {}, \"notBefore\": {}, \"expiresAt\": {}, \"delegationDepth\": {} }}
+  ],
+  \"utxo\": {{
+    \"outpointTransactionId\": \"{}\",
+    \"outpointIndex\": {},
+    \"value\": {},
+    \"blockDaaScore\": {},
+    \"isCoinbase\": {},
+    \"covenantId\": \"{}\",
+    \"scriptPublicKeyVersion\": {},
+    \"scriptPublicKeyHex\": \"{}\"
+  }},
+  \"sighashHex\": \"{}\",
+  \"unsignedSignatureScriptHex\": \"{}\",
+  \"transaction\": {{
+    \"version\": {},
+    \"lockTime\": \"{}\",
+    \"subnetworkId\": \"0000000000000000000000000000000000000000\",
+    \"gas\": \"{}\",
+    \"payloadHex\": \"{}\",
+    \"input\": {{ \"previousOutpointTransactionId\": \"{}\", \"previousOutpointIndex\": {}, \"sequence\": \"{}\", \"computeBudget\": {} }},
+    \"outputs\": [
+{}
+    ]
+  }}
+}}
+",
+        match &verdict { Ok(()) => "ACCEPTED".to_string(), Err(e) => format!("REFUSED — {e}") },
+        hexs(&auth.principal), hexs(&auth.revocation), hexs(&agent), hexs(&tid), hexs(&root), members_json,
+        10_000_000_000i64, 200_000_000i64, 1_000_000_000i64, 1_000i64, 1_000_000i64, 1_007_000i64, 2i64,
+        hexs(&empty_reserve()),
+        hexs(&key_a), a.budget, a.max_per_spend, a.epoch_limit, a.not_before, a.expires_at, a.delegation_depth,
+        hexs(&key_b), b.budget, b.max_per_spend, b.epoch_limit, b.not_before, b.expires_at, b.delegation_depth,
+        hexs(tx.inputs[0].previous_outpoint.transaction_id.as_bytes().as_slice()), tx.inputs[0].previous_outpoint.index,
+        entry.amount, entry.block_daa_score, entry.is_coinbase, hexs(COV.as_bytes().as_slice()),
+        entry.script_public_key.version(), hexs(entry.script_public_key.script()),
+        hexs(&sighash), hexs(&tx.inputs[0].signature_script),
+        tx.version, tx.lock_time, tx.gas, hexs(&tx.payload),
+        hexs(tx.inputs[0].previous_outpoint.transaction_id.as_bytes().as_slice()), tx.inputs[0].previous_outpoint.index,
+        tx.inputs[0].sequence, tx.inputs[0].compute_budget,
+        outs);
+
+    std::fs::write(path, &json).expect("write the golden vector");
+    println!("\nwrote {path}  (engine: {})", match &verdict { Ok(()) => "ACCEPTED", Err(_) => "REFUSED" });
+    if verdict.is_err() {
+        println!("  and it is a vector for a transaction the engine REFUSED. Do not ship it.");
         std::process::exit(1);
     }
 }
