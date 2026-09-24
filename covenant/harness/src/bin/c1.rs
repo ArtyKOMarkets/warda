@@ -360,10 +360,23 @@ fn v5_authority() -> Authority {
     )
 }
 
+/// The maxFee the DEPLOYED template bakes, which is not the harness's default.
+///
+/// `ctor_full` uses 100,000 — fine for cases that only ask what the covenant
+/// refuses, since every one of them is internally consistent. It is not fine
+/// for a golden vector: maxFee is a baked constructor constant, so it is part
+/// of the bytecode and NOT a state field the SDK can splice. A vector emitted
+/// at 100,000 can never be reproduced from sdk/covenant-template-v5.json,
+/// which bakes 5,000,000, and the mismatch surfaces 1,879 bytes into an
+/// 11,120-byte signature script — which is where it surfaced.
+const TEMPLATE_MAX_FEE: i64 = 5_000_000;
+
 fn v5_ctor_base() -> Vec<Expr<'static>> {
     let geo = template_geometry_of(SOURCE_V5);
     let tid = template_id_of(SOURCE_V5, v5_authority());
-    ctor_full(proof_depth(), v5_authority(), tid, geo)
+    let mut v = ctor_full(proof_depth(), v5_authority(), tid, geo);
+    v[2] = Expr::int(TEMPLATE_MAX_FEE);
+    v
 }
 
 fn v5_parent_ctor(root: [u8; 32], agent: [u8; 32], spent: i64, reserved: i64, chain: [u8; 32]) -> Vec<Expr<'static>> {
