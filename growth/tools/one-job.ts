@@ -197,6 +197,17 @@ async function main() {
      `child-<name>.json`, which nothing writes, and the run got all the way to
      the first purchase before finding out. */
   const childManifest = (n: string) => childManifestPath(P.grant, agentPub(n));
+  /* Paths, made publishable. batch.ts records manifest paths that begin with
+     somebody's home directory, and this file is meant to be read by strangers.
+     Cutting at the run directory's own name rather than at REPO because a
+     trace can be finished from a different checkout than the one that opened
+     the batch — which is exactly how the first attempt published two absolute
+     paths from a Mac while running somewhere else. */
+  const RUN = DIR.split("/").filter(Boolean).pop()!;
+  const relative = (x: string) => {
+    const cut = x.lastIndexOf(`/${RUN}/`);
+    return cut >= 0 ? x.slice(cut + 1) : x.split(`${REPO}/`).join("");
+  };
 
   for (const step of STEPS) {
     /* `trace` is a projection of what the other steps recorded, not an action:
@@ -345,6 +356,18 @@ async function main() {
           target: TARGET_REPO,
           coordinator: JSON.parse(readFileSync(P.grant, "utf8")),
           plan: PLAN,
+          /* Each worker's grant as it ended: the terms the covenant actually
+             held it to, and — the part worth looking at — a recipientsRoot
+             that is NOT the coordinator's. A child commits to a node of its
+             parent's allowlist tree and carries the path from there to the
+             parent's root, so these two roots differing is the narrowing,
+             visible rather than asserted. */
+          workers: ["research", "verify"].map((n) => ({
+            name: n,
+            agentKey: agentPub(n),
+            payee: n === "research" ? RESEARCHER_PAYEE : AUDITOR_PAYEE,
+            grant: JSON.parse(readFileSync(childManifest(n), "utf8")) as unknown,
+          })),
           massed: preflight().map((r) => ({ ...r, mass: r.mass })),
           sellers: { researcher: RESEARCHER_PAYEE, auditor: AUDITOR_PAYEE },
           steps: s.done,
@@ -353,9 +376,14 @@ async function main() {
           /* A REPLACER, not a shallow map over PLAN's own entries. The first
              version mapped the top level and missed the bigints one layer down
              in `research` and `verify`, so the whole run finished and the trace
-             — the only durable product of it — threw on the last line. */
-        }, (_k, v) => (typeof v === "bigint" ? String(v) : v), 2) + "\n");
-        mark(s, step, { note: P.trace });
+             — the only durable product of it — threw on the last line.
+
+             It also strips the repository's absolute path. This file is meant
+             to be published, and batch.ts records manifest paths that begin
+             with somebody's home directory. Publishing that is a small leak
+             nobody would notice until it was on a page. */
+        }, (_k, v) => (typeof v === "bigint" ? String(v) : typeof v === "string" ? relative(v) : v), 2) + "\n");
+        mark(s, step, { note: relative(P.trace) });
         break;
       }
     }
