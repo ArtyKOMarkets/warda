@@ -58,6 +58,22 @@ test("no grant makes its agent the principal", () => {
  * issued before tools/week.ts passed --revocation. Genesis warned, the week
  * ran, and the runner was fixed the same hour — every later week names
  * growth/keys/growth.key as its revocation key, so this should not move again.
+ *
+ * 17 since growth/listener-grant.json, 23 September: agent #012, issued by
+ * first-listener-grant.sh, which did not pass --revocation and said in its own
+ * preconditions that the funder becoming both was simply how it worked. It was
+ * not — it is what every grant since #006 exists to avoid, and the script has
+ * been fixed to name ops/warda-revocation.key like the rest of the fleet.
+ *
+ * The grant itself cannot be repaired: a revocation key is fixed at genesis,
+ * so the only remedies are to revoke and reissue, or to let its seven-day term
+ * run out. It is testnet, it holds 2.1 KAS, and it was already on the
+ * before-mainnet list. **When it expires this number should fall back to 16** —
+ * if a later reader finds it stuck at 17 with the Listener long gone, that is a
+ * new collapse wearing this one's allowance.
+ *
+ * `ops/grants.ts` — the by-hand issuer and the unattended one — passes
+ * --revocation on every path, so nothing issued from /grant can add to this.
  */
 test("the principal/revocation collapse has not spread further", () => {
   const collapsed = report.findings.filter((f: string) =>
@@ -65,8 +81,8 @@ test("the principal/revocation collapse has not spread further", () => {
   );
   assert.equal(
     collapsed.length,
-    16,
-    `${collapsed.length} grants share a principal and revocation key, and this test knew about 16.\n` +
+    17,
+    `${collapsed.length} grants share a principal and revocation key, and this test knew about 17.\n` +
       "If you added a grant, it inherited the collapse — genesis defaults --revocation to the\n" +
       "principal. Pass a separate key, or raise this number in a commit that explains why.",
   );

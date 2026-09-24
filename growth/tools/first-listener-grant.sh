@@ -67,8 +67,20 @@ say ""
 
 [ -f "$FUNDER" ] || die "no funder key at $FUNDER
 Set LISTENER_FUNDER_KEY to the key that should own this grant. Whichever key
-signs genesis becomes the principal AND the revocation — the one that can end
-it — so this is not a detail to let default by accident."
+signs genesis becomes the principal, and it is the one an unspent balance
+comes home to, so this is not a detail to let default by accident."
+
+# The revocation key, which is NOT the funder.
+#
+# This script used to say the two collapsing was simply how it worked, and the
+# grant it made on 23 September is the seventeenth in this repo where whoever
+# can stop a grant can also take its balance. Every grant from #006 onward is
+# supposed to name ops/warda-revocation.key instead, genesis warns when it
+# cannot, and test/key-separation.test.ts counts the ones that slipped through
+# so the number can only go up on purpose. It went up by one here.
+REVOCATION="$(python3 -c "import json;print([k['key'] for k in json.load(open('ops/known-keys.json'))['keys'] if k['label'].startswith('revocation key, for grants issued from here on')][0])" 2>/dev/null)"
+[ -n "$REVOCATION" ] || die "ops/known-keys.json names no revocation key for new grants.
+Genesis would default it to the funder, which is the collapse this line exists to prevent."
 
 [ -f ops/node.env ] && . ops/node.env
 [ -n "${WARDA_RPC_JSON:-}" ] || say "note: no WARDA_RPC_JSON; a public node will be found."
@@ -178,6 +190,7 @@ else
   WARDA_SK="$(cat "$FUNDER")" $N sdk/tools/genesis.ts \
     --agent "$AGENT_PUB" \
     --recipients "$PAYEES" \
+    --revocation "$REVOCATION" \
     --budget "$BUDGET" \
     --max-per-spend "$MAXSPEND" \
     --epoch-limit "$EPOCHLIMIT" \
