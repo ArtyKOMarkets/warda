@@ -46,7 +46,7 @@ limit rather than decoration. See the findings below.
 |---|---|
 | The child cannot exceed the parent's uncommitted budget | `child.budgetTotal <= budgetTotal - committed` |
 | Every attenuable field only narrows | six checks, listed below |
-| The allowlist is inherited exactly | `child.recipientsRoot == recipientsRoot` |
+| The allowlist is inherited, or narrowed to a subtree | `foldFromNode(child.recipientsRoot, witness) == recipientsRoot` |
 | The child starts clean | `spentTotal == reserved == epochIndex == epochSpent == 0` |
 | The parent changes in exactly one way | twelve equality checks plus `reserved + child.budgetTotal` |
 | Coin follows authority | `outputs[1].value == child.budgetTotal` |

@@ -29,7 +29,8 @@ const CLAIMS: &[Claim] = &[
 
     Claim { entry: "delegate", text: "the child cannot exceed the parent's uncommitted budget", rule: "delegation budget" },
     Claim { entry: "delegate", text: "every attenuable field only narrows", rule: "delegation attenuation" },
-    Claim { entry: "delegate", text: "the allowlist is inherited exactly", rule: "delegation allowlist" },
+    Claim { entry: "delegate", text: "the allowlist is inherited, or narrowed to a subtree of it", rule: "delegation allowlist" },
+    Claim { entry: "delegate", text: "a narrowed child cannot reach the rest of its parent's allowlist", rule: "subset narrows" },
     Claim { entry: "delegate", text: "the child starts clean", rule: "delegation start" },
     Claim { entry: "delegate", text: "the parent changes in exactly one way", rule: "delegation reserve" },
     Claim { entry: "delegate", text: "coin follows authority", rule: "delegation coin" },
@@ -343,10 +344,139 @@ fn cases() -> Vec<Case> {
             d.run()
         }));
     }
-    v.push(case("delegation allowlist", "child.recipientsRoot == recipientsRoot",
+    /* The subset witness — v4's one widening of what delegation may do, and
+       until now the largest thing this report listed as untested. The rule is
+       one line of the covenant:
+
+         foldFromNode(child.recipientsRoot, subsetSiblings, subsetSiblingIsLeft)
+             == recipientsRoot
+
+       so the child names any node of the parent's tree and proves the path up
+       to the parent's root. Inheriting is the empty-witness case of the same
+       fold, which is why there is no second branch to test. */
+    let tree = Tree::new(members());
+    let top = tree.levels.len() - 1;
+    let (half, half_sibs, half_lefts) = tree.node_witness(top - 1, 0);
+    let (leaf, leaf_sibs, leaf_lefts) = tree.node_witness(0, 0);
+
+    v.push(case("delegation allowlist", "empty witness, so the fold returns the parent's own root",
+        "a child inheriting the whole allowlist", Expect::Accept, || Delegate::valid().run()));
+    v.push(case("delegation allowlist", "child.recipientsRoot folds to recipientsRoot",
         "a child claiming a different allowlist with an empty witness", Expect::Reject, || {
         let mut d = Delegate::valid(); d.child.root = Some([0x77; 32]); d.run()
     }));
+    {
+        let (n, sb, lf) = (half, half_sibs.clone(), half_lefts.clone());
+        v.push(case("delegation allowlist", "child.recipientsRoot folds to recipientsRoot",
+            "a child narrowed to a subtree, with the path to prove it", Expect::Accept, move || {
+            let mut d = Delegate::valid();
+            d.child.root = Some(n);
+            d.subset = Some((sb.clone(), lf.clone()));
+            d.run()
+        }));
+    }
+    {
+        let (n, sb, lf) = (leaf, leaf_sibs.clone(), leaf_lefts.clone());
+        v.push(case("delegation allowlist", "child.recipientsRoot folds to recipientsRoot",
+            "a child narrowed to ONE member — the leaf hash, depth zero", Expect::Accept, move || {
+            let mut d = Delegate::valid();
+            d.child.root = Some(n);
+            d.subset = Some((sb.clone(), lf.clone()));
+            d.run()
+        }));
+    }
+    {
+        let (sb, lf) = (half_sibs.clone(), half_lefts.clone());
+        v.push(case("delegation allowlist", "child.recipientsRoot folds to recipientsRoot",
+            "a root that is in no tree, carrying a real node's witness", Expect::Reject, move || {
+            let mut d = Delegate::valid();
+            d.child.root = Some([0xee; 32]);
+            d.subset = Some((sb.clone(), lf.clone()));
+            d.run()
+        }));
+    }
+    {
+        let (n, sb, lf) = (half, half_sibs.clone(), half_lefts.clone());
+        v.push(case("delegation allowlist", "subsetSiblingIsLeft decides which side each sibling folds on",
+            "the right node, every sibling side flipped", Expect::Reject, move || {
+            let mut d = Delegate::valid();
+            d.child.root = Some(n);
+            d.subset = Some((sb.clone(), lf.iter().map(|x| !x).collect()));
+            d.run()
+        }));
+    }
+    {
+        let other = Tree::new(vec![[0xc1u8; 32], [0xc2; 32], [0xc3; 32], [0xc4; 32]]);
+        let (_, sb, lf) = other.node_witness(0, 0);
+        let n = half;
+        v.push(case("delegation allowlist", "child.recipientsRoot folds to recipientsRoot",
+            "the right node, a witness borrowed from another tree", Expect::Reject, move || {
+            let mut d = Delegate::valid();
+            d.child.root = Some(n);
+            d.subset = Some((sb.clone(), lf.clone()));
+            d.run()
+        }));
+    }
+
+    /* And the question the delegation cases above cannot ask, because it needs
+       two transactions: once a child IS narrowed, is it actually narrower?
+       Every case here spends AS the child — born at the narrowed root — and
+       reaches for a payee its parent could have paid. This is the property the
+       whole feature exists for, and nothing tested it. */
+    v.push(case("subset narrows", "merkleRoot(recipient, proof) == recipientsRoot, the CHILD's",
+        "a child narrowed to one member paying that member", Expect::Accept, move || {
+        let mut sp = Spend::valid();
+        sp.recipient = [0xa1; 32]; sp.pay_to = Some([0xa1; 32]);
+        sp.allowlist = Some((leaf, vec![], vec![]));
+        sp.run()
+    }));
+    v.push(case("subset narrows", "merkleRoot(recipient, proof) == recipientsRoot, the CHILD's",
+        "the same child reaching for a member only its PARENT may pay", Expect::Reject, move || {
+        let mut sp = Spend::valid();
+        sp.recipient = [0xa2; 32]; sp.pay_to = Some([0xa2; 32]);
+        sp.allowlist = Some((leaf, vec![], vec![]));
+        sp.run()
+    }));
+    {
+        let (psibs, plefts) = tree.proof(&[0xa2; 32]);
+        v.push(case("subset narrows", "merkleRoot(recipient, proof) == recipientsRoot, the CHILD's",
+            "…offering that member's valid proof against the PARENT's root", Expect::Reject, move || {
+            let mut sp = Spend::valid();
+            sp.recipient = [0xa2; 32]; sp.pay_to = Some([0xa2; 32]);
+            sp.allowlist = Some((leaf, psibs.clone(), plefts.clone()));
+            sp.run()
+        }));
+    }
+    {
+        /* The payee's proof WITHIN the child's subtree: the full proof against
+           the parent's root, cut at the level the child's root sits on. Written
+           as an arithmetic cut rather than a literal because the first draft
+           hardcoded "one sibling, the other leaf" — true of a four-member tree
+           and of nothing else, so the case over-refused the moment this report
+           was re-run at 256 members. A case that only passes at one grant shape
+           is the thing re-parameterising was meant to expose. */
+        let (fs, fl) = tree.proof(&[0xa1; 32]);
+        let k = (top - 1).min(fs.len());
+        let (ins, inl) = (fs[..k].to_vec(), fl[..k].to_vec());
+        v.push(case("subset narrows", "merkleRoot(recipient, proof) == recipientsRoot, the CHILD's",
+            "a child narrowed to a subtree paying inside it", Expect::Accept, move || {
+            let mut sp = Spend::valid();
+            sp.recipient = [0xa1; 32]; sp.pay_to = Some([0xa1; 32]);
+            sp.allowlist = Some((half, ins.clone(), inl.clone()));
+            sp.run()
+        }));
+    }
+    {
+        let (qsibs, qlefts) = tree.proof(&[0xa3; 32]);
+        v.push(case("subset narrows", "merkleRoot(recipient, proof) == recipientsRoot, the CHILD's",
+            "the same child reaching outside its subtree, with a parent-valid proof",
+            Expect::Reject, move || {
+            let mut sp = Spend::valid();
+            sp.recipient = [0xa3; 32]; sp.pay_to = Some([0xa3; 32]);
+            sp.allowlist = Some((half, qsibs.clone(), qlefts.clone()));
+            sp.run()
+        }));
+    }
     v.push(case("delegation coin", "outputs[1].value == child.budgetTotal",
         "the child's coin exactly its budget", Expect::Accept, || Delegate::valid().run()));
     for (delta, note) in [(-1i64, "the child's coin one sompi short of its budget"), (1, "one sompi over")] {
@@ -503,7 +633,6 @@ fn subject() -> Subject {
              authorised continuation. The baseline builds exactly that shape, so there is no \
              transaction in this run where it is the only thing wrong — the refusals that would \
              prove it are indistinguishable from the co-input check firing first.".into(),
-            "The subset witness: a child narrowing its allowlist to a subtree.".into(),
             format!(
                 "<b>One grant shape per run.</b> Every case here runs against a single \
                  parameterisation — 100 KAS, a 2 KAS per-spend cap, delegation depth 2, a \

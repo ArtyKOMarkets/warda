@@ -441,6 +441,43 @@ impl Tree {
         }
         (sibs, lefts)
     }
+
+    /// The witness a child supplies to claim an INTERIOR node as its own
+    /// allowlist root: the node, then the siblings from it up to this tree's
+    /// root, with a side per sibling.
+    ///
+    /// `proof` is this walk started at level 0. Sharing the loop rather than
+    /// writing a second one is deliberate: promotion (an odd node carried up
+    /// without a partner) pushes no sibling but still halves the index, and
+    /// two copies of that rule is two chances to get the subset case subtly
+    /// right and the leaf case subtly wrong.
+    ///
+    /// `level` 0 is the leaf hashes, so `node_witness(0, i)` is how a child
+    /// narrows to the single member at sorted position `i`. The top level is
+    /// the root itself, whose witness is empty — which is the inherit case,
+    /// and the covenant checks it with the same fold.
+    pub fn node_witness(&self, level: usize, idx: usize) -> ([u8; 32], Vec<[u8; 32]>, Vec<bool>) {
+        let node = self.levels[level][idx];
+        let (mut sibs, mut lefts) = (Vec::new(), Vec::new());
+        let mut i = idx;
+        for l in &self.levels[level..self.levels.len() - 1] {
+            let pair = if i % 2 == 0 { i + 1 } else { i - 1 };
+            if pair < l.len() {
+                sibs.push(l[pair]);
+                lefts.push(pair < i);
+            }
+            i /= 2;
+        }
+        (node, sibs, lefts)
+    }
+
+    /// The members beneath `levels[level][idx]` — what a child narrowed to
+    /// that node may actually pay. Used to assert that narrowing narrowed.
+    pub fn leaves_under(&self, level: usize, idx: usize) -> Vec<[u8; 32]> {
+        let span = 1usize << level;
+        let start = idx * span;
+        self.members[start.min(self.members.len())..(start + span).min(self.members.len())].to_vec()
+    }
 }
 
 pub fn hex(b: &[u8]) -> String {
@@ -677,6 +714,17 @@ pub struct Spend {
     pub wrong_key: bool,
     /// The covenant to run against. Only the mutation runs change it.
     pub src: &'static str,
+    /// Spend as a NARROWED CHILD rather than as the parent: the allowlist root
+    /// the grant was born with, and the inclusion proof this payment offers
+    /// against it.
+    ///
+    /// `None` is the parent's full tree, which is every other case here. `Some`
+    /// is what delegation is for — a child narrowed to one payee, or to a
+    /// subtree, being asked whether it can still reach the rest of its parent's
+    /// allowlist. That question cannot be asked of a single transaction built
+    /// from the parent's root, which is why the subset witness went untested
+    /// for as long as it did.
+    pub allowlist: Option<([u8; 32], Vec<[u8; 32]>, Vec<bool>)>,
 }
 
 impl Spend {
@@ -693,6 +741,7 @@ impl Spend {
             extra_fee: 0,
             wrong_key: false,
             src: SOURCE,
+            allowlist: None,
         }
     }
 
@@ -700,8 +749,9 @@ impl Spend {
         let kp = agent_keypair();
         let agent_xonly: [u8; 32] = kp.x_only_public_key().0.serialize();
         let tree = Tree::new(members());
+        let root = self.allowlist.as_ref().map(|(r, _, _)| *r).unwrap_or(tree.root());
         let (ps, pr, pi, pe) = self.prev;
-        let c = compiled(self.src, &ctor_at_state(tree.root(), agent_xonly, proof_depth(), ps, pr, pi, pe));
+        let c = compiled(self.src, &ctor_at_state(root, agent_xonly, proof_depth(), ps, pr, pi, pe));
 
         /* The honest successor, which is what the covenant recomputes for
            itself. An epoch that has moved on resets the epoch spend to this
@@ -716,13 +766,16 @@ impl Spend {
             (ps + self.amount, pr, pi, pe + self.amount)
         };
         let (ss, sr, si, se) = self.successor.unwrap_or(honest);
-        let successor = compiled(self.src, &ctor_at_state(tree.root(), agent_xonly, proof_depth(), ss, sr, si, se));
+        let successor = compiled(self.src, &ctor_at_state(root, agent_xonly, proof_depth(), ss, sr, si, se));
 
         // A recipient outside the tree has no proof; borrowing a valid one is
         // the best an attacker can do, and is exactly what a rogue agent would
         // try.
         let proof_for = if tree.members.contains(&self.recipient) { self.recipient } else { [0xa1; 32] };
-        let (sibs, lefts) = tree.proof(&proof_for);
+        let (sibs, lefts) = match &self.allowlist {
+            Some((_, s, l)) => (s.clone(), l.clone()),
+            None => tree.proof(&proof_for),
+        };
 
         let payee = self.pay_to.unwrap_or(self.recipient);
         let mut p2pk = vec![0x20u8];
@@ -737,7 +790,7 @@ impl Spend {
         let build = |sig: Vec<u8>| {
             let args = vec![
                 {
-                    let mut fields = authority_fields(tree.root(), agent_xonly);
+                    let mut fields = authority_fields(root, agent_xonly);
                     if let Some((name, ref v)) = self.authority_override {
                         for f in fields.iter_mut() {
                             if f.0 == name {
@@ -905,6 +958,15 @@ pub struct Delegate {
     pub coin_override: Option<i64>,
     /// A third output, to break `OpAuthOutputCount == 2`.
     pub extra_output: bool,
+    /// The subset witness: siblings and sides folding `child.root` up to the
+    /// parent's `recipientsRoot`.
+    ///
+    /// `None` is an EMPTY witness, which is not a placeholder — it is the
+    /// statement "this child inherits the parent's allowlist exactly", and the
+    /// covenant checks it with the same fold. `Some` is how a narrowing child
+    /// proves the node it claims is really in its parent's tree, and how a
+    /// forged one is offered the chance to prove it is not.
+    pub subset: Option<(Vec<[u8; 32]>, Vec<bool>)>,
 }
 
 impl Delegate {
@@ -915,6 +977,7 @@ impl Delegate {
             parent_prev: (0, 0),
             coin_override: None,
             extra_output: false,
+            subset: None,
         }
     }
 
@@ -1004,10 +1067,11 @@ fn run_delegation_full(d: &Delegate) -> Result<(), TxScriptError> {
            empty witness is precisely what the covenant must refuse, so
            delegate_child_widening_allowlist_rejected is now testing its own
            rule rather than an arity error. */
+        let (sub_sibs, sub_lefts) = d.subset.clone().unwrap_or_default();
         let args = vec![
             new_states.clone(),
-            byte32_array(vec![]),
-            bool_array(vec![]),
+            byte32_array(sub_sibs),
+            bool_array(sub_lefts),
             Expr::bytes(sig),
         ];
         Transaction::new(
