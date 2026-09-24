@@ -1,0 +1,31 @@
+{
+  "_comment": "A child grant, created by an ATOMIC delegation — one transaction, two children. It shares its parent's principal and revocation keys: delegation subdivides a budget, it does not hand over the right to revoke or reclaim.",
+  "covenant": "157b64e3eeea9c01",
+  "covenant_id": "b27a1a5e21c2a4ca37d43cf43ac36f072a183291b81c78272cf1a792466640b2",
+  "agent": "fb3e774e1efe6b7915eab90d2b20cdd44154596ae23506841d566b20ba478aa9",
+  "principal": "0393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34f",
+  "revocation": "4c36442ee9f1677a04c72b29931a18bbe085b44bb2da165a965b4d9bd1fc4897",
+  "agent_key_derived": {
+    "domain": "WardaSubAgent",
+    "index": 1
+  },
+  "parent_agent": "ce89a5ad1a7fda21f293f249891686100a6778dc5fe1a1eebdfa0a7fc8e72582",
+  "parent_txid": "1387b839f03b588256b1b1727a3ba774eb423b62eb985598a17a960866d8cf74",
+  "atomic_sibling": "3333bd46c101732450da6f47ebcefb7521fda4ca083e050e5e572f6a568cdb97",
+  "atomic_position": "second pushed, settles FIRST",
+  "parent_reserve_root_before": "fa5765a4483476ce6fc4baa113e54cf1ae6b589ed08b1245a759d8075524b044",
+  "reserve_root": "803b111f3c3952f7b7c9cb2bd240759e755a85ab2c6223614d08f216dd6a3bd1",
+  "recipients_root": "8c5b3907aedbe94d63b409792b50ab6f5fda0428f16cef22a81ccf74b7517d4d",
+  "not_before": 579249485,
+  "expires_at": 580127293,
+  "budget": 22000000,
+  "max_per_spend": 5000000,
+  "epoch_limit": 80000000,
+  "epoch_length": 1000,
+  "delegation_depth": 1,
+  "grant_value": 22000000,
+  "spent_total": 0,
+  "reserved": 0,
+  "epoch_index": 0,
+  "epoch_spent": 0
+}
