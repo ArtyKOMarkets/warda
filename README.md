@@ -135,6 +135,11 @@ true. Each of these cost real debugging and is written up:
   covenant bug
 - **[DELEGATION.md](DELEGATION.md)** — why authority had to move out of constructor
   parameters and into state before delegation could be expressed at all
+- **[AUTHORITY.md](AUTHORITY.md)** — the description format, chain-agnostic and
+  v0.1: what a bounded authority declares, and a zone word per clause saying who
+  guarantees it. Written so a second implementation, on another settlement
+  system, can satisfy it without asking us — including the row where Warda's
+  own answer is `assumed`
 - **[REUSE.md](REUSE.md)** — six bugs inherited from a prior Kaspa covenant project,
   every one of which bit again
 - **[CORE.md](CORE.md)** — `@warda_protocol/core` internals and design rules
