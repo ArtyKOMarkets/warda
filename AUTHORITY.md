@@ -140,7 +140,14 @@ third question is the entire reason this document exists.
 
 Warda enforces every clause in §2 and §3 with a Kaspa covenant. The bytecode
 is run against `TxScriptEngine` — the same script engine a node validates with
-— over 129 cases at `wardaprotocol.com/audit`.
+— over 129 cases, published in full at
+[wardaprotocol.com/audit](https://wardaprotocol.com/audit) including what it
+does not cover. How the covenant does it is at
+[wardaprotocol.com/protocol](https://wardaprotocol.com/protocol); the
+clause-by-clause enforcement argument, and where it is weak, is
+[GUARANTEES.md](https://github.com/ArtyKOMarkets/warda/blob/main/GUARANTEES.md);
+what is and is not proven is
+[wardaprotocol.com/proof](https://wardaprotocol.com/proof).
 
 | clause | Warda's zone |
 |---|---|
@@ -181,4 +188,13 @@ author losing interest.
 This is v0.1 and it has one implementation, which is not enough to call it
 anything. If you are building bounded authority on another settlement system
 and something here does not fit, that is a finding about this document rather
-than about your design: `github.com/ArtyKOMarkets/warda`.
+than about your design:
+[github.com/ArtyKOMarkets/warda](https://github.com/ArtyKOMarkets/warda).
+
+**To check any of it rather than take it:** the covenant source is
+[warda_grant.sil](https://github.com/ArtyKOMarkets/warda/blob/main/covenant/warda_grant.sil),
+the audit that runs it against a Kaspa node's own script engine is
+[covenant/harness](https://github.com/ArtyKOMarkets/warda/tree/main/covenant/harness),
+and a live grant with its agent key published — so the limits can be attacked
+rather than believed — is at
+[wardaprotocol.com/attack](https://wardaprotocol.com/attack).
