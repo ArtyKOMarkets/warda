@@ -60,6 +60,7 @@ import { spawn } from "node:child_process";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { childManifestPath } from "../src/batch.ts";
+import { MASS_CEILING, PLAN, preflight } from "../src/one-job-plan.ts";
 
 const GROWTH = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const REPO = resolve(GROWTH, "..");
@@ -72,7 +73,7 @@ const flag = (n: string, d?: string) => {
 };
 const die = (m: string, c = 1): never => { console.error(m); process.exit(c); };
 
-const DIR = join(REPO, "one-job");
+const DIR = join(REPO, flag("dir", "one-job")!);
 const P = {
   state: join(DIR, "state.json"),
   grant: join(DIR, "grant.json"),
@@ -101,18 +102,6 @@ const COVENANT = join(REPO, "covenant/warda_grant.sil");
 const FUNDER = process.env.GROWTH_FUNDER_KEY ?? join(REPO, "covenant/deploy/warda-testnet.key");
 const REVOKER = process.env.GROWTH_REVOCATION_KEY ?? join(REPO, "ops/warda-revocation.key");
 const KNOWN_KEYS = join(REPO, "ops/known-keys.json");
-
-/* Sompi. The coordinator can cover both workers with room to spare, and each
-   worker's per-payment cap is its seller's price — so a worker cannot overpay
-   even by mistake, and the cap is a fact about the job rather than a guess. */
-const PLAN = {
-  parentBudget: 50_000_000n,        // 0.5 KAS
-  parentMaxPerSpend: 5_000_000n,
-  parentWindowDaa: 2_592_000n,      // ~3 days at 10 blocks a second
-  research: { budget: 15_000_000n, cap: 5_000_000n, epoch: 10_000_000n },  // Researcher: 0.05
-  verify:   { budget: 12_000_000n, cap: 4_000_000n, epoch: 8_000_000n },   // Auditor: 0.04
-  childWindowDaa: 864_000n,         // ~1 day: a worker's authority outlives the job by hours, not weeks
-};
 
 const STEPS = ["keys", "genesis", "open", "hire-research", "hire-verify",
                "buy-research", "buy-verify", "settle-verify", "settle-research",
@@ -169,13 +158,30 @@ function stop(s: State, step: Step, reason: string, code = 1): never {
 }
 
 async function main() {
+  /* Before the help, before the keys, before anything is written: every
+     transaction this plan implies, massed. It costs nothing and it is the
+     check whose absence cost a genesis and two delegations. */
+  const rows = preflight();
+  const over = rows.filter((r) => r.mass > MASS_CEILING);
+  console.error("storage mass, against a ceiling of " + MASS_CEILING + ":");
+  for (const r of rows) {
+    console.error(`  ${r.step.padEnd(18)} ${String(r.mass).padStart(8)}${r.mass > MASS_CEILING ? "   REFUSED BY CONSENSUS" : ""}`);
+  }
+  if (over.length) {
+    die(
+      `\n${over.length} of these would be refused by the network, not by the covenant.\n` +
+      `Mass counts 1/value over a transaction's outputs, so what costs is what the grant has\n` +
+      `LEFT after paying — a nearly-empty grant is the expensive one. Raise the budget of the\n` +
+      `worker named above; its price and its cap can stay exactly as they are.`, 2);
+  }
   if (!has("submit")) {
     console.error(
-      "one-job.ts plans and broadcasts a real sequence on testnet-10.\n\n" +
+      "\none-job.ts plans and broadcasts a real sequence on testnet-10.\n\n" +
       "  --submit        do it\n" +
-      "  --target <url>  the repository RESEARCH looks up (default: kaspanet/silverscript)\n\n" +
+      "  --target <url>  the repository RESEARCH looks up (default: kaspanet/silverscript)\n" +
+      `  --dir <name>    where it writes (default: one-job) — a fresh name is a fresh run\n\n` +
       "Needs: ops/node.env sourced, a funded funder key, and the Auditor answering.\n" +
-      "Everything it writes lives in one-job/ and every step is resumable.",
+      `Everything it writes lives in ${DIR} and every step is resumable.`,
     );
     process.exit(2);
   }

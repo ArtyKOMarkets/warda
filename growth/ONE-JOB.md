@@ -46,13 +46,17 @@ file the script read rather than about what the chain allows.
 ## The terms
 
 ```
-coordinator   budget 0.50 KAS   maxPerSpend 0.05   depth 2   term ~3 days
+coordinator   budget 0.80 KAS   maxPerSpend 0.05   depth 2   term ~3 days
               payees: the Researcher and the Auditor, and nobody else, ever
-RESEARCH      budget 0.15 KAS   maxPerSpend 0.05   epoch 0.10   term ~1 day
+RESEARCH      budget 0.25 KAS   maxPerSpend 0.05   epoch 0.15   term ~1 day
               payee: the Researcher ONLY
-VERIFY        budget 0.12 KAS   maxPerSpend 0.04   epoch 0.08   term ~1 day
+VERIFY        budget 0.22 KAS   maxPerSpend 0.04   epoch 0.12   term ~1 day
               payee: the Auditor ONLY
 ```
+
+The caps are the sellers' listed prices to the sompi. The **budgets** are not
+about the job at all — they are the smallest amounts the network will let a
+worker pay out of, with headroom. See the pre-flight below.
 
 Each child is narrowed to exactly one payee out of a parent that may pay two.
 That is the subset witness: the child commits to a *node* of the parent's
@@ -71,7 +75,8 @@ source ops/node.env
 node --experimental-strip-types growth/tools/one-job.ts --submit
 ```
 
-Without `--submit` it prints what it would do and exits 2.
+Without `--submit` it prints the mass table and exits 2. `--dir <name>` puts a
+run in its own directory, so a fresh name is a fresh run.
 
 It needs a funded funder key whose **largest single coin** covers 0.5 KAS —
 genesis takes one input, so a wallet with plenty spread over small coins is a
@@ -93,6 +98,45 @@ already broadcast.
 Exit code 4 means **paid and not served**: the money moved and the goods did
 not arrive. Do not re-run. Resolve it with `agents/tools/buy.ts` against the
 recorded purchase in `one-job/purchases/`.
+
+### The storage-mass pre-flight, and why the budgets are what they are
+
+Before it writes a key, the script masses every transaction the plan implies
+and refuses if any of them is over the ceiling:
+
+```
+storage mass, against a ceiling of 500000:
+  delegate research    185329
+  delegate verify      243476
+  buy research         262222
+  buy verify           318182
+  settle verify             0
+  settle research           0
+```
+
+This check exists because its absence cost a run. On 24 September 2026 the
+first attempt got through a genesis and two delegations and was refused at the
+first purchase: VERIFY held 0.12 KAS, its 0.04 KAS payment massed 583,334
+against a ceiling of 500,000, and no money moved. The covenant was fine — this
+is consensus, and no grant term relaxes it.
+
+**The rule is not a floor under the payment.** 0.04 KAS is far above any dust
+limit. Mass counts `1/value` over a transaction's *outputs*, and a grant that
+pays out creates two: the payment, and the grant's own successor. A covenant
+output carries a 32-byte binding that pushes it into a second storage unit and
+squares its weight, so the successor dominates — which means **what costs is
+what the grant has left**. A nearly-empty grant is the expensive one.
+
+Concretely, at these fees: paying 0.04 KAS needs about 0.133 KAS in the child
+grant, and paying 0.05 KAS needs about 0.138. The larger payment is the cheaper
+transaction, because it comes out of a larger grant. Anything that reads this
+as a dust limit gets it backwards, which is exactly how the first run was
+sized.
+
+The arithmetic lives in `growth/src/one-job-plan.ts` and is pinned by
+`growth/test/one-job-plan.test.ts` against the 583,334 the network quoted. A
+mass calculation that stops reproducing that number has stopped describing the
+network.
 
 ### Why settlement runs backwards
 

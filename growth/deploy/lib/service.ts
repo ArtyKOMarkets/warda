@@ -35,7 +35,16 @@ export interface Reply {
   body: unknown;
 }
 
-/** KIP-9 storage mass puts a floor of roughly 0.02 KAS under any payment. */
+/**
+ * A price below this cannot be paid by anybody, whatever their grant says:
+ * KIP-9 storage mass would refuse the transaction. It is a NECESSARY condition
+ * and not a sufficient one — a payment's mass depends on every output the
+ * transaction creates, so what decides it is how much the buyer's grant has
+ * LEFT afterwards. A 0.04 KAS payment out of a 0.12 KAS grant massed 583,334
+ * against a ceiling of 500,000 and was refused on 24 September 2026. The
+ * arithmetic is in growth/src/one-job-plan.ts; do not read this constant as
+ * "anything above 0.02 KAS goes through".
+ */
 export const FLOOR_SOMPI = 2_000_000n;
 
 export function describe(cfg: Pick<ResearcherConfig, "payTo" | "sompi" | "network" | "origin">): unknown {
