@@ -607,6 +607,43 @@ pub const EPOCH_LENGTH: i64 = 1_000;
 pub const NOT_BEFORE: i64 = 1_000_000;
 pub const EXPIRES_AT: i64 = 1_007_000;
 pub const DELEGATION_DEPTH: i64 = 2;
+
+/// The run's shape, overridable from the environment.
+///
+/// `AUDIT.md`'s own "what this run did not test" named this as its largest
+/// hole: *"Any grant shape but one. Every case runs against a single
+/// parameterisation - ... a four-member allowlist, maxProofDepth 4. Whether
+/// the same boundaries hold at depth 16, or with a 65,536-member tree, ... is
+/// untested."* It was untested because the shape was six literals scattered
+/// through this file, so re-running at another one meant editing the
+/// instrument. Now it is two environment variables, and the report says which
+/// it used.
+///
+///   WARDA_PROOF_DEPTH=16 WARDA_TREE_LEAVES=65536 cargo run --bin audit
+pub fn proof_depth() -> i64 {
+    std::env::var("WARDA_PROOF_DEPTH").ok().and_then(|s| s.parse().ok()).unwrap_or(4)
+}
+
+pub fn tree_leaves() -> usize {
+    std::env::var("WARDA_TREE_LEAVES").ok().and_then(|s| s.parse().ok()).unwrap_or(4)
+}
+
+/// The allowlist every case is built against.
+///
+/// The original four are kept, byte for byte and first, because cases name
+/// `[0xa1; 32]` as the payee and a run that quietly paid somebody else would
+/// be a different audit wearing this one's numbers. Extra members are appended
+/// to lengthen the proofs, which is the only thing a bigger tree changes.
+pub fn members() -> Vec<[u8; 32]> {
+    let mut v = vec![[0xa1u8; 32], [0xa2; 32], [0xa3; 32], [0xa4; 32]];
+    for i in 4..tree_leaves() {
+        let mut m = [0u8; 32];
+        m[0] = 0xb0;
+        m[24..32].copy_from_slice(&(i as u64).to_be_bytes());
+        v.push(m);
+    }
+    v
+}
 pub const MAX_FEE: i64 = 100_000;
 pub const IN_VALUE: u64 = 10_000_000_000;
 
@@ -662,9 +699,9 @@ impl Spend {
     pub fn run(&self) -> Result<(), TxScriptError> {
         let kp = agent_keypair();
         let agent_xonly: [u8; 32] = kp.x_only_public_key().0.serialize();
-        let tree = Tree::new(vec![[0xa1; 32], [0xa2; 32], [0xa3; 32], [0xa4; 32]]);
+        let tree = Tree::new(members());
         let (ps, pr, pi, pe) = self.prev;
-        let c = compiled(self.src, &ctor_at_state(tree.root(), agent_xonly, 4, ps, pr, pi, pe));
+        let c = compiled(self.src, &ctor_at_state(tree.root(), agent_xonly, proof_depth(), ps, pr, pi, pe));
 
         /* The honest successor, which is what the covenant recomputes for
            itself. An epoch that has moved on resets the epoch spend to this
@@ -679,7 +716,7 @@ impl Spend {
             (ps + self.amount, pr, pi, pe + self.amount)
         };
         let (ss, sr, si, se) = self.successor.unwrap_or(honest);
-        let successor = compiled(self.src, &ctor_at_state(tree.root(), agent_xonly, 4, ss, sr, si, se));
+        let successor = compiled(self.src, &ctor_at_state(tree.root(), agent_xonly, proof_depth(), ss, sr, si, se));
 
         // A recipient outside the tree has no proof; borrowing a valid one is
         // the best an attacker can do, and is exactly what a rogue agent would
@@ -897,8 +934,8 @@ fn run_delegation_full(d: &Delegate) -> Result<(), TxScriptError> {
     let kp = agent_keypair();
     let agent_xonly: [u8; 32] = kp.x_only_public_key().0.serialize();
     let child_key = [0x99u8; 32];
-    let tree = Tree::new(vec![[0xa1; 32], [0xa2; 32], [0xa3; 32], [0xa4; 32]]);
-    let depth = 4;
+    let tree = Tree::new(members());
+    let depth = proof_depth();
 
     let parent = compile_contract(
         SOURCE,
@@ -1162,8 +1199,8 @@ impl Exit {
         let agent_xonly: [u8; 32] = agent.x_only_public_key().0.serialize();
         let principal = principal_keypair();
         let revocation = revocation_keypair();
-        let tree = Tree::new(vec![[0xa1; 32], [0xa2; 32], [0xa3; 32], [0xa4; 32]]);
-        let c = compile_contract(SOURCE, &ctor_with_authority(tree.root(), agent_xonly, 4), CompileOptions::default())
+        let tree = Tree::new(members());
+        let c = compile_contract(SOURCE, &ctor_with_authority(tree.root(), agent_xonly, proof_depth()), CompileOptions::default())
             .expect("compiles");
 
         let payee = self.pay_to.unwrap_or_else(|| principal.x_only_public_key().0.serialize());
@@ -1274,7 +1311,7 @@ fn solve_geometry() -> Result<(i64, i64), String> {
     let a = default_authority();
     let (mut prefix, mut suffix) = (1i64, 2900i64);
     for round in 0..8 {
-        let probe = compile_contract(SOURCE, &ctor_full(4, a, [0x51; 32], (prefix, suffix)), CompileOptions::default())
+        let probe = compile_contract(SOURCE, &ctor_full(proof_depth(), a, [0x51; 32], (prefix, suffix)), CompileOptions::default())
             .map_err(|e| format!("{e:?}"))?;
         let (p, sfx) = measure_state_region(&probe.bytecode, a, (prefix, suffix))?;
         if (p, sfx) == (prefix, suffix) {
@@ -1315,7 +1352,7 @@ fn measure_state_region(reference: &[u8], authority: Authority, geometry: (i64, 
 /// The same constructor with every byte[32] state field moved and every
 /// integer left alone.
 fn ctor_probe(authority: Authority, geometry: (i64, i64)) -> Vec<Expr<'static>> {
-    let mut v = ctor_full(4, authority, [0x47; 32], geometry);
+    let mut v = ctor_full(proof_depth(), authority, [0x47; 32], geometry);
     v[3] = Expr::bytes(vec![0x44; 32]);   // genesisAgentKey
     v[8] = Expr::bytes(vec![0x46; 32]);   // genesisRecipientsRoot
     v[20] = Expr::bytes(vec![0x48; 32]);  // initReserveRoot
@@ -1334,7 +1371,7 @@ pub fn template_id_for(authority: Authority) -> [u8; 32] {
         return *v;
     }
     let (p, sfx) = template_geometry();
-    let probe = compile_contract(SOURCE, &ctor_full(4, authority, [0u8; 32], (p, sfx)), CompileOptions::default())
+    let probe = compile_contract(SOURCE, &ctor_full(proof_depth(), authority, [0u8; 32], (p, sfx)), CompileOptions::default())
         .expect("template id probe must compile");
     let code = &probe.bytecode;
     let mut pre = Vec::new();
@@ -1449,9 +1486,9 @@ impl Settle {
         );
         let tid = template_id_for(authority);
         let geo = template_geometry();
-        let tree = Tree::new(vec![[0xa1; 32], [0xa2; 32], [0xa3; 32], [0xa4; 32]]);
+        let tree = Tree::new(members());
         let child_key = [0x99u8; 32];
-        let depth = 4;
+        let depth = proof_depth();
 
         let ch = Child {
             budget: self.child_budget,

@@ -504,10 +504,17 @@ fn subject() -> Subject {
              transaction in this run where it is the only thing wrong — the refusals that would \
              prove it are indistinguishable from the co-input check firing first.".into(),
             "The subset witness: a child narrowing its allowlist to a subtree.".into(),
-            "<b>Any grant shape but one.</b> Every case runs against a single parameterisation — \
-             100 KAS, a 2 KAS per-spend cap, delegation depth 2, a four-member allowlist, \
-             <code>maxProofDepth</code> 4. Whether the same boundaries hold at depth 16, or with a \
-             65,536-member tree, or a one-sompi budget, is untested.".into(),
+            format!(
+                "<b>One grant shape per run.</b> Every case here runs against a single \
+                 parameterisation — 100 KAS, a 2 KAS per-spend cap, delegation depth 2, a \
+                 {}-member allowlist, <code>maxProofDepth</code> {}. Whether the same boundaries \
+                 hold at another shape — a one-sompi budget, a different delegation depth — is \
+                 untested by <em>this</em> run. The allowlist size and proof depth are \
+                 <code>WARDA_TREE_LEAVES</code> and <code>WARDA_PROOF_DEPTH</code>, so those two \
+                 axes can be re-run rather than argued about.",
+                warda_harness::tree_leaves(),
+                warda_harness::proof_depth(),
+            ),
             "Anything above the script engine — a node's mempool policy, relay rules, or what a \
              wallet does with a transaction before it is broadcast.".into(),
             "The residual described in <code>GUARANTEES.md</code>: allowance from unused epochs \

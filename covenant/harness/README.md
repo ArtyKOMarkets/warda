@@ -278,10 +278,27 @@ not necessarily not.
 
 It also reports **which constructor arguments move the script size**, by
 doubling each integer in turn and recompiling. For this covenant exactly one
-does: `maxProofDepth`, at +568 bytes per doubling — which is the same figure
-`LIMITS.md` measured by hand, arrived at from the other direction. A size or
-headroom figure quoted without its constructor is not a figure about the
-covenant.
+does: `maxProofDepth`. A size or headroom figure quoted without its
+constructor is not a figure about the covenant.
+
+**This pass reports that cost as "+568 bytes per doubling", and that phrasing
+is a trap it laid for itself.** The scan doubles each integer once, from 4 to
+8, and +568 is what that step costs. The cost is not per doubling, it is
+**linear in depth — 142 bytes a level** — so the next doubling, 8 to 16, costs
++1,136 and the one after +2,274. Anyone reasoning "depth 16 is two doublings,
+so +1,136" is out by a third; it is +1,704. `cargo run --release --bin size`
+prints the table this was measured from.
+
+`PHASE0.md` measured ~71 bytes a level, on the pre-v4 covenant. This is 142.
+The factor of two is **not explained here** — it is recorded so that whoever
+needs the real number measures it rather than inheriting either figure.
+
+| depth | payees | cost over depth 4 |
+|---:|---:|---:|
+| 4 | 16 | — |
+| 8 | 256 | +568 |
+| 16 | 65,536 | +1,704 |
+| 32 | 4.3B | +3,978 |
 
 The first version of this pass reported 148,634 bytes, because its placeholder
 for every integer was 1,000 and `maxProofDepth` is a loop bound. The number was
