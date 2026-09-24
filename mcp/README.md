@@ -4,10 +4,34 @@ An MCP server that lets an agent framework reason about its own economic
 authority, and drive a grant's whole life — spend, delegate, settle, revoke,
 and find it again when the record goes stale — without a Kaspa integration.
 
+Nothing to install and no Kaspa of your own. Put this in your client's config
+— `claude_desktop_config.json` for Claude Desktop, `.cursor/mcp.json` for
+Cursor — and restart it:
+
+```json
+{
+  "mcpServers": {
+    "warda": { "command": "npx", "args": ["-y", "@warda_protocol/mcp"] }
+  }
+}
+```
+
+Cold, with an empty npm cache, that is about seven seconds to eleven tools.
+
+```bash
+npx -y @warda_protocol/mcp     # the same thing, by hand, speaking stdio
+```
+
+From a checkout instead:
+
 ```bash
 node --experimental-strip-types src/server.ts    # stdio
 npm test                                          # 34 tests, real transport
 ```
+
+That last pair used to be the whole of this section, which was the wrong
+instruction for the only readers this file has: people who arrive from the MCP
+registry and will never clone anything.
 
 ## It builds. It does not sign, and it does not enforce.
 

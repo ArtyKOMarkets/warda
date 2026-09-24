@@ -3,11 +3,19 @@
 One short command for the whole life of a grant.
 
 ```bash
-npx warda key --out wallet.key                  # fund the address it prints
+npm install -g @warda_protocol/cli
+
+warda key --out wallet.key                      # fund the address it prints
 echo kaspatest:qq7x…jaam3e > payees.txt         # everyone this agent may ever pay
-WARDA_SK=$(cat wallet.key) npx warda grant --payees payees.txt --budget 10 --max-per-spend 1
-npx warda pay https://warda-demo-api.vercel.app/fact
+WARDA_SK=$(cat wallet.key) warda grant --payees payees.txt --budget 10 --max-per-spend 1
+warda pay https://warda-demo-api.vercel.app/fact
 ```
+
+Without installing anything, `npx -p @warda_protocol/cli warda <command>` runs
+the same binary. **Not `npx warda`** — there is no package called `warda` on
+npm, so that is a 404 rather than a slow first run. This file said `npx warda`
+for its whole life, which made the first command a stranger ever ran the one
+that could not work.
 
 ```
 warda node                    is a node worth believing? (run this first)

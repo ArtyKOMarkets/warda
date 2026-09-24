@@ -323,6 +323,7 @@
   footer a:hover { color: var(--teal); }
 
 {{NAV_CSS}}
+{{QUICKSTART_CSS}}
 </style>
 
 {{NAV}}
@@ -416,6 +417,43 @@
       <div><dt>Ends</dt><dd>in 30 days<small>or the moment you say stop</small></dd></div>
     </dl>
     <p class="terms-foot rise" style="--d:260ms">These are not settings. They are conditions on the money, checked by every node on the network.</p>
+  </div>
+</section>
+
+
+<!-- What using it looks like.
+     `_quickstart.css` has said since it was written that this block belongs
+     "above every word of prose on /start and in the landing page's build
+     section", and the landing page never got it. The question a developer
+     arrives with is what using this looks like, and no amount of correct
+     explanation answers it.
+
+     {{QUICKSTART}} is the same partial /start and /protocol render. One
+     definition, because a second copy of a quickstart drifts from the first
+     and the drift is always discovered by somebody following it. -->
+<section class="band" id="start">
+  <div class="wrap">
+    <p class="eyebrow rise">What using it looks like</p>
+    <h2 class="rise" style="--d:80ms">Seven seconds to a bounded agent.<span>Nothing synced, no node, no key we ever see.</span></h2>
+    {{QUICKSTART}}
+    <p class="qs-note rise" style="--d:200ms">Or give the agent the tools directly. This is the whole configuration &mdash;
+    <code>claude_desktop_config.json</code> for Claude Desktop, <code>.cursor/mcp.json</code> for Cursor:</p>
+    <pre class="tm" data-label="JSON"><code>{
+  <span class="s">"mcpServers"</span>: {
+    <span class="s">"warda"</span>: {
+      <span class="s">"command"</span>: <span class="a">"npx"</span>,
+      <span class="s">"args"</span>: [<span class="a">"-y"</span>, <span class="a">"@warda_protocol/mcp"</span>]
+    }
+  }
+}</code></pre>
+    <p class="qs-note rise" style="--d:260ms">Restart the client and the agent has <strong>eleven tools</strong> &mdash; among them
+    <em>what may I spend right now</em>, and <em>would this payment be accepted, and if not, which limit stopped it</em>.
+    The server never holds a key and enforces nothing: it builds unsigned transactions and explains verdicts.
+    The covenant is what refuses.</p>
+    <div class="btns rise" style="--d:320ms">
+      <a class="btn" href="/start">The walkthrough &rarr;</a>
+      <a class="btn solid" href="/grant">Get a funded testnet grant &rarr;</a>
+    </div>
   </div>
 </section>
 
