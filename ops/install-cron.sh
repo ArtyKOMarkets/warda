@@ -6,6 +6,8 @@
 #   ops/install-cron.sh --buy      that, and agent #003's daily purchase
 #   ops/install-cron.sh --interop  and agent #005 buying from a third party
 #   ops/install-cron.sh --growth   and the growth fleet's weekly batch
+#   ops/install-cron.sh --grants   and pending grant requests are issued
+#                                  without waiting for a person
 #   ops/install-cron.sh --listener and the Listener's twice-daily X pass
 #   ops/install-cron.sh --auditor  and keeps the covenant auditor answering
 #
@@ -70,6 +72,15 @@ LISTENERENTRY="13 8,20 * * * $LISTENER >> $LISTENERLOG 2>&1"
 # off 12-hour spacing was considered and is WRONG: with an 11-hour gap the
 # software epoch never rolls on that pass at all. The fix for that lives in
 # rollEpoch in growth/tools/listen.ts, not in this schedule.
+# The unattended grant issuer. Opt-in, because it gives testnet money away
+# without asking — which is the point, and is still not a thing to switch on
+# by surprise. Off the quarter-hour so it is not queued behind the watchers.
+# ops/grants.ts refuses to run it against the main funder; it funds from
+# ops/auto-issue.key and the float's balance is the only bound on genesis.
+AUTOISSUE="$OPS/auto-issue.sh"
+AUTOISSUELOG="$HOME/Library/Logs/warda-grants.log"
+AUTOISSUEENTRY="7,22,37,52 * * * * $AUTOISSUE >> $AUTOISSUELOG 2>&1"
+
 HEARTBEAT="$OPS/listener-heartbeat.sh"
 HEARTBEATENTRY="5 21 * * * $HEARTBEAT >> $LISTENERLOG 2>&1"
 
@@ -152,6 +163,8 @@ NO_BUY=""
 WANT_INTEROP=""
 NO_INTEROP=""
 WANT_GROWTH=""
+WANT_GRANTS=""
+NO_GRANTS=""
 WANT_LISTENER=""
 NO_LISTENER=""
 WANT_AUDITOR=""
@@ -164,6 +177,8 @@ for a in "$@"; do
   [ "$a" = "--no-interop" ] && NO_INTEROP=1
   [ "$a" = "--growth" ] && WANT_GROWTH=1
   [ "$a" = "--no-growth" ] && NO_GROWTH=1
+  [ "$a" = "--grants" ] && WANT_GRANTS=1
+  [ "$a" = "--no-grants" ] && NO_GRANTS=1
   [ "$a" = "--listener" ] && WANT_LISTENER=1
   [ "$a" = "--no-listener" ] && NO_LISTENER=1
   [ "$a" = "--auditor" ] && WANT_AUDITOR=1
@@ -253,6 +268,13 @@ if printf '%s\n' "$current" | grep -q -F "auditor-up.sh"; then
   fi
 fi
 
+if printf '%s\n' "$current" | grep -q -F "auto-issue.sh"; then
+  if [ -n "$NO_GRANTS" ]; then
+    echo "removing the unattended grant issuer, as asked. Requests go back to waiting for you."
+  else
+    WANT_GRANTS=1
+  fi
+fi
 if printf '%s\n' "$current" | grep -q -F "listener-pass.sh"; then
   if [ -n "$NO_LISTENER" ]; then
     echo "removing the Listener's twice-daily X pass, as asked."
@@ -266,6 +288,7 @@ printf '%s\n' "$current" \
   | grep -v -F "weekly-growth.sh" \
   | grep -v -F "listener-pass.sh" \
   | grep -v -F "listener-heartbeat.sh" \
+  | grep -v -F "auto-issue.sh" \
   | grep -v -F "xreads-up.sh" \
   | grep -v -F "auditor-up.sh" \
   | grep -v -F "daily-buy.sh" \
@@ -289,6 +312,9 @@ if [ -n "$WANT_BUY" ]; then printf '%s\n' "$BUYENTRY" >> /tmp/warda-cron.$$; fi
 if [ -n "$WANT_INTEROP" ]; then printf '%s\n' "$INTEROPENTRY" >> /tmp/warda-cron.$$; fi
 if [ -n "$WANT_GROWTH" ]; then printf '%s\n' "$GROWTHENTRY" >> /tmp/warda-cron.$$; fi
 if [ -n "$WANT_AUDITOR" ]; then printf '%s\n' "*/5 * * * * $AUDITORUP >> $AUDITORLOG 2>&1" >> /tmp/warda-cron.$$; fi
+if [ -n "$WANT_GRANTS" ]; then
+  printf '%s\n' "$AUTOISSUEENTRY" >> /tmp/warda-cron.$$
+fi
 if [ -n "$WANT_LISTENER" ]; then
   printf '%s\n' "$LISTENERENTRY" >> /tmp/warda-cron.$$
   printf '%s\n' "$HEARTBEATENTRY" >> /tmp/warda-cron.$$
