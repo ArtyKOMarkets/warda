@@ -122,6 +122,39 @@ const MOSTLY_LINKS = (text: string) => text.replace(/https?:\/\/\S+/g, "").repla
 const FIRST_PERSON = /\b(i|we|my|our)\s+\w{0,6}\s?(built|build|building|shipped|made|wrote|ran|running|run|deployed|tried|hit|use|using|switched|tested)\b|\b(my|our)\s+(@?[\w.-]+\s+){0,2}(agent|agents|bot|wallet|script|setup)\b/i;
 
 /** Concrete nouns. Weak on their own — a topic, not a person with a problem. */
+/**
+ * Somebody saying the thing is bad.
+ *
+ * The fourth signal about the post itself, and the one the first three missed.
+ * "even mcp man doesn't know of the horrors of paid mcps" is not a question,
+ * not first-person about their own agent, and not THE_QUESTION -- it is a
+ * developer telling another developer that this hurts, which is the best
+ * possible moment to be useful and was banded `skip`.
+ *
+ * Paired with the lane at the band, never scored on its own: crypto is full
+ * of people saying things are broken.
+ */
+const PAIN = /\b(horror|horrors|nightmare|a mess|painful|infuriating|frustrating|hate (it|that|this|paying)|so annoying|broken|doesn'?t work|a pain|pain in the)\b/i;
+
+/**
+ * The lanes, by who was found in them on 24 September. Not a permanent truth
+ * about these words -- a measurement of one day, to be re-measured when the
+ * replies stop landing.
+ */
+export const LANES = {
+  dev: ["paid MCP", "spending limits"],
+  farm: ["x402", "agent payments"],
+};
+
+/**
+ * Mathematical alphanumeric symbols: 𝗔𝗥𝗕𝗜𝗧𝗥𝗨𝗠, 𝗢𝗻𝗲 𝗸𝗲𝘆 𝗿𝗲𝗮𝘀𝗼𝗻.
+ *
+ * Nobody writing a sentence to another person reaches for U+1D400. It is what
+ * you use to make a post look like a headline in a feed that strips
+ * formatting, and in this corpus it is a perfect predictor of reply-farming.
+ */
+const FAKE_BOLD = /[\u{1D400}-\u{1D7FF}]/u;
+
 const TECHNICAL = /\b(402|sdk|endpoint|repo|github|testnet|mainnet|webhook|api key|signature|private key|rate limit)\b/i;
 
 /**
@@ -129,6 +162,27 @@ const TECHNICAL = /\b(402|sdk|endpoint|repo|github|testnet|mainnet|webhook|api k
  * the forms a person uses when they want an answer.
  */
 const ASKING = /\b(how do (i|you)|how are (you|people)|anyone (know|tried|using|else|got)|does anyone|has anyone|looking for|what'?s the best|is there a|any (recommendations|suggestions|ideas)|struggling with|can'?t figure|not sure how|what safeguards|what stops)\b/i;
+
+/**
+ * And the form the list above missed: a sentence that OPENS on an
+ * interrogative and ends in a question mark.
+ *
+ * Found in the data rather than reasoned about. "Is MCP access a separate
+ * charge, or included in an existing plan?" is a developer asking a direct
+ * question about the exact problem this project addresses, and it scored a 3
+ * and was banded skip, because none of the phrasings above appear in it.
+ *
+ * Still not a bare `?` — headlines end in those, and the first version of this
+ * file excluded them for that reason. The opening word is what separates a
+ * question from a rhetorical flourish.
+ *
+ * `(?:@\w+\s+)*` is not decoration. Nearly every reply on X opens with the
+ * handles it is replying to, so an `^` anchor matches almost nothing in a
+ * corpus that is mostly replies — and replies are where the conversations
+ * are. The first version of this regex missed the post it was written for
+ * because "Is MCP access a separate charge" was preceded by three handles.
+ */
+const INTERROGATIVE = /(^|[.!?]\s+)(?:@\w+\s+)*(is|are|does|do|can|could|should|how|what|why|who|where|when)\b[^.!?]{10,160}\?/i;
 
 /**
  * The question Warda answers, asked by somebody who does not know Warda
@@ -177,19 +231,25 @@ export function score(post: Post, options: ScoreOptions = {}): Scored {
      flat "matched". */
   add(post.matched.length * 2, post.matched.length === 1 ? `matched ${post.matched[0]}` : `matched ${post.matched.join(", ")}`);
 
+
   const hours = (Date.now() - new Date(post.at).getTime()) / 3_600_000;
 
   /* The three signals about the POST rather than about the search. At least
      one has to fire or nothing below can lift this over the floor — see the
      band rule at the end. */
+  const devLane = post.matched.some((m) => LANES.dev.includes(m));
   const theQuestion = THE_QUESTION(post.text);
   const firstPerson = FIRST_PERSON.test(post.text);
-  const asking = ASKING.test(post.text);
+  const asking = ASKING.test(post.text) || INTERROGATIVE.test(post.text);
 
   if (theQuestion) add(5, "asking what bounds an agent — the question Warda answers");
   if (firstPerson) add(4, "describing their own work, not a product's");
   else if (TECHNICAL.test(post.text)) add(1, "concrete, but not first-hand");
   if (asking) add(3, "actually asking, not a headline");
+  /* Scored, not just banded. A signal that only moves the band cannot lift a
+     post over the floor, so the first version of PAIN changed the verdict on
+     @daradoescode and left it at 3 — correctly classified and still unsent. */
+  if (devLane && PAIN.test(post.text)) add(3, "saying it hurts, in the lane developers use");
 
   /* Account quality. Followers are a weak proxy and treated as one: a bounded
      bonus, never a multiplier, because a 500k-follower take is not worth more
@@ -209,6 +269,7 @@ export function score(post: Post, options: ScoreOptions = {}): Scored {
   else add(-1, "no discussion, and old enough that there should be");
 
   if (NOT_A_CONVERSATION.test(post.text)) add(-8, "reads like promotion");
+  if (FAKE_BOLD.test(post.text)) add(-8, "typeset as a headline, not written to anybody");
   if (PROMO.test(post.text)) add(-5, "a launch announcement");
   if (NEWSY.test(post.text) && !FIRST_PERSON.test(post.text)) add(-3, "coverage of somebody else's news");
   if (MOSTLY_LINKS(post.text)) add(-4, "a link and tags, not a point");
@@ -231,7 +292,18 @@ export function score(post: Post, options: ScoreOptions = {}): Scored {
    * is left alone rather than fudged: it reports what it found, and this
    * decides what that is worth.
    */
-  const band = !(theQuestion || firstPerson || asking)
+  /* The lane decides who is talking; the signals decide whether they are
+     talking about anything. Measured on 24 September: `paid MCP` produced
+     working developers, `x402` and `agent payments` produced reply-farming
+     almost exclusively -- same topic, different populations. So pain counts
+     as a signal in the developer lane and not outside it, and nothing from a
+     farm lane interrupts anybody however well it scores. */
+  const farmOnly = post.matched.length > 0 && post.matched.every((m) => LANES.farm.includes(m));
+  const hurting = devLane && PAIN.test(post.text);
+
+  const band = farmOnly && !(theQuestion || firstPerson)
+    ? "skip"
+    : !(theQuestion || firstPerson || asking || hurting)
     ? "skip" as const
     : n >= high ? "high" as const : n >= floor ? "worth a look" as const : "skip" as const;
   if (band === "skip" && n >= floor) why.push("(nothing about the post itself, only the search)");

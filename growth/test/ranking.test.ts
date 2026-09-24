@@ -126,3 +126,43 @@ test("the same line posted twice is one candidate", async () => {
   const r = await listen(fetcher, { since: "2026-09-23T00:00:00Z", limit: 10 }, q);
   assert.equal(r.found.length + r.rejected.length, 1, "the repost should have folded into the first");
 });
+
+/* ------------------------------------------------------------------------ *
+ * 24 September. The pass read 28 posts and the two that were unmistakably
+ * the audience — working developers, replying to each other, about paid MCPs
+ * being a mess — both scored 3 and were banded `skip`, below five posts of
+ * bold-unicode reply-farming. The lane the post was found in turned out to
+ * predict who wrote it better than anything in the text did.
+ * ------------------------------------------------------------------------ */
+
+test("a developer saying it hurts, in the lane developers use, is the whole point", () => {
+  const s = score(p("@RhysSullivan @maria_rcks even mcp man doens't know of the horrors of paid mcps",
+    { matched: ["paid MCP"] }));
+  assert.notEqual(s.band, "skip", s.why.join(" "));
+  assert.ok(s.score >= 6, `scored ${s.score}: a band without points cannot clear the floor`);
+});
+
+test("the same complaint outside the developer lane is not a reason to interrupt", () => {
+  /* Crypto is full of people saying things are broken. PAIN counts where the
+     population was measured, and nowhere else. */
+  const s = score(p("@someone the whole agent payments space is a mess honestly",
+    { matched: ["agent payments"] }));
+  assert.equal(s.band, "skip", s.why.join(" "));
+});
+
+test("a reply opening with handles is still a question", () => {
+  /* Nearly every reply on X opens with the handles it answers, so an `^`
+     anchor matches almost nothing in a corpus that is mostly replies. This
+     exact post was missed for that reason. */
+  const s = score(p("@gen_z_PE @maria_rcks @pendev Is MCP access a separate charge, or included in an existing paid plan? Those feel quite different when you already pay for the app.",
+    { matched: ["paid MCP"] }));
+  assert.ok(s.why.some((w) => w.includes("actually asking")), s.why.join(" "));
+  assert.notEqual(s.band, "skip", s.why.join(" "));
+});
+
+test("a headline typeset in mathematical bold was not written to anybody", () => {
+  const s = score(p("\u{1D5D4}\u{1D5E5}\u{1D5D5}\u{1D5DC}\u{1D5E7}\u{1D5E5}\u{1D5E8}\u{1D5E0} IS QUIETLY BUILDING x402 agent payments",
+    { matched: ["x402", "agent payments"] }));
+  assert.ok(s.score < 0, `scored ${s.score}`);
+  assert.equal(s.band, "skip", s.why.join(" "));
+});
