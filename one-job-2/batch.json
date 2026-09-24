@@ -1,0 +1,49 @@
+{
+  "name": "one-job",
+  "network": "testnet-10",
+  "manifest": "/Users/artautasjasinskas/Desktop/warda/one-job-2/grant.json",
+  "openedAt": "2026-09-24T11:49:51.183Z",
+  "closedAt": "2026-09-24T11:58:10.063Z",
+  "outstanding": [],
+  "log": [
+    {
+      "at": "2026-09-24T11:49:51.183Z",
+      "what": "open",
+      "who": "one-job",
+      "detail": "/Users/artautasjasinskas/Desktop/warda/one-job-2/grant.json"
+    },
+    {
+      "at": "2026-09-24T11:49:52.923Z",
+      "what": "hire",
+      "who": "research",
+      "sompi": "25000000",
+      "txid": "e889c208983f033d3f84822c3d1a54771f1d5399987fea5632dc27765ec6a787",
+      "detail": "may pay 254385aa03abefa1… and nothing else"
+    },
+    {
+      "at": "2026-09-24T11:50:09.695Z",
+      "what": "hire",
+      "who": "verify",
+      "sompi": "22000000",
+      "txid": "a7f3ea9f5d1c32d91f70cdd4905737653a5b96966f1cfc5a5ab410599fa26361",
+      "detail": "may pay 8e5ec153d5e3f099… and nothing else"
+    },
+    {
+      "at": "2026-09-24T11:57:38.194Z",
+      "what": "settle",
+      "who": "verify",
+      "txid": "1c6b956e4e601101a1b070bc036ecf3267df02c97a1b19bd1ec5c6f5168be534"
+    },
+    {
+      "at": "2026-09-24T11:57:54.952Z",
+      "what": "settle",
+      "who": "research",
+      "txid": "290e06f53a5d39369dd756b552ef83064fab3b950a739c85cd19f10be1c65887"
+    },
+    {
+      "at": "2026-09-24T11:58:10.064Z",
+      "what": "close",
+      "who": "one-job"
+    }
+  ]
+}

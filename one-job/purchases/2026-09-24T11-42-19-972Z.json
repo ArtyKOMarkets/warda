@@ -1,0 +1,56 @@
+{
+  "_comment": "Written by agent-002/tools/buy.ts. One file per attempt, refusals included: a purchase log that only records successes is a sales brochure.",
+  "at": "2026-09-24T11:42:19.972Z",
+  "agent": "ONE-JOB-RESEARCH",
+  "url": "https://warda-growth.vercel.app/verify?url=https%3A%2F%2Fgithub.com%2Fkaspanet%2Fsilverscript",
+  "task": "research https://github.com/kaspanet/silverscript",
+  "proof": {
+    "header": "eyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJ0ZXN0bmV0LTEwIiwicGF5ZXIiOiJrYXNwYXRlc3Q6cHpqd3FmcWd3ZjByMnl0ZzdweTR6NnU0MHdkNDc5NmFzODlxZ2Z5aGp2Mjg3YXp2eTJlMnFoOWN3cmx0NyIsInR4aWQiOiIzOTFmYzVhMGQyMmIxNGM1ZThhMzBlZTRkMDNkMTU1ZjVjOGVkYzUwNGViZjVjZGNmYjAzMmNiYjM1ZWI0OWYwIiwiYW1vdW50U29tcGkiOiI1MDAwMDAwIiwibm9uY2UiOiIxNzkwMjUwMjYxNjY5LjBkOTUzMmNiZjJlYTBjNDcyNzZlY2Y2ZGJmYTkyM2Y3In0=",
+    "txid": "391fc5a0d22b14c5e8a30ee4d03d155f5c8edc504ebf5cdcfb032cbb35eb49f0",
+    "amountSompi": "5000000",
+    "payTo": "kaspatest:qqj58pd2qw47lg2wn97srt27dwxp8jj2hfasxrt8tjjeytpelzh5sa2mpucwy"
+  },
+  "outcome": "bought",
+  "status": 200,
+  "quoted": {
+    "payTo": "kaspatest:qqj58pd2qw47lg2wn97srt27dwxp8jj2hfasxrt8tjjeytpelzh5sa2mpucwy",
+    "amountSompi": "5000000"
+  },
+  "txid": "391fc5a0d22b14c5e8a30ee4d03d155f5c8edc504ebf5cdcfb032cbb35eb49f0",
+  "sellerClaimed": null,
+  "resumedFrom": null,
+  "response": {
+    "project": "https://github.com/kaspanet/silverscript",
+    "checkedAt": "2026-09-24T11:42:24.269Z",
+    "findings": [
+      {
+        "fact": "the repository kaspanet/silverscript is public",
+        "source": "https://api.github.com/repos/kaspanet/silverscript"
+      },
+      {
+        "fact": "its main language is Rust",
+        "source": "https://api.github.com/repos/kaspanet/silverscript"
+      },
+      {
+        "fact": "56 stars",
+        "source": "https://api.github.com/repos/kaspanet/silverscript"
+      },
+      {
+        "fact": "last pushed 2026-09-09, which is 14 days ago",
+        "source": "https://api.github.com/repos/kaspanet/silverscript"
+      }
+    ],
+    "unverified": [
+      "whether anyone there wants to pay for anything, which only they can say",
+      "who to contact — the profile publishes no channel",
+      "whether they welcome being contacted"
+    ],
+    "signals": [
+      "mentions Kaspa: kaspa (https://github.com/kaspanet/silverscript/blob/master/README.md)"
+    ],
+    "paidTo": "kaspatest:qqj58pd2qw47lg2wn97srt27dwxp8jj2hfasxrt8tjjeytpelzh5sa2mpucwy",
+    "settledBy": "391fc5a0d22b14c5e8a30ee4d03d155f5c8edc504ebf5cdcfb032cbb35eb49f0",
+    "verified": "a UTXO at this endpoint's payee address, from that transaction, for exactly the quoted amount",
+    "readFrom": "a public node found by a resolver, over borsh, because this vendor's own node could not be reached. A node this vendor does not control is answering whether you paid it."
+  }
+}

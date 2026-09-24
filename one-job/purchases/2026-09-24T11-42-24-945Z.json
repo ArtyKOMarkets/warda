@@ -1,0 +1,14 @@
+{
+  "_comment": "Written by agent-002/tools/buy.ts. One file per attempt, refusals included: a purchase log that only records successes is a sales brochure.",
+  "at": "2026-09-24T11:42:24.945Z",
+  "agent": "ONE-JOB-VERIFY",
+  "url": "https://warda-node.tailc0c0ec.ts.net:8443/v1/report",
+  "task": "audit warda_grant.sil",
+  "outcome": "failed",
+  "txid": null,
+  "quoted": {
+    "payTo": "kaspatest:qz89as2n6h3lpxdkfkgdsej2ed3px0vxl3jwdy7hxv9rm39t7ynjgq4ala62q",
+    "amountSompi": "4000000"
+  },
+  "error": "this payment of 4000000 sompi is too SMALL to broadcast. Kaspa charges storage mass for the small outputs a transaction creates: this one massed 583334 against a ceiling of 500000. Nothing about the grant was exceeded and nothing was spent — the amount itself is below what the network will carry. In practice payments under about 0.02 KAS cannot be made, whatever the budget allows."
+}

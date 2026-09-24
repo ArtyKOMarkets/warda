@@ -1,0 +1,36 @@
+{
+  "startedAt": "2026-09-24T11:38:41.934Z",
+  "done": {
+    "keys": {
+      "at": "2026-09-24T11:38:42.184Z",
+      "note": "a coordinator key, two worker keys, and an allowlist of exactly two sellers"
+    },
+    "genesis": {
+      "at": "2026-09-24T11:38:42.314Z",
+      "txid": "aa554d6d6bf7ff2be2f7bd0dacaa3a044a889331ff580c548e72374b149ef295",
+      "note": "coordinator: 0.5 KAS, two payees"
+    },
+    "open": {
+      "at": "2026-09-24T11:38:57.430Z"
+    },
+    "hire-research": {
+      "at": "2026-09-24T11:38:59.164Z",
+      "txid": "97f740764f8966512f7caa5ab1ace13cb6c4595291e87412e347a891d7994071",
+      "note": "research: 0.15 KAS, may pay ONE seller"
+    },
+    "hire-verify": {
+      "at": "2026-09-24T11:39:15.961Z",
+      "txid": "289ab42aeb6ae1a3038168e8891b864103b0df2b2486aae40d9ebe7b3784a9d1",
+      "note": "verify: 0.12 KAS, may pay ONE seller"
+    },
+    "buy-research": {
+      "at": "2026-09-24T11:42:24.836Z",
+      "note": "a record about https://github.com/kaspanet/silverscript"
+    }
+  },
+  "stoppedAt": {
+    "step": "buy-verify",
+    "reason": "the audit purchase did not complete — is the Auditor answering?",
+    "at": "2026-09-24T11:42:25.093Z"
+  }
+}

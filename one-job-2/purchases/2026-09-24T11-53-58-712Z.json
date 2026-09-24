@@ -1,0 +1,29 @@
+{
+  "_comment": "Written by agent-002/tools/buy.ts. One file per attempt, refusals included: a purchase log that only records successes is a sales brochure.",
+  "at": "2026-09-24T11:53:58.712Z",
+  "agent": "ONE-JOB-VERIFY",
+  "url": "https://warda-node.tailc0c0ec.ts.net:8443/v1/report",
+  "task": "audit warda_grant.sil",
+  "proof": {
+    "header": "eyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJ0ZXN0bmV0LTEwIiwicGF5ZXIiOiJrYXNwYXRlc3Q6cHpxNzh2dGxrcHhlNW13cnF2ZGx4c2p6MmFoOGtxdmprM3RxZ2d2eWd0OWE0dTV6bGpncnlsbW1obnZuZSIsInR4aWQiOiJlOTJiZDcwNWYzMTIzODMwMzZmZWZlY2M5ZGNlNjliNTVkMTZiZjRmNTVjNGUxNjU2ZTM5ZWU1ZjliOWFmZWJlIiwiYW1vdW50U29tcGkiOiI0MDAwMDAwIiwibm9uY2UiOiIxNzkwMjUwNzQ5NjA3LjI0Yzg0NjRjODRmNzRhODdiNzY4YjVhNmIwOTdkMWMzIn0=",
+    "txid": "e92bd705f312383036fefecc9dce69b55d16bf4f55c4e1656e39ee5f9b9afebe",
+    "amountSompi": "4000000",
+    "payTo": "kaspatest:qz89as2n6h3lpxdkfkgdsej2ed3px0vxl3jwdy7hxv9rm39t7ynjgq4ala62q"
+  },
+  "outcome": "paid-but-refused",
+  "status": 409,
+  "quoted": null,
+  "txid": "e92bd705f312383036fefecc9dce69b55d16bf4f55c4e1656e39ee5f9b9afebe",
+  "sellerClaimed": null,
+  "resumedFrom": "e92bd705f312383036fefecc9dce69b55d16bf4f55c4e1656e39ee5f9b9afebe",
+  "response": {
+    "error": "this payment has already been served",
+    "settledBy": "e92bd705f312383036fefecc9dce69b55d16bf4f55c4e1656e39ee5f9b9afebe",
+    "detail": "One payment buys one delivery. The coin is still in the UTXO set and always will be, so presenting it again proves nothing new. Buy again to get another."
+  },
+  "resolvedBy": {
+    "at": "2026-09-24T11:57:36.483Z",
+    "status": 200,
+    "record": "2026-09-24T11-57-35-500Z.json"
+  }
+}

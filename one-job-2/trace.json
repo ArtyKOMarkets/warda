@@ -1,0 +1,290 @@
+{
+  "_comment": "Written by growth/tools/one-job.ts. Every txid is a transaction this run broadcast.",
+  "generated": "2026-09-24T12:03:13.779Z",
+  "target": "https://github.com/kaspanet/silverscript",
+  "coordinator": {
+    "covenant": "b3e5eeefacf2021f",
+    "covenant_id": "1e1cd60640641975cf6ab0042562ac177a87b49a6fc282c00060ec261a4a1332",
+    "agent": "670a96b856419c3359acff0db6cd65d505c336d2a765480b97c2324bbb7a34c4",
+    "agent_key_derived": null,
+    "principal": "0393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34f",
+    "revocation": "4c36442ee9f1677a04c72b29931a18bbe085b44bb2da165a965b4d9bd1fc4897",
+    "recipients_root": "8c5b3907aedbe94d63b409792b50ab6f5fda0428f16cef22a81ccf74b7517d4d",
+    "created_at_daa": 579173558,
+    "not_before": 579173558,
+    "expires_at": 581765558,
+    "budget": 80000000,
+    "max_per_spend": 5000000,
+    "epoch_limit": 80000000,
+    "epoch_length": 1000,
+    "delegation_depth": 2,
+    "grant_value": 56200000,
+    "spent_total": 9000000,
+    "reserved": 0,
+    "epoch_index": 0,
+    "epoch_spent": 0,
+    "reserve_root": "803b111f3c3952f7b7c9cb2bd240759e755a85ab2c6223614d08f216dd6a3bd1"
+  },
+  "plan": {
+    "parentBudget": "80000000",
+    "parentMaxPerSpend": "5000000",
+    "parentWindowDaa": "2592000",
+    "research": {
+      "budget": "25000000",
+      "cap": "5000000",
+      "epoch": "15000000"
+    },
+    "verify": {
+      "budget": "22000000",
+      "cap": "4000000",
+      "epoch": "12000000"
+    },
+    "childWindowDaa": "864000"
+  },
+  "workers": [
+    {
+      "name": "research",
+      "agentKey": "757169df9419e89ee4759a4687967419aab8823f221a4261adc8edcdba4bdc86",
+      "payee": "254385aa03abefa14e997d01ad5e6b8c13ca4aba7b030d675ca5922c39f8af48",
+      "grant": {
+        "_comment": "A child grant, created by delegation. Shares its parent's principal and revocation keys: delegation subdivides an agent's budget, it does not hand over the right to revoke or reclaim.",
+        "covenant": "b3e5eeefacf2021f",
+        "covenant_id": "1e1cd60640641975cf6ab0042562ac177a87b49a6fc282c00060ec261a4a1332",
+        "agent": "757169df9419e89ee4759a4687967419aab8823f221a4261adc8edcdba4bdc86",
+        "principal": "0393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34f",
+        "revocation": "4c36442ee9f1677a04c72b29931a18bbe085b44bb2da165a965b4d9bd1fc4897",
+        "agent_key_derived": null,
+        "parent_agent": "670a96b856419c3359acff0db6cd65d505c336d2a765480b97c2324bbb7a34c4",
+        "parent_txid": "e889c208983f033d3f84822c3d1a54771f1d5399987fea5632dc27765ec6a787",
+        "parent_reserve_root_before": "803b111f3c3952f7b7c9cb2bd240759e755a85ab2c6223614d08f216dd6a3bd1",
+        "reserve_root": "803b111f3c3952f7b7c9cb2bd240759e755a85ab2c6223614d08f216dd6a3bd1",
+        "recipients_root": "27c1371f6316aef7515e8e795d3cce0c87a04cdc3db468eb6b10fb00e9f4c0d6",
+        "not_before": 579173558,
+        "expires_at": 580037723,
+        "budget": 25000000,
+        "max_per_spend": 5000000,
+        "epoch_limit": 15000000,
+        "epoch_length": 1000,
+        "delegation_depth": 1,
+        "grant_value": 18000000,
+        "spent_total": 5000000,
+        "reserved": 0,
+        "epoch_index": 0,
+        "epoch_spent": 5000000
+      }
+    },
+    {
+      "name": "verify",
+      "agentKey": "ff95e813e39b501d67e9dc6db3d7bf2e564615a6573998e16e021f9090f66374",
+      "payee": "8e5ec153d5e3f099b64d90d8664acb62133d86fc64e693d7330a3dc4abf12724",
+      "grant": {
+        "_comment": "A child grant, created by delegation. Shares its parent's principal and revocation keys: delegation subdivides an agent's budget, it does not hand over the right to revoke or reclaim.",
+        "covenant": "b3e5eeefacf2021f",
+        "covenant_id": "1e1cd60640641975cf6ab0042562ac177a87b49a6fc282c00060ec261a4a1332",
+        "agent": "ff95e813e39b501d67e9dc6db3d7bf2e564615a6573998e16e021f9090f66374",
+        "principal": "0393133deefc4c8df644f4512978c675a8a090860770d8de7b2d077f2c2df34f",
+        "revocation": "4c36442ee9f1677a04c72b29931a18bbe085b44bb2da165a965b4d9bd1fc4897",
+        "agent_key_derived": null,
+        "parent_agent": "670a96b856419c3359acff0db6cd65d505c336d2a765480b97c2324bbb7a34c4",
+        "parent_txid": "a7f3ea9f5d1c32d91f70cdd4905737653a5b96966f1cfc5a5ab410599fa26361",
+        "parent_reserve_root_before": "4641e3889dae223a879ac365fa4ffb95644eeae8d5441a4880a80f7fd0d57b8e",
+        "reserve_root": "803b111f3c3952f7b7c9cb2bd240759e755a85ab2c6223614d08f216dd6a3bd1",
+        "recipients_root": "f873e14df1e308aec48f2f1bff6653d2ac20e63f9ee1386abc8cf65393debf08",
+        "not_before": 579173558,
+        "expires_at": 580037897,
+        "budget": 22000000,
+        "max_per_spend": 4000000,
+        "epoch_limit": 12000000,
+        "epoch_length": 1000,
+        "delegation_depth": 1,
+        "grant_value": 16000000,
+        "spent_total": 4000000,
+        "reserved": 0,
+        "epoch_index": 0,
+        "epoch_spent": 4000000
+      }
+    }
+  ],
+  "massed": [
+    {
+      "step": "delegate research",
+      "mass": "185329"
+    },
+    {
+      "step": "delegate verify",
+      "mass": "243476"
+    },
+    {
+      "step": "buy research",
+      "mass": "262222"
+    },
+    {
+      "step": "buy verify",
+      "mass": "318182"
+    },
+    {
+      "step": "settle verify",
+      "mass": "0"
+    },
+    {
+      "step": "settle research",
+      "mass": "0"
+    }
+  ],
+  "sellers": {
+    "researcher": "254385aa03abefa14e997d01ad5e6b8c13ca4aba7b030d675ca5922c39f8af48",
+    "auditor": "8e5ec153d5e3f099b64d90d8664acb62133d86fc64e693d7330a3dc4abf12724"
+  },
+  "steps": {
+    "keys": {
+      "at": "2026-09-24T11:49:35.951Z",
+      "note": "a coordinator key, two worker keys, and an allowlist of exactly two sellers"
+    },
+    "genesis": {
+      "at": "2026-09-24T11:49:36.070Z",
+      "txid": "b5338f8f3fbaa91030c2e817e3e1460add198151f575da613a22a848aead6b58",
+      "note": "coordinator: 0.8 KAS, two payees"
+    },
+    "open": {
+      "at": "2026-09-24T11:49:51.202Z"
+    },
+    "hire-research": {
+      "at": "2026-09-24T11:49:52.931Z",
+      "txid": "e889c208983f033d3f84822c3d1a54771f1d5399987fea5632dc27765ec6a787",
+      "note": "research: 0.25 KAS, may pay ONE seller"
+    },
+    "hire-verify": {
+      "at": "2026-09-24T11:50:09.702Z",
+      "txid": "a7f3ea9f5d1c32d91f70cdd4905737653a5b96966f1cfc5a5ab410599fa26361",
+      "note": "verify: 0.22 KAS, may pay ONE seller"
+    },
+    "buy-research": {
+      "at": "2026-09-24T11:50:29.465Z",
+      "note": "a record about https://github.com/kaspanet/silverscript"
+    },
+    "buy-verify": {
+      "at": "2026-09-24T11:57:36.489Z",
+      "note": "an audit of warda_grant.sil, bought by an agent that may pay nobody else"
+    },
+    "settle-verify": {
+      "at": "2026-09-24T11:57:38.203Z",
+      "txid": "1c6b956e4e601101a1b070bc036ecf3267df02c97a1b19bd1ec5c6f5168be534",
+      "note": "verify returned what it did not spend"
+    },
+    "settle-research": {
+      "at": "2026-09-24T11:57:54.959Z",
+      "txid": "290e06f53a5d39369dd756b552ef83064fab3b950a739c85cd19f10be1c65887",
+      "note": "research returned what it did not spend"
+    },
+    "close": {
+      "at": "2026-09-24T11:58:10.068Z"
+    },
+    "trace": {
+      "at": "2026-09-24T12:02:45.897Z",
+      "note": "one-job-2/trace.json"
+    }
+  },
+  "purchases": [
+    {
+      "record": "2026-09-24T11-50-24-806Z.json",
+      "at": "2026-09-24T11:50:24.806Z",
+      "url": "https://warda-growth.vercel.app/verify?url=https%3A%2F%2Fgithub.com%2Fkaspanet%2Fsilverscript",
+      "task": "research https://github.com/kaspanet/silverscript",
+      "outcome": "bought",
+      "status": 200,
+      "txid": "186570c82688f2636e94be1203078bd509b085228db0252ae8578b82c3026be1",
+      "resumedFrom": null,
+      "responseBytes": 1258,
+      "responseSha256": "7112c046113022524ee11d74fef53d0c053f02c36ccce83e0262d30b70749473"
+    },
+    {
+      "record": "2026-09-24T11-50-29-553Z.json",
+      "at": "2026-09-24T11:50:29.553Z",
+      "url": "https://warda-node.tailc0c0ec.ts.net:8443/v1/report",
+      "task": "audit warda_grant.sil",
+      "outcome": "paid-but-refused",
+      "status": 502,
+      "txid": "e92bd705f312383036fefecc9dce69b55d16bf4f55c4e1656e39ee5f9b9afebe",
+      "resumedFrom": null,
+      "responseBytes": 341,
+      "responseSha256": "9c4782954fed07d2fa36774d63aa301661723362f5ca2f6c9eab195e81a57ee6"
+    },
+    {
+      "record": "2026-09-24T11-53-58-712Z.json",
+      "at": "2026-09-24T11:53:58.712Z",
+      "url": "https://warda-node.tailc0c0ec.ts.net:8443/v1/report",
+      "task": "audit warda_grant.sil",
+      "outcome": "paid-but-refused",
+      "status": 409,
+      "txid": "e92bd705f312383036fefecc9dce69b55d16bf4f55c4e1656e39ee5f9b9afebe",
+      "resumedFrom": "e92bd705f312383036fefecc9dce69b55d16bf4f55c4e1656e39ee5f9b9afebe",
+      "responseBytes": 292,
+      "responseSha256": "baebd179e5c0cc38dfd9e10f8b042396bf2d769e895489fe2bcce9f61d74b2d8"
+    },
+    {
+      "record": "2026-09-24T11-55-13-598Z.json",
+      "at": "2026-09-24T11:55:13.598Z",
+      "url": "https://warda-node.tailc0c0ec.ts.net:8443/v1/report",
+      "task": "audit warda_grant.sil",
+      "outcome": "paid-but-refused",
+      "status": 409,
+      "txid": "e92bd705f312383036fefecc9dce69b55d16bf4f55c4e1656e39ee5f9b9afebe",
+      "resumedFrom": "e92bd705f312383036fefecc9dce69b55d16bf4f55c4e1656e39ee5f9b9afebe",
+      "responseBytes": 292,
+      "responseSha256": "baebd179e5c0cc38dfd9e10f8b042396bf2d769e895489fe2bcce9f61d74b2d8"
+    },
+    {
+      "record": "2026-09-24T11-57-35-500Z.json",
+      "at": "2026-09-24T11:57:35.500Z",
+      "url": "https://warda-node.tailc0c0ec.ts.net:8443/v1/report",
+      "task": "audit warda_grant.sil",
+      "outcome": "bought",
+      "status": 200,
+      "txid": "e92bd705f312383036fefecc9dce69b55d16bf4f55c4e1656e39ee5f9b9afebe",
+      "resumedFrom": "e92bd705f312383036fefecc9dce69b55d16bf4f55c4e1656e39ee5f9b9afebe",
+      "responseBytes": 11283,
+      "responseSha256": "c56cca9ff68db1344d72bb8342825c0162c06f33f0d5f931cc668c3811b61949"
+    }
+  ],
+  "batchLog": [
+    {
+      "at": "2026-09-24T11:49:51.183Z",
+      "what": "open",
+      "who": "one-job",
+      "detail": "one-job-2/grant.json"
+    },
+    {
+      "at": "2026-09-24T11:49:52.923Z",
+      "what": "hire",
+      "who": "research",
+      "sompi": "25000000",
+      "txid": "e889c208983f033d3f84822c3d1a54771f1d5399987fea5632dc27765ec6a787",
+      "detail": "may pay 254385aa03abefa1… and nothing else"
+    },
+    {
+      "at": "2026-09-24T11:50:09.695Z",
+      "what": "hire",
+      "who": "verify",
+      "sompi": "22000000",
+      "txid": "a7f3ea9f5d1c32d91f70cdd4905737653a5b96966f1cfc5a5ab410599fa26361",
+      "detail": "may pay 8e5ec153d5e3f099… and nothing else"
+    },
+    {
+      "at": "2026-09-24T11:57:38.194Z",
+      "what": "settle",
+      "who": "verify",
+      "txid": "1c6b956e4e601101a1b070bc036ecf3267df02c97a1b19bd1ec5c6f5168be534"
+    },
+    {
+      "at": "2026-09-24T11:57:54.952Z",
+      "what": "settle",
+      "who": "research",
+      "txid": "290e06f53a5d39369dd756b552ef83064fab3b950a739c85cd19f10be1c65887"
+    },
+    {
+      "at": "2026-09-24T11:58:10.064Z",
+      "what": "close",
+      "who": "one-job"
+    }
+  ]
+}
