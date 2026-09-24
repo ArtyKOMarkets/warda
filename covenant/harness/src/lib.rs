@@ -38,6 +38,10 @@ pub const COV: Hash = Hash::from_bytes(*b"WARDAWARDAWARDAWARDAWARDAWARDAWA");
 
 pub const SOURCE: &str = include_str!("../../warda_grant.sil");
 
+/// C1's working draft: v4 plus `delegate2`. Not audited, not deployed, and no
+/// grant runs it — it is here so the probes can drive it. See covenant/V5.md.
+pub const SOURCE_V5: &str = include_str!("../../warda_grant_v5.sil");
+
 /// The v4 constructor: 21 arguments, in the order `warda_grant.sil` declares.
 ///
 /// This list said "v2 constructor order" for two covenant versions, and was
@@ -1367,15 +1371,32 @@ pub mod oracle;
 /// size, so changing them changes the bytecode, which changes them. Solved
 /// once, cached, and it refuses to guess if it does not settle.
 pub fn template_geometry() -> (i64, i64) {
-    *TEMPLATE_GEOMETRY.get_or_init(|| solve_geometry().expect("template geometry must settle"))
+    template_geometry_of(SOURCE)
 }
-static TEMPLATE_GEOMETRY: std::sync::OnceLock<(i64, i64)> = std::sync::OnceLock::new();
 
-fn solve_geometry() -> Result<(i64, i64), String> {
+/// The same fixed point, for any source.
+///
+/// v5 is a longer script, so its prefix and suffix are different numbers and
+/// its templateId is a different hash. A probe that drove v5 with v4's
+/// geometry would compile children whose templateId never matches, and the
+/// engine would refuse every one of them for a reason that names nothing —
+/// which is the failure mode this whole file exists to avoid.
+pub fn template_geometry_of(src: &'static str) -> (i64, i64) {
+    if let Some(v) = TEMPLATE_GEOMETRY.lock().unwrap().get(&(src.as_ptr() as usize)) {
+        return *v;
+    }
+    let g = solve_geometry(src).expect("template geometry must settle");
+    TEMPLATE_GEOMETRY.lock().unwrap().insert(src.as_ptr() as usize, g);
+    g
+}
+static TEMPLATE_GEOMETRY: std::sync::LazyLock<std::sync::Mutex<HashMap<usize, (i64, i64)>>> =
+    std::sync::LazyLock::new(|| std::sync::Mutex::new(HashMap::new()));
+
+fn solve_geometry(src: &'static str) -> Result<(i64, i64), String> {
     let a = default_authority();
     let (mut prefix, mut suffix) = (1i64, 2900i64);
     for round in 0..8 {
-        let probe = compile_contract(SOURCE, &ctor_full(proof_depth(), a, [0x51; 32], (prefix, suffix)), CompileOptions::default())
+        let probe = compile_contract(src, &ctor_full(proof_depth(), a, [0x51; 32], (prefix, suffix)), CompileOptions::default())
             .map_err(|e| format!("{e:?}"))?;
         let (p, sfx) = measure_state_region(&probe.bytecode, a, (prefix, suffix))?;
         if (p, sfx) == (prefix, suffix) {
@@ -1431,11 +1452,16 @@ fn ctor_probe(authority: Authority, geometry: (i64, i64)) -> Vec<Expr<'static>> 
 /// suffix the hash covers — which is the binding that stops a parent
 /// reabsorbing a child it does not own.
 pub fn template_id_for(authority: Authority) -> [u8; 32] {
-    if let Some(v) = TEMPLATE_IDS.lock().unwrap().get(&authority) {
+    template_id_of(SOURCE, authority)
+}
+
+/// The template hash `readInputStateWithTemplate` recomputes, for any source.
+pub fn template_id_of(src: &'static str, authority: Authority) -> [u8; 32] {
+    if let Some(v) = TEMPLATE_IDS.lock().unwrap().get(&(src.as_ptr() as usize, authority)) {
         return *v;
     }
-    let (p, sfx) = template_geometry();
-    let probe = compile_contract(SOURCE, &ctor_full(proof_depth(), authority, [0u8; 32], (p, sfx)), CompileOptions::default())
+    let (p, sfx) = template_geometry_of(src);
+    let probe = compile_contract(src, &ctor_full(proof_depth(), authority, [0u8; 32], (p, sfx)), CompileOptions::default())
         .expect("template id probe must compile");
     let code = &probe.bytecode;
     let mut pre = Vec::new();
@@ -1444,11 +1470,11 @@ pub fn template_id_for(authority: Authority) -> [u8; 32] {
     pre.extend_from_slice(&(sfx).to_le_bytes());
     pre.extend_from_slice(&code[code.len() - sfx as usize..]);
     let id = *blake3::hash(&pre).as_bytes();
-    TEMPLATE_IDS.lock().unwrap().insert(authority, id);
+    TEMPLATE_IDS.lock().unwrap().insert((src.as_ptr() as usize, authority), id);
     id
 }
 
-static TEMPLATE_IDS: std::sync::LazyLock<std::sync::Mutex<HashMap<Authority, [u8; 32]>>> =
+static TEMPLATE_IDS: std::sync::LazyLock<std::sync::Mutex<HashMap<(usize, Authority), [u8; 32]>>> =
     std::sync::LazyLock::new(|| std::sync::Mutex::new(HashMap::new()));
 
 /// Run the engine over EVERY input, not just one.
