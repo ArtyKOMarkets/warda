@@ -218,6 +218,59 @@ feed teaches you to stop reading it.
 
 ---
 
+## Telling silence apart from failure
+
+A pass that finds nothing exits 0 and sends nothing. That is deliberate and it
+is right: a twice-daily "nothing today" is the message that teaches you to stop
+opening the feed. The price of it is that four different things look identical
+from a phone --
+
+- the pass ran and nothing scored above the band,
+- the pass ran and its epoch was already spent,
+- the pass could not run,
+- cron is not installed at all.
+
+On 23 September the second one happened. A manual `--direct --send` run at
+12:48 UTC spent the epoch; the 20:13 pass ran, found nothing affordable, took
+its early return, and said nothing for eighteen hours. Nothing was broken and
+there was no way to know that.
+
+Two things fix it, and neither of them makes the feed noisier.
+
+**`growth/listener/passes.jsonl`** -- one line per pass, written on every exit
+path including the one that buys nothing. Before this, the only trace of a pass
+was `state.json`'s `lastRunAt`, which the *next* pass overwrites.
+
+    tail -3 growth/listener/passes.jsonl
+
+**The daily heartbeat**, 21:05, after the evening pass:
+
+    ops/listener-heartbeat.sh          # or run it by hand, any time
+
+It reports on the passes rather than on the posts, and it reads nothing but
+those two local files -- no chain, no seller, no X. A watchdog that can fail
+for the same reasons as the thing it watches is not a watchdog. It exits 1, and
+says so in capitals, when no pass has been recorded in fourteen hours.
+
+## The epoch boundary, and why it is a grid
+
+`epochStart` in `src/epoch.ts` decides when the software allowance resets. It
+used to be three lines inside `tools/listen.ts` reading "if twelve hours have
+passed, start a new epoch now" -- which is wrong in a way that only shows up on
+a schedule. Anchoring to *now* puts the boundary on a pass time; the passes are
+twelve hours apart; so the next pass lands on the boundary to the second and
+cron jitter decides which side. One pass in four died that way, silently.
+
+Rescheduling does not fix it. An 11-hour gap never reaches the boundary at all,
+so 08:13/21:13 under the old rule was worse -- seven dead passes in sixteen.
+The fix is that the boundary sits on a fixed grid from the first epoch's start
+and never moves to meet the observer, with five minutes of slack for jitter.
+`test/epoch.test.ts` holds all of it, and fails five ways against the old rule.
+
+None of this is the limit. The covenant counts DAA, not seconds, and can still
+refuse a spend the software thought was fine. That refusal costs no coin, gets
+recorded, and is the backstop doing its job.
+
 ## X's terms, and what they decided
 
 Two things here are shaped by [X's Developer Policy](https://docs.x.com/developer-terms/policy)

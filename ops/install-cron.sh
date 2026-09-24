@@ -63,6 +63,16 @@ LISTENER="$OPS/listener-pass.sh"
 LISTENERLOG="$HOME/Library/Logs/warda-listener.log"
 LISTENERENTRY="13 8,20 * * * $LISTENER >> $LISTENERLOG 2>&1"
 
+# The heartbeat, at 21:05 -- after the evening pass, so its report includes
+# the pass that just ran. The pass itself is deliberately silent when it finds
+# nothing; this is what keeps that silence readable, because a spent epoch, a
+# quiet day and a dead cron are otherwise the same message. Moving the pass
+# off 12-hour spacing was considered and is WRONG: with an 11-hour gap the
+# software epoch never rolls on that pass at all. The fix for that lives in
+# rollEpoch in growth/tools/listen.ts, not in this schedule.
+HEARTBEAT="$OPS/listener-heartbeat.sh"
+HEARTBEATENTRY="5 21 * * * $HEARTBEAT >> $LISTENERLOG 2>&1"
+
 # The seller the Listener buys from, kept alive the way the proxy is. A
 # LaunchAgent cannot do this: launchd spawns outside cron's Full Disk Access
 # grant, so it cannot read a script in ~/Desktop at all. Installed with
@@ -255,6 +265,7 @@ printf '%s\n' "$current" \
   | grep -v -F "hourly-reading.sh" \
   | grep -v -F "weekly-growth.sh" \
   | grep -v -F "listener-pass.sh" \
+  | grep -v -F "listener-heartbeat.sh" \
   | grep -v -F "xreads-up.sh" \
   | grep -v -F "auditor-up.sh" \
   | grep -v -F "daily-buy.sh" \
@@ -280,6 +291,7 @@ if [ -n "$WANT_GROWTH" ]; then printf '%s\n' "$GROWTHENTRY" >> /tmp/warda-cron.$
 if [ -n "$WANT_AUDITOR" ]; then printf '%s\n' "*/5 * * * * $AUDITORUP >> $AUDITORLOG 2>&1" >> /tmp/warda-cron.$$; fi
 if [ -n "$WANT_LISTENER" ]; then
   printf '%s\n' "$LISTENERENTRY" >> /tmp/warda-cron.$$
+  printf '%s\n' "$HEARTBEATENTRY" >> /tmp/warda-cron.$$
   printf '%s\n' "*/5 * * * * $XREADSUP >> $LISTENERLOG 2>&1" >> /tmp/warda-cron.$$
 fi
 crontab /tmp/warda-cron.$$

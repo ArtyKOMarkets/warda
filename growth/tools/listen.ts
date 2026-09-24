@@ -60,7 +60,7 @@
  * thread arriving twice; it is the only state whose loss would be felt, and
  * losing it costs duplicate messages rather than duplicate money.
  */
-import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
+import { appendFileSync, mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -70,6 +70,7 @@ import { plan } from "../src/rotate.ts";
 import { alert, summary } from "../src/alert.ts";
 import { score } from "../src/listen.ts";
 import { pruneDir } from "../src/retain.ts";
+import { epochStart } from "../src/epoch.ts";
 import { LISTENER } from "../src/shape.ts";
 
 /**
@@ -103,6 +104,11 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, "..", "..");
 const DIR = join(HERE, "..", "listener");
 const STATE = join(DIR, "state.json");
+/* One line per pass, including the passes that buy nothing. Without it the
+   only trace of a pass is `lastRunAt`, which the NEXT pass overwrites -- so
+   "found nothing", "epoch already spent" and "cron is dead" all look the same
+   from a phone, and the third one is the only one that needs a person. */
+const PASSES = join(DIR, "passes.jsonl");
 
 /* The Listener's own file first, then the alerts bot. `ops/alerts.env`
    already holds a working WARDA_TELEGRAM_TOKEN and chat — the one the growth
@@ -221,11 +227,24 @@ function save(s: State) {
   writeFileSync(STATE, `${JSON.stringify({ ...s, seen: s.seen.slice(-4000) }, null, 2)}\n`);
 }
 
-/** A fresh epoch resets the software allowance, the same way the chain does. */
+function logPass(r: Record<string, unknown>) {
+  mkdirSync(DIR, { recursive: true });
+  try {
+    appendFileSync(PASSES, `${JSON.stringify({ at: new Date().toISOString(), ...r })}\n`);
+  } catch (e) {
+    /* The log is for legibility, not for money. A pass that cannot write it
+       still did its job, and failing here would turn a bookkeeping problem
+       into a missed feed. */
+    console.error(`listener: could not append to ${PASSES}: ${(e as Error).message}`);
+  }
+}
+
+/** A fresh epoch resets the software allowance, the same way the chain does.
+ *  Where the boundary sits, and why it is a fixed grid rather than "now",
+ *  is `epochStart` in ../src/epoch.ts -- it is there so a test can hold it. */
 function rollEpoch(s: State): State {
-  const age = Date.now() - new Date(s.epochStartedAt).getTime();
-  if (age < EPOCH_HOURS * 3_600_000) return s;
-  return { ...s, epochStartedAt: new Date().toISOString(), spentThisEpochSompi: 0 };
+  const next = epochStart(s.epochStartedAt, Date.now(), EPOCH_HOURS);
+  return next === s.epochStartedAt ? s : { ...s, epochStartedAt: next, spentThisEpochSompi: 0 };
 }
 
 /**
@@ -355,6 +374,7 @@ async function main() {
     /* Nothing bought means nothing to report, and reporting nothing every
        twelve hours is how a feed trains you to ignore it. Said on stderr,
        where cron mail will carry it, and not to the phone. */
+    logPass({ searches: 0, why: p.why, reads: 0, sent: 0, spentSompi: 0, funded: state.fundedBy ?? null });
     save({ ...state, lastRunAt: new Date().toISOString() });
     return;
   }
@@ -498,6 +518,9 @@ async function main() {
   state = DIRECT && !SEND
     ? { ...state, cursor: p.nextCursor, lastRunAt: new Date().toISOString() }
     : { ...state, cursor: p.nextCursor, spentThisEpochSompi: state.spentThisEpochSompi + spentThisPass, lastRunAt: new Date().toISOString() };
+  logPass({ searches: p.searches, why: p.why, reads, sent: send.length,
+            skipped: result.rejected.length, spentSompi: spentThisPass,
+            refused: refused ?? null, funded: state.fundedBy ?? null });
   save(state);
   if (refused && !DIRECT) process.exit(3);
 }
