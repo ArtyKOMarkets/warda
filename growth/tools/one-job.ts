@@ -59,6 +59,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { childManifestPath } from "../src/batch.ts";
 
 const GROWTH = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const REPO = resolve(GROWTH, "..");
@@ -85,8 +86,11 @@ const P = {
 };
 
 /* The two sellers, by the key their coin is paid to. Both are listed in
-   agents/known-payees.json and site/services.json, so a reader can check that
-   the coordinator's allowlist names the services this page claims. */
+   site/services.json and each one publishes the same key at its own
+   /.well-known/warda-service.json, so a reader can check that the
+   coordinator's allowlist names the services this claims and not two addresses
+   chosen here. Each worker's cap below is its seller's listed price to the
+   sompi, which is why a worker cannot overpay even by mistake. */
 const RESEARCHER_PAYEE = "254385aa03abefa14e997d01ad5e6b8c13ca4aba7b030d675ca5922c39f8af48";
 const AUDITOR_PAYEE = "8e5ec153d5e3f099b64d90d8664acb62133d86fc64e693d7330a3dc4abf12724";
 const RESEARCHER_URL = (process.env.GROWTH_RESEARCHER_URL ?? "https://warda-growth.vercel.app").replace(/\/$/, "");
@@ -179,7 +183,13 @@ async function main() {
   mkdirSync(P.purchases, { recursive: true });
   const s = load();
   const done = (x: Step) => Boolean(s.done[x]);
-  const childManifest = (n: string) => join(DIR, `child-${n}.json`);
+  const agentPub = (n: string) => readFileSync(join(P.keys, `${n}.key.pub`), "utf8").trim();
+  /* Where `batch.ts hire` puts a child's manifest: beside the parent's, named
+     for the first eight characters of the agent key. Derived the same way the
+     orchestrator derives it, rather than guessed — an earlier version invented
+     `child-<name>.json`, which nothing writes, and the run got all the way to
+     the first purchase before finding out. */
+  const childManifest = (n: string) => childManifestPath(P.grant, agentPub(n));
 
   for (const step of STEPS) {
     if (done(step)) continue;
@@ -237,7 +247,7 @@ async function main() {
         for (let attempt = 1; attempt <= 4; attempt++) {
           r = await run(join(GROWTH, "tools/batch.ts"), [
             "hire", who, "--batch", P.batch, "--payees", P.payees, "--sdk", SDK,
-            "--agent-key", readFileSync(join(P.keys, `${who}.key.pub`), "utf8").trim(),
+            "--agent-key", agentPub(who),
             "--payee", payee,
             "--budget", kas(terms.budget), "--max-per-spend", kas(terms.cap),
             "--epoch-limit", kas(terms.epoch), "--window", String(PLAN.childWindowDaa), "--submit",
@@ -266,6 +276,11 @@ async function main() {
         const r = await run(join(REPO, "agents/tools/buy.ts"), [
           `${AUDITOR_URL}/v1/report`, "--json", "--id", "ONE-JOB-VERIFY", "--grant", childManifest("verify"),
           "--recipients", P.verifyPayees, "--out", P.purchases, "--data", `@${COVENANT}`,
+          /* Silverscript, not JSON. buy.ts parses the body to catch the common
+             case of a malformed prompt before it spends a round trip, and a
+             covenant fails that check — so the type has to say what this
+             actually is. The Auditor reads the raw body and does not care. */
+          "--content-type", "text/plain; charset=utf-8",
           "--task", "audit warda_grant.sil",
         ], REPO, { WARDA_SK: secret(join(P.keys, "verify.key")) });
         if (r.code === 4) stop(s, step, "PAID AND NOT SERVED by the Auditor. Resolve the proof rather than re-running.", 4);
