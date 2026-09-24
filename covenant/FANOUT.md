@@ -22,10 +22,15 @@ hiring is serial. Make it `fanout(to = N+1)` and both limits go at once: the
 children are created together, and from that moment each is its own UTXO and
 genuinely parallel.
 
-**The attribute is not the obstacle.** `#[covenant.fanout]` is documented as a
-1:N construct, and rusty-kaspa carries a two-way fanout test of its own. `to =
-2` is Warda's choice. Nothing here has compiled it at a larger N, so that is a
-claim about the language's documentation rather than about our artefact.
+**The attribute is not the obstacle — measured, 24 September 2026.** `to = 2,
+3, 4, 5` all compile, the script grows linearly at +93 bytes a child, and
+`TxScriptEngine` accepts a 1:N spend at every value tried up to 8. Script units
+grow quadratically (`388N² + 1161N + 616`, fitted to the unit) because reaching
+`newStates[i]` costs something proportional to `i` — but one signature is
+100,000 units on its own, so the whole transaction is 11 budget units at N = 2
+and 14 at N = 8, against a ceiling of 65,535. `covenant/probes/` has both
+probes and `covenant/V5.md` the numbers. `to = 2` was Warda's choice, and
+nothing about the language or the engine is what would stop a larger one.
 
 **Three real costs, in the order they bite:**
 
