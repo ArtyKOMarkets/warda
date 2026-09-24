@@ -10,10 +10,10 @@ and which claims were not reachable by a constructed transaction.
 
 | | |
 |---|---|
-| Cases executed | 118 |
+| Cases executed | 129 |
 | Baseline accepted | yes |
-| Published claims covered | 38 of 39 |
-| Rules `enforced` | 36 (13 at a measured boundary) |
+| Published claims covered | 39 of 40 |
+| Rules `enforced` | 37 (13 at a measured boundary) |
 | Violations | 0 |
 | Over-refusals | 0 |
 | Rules `assumed` | 0 |
@@ -59,7 +59,8 @@ rather than left out of the count.
 | `auth_spend` | the agent signed it | flip |
 | `delegate` | the child cannot exceed the parent's uncommitted budget | boundary |
 | `delegate` | every attenuable field only narrows | boundary |
-| `delegate` | the allowlist is inherited exactly | flip |
+| `delegate` | the allowlist is inherited, or narrowed to a subtree of it | flip |
+| `delegate` | a narrowed child cannot reach the rest of its parent's allowlist | flip |
 | `delegate` | the child starts clean | flip |
 | `delegate` | the parent changes in exactly one way | flip |
 | `delegate` | coin follows authority | flip |
@@ -108,7 +109,8 @@ because the case is a single field away from the accepted baseline.
 - `delegation start` — *flip* — the child starts clean
 - `delegation reserve` — *flip* — the parent changes in exactly one way: reserved + child.budgetTotal
 - `delegation budget` — *boundary* — child.budgetTotal <= budgetTotal - committed
-- `delegation allowlist` — *flip* — child.recipientsRoot == recipientsRoot
+- `delegation allowlist` — *flip* — empty witness, so the fold returns the parent's own root
+- `subset narrows` — *flip* — merkleRoot(recipient, proof) == recipientsRoot, the CHILD's
 - `delegation coin` — *flip* — outputs[1].value == child.budgetTotal
 - `delegation fanout` — *flip* — OpAuthOutputCount == 2, fanout(to = 2)
 - `revoke signature` — *flip* — checkSig(s, revocationKey)
@@ -211,7 +213,18 @@ because the case is a single field away from the accepted baseline.
 | delegation reserve | reserve one KAS over | refuse | refused | ok |
 | delegation budget | a child taking exactly the parent's uncommitted budget | accept | accepted | ok |
 | delegation budget | one sompi more than the parent has left | refuse | refused | ok |
+| delegation allowlist | a child inheriting the whole allowlist | accept | accepted | ok |
 | delegation allowlist | a child claiming a different allowlist with an empty witness | refuse | refused | ok |
+| delegation allowlist | a child narrowed to a subtree, with the path to prove it | accept | accepted | ok |
+| delegation allowlist | a child narrowed to ONE member — the leaf hash, depth zero | accept | accepted | ok |
+| delegation allowlist | a root that is in no tree, carrying a real node's witness | refuse | refused | ok |
+| delegation allowlist | the right node, every sibling side flipped | refuse | refused | ok |
+| delegation allowlist | the right node, a witness borrowed from another tree | refuse | refused | ok |
+| subset narrows | a child narrowed to one member paying that member | accept | accepted | ok |
+| subset narrows | the same child reaching for a member only its PARENT may pay | refuse | refused | ok |
+| subset narrows | …offering that member's valid proof against the PARENT's root | refuse | refused | ok |
+| subset narrows | a child narrowed to a subtree paying inside it | accept | accepted | ok |
+| subset narrows | the same child reaching outside its subtree, with a parent-valid proof | refuse | refused | ok |
 | delegation coin | the child's coin exactly its budget | accept | accepted | ok |
 | delegation coin | the child's coin one sompi short of its budget | refuse | refused | ok |
 | delegation coin | one sompi over | refuse | refused | ok |
@@ -273,8 +286,7 @@ indistinguishable from one that cannot, so the run deletes
 ## What this run did not test
 
 - One claim on settle: that output 0 is the co-input grant's single authorised continuation. The baseline builds exactly that shape, so there is no transaction in this run where it is the only thing wrong — the refusals that would prove it are indistinguishable from the co-input check firing first.
-- The subset witness: a child narrowing its allowlist to a subtree.
-- Any grant shape but one. Every case runs against a single parameterisation — 100 KAS, a 2 KAS per-spend cap, delegation depth 2, a four-member allowlist, maxProofDepth 4. Whether the same boundaries hold at depth 16, or with a 65,536-member tree, or a one-sompi budget, is untested.
+- One grant shape per run. Every case here runs against a single parameterisation — 100 KAS, a 2 KAS per-spend cap, delegation depth 2, a 4-member allowlist, maxProofDepth 4. Whether the same boundaries hold at another shape — a one-sompi budget, a different delegation depth — is untested by this run. The allowlist size and proof depth are WARDA_TREE_LEAVES and WARDA_PROOF_DEPTH, so those two axes can be re-run rather than argued about.
 - Anything above the script engine — a node's mempool policy, relay rules, or what a wallet does with a transaction before it is broadcast.
 - The residual described in GUARANTEES.md: allowance from unused epochs stays spendable after the chain passes expiresAt. That is a property of the design, correctly implemented, not a defect the engine can report.
 
