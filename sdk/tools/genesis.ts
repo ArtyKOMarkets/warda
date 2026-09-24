@@ -96,7 +96,33 @@ const key = toHex(agentPublicKey(secret));
    stopped being publishable) when the template became a real JSON import.
    The values are parsed into bigints downstream; only the static type is being
    corrected here. */
-const template = covenantTemplate as unknown as CovenantTemplate;
+const packaged = covenantTemplate as unknown as CovenantTemplate;
+
+/* `--template <path>` — a DIFFERENT covenant, and the loudest thing this tool
+   can say about it.
+ *
+ * The packaged template is the default and stays the default: a covenant read
+ * from a path is a covenant somebody chose, and the failure it enables is a
+ * grant funded at an address derived from a template nobody deployed. But
+ * there is now more than one covenant — see covenant/versions.json — and
+ * without this there is no way to create a grant under any of them, which
+ * would mean the only way to try a new covenant is to publish it as the
+ * default first. That is the wrong order.
+ *
+ * So: allowed, named in the output, and the fingerprint printed either way so
+ * a reader can check which covenant they just funded against versions.json.
+ */
+const template: CovenantTemplate = (() => {
+  const named = flag("template");
+  if (!named) return packaged;
+  const tpl = JSON.parse(readFileSync(new URL(named, `file://${process.cwd()}/`), "utf8")) as CovenantTemplate;
+  console.error(
+    `covenant: ${templateFingerprint(tpl)} from ${named}\n` +
+    `  NOT the packaged template (${templateFingerprint(packaged)}). Check it against\n` +
+    `  covenant/versions.json before funding anything at the address below.`,
+  );
+  return tpl;
+})();
 /* Resolved and CHECKED together: a prefix and a network that disagree
    derive a well-formed address on the wrong chain, which holds nothing and
    is indistinguishable from a grant that was drained. See network.ts. */
