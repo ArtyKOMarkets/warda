@@ -64,6 +64,13 @@ if (!verifyDigest(sig, built.childSighash, fromHex(d.authority.revocationKey))) 
 const res = await fetch(`${String(d.runner).replace(/\/$/, "")}/v1/returns/${d.id}/signature`, {
   method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ signature: toHex(sig) }),
 });
-const out = await res.json().catch(() => ({}));
+/* Typed at the boundary rather than trusted: `res.json()` is `unknown`, and
+   the four reads below are the only thing this tool prints. A shape stated
+   here is a shape the compiler can hold us to; `unknown` spread across four
+   template holes is four silent `undefined`s if the runner ever renames a
+   field. Every one is optional because this is a remote answer and the error
+   path reaches the first of them. */
+type ReturnAck = { error?: string; recoveredKas?: string | number; parent?: string; txid?: string };
+const out = (await res.json().catch(() => ({}))) as ReturnAck;
 if (!res.ok) { console.error(`the runner refused: ${out.error ?? res.status}`); process.exit(1); }
 console.log(`  done. ${out.recoveredKas} KAS is back in ${out.parent}'s grant.\n  transaction ${out.txid}`);
