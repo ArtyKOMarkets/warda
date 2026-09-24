@@ -201,12 +201,20 @@ fn main() {
     println!("C1 — conservation across N children\n");
 
     // ---- the builder, proved ------------------------------------------
+    //
+    // Every line below that means anything is a FLIP: it derives from a
+    // baseline the engine accepted and changes exactly one field, so the
+    // refusal can only have been caused by that field. audit.rs says why —
+    // "assert!(is_err()) against a baseline that never passed proves nothing:
+    // the transaction might be refused for any reason at all." The engine's
+    // own message is the same sentence for every refusal, so the construction
+    // has to carry the meaning rather than the error text.
     println!("BUILDER");
     let one = delegate_n(&[kid(0)], &ParentClaim::default());
     match &one {
-        Ok(()) => println!("  N = 1, honest        ACCEPTED   — the generalised builder walks the known-good path"),
+        Ok(()) => println!("  N = 1, honest              ACCEPTED   — the baseline. Every flip below derives from it."),
         Err(e) => {
-            println!("  N = 1, honest        REFUSED — {e}");
+            println!("  N = 1, honest              REFUSED — {e}");
             println!("\n  The builder is wrong, not the covenant. Nothing below means anything:");
             println!("  a case list run through a builder that cannot construct a valid");
             println!("  delegation reports the builder's shape, not the covenant's rules.");
@@ -215,7 +223,7 @@ fn main() {
     }
     let over = delegate_n(&[kid(0), kid(1)], &ParentClaim::default());
     println!(
-        "  N = 2, honest        {}",
+        "  N = 2, honest              {}   [NOT a flip — see below]",
         match &over {
             Ok(()) => "ACCEPTED   — v4 was supposed to refuse this. Read the covenant before reading anything else.".to_string(),
             Err(e) => format!("REFUSED — {e}"),
@@ -233,7 +241,7 @@ fn main() {
     ] {
         let r = delegate_n(&[kid(0)], &claim);
         println!(
-            "  N = 1, {label:<12} {}",
+            "  N = 1, {label:<18} {}   [flip of the accepted baseline: meaningful]",
             match &r {
                 Ok(()) => "ACCEPTED   — conservation is NOT being checked. Stop and read the covenant.".to_string(),
                 Err(e) => format!("REFUSED — {e}"),
@@ -243,12 +251,19 @@ fn main() {
 
     let three = delegate_n(&[kid(0), kid(1), kid(2)], &ParentClaim::default());
     println!(
-        "  N = 3, honest        {}",
+        "  N = 3, honest              {}   [NOT a flip — see below]",
         match &three {
             Ok(()) => "ACCEPTED   — v4 was supposed to refuse this too.".to_string(),
             Err(e) => format!("REFUSED — {e}"),
         }
     );
+
+    println!();
+    println!("  The two N = 1 flips are evidence: the baseline was accepted, one field moved,");
+    println!("  and the engine refused. The N = 2 and N = 3 lines are NOT — there is no");
+    println!("  accepted multi-child baseline to flip against on v4, so all they show is that");
+    println!("  the arity check refuses them. They say nothing about conservation, and the");
+    println!("  engine's message is the same sentence either way.");
 
     // ---- the specification ---------------------------------------------
     let cases = [
