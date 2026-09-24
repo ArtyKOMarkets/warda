@@ -91,42 +91,53 @@ the end of its window. `verify-grant` reports the figure for a given grant.
 *If you need a hard stop:* `revoke`. It is the only mechanism that ends a grant
 immediately, and it requires somebody online to use it.
 
-### Reserve is never released
+### Reserve is released only by settling the child
 
-Nothing decrements `reserved`. `auth_spend` requires it unchanged, `delegate`
-adds to it, and the exits are terminal. So a parent with a 500,000,000 budget
-can delegate 500,000,000 **in total across its entire life**. Reclaiming a
-child returns the coin to the principal but does not restore the parent's
-capacity to delegate again.
+`auth_spend` requires `reserved` unchanged and the exits are terminal, so for a
+live child the coin stays committed. The one path that gives it back is
+`reabsorb`, which consumes the parent and the child in the same transaction and
+requires
 
-*Consequence:* lanes cannot be churned. Either delegate long-lived children, or
-size the parent for total lifetime delegation, or issue fresh top-level grants
-— which is cheap, and is what the principal should do when they are available.
+```
+require(child.reserved   == 0);
+require(reserved         >= child.budgetTotal);
+require(newState.reserved   == reserved - child.budgetTotal);
+require(newState.spentTotal == spentTotal + child.spentTotal);
+require(newState.spentTotal + newState.reserved <= budgetTotal);
+```
 
-*Why it is not built — corrected.* This section previously said a release path
-was blocked because the parent cannot verify a child's `budgetTotal` and
-`spentTotal` without compiling the child's script inside script. That was
-wrong, and it is worth recording as an error rather than quietly editing:
-Silverscript provides `readInputStateWithTemplate(inputIndex, prefixLen,
-suffixLen, expectedTemplateHash)`, which slices the claimed redeem script out
-of a foreign input's signature script, checks `templateHash(prefix, suffix)`
-against a trusted value, proves that P2SH of that script equals the foreign
-input's actual `scriptPublicKey`, and only then decodes the state.
+so the parent is charged what the child actually spent and gets the rest of its
+capacity back. A parent can therefore recycle a lane: settle the child, then
+delegate again out of the freed reserve.
 
-That is exactly the primitive a reabsorb path needs, and no Merkle accumulator
-is required. A settle transaction consumes the parent and the child together;
-the parent reads the child's real `budgetTotal` and `spentTotal` from input 1
-and requires `reserved -= child.budgetTotal` and `spentTotal += child.spentTotal`,
-which preserves the invariant exactly.
+*What it costs:* settling is LIFO. `child.reserved == 0` means a subtree
+settles from the leaves up, and the reserve chain is popped from the end, so a
+child settled out of order is refused. A long-lived child at the bottom of the
+chain holds everything above it. Sizing a parent for its total lifetime
+delegation is still the simplest thing to do; recycling is available when it is
+worth the ordering.
 
-One wrinkle decides the shape: `expectedTemplateHash` must be trusted data, and
+*Correction, recorded rather than quietly edited.* This section previously said
+"nothing decrements `reserved`" and "still not built" — true of v3, wrong since
+`5b046fa` shipped `reabsorb`/`settle` in v4. An earlier version of it also said
+a release path was blocked because the parent cannot verify a child's
+`budgetTotal` and `spentTotal` without compiling the child's script inside
+script. That was wrong too: Silverscript provides
+`readInputStateWithTemplate(inputIndex, prefixLen, suffixLen,
+expectedTemplateHash)`, which slices the claimed redeem script out of a foreign
+input's signature script, checks `templateHash(prefix, suffix)` against a
+trusted value, proves that P2SH of that script equals the foreign input's
+actual `scriptPublicKey`, and only then decodes the state. That is the
+primitive `reabsorb` is built on, and no Merkle accumulator was required.
+
+One wrinkle decided its shape: `expectedTemplateHash` must be trusted data, and
 it cannot be a constructor constant, because the hash covers the prefix and
-suffix that would contain it — a hash preimage fixed point. It has to be a
-STATE field, where it sits between prefix and suffix and is therefore not
-covered, and where a wrong value simply produces a different address.
+suffix that would contain it — a hash preimage fixed point. It is a STATE
+field, where it sits between prefix and suffix and is therefore not covered,
+and where a wrong value simply produces a different address.
 
-Still not built. But it is a covenant change of known shape, not a limitation
-of the model.
+Settlement found two holes of its own on the way in; both are in the record
+below.
 
 ### One child per delegation
 

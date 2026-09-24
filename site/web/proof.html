@@ -617,8 +617,11 @@
       moment, never that it is before one, and the claimed time comes from the agent. Unused
       allowance from earlier epochs stays spendable after expiry. <code>revoke</code> is the only
       immediate stop, and it needs somebody online.</li>
-      <li><b>The reserve is never released.</b> A parent can delegate its budget once across its
-      whole life. Reclaiming a child returns the coin but not the capacity.</li>
+      <li><b>A reserve comes back only when the child is settled.</b> While a child is live its
+      budget stays committed against the parent, and <code>reclaim</code> returns the coin without
+      the capacity. <code>reabsorb</code> is the one path that restores it, and it settles
+      leaves-first: a child with children of its own cannot be settled, and a child settled out of
+      order is refused.</li>
       <li><b>The epoch limit bounds one grant, not a subtree.</b> A parent limited to 5 KAS per
       epoch can delegate ten children at 5 KAS each. The total is still bounded exactly by the
       budget; the <em>rate</em> limit degrades under delegation.</li>
