@@ -62,6 +62,7 @@ h1 .r{color:var(--refuse)}
 .stat .n.t{color:var(--teal)} .stat .n.r{color:var(--refuse)}
 .stat .s{font-size:30px;color:var(--dim);line-height:1.4;max-width:20ch}
 .lede{font-size:31px;color:var(--dim);line-height:1.46;max-width:34ch}
+.foot .credit{text-transform:none;letter-spacing:.01em;font-size:21px;color:var(--dim)}
 </style><body>
 """
 
@@ -87,6 +88,85 @@ def stat(n, cls, s):
 
 def lede(t): return f'<p class="lede">{t}</p>'
 
+
+def dag(seed=11):
+    """The epoch strip: Kaspa blocks as the covenant's only unit of time.
+
+    Three lanes rather than one chain, because Kaspa's blocks are a DAG and a
+    single-file chain drawn here would be a picture of a different network.
+    Two blocks carry the two payments this grant's epoch limit allows. The
+    block COUNT is not to scale -- 1,000 will not fit and the bracket says so
+    -- but the lanes, the pitch and the parallel edges are the shape of it.
+    """
+    import random
+    rnd = random.Random(seed)
+    W = 1428
+    PITCH, BW, BH = 24, 16, 16
+    LANES = [92, 128, 164]
+    OFF = [0, 11, 5]
+    n = (W - BW) // PITCH + 1
+    paid = (14, 41)                      # bottom lane, so the pins hang clear
+    o = ['<svg width="%d" height="310" viewBox="0 0 %d 310" fill="none" '
+         'xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Three lanes '
+         'of Kaspa blocks. A bracket across all of them is labelled one epoch, '
+         '1,000 blocks. Two blocks are marked as the two payments the grant '
+         'allows inside it, about 100 seconds at ten blocks a second.">' % (W, W)]
+
+    # Edges first, so the blocks sit on top. Adjacent lanes only: every block
+    # joined to every other is a hairball, not a DAG.
+    for li, y in enumerate(LANES):
+        for i in range(n - 1):
+            x = i * PITCH + OFF[li]
+            for lj, y2 in enumerate(LANES):
+                if abs(lj - li) != 1 or rnd.random() > 0.36:
+                    continue
+                x2 = (i + 1) * PITCH + OFF[lj]
+                if x2 + BW > W:
+                    continue
+                o.append('<path d="M%d %d L%d %d" stroke="#25404F" stroke-width="1"/>'
+                         % (x + BW, y + BH / 2, x2, y2 + BH / 2))
+
+    for li, y in enumerate(LANES):
+        for i in range(n):
+            x = i * PITCH + OFF[li]
+            if x + BW > W:
+                continue
+            hit = li == 2 and i in paid
+            if hit:
+                o.append('<rect x="%d" y="%d" width="%d" height="%d" rx="9" '
+                         'fill="#14D7C1" opacity="0.16"/>'
+                         % (x - 9, y - 9, BW + 18, BH + 18))
+            o.append('<rect x="%d" y="%d" width="%d" height="%d" rx="3" fill="%s" '
+                     'stroke="%s" stroke-width="%s"/>'
+                     % (x, y, BW, BH, "#14D7C1" if hit else "#14222B",
+                        "#14D7C1" if hit else "#273C48", "2" if hit else "1"))
+
+    # The epoch bracket, broken around its own label rather than knocked out.
+    LX, RX = 512, 916          # the bracket breaks WIDE of its own label
+    o.append('<path d="M1 66 L1 44 L%d 44" stroke="#06BBA1" stroke-width="2" '
+             'stroke-linecap="square"/>' % LX)
+    o.append('<path d="M%d 44 L1427 44 L1427 66" stroke="#06BBA1" stroke-width="2" '
+             'stroke-linecap="square"/>' % RX)
+    o.append('<text x="714" y="52" text-anchor="middle" fill="#14D7C1" '
+             'font-family="JB, monospace" font-size="20" letter-spacing="2.6">'
+             '1,000 BLOCKS = ONE EPOCH</text>')
+
+    # What the two lit blocks are.
+    for k, i in enumerate(paid):
+        x = i * PITCH + OFF[2] + BW / 2
+        o.append('<path d="M%s %d L%s %d" stroke="#06BBA1" stroke-width="2"/>'
+                 % (x, LANES[2] + BH + 6, x, 224))
+        o.append('<text x="%s" y="252" text-anchor="middle" fill="#14D7C1" '
+                 'font-family="JB, monospace" font-size="18" letter-spacing="1.6">'
+                 'PAYMENT %d</text>' % (x, k + 1))
+
+    o.append('<text x="714" y="300" text-anchor="middle" fill="#8D989E" '
+             'font-family="JB, monospace" font-size="20" letter-spacing="1.8">'
+             'AT 10 BLOCKS A SECOND, THAT IS ~100 SECONDS</text>')
+    o.append("</svg>")
+    return "".join(o)
+
+
 C = []
 C.append(card(1, "Bring your agent", 'We fund it.<br>Then you <span class="r">try to break it</span>.',
   '<div class="terms">' + "".join(
@@ -97,16 +177,24 @@ C.append(card(1, "Bring your agent", 'We fund it.<br>Then you <span class="r">tr
   "If you break it, we publish it"))
 
 C.append(card(2, "Live on testnet-10", 'The private key is<br><span class="t">published on the site</span>.',
-  lede("Not a hash of it. The key. It holds funded testnet money, anyone can take it, and the most anyone has managed is buying one vendor&rsquo;s API a few more times."),
+  lede("Not a hash of it. The key. It has held funded testnet money since 2 September and anyone can take it &mdash; all it can buy is one vendor&rsquo;s API, 0.1 KAS at a time."),
   "wardaprotocol.com/attack"))
 
-C.append(card(3, "23 September 2026", 'The network<br><span class="r">said no</span>.',
-  '<div class="pane no"><p class="quote">this invoice is 5000000 sompi and only <span class="hl">0 remains in the current epoch (0)</span>. The allowance refreshes as the chain advances &mdash; and cannot be refreshed by claiming an earlier epoch, which the covenant refuses.</p></div>',
-  "No coin moved &middot; no fee"))
+# Card 3 was "The network said no", quoting a refusal the network never saw:
+# that message is thrown client-side by payNow() in the SDK, before anything is
+# built or broadcast. The audit is the enforcement evidence that actually
+# survives the question "who decided?" — every verdict in it comes from
+# TxScriptEngine, the engine a Kaspa node validates with. Figures from
+# covenant/audit.json (118 cases, 0 violations, 0 over-refusals).
+C.append(card(3, "Covenant audit &middot; v4", 'We didn&rsquo;t grade this.<br><span class="t">The node&rsquo;s engine did</span>.',
+  rows([("Transactions executed","118","TxScriptEngine",""),
+        ("Forbidden, but accepted","0","violations","ok"),
+        ("Permitted, but refused","0","over-refusals","ok")]),
+  "Not a statement that it is secure"))
 
 C.append(card(4, "Agent #005", 'A vendor that has<br>never heard of us.',
-  rows([("demo.kaspa-x402.org","0.2 KAS &times; 5","served","ok"),
-        ("attempts","8","3 did not","no"),
+  rows([("demo.kaspa-x402.org","0.2 KAS &times; 6","served","ok"),
+        ("attempts","9","3 did not","no"),
         ("who runs it","not us","third party","")]),
   "Unattended, every morning"))
 
@@ -164,6 +252,16 @@ C.append(card(13, "What your agent gets", 'Limits it cannot<br>argue with.',
 C.append(card(14, "Why we are asking", 'No third party<br>has audited this.',
   lede("It has never held real money. Which is exactly why we would rather your agent attacked it than ours kept proving it works. Bring one. We will fund it. If you break it, we publish it."),
   "wardaprotocol.com/grant"))
+
+# Card 15 is not part of the fourteen: it is the credit post, inserted into the
+# run whenever it is posted. Figures: `wc -l covenant/warda_grant.sil` and the
+# deployed size DEPLOYED.md records for testnet-10 (3,036 bytes, rusty-kaspa
+# v2.0.1). Handles verified before use \u2014 @OriNewman designed Silverscript,
+# @MichaelSuttonIL wrote the Toccata covenants outlook, @hashdag is Kaspa's
+# founder. A mistagged credit post is worse than no credit post.
+C.append(card(15, "Built on Kaspa &middot; testnet-10", 'Our rate limit<br><span class="t">has no clock</span>.',
+  dag(),
+  '<span class="credit">@OriNewman &middot; @MichaelSuttonIL &middot; @hashdag</span>'))
 
 io.open("cards.html","w",encoding="utf-8").write(HEAD + "\n".join(C) + "\n</body>\n")
 print("wrote", len(C), "cards")

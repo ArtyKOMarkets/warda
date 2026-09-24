@@ -43,37 +43,86 @@ most credible thing an unaudited project can say.
 >
 > wardaprotocol.com/grant
 
-### 2. The published key  *(278 chars)*
+### 2. The published key  *(273 chars)*
 
 > An agent's complete private key is published on our site. Not a hash of it. The key.
 >
-> It holds funded testnet money. Anyone can take it.
+> It has held funded testnet money since 2 September. Anyone can take it.
 >
-> The most anyone has managed is buying one vendor's API a few more times — because the limits aren't in our server.
+> All it can buy is one vendor's API, 0.1 KAS at a time — the limits aren't in our server.
 >
 > wardaprotocol.com/attack
 
-### 3. The refusal  *(278 chars)*
+<!-- The earlier draft claimed "the most anyone has managed is buying one
+vendor's API a few more times". Nothing supports that: the only spends from
+that grant are the four we made ourselves on 2-3 September (git log on
+site/src/demo-grant.json), and the balance has not been read since. The line
+now claims only what the covenant enforces, which the page itself shows. -->
 
-> Yesterday my agent tried a payment I was deliberately pushing it to make.
->
-> The network answered:
->
-> "only 0 remains in the current epoch … cannot be refreshed by claiming an earlier epoch, which the covenant refuses."
->
-> No coin moved. My code wasn't asked.
->
-> wardaprotocol.com/grant
+### 3. The engine  *(273 chars)*
 
-### 4. A vendor that has never heard of us  *(263 chars)*
+> We ran 118 transactions through the same script engine a Kaspa node validates with. One field changed at a time; the numeric limits tested one sompi either side.
+>
+> Forbidden cases accepted: 0.
+> Permitted cases refused: 0.
+>
+> It is not a security audit.
+>
+> wardaprotocol.com/audit
+
+Figures from `covenant/audit.json` (generated 2026-09-23 09:41 UTC). The last
+line is the report's own disclaimer, kept because dropping it would make this
+post claim more than the report does. This is the one post whose CTA is
+`/audit` rather than `/grant`.
+
+<!-- This slot was "The refusal", quoting agent #012's covenant refusal of
+2026-09-23 12:55 under the line "The network answered". The quote is verbatim
+and real (growth/listener/purchases/2026-09-23T12-55-07-110Z.json, txid null),
+but the network never saw it: that message is thrown by payNow() in the SDK
+before a transaction is built or broadcast. Every recorded refusal across
+agents #001-#012 is client-side in the same way, so there is no live node
+rejection to substitute. The audit is the enforcement evidence that survives
+the question "who decided?" - its verdicts come from TxScriptEngine itself. -->
+
+### 3b. Credit  *(269 chars)*  — not one of the fourteen
+
+> 596 lines of Silverscript compile to a rate limit counted in blocks, not seconds. 1,000 blocks ≈ 100 seconds, because Kaspa makes 10 a second.
+>
+> No cron, no clock, no server — the DAG is the timer.
+>
+> Thank you @OriNewman @MichaelSuttonIL @hashdag and the Kaspa core devs.
+
+Figures: `wc -l covenant/warda_grant.sil` is 596; `epochLength` is 1000 in
+`site/src/demo-grant.json`, which `site/src/grant.html` renders as "every 1000
+blocks" and states as "at most 2 in any ~100 seconds". 1000 blocks ≈ 100
+seconds only because testnet-10 runs at 10 BPS after Crescendo — that identity
+IS the post. The Listener's 432,000-block epoch is the same arithmetic at 12
+hours. No CTA link: a thank-you that ends in a funnel is not a thank-you.
+
+Handles verified before use, because a mistagged credit post is worse than no
+credit post: @OriNewman designed Silverscript, @MichaelSuttonIL wrote the
+Toccata covenants++ outlook and is Kaspa core R&D, @hashdag is Yonatan
+Sompolinsky.
+
+An earlier draft of this praised Silverscript in the abstract ("the clearest
+thing I've built on"). This one names a thing the chain does that our covenant
+could not be written without, which is the same compliment with evidence
+attached.
+
+### 4. A vendor that has never heard of us  *(276 chars)*
 
 > Agent #005 buys from demo.kaspa-x402.org every morning. We don't run it. They have never heard of Warda.
 >
-> 5 served out of 8 attempts, 0.2 KAS each, unattended.
+> 9 attempts since 16 September, 6 served, 0.2 KAS each, unattended.
 >
 > A bounded agent transacting with software that knows nothing about the bound.
 >
 > wardaprotocol.com/grant
+
+Counted from `agent-005/purchases/` on the morning it was posted: 9 files,
+6 `bought`, 1 `paid-then-failed` (18 September, post 5), 2 `failed`, every
+quote 0.2 KAS. The draft said "5 of 8" and was a week stale — these figures
+move every morning, so recount before posting rather than trusting the file.
 
 ### 5. The failure we published  *(273 chars)*
 

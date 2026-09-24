@@ -6,10 +6,21 @@ await p.waitForTimeout(1500);
 /* A card that silently rendered in Helvetica is the bug this whole file's
    header is about, so it is checked rather than assumed. */
 const fonts = await p.evaluate(() => document.fonts.status);
+/* scrollHeight on .card is useless here: the decorative ::after circle is
+   deliberately outside the box, so it reported all 14 cards as overflowing and
+   the check was ignored. Measure the real children against the card instead. */
 const overflow = await p.evaluate(() => [...document.querySelectorAll(".card")]
-  .map((c, i) => ({ i: i + 1, over: c.scrollHeight > c.clientHeight || c.scrollWidth > c.clientWidth }))
+  .map((c, i) => {
+    const b = c.getBoundingClientRect();
+    const over = [...c.querySelectorAll(".eye,h1,.body *,.foot *")].some((el) => {
+      const r = el.getBoundingClientRect();
+      return r.bottom > b.bottom - 1 || r.right > b.right - 1 || r.left < b.left - 1;
+    });
+    return { i: i + 1, over };
+  })
   .filter((x) => x.over).map((x) => x.i));
-for (let i = 1; i <= 14; i++) {
+const count = await p.evaluate(() => document.querySelectorAll(".card").length);
+for (let i = 1; i <= count; i++) {
   const el = await p.$(`#c${i}`);
   await el.screenshot({ path: `/home/claude/cards/out/warda-${String(i).padStart(2, "0")}.png` });
 }
