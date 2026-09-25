@@ -59,6 +59,7 @@ import {
   EMPTY_RESERVE,
   NodeClient,
   agentPublicKey,
+  assertTemplateForManifest,
   fromHex,
   pubkeyToAddress,
   resolveNode,
@@ -103,6 +104,10 @@ if (!manifestPath) {
   process.exit(2);
 }
 const m = JSON.parse(readFileSync(manifestPath, "utf8"));
+/* This one spends: it builds the transaction that closes the old grant and
+   funds its successor. A template from another covenant would send the
+   remaining balance to an address derived from the wrong bytecode. */
+assertTemplateForManifest(covenantTemplate as CovenantTemplate, m, manifestPath);
 
 const budget = BigInt(flag("budget") ?? m.budget ?? "0");
 if (budget <= 0n) {

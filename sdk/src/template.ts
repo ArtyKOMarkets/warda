@@ -262,6 +262,42 @@ export function templateFingerprint(tpl: CovenantTemplate): string {
 }
 
 /**
+ * Refuse a template that is not the one this manifest was issued under.
+ *
+ * The comment above says what goes wrong and every tool that reads a manifest
+ * wrote its own version of this check — five of them, character for character
+ * apart from the wording of the error. Three tools did not: `follow-grant`,
+ * `topup` and `mcp-descriptor` each load the PACKAGED template and a manifest
+ * and never compare them.
+ *
+ * That was survivable while `sdk/covenant-template.json` had held the same
+ * bytes since September. It stops being survivable the moment that file
+ * changes meaning — which is exactly what freezing a new covenant does, and
+ * why this exists now rather than later. After the flip those three tools would
+ * take a v4 manifest, derive a v5 address, find nothing at it and say the grant
+ * is empty. The grant would be fine. The tool would be lying.
+ *
+ * A manifest with NO `covenant` field passes: manifests predate the field, and
+ * refusing them would fail closed against files nobody can go back and fix.
+ * That is a deliberate hole and it is the only one.
+ */
+export function assertTemplateForManifest(
+  tpl: CovenantTemplate,
+  manifest: { covenant?: string },
+  what = "this manifest",
+): void {
+  const have = templateFingerprint(tpl);
+  if (manifest.covenant && manifest.covenant !== have) {
+    throw new Error(
+      `${what} was issued under covenant ${manifest.covenant}, and the template ` +
+        `loaded is ${have}. Every address derived from the pair would be wrong — ` +
+        `not missing, WRONG. Pass --template with the archived template for ` +
+        `${manifest.covenant}; covenant/versions.json names the file.`,
+    );
+  }
+}
+
+/**
  * The covenant's own template hash, as `readInputStateWithTemplate` expects it.
  *
  * blake3 over `len(prefix) || prefix || len(suffix) || suffix`, each length an

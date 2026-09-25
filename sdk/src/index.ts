@@ -38,6 +38,9 @@ export {
   // produces a plausible address with nothing at it.
   templateIdFor,
   templateFingerprint,
+  // Refuses a template that is not the one a manifest was issued under. Every
+  // tool that holds both owes the user this comparison; see its doc comment.
+  assertTemplateForManifest,
   type CovenantTemplate,
   type FieldSlot,
   type Grant,

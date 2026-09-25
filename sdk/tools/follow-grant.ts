@@ -63,6 +63,7 @@ import { NodeClient } from "../src/node.ts";
 import { borshRequested, openChain, type Chain } from "./chain.ts";
 import { candidateStates, partitionPayments, type Payment } from "../src/follow.ts";
 import {
+  assertTemplateForManifest,
   scriptHashFor,
   templateIdFor,
   type CovenantTemplate,
@@ -88,6 +89,11 @@ if (!manifestPath) {
   process.exit(2);
 }
 const m = JSON.parse(readFileSync(manifestPath, "utf8"));
+/* The packaged template is loaded unconditionally above, and this file follows
+   a grant by deriving its address from state. Against a manifest from another
+   covenant that derivation produces an address that exists, holds nothing, and
+   reads as a grant that was never funded. */
+assertTemplateForManifest(covenantTemplate as CovenantTemplate, m, manifestPath);
 /* The template comes from the package, not from a path beside this file:
    the published CLI carries this tool as bundled JS with no sdk/ directory
    above it, and a template read from a guessed path is how a tool derives a
