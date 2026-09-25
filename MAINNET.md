@@ -289,10 +289,23 @@ development. **It is not fine for anything that claims to be always-on.**"*
 It has already cost something real: a restart made every paid request return 500
 for days, and a customer's 0.04 KAS purchase settled against an HTML error page.
 
+**Accepted for now, on testnet, deliberately** (25 September 2026). The laptop
+stays. It is the right call while nothing here holds real money and the cost of
+an outage is a demo that was down — which is what `ops/README.md` already says
+the arrangement is *fine* for.
+
+Recording it as accepted rather than leaving it looking unaddressed, because
+the two are different things and a list that cannot tell them apart is a list
+people stop reading. What it does not do is stop being a mainnet blocker: the
+decision is about today, and the item is about the day somebody's real money is
+on the other end of a request that returns 500 for a weekend.
+
 **Done means:** the node and the tunnel on a host that survives a laptop lid,
 and a health check that goes red when `/v1/verify` is failing — on 16 September
 it returned `internal` for an unknown length of time while `/health` stayed
-green, which is the failure mode that matters.
+green, which is the failure mode that matters. The health check is worth doing
+even while the laptop stays: it is the half of this item that has nothing to do
+with where the node lives.
 
 ### 3.2 The verifier promises nothing
 
