@@ -581,6 +581,22 @@ fn cases() -> Vec<Case> {
     ] {
         v.push(case("settle charge", "newState.spentTotal == spentTotal + child.spentTotal", note, Expect::Reject, move || settle(|s| s.successor = Some(succ))));
     }
+    /* These three were refused for the WRONG REASON until 25 September 2026,
+       and this suite reported them as covering the rule they name.
+
+       `authority_override` moved the field in the declared successor and not
+       in the constructor the successor was compiled from, so the transaction
+       paid an address that was not the grant it described — and the covenant
+       refused it there, long before `require(newState.maxPerSpend ==
+       maxPerSpend)` was reached. Delete that require and these cases still
+       refused. A rejection that survives the removal of the rule it cites
+       proves nothing about the rule, which is the exact failure the section
+       "Why a rejection here means something" opens this report with.
+
+       Found by `fuzz-settle`, not by reading: the mutant could not get one
+       transaction past the address check, came back with no findings, and an
+       oracle that cannot fire is the one result this harness treats as worse
+       than a bug. `Settle::run` now applies the override to both. */
     for (name, val, note) in [
         ("maxPerSpend", 100 * KAS, "the parent raising its own per-payment cap"),
         ("expiresAt", 9_999_999, "the parent extending its own expiry"),

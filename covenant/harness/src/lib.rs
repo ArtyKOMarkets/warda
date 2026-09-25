@@ -1601,6 +1601,15 @@ pub struct Settle {
     /// Drop the child's input, leaving the revocation key holding a `settle`
     /// with nothing tying it to a parent. This is vulnerability 5's shape.
     pub lone_child: bool,
+    /// The covenant to run against. Only the mutation runs change it.
+    ///
+    /// Settlement is the one family where this is not a convenience: `settle`
+    /// reads its co-input through `readInputStateWithTemplate`, so the
+    /// template hash and the two state-region lengths are not decoration here
+    /// — they are how one grant reads another's state without trusting it. A
+    /// mutant compiled at SOURCE's numbers does not merely fail; it fails in
+    /// the splice, before any rule under test is reached.
+    pub src: &'static str,
 }
 
 impl Settle {
@@ -1619,6 +1628,7 @@ impl Settle {
             child_idx: 1,
             authority_override: None,
             lone_child: false,
+            src: SOURCE,
         }
     }
 
@@ -1631,8 +1641,8 @@ impl Settle {
             principal.x_only_public_key().0.serialize(),
             revocation.x_only_public_key().0.serialize(),
         );
-        let tid = template_id_for(authority);
-        let geo = template_geometry();
+        let tid = template_id_of(self.src, authority);
+        let geo = template_geometry_of(self.src);
         let tree = Tree::new(members());
         let child_key = [0x99u8; 32];
         let depth = proof_depth();
@@ -1656,22 +1666,61 @@ impl Settle {
         let carried = push_child(empty_reserve(), cid);
         let prev_root = if self.wrong_prev_root { [0x66u8; 32] } else { empty_reserve() };
 
-        let parent_ctor = |spent: i64, reserved: i64, root: [u8; 32]| {
+        /* `authority_override` moves a field in the DECLARED successor. It has
+           to move the same field in the successor's COMPILED constructor too,
+           and for a long time it did not.
+
+           A grant's address is a hash of its state, so a successor declared
+           with a raised per-spend cap and compiled without one is not that
+           grant — and the covenant refuses it at the address, before reaching
+           `require(newState.maxPerSpend == maxPerSpend)` at all. Three cases
+           in `audit.rs` claim to prove "everything else about the parent
+           stands still" and were being refused for the wrong reason: delete
+           the rule they name and they are still refused, which is precisely
+           the failure AUDIT.md warns about in other people's suites.
+
+           Found by the generative oracle, which removed that `require` and
+           could not get a single transaction past the address check to notice.
+
+           Applied ONLY to the successor: the parent's own constructor is the
+           state the grant is already in, and moving that would change which
+           grant is being settled rather than what it claims to become. */
+        let ov_index = |name: &str| -> usize {
+            match name {
+                "agentKey" => 3,
+                "budgetTotal" => 4,
+                "maxPerSpend" => 5,
+                "epochLimit" => 6,
+                "epochLength" => 7,
+                "recipientsRoot" => 8,
+                "notBefore" => 9,
+                "expiresAt" => 10,
+                "delegationDepth" => 11,
+                "templateId" => 12,
+                other => panic!("no constructor slot for authority field {other}"),
+            }
+        };
+        let parent_ctor = |spent: i64, reserved: i64, root: [u8; 32], with_override: bool| {
             let mut v = ctor_full(depth, authority, tid, geo);
             v[3] = Expr::bytes(agent_xonly.to_vec());
             v[8] = Expr::bytes(tree.root().to_vec());
             v[16] = Expr::int(spent);
             v[17] = Expr::int(reserved);
             v[20] = Expr::bytes(root.to_vec());
+            if with_override {
+                if let Some((name, ref value)) = self.authority_override {
+                    v[ov_index(name)] = value.clone();
+                }
+            }
             v
         };
-        let parent = compiled(SOURCE, &parent_ctor(self.parent_spent, self.parent_reserved, carried));
+        let parent = compiled(self.src, &parent_ctor(self.parent_spent, self.parent_reserved, carried, false));
 
         let (ns, nr) = self.successor.unwrap_or((
             self.parent_spent + self.child_spent,
             self.parent_reserved - self.child_budget,
         ));
-        let parent_next = compiled(SOURCE, &parent_ctor(ns, nr, prev_root));
+        let parent_next = compiled(self.src, &parent_ctor(ns, nr, prev_root, true));
 
         /* The child must share the parent's authority, because the template
            id is keyed on the pair — which is the binding that stops a parent
@@ -1682,7 +1731,7 @@ impl Settle {
         child_c[12] = Expr::bytes(tid.to_vec());
         child_c[13] = Expr::int(geo.0);
         child_c[14] = Expr::int(geo.1);
-        let child = compiled(SOURCE, &child_c);
+        let child = compiled(self.src, &child_c);
 
         let parent_value: u64 = 50 * KAS as u64;
         let child_value: u64 = self.child_budget.max(1) as u64;

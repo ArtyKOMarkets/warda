@@ -118,6 +118,15 @@ jobs:
         working-directory: covenant/harness
         run: cargo run -q --bin fuzz-delegate
 
+      # And settlement, where a grant DISAPPEARS: afterwards the parent alone
+      # must not be able to do anything it and its child could do together.
+      # Two of the four holes here are the money — the charge and the release,
+      # which fail in opposite directions — and two are limits the parent is
+      # supposed to carry across unchanged, which no conservation rule covers.
+      - name: harness — a settlement never creates authority
+        working-directory: covenant/harness
+        run: cargo run -q --bin fuzz-settle
+
       # 14 probes, each attack beside its nearest legitimate twin, judged in
       # BOTH directions: a covenant that refused everything would pass a suite
       # made only of refusals. Needs no keys and no network — the corpus is

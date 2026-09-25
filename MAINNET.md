@@ -69,7 +69,18 @@ that counted only sompi would have watched every one of those go past. Three
 holes are put back, one per axis, and all three are caught; against the
 covenant as written, none of 31 accepted delegations left the tree better off.
 
-It does not yet cover `delegate2`, `reabsorb`, `settle` or the exits. And it
+**`settle` is covered too** (`covenant/harness/src/bin/fuzz-settle.rs`, in
+CI), and it found something on the way in. Three cases in `covenant/harness/src/bin/audit.rs` claimed
+to prove that everything about a parent stands still across a settlement, and
+all three were being refused for the successor's ADDRESS rather than by the
+rule they cite — delete `require(newState.maxPerSpend == maxPerSpend)` and
+they still refused. A rejection that survives the removal of its own rule
+proves nothing about it, which is the failure `covenant/AUDIT.md` opens by warning
+about. The oracle found it by being unable to fire: its mutant could not get
+one transaction past the address check. Fixed, and the same mutant now
+produces three findings where it produced none.
+
+It does not yet cover `delegate2` or the exits. And it
 reads four of its five figures as a MAXIMUM over the tree, which cannot see
 breadth: a child born at its parent's own delegation depth does not raise the
 deepest chain the tree can build, but it gives the tree two chains of that
@@ -90,8 +101,8 @@ generative oracle is the only thing here that escapes that circle.
 
 **Done means:** every entrypoint under the generative oracle, each with its own
 deliberate-hole self-check, and the accepted-but-authority-grew count at zero
-for all of them. `delegate` is done; `delegate2`, `reabsorb`, `settle` and the
-exits are not.
+for all of them. `delegate` and `settle` are done; `delegate2` and the exits
+are not.
 
 ### 1.2 The one claim that is not covered
 
