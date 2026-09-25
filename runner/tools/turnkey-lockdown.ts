@@ -19,8 +19,9 @@
  *   3. creates one ALLOW policy for that user and those two activities.
  *      Everything else is denied by default for a non-root user.
  *   4. proves it, with the NEW key: creates a probe wallet and signs with it
- *      (must work), then asks for something outside the policy — a user tag,
- *      harmless if ever approved — and must be refused.
+ *      (must work), then asks for each verb DESIGN.md promises it cannot do —
+ *      export, delete, write a policy, add a user tag — and must be refused
+ *      every time. Each probe is harmless if it were ever approved.
  *   5. writes the new key to ~/.warda/turnkey-runner.json (0600) and points
  *      runner/.env's TURNKEY_KEY_FILE at it. The root key file is untouched —
  *      keep it offline; the runner no longer needs it.
@@ -113,16 +114,73 @@ for (let i = 0; i < 6 && !signed; i++) {
 }
 step(`the new key created wallet "warda-${probeName}" and signed with it (signature verified)`);
 
-let refused = false;
-try {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (runner as any).createUserTag({ userTagName: "warda-runner-lockdown-probe", userIds: [] });
-} catch (e) {
-  refused = true;
-  step(`the new key was refused anything else (${String((e as Error).message).slice(0, 90)}…)`);
+/* Refusals, plural.
+ *
+ * This probed ONE thing — creating a user tag — and reported it as "refused
+ * anything else". Those are different claims. The reasoning behind the single
+ * probe is sound (a non-root user with one ALLOW policy is deny-by-default, so
+ * one refusal implies the rest), but reasoning is what the policy is supposed
+ * to replace, and DESIGN.md's promise is specific: a leaked runner credential
+ * "cannot create, export or delete anything".
+ *
+ * So each verb in that sentence gets asked. Export first, because it is the
+ * only one that turns a leaked API key into the agents' private keys — the
+ * others cost availability, that one costs the money.
+ *
+ * Every probe is chosen to be harmless if it were ever approved: a tag with no
+ * users, an export of a wallet this run just made, a policy that allows
+ * nothing to nobody. A probe whose success would do damage is not a probe.
+ */
+/* The probe wallet's real id, looked up with the ROOT key.
+ *
+ * Not a made-up one. `exportWallet` on a walletId that does not exist is
+ * refused for not existing, and a refusal for the wrong reason proves nothing
+ * about the policy — which is the failure this repository has now found in
+ * three separate suites. Root does the lookup; the runner's key does the thing
+ * that has to be denied. */
+const probeWalletId: string = ((await root.getWallets({ organizationId: org })).wallets as
+  { walletId: string; walletName: string }[])
+  .find((w) => w.walletName === `warda-${probeName}`)?.walletId ?? "";
+if (!probeWalletId) {
+  console.error(`✗ could not find the probe wallet "warda-${probeName}" to aim the export probe at.`);
+  console.error(`  Without a real wallet id the export refusal would prove only that the id was wrong.`);
+  process.exit(1);
 }
-if (!refused) {
-  console.error("✗ the new key could create a user tag — the policy is broader than intended. Nothing was written; delete the user in the dashboard.");
+
+const probes: [string, () => Promise<unknown>][] = [
+  ["export a wallet — the one that turns a leaked key into the agents' keys",
+    () => (runner as any).exportWallet({ walletId: probeWalletId, targetPublicKey: kp.publicKey })],
+  ["delete wallets",
+    () => (runner as any).deleteWallets({ walletIds: [probeWalletId], deleteWithoutExport: true })],
+  ["write itself a wider policy — the escalation that makes the rest moot",
+    () => (runner as any).createPolicy({
+      policyName: "warda-runner-lockdown-probe",
+      effect: "EFFECT_ALLOW",
+      consensus: "false",
+      condition: "false",
+      notes: "Probe from runner/tools/turnkey-lockdown.ts. Allows nothing to nobody. Reject it.",
+    })],
+  ["add a user tag",
+    () => (runner as any).createUserTag({ userTagName: "warda-runner-lockdown-probe", userIds: [] })],
+];
+
+const allowed: string[] = [];
+for (const [what, run] of probes) {
+  try {
+    await run();
+    allowed.push(what);
+  } catch (e) {
+    step(`refused: ${what} (${String((e as Error).message).slice(0, 70)}…)`);
+  }
+}
+if (allowed.length) {
+  console.error(`\n✗ the new key was ALLOWED to do ${allowed.length} thing(s) the policy is supposed to deny:`);
+  for (const a of allowed) console.error(`    ${a}`);
+  console.error(
+    `\n  The policy is broader than DESIGN.md claims. Nothing was written — the runner\n` +
+      `  still uses its old key. Delete the user "${USER}" in the dashboard, and reject\n` +
+      `  any pending activity this left behind.`,
+  );
   process.exit(1);
 }
 
@@ -138,5 +196,6 @@ Done. Next:
 
 Then, in the Turnkey dashboard:
   • Wallets: delete "warda-${probeName}" and the spike's test wallets (keep every warda-<agent> wallet).
-  • If a pending "user tag" activity shows up for approval, reject it — it was this probe.
+  • Reject any pending activity named "warda-runner-lockdown-probe" — every one of
+    them is a refusal probe from step 4, and each is harmless even if approved.
   • Your root API key file (${process.env.TURNKEY_KEY_FILE}) is no longer used by the runner. Keep it offline, or delete that API key.`);

@@ -328,13 +328,37 @@ it and a check that enforces the bound.
 
 ### 3.4 The Turnkey key is broader than the design says
 
-`runner/DESIGN.md:61` — *"Before mainnet: a Turnkey policy restricting the
-runner's API key to `SIGN_RAW_PAYLOAD` on agent wallets only, so a leaked runner
-credential cannot create, export or delete anything."* `runner/tools/turnkey-lockdown.ts`
-currently creates a user with `CREATE_WALLET` as well.
+The design said the policy should restrict the runner's key to
+`SIGN_RAW_PAYLOAD` on agent wallets only, so a leaked credential *"cannot
+create, export or delete anything"*. Two things were wrong with that, in
+opposite directions.
 
-**Done means:** the deployed policy matching the design, or the design changed
-with the reason written down.
+**`CREATE_WALLET` is in the deployed policy and should stay.** The runner
+provisions an agent's wallet at signup; removing it moves that step to an
+operator, which is a product decision rather than a hardening one. It is the
+mildest verb available — a wallet created is an empty one, and a leaked key
+that can make empty wallets has made nothing worth taking. `runner/DESIGN.md`
+says so now instead of promising otherwise.
+
+**The real gap is that the policy is scoped by ACTIVITY and not by RESOURCE.**
+"On agent wallets only" was never implemented: the condition names activity
+types and nothing else, so the key may sign with any wallet the organisation
+holds. That the organisation holds only agent wallets makes the gap harmless
+today and makes the property accidental, which is not the same as safe.
+
+**Done in the meantime:** the lockdown tool proves the boundary instead of
+asserting it. It probed one thing — creating a user tag — and reported it as
+*"refused anything else"*, which is a different claim from the one it was
+making. It now asks for each verb the design promises the key cannot do —
+export, delete, write itself a wider policy, add a user tag — and requires a
+refusal every time, with export first because it is the only one that turns a
+leaked API key into the agents' private keys. Each probe is harmless if it were
+ever approved, and the export probe is aimed at a REAL wallet id looked up with
+the root key, because an export refused for a wallet that does not exist proves
+nothing about the policy.
+
+**Done means:** agent wallets tagged and the policy conditioned on the tag, so
+"on agent wallets only" is enforced rather than incidental.
 
 ---
 

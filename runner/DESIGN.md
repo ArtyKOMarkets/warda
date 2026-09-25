@@ -58,9 +58,36 @@ names before it leaves the vault.
 - **`EnvelopeVault` (fallback, tests, local).** A 32-byte key sealed with
   AES-256-GCM under a `MasterKey`, which a cloud KMS can replace.
 
-Before mainnet: a Turnkey **policy** restricting the runner's API key to
-`SIGN_RAW_PAYLOAD` on agent wallets only, so a leaked runner credential cannot
-create, export or delete anything.
+**The policy, as deployed** (`runner/tools/turnkey-lockdown.ts`). The runner's
+key is a NON-ROOT Turnkey user — policies do not apply to root users, and the
+key used until 22 September was the organisation's root API key, which could
+export every wallet — holding one ALLOW policy for two activities:
+
+    ACTIVITY_TYPE_CREATE_WALLET        a new agent's key
+    ACTIVITY_TYPE_SIGN_RAW_PAYLOAD_V2  signing a sighash with it
+
+Everything else is denied, because a non-root user with one ALLOW policy is
+deny-by-default. Step 4 of that tool proves it rather than asserting it: with
+the new key, it exports, deletes, writes itself a wider policy and adds a user
+tag, and every one must be refused. (It probed only the user tag until 25
+September, and reported that as "refused anything else" — which is a different
+claim from the one it was making.)
+
+`CREATE_WALLET` is in the policy and this text used to say it should not be.
+The runner provisions an agent's wallet when the agent signs up, so removing it
+means moving that step to an operator, which is a product decision rather than
+a hardening one. It is also the mildest of the verbs: creating a wallet makes
+an empty one, and a leaked key that can make empty wallets has made nothing
+worth taking.
+
+**Still before mainnet: the policy is scoped by ACTIVITY and not by RESOURCE.**
+The sentence here used to promise "`SIGN_RAW_PAYLOAD` on agent wallets only",
+and the "on agent wallets only" half is not implemented — the condition names
+activity types and nothing else, so the key may sign with any wallet the
+organisation holds. Today the organisation holds only agent wallets, which
+makes the gap harmless and the property accidental. Closing it means tagging
+agent wallets and conditioning on the tag, and it belongs on the before-mainnet
+list rather than in a promise this file cannot keep.
 
 ## Workflows
 
