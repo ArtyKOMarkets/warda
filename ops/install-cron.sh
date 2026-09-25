@@ -244,8 +244,18 @@ done
 # what it replaced — an exit code in a log — and it degrades QUIETLY, which is
 # the failure it was written to remove. This is the one moment a person is
 # present to hear about it, so it is said here and nowhere else.
-if ! grep -q '^export WARDA_TELEGRAM_TOKEN="."' "$OPS/alerts.env" 2>/dev/null \
-   || ! grep -q '^export WARDA_TELEGRAM_CHAT="."' "$OPS/alerts.env" 2>/dev/null; then
+#
+# Asked by SOURCING alerts.env and calling the sender's own predicate, in a
+# subshell so nothing from it survives into this script. The first version of
+# this grepped for `TOKEN="."` — a regex that matches a one-character token and
+# nothing longer, so it fired on a perfectly configured machine. A warning that
+# cries wolf on a correct setup is worse than no warning: the next person to
+# see it will install anyway, and the time it is telling the truth will look
+# exactly the same. One predicate, in one place, used by both.
+if ! ( set +u
+       [ -f "$OPS/alerts.env" ] && . "$OPS/alerts.env"
+       . "$OPS/notify.sh"
+       warda_notify_configured ); then
   echo >&2
   echo "WARNING: ops/alerts.env has no Telegram token and chat id." >&2
   echo "  The three endpoint monitors will run, write their status files and" >&2

@@ -54,6 +54,22 @@ for (const line of cron.split("\n")) {
   }
 }
 
+// ---------------------------------------------------------------- 1b. one predicate
+//
+// install-cron.sh warns when the wrapper has no way to speak — the one moment
+// a person is standing there to hear it. It first asked that question with a
+// regex, `TOKEN="."`, which matches a one-character token and nothing longer,
+// so it fired on a fully configured machine. A warning that is wrong when
+// things are right is worse than no warning at all, because the time it is
+// right looks identical. It has to ask the sender, not guess at the file.
+if (!/warda_notify_configured/.test(cron)) {
+  problems.push(
+    "ops/install-cron.sh decides whether alerting is configured without calling\n" +
+      "  warda_notify_configured. Anything else is a second opinion about the same\n" +
+      "  question, and the two can disagree — the regex it replaced did.",
+  );
+}
+
 // ---------------------------------------------------------------- 2. one send path
 const senders = spawnSync("grep", ["-rl", "api.telegram.org", join(REPO, "ops")], {
   encoding: "utf8",
