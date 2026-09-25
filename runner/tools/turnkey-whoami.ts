@@ -63,11 +63,21 @@ try {
 
 let verdict = "unknown";
 try {
-  const o = await api.getOrganization({ organizationId: org });
-  const quorum = o?.organizationData?.rootQuorum ?? o?.rootQuorum;
-  const members: string[] = (quorum?.userIds ?? quorum?.users?.map((u: { userId: string }) => u.userId) ?? []);
-  const threshold = quorum?.threshold;
-  console.log(`root quorum : ${members.length} member(s), threshold ${threshold ?? "?"}`);
+  /* getOrganizationConfigs, not getOrganization. The API has a
+     GetOrganization endpoint and the SDK client does not expose it — the
+     types are generated from the whole API surface, the client is not, and
+     the first version of this tool guessed from the types and called a
+     function that does not exist. It reported "could not check" and exited 3,
+     which is the behaviour this was written to have and the only reason the
+     mistake was not a green tick.
+
+     The configs carry `quorum: { threshold, userIds }`, which is the root
+     quorum — the same numbers the dashboard's Root Quorum page shows. */
+  const cfg = await api.getOrganizationConfigs({ organizationId: org });
+  const quorum = cfg?.configs?.quorum;
+  if (!quorum) throw new Error("the organisation configs carried no quorum");
+  const members: string[] = quorum.userIds ?? [];
+  console.log(`root quorum : ${members.length} member(s), threshold ${quorum.threshold ?? "?"}`);
   verdict = members.includes(userId) ? "IN" : "out";
 } catch (e) {
   console.error(
