@@ -204,6 +204,16 @@ jobs:
       - name: covenant versions — every fingerprint re-derives
         run: node ops/check-versions.mjs
 
+      # MAINNET.md is the list of what stands between this and real money, and
+      # it is made entirely of citations into this repo. Citations rot: a file
+      # gets edited, every line below shifts, and a blocker quietly points at a
+      # blank line. Nobody notices, because nobody clicks a line number in a
+      # markdown file until they are already looking for something. So the
+      # quotes are checked against their sources here, and a drifted reference
+      # fails with the line it drifted to.
+      - name: MAINNET.md — every citation still says what it is quoted as saying
+        run: node ops/check-mainnet-refs.mjs
+
       # The site is built here and thrown away. Nothing is deployed from CI —
       # the point is that `build.py` DROPS a page whose data is missing, and
       # everything linking to that page is published anyway, so the site can

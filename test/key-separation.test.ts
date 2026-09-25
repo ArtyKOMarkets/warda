@@ -67,10 +67,13 @@ test("no grant makes its agent the principal", () => {
  *
  * The grant itself cannot be repaired: a revocation key is fixed at genesis,
  * so the only remedies are to revoke and reissue, or to let its seven-day term
- * run out. It is testnet, it holds 2.1 KAS, and it was already on the
- * before-mainnet list. **When it expires this number should fall back to 16** —
- * if a later reader finds it stuck at 17 with the Listener long gone, that is a
- * new collapse wearing this one's allowance.
+ * run out. It is testnet, it holds 2.1 KAS, and it is on the before-mainnet
+ * list — `MAINNET.md` §2.2, which when this line was first written did not
+ * exist, though the line said it did. It does now.
+ *
+ * **When it expires this number should fall back to 16** — if a later reader
+ * finds it stuck at 17 with the Listener long gone, that is a new collapse
+ * wearing this one's allowance.
  *
  * `ops/grants.ts` — the by-hand issuer and the unattended one — passes
  * --revocation on every path, so nothing issued from /grant can add to this.
