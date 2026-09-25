@@ -267,6 +267,15 @@ jobs:
       - name: MAINNET.md — every citation still says what it is quoted as saying
         run: node ops/check-mainnet-refs.mjs
 
+      # Every secret this project holds, against what ops/secrets.json says
+      # about it. The rotation clock is advisory and prints; the thing that
+      # FAILS is a listed secret path that has stopped being ignored by git,
+      # because that is not a policy problem, it is the incident the policy
+      # exists to prevent — one `git add -A` on a day somebody renamed a
+      # directory and a key is in the history with no way to take it back.
+      - name: secrets — every path still ignored, and what is overdue
+        run: node ops/check-secret-age.mjs
+
       # The site is built here and thrown away. Nothing is deployed from CI —
       # the point is that `build.py` DROPS a page whose data is missing, and
       # everything linking to that page is published anyway, so the site can

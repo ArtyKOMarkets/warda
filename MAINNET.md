@@ -342,10 +342,37 @@ Two credentials are known to be compromised: the X bearer token and the Telegram
 bot token, both leaked into a conversation on 23 September. Neither file's
 modification time has changed since.
 
-**Done means:** an inventory that says, for each secret, what it can do, where
-it lives, how it is rotated and what breaks while it is being rotated; the two
-leaked tokens rotated; and a check that fails when a secret file is older than
-its stated rotation interval.
+**The inventory exists.** `ops/secrets.json` lists every secret by path and by
+role, never by value; `ops/SECRETS.md` is the policy; `ops/check-secret-age.mjs`
+runs in CI.
+
+Writing it down forced a distinction that was not being made: **three kinds of
+secret, and only one of them rotates.** Credentials at somebody else's service
+rotate the ordinary way. Shared secrets we mint ourselves rotate only at a
+restart with nothing outstanding — `QUOTE_SECRET` has to be stable for the life
+of its process, and regenerating it invalidates every quote in flight. And keys
+committed to on chain **do not rotate at all**: a grant hashes its keys into
+its address, so writing a new file makes a new key rather than moving the old
+one's authority. `rotateDays: null` means that third kind — not "no policy" but
+"rotation is not the operation you want here".
+
+What fails the build is not the clock. It is a listed secret path that has
+stopped being ignored by git, because that is not a policy problem, it is the
+incident. The clock only prints: a rotation check that breaks CI gets its
+interval raised rather than its secret rotated.
+
+**Three secrets are recorded as compromised and none is rotated yet** — the
+Telegram bot token and the X bearer (both 23 September, both mine, both from a
+shell idiom that prints a value while looking like it tests for one), and the
+Neon password (19 September). They stay overdue until `rotatedAt` is set in
+`ops/secrets.json` **by hand**. Not when the file's mtime moves: `runner/.env`
+was rewritten on 22 September for a fee-payee change, three days after its
+database password went into a chat window, and a check keyed on mtime would
+have called that rotated and gone quiet.
+
+**Done means:** those three rotated and `rotatedAt` recorded. SECRETS.md has
+the steps for each; the X one bills to your card, which makes it the one to do
+first.
 
 ---
 
