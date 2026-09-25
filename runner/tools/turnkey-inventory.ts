@@ -143,9 +143,21 @@ for (const w of wallets.sort((a, b) => a.walletName.localeCompare(b.walletName))
   const v = vault.get(w.walletId);
   if (v) {
     const used = usedKeys.get(v.publicKey) ?? [];
+    /* A deposit key is single-use by design: it receives one funding payment
+       and the genesis spends it. Spent is not the same as deletable — the
+       vault still holds the row, and the vault REFUSES to replace an agent's
+       key (`putVault` never updates, see store-pg.ts). So deleting the wallet
+       while the row stands leaves that agent wedged: it cannot sign with the
+       key it has and cannot be given another. Deleting one of these is a
+       two-step operation and this tool does neither step. */
+    const deposit = v.agent.endsWith("--deposit");
     keep.push(
-      `${w.walletName}  — agent ${v.agent}` +
-        (used.length ? `, named by ${used.length} manifest(s): ${used.slice(0, 2).join(", ")}` : ", in the vault (no manifest here names it)"),
+      `${w.walletName}  — ${deposit ? "single-use deposit key for " : "agent "}${v.agent}` +
+        (used.length
+          ? `, named by ${used.length} manifest(s): ${used.slice(0, 2).join(", ")}`
+          : ", in the vault — no manifest HERE names it, which means either a grant the" +
+            " runner's store knows and git does not, or a key made for an agent that never" +
+            " got one. The vault cannot tell them apart and neither can this."),
     );
   } else if (w.walletName === MONITOR) {
     keep.push(`${w.walletName}  — the hourly signing monitor's probe wallet (ops/check-turnkey.sh). Deleting it only makes the monitor recreate it.`);
