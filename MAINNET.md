@@ -93,7 +93,26 @@ differential — whoever may end a grant must not thereby choose what it is wort
 single sompi is indistinguishable from an honest exit of a nearly empty grant.
 It is the spread that shows the signer was choosing.
 
-It does not yet cover `delegate2`. And it
+**`delegate2` is covered** (`covenant/harness/src/bin/fuzz-delegate2.rs`, in
+CI) — the entrypoint that is on chain, labelled *draft, unaudited*, and the
+newest code here by a month. Two children is not one child twice: the budget
+bound is SEQUENTIAL, B measured against what is left after A rather than
+against the same headroom, and measuring both against the same figure is the
+mistake a loop written carelessly makes. Remove that one rule and 23 of 41
+accepted delegations leave the tree holding more than the parent's budget.
+
+Making that visible needed a fix to the capacity reading itself: a parent
+whose spent-plus-reserved exceeds its budget can cause nothing more to be paid,
+and until the figure was clamped at zero the two sides cancelled exactly — an
+over-committed tree subtracted from the parent precisely what it added to the
+children and read as conserved. The whole sequential-budget family was
+invisible. The clamp changes no number in `fuzz-delegate`, because v4 refuses
+over-budget children anyway; it is the reason `fuzz-delegate2` can see
+anything at all.
+
+What the oracle does NOT see on this entrypoint, stated rather than implied
+away: a duplicate child and a reversed reserve chain both conserve every figure
+it reads. `c1`'s flip suite covers those. And it
 reads four of its five figures as a MAXIMUM over the tree, which cannot see
 breadth: a child born at its parent's own delegation depth does not raise the
 deepest chain the tree can build, but it gives the tree two chains of that
@@ -114,8 +133,8 @@ generative oracle is the only thing here that escapes that circle.
 
 **Done means:** every entrypoint under the generative oracle, each with its own
 deliberate-hole self-check, and the accepted-but-authority-grew count at zero
-for all of them. `delegate`, `settle` and the exits are done; `delegate2` is
-not.
+for all of them. all four families are done — `spend` (since before this
+list), `delegate`, `delegate2`, `settle` and the exits.
 
 ### 1.2 The one claim that is not covered
 

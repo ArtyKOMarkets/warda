@@ -1407,7 +1407,16 @@ pub fn compiled(src: &'static str, ctor: &[Expr<'static>]) -> &'static CompiledC
 /// checks that its own oracle catches it — the only evidence that a clean run
 /// means anything.
 pub fn source_without(line: &str) -> &'static str {
-    let out: String = SOURCE
+    source_without_in(SOURCE, line)
+}
+
+/// The same, for a covenant that is not v4.
+///
+/// `source_without` was written when there was one covenant to mutate. v5 is
+/// a different one, and an oracle that can only put holes back in v4 cannot
+/// say anything about the entrypoint v5 exists for.
+pub fn source_without_in(src: &'static str, line: &str) -> &'static str {
+    let out: String = src
         .lines()
         .map(|l| if l.trim() == line { format!("// MUTANT: removed — {l}") } else { l.to_string() })
         .collect::<Vec<_>>()
@@ -1417,6 +1426,7 @@ pub fn source_without(line: &str) -> &'static str {
 }
 pub mod audit;
 pub mod oracle;
+pub mod v5;
 
 
 // ---------------------------------------------------------------------------

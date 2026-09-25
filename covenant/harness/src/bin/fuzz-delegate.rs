@@ -54,8 +54,16 @@ use warda_harness::*;
 /// backwards is allowance coming back, and a `notBefore` that moves earlier is
 /// a window opening wider.
 fn tree_cap(parent_spent: i64, parent_reserved: i64, child: Option<&Child>) -> Capacity {
-    let parent_left = BUDGET_TOTAL - parent_spent - parent_reserved;
-    let child_left = child.map(|c| c.budget - c.accounting.0).unwrap_or(0);
+    /* Clamped at zero, and this is not tidiness.
+       A parent whose spent-plus-reserved exceeds its budget can cause nothing
+       more to be paid; negative is not a quantity of authority, it is an
+       arithmetic artefact. Unclamped, the two sides cancel exactly — a child
+       taking more than the parent had left subtracts the same amount from the
+       parent that it adds to the child — and an over-committed tree reads as
+       perfectly conserved. The whole sequential-budget family of attacks was
+       invisible to this oracle until the `.max(0)`. */
+    let parent_left = (BUDGET_TOTAL - parent_spent - parent_reserved).max(0);
+    let child_left = child.map(|c| (c.budget - c.accounting.0).max(0)).unwrap_or(0);
 
     let (max_per_spend, epoch_limit, depth, expires, opens) = match child {
         None => (MAX_PER_SPEND, EPOCH_LIMIT, DELEGATION_DEPTH, EXPIRES_AT, NOT_BEFORE),

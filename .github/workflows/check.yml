@@ -138,6 +138,15 @@ jobs:
         working-directory: covenant/harness
         run: cargo run -q --bin fuzz-exit
 
+      # And delegate2, against v5 — the entrypoint that is on chain, is
+      # labelled draft-unaudited, and is the newest code here by a month. Two
+      # children is not one child twice: the budget bound is SEQUENTIAL, and
+      # measuring the second against the same headroom as the first is the
+      # mistake a loop written carelessly makes. That is the first mutant.
+      - name: harness — an atomic delegation never creates authority
+        working-directory: covenant/harness
+        run: cargo run -q --bin fuzz-delegate2
+
       # 14 probes, each attack beside its nearest legitimate twin, judged in
       # BOTH directions: a covenant that refused everything would pass a suite
       # made only of refusals. Needs no keys and no network — the corpus is
