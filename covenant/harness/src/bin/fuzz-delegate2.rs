@@ -212,6 +212,21 @@ fn main() {
         ),
     ];
 
+    /* The mutants are the instrument proving itself, and each is a different
+       source — a full recompile of every constructor, which costs three
+       quarters of this binary's running time. At a SECOND grant shape the
+       question being asked is about the covenant, not about whether the oracle
+       can fire, and firing is not a property of the shape. So the shape matrix
+       runs with --no-mutants and CI does not. */
+    if std::env::args().any(|a| a == "--no-mutants") {
+        println!("\n───────────────────────────────────────────────");
+        println!("Mutants skipped (--no-mutants). This run says what the covenant did at");
+        println!("{}", shape_line());
+        println!("and NOT that the oracle is capable of finding a hole — for that, run it");
+        println!("without the flag, as CI does.");
+        std::process::exit(if real.findings.is_empty() { 0 } else { 1 });
+    }
+
     let mut blind: Vec<&str> = Vec::new();
     let mut fired = 0usize;
     for (label, line) in mutants {

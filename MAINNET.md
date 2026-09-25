@@ -25,12 +25,32 @@ means** — a condition somebody else could check, not an intention.
 
 ## The decision that orders everything
 
-**The audit target is v6, frozen at the end of this work.**
+**The audit target is v5, and there is no v6.**
 
-The alternative was to freeze now and harden around a fixed covenant. We chose
-not to, for one reason: hardening will find things in the covenant, and a
-version frozen before the looking is a version that gets audited with the
-findings still in it.
+The plan was to freeze a v6 at the end of the hardening. The alternative had
+been to freeze first and harden around a fixed covenant, and we chose not to
+for one reason: hardening will find things in the covenant, and a version
+frozen before the looking is a version that gets audited with the findings
+still in it.
+
+**The hardening found nothing in the covenant.** Every defect it turned up was
+in the instruments measuring it — nine welded literals in the harness, an
+audit suite reporting a rule it was not testing, a lockdown tool proving one
+refusal and claiming four, a checker that ran after its own exit. The covenant
+came through all of it unchanged, at thirteen grant shapes, across five
+entrypoints under the generative oracle, with zero authority growth.
+
+So there is no v6 to freeze. `covenant/harness/src/bin/frozen.rs` measures the
+thing that decides it — three comment-only mutations of the source compile to
+byte-identical bytecode, 10,375 bytes with the same state-region geometry — so
+a covenant differing from v5 only in what its header says about itself has v5's
+fingerprint, v5's template and v5's addresses. Naming it v6 would put a version
+number in `covenant/versions.json` that no bytecode backs, in the one file
+whose whole purpose is that every line of it re-derives.
+
+The frozen covenant is **v5**, `157b64e3eeea9c01`, and the migration is real
+regardless: v4 is 6,912 bytes and v5 is 10,375, so every live grant's address
+moves. `covenant/MIGRATION.md` is the inventory and the order.
 
 The cost is not hidden. `covenant/V5.md:21` — *"Every change strands every live
 grant. The script is P2SH-committed, so the address is the template."* Freezing
@@ -40,9 +60,28 @@ listings, the coordinator on /one-job — at a moment we pick rather than one
 that happens to us. v4 stays live throughout. v5 is a draft that proved
 `delegate2` works on chain and is not a migration target.
 
+The cost turned out smaller than this said, and the number is worth having
+before any of it is scheduled. Twenty-two distinct v4 grants exist; four have
+already expired; four more expire within a day; **six outlive a
+hundred-and-twenty-day horizon**, and those six are the only ones for which
+"migrate" and "wait" are different plans.
+
+**The freeze is one step from done, and the step is not the covenant.** Nothing
+in this repository resolves a template by the fingerprint in a manifest —
+the SDK, the hosted verifier, `site/build.py` and the extension each load "the
+packaged template" and derive from it. Promoting v5 into that name was
+attempted on 25 September and reverted: `test/buy-e2e.test.ts` failed, deriving
+a different address for the demo grant, which is exactly right. After a flip
+the hosted verifier would answer wrongly for every v4 grant — and, since this
+morning, `ops/check-verify.sh` would notice and say so.
+
 **Done means:** one covenant fingerprint, every live grant carrying it,
 `covenant/versions.json` recording the rest as history, and no entry in
 `GUARANTEES.md` marked *draft, unaudited*.
+
+**Blocked on:** a template resolver that reads the manifest's fingerprint
+(mine, next), and the offline principal (§2.1, yours) — reissuing before that
+exists spends the one opportunity this migration creates.
 
 ---
 
@@ -173,24 +212,39 @@ maxProofDepth 4. Whether the boundaries hold at a one-sompi budget, or another
 depth, is untested. Two of the axes are already environment variables, so this
 is a matrix to run rather than an argument to have.
 
-**Done.** `covenant/SHAPES.md` has the matrix. **No covenant defect at any
-shape** — zero violations everywhere the suite has an accepted baseline, across
-budgets from 10^10 to 10^15, delegation depths 1 to 4, epoch lengths 1 to
-100,000, allowlists of 2 to 256 members and proof depths 2 to 16.
+**Done.** `covenant/SHAPES.md` has the matrix, and it now covers v5's
+`delegate2` as well. **No covenant defect at any shape** — every shape that can
+express the suite's cases reports 40 of 40 claims covered, zero violations and
+zero over-refusals, across budgets from 10^3 to 10^15, delegation depths 1 to
+4, epoch lengths 1 to 100,000, allowlists of 2 to 256 members and proof depths
+2 to 16. `delegate2` has an accepted baseline and eleven refused flips at every
+one of the thirteen, and the oracle finds zero authority growth at each.
 
-What it found was the instrument. Three shapes reported violations on the first
-run — the serious direction, the covenant accepting what the guarantees forbid
-— and every one was a relationship in the harness written as a literal: an
-epoch position as a fixed DAA offset, the grant's own coin pinned while its
-budget moved, and a case whose comment says *"spent 60 and reserved 15 of 100
-has 25 left"* with 60, 15 and 25 written out in KAS. Each is true at exactly one
-shape. None was visible while there was only one shape to run.
+What it found was the instrument, nine times. Three on the first run and six
+more when the matrix reached `delegate` and `delegate2` at shapes they had
+never been asked about — every one the same mistake, that a relationship
+expressed as a literal is a relationship that holds at one shape. Two of them
+account for the entire over-refusal column the first version of this table
+carried: `Child::narrower()` hardcoded `delegation_depth: 1`, so at a parent of
+depth 1 the "narrower" child was not narrower (eleven over-refusals, now zero);
+and the child's `epochLength` was the literal 1,000 in six places, so at any
+other epoch length **every delegation was refused** (fifteen, now zero).
 
-Four shapes still cannot run at all, and report nothing rather than passing: a
-grant whose epoch is longer than its whole window, or whose per-spend cap is a
-sompi while its cases pay half a KAS, is incoherent rather than interesting.
-SHAPES.md also lists what is still welded, because a list that says *fixed* and
-means *mostly* is worse than no list.
+The largest was a second copy of a bug SHAPES.md already recorded fixing: the
+coin in the grant's own UTXO, pinned at 10^10, in the delegation builder rather
+than the spend builder. It made every v4 delegation case over-refuse above a
+budget of 4×10^10 — exactly where a child taking a quarter of the budget stops
+fitting inside a parent holding ten billion sompi.
+
+The default shape's output is byte-identical before and after all nine, which
+is how we know none of them moved the thing being measured.
+
+Three shapes report nothing, and now say so themselves rather than leaving it
+to the reader: `shape_incoherence()` names the arithmetic that makes a grant
+whose whole budget is below the baked `maxFee`, or whose epoch is longer than
+its window, unable to express the cases at all. That check exists because a
+shape with an accepted baseline still reported two violations, and both were
+the case asking about more money than the grant had ever held.
 
 ### 1.4 The PENDING cases in `c1`
 

@@ -76,6 +76,15 @@ jobs:
       # unreleased covenant with a passing suite is a covenant somebody can
       # finish, and one with a suite nobody runs rots into a file that looks
       # like work. Exits non-zero the moment a flip is accepted.
+      # The freeze rests on two claims that were assumed rather than measured:
+      # that prose does not reach the bytecode (so a covenant differing from v5
+      # only in its header IS v5, with v5's addresses and nothing to migrate
+      # onto), and that the committed template is still what the source
+      # compiles to. Nothing joined the source to the template before this.
+      - name: harness — the frozen source is the frozen template
+        working-directory: covenant/harness
+        run: cargo run -q --bin frozen
+
       - name: harness — C1, conservation across two children
         working-directory: covenant/harness
         run: cargo run --release --bin c1

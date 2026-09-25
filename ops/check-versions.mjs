@@ -50,6 +50,30 @@ for (const v of map.versions) {
   }
 }
 
+// ---- 1b. two copies of one template ---------------------------------------
+//
+// Every template exists twice: `covenant/deploy/` writes it, `sdk/` ships it.
+// Nothing compared them. They are identical today and have been since v4, and
+// the reason nobody noticed the gap is that nobody has yet built a template
+// and copied only one of them — which is precisely what a covenant freeze is.
+//
+// Divergence would not announce itself. The SDK would derive addresses from
+// one covenant while the Rust tool built transactions against another, and the
+// first symptom is a genesis whose address nobody else computes.
+for (const v of map.versions) {
+  if (!v.template || !v.template.startsWith("sdk/")) continue;
+  const twin = v.template.replace(/^sdk\//, "covenant/deploy/");
+  let a, b;
+  try { a = readFileSync(join(REPO, v.template), "utf8"); } catch { continue; }
+  try { b = readFileSync(join(REPO, twin), "utf8"); } catch { continue; } // deploy keeps only what it built
+  if (a !== b) {
+    problems.push(
+      `${v.version}: ${v.template} and ${twin} are not the same file. ` +
+        `The SDK would derive addresses from one covenant and the deploy tool build against the other.`,
+    );
+  }
+}
+
 // ---- 2. the prose ---------------------------------------------------------
 const table = [...readFileSync(join(REPO, "GUARANTEES.md"), "utf8")
   .matchAll(/^\|\s*(v\d+)\s*\|\s*`([0-9a-f]{16})`\s*\|/gm)].map((m) => [m[1], m[2]]);

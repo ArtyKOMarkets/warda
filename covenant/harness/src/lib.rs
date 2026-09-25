@@ -786,6 +786,83 @@ pub const MAX_FEE: i64 = 100_000;
 /// harness building a transaction whose outputs it silently clamped.
 ///
 /// So the coin follows the budget, which is the relationship a real grant has.
+/// The baked fee ceiling every exit is measured against. It is a CONSTRUCTOR
+/// argument, not an environment variable, because it is compiled into the
+/// bytecode — a different fee is a different script and a different address.
+/// That asymmetry is the whole reason `shape_incoherence` below exists.
+pub const BAKED_MAX_FEE: i64 = 5_000_000;
+
+/// Why this shape cannot mean anything, if it cannot.
+///
+/// `covenant/SHAPES.md` already refuses to report four shapes — an epoch
+/// longer than the whole window, a per-spend cap of one sompi against cases
+/// that pay half a KAS — on the grounds that *"a suite that cannot build one
+/// valid transaction at a shape has not tested that shape, whatever its output
+/// columns say."* It decided that by hand, by noticing there was no accepted
+/// baseline.
+///
+/// A baseline is not enough. At a 1,000-sompi budget the spend cases fail to
+/// build but the DELEGATION baseline is accepted, so the suite runs, and the
+/// two exit-conservation cases — "one sompi more than maxFee burned" — report
+/// the covenant ACCEPTING what the guarantees forbid. It is arithmetic: maxFee
+/// is 5,000,000 and the grant holds 1,000, so "maxFee + 1" is more than the
+/// grant has ever been worth and the case cannot express what it means.
+///
+/// Two violations, in the serious direction, from a shape that is nonsense.
+/// The instrument has to say so itself rather than leaving it to whoever reads
+/// the table.
+pub fn shape_incoherence() -> Option<String> {
+    if budget_total() <= BAKED_MAX_FEE {
+        return Some(format!(
+            "the grant's whole budget ({}) is no more than the baked maxFee ({BAKED_MAX_FEE}). \
+             Every conservation case is written as a fee at or around that ceiling, so at this \
+             shape they ask about more money than the grant has ever held. maxFee is compiled \
+             into the bytecode and cannot follow WARDA_BUDGET: a different fee is a different \
+             covenant.",
+            budget_total()
+        ));
+    }
+    if max_per_spend() > epoch_limit() {
+        return Some(format!(
+            "the per-spend cap ({}) is above the epoch allowance ({}). A single payment at the \
+             cap would exceed what the whole epoch permits, so the covenant refuses it — \
+             correctly — and every case written as \"exactly the cap\" reads as an over-refusal. \
+             The two figures move independently as environment variables and a real grant would \
+             not be issued this way.",
+            max_per_spend(),
+            epoch_limit()
+        ));
+    }
+    if epoch_length() > expires_at() - not_before() {
+        return Some(format!(
+            "an epoch ({}) is longer than the grant's whole window ({}). The ratchet cases have \
+             no second epoch to move to.",
+            epoch_length(),
+            expires_at() - not_before()
+        ));
+    }
+    None
+}
+
+/// Is this run at the parameterisation the deployed template was built with?/// Is this run at the parameterisation the deployed template was built with?
+///
+/// Only one thing needs to ask: a fixture. `covenant/SHAPES.md` exists because
+/// evidence at one shape is not evidence, and everything in this harness is
+/// free to move — but a golden vector is a claim about a SPECIFIC script that
+/// exists on chain, and one emitted at another budget is a file that looks like
+/// the real thing and is not. The suites vary; the fixture refuses.
+pub fn is_default_shape() -> bool {
+    budget_total() == 10_000_000_000
+        && max_per_spend() == 200_000_000
+        && epoch_limit() == 1_000_000_000
+        && epoch_length() == 1_000
+        && not_before() == 1_000_000
+        && expires_at() == 1_007_000
+        && delegation_depth() == 2
+        && tree_leaves() == 4
+        && proof_depth() == 4
+}
+
 pub fn in_value() -> u64 {
     budget_total().max(0) as u64
 }
@@ -989,14 +1066,31 @@ pub struct Child {
 }
 
 impl Child {
+    /// A child narrower than its parent on every axis — AT WHATEVER SHAPE THE
+    /// PARENT HAS.
+    ///
+    /// This was seven literals: 25 KAS, a 1 KAS cap, depth 1. They are exactly
+    /// a quarter, a half and one-less of the DEFAULT parent, and they are
+    /// nothing in particular at any other. At `WARDA_DELEGATION_DEPTH=1` a
+    /// child of depth 1 is not narrower than its parent at all, so the baseline
+    /// was refused and the shape reported nothing; at a budget of 10^15 a
+    /// 25-KAS child is not narrower in any interesting sense, merely tiny.
+    ///
+    /// `covenant/SHAPES.md` names this pattern three times over — *"a
+    /// relationship expressed as a literal is a relationship that holds at one
+    /// shape"* — and then listed eleven over-refusals at depth 1 as
+    /// probably-more-of-the-same. The fractions below produce the identical
+    /// seven numbers at the default shape, so nothing about the shipped report
+    /// moves, and the depth-1 column stops describing a child that was never
+    /// narrower to begin with.
     pub fn narrower() -> Self {
         Child {
-            budget: 25 * KAS,
-            max_per_spend: KAS,
-            epoch_limit: 5 * KAS,
-            expires_at: 1_007_000,
-            not_before: 1_000_000,
-            delegation_depth: 1,
+            budget: budget_total() / 4,
+            max_per_spend: max_per_spend() / 2,
+            epoch_limit: epoch_limit() / 2,
+            expires_at: expires_at(),
+            not_before: not_before(),
+            delegation_depth: (delegation_depth() - 1).max(0),
             root: None,
             accounting: (0, 0, 0, 0),
         }
@@ -1035,7 +1129,15 @@ pub fn child_state_of(src: &'static str, root: [u8; 32], child_key: [u8; 32], ch
             ("budgetTotal", Expr::int(ch.budget)),
             ("maxPerSpend", Expr::int(ch.max_per_spend)),
             ("epochLimit", Expr::int(ch.epoch_limit)),
-            ("epochLength", Expr::int(1_000)),
+            /* The child's epoch is its PARENT's epoch. This was the literal
+               1_000 here, in `child_ctor` and in `child_id` — three copies,
+               all agreeing with each other and with nothing else once
+               WARDA_EPOCH_LENGTH moved. The covenant requires a child no wider
+               than its parent, so at every epoch length but the default the
+               child was wrong and EVERY delegation was refused: 2, 10 and 100
+               all fail, 1,000 passes. The shape matrix's "epoch length 1" row
+               was measuring this. */
+            ("epochLength", Expr::int(epoch_length())),
             ("recipientsRoot", Expr::bytes(ch.root.unwrap_or(root).to_vec())),
             ("notBefore", Expr::int(ch.not_before)),
             ("expiresAt", Expr::int(ch.expires_at)),
@@ -1060,7 +1162,8 @@ pub fn child_ctor(root: [u8; 32], child_key: [u8; 32], ch: &Child, depth: i64) -
         Expr::int(ch.budget),
         Expr::int(ch.max_per_spend),
         Expr::int(ch.epoch_limit),
-        Expr::int(1_000),
+        Expr::int(epoch_length()), // see child_state_of: this was a literal 1_000
+
         Expr::bytes(ch.root.unwrap_or(root).to_vec()),
         Expr::int(ch.not_before),
         Expr::int(ch.expires_at),
@@ -1158,7 +1261,8 @@ fn run_delegation_full(d: &Delegate) -> Result<(), TxScriptError> {
         ch.budget,
         ch.max_per_spend,
         ch.epoch_limit,
-        1_000,
+        epoch_length(), // the identity hash: must agree with child_ctor exactly
+
         ch.root.unwrap_or(tree.root()),
         ch.not_before,
         ch.expires_at,
@@ -1204,7 +1308,16 @@ fn run_delegation_full(d: &Delegate) -> Result<(), TxScriptError> {
         vec![parent_next_state, child_state_of(d.src, tree.root(), child_key, ch)],
     );
 
-    let in_value: u64 = 10_000_000_000;
+    /* The coin in the parent's own UTXO. `covenant/SHAPES.md` records this
+       exact bug being found and fixed once — *"IN_VALUE, the coin in the
+       grant's own UTXO, was pinned at 10^10 while the budget was a hundred
+       thousand times that"* — and it was fixed in the SPEND builder. This
+       copy, in the delegation builder, was missed, and it is why every v4
+       delegation case over-refused above a budget of 4 x 10^10: that is
+       precisely where a child taking a quarter of the budget stops fitting
+       inside a parent holding ten billion sompi whatever it claims. The
+       covenant was right every time. */
+    let in_value: u64 = in_value();
     let build = |sig: Vec<u8>| {
         /* v4 added the subset witness, so delegate takes four arguments after
            the injected prevState, not two. An EMPTY witness is not a

@@ -106,7 +106,7 @@ pub fn v5_child_ctor(root: [u8; 32], key: [u8; 32], ch: &Child) -> Vec<Expr<'sta
     v[4] = Expr::int(ch.budget);
     v[5] = Expr::int(ch.max_per_spend);
     v[6] = Expr::int(ch.epoch_limit);
-    v[7] = Expr::int(1_000);
+    v[7] = Expr::int(epoch_length()); // the child's epoch is its parent's; was a literal
     v[8] = Expr::bytes(ch.root.unwrap_or(root).to_vec());
     v[9] = Expr::int(ch.not_before);
     v[10] = Expr::int(ch.expires_at);
@@ -134,7 +134,11 @@ pub fn v5_child_state(root: [u8; 32], key: [u8; 32], ch: &Child) -> Expr<'static
             ("budgetTotal", Expr::int(ch.budget)),
             ("maxPerSpend", Expr::int(ch.max_per_spend)),
             ("epochLimit", Expr::int(ch.epoch_limit)),
-            ("epochLength", Expr::int(1_000)),
+            /* Was 1_000, like the three copies in lib.rs it was copied from.
+               A child wider than its parent on this axis is refused, so every
+               delegate2 at a non-default epoch length was refused for a reason
+               that had nothing to do with the covenant. */
+            ("epochLength", Expr::int(epoch_length())),
             ("recipientsRoot", Expr::bytes(ch.root.unwrap_or(root).to_vec())),
             ("notBefore", Expr::int(ch.not_before)),
             ("expiresAt", Expr::int(ch.expires_at)),
@@ -235,7 +239,7 @@ pub fn delegate2_artifacts(
     .expect("v5 parent compiles");
 
     let cid = |key: [u8; 32], ch: &Child| {
-        child_id(key, ch.budget, ch.max_per_spend, ch.epoch_limit, 1_000,
+        child_id(key, ch.budget, ch.max_per_spend, ch.epoch_limit, epoch_length(),
                  ch.root.unwrap_or(tree.root()), ch.not_before, ch.expires_at, ch.delegation_depth)
     };
     let chain = if f.chain_omits_b {
@@ -275,7 +279,13 @@ pub fn delegate2_artifacts(
         vec![struct_object("State", pf), v5_child_state(tree.root(), key_a, a), v5_child_state(tree.root(), key_b, b)],
     );
 
-    let in_value: u64 = 10_000_000_000;
+    /* The grant's own coin. This was welded at 10^10 while the CONTRACT it
+       funds already followed the environment — so raising WARDA_BUDGET built a
+       grant claiming a budget its UTXO could not cover, and the v5 suite ran at
+       one shape whatever anybody asked for. SHAPES.md listed it as welded.
+       It is the same instrument bug the matrix found in three other places:
+       a relationship written as a literal, true at exactly one shape. */
+    let coin: u64 = in_value();
     let empty_sibs = || Expr::array(
         TypeRef { base: TypeBase::Byte, array_dims: vec![ArrayDim::Fixed(32), ArrayDim::Dynamic] },
         vec![],
@@ -294,7 +304,7 @@ pub fn delegate2_artifacts(
                 new_states.clone(), empty_sibs(), empty_lefts(), empty_sibs(), empty_lefts(), Expr::bytes(sig),
             ]))],
             vec![
-                out(in_value.saturating_sub(total.max(0) as u64).saturating_sub(1_000), &parent_next.bytecode),
+                out(coin.saturating_sub(total.max(0) as u64).saturating_sub(1_000), &parent_next.bytecode),
                 out(a.budget.max(0) as u64, &ca.bytecode),
                 out(b.budget.max(0) as u64, &cb.bytecode),
             ],
@@ -305,7 +315,7 @@ pub fn delegate2_artifacts(
         )
     };
 
-    let entries = vec![covenant_utxo(&parent, in_value)];
+    let entries = vec![covenant_utxo(&parent, coin)];
     let unsigned = build(vec![0u8; 65]);
     let sighash = sighash_of(&unsigned, &entries, 0);
     let sig = sign_input(unsigned.clone(), entries.clone(), 0, &kp);

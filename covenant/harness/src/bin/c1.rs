@@ -39,9 +39,11 @@ use silverscript_lang::compiler::{compile_contract, struct_object, CompileOption
 use warda_harness::{
     agent_keypair, authority_fields, child_ctor, child_id, child_state, covenant_utxo,
     ctor_at_state, ctor_at_state_with_reserve, empty_reserve, execute, members, proof_depth,
+    budget_total, delegation_depth, epoch_length, epoch_limit, expires_at, in_value,
+    is_default_shape, max_per_spend, not_before, shape_incoherence, shape_line,
     execute_all, execute_traced, measure_units, plain_sigscript, push_child, revocation_keypair,
     sign_input, sigscript, tx_input,
-    Child, Tree, COV, KAS, SOURCE, SOURCE_V5,
+    Child, Tree, COV, SOURCE, SOURCE_V5,
 };
 
 /// One child, and the key it will be created under.
@@ -105,7 +107,13 @@ fn delegate_n_artifacts(
             k.child.budget,
             k.child.max_per_spend,
             k.child.epoch_limit,
-            1_000,
+            // The child's epoch length, which is its parent's. This was the
+            // literal 1_000 in six places across lib.rs, v5.rs and here, and
+            // together they meant that at ANY epoch length but the default the
+            // reserve chain committed to a child id nothing could reproduce —
+            // so every delegation was refused, at 2, at 100, at 7,000, and
+            // only 1,000 passed.
+            epoch_length(),
             k.child.root.unwrap_or(tree.root()),
             k.child.not_before,
             k.child.expires_at,
@@ -155,10 +163,11 @@ fn delegate_n_artifacts(
         states,
     );
 
-    let in_value: u64 = 10_000_000_000;
+    // Welded at 10^10 until the shape matrix reached v5. See src/v5.rs.
+    let coin: u64 = in_value();
     let build = |sig: Vec<u8>| {
         let mut outs = vec![TransactionOutput {
-            value: in_value.saturating_sub(total.max(0) as u64).saturating_sub(1_000),
+            value: coin.saturating_sub(total.max(0) as u64).saturating_sub(1_000),
             script_public_key: pay_to_script_hash_script(&parent_next.bytecode),
             covenant: Some(CovenantBinding { authorizing_input: 0, covenant_id: COV }),
         }];
@@ -191,7 +200,7 @@ fn delegate_n_artifacts(
         )
     };
 
-    let entries = vec![covenant_utxo(&parent, in_value)];
+    let entries = vec![covenant_utxo(&parent, coin)];
     let sig = sign_input(build(vec![0u8; 65]), entries.clone(), 0, &kp);
     let tx = build(sig);
     (execute(tx.clone(), entries.clone(), 0), tx, entries)
@@ -228,6 +237,9 @@ enum Covered {
 
 fn main() {
     println!("C1 — conservation across N children\n");
+    if let Some(why) = shape_incoherence() {
+        println!("THIS SHAPE CANNOT BE REPORTED ON: {why}\n");
+    }
 
     // ---- the builder, proved ------------------------------------------
     //
@@ -400,15 +412,21 @@ fn v5_suite() {
     // The SEQUENTIAL bound needs a parent with something already committed,
     // so the sum can exceed the headroom while staying under the input value.
     // Its own baseline, because a flip is only a flip from something accepted.
-    let committed = Flip { prev_reserved: 60 * KAS, ..Default::default() };
-    let mut small = base(); small.budget = 5 * KAS;
+    /* Three fifths of the budget already committed, and two children of a
+       twentieth each. These were 60 KAS and 5 KAS — figures computed for a
+       100-KAS parent and meaningless against any other, which is how this
+       suite came to report three violations at budget 10^15 that were all
+       itself. Fractions hold at every shape and are the same seven numbers at
+       the default one. */
+    let committed = Flip { prev_reserved: budget_total() * 3 / 5, ..Default::default() };
+    let mut small = base(); small.budget = budget_total() / 20;
     let seq_base = delegate2_run(&small, &small, &committed);
-    println!("  60 KAS already reserved, 5 + 5  {}",
+    println!("  3/5 reserved, two 1/20 children {}",
         match &seq_base { Ok(()) => "ACCEPTED   — the second baseline".to_string(), Err(e) => format!("REFUSED — {e}") });
-    let mut over_a = base(); over_a.budget = 30 * KAS;
-    let mut over_b = base(); over_b.budget = 30 * KAS;
-    let mut wide_b = base(); wide_b.max_per_spend = 500 * KAS;      // above the parent's 2 KAS
-    let mut wide_a = base(); wide_a.max_per_spend = 500 * KAS;
+    let mut over_a = base(); over_a.budget = budget_total() * 3 / 10;
+    let mut over_b = base(); over_b.budget = budget_total() * 3 / 10;
+    let mut wide_b = base(); wide_b.max_per_spend = max_per_spend() * 2;  // above the parent's cap, whatever it is
+    let mut wide_a = base(); wide_a.max_per_spend = max_per_spend() * 2;
     let mut dirty_b = base(); dirty_b.accounting = (1, 0, 0, 0);
     /* The three the specification listed as needing C1 and which C1 can now
        express — written here rather than left as prose about what somebody
@@ -416,11 +434,11 @@ fn v5_suite() {
     let mut wide_root_b = base(); wide_root_b.root = Some([0x7e; 32]);
 
     let cases: Vec<(&str, Result<(), TxScriptError>, bool)> = vec![
-        ("each fits, together they do not", delegate2_run(&over_a, &over_b, &Flip { prev_reserved: 60 * KAS, ..Default::default() }), false),
+        ("each fits, together they do not", delegate2_run(&over_a, &over_b, &Flip { prev_reserved: budget_total() * 3 / 5, ..Default::default() }), false),
         ("both children under one key", delegate2_run(&base(), &base(), &Flip { same_key: true, ..Default::default() }), false),
         ("chain pushed B then A", delegate2_run(&base(), &base(), &Flip { reverse_chain: true, ..Default::default() }), false),
-        ("reserve is the sum minus one", delegate2_run(&base(), &base(), &Flip { reserved: Some(50 * KAS - 1), ..Default::default() }), false),
-        ("reserve is the sum plus one", delegate2_run(&base(), &base(), &Flip { reserved: Some(50 * KAS + 1), ..Default::default() }), false),
+        ("reserve is the sum minus one", delegate2_run(&base(), &base(), &Flip { reserved: Some(budget_total() / 2 - 1), ..Default::default() }), false),
+        ("reserve is the sum plus one", delegate2_run(&base(), &base(), &Flip { reserved: Some(budget_total() / 2 + 1), ..Default::default() }), false),
         ("the LAST child exceeds maxPerSpend", delegate2_run(&base(), &wide_b, &Flip::default()), false),
         ("the FIRST child exceeds maxPerSpend", delegate2_run(&wide_a, &base(), &Flip::default()), false),
         ("the LAST child starts with spentTotal 1", delegate2_run(&base(), &dirty_b, &Flip::default()), false),
@@ -428,7 +446,7 @@ fn v5_suite() {
            exactly B's budget, which is the arithmetic — but the shape is the
            specification's "N+1 children where N were reserved" at N = 1. */
         ("two children, only one reserved for",
-            delegate2_run(&base(), &base(), &Flip { reserved: Some(25 * KAS), ..Default::default() }), false),
+            delegate2_run(&base(), &base(), &Flip { reserved: Some(budget_total() / 4), ..Default::default() }), false),
         /* The sum is RIGHT and the chain is wrong: B is created, its budget is
            reserved, and its id is never pushed. An unchained child can never
            be reabsorbed — nothing can produce the preimage that pops it — so
@@ -585,7 +603,7 @@ fn settle_suite() {
     let key_a = [0x90u8; 32];
     let key_b = [0x91u8; 32];
     let cid = |key: [u8; 32], ch: &Child| {
-        child_id(key, ch.budget, ch.max_per_spend, ch.epoch_limit, 1_000,
+        child_id(key, ch.budget, ch.max_per_spend, ch.epoch_limit, epoch_length(),
                  ch.root.unwrap_or(root), ch.not_before, ch.expires_at, ch.delegation_depth)
     };
     let after_a = push_child(empty_reserve(), cid(key_a, &a));
@@ -604,9 +622,9 @@ fn settle_suite() {
         spent: 0,
         reserved: a.budget,
         chain: after_a,
-        value: 10_000_000_000u64.saturating_sub(a.budget as u64).saturating_sub(1_000),
+        value: in_value().saturating_sub(a.budget as u64).saturating_sub(1_000),
     };
-    let (control, _) = reabsorb_step(root, agent, &single, &a, key_a, 5 * KAS, empty_reserve());
+    let (control, _) = reabsorb_step(root, agent, &single, &a, key_a, a.budget / 5, empty_reserve());
     match &control {
         Ok(()) => println!("  CONTROL: one child, one chain ACCEPTED   — the settle builder works"),
         Err(e) => {
@@ -627,16 +645,16 @@ fn settle_suite() {
         spent: 0,
         reserved: total,
         chain: after_b,
-        value: 10_000_000_000u64.saturating_sub(total as u64).saturating_sub(1_000),
+        value: in_value().saturating_sub(total as u64).saturating_sub(1_000),
     };
 
     // B first: the chain pops from the end, and B was pushed last.
-    let (v1, mid) = reabsorb_step(root, agent, &start, &b, key_b, 5 * KAS, after_a);
+    let (v1, mid) = reabsorb_step(root, agent, &start, &b, key_b, b.budget / 5, after_a);
     println!("  settle B (hired last)         {}",
         match &v1 { Ok(()) => "ACCEPTED   — v4's reabsorb settles a delegate2 child unchanged".to_string(), Err(e) => format!("REFUSED — {e}") });
 
     if v1.is_ok() {
-        let (v2, end) = reabsorb_step(root, agent, &mid, &a, key_a, 5 * KAS, empty_reserve());
+        let (v2, end) = reabsorb_step(root, agent, &mid, &a, key_a, a.budget / 5, empty_reserve());
         println!("  then settle A                 {}",
             match &v2 { Ok(()) => format!("ACCEPTED   — reserved back to {}, chain empty again", end.reserved), Err(e) => format!("REFUSED — {e}") });
         if v2.is_ok() && end.reserved != 0 {
@@ -648,7 +666,7 @@ fn settle_suite() {
     // A first, which the LIFO discipline must refuse: no prevRoot the prover
     // can supply satisfies reserveRoot == H(prevRoot || cidA) when the chain
     // ends in cidB.
-    let (out_of_order, _) = reabsorb_step(root, agent, &start, &a, key_a, 5 * KAS, after_a);
+    let (out_of_order, _) = reabsorb_step(root, agent, &start, &a, key_a, a.budget / 5, after_a);
     println!("  settle A first, out of order  {}",
         match &out_of_order { Ok(()) => "ACCEPTED   <-- the LIFO discipline is NOT enforced".to_string(), Err(e) => format!("refused — {e}") });
 
@@ -807,6 +825,20 @@ fn hexs(b: &[u8]) -> String {
 }
 
 fn emit_golden(path: &str) {
+    // A suite may run at any shape; a FIXTURE may not. This file is a claim
+    // about a script that exists, pinned to the deployed template, and one
+    // written at another budget is indistinguishable from the real thing until
+    // somebody derives an address from it. Now that the v5 builders follow the
+    // environment, that became possible for the first time — so it is refused
+    // here, at the only moment anybody could act on it.
+    if !is_default_shape() {
+        eprintln!("refusing to write a golden vector at a non-default grant shape.");
+        eprintln!("  {}", shape_line());
+        eprintln!("  The vector is a fixture against the DEPLOYED template; at another");
+        eprintln!("  shape it is a different script and every address in it is wrong.");
+        eprintln!("  Unset the WARDA_* shape variables and run it again.");
+        std::process::exit(2);
+    }
     let kp = agent_keypair();
     let agent: [u8; 32] = kp.x_only_public_key().0.serialize();
     let tree = Tree::new(members());
@@ -885,7 +917,7 @@ fn emit_golden(path: &str) {
 ",
         match &verdict { Ok(()) => "ACCEPTED".to_string(), Err(e) => format!("REFUSED — {e}") },
         hexs(&auth.principal), hexs(&auth.revocation), hexs(&agent), hexs(&tid), hexs(&root), members_json,
-        10_000_000_000i64, 200_000_000i64, 1_000_000_000i64, 1_000i64, 1_000_000i64, 1_007_000i64, 2i64,
+        budget_total(), max_per_spend(), epoch_limit(), epoch_length(), not_before(), expires_at(), delegation_depth(),
         hexs(&empty_reserve()),
         hexs(&key_a), a.budget, a.max_per_spend, a.epoch_limit, a.not_before, a.expires_at, a.delegation_depth,
         hexs(&key_b), b.budget, b.max_per_spend, b.epoch_limit, b.not_before, b.expires_at, b.delegation_depth,

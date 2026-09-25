@@ -725,5 +725,17 @@ fn subject() -> Subject {
 }
 
 fn main() {
+    /* Said BEFORE the run, not after: a reader who has already seen 132 case
+       lines and a violation count has formed a view, and a footnote does not
+       undo it. See `shape_incoherence` for the shape that made this necessary
+       — one where the suite has an accepted baseline, runs to completion, and
+       reports two violations that are arithmetic rather than covenant. */
+    if let Some(why) = warda_harness::shape_incoherence() {
+        eprintln!("THIS SHAPE CANNOT BE REPORTED ON.\n");
+        eprintln!("  {why}\n");
+        eprintln!("  {}\n", warda_harness::shape_line());
+        eprintln!("  Running anyway, because a refusal to run is easy to mistake for a crash —");
+        eprintln!("  but nothing below is a fact about the covenant, in either direction.\n");
+    }
     std::process::exit(warda_harness::audit::run(&subject(), cases(), CLAIMS));
 }
