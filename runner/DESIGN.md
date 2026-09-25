@@ -140,6 +140,17 @@ denies everything and would take the runner down, and nothing in Turnkey's
 documentation promises that `wallet` is populated for `SIGN_RAW_PAYLOAD_V2`.
 Any failure after the update rolls the policy back.
 
+It distinguishes a refusal BY THE POLICY from a refusal by anything else, and
+it learned that the hard way: its first live run reported "already refused on a
+non-agent wallet" when the real answer was *Resource exhausted: signing is
+disabled because your organization is over* a plan limit. It stopped and
+changed nothing, which was right, and it said something false about the policy
+while doing it. Turnkey distinguishes the two — code 7 is the policy engine,
+code 8 is the account — and `catch (e)` had thrown that away. Code 8 now
+reports the far more urgent fact instead: if the organisation cannot sign, the
+runner cannot sign, and every agent transaction it is asked to build fails at
+the last step.
+
 ## Workflows
 
 ```json

@@ -129,8 +129,34 @@ const ACCOUNT = {
   addressFormat: P2TR,
 };
 
-/** Sign 32 random bytes with a wallet account. Allowed or refused is the answer. */
-async function canSign(address: string): Promise<{ ok: boolean; why: string }> {
+/**
+ * Sign 32 random bytes with a wallet account.
+ *
+ * THREE answers, not two, and the third is the one this tool got wrong on its
+ * first live run. It asked "was it refused?" and treated every error as a
+ * policy refusal — so an organisation whose signing was disabled for being
+ * over a plan limit read as "the policy already denies this", and the tool
+ * reported a conclusion about the policy from an error that had nothing to do
+ * with it.
+ *
+ * That is the exact failure `covenant/AUDIT.md` opens by warning about, in a
+ * different medium: a refusal proves something only when you can name what it
+ * is a refusal OF. Turnkey names it — code 7 is the policy engine, code 8 is
+ * the account — and the distinction was thrown away by `catch (e)`.
+ */
+type Verdict = { ok: true } | { ok: false; denied: boolean; why: string };
+
+function classify(message: string): { denied: boolean; why: string } {
+  const why = message.replace(/\s+/g, " ").trim();
+  /* Turnkey's gRPC codes come through in the message. 7 PERMISSION_DENIED is
+     the policy engine saying no, which is the only refusal that means
+     anything here. 8 RESOURCE_EXHAUSTED is the account — a plan limit, a
+     quota, billing — and says nothing about what the key may do. */
+  const denied = /error 7\b|permission denied|not authorized|policy/i.test(why);
+  return { denied, why };
+}
+
+async function canSign(address: string): Promise<Verdict> {
   try {
     await runner.signRawPayload({
       signWith: address,
@@ -138,9 +164,9 @@ async function canSign(address: string): Promise<{ ok: boolean; why: string }> {
       encoding: "PAYLOAD_ENCODING_HEXADECIMAL",
       hashFunction: "HASH_FUNCTION_NO_OP",
     });
-    return { ok: true, why: "" };
+    return { ok: true };
   } catch (e) {
-    return { ok: false, why: String((e as Error).message).slice(0, 90) };
+    return { ok: false, ...classify(String((e as Error).message)) };
   }
 }
 
@@ -172,9 +198,21 @@ const decoyAddress: string = decoy.addresses[0];
 step(`root created "${decoyName}" — a wallet the runner has no business signing with`);
 
 const gap = await canSign(decoyAddress);
+if (!gap.ok && !gap.denied) {
+  console.error(
+    `\n✗ signing did not work AT ALL, and not because of the policy:\n\n` +
+      `    ${gap.why}\n\n` +
+      `  This says nothing about what the runner's key is permitted to do, so there is\n` +
+      `  nothing here to narrow and nothing was changed. It does say something more\n` +
+      `  urgent: if the organisation cannot sign, THE RUNNER CANNOT SIGN — every agent\n` +
+      `  transaction it is asked to build fails at the last step. Fix that first and run\n` +
+      `  this again. Delete the wallet "${decoyName}".`,
+  );
+  process.exit(1);
+}
 if (!gap.ok) {
   console.error(
-    `\n✗ the runner's key is ALREADY refused on a non-agent wallet: ${gap.why}\n` +
+    `\n✗ the runner's key is ALREADY refused by POLICY on a non-agent wallet: ${gap.why}\n` +
       `  Then the gap this tool exists to close is not the gap you have, and the policy\n` +
       `  should not be rewritten on a belief that just turned out to be wrong. Nothing\n` +
       `  was changed. Delete the wallet "${decoyName}".`,
@@ -206,7 +244,16 @@ const after = await canSign(decoyAddress);
 if (after.ok) {
   await rollback("the runner can STILL sign with a non-agent wallet. The condition did not bind.");
 }
-step(`refused on "${decoyName}" (${after.why}…)`);
+if (!after.denied) {
+  /* The refusal this tool exists to produce has to come from the POLICY. An
+     account-level failure would refuse an agent wallet just as readily, so
+     accepting it here would report a scope that was never installed. */
+  await rollback(
+    `the runner was refused on "${decoyName}", but not by the policy:\n    ${after.why}\n` +
+      `  A refusal for the wrong reason proves nothing about the condition just installed.`,
+  );
+}
+step(`refused BY POLICY on "${decoyName}" (${after.why.slice(0, 70)}…)`);
 
 /* ---- 4. and the runner still works ------------------------------------- */
 /* The half that makes this safe to run. A condition that matches nothing
