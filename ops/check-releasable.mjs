@@ -47,7 +47,7 @@ for (const w of workspaces) {
   if (!existsSync(f)) continue;
   const p = JSON.parse(readFileSync(f, "utf8"));
   if (p.private) continue;
-  packages.push({ dir: w, name: p.name, version: p.version, deps: p.dependencies ?? {} });
+  packages.push({ dir: w, name: p.name, version: p.version, deps: p.dependencies ?? {}, bin: p.bin, files: p.files });
 }
 const byName = Object.fromEntries(packages.map((p) => [p.name, p]));
 
@@ -179,6 +179,74 @@ for (const p of packages) {
   }
 }
 
+const broken = [];
+/* A `bin` a published package cannot run.
+ *
+ * `verify` declares `warda-verify`, and wardaprotocol.com/protocol tells a
+ * stranger that `npx warda-verify` "runs the identical thing yourself — which
+ * is the version that matters, because a verifier you have to trust is not a
+ * verifier". That sentence is the protocol's answer to depending on a hosted
+ * service, and it rests on a file path in package.json being real, built, in
+ * the `files` allowlist, and executable.
+ *
+ * Each of those can break without anything noticing. `dist/` is gitignored, so
+ * a build that stops emitting the entry point looks identical in the tree; a
+ * `files` array edited to trim the tarball can drop it; a shebang lost in a
+ * refactor makes `npx` hand the file to the shell.
+ *
+ * This is not hypothetical for this repo — @warda_protocol/borsh@0.4.0 went to
+ * npm broken for everyone the moment it arrived, which is why the rest of this
+ * file exists. A bin is the same failure with a friendlier surface: it works
+ * for everybody who has the repo and for nobody who does not. */
+for (const p of packages) {
+  for (const [cmd, raw] of Object.entries(p.bin ?? {})) {
+    /* `"./dist/warda.js"` and `"dist/warda.js"` are the same path to npm, and
+       both are documented forms. The first version of this check compared the
+       string as written and reported @warda_protocol/cli as shipping a command
+       outside its own tarball — which was false, and is the way a check earns
+       being switched off. Normalise before comparing. */
+    const rel = raw.replace(/^\.\//, "");
+    const target = join(root, p.dir, rel);
+    if (!existsSync(target)) {
+      broken.push(
+        `${p.name} declares bin "${cmd}" -> ${raw}, which does not exist. ` +
+          `\`npx ${cmd}\` fails for anyone who installs it.`,
+      );
+      continue;
+    }
+    if (!readFileSync(target, "utf8").startsWith("#!")) {
+      broken.push(`${p.name}'s bin "${cmd}" (${rel}) has no shebang, so npx hands it to the shell.`);
+    }
+    /* `files` is an allowlist: a path outside it is simply not in the
+       tarball, and the package installs cleanly with the command missing. */
+    if (Array.isArray(p.files) && !p.files.some((f) => rel === f || rel.startsWith(f.replace(/\/$/, "") + "/"))) {
+      broken.push(
+        `${p.name}'s bin "${cmd}" (${rel}) is outside its "files" allowlist [${p.files.join(", ")}], ` +
+          `so it is not in the published tarball.`,
+      );
+    }
+  }
+}
+
+/* Reported and fatal on its own, BEFORE the drift notes below.
+ *
+ * The drift report is advisory — it says what would be unwise to publish
+ * today. A bin that is missing, unexecutable or outside the tarball is not a
+ * judgement call about timing; it is a package that does not work. It also
+ * has to come first: the first version of this check ran after the block that
+ * prints and exits, so it found nothing and said nothing, which is a checker
+ * with the same defect as the thing it checks for. */
+if (broken.length > 0) {
+  console.error("these packages declare a command that will not run:\n");
+  for (const b of broken) console.error(`  ${b}`);
+  console.error(
+    "\nwardaprotocol.com tells a stranger to run `npx warda-verify` instead of trusting\n" +
+      "the hosted verifier. That sentence is the protocol's answer to depending on a\n" +
+      "service, and it is only true while the command is.\n",
+  );
+  process.exit(1);
+}
+
 if (problems.length > 0) {
   const fatal = Boolean(target);
   const say = fatal ? console.error : console.log;
@@ -199,7 +267,8 @@ if (problems.length > 0) {
    to stop reading summaries. */
 const lagging = packages.filter((p) => (drift.get(p.name) ?? []).length > 0);
 if (!target && problems.length === 0) console.log(
-  `releasable: ${packages.length} published packages, none depends on unreleased source.` +
+  `releasable: ${packages.length} published packages, every declared bin is built and shippable, ` +
+    `none depends on unreleased source.` +
     (lagging.length
       ? `\n  note: ${lagging.map((p) => `${p.name.split("/")[1]} (+${drift.get(p.name).length})`).join(", ")} ` +
         `have unreleased work of their own, which is normal.`

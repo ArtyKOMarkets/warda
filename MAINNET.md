@@ -341,12 +341,39 @@ with where the node lives.
 
 ### 3.2 The verifier promises nothing
 
-`site/protocol.html:2566` describes `/v1/verify` as carrying *"no uptime promise and no authentication"*, which is accurate and is not a thing to put in
-front of real money.
+`site/protocol.html:2566` describes `/v1/verify` as carrying *"no uptime promise
+and no authentication"*.
 
-**Done means:** a stated availability target somebody is on the hook for, or the
-service withdrawn and the page saying verification is something you run
-yourself.
+**Closed, and the position was already the right one** (25 September). The
+choice was between promising an availability target and withdrawing the
+promise, and the second is not a retreat — it is the architecture. A hosted
+verifier with an SLA quietly makes us the oracle for our own grants, which is
+the exact shape this protocol exists to avoid. The service holds no key, signs
+nothing and broadcasts nothing; `sdk/tools/verify-grant.ts` does the same job
+locally, and the site already says the part that matters:
+
+> `npx warda-verify` runs the identical thing yourself — which is the version
+> that matters, because a verifier you have to trust is not a verifier.
+
+So there is nothing to promise. What there was, was a claim resting on a file
+path with nothing checking it: `dist/` is gitignored, so a build that stops
+emitting the entry point looks identical in the tree; a `files` array trimmed
+to shrink a tarball drops it silently; a shebang lost in a refactor makes `npx`
+hand the file to the shell. Each of those breaks the sentence above for
+everyone who does not already have the repo — and `@warda_protocol/borsh@0.4.0`
+is the precedent, published broken for everyone the moment it arrived.
+
+`ops/check-releasable.mjs` now verifies every declared `bin` exists, starts with
+a shebang and sits inside the package's `files` allowlist, and fails the build
+rather than noting it — a package whose command does not run is not a judgement
+call about timing. Its own first version ran after the block that prints and
+exits, so it found nothing and said nothing, which is a checker with the defect
+it checks for; and its second reported a false positive on `./dist/warda.js`,
+which is how a check earns being switched off. Both fixed.
+
+**Done means:** nothing further. The remaining half of this — a health check
+that goes red when the endpoint is actually failing rather than staying green —
+is 3.1's, and stands whatever the uptime promise is.
 
 ### 3.3 The runner holds the deposit
 
