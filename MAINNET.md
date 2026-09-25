@@ -200,8 +200,28 @@ arity, before the rule they name is reached, which is a refusal for the wrong
 reason. v5's `delegate2` answers some of them at N=2. The rest are a
 specification with no instrument behind it.
 
-**Done means:** no case in `c1` reported as PENDING, or each remaining one
-carrying a written argument for why it cannot exist.
+**Done, and most of it was already true.** The section reported seven cases as
+*"PENDING — needs C1"* right up to 25 September, and that stopped being true the
+day v5 shipped: four of the seven were being answered by `delegate2` forty
+lines below in the same output. The status was a bool — *can v4 test it* — and
+a status that cannot express the state the project is in reports the state it
+was written in.
+
+Three more were expressible at N = 2 and simply unwritten, so they are written:
+two children with only one reserved for; B created and its budget reserved but
+its id never pushed onto the chain (the sum right and the chain wrong, which
+matters because an unchained child can never be reabsorbed — nothing can
+produce the preimage that pops it); and B claiming an allowlist root of its own
+with no witness. All three refused, each one field from an accepted baseline.
+
+**One is not expressible, which is different from pending.** *"Child 2 of 3
+reserved twice, child 3 not at all"* needs three children:
+`#[covenant.fanout(to = 3)]` fixes the authorised output count at parent-plus-two
+exactly, and KIP-9 refuses 1:3 on chain anyway — 770,994 against a ceiling of
+500,000. A shape consensus will not carry is not a gap in a suite. If the mass
+ceiling ever moves, it comes back.
+
+**11 of 12 answered at N = 2, 1 not expressible, 0 pending.**
 
 ### 1.5 The compute-budget line that never ran
 

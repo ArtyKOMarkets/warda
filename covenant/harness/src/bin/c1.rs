@@ -207,9 +207,23 @@ struct Case {
     attempt: &'static str,
     expect_accept: bool,
     because: &'static str,
-    /// Whether v4 can answer it. A case that needs more than one child cannot
-    /// be tested until C1 exists, and saying so is the whole point.
-    testable_on_v4: bool,
+    covered: Covered,
+}
+
+/// What actually answers a case.
+///
+/// This was a bool — "can v4 test it" — and it stayed a bool after v5 shipped,
+/// so the report went on saying seven cases "cannot be tested until C1 exists"
+/// while C1 sat forty lines below answering most of them. A status that cannot
+/// express the state the project is in reports the state it was written in.
+enum Covered {
+    /// v4's single-child form of the same rule.
+    V4,
+    /// A case in the v5 suite below, named so the two can be read together.
+    V5(&'static str),
+    /// Not expressible, with the reason. Different from pending: pending is a
+    /// thing somebody has not done, and this is a shape that cannot be built.
+    Never(&'static str),
 }
 
 fn main() {
@@ -283,45 +297,55 @@ fn main() {
     // ---- the specification ---------------------------------------------
     let cases = [
         Case { attempt: "N properly attenuated children", expect_accept: true,
-               because: "delegate accepts a fanout whose every child is narrower on all six axes", testable_on_v4: false },
+               because: "delegate accepts a fanout whose every child is narrower on all six axes", covered: Covered::V5("two children, honest") },
         Case { attempt: "N+1 children where N were reserved", expect_accept: false,
-               because: "OpAuthOutputCount == N+1, and the reserve must account for every authorised output", testable_on_v4: false },
+               because: "OpAuthOutputCount == N+1, and the reserve must account for every authorised output", covered: Covered::V5("two children, only one reserved for") },
         Case { attempt: "reserve is the sum of the budgets minus one", expect_accept: false,
-               because: "parentNext.reserved == reserved + sum(child.budgetTotal), an equality", testable_on_v4: true },
+               because: "parentNext.reserved == reserved + sum(child.budgetTotal), an equality", covered: Covered::V5("reserve is the sum minus one") },
         Case { attempt: "reserve is the sum of the budgets plus one", expect_accept: false,
-               because: "the same equality — over-reserving is safe for the principal and still refused", testable_on_v4: true },
+               because: "the same equality — over-reserving is safe for the principal and still refused", covered: Covered::V5("reserve is the sum plus one") },
         Case { attempt: "child 2 of 3 reserved twice, child 3 not at all", expect_accept: false,
-               because: "the sum is right and the chain is not; the chain is what names WHICH children", testable_on_v4: false },
+               because: "the sum is right and the chain is not; the chain is what names WHICH children", covered: Covered::Never("needs three children. #[covenant.fanout(to = 3)] fixes the authorised output count at parent-plus-two exactly, and KIP-9 storage mass refuses 1:3 on chain anyway — 770,994 against a ceiling of 500,000. A shape consensus will not carry is not a gap in the suite.") },
         Case { attempt: "the LAST child exceeds the parent on one axis", expect_accept: false,
-               because: "attenuation is checked for every child, not for the first one", testable_on_v4: false },
+               because: "attenuation is checked for every child, not for the first one", covered: Covered::V5("the LAST child exceeds maxPerSpend") },
         Case { attempt: "the FIRST child exceeds the parent on one axis", expect_accept: false,
-               because: "the same rule; v4 already proves it at N = 1", testable_on_v4: true },
+               because: "the same rule; v4 already proves it at N = 1", covered: Covered::V5("the FIRST child exceeds maxPerSpend") },
         Case { attempt: "the same child appears at two output indices", expect_accept: false,
-               because: "one delegation creates distinct authorities; two outputs under one key is one authority issued twice", testable_on_v4: false },
+               because: "one delegation creates distinct authorities; two outputs under one key is one authority issued twice", covered: Covered::V5("both children under one key") },
         Case { attempt: "chain pushed in an order other than output order", expect_accept: false,
-               because: "settlement pops the chain from the end, so the order IS the LIFO discipline", testable_on_v4: false },
+               because: "settlement pops the chain from the end, so the order IS the LIFO discipline", covered: Covered::V5("chain pushed B then A") },
         Case { attempt: "one child's id omitted from the chain", expect_accept: false,
-               because: "an unchained child can never be reabsorbed, and its coin leaves the tree's accounting", testable_on_v4: false },
+               because: "an unchained child can never be reabsorbed, and its coin leaves the tree's accounting", covered: Covered::V5("B's id left out of the chain") },
         Case { attempt: "a child starts with spentTotal or reserved non-zero", expect_accept: false,
-               because: "a child starts clean; v4 already proves it at N = 1", testable_on_v4: true },
+               because: "a child starts clean; v4 already proves it at N = 1", covered: Covered::V5("the LAST child starts with spentTotal 1") },
         Case { attempt: "child 2 narrows the allowlist and child 3 widens it", expect_accept: false,
-               because: "a child may narrow to a subtree and never widen, per child", testable_on_v4: true },
+               because: "a child may narrow to a subtree and never widen, per child", covered: Covered::V5("B widens the allowlist with no witness") },
     ];
 
     println!("\nSPECIFICATION  ({} cases)", cases.len());
-    let mut pending = 0;
+    let (mut by_v5, mut never) = (0, 0);
     for c in &cases {
-        let mark = if c.testable_on_v4 { "v4 covers the N = 1 form" } else { pending += 1; "PENDING — needs C1" };
+        let mark = match c.covered {
+            Covered::V4 => "v4, at N = 1".to_string(),
+            Covered::V5(name) => { by_v5 += 1; format!("v5 below — \"{name}\"") }
+            Covered::Never(_) => { never += 1; "NOT EXPRESSIBLE".to_string() }
+        };
         println!("  [{}] {:<52} {}", if c.expect_accept { "accept" } else { "refuse" }, c.attempt, mark);
         println!("       {}", c.because);
+        if let Covered::Never(why) = c.covered {
+            println!("       why not: {why}");
+        }
     }
 
-    println!("\n{pending} of {} cases cannot be tested until C1 exists. They are refused today", cases.len());
-    println!("by the fanout arity, before any rule they name is reached — which is a refusal");
-    println!("for the wrong reason, and is reported here as pending rather than as passing.");
-    println!("\nThe two worth writing first are the ones a loop gets wrong: a violation in the");
-    println!("LAST child rather than the first, and the same child counted twice. Both pass a");
-    println!("check written for one child and applied N times carelessly.");
+    println!("\n{by_v5} of {} answered by delegate2 at N = 2, and {never} not expressible.", cases.len());
+    println!("This section said SEVEN were pending until 25 September, which stopped being");
+    println!("true the day v5 shipped and went on being printed — the status was a bool,");
+    println!("\"can v4 test it\", and a status that cannot express the state the project is");
+    println!("in reports the state it was written in.");
+    println!("\nThe two the specification called hardest were the ones a loop gets wrong: a");
+    println!("violation in the LAST child rather than the first, and the same child counted");
+    println!("twice. Both pass a check written for one child and applied N times carelessly,");
+    println!("and both are flips in the suite below.");
 
     v5_suite();
     settle_suite();
@@ -386,6 +410,10 @@ fn v5_suite() {
     let mut wide_b = base(); wide_b.max_per_spend = 500 * KAS;      // above the parent's 2 KAS
     let mut wide_a = base(); wide_a.max_per_spend = 500 * KAS;
     let mut dirty_b = base(); dirty_b.accounting = (1, 0, 0, 0);
+    /* The three the specification listed as needing C1 and which C1 can now
+       express — written here rather than left as prose about what somebody
+       could test. */
+    let mut wide_root_b = base(); wide_root_b.root = Some([0x7e; 32]);
 
     let cases: Vec<(&str, Result<(), TxScriptError>, bool)> = vec![
         ("each fits, together they do not", delegate2_run(&over_a, &over_b, &Flip { prev_reserved: 60 * KAS, ..Default::default() }), false),
@@ -396,6 +424,22 @@ fn v5_suite() {
         ("the LAST child exceeds maxPerSpend", delegate2_run(&base(), &wide_b, &Flip::default()), false),
         ("the FIRST child exceeds maxPerSpend", delegate2_run(&wide_a, &base(), &Flip::default()), false),
         ("the LAST child starts with spentTotal 1", delegate2_run(&base(), &dirty_b, &Flip::default()), false),
+        /* Two children created, ONE of them reserved for. The sum is wrong by
+           exactly B's budget, which is the arithmetic — but the shape is the
+           specification's "N+1 children where N were reserved" at N = 1. */
+        ("two children, only one reserved for",
+            delegate2_run(&base(), &base(), &Flip { reserved: Some(25 * KAS), ..Default::default() }), false),
+        /* The sum is RIGHT and the chain is wrong: B is created, its budget is
+           reserved, and its id is never pushed. An unchained child can never
+           be reabsorbed — nothing can produce the preimage that pops it — so
+           its coin would sit in the parent's reserve for the grant's whole
+           life, belonging to a grant the parent cannot name. */
+        ("B's id left out of the chain", delegate2_run(&base(), &base(), &Flip { chain_omits_b: true, ..Default::default() }), false),
+        /* A inherits the parent's allowlist, B claims a root of its own with
+           no witness. A fold over zero siblings returns the node unchanged, so
+           the covenant requires a child with no witness to state the parent's
+           own root — one check covering inherit and narrow both. */
+        ("B widens the allowlist with no witness", delegate2_run(&base(), &wide_root_b, &Flip::default()), false),
     ];
 
     let mut wrong = 0;

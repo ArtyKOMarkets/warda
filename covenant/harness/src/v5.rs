@@ -172,6 +172,17 @@ pub struct Flip {
     /// otherwise; see `Spend`, `Delegate`, `Settle` and `Exit`, which each
     /// carry the same field for the same reason.
     pub src: &'static str,
+    /// Push only child A onto the reserve chain, leaving B unchained.
+    ///
+    /// The case the specification calls "one child's id omitted from the
+    /// chain", and the reason it matters is not the sum: the parent's
+    /// `reserved` can be perfectly correct while the chain names only one of
+    /// the two children. An unchained child can never be reabsorbed — nothing
+    /// can produce the preimage that pops it — so its coin sits inside the
+    /// parent's reserve for the grant's whole life while belonging to a grant
+    /// the parent cannot name. The sum says the money is accounted for; the
+    /// chain is what says WHICH children it is accounted for by.
+    pub chain_omits_b: bool,
 }
 
 impl Default for Flip {
@@ -183,6 +194,7 @@ impl Default for Flip {
             prev_reserved: 0,
             prev_spent: 0,
             src: SOURCE_V5,
+            chain_omits_b: false,
         }
     }
 }
@@ -226,7 +238,9 @@ pub fn delegate2_artifacts(
         child_id(key, ch.budget, ch.max_per_spend, ch.epoch_limit, 1_000,
                  ch.root.unwrap_or(tree.root()), ch.not_before, ch.expires_at, ch.delegation_depth)
     };
-    let chain = if f.reverse_chain {
+    let chain = if f.chain_omits_b {
+        push_child(empty_reserve(), cid(key_a, a))
+    } else if f.reverse_chain {
         push_child(push_child(empty_reserve(), cid(key_b, b)), cid(key_a, a))
     } else {
         push_child(push_child(empty_reserve(), cid(key_a, a)), cid(key_b, b))
