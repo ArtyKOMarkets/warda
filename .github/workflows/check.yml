@@ -127,6 +127,17 @@ jobs:
         working-directory: covenant/harness
         run: cargo run -q --bin fuzz-settle
 
+      # And the exits, where the question inverts. An exit ends the grant, so
+      # "authority never grows" is satisfied by construction and would pass
+      # against a covenant with no rules at all. The danger here is the
+      # opposite — somebody DESTROYING value on the way out — so the property
+      # is differential: whoever may end a grant must not thereby choose what
+      # it is worth. Four holes, one per axis: where the coin goes, how much
+      # arrives, who may end it, and when.
+      - name: harness — an exit's signer never chooses the outcome
+        working-directory: covenant/harness
+        run: cargo run -q --bin fuzz-exit
+
       # 14 probes, each attack beside its nearest legitimate twin, judged in
       # BOTH directions: a covenant that refused everything would pass a suite
       # made only of refusals. Needs no keys and no network — the corpus is

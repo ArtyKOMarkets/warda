@@ -1301,17 +1301,19 @@ pub struct Exit {
     /// `maxFee`.
     pub fee: i64,
     pub tx_daa: i64,
+    /// The covenant to run against. Only the mutation runs change it.
+    pub src: &'static str,
 }
 
 impl Exit {
     /// `revoke`, correctly signed, paying the principal, at exactly maxFee.
     pub fn revoke() -> Self {
-        Exit { which: Which::Revoke, signer: Signer::Revocation, pay_to: None, fee: MAX_FEE, tx_daa: 1_000_500 }
+        Exit { which: Which::Revoke, signer: Signer::Revocation, pay_to: None, fee: MAX_FEE, tx_daa: 1_000_500, src: SOURCE }
     }
 
     /// `reclaim`, at the first DAA the term allows.
     pub fn reclaim() -> Self {
-        Exit { which: Which::Reclaim, signer: Signer::Principal, pay_to: None, fee: MAX_FEE, tx_daa: EXPIRES_AT }
+        Exit { which: Which::Reclaim, signer: Signer::Principal, pay_to: None, fee: MAX_FEE, tx_daa: EXPIRES_AT, src: SOURCE }
     }
 
     pub fn run(&self) -> Result<(), TxScriptError> {
@@ -1320,8 +1322,18 @@ impl Exit {
         let principal = principal_keypair();
         let revocation = revocation_keypair();
         let tree = Tree::new(members());
-        let c = compile_contract(SOURCE, &ctor_with_authority(tree.root(), agent_xonly, proof_depth()), CompileOptions::default())
-            .expect("compiles");
+        /* No `for_source` here, deliberately. The template hash and the two
+           state-region lengths are how one grant reads another's state, and
+           neither exit reads anybody's state: `revoke` and `reclaim` check a
+           signature, the output's script and the output's value, and nothing
+           else. Retargeting them would be ceremony that implies this path
+           depends on something it does not. */
+        let c = compile_contract(
+            self.src,
+            &ctor_with_authority(tree.root(), agent_xonly, proof_depth()),
+            CompileOptions::default(),
+        )
+        .expect("compiles");
 
         let payee = self.pay_to.unwrap_or_else(|| principal.x_only_public_key().0.serialize());
         let script = p2pk(payee);

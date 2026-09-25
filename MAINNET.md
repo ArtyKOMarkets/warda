@@ -80,7 +80,20 @@ about. The oracle found it by being unable to fire: its mutant could not get
 one transaction past the address check. Fixed, and the same mutant now
 produces three findings where it produced none.
 
-It does not yet cover `delegate2` or the exits. And it
+**The exits are covered** (`covenant/harness/src/bin/fuzz-exit.rs`, in CI),
+and there the question inverts. An exit ends the grant, so every axis goes to
+zero and "authority never grows" is satisfied by construction — it would report
+a clean sweep against a covenant with no rules in it at all. The danger on that
+path is the opposite one, and the covenant's own comment on `revoke` states it
+better than any specification could: *"a revoke paying 1 sompi to the principal
+and burning the rest to fees was accepted by the engine. So the revocation key
+was a DESTROY capability, not a STOP capability."* So the property there is
+differential — whoever may end a grant must not thereby choose what it is worth
+— and it is asked of the accepted exits as a SET, because one exit paying a
+single sompi is indistinguishable from an honest exit of a nearly empty grant.
+It is the spread that shows the signer was choosing.
+
+It does not yet cover `delegate2`. And it
 reads four of its five figures as a MAXIMUM over the tree, which cannot see
 breadth: a child born at its parent's own delegation depth does not raise the
 deepest chain the tree can build, but it gives the tree two chains of that
@@ -101,8 +114,8 @@ generative oracle is the only thing here that escapes that circle.
 
 **Done means:** every entrypoint under the generative oracle, each with its own
 deliberate-hole self-check, and the accepted-but-authority-grew count at zero
-for all of them. `delegate` and `settle` are done; `delegate2` and the exits
-are not.
+for all of them. `delegate`, `settle` and the exits are done; `delegate2` is
+not.
 
 ### 1.2 The one claim that is not covered
 
