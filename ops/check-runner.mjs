@@ -67,6 +67,33 @@ if (!/export function maxDeposit\s*\(/.test(funding)) {
   }
 }
 
+/* The policy condition, in the tool and in the prose.
+ *
+ * runner/DESIGN.md quotes the condition turnkey-scope.ts installs, and a
+ * quoted string is a copy. This session has now found four places where a copy
+ * of a fact outlived the fact: a table describing a build nobody had, a status
+ * that could not say what had changed, a suite reporting a rule it was not
+ * testing, and a version entry claiming a file that was sitting in the repo.
+ *
+ * It matters more here than in most of them. DESIGN.md's account of what a
+ * leaked runner credential can do is what a reviewer reads INSTEAD of logging
+ * into Turnkey, and it is the only account of it they can read.
+ */
+{
+  const repo = new URL("../", import.meta.url).pathname;
+  const tool = readFileSync(join(repo, "runner/tools/turnkey-scope.ts"), "utf8");
+  const design = readFileSync(join(repo, "runner/DESIGN.md"), "utf8");
+  const prefix = tool.match(/export const AGENT_PREFIX = "([^"]+)";/)?.[1];
+  if (!prefix) {
+    bad.push("runner/tools/turnkey-scope.ts no longer exports AGENT_PREFIX, so DESIGN.md's promise cannot be checked against the policy");
+  } else {
+    const clause = `wallet.label[0..${prefix.length}] == '${prefix}'`;
+    if (!design.includes(clause)) {
+      bad.push(`runner/DESIGN.md does not contain the condition turnkey-scope.ts installs (${clause})`);
+    }
+  }
+}
+
 if (bad.length) {
   console.error("check-runner: the runner must hold agent keys and nothing else\n\n  " + bad.join("\n  "));
   process.exit(1);

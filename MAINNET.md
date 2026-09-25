@@ -542,8 +542,34 @@ ever approved, and the export probe is aimed at a REAL wallet id looked up with
 the root key, because an export refused for a wallet that does not exist proves
 nothing about the policy.
 
-**Done means:** agent wallets tagged and the policy conditioned on the tag, so
-"on agent wallets only" is enforced rather than incidental.
+**The prescribed fix does not exist.** "Agent wallets tagged and the policy
+conditioned on the tag" is not expressible: in Turnkey's policy language `tags`
+is a field of the `PrivateKey` struct, and `Wallet` and `WalletAccount` have no
+tags field at all. The runner creates wallets. This item said *done means*
+about something that cannot be done, which is worth more than the fix itself —
+a before-mainnet list whose remedies are impossible is a list that stalls
+without ever saying why.
+
+What a wallet does expose is `label`, string equality and range slicing, and
+the runner names every wallet it creates `warda-<agent>`, so the prefix is the
+resource scope. `runner/tools/turnkey-scope.ts` installs it and proves it in an
+order that matters: it first creates a wallet the new condition excludes and
+requires the runner to sign with it — a refusal means nothing unless you can
+name what it is a refusal of — then narrows, requires the refusal, and requires
+an agent wallet to STILL sign. That last one is why it is a tool rather than a
+dashboard click: a condition that matches nothing denies everything and would
+take the runner down, and nothing in Turnkey's documentation promises `wallet`
+is populated for `SIGN_RAW_PAYLOAD_V2`. Any failure rolls the policy back.
+
+It is weaker than a tag would have been, and the file says so: the runner may
+create wallets, so it can mint a `warda-` label at will. What it closes is the
+wallet somebody ELSE puts in that organisation — which is the whole of the
+exposure, since the organisation is otherwise the runner's own.
+
+**Done means:** `runner/tools/turnkey-scope.ts` run against the live
+organisation, with its five proofs passing. It needs the root key back for one
+run — the key `runner/tools/turnkey-lockdown.ts` told you to take offline — and it is yours
+to run, not the repository's.
 
 ---
 

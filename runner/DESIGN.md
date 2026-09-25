@@ -101,14 +101,44 @@ a hardening one. It is also the mildest of the verbs: creating a wallet makes
 an empty one, and a leaked key that can make empty wallets has made nothing
 worth taking.
 
-**Still before mainnet: the policy is scoped by ACTIVITY and not by RESOURCE.**
-The sentence here used to promise "`SIGN_RAW_PAYLOAD` on agent wallets only",
-and the "on agent wallets only" half is not implemented — the condition names
-activity types and nothing else, so the key may sign with any wallet the
-organisation holds. Today the organisation holds only agent wallets, which
-makes the gap harmless and the property accidental. Closing it means tagging
-agent wallets and conditioning on the tag, and it belongs on the before-mainnet
-list rather than in a promise this file cannot keep.
+**The policy is scoped by RESOURCE as well as activity** — and the resource is
+a label prefix, not a tag, because a tag is not available. `runner/tools/turnkey-scope.ts`
+installs:
+
+    activity.type == 'ACTIVITY_TYPE_CREATE_WALLET'
+      || (activity.type == 'ACTIVITY_TYPE_SIGN_RAW_PAYLOAD_V2'
+          && wallet.label[0..6] == 'warda-')
+
+This file used to promise "`SIGN_RAW_PAYLOAD` on agent wallets only" and the
+condition named activity types and nothing else, so the key could sign with any
+wallet the organisation held. That the organisation holds only agent wallets
+made the gap harmless and the property accidental, which is not the same as
+safe: the first treasury wallet anybody puts in that org is signable by a key
+whose whole purpose is spending agent grants.
+
+**Tags were the prescribed fix and are not available.** `MAINNET.md` said
+"agent wallets tagged and the policy conditioned on the tag". In Turnkey's
+policy language `tags` is a field of the `PrivateKey` struct; `Wallet` and
+`WalletAccount` have no tags field. The runner creates wallets. What the
+language does give a wallet is `label`, string equality and range slicing, and
+the runner names every wallet it creates `warda-<agent>` — so the prefix is the
+scope.
+
+It is narrower than what is deployed and weaker than a tag: the runner may
+create wallets, so it can mint a `warda-` label whenever it likes. What it
+closes is the wallet somebody ELSE put in the organisation, which is the whole
+of the exposure.
+
+The tool proves all of it rather than asserting any of it, and in an order that
+matters: it first creates a wallet the new condition excludes and requires the
+runner to sign with it, because a refusal proves nothing unless you can name
+what it is a refusal of — and if that signature is already refused, the gap is
+not the one being fixed and nothing is changed. Then it narrows, requires the
+refusal, and requires an AGENT wallet to still sign. That last check is why the
+tool exists instead of a dashboard click: a condition that matches nothing
+denies everything and would take the runner down, and nothing in Turnkey's
+documentation promises that `wallet` is populated for `SIGN_RAW_PAYLOAD_V2`.
+Any failure after the update rolls the policy back.
 
 ## Workflows
 
