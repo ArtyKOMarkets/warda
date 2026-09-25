@@ -536,6 +536,29 @@ credentials would be a larger liability than the outage it watches.
 **Yours:** clear whatever the organisation is over, in the Turnkey dashboard.
 Until then the runner is mute.
 
+### 3.3c Nothing re-checks that the runner is not a root user
+
+`runner/DESIGN.md` rests every claim it makes on one sentence: the runner's key
+is a NON-ROOT Turnkey user, because *"policies do not apply to root users"*.
+`runner/tools/turnkey-lockdown.ts` established that on 22 September and nothing has looked
+since. If `warda-runner` is ever added to the root quorum — to fix something,
+in a hurry, by somebody who does not know — the scoped policy applies to
+nothing and a leaked runner credential can export every agent wallet. Nothing
+would look different: the policy would still be listed, still say what it says,
+and mean nothing.
+
+The same shape as everything else found this week. A fact true when it was
+written down, with nothing arranged to notice it changing.
+
+**Done, for the instrument.** `runner/tools/turnkey-whoami.ts` reads the
+organisation's root quorum and reports whether the runner's user is in it. It
+creates nothing, so it leaves no pending activity and can be run as often as
+anybody likes, and it distinguishes "could not check" from "checked and fine" —
+collapsing those is how a monitor comes to mean nothing.
+
+**Done means:** that check green against the live organisation, and a human as
+the only root-quorum member.
+
 ### 3.4 The Turnkey key is broader than the design says
 
 The design said the policy should restrict the runner's key to

@@ -151,6 +151,14 @@ reports the far more urgent fact instead: if the organisation cannot sign, the
 runner cannot sign, and every agent transaction it is asked to build fails at
 the last step.
 
+**Non-root is the load-bearing word, and it is checkable.** Everything above
+means nothing if `warda-runner` is in the root quorum, because policies do not
+apply to root users — the policy would still be listed, still say what it says,
+and bind nothing. That was established once and re-checked by nothing.
+`runner/tools/turnkey-whoami.ts` reads the quorum and says which it is; it
+creates nothing, so it can be run as often as anybody likes, and it reports
+"could not check" as its own answer rather than as a pass.
+
 **Deleting a wallet ends a grant.** Turnkey's delete removes the private key,
 a grant's `agentKey` IS that key, and the key is hashed into the grant's
 address — so it cannot be replaced, reissued into or recovered. A grant whose
