@@ -33,6 +33,27 @@ a minute — the runner controls the deposit outright. Every page offering this
 says so. A retried genesis is rebuilt from the recorded inputs, so it is the
 same transaction and never a second grant.
 
+**And the window has a size.** Saying so was all this did until 25 September,
+and a disclosure is not a bound. The window cannot be closed without deleting
+the product — no phone wallet builds a covenant genesis, which is the whole
+reason the flow exists — but its size was unlimited: quote a grant of any
+budget and somebody sends that much to a key the runner holds alone.
+
+`maxDeposit()` caps it, and `checkLimits` refuses a quote above it. 100 KAS by
+default, `RUNNER_MAX_DEPOSIT` to change it, and **no value that turns it off** —
+a zero or a negative throws rather than meaning unlimited, on the same
+reasoning the genesis guards have no override flag. `ops/check-runner.mjs`
+fails the build if `checkLimits` stops consulting it.
+
+The cap is on the DEPOSIT and not the budget, because the deposit is what
+somebody actually sends: budget plus genesis fee plus a spend buffer. A budget
+just under the cap can still ask for a deposit over it, which is the case a
+reader would get wrong by checking the friendlier number.
+
+Note what this is not. The sentence above — a breach loses at most what the
+grants it holds could still spend — is about grants that EXIST. A deposit in
+flight is not one of them yet, and this is the only bound it has.
+
 Anything that needs an owner key — top up, renew, revoke — is an
 **approval**: the runner writes a request, notifies the owner, and the owner
 signs it in their own wallet (WalletConnect on the phone). The runner proposes;

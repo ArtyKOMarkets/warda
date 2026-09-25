@@ -46,8 +46,32 @@ else {
   }
 }
 
+/* The funding window has a size, and the size is not optional.
+ *
+ * A breach of the runner loses at most what its grants could still spend —
+ * that is the sentence on the landing page, and it is about grants that
+ * EXIST. A deposit in flight is not one of them yet: for the minute between
+ * it landing and the genesis confirming, the runner holds that coin alone.
+ *
+ * DESIGN.md has always disclosed the window. Disclosure is not a bound, and
+ * the bound is easy to lose by accident — delete one check in `checkLimits`
+ * and the runner will quote any figure at all, with nothing failing. */
+const funding = readFileSync(join(root, "funding.ts"), "utf8");
+if (!/export function maxDeposit\s*\(/.test(funding)) {
+  bad.push("runner/src/funding.ts no longer exports maxDeposit — the funding window is unbounded again");
+} else {
+  const limits = /export function checkLimits[\s\S]*?\n}/.exec(funding);
+  if (!limits) bad.push("runner/src/funding.ts no longer has checkLimits");
+  else if (!/maxDeposit\s*\(\)/.test(limits[0])) {
+    bad.push("runner/src/funding.ts checkLimits does not consult maxDeposit() — a quote is no longer capped");
+  }
+}
+
 if (bad.length) {
   console.error("check-runner: the runner must hold agent keys and nothing else\n\n  " + bad.join("\n  "));
   process.exit(1);
 }
-console.log("check-runner: agent and single-use deposit keys only; owner operations are approvals");
+console.log(
+  "check-runner: agent and single-use deposit keys only; owner operations are approvals; " +
+    "the funding window is capped",
+);

@@ -355,8 +355,29 @@ confirming — usually under a minute — the runner controls the deposit
 outright."* Honest, disclosed on every page that offers it, and still a custody
 window.
 
-**Done means:** either the window closed, or a written bound on what can sit in
-it and a check that enforces the bound.
+**Bounded, not closed** (25 September). The window cannot be closed without
+deleting the product: no phone wallet builds a covenant genesis, which is the
+entire reason the deposit flow exists. Closing it means the owner builds the
+genesis themselves, or an atomic construction covenants may not support.
+
+What was missing was not the disclosure — every page offering the flow already
+carried it — but the size. It was unlimited: quote a grant of any budget and
+somebody sends that much to a key the runner holds alone for that minute. And
+`runner/DESIGN.md`'s real bound, *a breach loses at most what the grants it
+holds could still spend*, is about grants that EXIST. A deposit in flight is
+not one of them yet.
+
+So `maxDeposit()` caps it at 100 KAS, `checkLimits` refuses a quote above it,
+and there is **no value that turns it off** — a zero or a negative throws
+rather than meaning unlimited, on the same reasoning the genesis guards have no
+override flag. `ops/check-runner.mjs` fails the build if `checkLimits` stops
+consulting it, verified by breaking it on purpose. The cap is on the DEPOSIT
+rather than the budget, because the deposit is what somebody actually sends:
+budget plus genesis fee plus a spend buffer, so a budget just under the cap can
+still ask for a deposit over it. The number is on the page that offers the flow.
+
+**Done means:** the 100 KAS picked deliberately for mainnet rather than
+inherited from a testnet placeholder, or the window closed for real.
 
 ### 3.4 The Turnkey key is broader than the design says
 

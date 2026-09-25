@@ -124,6 +124,56 @@ export interface FundingChain {
 /** The deposit key's vault id. Round 1 keeps the original name; a top-up gets its own key. */
 export const depositId = (agent: string, round?: number) => (round && round > 1 ? `${agent}--deposit-${round}` : `${agent}--deposit`);
 
+/**
+ * The most the runner will ever ask somebody to send it at once.
+ *
+ * `runner/DESIGN.md` is honest about the funding window: no phone wallet can
+ * build a covenant genesis, so the owner sends coin to a single-use deposit
+ * address and the runner turns it into the grant. Between the deposit landing
+ * and the genesis confirming — usually under a minute — the runner controls
+ * that coin outright, and every page offering the flow says so.
+ *
+ * What none of them said is HOW MUCH. The window cannot be closed without
+ * deleting the product, but its size was unbounded: quote a grant of any
+ * budget and somebody sends that much to a key the runner holds alone.
+ * "Usually under a minute, and we tell you" is a disclosure. It is not a
+ * bound, and DESIGN.md's real bound — that a breach loses at most what the
+ * grants could still spend — is about grants that EXIST, which a deposit in
+ * flight is not yet one of.
+ *
+ * So there is a number, and it is small enough to be a decision rather than a
+ * ceiling nobody reaches. 100 KAS on testnet, where it costs nothing and its
+ * only job is to exist and be argued with. Raising it before mainnet is a
+ * deliberate act; there is no value that disables it.
+ */
+export const MAX_DEPOSIT_DEFAULT = 10_000_000_000n; // 100 KAS
+
+export function maxDeposit(): bigint {
+  const raw = process.env.RUNNER_MAX_DEPOSIT;
+  if (raw === undefined || raw.trim() === "") return MAX_DEPOSIT_DEFAULT;
+  let v: bigint;
+  try {
+    v = BigInt(raw.trim());
+  } catch {
+    throw new Error(
+      `RUNNER_MAX_DEPOSIT is "${raw}", which is not a number of sompi. ` +
+        `Unset it for the default of ${MAX_DEPOSIT_DEFAULT}, or set a figure somebody chose.`,
+    );
+  }
+  /* No "unlimited". A zero or a negative here reads as "turn the cap off",
+     and a control with an off switch is a control that is off on the day it
+     matters — the same reasoning the genesis guards use for having no
+     override flag. */
+  if (v <= 0n) {
+    throw new Error(
+      `RUNNER_MAX_DEPOSIT is ${v}. There is no value that disables this cap: it bounds what ` +
+        `the runner holds alone during the funding window, and a bound with an off switch is ` +
+        `off on the day it matters. Set a positive number of sompi.`,
+    );
+  }
+  return v;
+}
+
 /** The coin covers the budget AND the network fee of every spend it makes. */
 export function requiredDeposit(l: Limits): bigint {
   const tenth = l.budget / 10n;
@@ -136,6 +186,20 @@ export function checkLimits(l: Limits): string | null {
   if (l.maxPerSpend <= 0n || l.maxPerSpend > l.budget) return "the per-payment cap must be positive and at most the budget";
   if (l.epochLimit < l.maxPerSpend) return "the epoch limit must be at least the per-payment cap";
   if (!(l.days > 0 && l.days <= 365)) return "a grant lasts between 1 and 365 days";
+  /* Checked on the DEPOSIT, not on the budget: the deposit is what somebody
+     actually sends and what the runner actually holds for that minute. It is
+     the budget plus the genesis fee plus a spend buffer, so a budget just
+     under the cap can still ask for a deposit over it. */
+  const deposit = requiredDeposit(l);
+  const cap = maxDeposit();
+  if (deposit > cap) {
+    return (
+      `this grant needs a deposit of ${deposit} sompi and the runner will not quote above ` +
+      `${cap}. Between the deposit landing and the genesis confirming, the runner holds that ` +
+      `coin alone — see runner/DESIGN.md — so the amount is capped rather than merely disclosed. ` +
+      `Fund a smaller grant and top it up, or raise RUNNER_MAX_DEPOSIT deliberately.`
+    );
+  }
   return null;
 }
 

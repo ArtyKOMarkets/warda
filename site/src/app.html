@@ -2356,7 +2356,11 @@ ops/install-cron.sh</pre>
               <p class="note"><b>The one moment you trust us.</b> The runner turns your payment into the grant in a
                 single transaction. All of it goes into the grant, and the grant&rsquo;s stop-and-reclaim key is yours.
                 Between your payment arriving and that transaction confirming &mdash; usually under a minute &mdash; the
-                runner controls the deposit. After that, it cannot take a single sompi back out.</p>
+                runner controls the deposit. After that, it cannot take a single sompi back out.
+                <br><br><b>So there is a limit on it.</b> The runner will not quote a deposit above
+                <span class="num">100 KAS</span>, because &ldquo;usually under a minute, and we tell you&rdquo; is a
+                disclosure rather than a bound. Fund a smaller grant and top it up; each top-up is its own deposit key
+                and its own minute.</p>
               <div class="h-stable" id="h-stable">
                 <p><b>No KAS?</b> <span id="h-stable-say">Pay with USDC or USDT from Base, Ethereum, Arbitrum and more &mdash; it is swapped
                   to KAS and lands at this deposit address in one payment.</span></p>

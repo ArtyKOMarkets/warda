@@ -1,6 +1,6 @@
 {
   "_comment": "Ways into KAS, route by route and leg by leg, and whether each works. Read by /app's Fund an agent. A route is only as available as its worst leg; the page offers every route a source chain has, and prefers the one with no custodian. checkedAt older than 14 days and /app shows every leg as unchecked. The igra-hyperlane leg's status is set by ops/check-routes.mjs, which reads the pause on-chain.",
-  "checkedAt": "2026-09-24",
+  "checkedAt": "2026-09-25",
   "networks": {
     "testnet-10": {
       "none": "Igra's Galleon testnet has no USDC venue and no published exit bridge to Kaspa testnet-10, and no swap service trades testnet KAS, so there is no way in from a stablecoin on testnet. Testnet KAS comes from a faucet.",

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { schnorr } from "@noble/curves/secp256k1.js";
 import { fromHex, payToPubkeyScript, toHex } from "@warda_protocol/kaspa";
-import { Funder, createPlan, createTopUp, depositUri, requiredDeposit, type FundingChain } from "../src/funding.ts";
+import { Funder, checkLimits, createPlan, createTopUp, depositUri, maxDeposit, requiredDeposit, MAX_DEPOSIT_DEFAULT, type FundingChain, type Limits } from "../src/funding.ts";
 import { memoryRegistry } from "../src/registry.ts";
 import { memoryStore } from "../src/store.ts";
 import { EnvelopeVault, localMasterKey } from "../src/vault.ts";
@@ -184,4 +184,48 @@ test("top-up: a successor grant for the same agent, from its own deposit key, wi
   assert.equal(next.manifest.budget, Number(2n * KAS));
   assert.equal(next.manifest.agent, first.manifest.agent);
   assert.equal((await b.registry.getPlan("bot"))!.status, "funded");
+});
+
+/* ------------------------------------------------------------------------
+   The funding window has a size now.
+
+   DESIGN.md has always disclosed the window — between the deposit landing
+   and the genesis confirming, the runner controls that coin outright — and
+   disclosure is not a bound. Its size was unlimited: quote a grant of any
+   budget and somebody sends that much to a key the runner holds alone.
+   ------------------------------------------------------------------------ */
+test("the runner refuses to quote a deposit above the cap", () => {
+  const under: Limits = { budget: 90n * KAS, maxPerSpend: KAS, epochLimit: KAS, epochLength: 1000n, days: 7 };
+  assert.equal(checkLimits(under), null, "90 KAS is inside the 100 KAS cap");
+
+  /* The cap is on the DEPOSIT, not the budget, and the two differ: the
+     deposit adds the genesis fee and a tenth of the budget as a spend
+     buffer. So a budget under the cap can still be refused, which is the
+     case worth pinning — it is the one somebody would get wrong by checking
+     the friendlier number. */
+  const over: Limits = { ...under, budget: 95n * KAS };
+  assert.ok(requiredDeposit(over) > MAX_DEPOSIT_DEFAULT, "a 95 KAS budget needs more than 100 KAS deposited");
+  const why = checkLimits(over);
+  assert.ok(why && why.includes("will not quote above"), `expected a refusal naming the cap, got ${why}`);
+});
+
+test("there is no value of RUNNER_MAX_DEPOSIT that turns the cap off", () => {
+  const prev = process.env.RUNNER_MAX_DEPOSIT;
+  try {
+    for (const bad of ["0", "-1"]) {
+      process.env.RUNNER_MAX_DEPOSIT = bad;
+      assert.throws(() => maxDeposit(), /no value that disables this cap/, `${bad} must be refused`);
+    }
+    process.env.RUNNER_MAX_DEPOSIT = "not-a-number";
+    assert.throws(() => maxDeposit(), /not a number of sompi/);
+
+    process.env.RUNNER_MAX_DEPOSIT = "5000000000";
+    assert.equal(maxDeposit(), 5_000_000_000n, "a deliberate figure is honoured");
+
+    delete process.env.RUNNER_MAX_DEPOSIT;
+    assert.equal(maxDeposit(), MAX_DEPOSIT_DEFAULT, "absent means the default, not unlimited");
+  } finally {
+    if (prev === undefined) delete process.env.RUNNER_MAX_DEPOSIT;
+    else process.env.RUNNER_MAX_DEPOSIT = prev;
+  }
 });
