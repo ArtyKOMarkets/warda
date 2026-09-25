@@ -515,6 +515,14 @@ fn delegate_over_reserving_is_rejected() {
     assert!(r.is_err(), "reserving more than the child's budget must be rejected");
 }
 
+/// The shape the pinned figures below were measured at.
+///
+/// Compared as a whole string rather than variable by variable: a new axis
+/// added to `shape_line` changes this and the pins are skipped until somebody
+/// looks, which is the safe direction.
+const DEFAULT_SHAPE: &str =
+    "budget 10000000000 · cap 200000000 · epoch 1000000000 per 1000 · window 1000000..1007000 · depth 2 · allowlist 4 · proof depth 4";
+
 #[test]
 fn report_compute_budget_consumption() {
     // Same construction as the accepted baseline, with the meter read out.
@@ -615,10 +623,49 @@ fn report_compute_budget_consumption() {
         const SIGOP_SCRIPT_UNITS: u64 = 100_000;
         let budget_bare = used / 10_000 + 1;
         let budget = (used + SIGOP_SCRIPT_UNITS) / 10_000 + 1;
+        let bytes = c.bytecode.len();
         println!(
-            "BUDGET depth={depth:<3} bytes={:<5} script_units={used:<7} budget_units_REAL={budget:<4} (bare_no_sigop={budget_bare}) peak_stack={peak:<4}/244 verdict={r:?}",
-            c.bytecode.len()
+            "BUDGET depth={depth:<3} bytes={bytes:<5} script_units={used:<7} budget_units_REAL={budget:<4} (bare_no_sigop={budget_bare}) peak_stack={peak:<4}/244 verdict={r:?}"
         );
+
+        /* PINNED, because a printed number is a number nobody reads.
+         *
+         * This test has always printed these and asserted nothing, and
+         * LIMITS.md's table went stale without anything noticing: it records
+         * 6,976 bytes and 47,618 script units at depth 4, and the answer is
+         * 6,912 and 47,234 -- sixty-four bytes and three hundred and
+         * eighty-four units out, consistently, at every depth. The deployed
+         * template's own baselineHex is 6,912, so the table was describing a
+         * build nobody has.
+         *
+         * Its BUDGET UNITS were right -- 15, 16, 16 -- which is the part
+         * LIMITS.md flagged as computed by hand from a line that had never
+         * run. It has run now. The hand arithmetic was correct and the
+         * measurements printed beside it were not, which is the opposite of
+         * the failure that was expected.
+         *
+         * Only at the default shape: the constructor bakes the budget and the
+         * caps, and an integer of another width is a different bytecode. A run
+         * under WARDA_BUDGET is measuring a different covenant, correctly.
+         *
+         * Any of these moving is fine; moving them WITHOUT updating LIMITS.md
+         * in the same commit is what this stops. */
+        if warda_harness::shape_line() == DEFAULT_SHAPE {
+            let expected: (usize, u64, u64, usize) = match depth {
+                4 => (6_912, 47_234, 15, 118),
+                8 => (7_480, 50_650, 16, 118),
+                _ => (8_616, 57_482, 16, 118),
+            };
+            assert_eq!(
+                (bytes, used, budget, peak),
+                expected,
+                "\nthe covenant's cost at maxProofDepth {depth} has moved.\n\
+                 LIMITS.md publishes these, other documents quote them, and the on-chain\n\
+                 compute budget is set from them. Re-measure, update the table in\n\
+                 LIMITS.md, and change these figures in the same commit.\n\
+                 (bytes, script_units, budget_units, peak_stack)"
+            );
+        }
     }
 }
 

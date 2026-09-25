@@ -210,8 +210,20 @@ carrying a written argument for why it cannot exist.
 by hand. A number in a limits document that has never been produced by the
 machine is a number that is probably wrong.
 
-**Done means:** produced by a run, printed by the harness, and the hand
-calculation deleted rather than annotated.
+**Done, and the surprise was which half was wrong.** The line has run. The
+budget units it was supposed to confirm — 15, 16, 16 — were right: the hand
+arithmetic held. What had gone stale were the raw measurements printed in the
+same table, by sixty-four bytes and three hundred and eighty-four script units,
+consistently at every depth. `covenant/deploy/covenant-template.json`'s own
+`baselineHex` is 6,912 bytes against the table's 6,976, so `LIMITS.md` was
+describing a build nobody has — including the one on chain.
+
+The derived figures survived and the raw ones rotted, which is the opposite of
+what anyone was watching for, and it happened because the test PRINTED them and
+asserted nothing. All four columns are pinned now, so the next move fails the
+suite and names the file to update. They skip under a non-default grant shape,
+because the constructor bakes the budget and an integer of another width is a
+different bytecode.
 
 ---
 

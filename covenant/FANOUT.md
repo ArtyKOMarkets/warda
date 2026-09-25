@@ -120,8 +120,8 @@ it.
 
 **What is available today, with no covenant change at all: a much bigger
 allowlist.** Depth costs 142 bytes a level, linearly. The shipped templates use
-`maxProofDepth` 4, which is 16 payees. Depth 16 is 65,536 payees and 8,680
-bytes — 0.87% of the million-byte script ceiling, with the compute and stack
+`maxProofDepth` 4, which is 16 payees. Depth 16 is 65,536 payees and 8,616
+bytes — 0.86% of the million-byte script ceiling, with the compute and stack
 figures unchanged across the whole range. A coordinator created against a
 snapshot of a seller directory is not an open market, but it is nothing like 16
 addresses either, and it stays *enforced*.
