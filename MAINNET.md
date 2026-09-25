@@ -240,10 +240,31 @@ between now and the fix carries the collapse for its whole life. The same file
 records what that costs when it goes wrong: a key overwritten on 17 September
 stranded coin at an address nobody holds any more.
 
-**Done means:** a principal generated offline, on a machine that has never run
-an agent and never will; genesis refusing a principal that equals the funder,
-everywhere and not only on mainnet; and `ops/known-keys.json` carrying no `shouldBe`
-that names custody.
+**The clock is stopped, and it was bigger than the other one.** 29 grants here
+name a funder key as their principal — against 17 for the principal/revocation
+collapse, because that one had its default fixed in September and this one
+never did. `--principal` defaults to the funder, which is the most comfortable
+default in the tool: it is what happens when nobody types anything.
+
+`sdk/tools/genesis.ts` refuses it on mainnet now, with no override flag, and
+warns on testnet saying the thing that matters — this is the one role collapse
+that **cannot be retrofitted**, because the address commits the keys and the
+principal is therefore decided for the grant's whole life.
+`sdk/tools/keys.ts` reports it per grant (a new `isFunder` marker in
+`ops/known-keys.json` makes "which keys are funders" machine-readable instead of
+a phrase in a label), and `test/key-separation.test.ts` pins the count at 29 so
+it cannot grow quietly. `ops/PRINCIPAL.md` is the procedure.
+
+**Still to do, and it is yours rather than the code's:** generate the principal
+on a machine that has never run an agent and never will. PRINCIPAL.md says what
+"offline" has to mean here — not a different file, but no path by which an
+agent, a runner, a deploy or a web service could ever read the secret. An old
+wiped laptop or a live USB session is enough; the key is 32 bytes and the
+machine's only job is to print the public half.
+
+**Done means:** that key generated and its public half in use;
+`ops/known-keys.json` carrying no `shouldBe` that names custody; and the pinned
+count at 0 rather than 29, which needs the existing grants reissued or expired.
 
 ### 2.2 The seventeen grants that cannot be repaired
 

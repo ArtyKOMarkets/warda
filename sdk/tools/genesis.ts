@@ -285,6 +285,67 @@ if (agentKey === principalKey) {
   process.exit(1);
 }
 
+/**
+ * principal == funder, on mainnet.
+ *
+ * `--principal` defaults to the funder, who is paying for this, and that
+ * default is the most comfortable thing in this file: it is what happens when
+ * nobody types anything. Twenty-nine grants in this repository carry it, which
+ * is more than carry the principal/revocation collapse — that one was fixed at
+ * the default and this one never was.
+ *
+ * WARDA_SK is on a machine that funds grants, which is to say a machine that
+ * is online and runs things. The principal is the one key that receives a
+ * grant's ENTIRE balance on revoke or reclaim. `ops/known-keys.json` has said
+ * what that should be since it was written: *"three keys, not one. On mainnet
+ * the principal must be generated offline on a machine that never runs an
+ * agent."*
+ *
+ * What makes this worth refusing rather than warning about is that it cannot
+ * be undone. A grant hashes its keys into its address, so the principal is
+ * decided at genesis and decided for the grant's whole life — there is no
+ * later setting to change, no migration, and no fix short of revoking and
+ * reissuing. Every grant made from a funder-as-principal is one more that is
+ * permanently that way.
+ *
+ * Testnet keeps the warning, for the same reason the revocation collapse does:
+ * refusing outright would refuse this repository's own history and the demos
+ * that depend on it.
+ *
+ * No override flag. An escape hatch here would be used by exactly the person
+ * who most needed the refusal, at exactly the moment they were in a hurry.
+ */
+if (principalKey === key && isMainnet) {
+  console.error(
+    "refusing: the principal key IS the funder's key, on MAINNET.\n\n" +
+      "  WARDA_SK signs genesis because genesis spends the funder's coin, so that key\n" +
+      "  is on a machine that is online and runs things. The principal receives this\n" +
+      "  grant's ENTIRE balance on revoke or reclaim, and belongs somewhere else.\n\n" +
+      "  This cannot be changed later. A grant hashes its keys into its address, so\n" +
+      "  the principal is fixed at genesis for the grant's whole life — the only\n" +
+      "  remedies are revoke-and-reissue, or waiting out the term.\n\n" +
+      "  ops/PRINCIPAL.md has the procedure. In short: generate it on a machine that\n" +
+      "  has never run an agent and never will, keep the secret there, and pass only\n" +
+      "  the public half:\n" +
+      "    --principal <the public key that machine printed>\n\n" +
+      "  There is no flag to skip this.\n",
+  );
+  process.exit(1);
+}
+
+if (principalKey === key && !isMainnet) {
+  console.error(
+    "warning: the principal key IS the funder's key.\n\n" +
+      "  The funder's secret is on a machine that funds grants; the principal receives\n" +
+      "  this grant's whole balance on revoke or reclaim. They should not be the same\n" +
+      "  file, and on mainnet this is refused.\n\n" +
+      "  Worth knowing on testnet too, because it is the one role collapse that cannot\n" +
+      "  be retrofitted: the address commits the keys, so this grant is this way for\n" +
+      "  its whole life. 29 grants here already are.\n\n" +
+      "  --principal <pubkey> is the whole fix. See ops/PRINCIPAL.md.\n",
+  );
+}
+
 if (revocationKey === principalKey && isMainnet) {
   /* Refused on mainnet, and only there.
    *

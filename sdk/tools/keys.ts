@@ -67,7 +67,7 @@ const files = given.length > 0 ? given : tracked();
  * this whole tool exists to make visible: an unlabelled key holding something
  * is a question, not a fact.
  */
-interface Known { key: string; label: string; secretLives?: string }
+interface Known { key: string; label: string; secretLives?: string; isFunder?: boolean }
 let known: Known[] = [];
 try {
   known = JSON.parse(
@@ -78,6 +78,9 @@ try {
 }
 const labelOf = (k: string) => known.find((x) => x.key.toLowerCase() === k)?.label;
 const custodyOf = (k: string) => known.find((x) => x.key.toLowerCase() === k)?.secretLives;
+/* A key whose secret lives on a machine that funds grants — which is to say a
+   machine that is online and runs things. See ops/known-keys.json. */
+const isFunder = (k: string) => known.find((x) => x.key.toLowerCase() === k)?.isFunder === true;
 
 interface Role { file: string; role: "principal" | "revocation" | "agent"; value: bigint }
 
@@ -124,6 +127,15 @@ for (const { file, m } of grants) {
   const a = m.agent!.toLowerCase();
   if (a === p) findings.push(`${file}: the AGENT is the principal. It can reclaim its own grant, so no limit here binds it.`);
   if (p === r) findings.push(`${file}: principal and revocation are one key. Whoever can stop this grant can also take its balance.`);
+  /* The one that cannot be retrofitted.
+     A grant hashes its keys into its address, so this is not a setting that
+     can be changed later — it is decided at genesis and it is decided for the
+     grant's whole life. Every grant issued from a funder-as-principal between
+     now and the fix carries it forever, which is why this is counted rather
+     than mentioned: ops/known-keys.json says the principal must be generated
+     offline on a machine that never runs an agent, and a funder key is on a
+     machine that by definition does. */
+  if (isFunder(p)) findings.push(`${file}: the principal is a FUNDER key, whose secret lives on a machine that funds grants. On mainnet the principal belongs offline — see ops/PRINCIPAL.md. Cannot be changed after genesis.`);
 }
 
 const report = {

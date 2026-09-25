@@ -91,6 +91,38 @@ test("the principal/revocation collapse has not spread further", () => {
   );
 });
 
+/**
+ * The collapse that is BIGGER than the one above, and newer as a measurement.
+ *
+ * `--principal` defaults to the funder, who is paying for the genesis — the
+ * most comfortable default in the tool, because it is what happens when nobody
+ * types anything. Twenty-nine grants here carry it, against seventeen for the
+ * principal/revocation collapse: that one had its default fixed in September
+ * and this one never did.
+ *
+ * It is also the one that cannot be retrofitted. A grant hashes its keys into
+ * its address, so the principal is decided at genesis and decided for the
+ * grant's whole life. Each of these twenty-nine is permanently that way; the
+ * only remedies are revoke-and-reissue, or the term running out.
+ *
+ * Genesis refuses it on mainnet now, with no override. This number is the
+ * testnet clock: it must not grow.
+ */
+test("the funder/principal collapse has not spread further", () => {
+  const collapsed = report.findings.filter((f: string) =>
+    f.includes("the principal is a FUNDER key"),
+  );
+  assert.equal(
+    collapsed.length,
+    29,
+    `${collapsed.length} grants name a funder key as their principal, and this test knew about 29.\n` +
+      "If you added a grant, it inherited the default — genesis defaults --principal to the\n" +
+      "funder. Pass a principal generated offline (ops/PRINCIPAL.md), or raise this number\n" +
+      "in a commit that explains why a grant made after this test was written needed it.\n" +
+      "It cannot be changed after genesis, so raising it is a permanent decision.",
+  );
+});
+
 test("every grant names an agent key of its own", () => {
   const agents = report.keys.filter((k: { agentOf: number }) => k.agentOf > 0);
   assert.ok(agents.length >= 9, "agent keys are per-grant and must not collapse into one");
