@@ -556,8 +556,14 @@ creates nothing, so it leaves no pending activity and can be run as often as
 anybody likes, and it distinguishes "could not check" from "checked and fine" —
 collapsing those is how a monitor comes to mean nothing.
 
-**Done means:** that check green against the live organisation, and a human as
-the only root-quorum member.
+**Checked, 25 September 2026, and it holds:** one root-quorum member, threshold
+1, and it is not the runner. One policy names `warda-runner` —
+`fa2ceed3…`, the lockdown policy. So the sentence everything rests on is true
+today, and is now something that can be asked again in one command rather than
+remembered.
+
+**Done means:** that check run again whenever the organisation's users or
+quorum change. It is a read, so the cost of asking is nothing.
 
 ### 3.4 The Turnkey key is broader than the design says
 
