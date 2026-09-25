@@ -87,6 +87,13 @@ that field there and `ops/check-deploys.mjs` makes each deployed function carry
 every archived template, because resolution the deployment cannot satisfy is
 resolution that refuses grants it should answer for.
 
+The vectors themselves were regenerated under v5 and the SDK reproduces every
+one byte for byte, so the cross-implementation check covers the covenant that
+is current. v4's are kept beside them as `sdk/golden-*-v4.json` and still
+checked by `sdk/test/golden-v4.test.ts`: regeneration retires the old evidence
+silently, and eighteen grants remain spendable only through v4's template for
+another two hundred days.
+
 **Done means:** one covenant fingerprint, every live grant carrying it,
 `covenant/versions.json` recording the rest as history, and no entry in
 `GUARANTEES.md` marked *draft, unaudited*. Three of those four are true. The
@@ -94,12 +101,6 @@ second is the migration.
 
 **Still open:**
 
-- **v5 has no golden spend or genesis vector.** v4's remain and still pass, and
-  v5's `delegate2` was proved on chain — two children created and both settled
-  — which is stronger evidence than a vector. But the cross-implementation
-  check that the JS SDK reproduces the Rust compiler byte for byte now covers
-  the superseded covenant and not the current one. `cd covenant/deploy && cargo
-  run -- golden --v5` is the repair.
 - **The migration itself** (`covenant/MIGRATION.md`), blocked on the offline
   principal (§2.1, yours) — reissuing before that exists spends the one
   opportunity this migration creates.

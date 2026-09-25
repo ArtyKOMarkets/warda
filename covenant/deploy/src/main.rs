@@ -977,7 +977,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
        be forgotten on the one that writes a file. */
     if std::env::args().any(|a| a == "--v5") {
         IS_V5.set(true).ok();
-        eprintln!("covenant: v5 (covenant/warda_grant_v5.sil) — a draft, unaudited");
+        eprintln!("covenant: v5 (covenant/warda_grant_v5.sil) — frozen 25 September, current");
     }
     let url = std::env::var("WARDA_RPC").unwrap_or_else(|_| DEFAULT_URL.to_string());
 

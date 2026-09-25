@@ -24,14 +24,22 @@
 // silently, since a vector regenerated under the current covenant passes
 // either way. The failure would arrive months later, on the first vector that
 // was not regenerated.
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => JSON.parse(readFileSync(join(REPO, p), "utf8"));
 
-const VECTORS = ["sdk/golden-spend.json", "sdk/golden-genesis.json", "sdk/golden-delegation.json"];
+/* The current vectors, and every archive beside them. `golden-spend.json` is
+   regenerated whenever the covenant moves, so the archives are the only place
+   the evidence for a superseded covenant survives — and eighteen v4 grants are
+   spendable only through v4's template. An archive that goes missing is not a
+   stale file, it is a claim nobody can check any more. */
+const VECTORS = readdirSync(join(REPO, "sdk"))
+  .filter((f) => /^golden-[a-z]+(-v\d+)?\.json$/.test(f))
+  .sort()
+  .map((f) => `sdk/${f}`);
 const known = new Map(read("covenant/versions.json").versions.map((v) => [v.fingerprint, v.version]));
 
 const problems = [];

@@ -82,10 +82,10 @@ freeze would cost "one deliberate migration of everything that exists."
    v4's is `sdk/covenant-template-v4.json`. The first attempt was reverted when
    `test/buy-e2e.test.ts` derived a different address for the demo grant — the
    test being right — and it went in once every consumer resolved by
-   fingerprint. One thing did not survive the flip and is not repaired by it:
-   v5 has no golden spend or genesis vector, so the byte-for-byte check that
-   the JS SDK reproduces the Rust compiler now covers the superseded covenant
-   and not the current one. `cargo run -- golden --v5` in `covenant/deploy`.
+   fingerprint. The reference vectors were regenerated
+   under v5 the same day and the SDK reproduces all three byte for byte; v4's
+   are kept beside them as `sdk/golden-*-v4.json`, because regeneration retires
+   the old evidence silently and v4 grants stay spendable for months.
 
 4. **Let the short-lived grants die.** Thirteen of eighteen, no work, no
    transaction, no key. The four `one-job` children are gone within a day.
