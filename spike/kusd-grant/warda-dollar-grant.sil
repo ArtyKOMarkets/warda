@@ -1,0 +1,119 @@
+// Warda dollar grant — spike.
+//
+// A Warda grant that holds no KAS of its own worth mentioning: its budget is a
+// KCC20 token coin (a KUSD stand-in) whose OWNER is this covenant's ID
+// (KCC2 owner scheme covenant-id). The token covenant refuses to move the coin
+// unless this covenant takes part in the same transaction; this covenant then
+// decides whether the move is one the agent is allowed to make.
+//
+//   KCC20 checks:  amounts conserve, owner (this covenant) participates
+//   Grant checks:  agent signed, payee allowed, per-payment cap, running
+//                  budget, change goes back under this covenant's ID,
+//                  and the KAS the coins carry stays where it was
+//
+// Deliberately NOT in the spike (same mechanism as v5, orthogonal to the asset
+// question): expiry, epoch limits, delegation, allowlist Merkle root.
+
+contract WardaDollarGrant(
+    pubkey agent,
+    pubkey revoker,
+    byte[32] principal,
+    byte[32] payee,
+    int maxPerPayment,
+    int budget,
+    byte[32] initTokenCovid,
+    int initSpent,
+    int templatePrefixLen,
+    int templateSuffixLen,
+    byte[32] expectedTemplateHash
+) {
+    byte[32] tokenCovid = initTokenCovid;
+    int spent = initSpent;
+
+    struct KCC20State {
+        byte[32] ownerIdentifier;
+        byte identifierType;
+        int amount;
+        bool isMinter;
+    }
+
+    byte constant ID_PUBKEY = 0x00;
+    byte constant ID_COVENANT = 0x02;
+
+    // The one token coin this grant holds, read through the token's own
+    // template so the amount is the real one and not a claim.
+    function heldIdx() : int {
+        require(OpCovInputCount(tokenCovid) == 1);
+        return OpCovInputIdx(tokenCovid, 0);
+    }
+
+    function checkHeld(KCC20State held, byte[32] self) {
+        require(held.ownerIdentifier == self);
+        require(held.identifierType == ID_COVENANT);
+        require(!held.isMinter);
+    }
+
+    #[covenant.singleton]
+    function pay(State prevState, State newState, sig agentSig, KCC20State payment, KCC20State change) {
+        require(checkSig(agentSig, agent));
+        require(newState.tokenCovid == prevState.tokenCovid);
+
+        int idx = heldIdx();
+        require(OpCovOutputCount(tokenCovid) == 2);
+        byte[32] self = OpInputCovenantId(this.activeInputIndex);
+        KCC20State held = readInputStateWithTemplate(idx, templatePrefixLen, templateSuffixLen, expectedTemplateHash);
+        checkHeld(held, self);
+
+        // output 0 of the token family: the payment
+        require(payment.ownerIdentifier == payee);
+        require(payment.identifierType == ID_PUBKEY);
+        require(!payment.isMinter);
+        require(payment.amount > 0);
+        require(payment.amount <= maxPerPayment);
+        validateOutputStateWithInputTemplate(
+            OpCovOutputIdx(tokenCovid, 0), payment, idx, templatePrefixLen, templateSuffixLen, expectedTemplateHash
+        );
+
+        // output 1 of the token family: the rest stays bound to this grant
+        require(change.ownerIdentifier == self);
+        require(change.identifierType == ID_COVENANT);
+        require(!change.isMinter);
+        require(change.amount == held.amount - payment.amount);
+        validateOutputStateWithInputTemplate(
+            OpCovOutputIdx(tokenCovid, 1), change, idx, templatePrefixLen, templateSuffixLen, expectedTemplateHash
+        );
+
+        require(newState.spent == prevState.spent + payment.amount);
+        require(newState.spent <= budget);
+
+        // The KAS the coins carry cannot leak either: the held token coin's
+        // value stays with the change coin, and this grant's value stays with
+        // its successor. Fees and the payment coin's KAS come from elsewhere.
+        require(tx.outputs[OpCovOutputIdx(tokenCovid, 1)].value == tx.inputs[idx].value);
+        require(tx.outputs[OpCovOutputIdx(self, 0)].value == tx.inputs[this.activeInputIndex].value);
+    }
+
+    // Revocation: a key that receives none of the money ends the grant and
+    // every token unit goes back to the principal.
+    #[covenant.singleton]
+    function revoke(State prevState, State newState, sig revokerSig, KCC20State back) {
+        require(checkSig(revokerSig, revoker));
+        require(newState.tokenCovid == prevState.tokenCovid);
+        require(newState.spent == budget); // successor can never pay again
+
+        int idx = heldIdx();
+        require(OpCovOutputCount(tokenCovid) == 1);
+        byte[32] self = OpInputCovenantId(this.activeInputIndex);
+        KCC20State held = readInputStateWithTemplate(idx, templatePrefixLen, templateSuffixLen, expectedTemplateHash);
+        checkHeld(held, self);
+
+        require(back.ownerIdentifier == principal);
+        require(back.identifierType == ID_PUBKEY);
+        require(!back.isMinter);
+        require(back.amount == held.amount);
+        require(tx.outputs[OpCovOutputIdx(tokenCovid, 0)].value == tx.inputs[idx].value);
+        validateOutputStateWithInputTemplate(
+            OpCovOutputIdx(tokenCovid, 0), back, idx, templatePrefixLen, templateSuffixLen, expectedTemplateHash
+        );
+    }
+}

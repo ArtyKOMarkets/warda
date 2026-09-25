@@ -1,0 +1,25 @@
+cross-family: token: ok | grant: InvalidIndex(-971)
+test cross_family_token_is_refused ... ok
+test cross_family_control ... ok
+wrong template hash: token: ok | grant: VerifyError
+test wrong_template_hash_is_refused ... ok
+scenario                                                           expected   engine
+1. pay $5.00 to the allowed payee (spent 0 -> 5)                     accept   accept
+2. pay again from the SUCCESSOR coin (covenant id stable)            accept   accept
+3. pay $2.00 — brings spent to $12.00 = budget                       accept   accept
+4. pay $5.01 — over the $5 per-payment cap                           refuse   refuse
+5. pay $5.00 when $10 already spent — over $12 budget                refuse   refuse
+6. pay $5.00 to an address not on the allowlist                      refuse   refuse
+7. pay $5 correctly but take the $45 change to the agent's key       refuse   refuse
+8. tell the grant $5.00, put $6.00 in the real output                refuse   refuse
+9. pay $5 but claim the running total did not move                   refuse   refuse
+10. a stranger signs the payment                                     refuse   refuse
+11. move the dollars WITHOUT the grant in the transaction            refuse   refuse
+12. drain all $50 to a stranger with no grant input                  refuse   refuse
+16. pay honestly but skim KAS off the held token coin                refuse   refuse
+17. pay honestly but skim KAS off the grant coin                     refuse   refuse
+13. revoker ends the grant, all $45 back to principal                accept   accept
+14. agent tries to 'revoke' to itself                                refuse   refuse
+15. revoker signs but sends the $45 to itself                        refuse   refuse
+test warda_grant_on_the_draft_kcc0020_layout ... ok
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 15.22s

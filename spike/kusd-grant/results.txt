@@ -1,0 +1,35 @@
+scenario                                                           expected   engine
+1. pay $5.00 to the allowed payee (spent 0 -> 5)                     accept   accept
+2. pay again from the SUCCESSOR coin (covenant id stable)            accept   accept
+3. pay $2.00 — brings spent to $12.00 = budget                       accept   accept
+4. pay $5.01 — over the $5 per-payment cap                           refuse   refuse
+      token: ok | grant: VerifyError
+5. pay $5.00 when $10 already spent — over $12 budget                refuse   refuse
+      token: ok | grant: VerifyError
+6. pay $5.00 to an address not on the allowlist                      refuse   refuse
+      token: ok | grant: VerifyError
+7. pay $5 correctly but take the $45 change to the agent's key       refuse   refuse
+      token: ok | grant: VerifyError
+8. tell the grant $5.00, put $6.00 in the real output                refuse   refuse
+      token: ok | grant: VerifyError
+9. pay $5 but claim the running total did not move                   refuse   refuse
+      token: ok | grant: VerifyError
+10. a stranger signs the payment                                     refuse   refuse
+      token: ok | grant: VerifyError
+11. move the dollars WITHOUT the grant in the transaction            refuse   refuse
+      token: VerifyError
+12. drain all $50 to a stranger with no grant input                  refuse   refuse
+      token: VerifyError
+16. pay honestly but skim KAS off the held token coin                refuse   refuse
+      token: ok | grant: VerifyError
+17. pay honestly but skim KAS off the grant coin                     refuse   refuse
+      token: ok | grant: VerifyError
+13. revoker ends the grant, all $45 back to principal                accept   accept
+14. agent tries to 'revoke' to itself                                refuse   refuse
+      token: ok | grant: VerifyError
+15. revoker signs but sends the $45 to itself                        refuse   refuse
+      token: ok | grant: VerifyError
+
+test warda_grant_holding_a_dollar_token ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.66s

@@ -1,0 +1,159 @@
+[
+  {
+    "accepted": true,
+    "compute_budgets": [
+      12
+    ],
+    "compute_mass": 2283,
+    "fee_sompi": 261130,
+    "script_units": [
+      100001
+    ],
+    "size_bytes": 353,
+    "step": "1 token-genesis",
+    "storage_mass": 13336,
+    "transient_mass": 1412,
+    "txid": "7663dba552dfb91a6feca5ccca17223eec2579b593b17d0ee9f9b79ba4c37b9e"
+  },
+  {
+    "accepted": true,
+    "compute_budgets": [
+      12
+    ],
+    "compute_mass": 2283,
+    "fee_sompi": 261130,
+    "script_units": [
+      100001
+    ],
+    "size_bytes": 353,
+    "step": "2 grant-genesis",
+    "storage_mass": 13336,
+    "transient_mass": 1412,
+    "txid": "9609365508b72da0597da6c3b8bfa8fc0540b88176234dc36ccf5a6b6956bd6a"
+  },
+  {
+    "accepted": true,
+    "compute_budgets": [
+      14,
+      12
+    ],
+    "compute_mass": 8645,
+    "fee_sompi": 2190200,
+    "script_units": [
+      128354,
+      100001
+    ],
+    "size_bytes": 4955,
+    "step": "3 fund",
+    "storage_mass": 13198,
+    "transient_mass": 19820,
+    "txid": "e22f56ab590c831cf36cb31bea961a117ab4d7d5fd5a7276ab9ac066fbee68f3"
+  },
+  {
+    "accepted": true,
+    "compute_budgets": [
+      12,
+      25,
+      12
+    ],
+    "compute_mass": 13819,
+    "fee_sompi": 3287560,
+    "script_units": [
+      46684,
+      232725,
+      100001
+    ],
+    "size_bytes": 7449,
+    "step": "4 pay $5",
+    "storage_mass": 28934,
+    "transient_mass": 29796,
+    "txid": "b1cdc8d198c6778a669c61394212371d30e4a91f6ad6fa972b1fc4a7cf4d78f2"
+  },
+  {
+    "accepted": true,
+    "compute_budgets": [
+      12,
+      25,
+      12
+    ],
+    "compute_mass": 13819,
+    "fee_sompi": 3287560,
+    "script_units": [
+      46684,
+      232725,
+      100001
+    ],
+    "size_bytes": 7449,
+    "step": "5 pay $5",
+    "storage_mass": 27208,
+    "transient_mass": 29796,
+    "txid": "4887af6ca5560a25ecd1a4c63c68c76a5a142e64bb0ab7d308f169cc9ac64c8d"
+  },
+  {
+    "accepted": false,
+    "engine": [
+      "input 1: VerifyError"
+    ],
+    "node": "RPC Server (remote error) -> code:0  message:`Rejected transaction c90f500be9ae873d80fb4bb9776940687038032a27fe11dda003f773b131a62f: failed to verify the signature script: script ran, but verification failed` data:None",
+    "step": "6a over the $5 cap: pay $6",
+    "txid": "c90f500be9ae873d80fb4bb9776940687038032a27fe11dda003f773b131a62f"
+  },
+  {
+    "accepted": false,
+    "engine": [
+      "input 1: VerifyError"
+    ],
+    "node": "RPC Server (remote error) -> code:0  message:`Rejected transaction b3da566983f4ff3a35bf4122701a5252b8cea245cd932eee78eb06a2ee24687e: failed to verify the signature script: script ran, but verification failed` data:None",
+    "step": "6b over the $12 budget: pay $3 with $10 spent",
+    "txid": "b3da566983f4ff3a35bf4122701a5252b8cea245cd932eee78eb06a2ee24687e"
+  },
+  {
+    "accepted": false,
+    "engine": [
+      "input 0: VerifyError"
+    ],
+    "node": "RPC Server (remote error) -> code:0  message:`Rejected transaction 0f2c9d3b912cb6dcaccc7c8bbe38e891ffc1d59ecf1dd4a94e01edbd1a5a106d: failed to verify the signature script: script ran, but verification failed` data:None",
+    "step": "6c move $38 to the agent WITHOUT the grant in the tx",
+    "txid": "0f2c9d3b912cb6dcaccc7c8bbe38e891ffc1d59ecf1dd4a94e01edbd1a5a106d"
+  },
+  {
+    "accepted": true,
+    "compute_budgets": [
+      12,
+      25,
+      12
+    ],
+    "compute_mass": 13819,
+    "fee_sompi": 3287560,
+    "script_units": [
+      46684,
+      232725,
+      100001
+    ],
+    "size_bytes": 7449,
+    "step": "7 pay $2",
+    "storage_mass": 24953,
+    "transient_mass": 29796,
+    "txid": "529ba09cfddcb394f0b5b4c1d63d27fd3d9d7119db15c2de75cf7198602af74a"
+  },
+  {
+    "accepted": true,
+    "compute_budgets": [
+      12,
+      20,
+      12
+    ],
+    "compute_mass": 12780,
+    "fee_sompi": 3213200,
+    "script_units": [
+      28292,
+      188511,
+      100001
+    ],
+    "size_bytes": 7280,
+    "step": "8 revoke",
+    "storage_mass": 23852,
+    "transient_mass": 29120,
+    "txid": "eee5afe58421fa8dcd04d3d155860820449b429f99b299a08b6e2802876074ef"
+  }
+]
