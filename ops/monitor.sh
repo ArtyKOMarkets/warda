@@ -161,6 +161,20 @@ FAKE
   step up   1 "recovered" "back up: said once"
   step up   0 -           "still up: silent"
 
+  # A check that cannot START is a real failure and a different message. The
+  # first live run of this file was against /bin/false, which does not exist on
+  # macOS, and it reported the endpoint down.
+  rm -rf "$tmp/state"; : > "$sink"
+  for i in 1 2; do
+    WARDA_NOTIFY_SINK="$sink" WARDA_MONITOR_NO_ENV=1 WARDA_REPO="$REPO" \
+      WARDA_MONITOR_STATE="$tmp/state" "$0" selftest "$tmp/no-such-command" >/dev/null 2>&1
+  done
+  if grep -q "CHECK could not run" "$sink" && ! grep -q "is DOWN" "$sink"; then
+    echo "ok    a check that cannot start says so, instead of blaming the endpoint"
+  else
+    echo "FAIL  missing check reported as: $(tail -n1 "$sink")"; fails=$((fails + 1))
+  fi
+
   # Delivery is not assumed. With no sink and no token, nothing can be sent,
   # and the state must not record that it was.
   echo down > "$verdict"
@@ -225,11 +239,26 @@ fi
 m_fails=$((m_fails + 1))
 [ "$m_ok" = 1 ] && { m_since="$now"; m_ok=0; }
 
+# 126 and 127 are the shell saying it could not start the check — missing,
+# or not executable. That IS worth waking somebody for: ops/install-cron.sh's
+# exec-bit guard exists because check-vendor.sh once shipped without one, and
+# "a monitor that cannot start looks exactly like a monitor with nothing to
+# report." But it is a different message. Told "verify is DOWN" you go and
+# look at the endpoint, and the endpoint is fine.
+headline="$name is DOWN"
+again="$name still down"
+aside=""
+if [ "$code" = 127 ] || [ "$code" = 126 ]; then
+  headline="$name: the CHECK could not run (exit $code)"
+  again="$name: the CHECK still cannot run (exit $code)"
+  aside=" The probe is missing or not executable; this says nothing either way about $name itself."
+fi
+
 send=""
 if [ "$m_announced" = 0 ] && [ "$m_fails" -ge "$CONFIRM" ]; then
-  send="$name is DOWN — $m_fails consecutive failed checks since $(date -u -r "$m_since" +%FT%TZ 2>/dev/null || date -u +%FT%TZ). ${tail_text:-no output.}"
+  send="$headline — $m_fails consecutive failed checks since $(date -u -r "$m_since" +%FT%TZ 2>/dev/null || date -u +%FT%TZ).${aside} ${tail_text:-no output.}"
 elif [ "$m_announced" = 1 ] && [ $((now - m_notified)) -ge "$REMIND" ]; then
-  send="$name still down, $(duration $((now - m_since))) now. ${tail_text:-no output.}"
+  send="$again, $(duration $((now - m_since))) now.${aside} ${tail_text:-no output.}"
 fi
 
 if [ -n "$send" ]; then
