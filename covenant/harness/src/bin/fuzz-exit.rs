@@ -79,7 +79,9 @@ fn which_name(w: Which) -> &'static str {
 /// from the covenant is exactly what this binary is built not to do, so the
 /// threshold is set loose enough that the real one passes it comfortably and
 /// a destroyed balance does not.
-const SPREAD_ALLOWED: i64 = IN_VALUE as i64 / 100;
+fn spread_allowed() -> i64 {
+    in_value() as i64 / 100
+}
 
 fn sweep(src: &'static str, label: &'static str) -> Pass {
     let mut out = Pass::new(label);
@@ -95,14 +97,14 @@ fn sweep(src: &'static str, label: &'static str) -> Pass {
         ("no fee at all", 0),
         ("the fee the covenant allows", MAX_FEE),
         ("one sompi past it", MAX_FEE + 1),
-        ("a tenth of the balance", IN_VALUE as i64 / 10),
-        ("all but one sompi", IN_VALUE as i64 - 1),
+        ("a tenth of the balance", in_value() as i64 / 10),
+        ("all but one sompi", in_value() as i64 - 1),
     ];
     let daas: [(&str, i64); 4] = [
-        ("mid-term", 1_000_500),
-        ("one block before the term ends", EXPIRES_AT - 1),
-        ("the first moment the term allows", EXPIRES_AT),
-        ("long after", EXPIRES_AT + 500_000),
+        ("mid-term", mid_epoch(0)),
+        ("one block before the term ends", expires_at() - 1),
+        ("the first moment the term allows", expires_at()),
+        ("long after", expires_at() + 500_000),
     ];
 
     for which in [Which::Revoke, Which::Reclaim] {
@@ -118,7 +120,7 @@ fn sweep(src: &'static str, label: &'static str) -> Pass {
                         out.accepted += 1;
 
                         let to_principal = if pay_to.is_none() || pay_to == Some(principal) {
-                            IN_VALUE as i64 - fee
+                            in_value() as i64 - fee
                         } else {
                             0
                         };
@@ -153,7 +155,7 @@ fn sweep(src: &'static str, label: &'static str) -> Pass {
         }
         let most = group.iter().map(|o| o.to_principal).max().unwrap();
         let least = group.iter().map(|o| o.to_principal).min().unwrap();
-        if most - least > SPREAD_ALLOWED {
+        if most - least > spread_allowed() {
             out.findings.push((
                 format!("{} — {} accepted exits of the same grant", which_name(which), group.len()),
                 vec![format!(
@@ -169,7 +171,7 @@ fn sweep(src: &'static str, label: &'static str) -> Pass {
         // accepted exit of this kind sits under the term, the term bounded
         // nothing.
         let earliest = group.iter().map(|o| o.daa).min().unwrap();
-        if which == Which::Reclaim && earliest < EXPIRES_AT {
+        if which == Which::Reclaim && earliest < expires_at() {
             out.findings.push((
                 format!("reclaim — accepted at DAA {earliest}"),
                 vec!["the grant's own term was reclaimable before it had run".into()],

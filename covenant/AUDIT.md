@@ -1,4 +1,5 @@
 # Covenant audit — warda_grant.sil · v4 · fingerprint b3e5eeefacf2021f
+budget 10000000000 · cap 200000000 · epoch 10000000000 per 1000 · window 1000000..1007000 · depth 2 · allowlist 4 · proof depth 4
 
 Produced by `covenant/harness/src/bin/audit.rs`. Every line below is a
 verdict from `TxScriptEngine`, the same script engine a Kaspa node validates
@@ -286,7 +287,7 @@ indistinguishable from one that cannot, so the run deletes
 ## What this run did not test
 
 - One claim on settle: that output 0 is the co-input grant's single authorised continuation. The baseline builds exactly that shape, so there is no transaction in this run where it is the only thing wrong — the refusals that would prove it are indistinguishable from the co-input check firing first.
-- One grant shape per run. Every case here runs against a single parameterisation — 100 KAS, a 2 KAS per-spend cap, delegation depth 2, a 4-member allowlist, maxProofDepth 4. Whether the same boundaries hold at another shape — a one-sompi budget, a different delegation depth — is untested by this run. The allowlist size and proof depth are WARDA_TREE_LEAVES and WARDA_PROOF_DEPTH, so those two axes can be re-run rather than argued about.
+- One grant shape per RUN — but no longer one shape per suite. This run used: budget 10000000000 · cap 200000000 · epoch 10000000000 per 1000 · window 1000000..1007000 · depth 2 · allowlist 4 · proof depth 4. Every axis of it is an environment variable now (WARDA_BUDGET, WARDA_MAX_PER_SPEND, WARDA_EPOCH_LIMIT, WARDA_EPOCH_LENGTH, WARDA_NOT_BEFORE, WARDA_EXPIRES_AT, WARDA_DELEGATION_DEPTH, WARDA_TREE_LEAVES, WARDA_PROOF_DEPTH), so another shape is a re-run rather than an argument. What this report cannot tell you is what the OTHER shapes did: read the matrix in covenant/SHAPES.md for that, and treat a claim about a shape nobody ran as exactly what it is.
 - Anything above the script engine — a node's mempool policy, relay rules, or what a wallet does with a transaction before it is broadcast.
 - The residual described in GUARANTEES.md: allowance from unused epochs stays spendable after the chain passes expiresAt. That is a property of the design, correctly implemented, not a defect the engine can report.
 

@@ -86,14 +86,19 @@ pub fn ctor_full(max_proof_depth: i64, authority: Authority, template_id: [u8; 3
         Expr::bytes(authority.revocation.to_vec()), //  1 revocationKey
         Expr::int(100_000),               //  2 maxFee
         Expr::bytes(vec![0x22; 32]),      //  3 genesisAgentKey
-        Expr::int(10_000_000_000),        //  4 genesisBudgetTotal    100 KAS
-        Expr::int(200_000_000),           //  5 genesisMaxPerSpend      2 KAS
-        Expr::int(1_000_000_000),         //  6 genesisEpochLimit      10 KAS
-        Expr::int(1_000),                 //  7 genesisEpochLength
+        // One source for the shape, not three. These were literals, and the
+        // same seven numbers appeared again in the constants below and a
+        // third time in `authority_fields` — a triplication that survived
+        // only because nobody ever changed the shape, which was itself the
+        // reason nobody ever changed it.
+        Expr::int(budget_total()),        //  4 genesisBudgetTotal
+        Expr::int(max_per_spend()),       //  5 genesisMaxPerSpend
+        Expr::int(epoch_limit()),         //  6 genesisEpochLimit
+        Expr::int(epoch_length()),        //  7 genesisEpochLength
         Expr::bytes(vec![0x13; 32]),      //  8 genesisRecipientsRoot
-        Expr::int(1_000_000),             //  9 genesisNotBefore
-        Expr::int(1_007_000),             // 10 genesisExpiresAt
-        Expr::int(2),                     // 11 genesisDelegationDepth
+        Expr::int(not_before()),          //  9 genesisNotBefore
+        Expr::int(expires_at()),          // 10 genesisExpiresAt
+        Expr::int(delegation_depth()),    // 11 genesisDelegationDepth
         // A wrong templateId is not a compile error and not a security hole:
         // the covenant's own comment says it simply yields a different address,
         // one nobody funded. Only the splice path reads it, and nothing here
@@ -137,14 +142,14 @@ pub fn authority_fields_of(
 ) -> Vec<(&'static str, Expr<'static>)> {
     vec![
         ("agentKey", Expr::bytes(agent_xonly.to_vec())),
-        ("budgetTotal", Expr::int(10_000_000_000)),
-        ("maxPerSpend", Expr::int(200_000_000)),
-        ("epochLimit", Expr::int(1_000_000_000)),
-        ("epochLength", Expr::int(1_000)),
+        ("budgetTotal", Expr::int(budget_total())),
+        ("maxPerSpend", Expr::int(max_per_spend())),
+        ("epochLimit", Expr::int(epoch_limit())),
+        ("epochLength", Expr::int(epoch_length())),
         ("recipientsRoot", Expr::bytes(root.to_vec())),
-        ("notBefore", Expr::int(1_000_000)),
-        ("expiresAt", Expr::int(1_007_000)),
-        ("delegationDepth", Expr::int(2)),
+        ("notBefore", Expr::int(not_before())),
+        ("expiresAt", Expr::int(expires_at())),
+        ("delegationDepth", Expr::int(delegation_depth())),
         // v4. Authority, not accounting: `spend` asserts it unchanged, so it
         // must equal ctor slot 12 or every successor is a different grant.
         ("templateId", Expr::bytes(template_id_of(src, default_authority()).to_vec())),
@@ -655,16 +660,82 @@ pub fn execute_traced(tx: Transaction, entries: Vec<UtxoEntry>, input_idx: usize
 // rejection can only be caused by that field.
 // ---------------------------------------------------------------------------
 
-/// The grant every attempt below is built against. These are `ctor()`'s
-/// genesis values, named so the auditor can straddle each boundary by
-/// arithmetic rather than by a literal somebody has to keep in step.
-pub const BUDGET_TOTAL: i64 = 10_000_000_000; // 100 KAS
-pub const MAX_PER_SPEND: i64 = 200_000_000;   //   2 KAS
-pub const EPOCH_LIMIT: i64 = 1_000_000_000;   //  10 KAS
-pub const EPOCH_LENGTH: i64 = 1_000;
-pub const NOT_BEFORE: i64 = 1_000_000;
-pub const EXPIRES_AT: i64 = 1_007_000;
-pub const DELEGATION_DEPTH: i64 = 2;
+/// The grant every attempt below is built against.
+///
+/// These were `pub const`, and the same seven numbers were written out twice
+/// more — once as literals in `ctor_full`, once again in `authority_fields`.
+/// Three copies of one shape, which held only because nobody had ever changed
+/// it. That is also WHY nobody had: changing it meant editing the instrument
+/// in three places and hoping.
+///
+/// `AUDIT.md`'s "what this run did not test" names the consequence directly:
+/// *"One grant shape per run. Every case here runs against a single
+/// parameterisation — 100 KAS, a 2 KAS per-spend cap, delegation depth 2 […]
+/// Whether the same boundaries hold at another shape — a one-sompi budget, a
+/// different delegation depth — is untested by this run."*
+///
+/// Now there is one copy, and it is an environment variable:
+///
+/// ```text
+/// WARDA_BUDGET=1 WARDA_MAX_PER_SPEND=1 cargo run --bin audit
+/// ```
+///
+/// Functions rather than constants, which costs every call site a pair of
+/// brackets and buys the ability to ask the question at all.
+fn env_i64(name: &str, fallback: i64) -> i64 {
+    std::env::var(name).ok().and_then(|s| s.parse().ok()).unwrap_or(fallback)
+}
+
+pub fn budget_total() -> i64 {
+    env_i64("WARDA_BUDGET", 10_000_000_000) // 100 KAS
+}
+pub fn max_per_spend() -> i64 {
+    env_i64("WARDA_MAX_PER_SPEND", 200_000_000) // 2 KAS
+}
+pub fn epoch_limit() -> i64 {
+    env_i64("WARDA_EPOCH_LIMIT", 1_000_000_000) // 10 KAS
+}
+pub fn epoch_length() -> i64 {
+    env_i64("WARDA_EPOCH_LENGTH", 1_000)
+}
+pub fn not_before() -> i64 {
+    env_i64("WARDA_NOT_BEFORE", 1_000_000)
+}
+pub fn expires_at() -> i64 {
+    env_i64("WARDA_EXPIRES_AT", 1_007_000)
+}
+pub fn delegation_depth() -> i64 {
+    env_i64("WARDA_DELEGATION_DEPTH", 2)
+}
+
+/// A DAA score inside epoch `e`, whatever an epoch currently is.
+///
+/// Every case that says "an earlier epoch" or "a later epoch" means a position
+/// relative to `epochLength`, and writing that as a fixed DAA offset only
+/// works at one length. Half an epoch in, so a case is never sitting on a
+/// boundary it did not mean to test.
+pub fn mid_epoch(e: i64) -> i64 {
+    not_before() + e * epoch_length() + (epoch_length() / 2)
+}
+
+/// Every axis of the shape, for a report that has to say which one it ran.
+///
+/// A suite that does not print its parameterisation is a suite whose numbers
+/// cannot be compared to anybody else's — including its own, from last week.
+pub fn shape_line() -> String {
+    format!(
+        "budget {} · cap {} · epoch {} per {} · window {}..{} · depth {} · allowlist {} · proof depth {}",
+        budget_total(),
+        max_per_spend(),
+        epoch_limit(),
+        epoch_length(),
+        not_before(),
+        expires_at(),
+        delegation_depth(),
+        tree_leaves(),
+        proof_depth(),
+    )
+}
 
 /// The run's shape, overridable from the environment.
 ///
@@ -703,7 +774,21 @@ pub fn members() -> Vec<[u8; 32]> {
     v
 }
 pub const MAX_FEE: i64 = 100_000;
-pub const IN_VALUE: u64 = 10_000_000_000;
+/// What the grant's own UTXO holds.
+///
+/// This was a constant, and it was the third thing welded to one shape. A
+/// grant whose budget is a thousand times its coin cannot express any case
+/// about money: the built transaction saturates, the covenant is handed
+/// something the case never meant, and the verdict describes neither. Run the
+/// suite at a 10^15 budget with this pinned at 10^10 and it reports a
+/// VIOLATION on the delegation budget rule — the covenant accepting a child
+/// one sompi larger than the parent had left — which is not true, and is the
+/// harness building a transaction whose outputs it silently clamped.
+///
+/// So the coin follows the budget, which is the relationship a real grant has.
+pub fn in_value() -> u64 {
+    budget_total().max(0) as u64
+}
 
 /// One spend attempt, with every input the covenant reads exposed.
 ///
@@ -754,7 +839,13 @@ impl Spend {
             authority_override: None,
             amount: KAS / 2,
             recipient: [0xa1; 32],
-            claimed_daa: 1_000_500,
+            /* Inside the first epoch, derived rather than written down.
+               1_000_500 is the middle of epoch 0 only while an epoch is 1,000
+               DAA long; at WARDA_EPOCH_LENGTH=1 the same number is epoch 500,
+               and every case built on it claims a LATER epoch than it means
+               to. Three of them then read as the covenant accepting a replayed
+               epoch, which is the harness lying about what it built. */
+            claimed_daa: mid_epoch(0),
             successor: None,
             pay_to: None,
             prev: (0, 0, 0, 0),
@@ -780,7 +871,7 @@ impl Spend {
            makes every boundary case fail for the successor comparison rather
            than for the rule under test — one opaque VerifyError, a long way
            from the cause. */
-        let cur_epoch = (self.claimed_daa - NOT_BEFORE).div_euclid(EPOCH_LENGTH);
+        let cur_epoch = (self.claimed_daa - not_before()).div_euclid(epoch_length());
         let honest = if cur_epoch > pi {
             (ps + self.amount, pr, cur_epoch, self.amount)
         } else {
@@ -803,7 +894,7 @@ impl Spend {
         p2pk.extend_from_slice(&payee);
         p2pk.push(0xac);
 
-        let in_value: u64 = IN_VALUE;
+        let in_value: u64 = in_value();
         let amount = self.amount;
         let claimed_daa = self.claimed_daa;
         let tx_daa = self.tx_daa.unwrap_or(claimed_daa);
@@ -1308,12 +1399,12 @@ pub struct Exit {
 impl Exit {
     /// `revoke`, correctly signed, paying the principal, at exactly maxFee.
     pub fn revoke() -> Self {
-        Exit { which: Which::Revoke, signer: Signer::Revocation, pay_to: None, fee: MAX_FEE, tx_daa: 1_000_500, src: SOURCE }
+        Exit { which: Which::Revoke, signer: Signer::Revocation, pay_to: None, fee: MAX_FEE, tx_daa: mid_epoch(0), src: SOURCE }
     }
 
     /// `reclaim`, at the first DAA the term allows.
     pub fn reclaim() -> Self {
-        Exit { which: Which::Reclaim, signer: Signer::Principal, pay_to: None, fee: MAX_FEE, tx_daa: EXPIRES_AT, src: SOURCE }
+        Exit { which: Which::Reclaim, signer: Signer::Principal, pay_to: None, fee: MAX_FEE, tx_daa: expires_at(), src: SOURCE }
     }
 
     pub fn run(&self) -> Result<(), TxScriptError> {
@@ -1337,7 +1428,7 @@ impl Exit {
 
         let payee = self.pay_to.unwrap_or_else(|| principal.x_only_public_key().0.serialize());
         let script = p2pk(payee);
-        let in_value: u64 = IN_VALUE;
+        let in_value: u64 = in_value();
         let name = if self.which == Which::Revoke { "revoke" } else { "reclaim" };
         let tx_daa = self.tx_daa;
         let fee = self.fee;
@@ -1673,8 +1764,8 @@ impl Settle {
             budget: self.child_budget,
             max_per_spend: KAS,
             epoch_limit: 5 * KAS,
-            expires_at: EXPIRES_AT,
-            not_before: NOT_BEFORE,
+            expires_at: expires_at(),
+            not_before: not_before(),
             delegation_depth: 1,
             root: None,
             accounting: (self.child_spent, self.child_reserved, 0, 0),
@@ -1683,7 +1774,7 @@ impl Settle {
         /* The child's identity, rebuilt from its IMMUTABLE fields — which is
            why a child that has been spending still matches what the parent
            committed to when it delegated. */
-        let cid = child_id(child_key, ch.budget, ch.max_per_spend, ch.epoch_limit, EPOCH_LENGTH,
+        let cid = child_id(child_key, ch.budget, ch.max_per_spend, ch.epoch_limit, epoch_length(),
             tree.root(), ch.not_before, ch.expires_at, ch.delegation_depth);
         let carried = push_child(empty_reserve(), cid);
         let prev_root = if self.wrong_prev_root { [0x66u8; 32] } else { empty_reserve() };

@@ -87,10 +87,10 @@ fn cases() -> Vec<Case> {
     // -----------------------------------------------------------------------
     const R1: &str = "amount <= maxPerSpend";
     for (amt, exp, note, probe) in [
-        (MAX_PER_SPEND, Expect::Accept, "exactly the cap".to_string(), true),
-        (MAX_PER_SPEND - 1, Expect::Accept, "one sompi under the cap".to_string(), false),
-        (MAX_PER_SPEND + 1, Expect::Reject, "one sompi over the cap".to_string(), true),
-        (MAX_PER_SPEND * 100, Expect::Reject, "a hundred times the cap".to_string(), false),
+        (max_per_spend(), Expect::Accept, "exactly the cap".to_string(), true),
+        (max_per_spend() - 1, Expect::Accept, "one sompi under the cap".to_string(), false),
+        (max_per_spend() + 1, Expect::Reject, "one sompi over the cap".to_string(), true),
+        (max_per_spend() * 100, Expect::Reject, "a hundred times the cap".to_string(), false),
         (1, Expect::Accept, "one sompi".to_string(), false),
         (0, Expect::Reject, "nothing at all".to_string(), false),
         (-1, Expect::Reject, "a negative amount".to_string(), false),
@@ -110,10 +110,10 @@ fn cases() -> Vec<Case> {
     const R2: &str = "amount <= budgetTotal - (spentTotal + reserved)";
     let room = 150_000_000i64; // inside the per-spend cap, so only the budget binds
     for (spent, reserved, amt, exp, note, axis) in [
-        (BUDGET_TOTAL - room, 0, room, Expect::Accept, "exactly the uncommitted budget", "amount, against an unreserved budget"),
-        (BUDGET_TOTAL - room, 0, room + 1, Expect::Reject, "one sompi past the uncommitted budget", "amount, against an unreserved budget"),
-        (BUDGET_TOTAL - room * 2, room, room, Expect::Accept, "exactly what is left once reserve is counted", "amount, with 1.5 KAS reserved"),
-        (BUDGET_TOTAL - room * 2, room, room + 1, Expect::Reject, "one sompi into the reserve", "amount, with 1.5 KAS reserved"),
+        (budget_total() - room, 0, room, Expect::Accept, "exactly the uncommitted budget", "amount, against an unreserved budget"),
+        (budget_total() - room, 0, room + 1, Expect::Reject, "one sompi past the uncommitted budget", "amount, against an unreserved budget"),
+        (budget_total() - room * 2, room, room, Expect::Accept, "exactly what is left once reserve is counted", "amount, with 1.5 KAS reserved"),
+        (budget_total() - room * 2, room, room + 1, Expect::Reject, "one sompi into the reserve", "amount, with 1.5 KAS reserved"),
     ] {
         v.push(probed("budget", R2, note, exp, axis, "sompi", amt, Dir::Upper, move || {
             spend(|s| {
@@ -132,7 +132,7 @@ fn cases() -> Vec<Case> {
         (room, Expect::Accept, "exactly this epoch's remaining allowance"),
         (room + 1, Expect::Reject, "one sompi past this epoch's allowance"),
     ] {
-        let used = EPOCH_LIMIT - room;
+        let used = epoch_limit() - room;
         v.push(probed("epoch limit", R3, note, exp, "amount, against this epoch's allowance", "sompi", amt, Dir::Upper, move || {
             spend(|s| {
                 s.prev = (used, 0, 0, used);
@@ -149,7 +149,7 @@ fn cases() -> Vec<Case> {
     // came back. Repeatably.
     // -----------------------------------------------------------------------
     const R4: &str = "currentEpoch >= prevState.epochIndex";
-    let at = |e: i64| NOT_BEFORE + e * EPOCH_LENGTH + 500;
+    let at = mid_epoch;
     for (epoch, exp, note) in [
         (4i64, Expect::Accept, "a later epoch, with its own fresh allowance"),
         (3, Expect::Reject, "the recorded epoch, which is already exhausted"),
@@ -158,7 +158,7 @@ fn cases() -> Vec<Case> {
     ] {
         v.push(case("epoch ratchet", R4, note, exp, move || {
             spend(|s| {
-                s.prev = (3 * KAS, 0, 3, EPOCH_LIMIT);
+                s.prev = (3 * KAS, 0, 3, epoch_limit());
                 s.claimed_daa = at(epoch);
             })
         }));
@@ -168,7 +168,7 @@ fn cases() -> Vec<Case> {
     // R5 CLTV — the claimed time has actually arrived
     // -----------------------------------------------------------------------
     const R5: &str = "tx.daa >= claimedDaa";
-    v.push(probed("cltv", R5, "locktime exactly the claimed DAA", Expect::Accept, "transaction locktime", "DAA", 1_000_500, Dir::Lower, || {
+    v.push(probed("cltv", R5, "locktime exactly the claimed DAA", Expect::Accept, "transaction locktime", "DAA", mid_epoch(0), Dir::Lower, || {
         spend(|s| s.tx_daa = Some(s.claimed_daa))
     }));
     v.push(probed("cltv", R5, "locktime one DAA below the claim", Expect::Reject, "transaction locktime", "DAA", 1_000_499, Dir::Lower, || {
@@ -179,22 +179,22 @@ fn cases() -> Vec<Case> {
     // R6 notBefore / R7 expiresAt
     // -----------------------------------------------------------------------
     const R6: &str = "claimedDaa >= notBefore";
-    v.push(probed("window opens", R6, "the first DAA of the window", Expect::Accept, "claimed DAA, at the window's start", "DAA", NOT_BEFORE, Dir::Lower, || {
-        spend(|s| s.claimed_daa = NOT_BEFORE)
+    v.push(probed("window opens", R6, "the first DAA of the window", Expect::Accept, "claimed DAA, at the window's start", "DAA", not_before(), Dir::Lower, || {
+        spend(|s| s.claimed_daa = not_before())
     }));
-    v.push(probed("window opens", R6, "one DAA before the window opens", Expect::Reject, "claimed DAA, at the window's start", "DAA", NOT_BEFORE - 1, Dir::Lower, || {
-        spend(|s| s.claimed_daa = NOT_BEFORE - 1)
+    v.push(probed("window opens", R6, "one DAA before the window opens", Expect::Reject, "claimed DAA, at the window's start", "DAA", not_before() - 1, Dir::Lower, || {
+        spend(|s| s.claimed_daa = not_before() - 1)
     }));
 
     const R7: &str = "claimedDaa < expiresAt";
-    v.push(probed("window closes", R7, "the last DAA of the window", Expect::Accept, "claimed DAA, at the window's end", "DAA", EXPIRES_AT - 1, Dir::Upper, || {
-        spend(|s| s.claimed_daa = EXPIRES_AT - 1)
+    v.push(probed("window closes", R7, "the last DAA of the window", Expect::Accept, "claimed DAA, at the window's end", "DAA", expires_at() - 1, Dir::Upper, || {
+        spend(|s| s.claimed_daa = expires_at() - 1)
     }));
-    v.push(probed("window closes", R7, "the first DAA after expiry", Expect::Reject, "claimed DAA, at the window's end", "DAA", EXPIRES_AT, Dir::Upper, || {
-        spend(|s| s.claimed_daa = EXPIRES_AT)
+    v.push(probed("window closes", R7, "the first DAA after expiry", Expect::Reject, "claimed DAA, at the window's end", "DAA", expires_at(), Dir::Upper, || {
+        spend(|s| s.claimed_daa = expires_at())
     }));
     v.push(case("window closes", R7, "well past expiry", Expect::Reject, || {
-        spend(|s| s.claimed_daa = EXPIRES_AT + EPOCH_LENGTH)
+        spend(|s| s.claimed_daa = expires_at() + epoch_length())
     }));
 
     // -----------------------------------------------------------------------
@@ -208,13 +208,13 @@ fn cases() -> Vec<Case> {
     // -----------------------------------------------------------------------
     const R8: &str = "authority is unchanged in the successor (nine equality checks)";
     let ints: [(&str, i64); 7] = [
-        ("budgetTotal", BUDGET_TOTAL),
-        ("maxPerSpend", MAX_PER_SPEND),
-        ("epochLimit", EPOCH_LIMIT),
-        ("epochLength", EPOCH_LENGTH),
-        ("notBefore", NOT_BEFORE),
-        ("expiresAt", EXPIRES_AT),
-        ("delegationDepth", DELEGATION_DEPTH),
+        ("budgetTotal", budget_total()),
+        ("maxPerSpend", max_per_spend()),
+        ("epochLimit", epoch_limit()),
+        ("epochLength", epoch_length()),
+        ("notBefore", not_before()),
+        ("expiresAt", expires_at()),
+        ("delegationDepth", delegation_depth()),
     ];
     for (name, base) in ints {
         for (delta, word) in [(1i64, "raised by one"), (-1, "lowered by one")] {
@@ -296,11 +296,11 @@ fn cases() -> Vec<Case> {
     }));
     type Axis = (&'static str, fn(&mut Child, bool), &'static str, Dir, i64, i64);
     let axes: [Axis; 5] = [
-        ("maxPerSpend", |c, over| c.max_per_spend = if over { MAX_PER_SPEND + 1 } else { MAX_PER_SPEND }, "sompi", Dir::Upper, MAX_PER_SPEND, MAX_PER_SPEND + 1),
-        ("epochLimit", |c, over| c.epoch_limit = if over { EPOCH_LIMIT + 1 } else { EPOCH_LIMIT }, "sompi", Dir::Upper, EPOCH_LIMIT, EPOCH_LIMIT + 1),
-        ("notBefore", |c, over| c.not_before = if over { NOT_BEFORE - 1 } else { NOT_BEFORE }, "DAA", Dir::Lower, NOT_BEFORE, NOT_BEFORE - 1),
-        ("expiresAt", |c, over| c.expires_at = if over { EXPIRES_AT + 1 } else { EXPIRES_AT }, "DAA", Dir::Upper, EXPIRES_AT, EXPIRES_AT + 1),
-        ("delegationDepth", |c, over| c.delegation_depth = if over { DELEGATION_DEPTH } else { DELEGATION_DEPTH - 1 }, "levels", Dir::Upper, DELEGATION_DEPTH - 1, DELEGATION_DEPTH),
+        ("maxPerSpend", |c, over| c.max_per_spend = if over { max_per_spend() + 1 } else { max_per_spend() }, "sompi", Dir::Upper, max_per_spend(), max_per_spend() + 1),
+        ("epochLimit", |c, over| c.epoch_limit = if over { epoch_limit() + 1 } else { epoch_limit() }, "sompi", Dir::Upper, epoch_limit(), epoch_limit() + 1),
+        ("notBefore", |c, over| c.not_before = if over { not_before() - 1 } else { not_before() }, "DAA", Dir::Lower, not_before(), not_before() - 1),
+        ("expiresAt", |c, over| c.expires_at = if over { expires_at() + 1 } else { expires_at() }, "DAA", Dir::Upper, expires_at(), expires_at() + 1),
+        ("delegationDepth", |c, over| c.delegation_depth = if over { delegation_depth() } else { delegation_depth() - 1 }, "levels", Dir::Upper, delegation_depth() - 1, delegation_depth()),
     ];
     for (name, f, unit, dir, ok_v, no_v) in axes {
         /* Five of the six axes narrow with `<=`, so equalling the parent is
@@ -331,15 +331,29 @@ fn cases() -> Vec<Case> {
     // The rest of delegate: the four claims the first version left uncounted.
     // -----------------------------------------------------------------------
     const RB: &str = "child.budgetTotal <= budgetTotal - committed";
-    // A parent that has already spent 60 and reserved 15 of 100 has 25 left.
-    // That ceiling is unreachable from genesis, which is why it went untested.
+    /* A parent that has already committed three quarters of its budget has one
+       quarter left. That ceiling is unreachable from genesis, which is why it
+       went untested for so long.
+
+       Written as FRACTIONS of the budget, not as 60 and 15 and 25 KAS. The
+       literals were true only while the budget was 100 KAS, and the whole
+       point of the shape being an environment variable is that it is not. Run
+       this suite at WARDA_BUDGET=10^15 with the literals in place and it
+       reports a VIOLATION here — the covenant accepting a child one sompi
+       over the parent's remainder — when what actually happened is that a 25
+       KAS child is nowhere near the remainder of a ten-million-KAS grant, the
+       covenant accepted it correctly, and the case's expectation was computed
+       from a budget this run does not have. */
+    let committed_spent = budget_total() / 100 * 60;
+    let committed_reserved = budget_total() / 100 * 15;
+    let uncommitted = budget_total() - committed_spent - committed_reserved;
     for (b, exp, note) in [
-        (25 * KAS, Expect::Accept, "a child taking exactly the parent's uncommitted budget"),
-        (25 * KAS + 1, Expect::Reject, "one sompi more than the parent has left"),
+        (uncommitted, Expect::Accept, "a child taking exactly the parent's uncommitted budget"),
+        (uncommitted + 1, Expect::Reject, "one sompi more than the parent has left"),
     ] {
         v.push(probed("delegation budget", RB, note, exp, "child budgetTotal", "sompi", b, Dir::Upper, move || {
             let mut d = Delegate::valid();
-            d.parent_prev = (60 * KAS, 15 * KAS);
+            d.parent_prev = (committed_spent, committed_reserved);
             d.child.budget = b;
             d.run()
         }));
@@ -529,8 +543,8 @@ fn cases() -> Vec<Case> {
         let mut e = Exit::reclaim(); e.pay_to = Some([0xee; 32]); e.run()
     }));
     for (daa, exp, note) in [
-        (EXPIRES_AT, Expect::Accept, "the first DAA the term allows"),
-        (EXPIRES_AT - 1, Expect::Reject, "one DAA before the term is over"),
+        (expires_at(), Expect::Accept, "the first DAA the term allows"),
+        (expires_at() - 1, Expect::Reject, "one DAA before the term is over"),
     ] {
         v.push(probed("reclaim term", "tx.daa >= expiresAt", note, exp, "reclaim locktime", "DAA", daa, Dir::Lower, move || {
             let mut e = Exit::reclaim(); e.tx_daa = daa; e.run()
@@ -581,22 +595,6 @@ fn cases() -> Vec<Case> {
     ] {
         v.push(case("settle charge", "newState.spentTotal == spentTotal + child.spentTotal", note, Expect::Reject, move || settle(|s| s.successor = Some(succ))));
     }
-    /* These three were refused for the WRONG REASON until 25 September 2026,
-       and this suite reported them as covering the rule they name.
-
-       `authority_override` moved the field in the declared successor and not
-       in the constructor the successor was compiled from, so the transaction
-       paid an address that was not the grant it described — and the covenant
-       refused it there, long before `require(newState.maxPerSpend ==
-       maxPerSpend)` was reached. Delete that require and these cases still
-       refused. A rejection that survives the removal of the rule it cites
-       proves nothing about the rule, which is the exact failure the section
-       "Why a rejection here means something" opens this report with.
-
-       Found by `fuzz-settle`, not by reading: the mutant could not get one
-       transaction past the address check, came back with no findings, and an
-       oracle that cannot fire is the one result this harness treats as worse
-       than a bug. `Settle::run` now applies the override to both. */
     for (name, val, note) in [
         ("maxPerSpend", 100 * KAS, "the parent raising its own per-payment cap"),
         ("expiresAt", 9_999_999, "the parent extending its own expiry"),
@@ -634,7 +632,14 @@ fn cases() -> Vec<Case> {
 
 fn subject() -> Subject {
     Subject {
-        line: "warda_grant.sil · v4 · fingerprint b3e5eeefacf2021f".into(),
+        /* The shape goes in the subject line, because a suite that does not
+           say which parameterisation it ran produces numbers nobody can
+           compare — including to its own, from last week. It used to be one
+           shape and the line could afford to leave it out. */
+        line: format!(
+            "warda_grant.sil · v4 · fingerprint b3e5eeefacf2021f\n{}",
+            warda_harness::shape_line()
+        ),
         doc: "GUARANTEES.md".into(),
         by: "covenant/harness/src/bin/audit.rs".into(),
         repro: "cd covenant/harness && cargo run --bin audit".into(),
@@ -650,15 +655,17 @@ fn subject() -> Subject {
              transaction in this run where it is the only thing wrong — the refusals that would \
              prove it are indistinguishable from the co-input check firing first.".into(),
             format!(
-                "<b>One grant shape per run.</b> Every case here runs against a single \
-                 parameterisation — 100 KAS, a 2 KAS per-spend cap, delegation depth 2, a \
-                 {}-member allowlist, <code>maxProofDepth</code> {}. Whether the same boundaries \
-                 hold at another shape — a one-sompi budget, a different delegation depth — is \
-                 untested by <em>this</em> run. The allowlist size and proof depth are \
-                 <code>WARDA_TREE_LEAVES</code> and <code>WARDA_PROOF_DEPTH</code>, so those two \
-                 axes can be re-run rather than argued about.",
-                warda_harness::tree_leaves(),
-                warda_harness::proof_depth(),
+                "<b>One grant shape per RUN</b> — but no longer one shape per suite. This run \
+                 used: {}. Every axis of it is an environment variable now \
+                 (<code>WARDA_BUDGET</code>, <code>WARDA_MAX_PER_SPEND</code>, \
+                 <code>WARDA_EPOCH_LIMIT</code>, <code>WARDA_EPOCH_LENGTH</code>, \
+                 <code>WARDA_NOT_BEFORE</code>, <code>WARDA_EXPIRES_AT</code>, \
+                 <code>WARDA_DELEGATION_DEPTH</code>, <code>WARDA_TREE_LEAVES</code>, \
+                 <code>WARDA_PROOF_DEPTH</code>), so another shape is a re-run rather than an \
+                 argument. What this report cannot tell you is what the OTHER shapes did: read \
+                 the matrix in <code>covenant/SHAPES.md</code> for that, and treat a claim about \
+                 a shape nobody ran as exactly what it is.",
+                warda_harness::shape_line(),
             ),
             "Anything above the script engine — a node's mempool policy, relay rules, or what a \
              wallet does with a transaction before it is broadcast.".into(),

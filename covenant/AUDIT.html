@@ -1,7 +1,8 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Covenant audit — warda_grant.sil · v4 · fingerprint b3e5eeefacf2021f</title>
+<title>Covenant audit — warda_grant.sil · v4 · fingerprint b3e5eeefacf2021f
+budget 10000000000 · cap 200000000 · epoch 10000000000 per 1000 · window 1000000..1007000 · depth 2 · allowlist 4 · proof depth 4</title>
 <style>
   /* The console's own surfaces and ink, so a report and the product it
      describes look like one thing. Printed dark on purpose — this is read on
@@ -181,7 +182,8 @@
   }
 </style></head><body><div class="page">
 
-<p class="sub num">warda_grant.sil · v4 · fingerprint b3e5eeefacf2021f</p>
+<p class="sub num">warda_grant.sil · v4 · fingerprint b3e5eeefacf2021f
+budget 10000000000 · cap 200000000 · epoch 10000000000 per 1000 · window 1000000..1007000 · depth 2 · allowlist 4 · proof depth 4</p>
 <h1>Covenant audit</h1>
 <p class="lede">Every verdict below comes from <code>TxScriptEngine</code>, the same script
 engine a Kaspa node validates a transaction with. Nothing here is inferred from reading
@@ -317,8 +319,8 @@ loosest it <b>refused</b>. Both were executed; neither is inferred.</p>
   <div class="track">
     <div class="zone permitted"></div><div class="zone forbidden"></div><div class="barrier"></div>
     <div class="dot ok"></div><div class="dot no"></div>
-    <div class="lab ok">accepted<br><b class="num">1,000,000,000</b></div>
-    <div class="lab no">refused<br><b class="num">1,000,000,001</b></div>
+    <div class="lab ok">accepted<br><b class="num">10,000,000,000</b></div>
+    <div class="lab no">refused<br><b class="num">10,000,000,001</b></div>
     <div class="gap">1 sompi apart</div>
   </div>
 </div><div class="bound">
@@ -427,12 +429,12 @@ and requiring the same oracle to catch it. It does: an agent whose epoch allowan
 something. The oracle can fire, it fires on a covenant this one used to be, and it
 is silent on the covenant as written.</p>
 <h2>What this run did not test</h2>
-<ul><li>One claim on <code>settle</code>: that output 0 is the co-input grant's single authorised continuation. The baseline builds exactly that shape, so there is no transaction in this run where it is the only thing wrong — the refusals that would prove it are indistinguishable from the co-input check firing first.</li><li><b>One grant shape per run.</b> Every case here runs against a single parameterisation — 100 KAS, a 2 KAS per-spend cap, delegation depth 2, a 4-member allowlist, <code>maxProofDepth</code> 4. Whether the same boundaries hold at another shape — a one-sompi budget, a different delegation depth — is untested by <em>this</em> run. The allowlist size and proof depth are <code>WARDA_TREE_LEAVES</code> and <code>WARDA_PROOF_DEPTH</code>, so those two axes can be re-run rather than argued about.</li><li>Anything above the script engine — a node's mempool policy, relay rules, or what a wallet does with a transaction before it is broadcast.</li><li>The residual described in <code>GUARANTEES.md</code>: allowance from unused epochs stays spendable after the chain passes <code>expiresAt</code>. That is a property of the design, correctly implemented, not a defect the engine can report.</li></ul>
+<ul><li>One claim on <code>settle</code>: that output 0 is the co-input grant's single authorised continuation. The baseline builds exactly that shape, so there is no transaction in this run where it is the only thing wrong — the refusals that would prove it are indistinguishable from the co-input check firing first.</li><li><b>One grant shape per RUN</b> — but no longer one shape per suite. This run used: budget 10000000000 · cap 200000000 · epoch 10000000000 per 1000 · window 1000000..1007000 · depth 2 · allowlist 4 · proof depth 4. Every axis of it is an environment variable now (<code>WARDA_BUDGET</code>, <code>WARDA_MAX_PER_SPEND</code>, <code>WARDA_EPOCH_LIMIT</code>, <code>WARDA_EPOCH_LENGTH</code>, <code>WARDA_NOT_BEFORE</code>, <code>WARDA_EXPIRES_AT</code>, <code>WARDA_DELEGATION_DEPTH</code>, <code>WARDA_TREE_LEAVES</code>, <code>WARDA_PROOF_DEPTH</code>), so another shape is a re-run rather than an argument. What this report cannot tell you is what the OTHER shapes did: read the matrix in <code>covenant/SHAPES.md</code> for that, and treat a claim about a shape nobody ran as exactly what it is.</li><li>Anything above the script engine — a node's mempool policy, relay rules, or what a wallet does with a transaction before it is broadcast.</li><li>The residual described in <code>GUARANTEES.md</code>: allowance from unused epochs stays spendable after the chain passes <code>expiresAt</code>. That is a property of the design, correctly implemented, not a defect the engine can report.</li></ul>
 
 <h2>What a clean run does not mean</h2>
 <p>This instrument checks the bytecode against a written claim. It cannot notice a rule that <em>should</em> exist and does not, because the document it takes its claims from is the same document that would have omitted it.</p><p>That is not a hypothetical. Of the five vulnerabilities this covenant has had, <b>none would have been caught by the claims suite</b>. The epoch cap that limited nothing and the missing expiry check were both absent from the guarantees at the time. The template-id defect is not engine-visible. The fifth was in <code>settle</code>, The fifth is now covered — but only because it has already been found: the claim it violates was written as part of its fix, and a suite whose oracle is the documentation learns about a hole the day somebody else closes it. Every one of the five was found the same way, and it was not this way: a person asked what an adversary supplies at each input, built it, and watched the engine accept it.</p><p>The section above it is the answer to that, and the only one this tool has: an oracle that consults no document, and a covenant with a known hole in it to prove the oracle can fire.</p>
 <footer>
-Generated 2026-09-24 08:53 UTC by <code>covenant/harness/src/bin/audit.rs</code>.
+Generated 2026-09-25 08:46 UTC by <code>covenant/harness/src/bin/audit.rs</code>.
 Reproduce with <code>cd covenant/harness && cargo run --bin audit</code>.
 The engine and the Silverscript compiler are both pinned by revision in
 <code>Cargo.toml</code>; an unpinned compiler could alter the bytecode between runs.

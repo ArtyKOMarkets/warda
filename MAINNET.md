@@ -156,8 +156,24 @@ maxProofDepth 4. Whether the boundaries hold at a one-sompi budget, or another
 depth, is untested. Two of the axes are already environment variables, so this
 is a matrix to run rather than an argument to have.
 
-**Done means:** the claims suite green across the shape matrix, and AUDIT.md's
-"what this run did not test" no longer listing grant shape.
+**Done.** `covenant/SHAPES.md` has the matrix. **No covenant defect at any
+shape** — zero violations everywhere the suite has an accepted baseline, across
+budgets from 10^10 to 10^15, delegation depths 1 to 4, epoch lengths 1 to
+100,000, allowlists of 2 to 256 members and proof depths 2 to 16.
+
+What it found was the instrument. Three shapes reported violations on the first
+run — the serious direction, the covenant accepting what the guarantees forbid
+— and every one was a relationship in the harness written as a literal: an
+epoch position as a fixed DAA offset, the grant's own coin pinned while its
+budget moved, and a case whose comment says *"spent 60 and reserved 15 of 100
+has 25 left"* with 60, 15 and 25 written out in KAS. Each is true at exactly one
+shape. None was visible while there was only one shape to run.
+
+Four shapes still cannot run at all, and report nothing rather than passing: a
+grant whose epoch is longer than its whole window, or whose per-spend cap is a
+sompi while its cases pay half a KAS, is incoherent rather than interesting.
+SHAPES.md also lists what is still welded, because a list that says *fixed* and
+means *mostly* is worse than no list.
 
 ### 1.4 The PENDING cases in `c1`
 

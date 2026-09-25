@@ -49,19 +49,19 @@ use warda_harness::*;
 /// reads as conserved. That clamp is what makes the sequential bound visible
 /// at all, which is the single most valuable thing this binary asks.
 fn tree_cap(spent: i64, reserved: i64, kids: &[&Child]) -> Capacity {
-    let parent_left = (BUDGET_TOTAL - spent - reserved).max(0);
+    let parent_left = (budget_total() - spent - reserved).max(0);
     let kids_left: i64 = kids.iter().map(|c| (c.budget - c.accounting.0).max(0)).sum();
 
     let biggest = |f: fn(&Child) -> i64, floor: i64| kids.iter().map(|c| f(c)).fold(floor, i64::max);
-    let earliest = kids.iter().map(|c| c.not_before).fold(NOT_BEFORE, i64::min);
+    let earliest = kids.iter().map(|c| c.not_before).fold(not_before(), i64::min);
 
     Capacity {
         spendable: parent_left + kids_left,
         figures: vec![
-            ("the largest single payment the tree can make", biggest(|c| c.max_per_spend, MAX_PER_SPEND)),
-            ("what the tree may pay in one epoch", biggest(|c| c.epoch_limit, EPOCH_LIMIT)),
-            ("generations it may still delegate", biggest(|c| c.delegation_depth, DELEGATION_DEPTH)),
-            ("the last moment it may pay", biggest(|c| c.expires_at, EXPIRES_AT)),
+            ("the largest single payment the tree can make", biggest(|c| c.max_per_spend, max_per_spend())),
+            ("what the tree may pay in one epoch", biggest(|c| c.epoch_limit, epoch_limit())),
+            ("generations it may still delegate", biggest(|c| c.delegation_depth, delegation_depth())),
+            ("the last moment it may pay", biggest(|c| c.expires_at, expires_at())),
             ("how early it may start paying", -earliest),
         ],
     }
@@ -82,12 +82,12 @@ fn shapes() -> Vec<Shape> {
             c.delegation_depth = 0;
         } },
         Shape { name: "a bigger budget", build: |c| c.budget = 40 * KAS },
-        Shape { name: "cap equal to the parent's", build: |c| c.max_per_spend = MAX_PER_SPEND },
-        Shape { name: "cap above the parent's", build: |c| c.max_per_spend = MAX_PER_SPEND + 1 },
-        Shape { name: "epoch limit above the parent's", build: |c| c.epoch_limit = EPOCH_LIMIT + 1 },
-        Shape { name: "depth equal to the parent's", build: |c| c.delegation_depth = DELEGATION_DEPTH },
-        Shape { name: "outliving the parent", build: |c| c.expires_at = EXPIRES_AT + 1 },
-        Shape { name: "opening before the parent", build: |c| c.not_before = NOT_BEFORE - 1 },
+        Shape { name: "cap equal to the parent's", build: |c| c.max_per_spend = max_per_spend() },
+        Shape { name: "cap above the parent's", build: |c| c.max_per_spend = max_per_spend() + 1 },
+        Shape { name: "epoch limit above the parent's", build: |c| c.epoch_limit = epoch_limit() + 1 },
+        Shape { name: "depth equal to the parent's", build: |c| c.delegation_depth = delegation_depth() },
+        Shape { name: "outliving the parent", build: |c| c.expires_at = expires_at() + 1 },
+        Shape { name: "opening before the parent", build: |c| c.not_before = not_before() - 1 },
         Shape { name: "born having spent MINUS one sompi", build: |c| c.accounting = (-1, 0, 0, 0) },
     ]
 }
@@ -96,12 +96,14 @@ fn shapes() -> Vec<Shape> {
 /// an empty parent, two children that do not fit together do not fit into the
 /// input value either, so the engine refuses for the coin and the sequential
 /// bound is never reached.
-const PREVS: [(i64, i64); 4] = [
+fn prevs() -> [(i64, i64); 4] {
+    [
     (0, 0),
     (0, 60 * KAS),
     (20 * KAS, 40 * KAS),
-    (BUDGET_TOTAL - 30 * KAS, 0),
-];
+    (budget_total() - 30 * KAS, 0),
+]
+}
 
 fn attempt(out: &mut Pass, src: &'static str, prev: (i64, i64), a: &Child, b: &Child, what: String) {
     let (prev_spent, prev_reserved) = prev;
@@ -126,7 +128,7 @@ fn sweep(src: &'static str, label: &'static str) -> Pass {
     let mut out = Pass::new(label);
     let shapes = shapes();
 
-    for prev in PREVS {
+    for prev in prevs() {
         // One shape at a time, on B, with A honest — every attenuation axis,
         // asked of the child a careless loop would check second or not at all.
         for shape in &shapes {
@@ -147,7 +149,7 @@ fn sweep(src: &'static str, label: &'static str) -> Pass {
         // The SEQUENTIAL bound, approached from both sides: two children that
         // each fit in what is left and together do not, and the same pair one
         // sompi smaller so they do.
-        let left = BUDGET_TOTAL - prev.0 - prev.1;
+        let left = budget_total() - prev.0 - prev.1;
         for (name, each) in [
             ("each exactly half of what is left", left / 2),
             ("each half plus one sompi", left / 2 + 1),

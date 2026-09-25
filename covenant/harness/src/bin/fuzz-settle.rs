@@ -54,11 +54,11 @@ struct Limits {
 impl Limits {
     fn genesis() -> Self {
         Limits {
-            max_per_spend: MAX_PER_SPEND,
-            epoch_limit: EPOCH_LIMIT,
-            depth: DELEGATION_DEPTH,
-            expires: EXPIRES_AT,
-            opens: NOT_BEFORE,
+            max_per_spend: max_per_spend(),
+            epoch_limit: epoch_limit(),
+            depth: delegation_depth(),
+            expires: expires_at(),
+            opens: not_before(),
         }
     }
 }
@@ -71,7 +71,7 @@ impl Limits {
 /// still be.
 fn cap(parent_spent: i64, parent_reserved: i64, limits: Limits, child_left: i64) -> Capacity {
     Capacity {
-        spendable: BUDGET_TOTAL - parent_spent - parent_reserved + child_left,
+        spendable: budget_total() - parent_spent - parent_reserved + child_left,
         figures: vec![
             ("the largest single payment it can make", limits.max_per_spend),
             ("what it may pay in one epoch", limits.epoch_limit),
@@ -146,28 +146,28 @@ fn cases() -> Vec<Case> {
         // reason this binary reads five figures instead of one number.
         Case {
             name: "the parent comes out with a higher per-spend cap",
-            build: |s| s.authority_override = Some(("maxPerSpend", Expr::int(MAX_PER_SPEND * 2))),
-            claims: Some(("maxPerSpend", MAX_PER_SPEND * 2)),
+            build: |s| s.authority_override = Some(("maxPerSpend", Expr::int(max_per_spend() * 2))),
+            claims: Some(("maxPerSpend", max_per_spend() * 2)),
         },
         Case {
             name: "the parent comes out with a bigger epoch allowance",
-            build: |s| s.authority_override = Some(("epochLimit", Expr::int(EPOCH_LIMIT * 2))),
-            claims: Some(("epochLimit", EPOCH_LIMIT * 2)),
+            build: |s| s.authority_override = Some(("epochLimit", Expr::int(epoch_limit() * 2))),
+            claims: Some(("epochLimit", epoch_limit() * 2)),
         },
         Case {
             name: "the parent comes out able to delegate one deeper",
-            build: |s| s.authority_override = Some(("delegationDepth", Expr::int(DELEGATION_DEPTH + 1))),
-            claims: Some(("delegationDepth", DELEGATION_DEPTH + 1)),
+            build: |s| s.authority_override = Some(("delegationDepth", Expr::int(delegation_depth() + 1))),
+            claims: Some(("delegationDepth", delegation_depth() + 1)),
         },
         Case {
             name: "the parent comes out living longer",
-            build: |s| s.authority_override = Some(("expiresAt", Expr::int(EXPIRES_AT + 100_000))),
-            claims: Some(("expiresAt", EXPIRES_AT + 100_000)),
+            build: |s| s.authority_override = Some(("expiresAt", Expr::int(expires_at() + 100_000))),
+            claims: Some(("expiresAt", expires_at() + 100_000)),
         },
         Case {
             name: "the parent comes out able to have started earlier",
-            build: |s| s.authority_override = Some(("notBefore", Expr::int(NOT_BEFORE - 100_000))),
-            claims: Some(("notBefore", NOT_BEFORE - 100_000)),
+            build: |s| s.authority_override = Some(("notBefore", Expr::int(not_before() - 100_000))),
+            claims: Some(("notBefore", not_before() - 100_000)),
         },
         // ---- shapes, not values --------------------------------------
         Case { name: "the child names itself as the co-input", build: |s| s.child_idx = 0, claims: None },
@@ -180,15 +180,17 @@ fn cases() -> Vec<Case> {
 }
 
 /// The parent states an adversary would settle from.
-const PARENTS: [(i64, i64); 3] = [
+fn parents() -> [(i64, i64); 3] {
+    [
     (0, 25 * KAS),
     (10 * KAS, 25 * KAS),
-    (BUDGET_TOTAL - 30 * KAS, 25 * KAS),
-];
+    (budget_total() - 30 * KAS, 25 * KAS),
+]
+}
 
 fn sweep(src: &'static str, label: &'static str) -> Pass {
     let mut out = Pass::new(label);
-    for (parent_spent, parent_reserved) in PARENTS {
+    for (parent_spent, parent_reserved) in parents() {
         for case in &cases() {
             let mut s = Settle {
                 parent_spent,

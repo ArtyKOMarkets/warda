@@ -62,17 +62,17 @@ fn tree_cap(parent_spent: i64, parent_reserved: i64, child: Option<&Child>) -> C
        parent that it adds to the child — and an over-committed tree reads as
        perfectly conserved. The whole sequential-budget family of attacks was
        invisible to this oracle until the `.max(0)`. */
-    let parent_left = (BUDGET_TOTAL - parent_spent - parent_reserved).max(0);
+    let parent_left = (budget_total() - parent_spent - parent_reserved).max(0);
     let child_left = child.map(|c| (c.budget - c.accounting.0).max(0)).unwrap_or(0);
 
     let (max_per_spend, epoch_limit, depth, expires, opens) = match child {
-        None => (MAX_PER_SPEND, EPOCH_LIMIT, DELEGATION_DEPTH, EXPIRES_AT, NOT_BEFORE),
+        None => (max_per_spend(), epoch_limit(), delegation_depth(), expires_at(), not_before()),
         Some(c) => (
-            MAX_PER_SPEND.max(c.max_per_spend),
-            EPOCH_LIMIT.max(c.epoch_limit),
-            DELEGATION_DEPTH.max(c.delegation_depth),
-            EXPIRES_AT.max(c.expires_at),
-            NOT_BEFORE.min(c.not_before),
+            max_per_spend().max(c.max_per_spend),
+            epoch_limit().max(c.epoch_limit),
+            delegation_depth().max(c.delegation_depth),
+            expires_at().max(c.expires_at),
+            not_before().min(c.not_before),
         ),
     };
 
@@ -115,30 +115,30 @@ fn shapes() -> Vec<Shape> {
         c.delegation_depth = 0;
     } },
     Shape { name: "cap far below the parent's", build: |c| c.max_per_spend = 1 },
-    Shape { name: "epoch limit equal to the parent's", build: |c| c.epoch_limit = EPOCH_LIMIT },
+    Shape { name: "epoch limit equal to the parent's", build: |c| c.epoch_limit = epoch_limit() },
     Shape { name: "depth zero — a leaf that cannot delegate", build: |c| c.delegation_depth = 0 },
-    Shape { name: "expires before the parent", build: |c| c.expires_at = EXPIRES_AT - 1_000 },
-    Shape { name: "opens after the parent", build: |c| c.not_before = NOT_BEFORE + 1_000 },
-    Shape { name: "budget: half the parent's", build: |c| c.budget = BUDGET_TOTAL / 2 },
+    Shape { name: "expires before the parent", build: |c| c.expires_at = expires_at() - 1_000 },
+    Shape { name: "opens after the parent", build: |c| c.not_before = not_before() + 1_000 },
+    Shape { name: "budget: half the parent's", build: |c| c.budget = budget_total() / 2 },
     // Money. The conservation rule's own territory, approached from both
     // sides — a child that takes exactly what is left, and one that takes a
     // sompi more.
     Shape { name: "budget: one sompi", build: |c| c.budget = 1 },
-    Shape { name: "budget: the parent's whole budget", build: |c| c.budget = BUDGET_TOTAL },
+    Shape { name: "budget: the parent's whole budget", build: |c| c.budget = budget_total() },
     Shape { name: "budget: negative", build: |c| c.budget = -KAS },
     // Rate. Cannot move more money in total; moves it in bigger pieces, which
     // is a different authority and one a total-only oracle never sees.
-    Shape { name: "cap: equal to the parent's", build: |c| c.max_per_spend = MAX_PER_SPEND },
-    Shape { name: "cap: one sompi above the parent's", build: |c| c.max_per_spend = MAX_PER_SPEND + 1 },
-    Shape { name: "cap: ten times the parent's", build: |c| c.max_per_spend = MAX_PER_SPEND * 10 },
-    Shape { name: "epoch limit: above the parent's", build: |c| c.epoch_limit = EPOCH_LIMIT + 1 },
+    Shape { name: "cap: equal to the parent's", build: |c| c.max_per_spend = max_per_spend() },
+    Shape { name: "cap: one sompi above the parent's", build: |c| c.max_per_spend = max_per_spend() + 1 },
+    Shape { name: "cap: ten times the parent's", build: |c| c.max_per_spend = max_per_spend() * 10 },
+    Shape { name: "epoch limit: above the parent's", build: |c| c.epoch_limit = epoch_limit() + 1 },
     // Depth. A child at its parent's depth can build a subtree the parent
     // could not, which is authority the parent never held.
-    Shape { name: "depth: equal to the parent's", build: |c| c.delegation_depth = DELEGATION_DEPTH },
-    Shape { name: "depth: above the parent's", build: |c| c.delegation_depth = DELEGATION_DEPTH + 1 },
+    Shape { name: "depth: equal to the parent's", build: |c| c.delegation_depth = delegation_depth() },
+    Shape { name: "depth: above the parent's", build: |c| c.delegation_depth = delegation_depth() + 1 },
     // Time. Neither of these moves a sompi and both widen the tree's reach.
-    Shape { name: "expires after the parent", build: |c| c.expires_at = EXPIRES_AT + 1 },
-    Shape { name: "opens before the parent", build: |c| c.not_before = NOT_BEFORE - 1 },
+    Shape { name: "expires after the parent", build: |c| c.expires_at = expires_at() + 1 },
+    Shape { name: "opens before the parent", build: |c| c.not_before = not_before() - 1 },
     // Born dirty. A negative opening balance is capacity conjured out of the
     // accounting rather than out of the budget.
     Shape { name: "born having spent one sompi", build: |c| c.accounting = (1, 0, 0, 0) },
@@ -205,12 +205,14 @@ fn attempt(
 /* Parents an adversary would delegate from. The last two matter most:
    conservation is only interesting once something is already committed, and a
    parent at genesis has nothing to double-promise. */
-const PREVS: [(i64, i64); 4] = [
+fn prevs() -> [(i64, i64); 4] {
+    [
     (0, 0),
     (3 * KAS, 0),
     (0, 40 * KAS),
-    (BUDGET_TOTAL - 2 * KAS, KAS),
-];
+    (budget_total() - 2 * KAS, KAS),
+]
+}
 
 /// TWO passes, not one grid.
 ///
@@ -233,10 +235,10 @@ fn sweep(src: &'static str, label: &'static str) -> Pass {
     let budgets: [(&str, i64); 4] = [
         ("honest, narrower on every axis", 25 * KAS),
         ("budget: one sompi", 1),
-        ("budget: half the parent's", BUDGET_TOTAL / 2),
+        ("budget: half the parent's", budget_total() / 2),
         ("budget: negative", -KAS),
     ];
-    for prev in PREVS {
+    for prev in prevs() {
         for (name, budget) in budgets {
             let mut child = Child::narrower();
             child.budget = budget;
@@ -250,7 +252,7 @@ fn sweep(src: &'static str, label: &'static str) -> Pass {
     // has? The reserve claim stays honest throughout - a lie there would only
     // give the engine a second reason to refuse, and a refusal for the wrong
     // reason tests nothing. That is the same discipline the flip tests use.
-    for prev in [PREVS[0], PREVS[1]] {
+    for prev in [prevs()[0], prevs()[1]] {
         for shape in &shapes() {
             let mut child = Child::narrower();
             (shape.build)(&mut child);

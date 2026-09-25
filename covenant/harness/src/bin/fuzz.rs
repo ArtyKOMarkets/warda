@@ -44,7 +44,7 @@ struct St {
    an index that moves backwards is allowance coming back. */
 fn cap(st: St) -> Capacity {
     Capacity {
-        spendable: BUDGET_TOTAL - st.spent - st.reserved,
+        spendable: budget_total() - st.spent - st.reserved,
         figures: vec![("epochs not yet consumed", -st.epoch_index)],
     }
 }
@@ -62,10 +62,10 @@ fn epoch_extras(prev: St, next: St, paid: i64) -> Vec<String> {
     if next.epoch_index > prev.epoch_index && next.epoch_spent < paid {
         out.push("a fresh epoch opened without charging this payment to it".into());
     }
-    if next.epoch_spent > EPOCH_LIMIT {
+    if next.epoch_spent > epoch_limit() {
         out.push("more was charged to an epoch than the epoch allows".into());
     }
-    if next.epoch_index < prev.epoch_index && prev.epoch_spent + paid > EPOCH_LIMIT {
+    if next.epoch_index < prev.epoch_index && prev.epoch_spent + paid > epoch_limit() {
         out.push("an exhausted epoch's allowance came back".into());
     }
     out
@@ -77,12 +77,12 @@ fn sweep(src: &'static str, label: &'static str) -> Pass {
        honest client would ever build. */
     let prevs = [
         St { spent: 0, reserved: 0, epoch_index: 0, epoch_spent: 0 },
-        St { spent: 3 * KAS_, reserved: 0, epoch_index: 3, epoch_spent: EPOCH_LIMIT },
-        St { spent: 3 * KAS_, reserved: 0, epoch_index: 3, epoch_spent: EPOCH_LIMIT - KAS_ },
-        St { spent: BUDGET_TOTAL - 2 * KAS_, reserved: KAS_, epoch_index: 1, epoch_spent: 0 },
+        St { spent: 3 * KAS_, reserved: 0, epoch_index: 3, epoch_spent: epoch_limit() },
+        St { spent: 3 * KAS_, reserved: 0, epoch_index: 3, epoch_spent: epoch_limit() - KAS_ },
+        St { spent: budget_total() - 2 * KAS_, reserved: KAS_, epoch_index: 1, epoch_spent: 0 },
     ];
     let epochs: [i64; 6] = [-1, 0, 1, 2, 3, 5];
-    let amounts = [1i64, KAS_ / 2, MAX_PER_SPEND, MAX_PER_SPEND + 1];
+    let amounts = [1i64, KAS_ / 2, max_per_spend(), max_per_spend() + 1];
 
     /* Successors an attacker would declare. The honest one is in the list so
        the generator produces accepted transactions at all; the rest are the
@@ -101,7 +101,7 @@ fn sweep(src: &'static str, label: &'static str) -> Pass {
     let mut out = Pass::new(label);
     for p in prevs {
         for e in epochs {
-            let claimed = NOT_BEFORE + e * EPOCH_LENGTH + 500;
+            let claimed = not_before() + e * epoch_length() + 500;
             for amt in amounts {
                 for (name, f) in variants {
                     let next = f(p, amt, e);
