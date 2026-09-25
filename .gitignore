@@ -106,3 +106,8 @@ ops/auto-issue.key
 # Materialised by covenant/probes/run-fanout.sh: generated .sil files and
 # compiler logs. The template and the script are the sources; these are output.
 covenant/probes/out/
+
+# Written by ops/monitor.sh: what each endpoint monitor last believed, so an
+# alert fires on the change of state and not on every run. Machine state, per
+# machine — the crontab that produces it is not in git either.
+ops/monitor-state/

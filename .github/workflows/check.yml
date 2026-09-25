@@ -276,6 +276,14 @@ jobs:
       - name: secrets — every path still ignored, and what is overdue
         run: node ops/check-secret-age.mjs
 
+      # The three endpoint monitors are correct and, until now, unheard: each
+      # wrote an honest status file and exited 1 into a log. ops/monitor.sh
+      # turns that into a message on the change of state; this asserts it is
+      # still wired that way, and then breaks it on purpose to prove the
+      # wrapper's own self-test is capable of failing.
+      - name: monitors — a failing endpoint reaches a person
+        run: node ops/check-monitors.mjs
+
       # The site is built here and thrown away. Nothing is deployed from CI —
       # the point is that `build.py` DROPS a page whose data is missing, and
       # everything linking to that page is published anyway, so the site can

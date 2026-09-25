@@ -125,12 +125,19 @@ PROXY="$OPS/proxy-up.sh"
 PROXYLOG="$HOME/Library/Logs/warda-proxy.log"
 PROXYENTRY="*/5 * * * * $OPS/proxy-up.sh >> $PROXYLOG 2>&1"
 
+# All three endpoint monitors below run through ops/monitor.sh. On their own
+# they write an honest status file and exit 1 into a log, which is where the
+# verification outage would have been recorded, promptly, unread. The wrapper
+# turns a change of state into a message and leaves an unchanged state silent —
+# see its header for why the edge, and not the failure, is the thing to send.
+MONITOR="$OPS/monitor.sh"
+
 # The public quickstart node, checked every fifteen minutes like the vendor.
 # Same reasoning: /start is about to point a stranger at it, and the failure
 # to avoid is a page that stays quiet while the endpoint behind it is dead.
 NODECHK="$OPS/check-node.sh"
 NODELOG="$HOME/Library/Logs/warda-node.log"
-NODEENTRY="*/15 * * * * $OPS/check-node.sh --quiet >> $NODELOG 2>&1"
+NODEENTRY="*/15 * * * * $MONITOR node $OPS/check-node.sh --quiet >> $NODELOG 2>&1"
 
 # Every 15 minutes, beside the vendor monitor and for a sharper reason: the
 # verification API returned `internal` to every request for an unknown length
@@ -138,7 +145,7 @@ NODEENTRY="*/15 * * * * $OPS/check-node.sh --quiet >> $NODELOG 2>&1"
 # stranger does not have to trust us.
 VERIFY="$OPS/check-verify.sh"
 VERIFYLOG="$HOME/Library/Logs/warda-verify.log"
-VERIFYENTRY="*/15 * * * * $VERIFY --quiet >> $VERIFYLOG 2>&1"
+VERIFYENTRY="*/15 * * * * $MONITOR verify $VERIFY --quiet >> $VERIFYLOG 2>&1"
 
 # The alerts. Notify-only by construction — ops/alerts.ts holds no key, signs
 # nothing and builds no transaction — so it is as safe to schedule as the
@@ -163,7 +170,7 @@ CONSOLEALENTRY="11,26,41,56 * * * * $CONSOLEAL --quiet >> $CONSOLEALLOG 2>&1"
 
 VENDOR="$OPS/check-vendor.sh"
 VENDORLOG="$HOME/Library/Logs/warda-vendor.log"
-VENDORENTRY="*/15 * * * * $VENDOR --quiet >> $VENDORLOG 2>&1"
+VENDORENTRY="*/15 * * * * $MONITOR vendor $VENDOR --quiet >> $VENDORLOG 2>&1"
 WANT_BUY=""
 NO_BUY=""
 WANT_INTEROP=""
@@ -220,7 +227,7 @@ fi
 # So: fix it if we can, refuse if we cannot. Installing a schedule of commands
 # that cannot run is worse than installing nothing, because the crontab then
 # says the job exists.
-for f in "$SCRIPT" "$BUY" "$INTEROP" "$GROWTH" "$VENDOR" "$VERIFY" "$CONTACT" "$PROXY" "$NODECHK" "$ALERTS" "$CONSOLEAL"; do
+for f in "$SCRIPT" "$BUY" "$INTEROP" "$GROWTH" "$VENDOR" "$VERIFY" "$CONTACT" "$PROXY" "$NODECHK" "$ALERTS" "$CONSOLEAL" "$MONITOR"; do
   [ -f "$f" ] || continue
   [ -x "$f" ] && continue
   chmod +x "$f" 2>/dev/null || true
@@ -232,6 +239,22 @@ for f in "$SCRIPT" "$BUY" "$INTEROP" "$GROWTH" "$VENDOR" "$VERIFY" "$CONTACT" "$
   fi
   echo "made $f executable."
 done
+
+# The wrapper has to be able to speak. Without a token it degrades to exactly
+# what it replaced — an exit code in a log — and it degrades QUIETLY, which is
+# the failure it was written to remove. This is the one moment a person is
+# present to hear about it, so it is said here and nowhere else.
+if ! grep -q '^export WARDA_TELEGRAM_TOKEN="."' "$OPS/alerts.env" 2>/dev/null \
+   || ! grep -q '^export WARDA_TELEGRAM_CHAT="."' "$OPS/alerts.env" 2>/dev/null; then
+  echo >&2
+  echo "WARNING: ops/alerts.env has no Telegram token and chat id." >&2
+  echo "  The three endpoint monitors will run, write their status files and" >&2
+  echo "  exit 1 into a log, exactly as before — nobody will be told. Fill in" >&2
+  echo "  ops/alerts.env (see alerts.env.example) and re-run this." >&2
+  echo "  Alerts raised meanwhile are not lost: they stay pending and go out" >&2
+  echo "  on the first run that can deliver them." >&2
+  echo >&2
+fi
 
 current="$(crontab -l 2>/dev/null || true)"
 

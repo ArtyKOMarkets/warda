@@ -29,14 +29,14 @@ cd "$REPO" || exit 1
 # believing in one. This one's whole output channel is Telegram, so its
 # failures go there too rather than into a log that gets read after somebody
 # notices a week of quiet.
-say() {
-  printf '%s\n' "$1" >&2
-  [ -n "${WARDA_TELEGRAM_TOKEN:-}" ] && [ -n "${WARDA_TELEGRAM_CHAT:-}" ] || return 0
-  curl -sS -m 10 -X POST \
-    "https://api.telegram.org/bot$WARDA_TELEGRAM_TOKEN/sendMessage" \
-    --data-urlencode "chat_id=$WARDA_TELEGRAM_CHAT" \
-    --data-urlencode "text=$1" >/dev/null 2>&1 || true
-}
+# One copy of this lived in each of four scripts, character for character.
+# It is ops/notify.sh now — not to save six lines, but because a send path
+# nobody could add a caller to without pasting a bot token is a send path that
+# gets skipped, and three endpoint monitors did skip it for exactly that
+# reason. `|| true` keeps the old contract: a watchdog is not brought down by
+# Telegram being unreachable.
+. "$REPO/ops/notify.sh"
+say() { warda_notify "$1" || true; }
 
 # The failure this was written for. The token was exported into a terminal
 # once, which is invisible to cron — so the first scheduled pass would have

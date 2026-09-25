@@ -24,7 +24,13 @@
 #
 # Writes a status file the site publishes, so a stranger arriving while it is
 # down is told to run their own kaspad rather than sent at a socket that will
-# never answer. Not an alert to a person.
+# never answer.
+#
+# It does not alert anybody itself, and for a while nothing else did either:
+# cron ran it, it exited 1, and the 1 went to a log. It is scheduled through
+# ops/monitor.sh now, which watches the exit code and sends on the change of
+# state. Nothing in this file knows about that, deliberately — a probe that
+# also decides who to wake is a probe you cannot run by hand.
 set -euo pipefail
 
 REPO="$HOME/Desktop/warda"

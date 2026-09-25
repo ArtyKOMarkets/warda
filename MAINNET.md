@@ -332,12 +332,36 @@ people stop reading. What it does not do is stop being a mainnet blocker: the
 decision is about today, and the item is about the day somebody's real money is
 on the other end of a request that returns 500 for a weekend.
 
-**Done means:** the node and the tunnel on a host that survives a laptop lid,
-and a health check that goes red when `/v1/verify` is failing — on 16 September
-it returned `internal` for an unknown length of time while `/health` stayed
-green, which is the failure mode that matters. The health check is worth doing
-even while the laptop stays: it is the half of this item that has nothing to do
-with where the node lives.
+**The health-check half is done** (25 September 2026), and was mostly done
+already. `ops/check-verify.sh` probes `/v1/verify` with the published demo
+manifest, asserts the address it derives matches the one the site publishes and
+that it read a usable node, and it deliberately does not probe `/health`:
+`ops/check-verify.sh:25` — *"`/health` answered perfectly throughout. It opens a
+node and reports on it, which is a different code path from the one that derives
+an address"*. It is scheduled every fifteen minutes by `ops/install-cron.sh:146`.
+
+What was missing was not the check. It was that nobody was told. The monitor
+wrote an honest status file and exited 1 into `~/Library/Logs/warda-verify.log`,
+which is the September outage again with better records —
+`ops/monitor.sh:13` — *"a log is a place failures go to be alone."* The same was
+true of `ops/check-node.sh` and `ops/check-vendor.sh`.
+
+All three now run through `ops/monitor.sh`, which sends on the CHANGE of state:
+once after two consecutive failures, again every six hours while it stays down,
+once on recovery, and nothing at all in between — a check that fires ninety-six
+times a day cannot alert on every failure without teaching the reader to ignore
+it. An alert it could not deliver is kept pending rather than counted as sent.
+`ops/check-monitors.mjs` holds it there: it fails if a scheduled check is
+installed without the wrapper, if a fifth copy of the Telegram send appears
+instead of `ops/notify.sh`, and — by mutating the wrapper and requiring the
+self-test to go red — if the self-test stops being able to fail.
+
+The bot token this sends with is the one recorded compromised in
+`ops/secrets.json` and not yet rotated, which now makes that rotation
+load-bearing rather than merely overdue.
+
+**Done means:** the node and the tunnel on a host that survives a laptop lid.
+That is the whole of what is left here.
 
 ### 3.2 The verifier promises nothing
 
