@@ -15,6 +15,7 @@
  */
 import { strict as assert } from "node:assert";
 import { readFileSync } from "node:fs";
+import { templateForGolden } from "./_golden.ts";
 
 import { test } from "node:test";
 
@@ -43,9 +44,10 @@ const golden = JSON.parse(readFileSync(new URL("../golden-delegation.json", impo
 // shows up here rather than as an unprovable witness.
 const spendGolden = JSON.parse(readFileSync(new URL("../golden-spend.json", import.meta.url), "utf8"));
 const recipientSet = new RecipientSet(spendGolden.recipients.members.map((m: string) => fromHex(m)));
-const template: CovenantTemplate = JSON.parse(
-  readFileSync(new URL("../covenant-template.json", import.meta.url), "utf8"),
-);
+/* The template golden was compiled from, not whichever is current.
+   See test/_golden.ts: the two were the same file until a covenant
+   was frozen, and this comparison is the one that would have broken. */
+const template: CovenantTemplate = templateForGolden(golden);
 
 function parentState(): GrantState {
   const p = golden.params;

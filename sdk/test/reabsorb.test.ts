@@ -1,5 +1,6 @@
 import { strict as assert } from "node:assert";
 import { readFileSync } from "node:fs";
+import { templateForGolden } from "./_golden.ts";
 import { test } from "node:test";
 
 import { toHex, fromHex } from "../src/bytes.ts";
@@ -20,10 +21,11 @@ import { templateIdFor, type CovenantTemplate, type GrantState } from "../src/te
  * arithmetic and the refusals, which is where a caller meets them.
  */
 
-const template: CovenantTemplate = JSON.parse(
-  readFileSync(new URL("../covenant-template.json", import.meta.url), "utf8"),
-);
 const golden = JSON.parse(readFileSync(new URL("../golden-spend.json", import.meta.url), "utf8"));
+/* The template golden was compiled from, not whichever is current.
+   See test/_golden.ts: the two were the same file until a covenant
+   was frozen, and this comparison is the one that would have broken. */
+const template: CovenantTemplate = templateForGolden(golden);
 
 const key = toHex(agentPublicKey(fromHex(golden.key.secretHex)));
 const authority = { principalKey: key, revocationKey: key };

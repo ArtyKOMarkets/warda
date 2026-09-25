@@ -322,6 +322,7 @@ jobs:
           node ops/check-readings.mjs
           node ops/check-runner.mjs
           node ops/check-template-guard.mjs
+          node ops/check-goldens.mjs
 
       # ops/ was typechecked by nothing and its one test file was run by
       # nothing. Both were true for as long as ops/ has existed, and neither

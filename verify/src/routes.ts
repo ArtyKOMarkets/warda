@@ -39,7 +39,7 @@ import {
 import { ManifestError, materialise, prefixFor, type Materialised } from "./manifest.ts";
 import { NodeUnusable, readFrom, type ChainSource, type Live } from "./node.ts";
 import { amount, envelope, reportJson, type Envelope } from "./report.ts";
-import { loadTemplate } from "./template.ts";
+import { templateFor } from "./template.ts";
 
 export interface Reply {
   status: number;
@@ -154,7 +154,12 @@ export async function health(source: ChainSource): Promise<Reply> {
 
 export async function verify(source: ChainSource, input: unknown): Promise<Reply> {
   const b = body(input);
-  const template = loadTemplate();
+  /* By the fingerprint the manifest itself records, not by whichever covenant
+     happens to be current. The two were the same file until v5 was frozen;
+     after that, answering a v4 grant with the current template derives a
+     well-formed address for bytecode it does not run — and reports a funded
+     grant as one that was never funded. */
+  const template = templateFor(b.manifest ?? b);
   const m = materialise(
     { manifest: b.manifest ?? b, recipients: b.recipients, network: b.network },
     template,
@@ -302,7 +307,10 @@ export interface AuthorityAnswer {
  */
 export async function authority(source: ChainSource, input: unknown): Promise<Reply> {
   const b = body(input);
-  const template = loadTemplate();
+  // Same rule as /v1/verify: this route materialises the caller's manifest and
+  // derives an address from it, so the template has to be the one that
+  // manifest was issued under.
+  const template = templateFor(b.manifest ?? b);
 
   const payment = b.payment;
   if (typeof payment !== "object" || payment === null || Array.isArray(payment)) {
@@ -416,7 +424,12 @@ export async function authority(source: ChainSource, input: unknown): Promise<Re
  */
 export async function locate(source: ChainSource, input: unknown): Promise<Reply> {
   const b = body(input);
-  const template = loadTemplate();
+  /* This route walks a grant's address forward through its own history, so
+     every address it computes comes from this template. Getting it from the
+     manifest matters most here: the endpoint exists for a holder whose record
+     is behind, and answering them from the wrong covenant would hand them a
+     second wrong address on top of the one they already have. */
+  const template = templateFor(b.manifest ?? b);
   const m = materialise({ manifest: b.manifest ?? b, network: b.network }, template);
 
   const raw = b.payments;

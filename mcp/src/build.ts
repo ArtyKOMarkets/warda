@@ -19,6 +19,7 @@ import { createRequire } from "node:module";
 import { buildUnsignedSpend, type MerkleProof, type SpendPlan } from "@warda_protocol/kaspa";
 import { toWire, type WireTransaction } from "@warda_protocol/kaspa";
 import { fromHex, toHex } from "@warda_protocol/kaspa";
+import { templateFingerprint, templateForManifest } from "@warda_protocol/kaspa";
 import { scriptHashFor, templateIdFor, type CovenantTemplate, type GrantState as SdkGrantState } from "@warda_protocol/kaspa";
 import { scriptHashToAddress, type NetworkPrefix } from "@warda_protocol/kaspa";
 import type { Materialised } from "./grant.ts";
@@ -32,10 +33,20 @@ import type { MerkleProof as CoreProof } from "@warda_protocol/core";
  * pays into a script nobody can ever spend. It is not a parameter for the same
  * reason a wallet does not take the curve as a parameter.
  */
-let cached: CovenantTemplate | undefined;
+let cached: CovenantTemplate[] | undefined;
+
+/** Current first: a manifest with no `covenant` field is answered with it. */
+const TEMPLATE_NAMES = [
+  "covenant-template.json",
+  "covenant-template-v5.json",
+  "covenant-template-v4.json",
+  "covenant-template-v3.json",
+  "covenant-template-v2.json",
+  "covenant-template-v1.json",
+] as const;
 
 /**
- * Where the template comes from, in order.
+ * Where the templates come from, in order.
  *
  * The middle entry is the one that matters and the one that was missing.
  * Resolving `../../sdk/covenant-template.json` relative to this module works
@@ -43,38 +54,77 @@ let cached: CovenantTemplate | undefined;
  * never anywhere else, because the PACKAGE is called `kaspa`. Installed from
  * npm it pointed at `node_modules/@warda_protocol/sdk/`, which does not exist,
  * so every tool that builds a transaction failed on a path nobody had reason
- * to look at. The SDK exports the file; ask the resolver for it.
+ * to look at. The SDK exports the files; ask the resolver for them.
+ *
+ * WARDA_TEMPLATE overrides the CURRENT one only. It used to be the answer to
+ * "a grant issued under another covenant" — the old error message said so —
+ * and that was an operator doing by hand what `templateForManifest` does from
+ * the fingerprint the manifest already carries.
  */
-function templateCandidates(): string[] {
+function templateCandidates(name: string): string[] {
   const out: string[] = [];
-  if (process.env.WARDA_TEMPLATE) out.push(process.env.WARDA_TEMPLATE);
+  if (name === "covenant-template.json" && process.env.WARDA_TEMPLATE) {
+    out.push(process.env.WARDA_TEMPLATE);
+  }
   try {
-    out.push(createRequire(import.meta.url).resolve("@warda_protocol/kaspa/covenant-template.json"));
+    out.push(createRequire(import.meta.url).resolve(`@warda_protocol/kaspa/${name}`));
   } catch {
     // Not installed as a dependency — the repo layout below still applies.
   }
-  out.push(fileURLToPath(new URL("../../sdk/covenant-template.json", import.meta.url)));
+  out.push(fileURLToPath(new URL(`../../sdk/${name}`, import.meta.url)));
+  out.push(fileURLToPath(new URL(`./${name}`, import.meta.url)));
   return out;
 }
 
-export function loadTemplate(): CovenantTemplate {
+/** Every template reachable here, current first. Missing archives are fine. */
+export function loadTemplates(): CovenantTemplate[] {
   if (cached) return cached;
-  const tried = templateCandidates();
-  for (const path of tried) {
-    let raw: string;
-    try {
-      raw = readFileSync(path, "utf8");
-    } catch {
-      continue;
+  const found: CovenantTemplate[] = [];
+  const seen = new Set<string>();
+  const tried: string[] = [];
+  for (const name of TEMPLATE_NAMES) {
+    for (const path of templateCandidates(name)) {
+      tried.push(path);
+      let raw: string;
+      try {
+        raw = readFileSync(path, "utf8");
+      } catch {
+        continue;
+      }
+      const tpl = JSON.parse(raw) as CovenantTemplate;
+      const fp = templateFingerprint(tpl);
+      if (!seen.has(fp)) {
+        seen.add(fp);
+        found.push(tpl);
+      }
+      break;
     }
-    cached = JSON.parse(raw) as CovenantTemplate;
-    return cached;
   }
-  throw new Error(
-    `cannot read the covenant template. Tried:\n  ${tried.join("\n  ")}\n` +
-      `Set WARDA_TEMPLATE to the template a grant was issued under, or reinstall ` +
-      `@warda_protocol/kaspa, which ships it.`,
-  );
+  if (!found.length) {
+    throw new Error(
+      `cannot read any covenant template. Tried:\n  ${tried.join("\n  ")}\n` +
+        `Set WARDA_TEMPLATE, or reinstall @warda_protocol/kaspa, which ships them.`,
+    );
+  }
+  cached = found;
+  return cached;
+}
+
+export function loadTemplate(): CovenantTemplate {
+  return loadTemplates()[0] as CovenantTemplate;
+}
+
+/**
+ * The template a manifest was issued under.
+ *
+ * This server builds TRANSACTIONS, so the wrong template here is louder than
+ * it is in a read-only service — the transaction it hands back is refused by
+ * the engine. Louder is not the same as loud: the engine's message names no
+ * field, so what the caller sees is a Warda tool producing something Warda
+ * rejects, with nothing pointing at the covenant version.
+ */
+export function templateFor(manifest: { covenant?: string }): CovenantTemplate {
+  return templateForManifest(manifest, loadTemplates(), "this grant");
 }
 
 /** The core's proof shape carries a per-sibling side flag; the SDK wants two arrays. */
@@ -148,7 +198,7 @@ export function stateOf(m: Materialised): SdkGrantState {
     delegationDepth: BigInt(grant.delegationDepth),
     // Derived, never supplied: the id is a property of the template and the
     // authority together, so a descriptor cannot get it wrong by stating it.
-    templateId: templateIdFor(loadTemplate(), authorityOf(m)),
+    templateId: templateIdFor(templateFor(m), authorityOf(m)),
     spentTotal: state.spentTotal,
     reserved: state.reserved,
     epochIndex: state.epochIndex,
@@ -178,7 +228,7 @@ export function utxoOf(u: UtxoDescriptor) {
 }
 
 export function buildSpend(m: Materialised, set: Materialised["set"], o: BuildOptions): BuiltSpend {
-  const template = loadTemplate();
+  const template = templateFor(m);
 
   const claimedDaa = o.daaScore > o.daaBackoff ? o.daaScore - o.daaBackoff : o.daaScore;
 

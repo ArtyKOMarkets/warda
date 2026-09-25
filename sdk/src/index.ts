@@ -41,6 +41,12 @@ export {
   // Refuses a template that is not the one a manifest was issued under. Every
   // tool that holds both owes the user this comparison; see its doc comment.
   assertTemplateForManifest,
+  // Picks the right template out of several, for a service handed a manifest
+  // by somebody else. Pure: where the templates come from is the caller's.
+  templateForManifest,
+  // And for recovery, which has a redeem script and no manifest: a covenant's
+  // baseline is a fixed size, so the script's length says which one made it.
+  templateForScript,
   type CovenantTemplate,
   type FieldSlot,
   type Grant,

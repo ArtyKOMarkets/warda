@@ -582,11 +582,39 @@ ROUTER_BROWSER = (here / "src" / "router-browser.js").read_text()
 # means "not registered yet", and /app says exactly that on the button.
 WC_PROJECT_ID = json.loads((here / "src" / "walletconnect.json").read_text()).get("projectId", "")
 
-# The covenant template, so a browser can derive a grant's address with no node
-# and no server. It carries its own address vectors, which the page re-derives
-# on load and reports on — a verifier nobody can check is not a verifier.
+# The covenant templates, so a browser can derive a grant's address with no
+# node and no server. They carry their own address vectors, which the page
+# re-derives on load and reports on — a verifier nobody can check is not a
+# verifier.
+#
+# PLURAL, and current first. It was one file — whichever covenant was current —
+# and the page derived every address from it. That is right for exactly as long
+# as one covenant has live grants under it, and it stops being right the moment
+# a second does: the page would answer a v4 manifest with a v5 address, which
+# is well-formed, on the right network, holds nothing, and reads as a grant
+# that was never funded. The page picks by the fingerprint the manifest itself
+# records; see pickTemplate in verify-core.js.
+#
+# Which templates exist is read from covenant/versions.json rather than listed
+# here, so an archived covenant cannot be left out of the page by being
+# forgotten in a second place.
+_VERSIONS = json.loads((here.parent / "covenant" / "versions.json").read_text())
+_CURRENT_FP = _VERSIONS["current"]
+_TEMPLATE_FILES = []
+for _v in _VERSIONS["versions"]:
+    if not _v.get("template"):
+        continue
+    _TEMPLATE_FILES.append((_v["fingerprint"], _v["template"]))
+# current first: it is what a manifest with no `covenant` field is answered with
+_TEMPLATE_FILES.sort(key=lambda e: 0 if e[0] == _CURRENT_FP else 1)
+TEMPLATES = json.dumps(
+    [json.loads((here.parent / _f).read_text()) for _fp, _f in _TEMPLATE_FILES],
+    separators=(",", ":"),
+)
+# The current one on its own, for the pages that show reference vectors rather
+# than answer a manifest.
 TEMPLATE = json.dumps(
-    json.loads((here.parent / "sdk" / "covenant-template.json").read_text()),
+    json.loads((here.parent / _TEMPLATE_FILES[0][1]).read_text()),
     separators=(",", ":"),
 )
 
@@ -668,6 +696,7 @@ for _f in flavours.values():
     _f["{{ROUTER_BROWSER}}"] = ROUTER_BROWSER
     _f["{{WC_PROJECT_ID}}"] = WC_PROJECT_ID
     _f["{{COVENANT_TEMPLATE}}"] = TEMPLATE
+    _f["{{COVENANT_TEMPLATES}}"] = TEMPLATES
 
 # Files copied through untouched. They carry no placeholders, but they are
 # part of what gets deployed, and a discovery document that only exists in

@@ -78,6 +78,15 @@ freeze would cost "one deliberate migration of everything that exists."
    Every grant created after this point is one that does not need migrating,
    which is the only part of this list that gets cheaper by being done sooner.
 
+   **Done, 25 September 2026.** `sdk/covenant-template.json` is v5's bytecode;
+   v4's is `sdk/covenant-template-v4.json`. The first attempt was reverted when
+   `test/buy-e2e.test.ts` derived a different address for the demo grant — the
+   test being right — and it went in once every consumer resolved by
+   fingerprint. One thing did not survive the flip and is not repaired by it:
+   v5 has no golden spend or genesis vector, so the byte-for-byte check that
+   the JS SDK reproduces the Rust compiler now covers the superseded covenant
+   and not the current one. `cargo run -- golden --v5` in `covenant/deploy`.
+
 4. **Let the short-lived grants die.** Thirteen of eighteen, no work, no
    transaction, no key. The four `one-job` children are gone within a day.
 
@@ -97,8 +106,8 @@ freeze would cost "one deliberate migration of everything that exists."
 
 ## What blocks it
 
-**The offline principal** (`MAINNET.md` §2.1, `ops/PRINCIPAL.md`). Steps 1–4
-need nothing from anybody. Step 5 needs a key generated on a machine that has
+**The offline principal** (`MAINNET.md` §2.1, `ops/PRINCIPAL.md`). Steps 1–3
+are done and step 4 is the calendar doing the work. Step 5 needs a key generated on a machine that has
 never run an agent, and reissuing before that exists would spend the one
 opportunity this migration creates — every grant reissued under the funder key
 is a grant that has to be reissued again.

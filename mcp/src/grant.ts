@@ -27,6 +27,17 @@ export interface GrantDescriptor {
   expiresAt: string;
   delegationDepth: number;
   nonce: string;
+  /**
+   * Which covenant this grant was issued under, as its manifest records it.
+   *
+   * Optional, and omitting it means "the current one" — which is what every
+   * descriptor written before this field meant, and is still right for every
+   * grant issued today. It matters once there is more than one covenant with
+   * live grants under it: the address is a hash of the bytecode, so building
+   * a transaction for a v4 grant against a v5 template produces one the engine
+   * refuses, for a reason its error does not name.
+   */
+  covenant?: string;
   state?: {
     spentTotalKas: string;
     reservedKas: string;
@@ -48,6 +59,9 @@ export interface Materialised {
   grant: Grant;
   state: GrantState;
   set: RecipientSet;
+  /** The descriptor's `covenant`, carried through so the builders can pick the
+   *  template this grant was issued under rather than the current one. */
+  covenant?: string | undefined;
   /** Carried separately: @warda_protocol/core's GrantState predates the covenant's
    *  reserve accumulator and has no field for it. */
   reserveRoot: string;
@@ -84,7 +98,7 @@ export function materialise(d: GrantDescriptor): Materialised {
         status: "ACTIVE",
       }
     : initialState(grant);
-  return { grant, state, set, reserveRoot: s?.reserveRoot ?? EMPTY_RESERVE };
+  return { grant, state, set, reserveRoot: s?.reserveRoot ?? EMPTY_RESERVE, covenant: d.covenant };
 }
 
 export function headroom(m: Materialised, daaScore: bigint) {

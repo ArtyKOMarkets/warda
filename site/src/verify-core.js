@@ -64,3 +64,41 @@
   function addressFor(tpl, authority, state, prefix) {
     return encodeAddress(prefix, 8, blake2b256(bytecodeFor(tpl, authority, state)));
   }
+
+  /* Which covenant a template IS: blake2b-256 over the ASCII of its baseline
+     hex, first eight bytes. The same definition as templateFingerprint in the
+     SDK, and it has to be — a manifest records that string and this page
+     compares against it. */
+  function fingerprintOf(tpl) {
+    var hex = tpl.baselineHex, bytes = new Uint8Array(hex.length), i;
+    for (i = 0; i < hex.length; i++) bytes[i] = hex.charCodeAt(i) & 0xff;
+    var d = blake2b256(bytes), out = "";
+    for (i = 0; i < 8; i++) out += d[i].toString(16).padStart(2, "0");
+    return out;
+  }
+
+  /* The template a manifest was issued under, out of the ones this page holds.
+     
+     The page carried ONE — whichever covenant was current — and derived every
+     address from it. That is correct for exactly as long as one covenant has
+     live grants under it. With two, a v4 manifest answered from a v5 template
+     derives an address that is well-formed, on the right network, holds
+     nothing, and reads as a grant that was never funded.
+     
+     A manifest with no `covenant` field gets the current one: manifests
+     predate the field. A manifest naming a covenant this page does not carry
+     THROWS, because the alternative is answering it from the nearest template,
+     and a verifier that guesses is not verifying. */
+  function pickTemplate(tpls, m) {
+    if (!m || !m.covenant) return tpls[0];
+    for (var i = 0; i < tpls.length; i++) {
+      if (fingerprintOf(tpls[i]) === m.covenant) return tpls[i];
+    }
+    var have = [];
+    for (i = 0; i < tpls.length; i++) have.push(fingerprintOf(tpls[i]));
+    throw new Error(
+      "this manifest was issued under covenant " + m.covenant + ", and this page carries " +
+      have.join(", ") + ". An address derived from another covenant would be a valid address " +
+      "for the wrong bytecode \u2014 not an error, a wrong answer."
+    );
+  }

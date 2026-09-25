@@ -1,5 +1,6 @@
 import { strict as assert } from "node:assert";
 import { readFileSync } from "node:fs";
+import { templateForGolden } from "./_golden.ts";
 import { test } from "node:test";
 
 import { fromHex, toHex } from "../src/bytes.ts";
@@ -29,9 +30,10 @@ import type { CovenantTemplate, GrantState } from "../src/template.ts";
  */
 
 const golden = JSON.parse(readFileSync(new URL("../golden-spend.json", import.meta.url), "utf8"));
-const template: CovenantTemplate = JSON.parse(
-  readFileSync(new URL("../covenant-template.json", import.meta.url), "utf8"),
-);
+/* The template golden was compiled from, not whichever is current.
+   See test/_golden.ts: the two were the same file until a covenant
+   was frozen, and this comparison is the one that would have broken. */
+const template: CovenantTemplate = templateForGolden(golden);
 
 function planFromGolden(): SpendPlan {
   const p = golden.params;

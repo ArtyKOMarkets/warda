@@ -396,7 +396,7 @@ tools refuse a mismatch. Old templates are kept:
 | v2 | `4af9600b1d35e87b` | ratchet and expiry |
 | v3 | `4612a19b16911c6e` | exits conserve value |
 | v4 | `b3e5eeefacf2021f` | reserve accumulator, settlement, subset witness; template id fixed |
-| v5 | `157b64e3eeea9c01` | **draft, unaudited** — adds `delegate2`, two children in one transaction |
+| v5 | `157b64e3eeea9c01` | **current** — v4 plus `delegate2`, two children in one transaction |
 
 v3's template is archived as `sdk/covenant-template-v3.json`. It was archived
 *before* v4 overwrote `covenant-template.json`, which is the only order that

@@ -46,14 +46,14 @@ import {
   RecipientSet,
 } from "@warda_protocol/kaspa";
 
-import { addressOf, authorityOf, loadTemplate, stateOf, utxoOf, type UtxoDescriptor } from "./build.ts";
+import { addressOf, authorityOf, loadTemplates, stateOf, templateFor, utxoOf, type UtxoDescriptor } from "./build.ts";
 import type { Materialised } from "./grant.ts";
 
 const PLACEHOLDER = new Uint8Array(65);
 
 function address(state: SdkGrantState, m: Materialised, prefix: NetworkPrefix): string {
   return scriptHashToAddress(
-    scriptHashFor(loadTemplate(), { authority: authorityOf(m), state }),
+    scriptHashFor(templateFor(m), { authority: authorityOf(m), state }),
     prefix,
   );
 }
@@ -71,7 +71,7 @@ export interface DelegateOptions {
 }
 
 export function buildDelegation(m: Materialised, o: DelegateOptions) {
-  const template = loadTemplate();
+  const template = templateFor(m);
   const parentState = stateOf(m);
   const plan = {
     template,
@@ -135,7 +135,10 @@ export interface SettleOptions {
  * to an agent halfway through a task, and is why settlement exists at all.
  */
 export function buildSettlement(parent: Materialised, child: Materialised, o: SettleOptions) {
-  const template = loadTemplate();
+  // The parent's. A child inherits its parent's covenant by construction —
+  // delegation compiles the child from the same template — so a pair that
+  // disagreed would be a manifest error, not a shape this can build for.
+  const template = templateFor(parent);
   const parentState = stateOf(parent);
   const childState = stateOf(child);
 
@@ -219,7 +222,7 @@ export interface ExitOptions {
 export function buildExit(m: Materialised, o: ExitOptions) {
   const plan = {
     kind: o.kind,
-    template: loadTemplate(),
+    template: templateFor(m),
     authority: authorityOf(m),
     state: stateOf(m),
     utxo: utxoOf(o.utxo),
@@ -275,11 +278,21 @@ export function recover(
   input: { wire?: WireTransaction; redeemScriptHex?: string },
   prefix: NetworkPrefix,
 ): RecoveredGrant {
-  const template = loadTemplate();
-  const addr = (g: Grant) => scriptHashToAddress(scriptHashFor(template, g), prefix);
+  /* Recovery has no manifest — that is the point of it: somebody holds a
+     transaction and no file. So the template cannot come from a fingerprint,
+     and it must not simply be the current one: decoding a v4 script with a v5
+     template does not fail, it reads the field slots at the wrong offsets and
+     returns a grant made of adjacent bytes. The script's own LENGTH says which
+     covenant compiled it, because a baseline is a fixed size and v4's is 6,912
+     bytes against v5's 10,375. */
+  const templates = loadTemplates();
+  const pick = (script: Uint8Array) => templateForScript(script, templates, "this redeem script");
 
   if (input.redeemScriptHex) {
-    const g = decodeGrant(template, fromHex(input.redeemScriptHex));
+    const script = fromHex(input.redeemScriptHex);
+    const template = pick(script);
+    const addr = (g: Grant) => scriptHashToAddress(scriptHashFor(template, g), prefix);
+    const g = decodeGrant(template, script);
     return {
       covenant: template.baselineHex.length ? "loaded template" : "",
       address: addr(g),
@@ -291,7 +304,29 @@ export function recover(
   }
 
   const wire = input.wire!;
-  const spent = grantFromSignatureScript(fromHex(wire.inputs[0]!.signatureScriptHex), template);
+  /* Same question for a whole transaction, answered the same way.
+     `redeemScriptFrom` looks for a PUSHDATA2 of exactly the template's
+     baseline length and its own error already says "try the template the grant
+     was issued under" — so trying each is that advice, taken automatically.
+     The first that finds a redeem script is the covenant that made it. */
+  const sig = fromHex(wire.inputs[0]!.signatureScriptHex);
+  const template = ((): CovenantTemplate => {
+    for (const t of templates) {
+      try {
+        redeemScriptFrom(sig, t);
+        return t;
+      } catch {
+        continue;
+      }
+    }
+    throw new Error(
+      `no redeem script in this transaction matches any covenant loaded here ` +
+        `(baselines: ${templates.map((t) => t.bytecodeLen).join(", ")} bytes). It may spend a ` +
+        `grant of a covenant this build does not carry.`,
+    );
+  })();
+  const addr = (g: Grant) => scriptHashToAddress(scriptHashFor(template, g), prefix);
+  const spent = grantFromSignatureScript(sig, template);
   const ins = wire.inputs.length, outs = wire.outputs.length;
   const base = {
     covenant: "loaded template",

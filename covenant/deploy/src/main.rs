@@ -50,9 +50,10 @@ const DEFAULT_URL: &str = "ws://127.0.0.1:17210";
    reading a different file that happened to agree. */
 const SOURCE: &str = include_str!("../../warda_grant.sil");
 
-/// C1's draft: v4 plus `delegate2`. Selected with `--v5`, never by default.
-/// See covenant/V5.md — not audited, and until this tool emits its template
-/// there is nothing on chain that could run it.
+/// The FROZEN covenant: v4 plus `delegate2`. Still selected with `--v5`, which
+/// now means "the current one" — renaming the flag would break every script
+/// that passes it, and what changed is the covenant it selects, not the word.
+/// See covenant/V5.md for the plan and covenant/MIGRATION.md for the move.
 const SOURCE_V5: &str = include_str!("../../warda_grant_v5.sil");
 
 /* Which covenant this run compiles. ONE flag, set once from the command line,
@@ -69,7 +70,9 @@ const SOURCE_V5: &str = include_str!("../../warda_grant_v5.sil");
 static IS_V5: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
 
 /// True when this run was asked for v5. Read where the OUTPUT is named, so a
-/// v5 build cannot overwrite the template v4's grants are derived from.
+/// build of one covenant cannot overwrite the template the other's grants are
+/// derived from. Which of the two owns `covenant-template.json` inverted when
+/// v5 was frozen as current; the flag is unchanged, the filenames swapped.
 fn is_v5() -> bool {
     *IS_V5.get().unwrap_or(&false)
 }
@@ -1497,7 +1500,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 hex(&principal), hex(&revocation), hex(&agent), hex(&root), nb, ex,
                 fields.join(",\n"), vectors.join(",\n"));
 
-            let out = if is_v5() { "covenant-template-v5.json" } else { "covenant-template.json" };
+            /* WHICH FILE THIS OVERWRITES, and it inverted at the freeze.
+               Until 25 September v5 was the draft and v4 was live, so the v5
+               build wrote to its own name and the plain build owned
+               `covenant-template.json`. v5 is current now, so the PLAIN build
+               is the one that must not touch the live name: `cargo run --
+               template` with no flag would otherwise put v4's bytecode back
+               under the name every new grant is derived from, and nothing
+               local would say so. ops/check-versions.mjs catches it in CI;
+               this stops it happening at all. */
+            let out = if is_v5() { "covenant-template.json" } else { "covenant-template-v4.json" };
             std::fs::write(out, &manifest)?;
             println!("\nwrote {out}");
             if ok {

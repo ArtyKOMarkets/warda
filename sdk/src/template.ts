@@ -281,6 +281,90 @@ export function templateFingerprint(tpl: CovenantTemplate): string {
  * refusing them would fail closed against files nobody can go back and fix.
  * That is a deliberate hole and it is the only one.
  */
+/**
+ * The template a manifest was issued under, out of the ones you hold.
+ *
+ * `assertTemplateForManifest` above is for a tool that holds ONE template and
+ * can only refuse. This is for a service that holds several and should simply
+ * use the right one: the hosted verifier, the site build, anything that is
+ * handed a manifest by somebody else and cannot ask them to pass `--template`.
+ *
+ * Deliberately PURE and I/O-free, so it works the same in Node, in a bundled
+ * service and in the extension. Where the templates come from is the caller's
+ * problem, and it is a different problem in each of those places.
+ *
+ * `available[0]` is the current one by convention, and it is what a manifest
+ * with no `covenant` field gets — the same deliberate hole
+ * `assertTemplateForManifest` documents, for the same reason: manifests
+ * predate the field.
+ *
+ * A manifest naming a covenant that is not in `available` THROWS. It is worth
+ * being clear about why that is the right answer, because the alternative is
+ * tempting: falling back to the current template would produce a well-formed
+ * address for the wrong bytecode, report the grant as empty, and give no
+ * indication that anything went wrong. A service that cannot answer should say
+ * so. That is the whole reason this function exists.
+ */
+export function templateForManifest(
+  manifest: { covenant?: string },
+  available: readonly CovenantTemplate[],
+  what = "this manifest",
+): CovenantTemplate {
+  const first = available[0];
+  if (!first) throw new Error("no covenant templates are loaded at all");
+  if (!manifest.covenant) return first;
+
+  for (const tpl of available) {
+    if (templateFingerprint(tpl) === manifest.covenant) return tpl;
+  }
+  throw new Error(
+    `${what} was issued under covenant ${manifest.covenant}, and no template for it is ` +
+      `loaded here (have: ${available.map(templateFingerprint).join(", ")}). Deriving an ` +
+      `address from another covenant would produce a valid address for the wrong bytecode — ` +
+      `not an error, a wrong answer. covenant/versions.json names every archived template.`,
+  );
+}
+
+/**
+ * The template a REDEEM SCRIPT was compiled from, by its length.
+ *
+ * `templateForManifest` needs a manifest. Recovery does not have one — that is
+ * the point of it: somebody has a transaction and no file, and the script is
+ * all there is. But a covenant's baseline is a fixed size and two covenants are
+ * not the same size (v4 is 6,912 bytes, v5 is 10,375), so the script says which
+ * one compiled it.
+ *
+ * Length is a weak identifier in general and an exact one here: the state
+ * region is spliced in place, so every grant under a covenant has a script of
+ * that covenant's length, and two templates of the SAME length are refused as
+ * ambiguous rather than guessed between. Decoding with the wrong template does
+ * not fail — it reads the field slots at the wrong offsets and returns a grant
+ * made of adjacent bytes.
+ */
+export function templateForScript(
+  script: Uint8Array,
+  available: readonly CovenantTemplate[],
+  what = "this redeem script",
+): CovenantTemplate {
+  const fits = available.filter((t) => t.bytecodeLen === script.length);
+  const first = fits[0];
+  if (!first) {
+    throw new Error(
+      `${what} is ${script.length} bytes and no template loaded here has that baseline ` +
+        `(have: ${available.map((t) => `${templateFingerprint(t)} at ${t.bytecodeLen}`).join(", ")}). ` +
+        `Decoding it with another covenant's template would return a grant made of adjacent bytes.`,
+    );
+  }
+  if (fits.length > 1) {
+    throw new Error(
+      `${what} is ${script.length} bytes and ${fits.length} loaded templates have that baseline ` +
+        `(${fits.map(templateFingerprint).join(", ")}). Length cannot tell them apart; pass the ` +
+        `template explicitly.`,
+    );
+  }
+  return first;
+}
+
 export function assertTemplateForManifest(
   tpl: CovenantTemplate,
   manifest: { covenant?: string },

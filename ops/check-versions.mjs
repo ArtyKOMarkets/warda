@@ -39,7 +39,28 @@ const notes = [];
 
 // ---- 1. re-derive ---------------------------------------------------------
 for (const v of map.versions) {
-  if (!v.template) { notes.push(`${v.version} has no archived template — its fingerprint is from GUARANTEES.md and cannot be re-derived here`); continue; }
+  if (!v.template) {
+    /* `template: null` is the one value the loop below is told to skip, so an
+       entry carrying it is unchecked by construction — and v2 sat that way for
+       a month while sdk/covenant-template-v2.json was sitting in the repo,
+       fingerprinting to exactly its entry. The gap had closed and the only
+       thing that could have noticed was the thing instructed not to look.
+       So null is now a claim that gets tested: if a file in sdk/ hashes to
+       this fingerprint, the entry is simply out of date. */
+    const found = readdirSync(join(REPO, "sdk"))
+      .filter((f) => /^covenant-template.*\.json$/.test(f))
+      .find((f) => { try { return fingerprint(read(`sdk/${f}`)) === v.fingerprint; } catch { return false; } });
+    if (found) {
+      problems.push(
+        `${v.version} says it has no archived template, and sdk/${found} fingerprints to ` +
+          `${v.fingerprint}, which is exactly it. Point the entry at the file — an unarchived ` +
+          `version is a grant nobody can build a transaction for, and this one is archived.`,
+      );
+    } else {
+      notes.push(`${v.version} has no archived template — its fingerprint is from GUARANTEES.md and cannot be re-derived here`);
+    }
+    continue;
+  }
   let tpl;
   try { tpl = read(v.template); } catch { problems.push(`${v.version}: no template at ${v.template}`); continue; }
   const got = fingerprint(tpl);

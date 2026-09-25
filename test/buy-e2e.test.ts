@@ -22,9 +22,13 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import covenantTemplate from "../sdk/covenant-template.json" with { type: "json" };
+import covenantV5 from "../sdk/covenant-template-v5.json" with { type: "json" };
+import covenantV4 from "../sdk/covenant-template-v4.json" with { type: "json" };
+import covenantV3 from "../sdk/covenant-template-v3.json" with { type: "json" };
 import {
   EMPTY_RESERVE, payToScriptHashScript, scriptHashFor, scriptHashToAddress,
-  scriptPublicKeyToWire, templateIdFor, fromHex,
+  scriptPublicKeyToWire, templateForManifest, templateIdFor, fromHex,
+  type CovenantTemplate,
 } from "../sdk/src/index.ts";
 import { startFakeNode, type FakeNode } from "./harness/fake-node.ts";
 import { startFakeVendor, type FakeVendor } from "./harness/fake-vendor.ts";
@@ -32,8 +36,16 @@ import { startFakeVendor, type FakeVendor } from "./harness/fake-vendor.ts";
 const repo = (p: string) => fileURLToPath(new URL("../" + p, import.meta.url));
 const MANIFEST = JSON.parse(readFileSync(repo("covenant/deploy/grant-demo.json"), "utf8"));
 
+/* The demo grant is a REAL grant on testnet and runs one specific covenant for
+   its whole life — the address commits the bytecode. This derived it from
+   whichever template was current, which is the same file until a covenant is
+   frozen and a different one afterwards. The manifest records which. */
+const TEMPLATES = [covenantTemplate, covenantV5, covenantV4, covenantV3].map(
+  (t) => t as unknown as CovenantTemplate,
+);
+
 function grantAddress(m: Record<string, unknown>): string {
-  const t = covenantTemplate as never;
+  const t = templateForManifest(m as { covenant?: string }, TEMPLATES, "the demo manifest") as never;
   const authority = { principalKey: m.principal as string, revocationKey: m.revocation as string };
   const state = {
     agentKey: m.agent as string, budgetTotal: BigInt(m.budget as number),

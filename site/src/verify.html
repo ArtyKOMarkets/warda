@@ -147,7 +147,11 @@
 
   {{VERIFY_CORE}}
 
-  var TPL = {{COVENANT_TEMPLATE}};
+  /* Every covenant this page can answer for, current first. The self-test and
+     the reference vectors below use the current one; a pasted manifest is
+     answered with the one it names. */
+  var TPLS = {{COVENANT_TEMPLATES}};
+  var TPL = TPLS[0];
 
   /* ---- the self-test ---------------------------------------------------- */
   var st = document.getElementById("selftest");
@@ -241,7 +245,8 @@
 
     var address;
     try {
-      address = addressFor(TPL,
+      var tpl = pickTemplate(TPLS, m);
+      address = addressFor(tpl,
         { principalKey: m.principal, revocationKey: m.revocation || m.principal },
         stateOf(m), (m.prefix || "kaspatest"));
     } catch (e) { show("no", "Could not derive", e.message); return; }

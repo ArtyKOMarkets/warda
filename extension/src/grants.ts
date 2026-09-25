@@ -40,6 +40,7 @@ import {
   scriptHashToAddress,
   signDigest,
   templateFingerprint,
+  templateForManifest,
   templateIdFor,
   toHex,
   verifyDigest,
@@ -53,6 +54,15 @@ import {
 } from "@warda_protocol/kaspa";
 import { schnorr } from "@noble/curves/secp256k1.js";
 import rawTemplate from "@warda_protocol/kaspa/covenant-template.json";
+/* Every covenant with grants that could be in somebody's vault, bundled.
+   Static imports rather than a fetch: this is an extension, the files are a
+   few tens of kilobytes each, and a vault that cannot derive its own grant's
+   address because a network call failed is worse than a larger bundle. */
+import rawV1 from "@warda_protocol/kaspa/covenant-template-v1.json";
+import rawV2 from "@warda_protocol/kaspa/covenant-template-v2.json";
+import rawV3 from "@warda_protocol/kaspa/covenant-template-v3.json";
+import rawV4 from "@warda_protocol/kaspa/covenant-template-v4.json";
+import rawV5 from "@warda_protocol/kaspa/covenant-template-v5.json";
 import { withNode } from "./chain.ts";
 import { settings } from "./store.ts";
 import * as vault from "./vault.ts";
@@ -62,6 +72,32 @@ import * as vault from "./vault.ts";
    types do not overlap, so the direct assertion is an error. Values are parsed
    into bigints downstream; only the static type is being corrected. */
 const TEMPLATE = rawTemplate as unknown as CovenantTemplate;
+
+/**
+ * Current first, then every covenant a stored grant might have been born under.
+ *
+ * The extension wrote `covenant: templateFingerprint(TEMPLATE)` into every
+ * record it created and then derived that record's address from whatever
+ * TEMPLATE happened to be at the time the code ran. Those are the same file
+ * until a covenant is frozen, and afterwards they are not: a grant created
+ * last month would have its address recomputed from this month's bytecode,
+ * and the extension would report the user's own funded grant as empty.
+ *
+ * The record says which covenant it is. Believe the record.
+ */
+const TEMPLATES = [
+  TEMPLATE,
+  rawV5 as unknown as CovenantTemplate,
+  rawV4 as unknown as CovenantTemplate,
+  rawV3 as unknown as CovenantTemplate,
+  rawV2 as unknown as CovenantTemplate,
+  rawV1 as unknown as CovenantTemplate,
+].filter((t, i, all) => all.findIndex((o) => o.baselineHex === t.baselineHex) === i);
+
+/** The covenant a stored record was issued under. */
+function templateOf(record: { covenant?: string }): CovenantTemplate {
+  return templateForManifest(record, TEMPLATES, "this grant");
+}
 
 /** Genesis is a plain P2PK spend that happens to pay into a covenant. */
 const GENESIS_COMPUTE_BUDGET = 12;
@@ -199,7 +235,7 @@ function prefixFor(network: string): NetworkPrefix {
 }
 
 export function addressOf(record: GrantRecord, network: string): string {
-  const hash = scriptHashFor(TEMPLATE, { authority: record.authority, state: toState(record.state) });
+  const hash = scriptHashFor(templateOf(record), { authority: record.authority, state: toState(record.state) });
   return scriptHashToAddress(hash, prefixFor(network));
 }
 
@@ -451,7 +487,7 @@ export async function revoke(id: string, feeSompi: string): Promise<{ txid: stri
 
     const plan = {
       kind: "revoke" as const,
-      template: TEMPLATE,
+      template: templateOf(record),
       authority: record.authority,
       state,
       utxo: {
@@ -550,7 +586,7 @@ export async function follow(record: GrantRecord, client: NodeClient, network: s
     for (let i = 0; i < candidates.length; i += PROBE_BATCH) {
       const batch = candidates.slice(i, i + PROBE_BATCH);
       const addresses = batch.map((c) =>
-        scriptHashToAddress(scriptHashFor(TEMPLATE, { authority: record.authority, state: c.state }), prefix),
+        scriptHashToAddress(scriptHashFor(templateOf(record), { authority: record.authority, state: c.state }), prefix),
       );
       const found = await client.getUtxosByAddresses(addresses);
       if (found.length === 0) continue;

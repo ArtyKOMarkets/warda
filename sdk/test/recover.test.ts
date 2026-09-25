@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { templateForGolden } from "./_golden.ts";
 
 import {
   bytecodeFor,
@@ -52,11 +53,13 @@ const LIVE = {
   expiresAt: 584_894_403n,
   /** The spend landed in epoch 5 — recovered from the chain address itself. */
   claimedDaa: 558_979_403n,
+  /** Which covenant it runs. A real grant runs one specific covenant for its
+   *  whole life — the address commits the bytecode — so this test cannot
+   *  follow whichever template happens to be current, and did. */
+  covenant: "b3e5eeefacf2021f",
 };
 
-const tpl: CovenantTemplate = JSON.parse(
-  readFileSync(new URL("../covenant-template.json", import.meta.url), "utf8"),
-);
+const tpl: CovenantTemplate = templateForGolden(LIVE);
 
 const authority = { principalKey: LIVE.principal, revocationKey: LIVE.principal };
 const genesisState = {

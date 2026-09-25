@@ -86,6 +86,11 @@ const GrantShape = z.object({
   epochLength: z.string(), recipients: z.array(z.string()),
   notBefore: z.string(), expiresAt: z.string(),
   delegationDepth: z.number(), nonce: z.string(),
+  /* Which covenant this grant runs, as its manifest records it. DECLARED here
+     and not only in the descriptor type, because zod strips what it does not
+     declare — the same silent loss the reserveRoot comment below describes,
+     and with the same consequence: an address derived from the wrong shape. */
+  covenant: z.string().optional(),
   state: z.object({
     spentTotalKas: z.string(), reservedKas: z.string(),
     epochIndex: z.string(), epochSpentKas: z.string(),

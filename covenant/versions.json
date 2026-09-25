@@ -1,7 +1,7 @@
 {
-  "_comment": "Which covenant a grant runs, by the fingerprint its manifest already carries. A version is NOT a fingerprint: templateFingerprint is blake2b over the full baseline bytecode, and the baked parameters (maxProofDepth, maxFee) are in that bytecode — so the same source compiled at a different depth is a different fingerprint under the same version. Each entry therefore names its template FILE, and ops/check-versions.mjs re-derives the fingerprint from it rather than trusting this line. An entry that stops re-deriving is an entry that has been edited by hand, which is the only failure this file can have. A grant whose fingerprint is not here is rendered as its bare fingerprint: that is the honest display of a template nobody has accounted for, and not an error.",
+  "_comment": "Which covenant a grant runs, by the fingerprint its manifest already carries. A version is NOT a fingerprint: templateFingerprint is blake2b over the full baseline bytecode, and the baked parameters (maxProofDepth, maxFee) are in that bytecode — so the same source compiled at a different depth is a different fingerprint under the same version. Each entry therefore names its template FILE, and ops/check-versions.mjs re-derives the fingerprint from it rather than trusting this line. An entry that stops re-deriving is an entry that has been edited by hand. An entry with template null is not checked at all, which is how v2 sat for a month with its template present and its entry saying otherwise — so null is a claim that has to be re-examined, not a resting state. A grant whose fingerprint is not here is rendered as its bare fingerprint: that is the honest display of a template nobody has accounted for, and not an error.",
   "_source": "The version column agrees with the table in GUARANTEES.md, and check-versions.mjs compares the two so the prose and the data cannot drift.",
-  "current": "b3e5eeefacf2021f",
+  "current": "157b64e3eeea9c01",
   "versions": [
     {
       "fingerprint": "a048b13e95125ad1",
@@ -19,7 +19,7 @@
     {
       "fingerprint": "4af9600b1d35e87b",
       "version": "v2",
-      "template": null,
+      "template": "sdk/covenant-template-v2.json",
       "baked": {
         "maxProofDepth": 4,
         "maxFee": 5000000
@@ -27,7 +27,7 @@
       "payees": 16,
       "summary": "ratchet and expiry",
       "status": "withdrawn",
-      "note": "No archived template file. v2 was overwritten before archiving became the habit, so this entry is from GUARANTEES.md rather than re-derived — and check-versions.mjs says so out loud rather than passing it quietly. No grant in this repo runs it."
+      "note": "Recorded for years as having no archived template — and the file has been in sdk/ since 31 August, fingerprinting to exactly this entry. The gap closed and nobody noticed, because `template: null` is the one value check-versions.mjs is told to skip: the check that would have found the file was the check that had been instructed not to look. It re-derives now like every other entry. No grant in this repo runs v2."
     },
     {
       "fingerprint": "4612a19b16911c6e",
@@ -52,20 +52,20 @@
       },
       "payees": 16,
       "summary": "reserve accumulator, settlement, subset witness",
-      "status": "current",
+      "status": "superseded",
       "note": "What every grant issued since 15 September runs. Delegation narrows to a subtree of the parent's allowlist and proves it; a settled child returns its reserve. Unaudited by a third party. Archived under its own name on 25 September, BEFORE anything overwrites covenant-template.json — the order v3's entry below spells out, and the reason is that the eighteen v4 grants still inside their window are addressable only through the template they were issued under. covenant-template.json is still a byte-for-byte copy of this file; the freeze replaces that copy, not this one."
     },
     {
       "fingerprint": "157b64e3eeea9c01",
       "version": "v5",
-      "template": "sdk/covenant-template-v5.json",
+      "template": "sdk/covenant-template.json",
       "baked": {
         "maxProofDepth": 4,
         "maxFee": 5000000
       },
       "payees": 16,
       "summary": "delegate2 — two children in one transaction",
-      "status": "draft",
+      "status": "current",
       "note": "v4 plus one additive entrypoint and nothing else changed. delegate is untouched and still creates one child, because fanout(to = N) fixes the authorised output count exactly. Its suite passes — two accepted baselines, eight refused flips, and both children settle through v4's reabsorb unchanged — and it is NOT audited, so a grant under it is a demonstration rather than a place to put money. covenant/V5.md is the plan and the evidence."
     }
   ]

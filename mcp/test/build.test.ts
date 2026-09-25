@@ -29,6 +29,11 @@ const golden = JSON.parse(
 function descriptor(): GrantDescriptor {
   const p = golden.params;
   return {
+    /* Which covenant compiled the reference. The descriptor carries it so the
+       builders pick that template rather than whichever is current — they were
+       the same file until a covenant was frozen, and afterwards this test
+       would have compared a v4 transaction against v5 bytecode. */
+    covenant: golden.covenant,
     agentKey: p.agentKey,
     principalKey: p.principalKey,
     revocationKey: p.revocationKey,

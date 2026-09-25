@@ -17,7 +17,12 @@
       "default": "./dist/index.js"
     },
     "./covenant-template.json": "./covenant-template.json",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./covenant-template-v1.json": "./covenant-template-v1.json",
+    "./covenant-template-v2.json": "./covenant-template-v2.json",
+    "./covenant-template-v3.json": "./covenant-template-v3.json",
+    "./covenant-template-v4.json": "./covenant-template-v4.json",
+    "./covenant-template-v5.json": "./covenant-template-v5.json"
   },
   "files": [
     "dist",
@@ -25,6 +30,8 @@
     "covenant-template-v1.json",
     "covenant-template-v2.json",
     "covenant-template-v3.json",
+    "covenant-template-v4.json",
+    "covenant-template-v5.json",
     "golden-spend.json",
     "golden-genesis.json",
     "golden-delegation.json",

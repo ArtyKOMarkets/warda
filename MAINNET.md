@@ -66,22 +66,43 @@ already expired; four more expire within a day; **six outlive a
 hundred-and-twenty-day horizon**, and those six are the only ones for which
 "migrate" and "wait" are different plans.
 
-**The freeze is one step from done, and the step is not the covenant.** Nothing
-in this repository resolves a template by the fingerprint in a manifest —
-the SDK, the hosted verifier, `site/build.py` and the extension each load "the
-packaged template" and derive from it. Promoting v5 into that name was
-attempted on 25 September and reverted: `test/buy-e2e.test.ts` failed, deriving
-a different address for the demo grant, which is exactly right. After a flip
-the hosted verifier would answer wrongly for every v4 grant — and, since this
-morning, `ops/check-verify.sh` would notice and say so.
+**The freeze is done** (25 September 2026). `sdk/covenant-template.json` is
+v5's bytecode, v4's is archived under its own name, and `covenant/versions.json`
+records v5 as current and v4 as superseded.
+
+It took one thing that was not the covenant. Nothing here resolved a template
+by the fingerprint in a manifest — the SDK, the hosted verifier, `site/build.py`
+and the extension each loaded "the packaged template" and derived from it,
+which is correct for exactly as long as one covenant has live grants under it.
+The first attempt at the flip was reverted because `test/buy-e2e.test.ts`
+failed, deriving a different address for the demo grant. That was the test
+being right.
+
+`templateForManifest` resolves it now, and every consumer that holds a manifest
+uses it: the hosted verifier, the MCP bridge, the in-browser verifier on
+`/verify`, the extension's vault, and the reference vectors — which now record
+the covenant that compiled them, so the evidence that this SDK matched the Rust
+compiler for v4 survives v4 being superseded. `ops/check-goldens.mjs` keeps
+that field there and `ops/check-deploys.mjs` makes each deployed function carry
+every archived template, because resolution the deployment cannot satisfy is
+resolution that refuses grants it should answer for.
 
 **Done means:** one covenant fingerprint, every live grant carrying it,
 `covenant/versions.json` recording the rest as history, and no entry in
-`GUARANTEES.md` marked *draft, unaudited*.
+`GUARANTEES.md` marked *draft, unaudited*. Three of those four are true. The
+second is the migration.
 
-**Blocked on:** a template resolver that reads the manifest's fingerprint
-(mine, next), and the offline principal (§2.1, yours) — reissuing before that
-exists spends the one opportunity this migration creates.
+**Still open:**
+
+- **v5 has no golden spend or genesis vector.** v4's remain and still pass, and
+  v5's `delegate2` was proved on chain — two children created and both settled
+  — which is stronger evidence than a vector. But the cross-implementation
+  check that the JS SDK reproduces the Rust compiler byte for byte now covers
+  the superseded covenant and not the current one. `cd covenant/deploy && cargo
+  run -- golden --v5` is the repair.
+- **The migration itself** (`covenant/MIGRATION.md`), blocked on the offline
+  principal (§2.1, yours) — reissuing before that exists spends the one
+  opportunity this migration creates.
 
 ---
 

@@ -103,6 +103,47 @@ for (const dir of dirs) {
         );
       }
     }
+
+    /* And the ARCHIVES, for a deploy that resolves a template by the
+       fingerprint a manifest carries rather than always using the current one.
+       Carrying only the current template makes that resolution a no-op: the
+       service loads one covenant, cannot find the one the manifest names, and
+       refuses a grant it should have been able to answer for. Which is at
+       least honest — but the service exists so that nobody has to trust us,
+       and "we no longer answer for grants issued last month" is not that.
+
+       Only versions with an archived template are required, and each is
+       compared to its master, because a stale archive is the same silent wrong
+       answer as a stale current one. */
+    /* Required of EVERY deploy that reads a template, not only the ones whose
+       own source mentions resolving. mcp/deploy is four lines that set
+       WARDA_TEMPLATE and hand off to @warda_protocol/mcp — the resolution
+       lives in the dependency, so a check that read only this directory's
+       files would have declared it exempt and been wrong. Carrying archives a
+       deploy never consults costs a few JSON files; not carrying ones it does
+       consult costs every grant issued under an older covenant. */
+    {
+      const versions = JSON.parse(readFileSync(join(root, "covenant/versions.json"), "utf8"));
+      for (const v of versions.versions) {
+        if (!v.template) continue;
+        const name = v.template.replace(/^sdk\//, "");
+        if (name === "covenant-template.json") continue; // the copy checked above
+        const mine = files.find((f) => f.endsWith(`/${name}`) || f === name);
+        if (!mine) {
+          problems.push(
+            `${dir}: resolves a template by the manifest's fingerprint and does not carry ` +
+              `${name} (${v.version}). It would refuse every ${v.version} grant — the SDK's ` +
+              `exports map is resolved at runtime and no bundler follows it.`,
+          );
+          continue;
+        }
+        const theirs = JSON.parse(readFileSync(join(root, mine), "utf8"));
+        const src = JSON.parse(readFileSync(join(root, v.template), "utf8"));
+        if (theirs.baselineHex !== src.baselineHex) {
+          problems.push(`${mine}: has drifted from ${v.template}.`);
+        }
+      }
+    }
   }
 
   /* 3. A tsconfig of its own, because it inherits none.
