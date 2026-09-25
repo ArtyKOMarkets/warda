@@ -356,6 +356,11 @@ installed without the wrapper, if a fifth copy of the Telegram send appears
 instead of `ops/notify.sh`, and — by mutating the wrapper and requiring the
 self-test to go red — if the self-test stops being able to fail.
 
+Verified live on 25 September 2026: a failing check produced a Telegram
+message, and the recovery produced another. Worth writing down, because until
+that moment the whole path was three files whose only job was a message that
+had never arrived.
+
 The bot token this sends with is the one recorded compromised in
 `ops/secrets.json` and not yet rotated, which now makes that rotation
 load-bearing rather than merely overdue.
