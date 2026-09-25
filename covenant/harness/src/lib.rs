@@ -1375,6 +1375,17 @@ pub enum Which {
     Reclaim,
 }
 
+/// How a settlement's outputs are arranged. See `Settle::outputs`.
+#[derive(Clone, Copy, PartialEq)]
+pub enum Outputs {
+    /// One output: the parent's continuation, at index 0, authorised by it.
+    Normal,
+    /// A plain payment at 0, the authorised continuation at 1.
+    Displaced,
+    /// The continuation at 0, and a second output authorised by the same input.
+    Doubled,
+}
+
 #[derive(Clone, Copy, PartialEq)]
 pub enum Signer {
     Principal,
@@ -1714,6 +1725,41 @@ pub struct Settle {
     /// Drop the child's input, leaving the revocation key holding a `settle`
     /// with nothing tying it to a parent. This is vulnerability 5's shape.
     pub lone_child: bool,
+    /// Rearrange the outputs so that output 0 is NOT the parent's single
+    /// authorised continuation — the one published claim this report has
+    /// always listed as `not covered`.
+    ///
+    /// `Displaced` puts a plain payment at index 0 and the parent's
+    /// continuation at index 1, still authorised by the parent's input. The
+    /// count is one and the index is one, so `OpAuthOutputIdx(parentIdx, 0)
+    /// == 0` is the only thing that can fail — output 0 holds nearly all the
+    /// coin, so the value clause passes, and the co-input is a real grant, so
+    /// the template check passes.
+    ///
+    /// `Doubled` keeps the continuation at index 0 and authorises a SECOND
+    /// output from the same input, so `OpAuthOutputCount(parentIdx) == 1` is
+    /// the only thing that can fail.
+    ///
+    /// One flip per line of the claim, which is what "covered" has to mean.
+    pub outputs: Outputs,
+    /// Execute ONE input's script rather than the whole transaction.
+    ///
+    /// Needed for exactly the claim above, and the reason it went uncovered
+    /// for so long. The parent's `reabsorb` requires
+    /// `OpAuthOutputCount(this.activeInputIndex) == 1` and
+    /// `OpAuthOutputIdx(this.activeInputIndex, 0) == 0`; the child's `settle`
+    /// requires the identical predicate about the identical input. The two
+    /// are redundant by construction, so no whole transaction can violate the
+    /// child's version without violating the parent's, and the parent's input
+    /// is verified first. A refusal of the pair proves only that ONE of them
+    /// fired.
+    ///
+    /// Running the child's script alone is not a claim about what a node
+    /// would do with the transaction. It is a claim about what the child's
+    /// script enforces, which is what the guarantee says and what this report
+    /// audits — and it is the same per-input execution every other case here
+    /// is built on.
+    pub only_input: Option<usize>,
     /// The covenant to run against. Only the mutation runs change it.
     ///
     /// Settlement is the one family where this is not a convenience: `settle`
@@ -1741,6 +1787,8 @@ impl Settle {
             child_idx: 1,
             authority_override: None,
             lone_child: false,
+            outputs: Outputs::Normal,
+            only_input: None,
             src: SOURCE,
         }
     }
@@ -1869,6 +1917,7 @@ impl Settle {
         );
 
         let lone = self.lone_child;
+        let arrangement = self.outputs;
         let build = |psig: Vec<u8>, csig: Vec<u8>| {
             let mut inputs = vec![tx_input(0, sigscript(parent, "reabsorb", vec![
                 new_states.clone(),
@@ -1883,16 +1932,30 @@ impl Settle {
             } else {
                 inputs.push(child_in);
             }
-            Transaction::new(
-                1,
-                inputs,
-                vec![TransactionOutput {
-                    value: combined.saturating_sub(1_000).saturating_sub(extra.max(0) as u64),
-                    script_public_key: pay_to_script_hash_script(&parent_next.bytecode),
-                    covenant: Some(CovenantBinding { authorizing_input: 0, covenant_id: COV }),
-                }],
-                0, Default::default(), 0, vec![],
-            )
+            let paid = combined.saturating_sub(1_000).saturating_sub(extra.max(0) as u64);
+            let cont = |value: u64| TransactionOutput {
+                value,
+                script_public_key: pay_to_script_hash_script(&parent_next.bytecode),
+                covenant: Some(CovenantBinding { authorizing_input: 0, covenant_id: COV }),
+            };
+            let outs = match arrangement {
+                Outputs::Normal => vec![cont(paid)],
+                /* Nearly all the coin at index 0, so the value clause is
+                   satisfied and cannot be the thing that refuses; the parent's
+                   authorised continuation demoted to index 1. */
+                Outputs::Displaced => vec![
+                    TransactionOutput {
+                        value: paid,
+                        script_public_key: ScriptPublicKey::new(0, p2pk([0xa1; 32]).into()),
+                        covenant: None,
+                    },
+                    cont(1_000),
+                ],
+                /* Two outputs from one authorising input. Index 0 is still the
+                   continuation, so only the COUNT can fail. */
+                Outputs::Doubled => vec![cont(paid), cont(0)],
+            };
+            Transaction::new(1, inputs, outs, 0, Default::default(), 0, vec![])
         };
 
         let entries = if lone {
@@ -1909,6 +1972,9 @@ impl Settle {
         let unsigned = build(vec![0u8; 65], vec![0u8; 65]);
         let psig = sign_input(unsigned.clone(), entries.clone(), if lone { 1 } else { 0 }, &pick(self.parent_signer));
         let csig = sign_input(unsigned, entries.clone(), if lone { 0 } else { 1 }, &pick(self.child_signer));
-        execute_all(build(psig, csig), entries)
+        match self.only_input {
+            Some(i) => execute(build(psig, csig), entries, i),
+            None => execute_all(build(psig, csig), entries),
+        }
     }
 }

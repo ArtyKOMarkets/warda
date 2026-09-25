@@ -1,7 +1,7 @@
 {
   "covenant": "see AUDIT.md",
-  "generated": "2026-09-25 08:46 UTC",
-  "cases": 129,
+  "generated": "2026-09-25 09:02 UTC",
+  "cases": 132,
   "violations": 0,
   "over_refusals": 0,
   "rules": [
@@ -39,6 +39,7 @@
     { "rule": "settle charge", "grade": "flip" },
     { "rule": "settle parent still", "grade": "flip" },
     { "rule": "settle parent signature", "grade": "flip" },
+    { "rule": "settle continuation", "grade": "flip" },
     { "rule": "settle child signature", "grade": "flip" },
     { "rule": "settle co-input", "grade": "flip" },
     { "rule": "settle conservation", "grade": "boundary" }
@@ -53,7 +54,7 @@
     { "axis": "claimed DAA, at the window's end", "unit": "DAA", "accepted": 1006999, "refused": 1007000 },
     { "axis": "fee taken from the grant", "unit": "sompi", "accepted": 100000, "refused": 100001 },
     { "axis": "child maxPerSpend", "unit": "sompi", "accepted": 200000000, "refused": 200000001 },
-    { "axis": "child epochLimit", "unit": "sompi", "accepted": 10000000000, "refused": 10000000001 },
+    { "axis": "child epochLimit", "unit": "sompi", "accepted": 1000000000, "refused": 1000000001 },
     { "axis": "child notBefore", "unit": "DAA", "accepted": 1000000, "refused": 999999 },
     { "axis": "child expiresAt", "unit": "DAA", "accepted": 1007000, "refused": 1007001 },
     { "axis": "child delegationDepth", "unit": "levels", "accepted": 1, "refused": 2 },
@@ -187,6 +188,9 @@
     { "rule": "settle parent still", "case": "the parent extending its own expiry", "spec": "refuse", "engine": "refused" },
     { "rule": "settle parent still", "case": "the parent inflating its own budget", "spec": "refuse", "engine": "refused" },
     { "rule": "settle parent signature", "case": "the parent's half signed by the revocation key", "spec": "refuse", "engine": "refused" },
+    { "rule": "settle continuation", "case": "the child's script alone, on the honest shape — the baseline the two below derive from", "spec": "accept", "engine": "accepted" },
+    { "rule": "settle continuation", "case": "the parent's continuation demoted to output 1, with the coin left at output 0", "spec": "refuse", "engine": "refused" },
+    { "rule": "settle continuation", "case": "a second output authorised by the same input", "spec": "refuse", "engine": "refused" },
     { "rule": "settle child signature", "case": "the revocation key", "spec": "accept", "engine": "accepted" },
     { "rule": "settle child signature", "case": "the child's half signed by the agent's key", "spec": "refuse", "engine": "refused" },
     { "rule": "settle child signature", "case": "the child's half signed by the principal's key", "spec": "refuse", "engine": "refused" },

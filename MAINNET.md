@@ -144,9 +144,26 @@ builds exactly that shape, so no transaction in the run has it as the only
 thing wrong, and the refusals that would prove it are indistinguishable from
 the co-input check firing first.
 
-**Done means:** a transaction that violates only this claim, refused, with the
-construction carrying the meaning rather than the engine's message — the same
-discipline as every other flip test.
+**Done.** The report says **40 of 40** now, across 132 cases, with no entry
+under "what this run did not test" about it.
+
+The reason it resisted for so long is the interesting part, and it is kept
+rather than deleted with the entry: the parent's `reabsorb` requires the
+identical predicate about the identical input, so the two are redundant by
+construction. No whole transaction can violate the child's version without
+violating the parent's, and the parent's input is verified first — a refusal of
+the pair proves only that ONE of them fired. The two cases covering it now run
+the CHILD'S SCRIPT ALONE, which is a claim about what the child's script
+enforces rather than about what a node would do, and is the same per-input
+execution every other case in the suite is built on.
+
+That licence has to be earned, so `covenant/harness/src/bin/settle-continuation.rs`
+earns it in CI: each case must be ACCEPTED when its own line is deleted and
+still refused when the other one is. Displacing the continuation crosses over
+with the index line and not the count line; the doubled output is the mirror.
+If they ever stop separating, the cases are not testing the lines they cite and
+the claim goes back to uncovered — reported by a binary rather than by a comment
+saying somebody checked once.
 
 ### 1.3 One grant shape is not a specification
 

@@ -1,5 +1,5 @@
 # Covenant audit — warda_grant.sil · v4 · fingerprint b3e5eeefacf2021f
-budget 10000000000 · cap 200000000 · epoch 10000000000 per 1000 · window 1000000..1007000 · depth 2 · allowlist 4 · proof depth 4
+budget 10000000000 · cap 200000000 · epoch 1000000000 per 1000 · window 1000000..1007000 · depth 2 · allowlist 4 · proof depth 4
 
 Produced by `covenant/harness/src/bin/audit.rs`. Every line below is a
 verdict from `TxScriptEngine`, the same script engine a Kaspa node validates
@@ -11,10 +11,10 @@ and which claims were not reachable by a constructed transaction.
 
 | | |
 |---|---|
-| Cases executed | 129 |
+| Cases executed | 132 |
 | Baseline accepted | yes |
-| Published claims covered | 39 of 40 |
-| Rules `enforced` | 37 (13 at a measured boundary) |
+| Published claims covered | 40 of 40 |
+| Rules `enforced` | 38 (13 at a measured boundary) |
 | Violations | 0 |
 | Over-refusals | 0 |
 | Rules `assumed` | 0 |
@@ -84,7 +84,7 @@ rather than left out of the count.
 | `settle` | signed by the revocation key | flip |
 | `settle` | the co-input is a grant of this template | flip |
 | `settle` | exactly two inputs | flip |
-| `settle` | output 0 is that grant's single authorised continuation | **not covered** |
+| `settle` | output 0 is that grant's single authorised continuation | flip |
 | `settle` | the output keeps both inputs' coin, less maxFee | boundary |
 
 ## Enforced
@@ -128,6 +128,7 @@ because the case is a single field away from the accepted baseline.
 - `settle charge` — *flip* — newState.spentTotal == spentTotal + child.spentTotal
 - `settle parent still` — *flip* — everything else about the parent stands still
 - `settle parent signature` — *flip* — checkSig(agentSig, pubkey(agentKey))
+- `settle continuation` — *flip* — OpAuthOutputCount(parentIdx) == 1 && OpAuthOutputIdx(parentIdx, 0) == 0
 - `settle child signature` — *flip* — checkSig(s, revocationKey)
 - `settle co-input` — *flip* — the co-input is a grant of this template, and there are exactly two inputs
 - `settle conservation` — *boundary* — outputs[0].value >= inputs[0].value + inputs[1].value - maxFee
@@ -259,6 +260,9 @@ because the case is a single field away from the accepted baseline.
 | settle parent still | the parent extending its own expiry | refuse | refused | ok |
 | settle parent still | the parent inflating its own budget | refuse | refused | ok |
 | settle parent signature | the parent's half signed by the revocation key | refuse | refused | ok |
+| settle continuation | the child's script alone, on the honest shape — the baseline the two below derive from | accept | accepted | ok |
+| settle continuation | the parent's continuation demoted to output 1, with the coin left at output 0 | refuse | refused | ok |
+| settle continuation | a second output authorised by the same input | refuse | refused | ok |
 | settle child signature | the revocation key | accept | accepted | ok |
 | settle child signature | the child's half signed by the agent's key | refuse | refused | ok |
 | settle child signature | the child's half signed by the principal's key | refuse | refused | ok |
@@ -286,8 +290,7 @@ indistinguishable from one that cannot, so the run deletes
 
 ## What this run did not test
 
-- One claim on settle: that output 0 is the co-input grant's single authorised continuation. The baseline builds exactly that shape, so there is no transaction in this run where it is the only thing wrong — the refusals that would prove it are indistinguishable from the co-input check firing first.
-- One grant shape per RUN — but no longer one shape per suite. This run used: budget 10000000000 · cap 200000000 · epoch 10000000000 per 1000 · window 1000000..1007000 · depth 2 · allowlist 4 · proof depth 4. Every axis of it is an environment variable now (WARDA_BUDGET, WARDA_MAX_PER_SPEND, WARDA_EPOCH_LIMIT, WARDA_EPOCH_LENGTH, WARDA_NOT_BEFORE, WARDA_EXPIRES_AT, WARDA_DELEGATION_DEPTH, WARDA_TREE_LEAVES, WARDA_PROOF_DEPTH), so another shape is a re-run rather than an argument. What this report cannot tell you is what the OTHER shapes did: read the matrix in covenant/SHAPES.md for that, and treat a claim about a shape nobody ran as exactly what it is.
+- One grant shape per RUN — but no longer one shape per suite. This run used: budget 10000000000 · cap 200000000 · epoch 1000000000 per 1000 · window 1000000..1007000 · depth 2 · allowlist 4 · proof depth 4. Every axis of it is an environment variable now (WARDA_BUDGET, WARDA_MAX_PER_SPEND, WARDA_EPOCH_LIMIT, WARDA_EPOCH_LENGTH, WARDA_NOT_BEFORE, WARDA_EXPIRES_AT, WARDA_DELEGATION_DEPTH, WARDA_TREE_LEAVES, WARDA_PROOF_DEPTH), so another shape is a re-run rather than an argument. What this report cannot tell you is what the OTHER shapes did: read the matrix in covenant/SHAPES.md for that, and treat a claim about a shape nobody ran as exactly what it is.
 - Anything above the script engine — a node's mempool policy, relay rules, or what a wallet does with a transaction before it is broadcast.
 - The residual described in GUARANTEES.md: allowance from unused epochs stays spendable after the chain passes expiresAt. That is a property of the design, correctly implemented, not a defect the engine can report.
 

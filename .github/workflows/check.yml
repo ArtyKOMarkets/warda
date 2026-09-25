@@ -90,6 +90,19 @@ jobs:
         working-directory: covenant/harness
         run: cargo run -q --bin audit
 
+      # Claim 40 was reported NOT COVERED from the auditor's first run: the
+      # parent's `reabsorb` requires the identical predicate about the
+      # identical input, so no whole transaction can violate the child's
+      # version without violating the parent's, and a refusal of the pair
+      # proves only that one of them fired. The two cases that cover it now
+      # run the child's script alone — and this is why that counts. Each case
+      # must be ACCEPTED when its own line is deleted and still refused when
+      # the other is. If they ever cross over, the cases are not testing the
+      # lines they cite and the claim goes back to uncovered.
+      - name: harness — claim 40 is refused by the rule it names
+        working-directory: covenant/harness
+        run: cargo run -q --bin settle-continuation
+
       # The pass that needs no builder, run against this repo's own covenant.
       # It is the tier a stranger can use, so a change that breaks it breaks
       # the only thing here anybody else can run.

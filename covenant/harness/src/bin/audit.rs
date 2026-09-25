@@ -55,7 +55,7 @@ const CLAIMS: &[Claim] = &[
     Claim { entry: "settle", text: "signed by the revocation key", rule: "settle child signature" },
     Claim { entry: "settle", text: "the co-input is a grant of this template", rule: "settle co-input" },
     Claim { entry: "settle", text: "exactly two inputs", rule: "settle co-input" },
-    Claim { entry: "settle", text: "output 0 is that grant's single authorised continuation", rule: "" },
+    Claim { entry: "settle", text: "output 0 is that grant's single authorised continuation", rule: "settle continuation" },
     Claim { entry: "settle", text: "the output keeps both inputs' coin, less maxFee", rule: "settle conservation" },
 ];
 
@@ -605,6 +605,41 @@ fn cases() -> Vec<Case> {
     }
     v.push(case("settle parent signature", "checkSig(agentSig, pubkey(agentKey))",
         "the parent's half signed by the revocation key", Expect::Reject, || settle(|s| s.parent_signer = Signer::Revocation)));
+    /* The one claim this report listed as NOT COVERED from its first run, and
+       the reason it was is worth keeping: the parent's `reabsorb` requires
+       `OpAuthOutputCount(this.activeInputIndex) == 1` and
+       `OpAuthOutputIdx(this.activeInputIndex, 0) == 0`, and the child's
+       `settle` requires the identical predicate about the identical input.
+       The two are redundant by construction, so NO whole transaction can
+       violate the child's version without violating the parent's — and the
+       parent's input is verified first, so a refusal of the pair proves only
+       that one of them fired. That is exactly the "refused for the wrong
+       reason" this report opens by warning about, which is why it was
+       reported as uncovered rather than quietly as passing.
+
+       Both refusal cases below execute the CHILD'S SCRIPT ALONE. That is not
+       a claim about what a node would do with the whole transaction; it is a
+       claim about what the child's script enforces, which is what the
+       guarantee says and what this report audits — and it is the same
+       per-input execution every other case here is built on.
+
+       One case per line of the claim, and each was checked against a covenant
+       with its own line deleted: displacing the continuation is ACCEPTED when
+       the INDEX line goes and still refused when the COUNT line goes, and the
+       doubled output is the mirror. Neither refusal is the other's. */
+    v.push(case("settle continuation", "OpAuthOutputCount(parentIdx) == 1 && OpAuthOutputIdx(parentIdx, 0) == 0",
+        "the child's script alone, on the honest shape — the baseline the two below derive from",
+        Expect::Accept,
+        || Settle { only_input: Some(1), ..Settle::valid() }.run()));
+    v.push(case("settle continuation", "OpAuthOutputIdx(parentIdx, 0) == 0",
+        "the parent's continuation demoted to output 1, with the coin left at output 0",
+        Expect::Reject,
+        || Settle { outputs: Outputs::Displaced, only_input: Some(1), ..Settle::valid() }.run()));
+    v.push(case("settle continuation", "OpAuthOutputCount(parentIdx) == 1",
+        "a second output authorised by the same input",
+        Expect::Reject,
+        || Settle { outputs: Outputs::Doubled, only_input: Some(1), ..Settle::valid() }.run()));
+
     v.push(case("settle child signature", "checkSig(s, revocationKey)",
         "the revocation key", Expect::Accept, || settle(|_| {})));
     for (who, note) in [(Signer::Agent, "the agent's key"), (Signer::Principal, "the principal's key")] {
@@ -650,10 +685,6 @@ fn subject() -> Subject {
         out_html: "../AUDIT.html".into(),
         out_json: "../audit.json".into(),
         untested: vec![
-            "One claim on <code>settle</code>: that output 0 is the co-input grant's single \
-             authorised continuation. The baseline builds exactly that shape, so there is no \
-             transaction in this run where it is the only thing wrong — the refusals that would \
-             prove it are indistinguishable from the co-input check firing first.".into(),
             format!(
                 "<b>One grant shape per RUN</b> — but no longer one shape per suite. This run \
                  used: {}. Every axis of it is an environment variable now \
