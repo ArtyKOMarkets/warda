@@ -151,6 +151,21 @@ reports the far more urgent fact instead: if the organisation cannot sign, the
 runner cannot sign, and every agent transaction it is asked to build fails at
 the last step.
 
+**Deleting a wallet ends a grant.** Turnkey's delete removes the private key,
+a grant's `agentKey` IS that key, and the key is hashed into the grant's
+address — so it cannot be replaced, reissued into or recovered. A grant whose
+wallet was deleted is unspendable by the agent, by the principal and by
+everyone else, forever, with the coin sitting at an address nothing can produce
+a signature for. It is the worst irreversible action in this project, it is two
+clicks, and every wallet in that organisation is called `warda-something`.
+
+`runner/tools/turnkey-inventory.ts` prints a verdict per wallet and deletes
+nothing. A wallet is called safe only when the vault does not know it, no
+manifest in this repository names its key, and its name matches one of the
+patterns this repository's own tooling generates for probes. Everything else
+is KEEP, including anything it cannot explain: keeping a wallet you did not
+need costs nothing.
+
 ## Workflows
 
 ```json
