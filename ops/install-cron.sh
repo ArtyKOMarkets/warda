@@ -168,6 +168,17 @@ CONSOLEAL="$OPS/console-alerts.sh"
 CONSOLEALLOG="$HOME/Library/Logs/warda-console-alerts.log"
 CONSOLEALENTRY="11,26,41,56 * * * * $CONSOLEAL --quiet >> $CONSOLEALLOG 2>&1"
 
+# Can the hosted runner still sign? HOURLY, at :47, and deliberately not with
+# the other three: each run spends one Turnkey signature against the very
+# quota it is watching, and the failure it catches — signing disabled because
+# the organisation is over a plan limit, which happened on 25 September and
+# nothing said so — does not flap. Two consecutive failures is two hours from
+# mute runner to a message, which is fast enough for a limit and cheap enough
+# not to be part of the problem.
+TURNKEY="$OPS/check-turnkey.sh"
+TURNKEYLOG="$HOME/Library/Logs/warda-turnkey.log"
+TURNKEYENTRY="47 * * * * $MONITOR turnkey $TURNKEY --quiet >> $TURNKEYLOG 2>&1"
+
 VENDOR="$OPS/check-vendor.sh"
 VENDORLOG="$HOME/Library/Logs/warda-vendor.log"
 VENDORENTRY="*/15 * * * * $MONITOR vendor $VENDOR --quiet >> $VENDORLOG 2>&1"
@@ -227,7 +238,7 @@ fi
 # So: fix it if we can, refuse if we cannot. Installing a schedule of commands
 # that cannot run is worse than installing nothing, because the crontab then
 # says the job exists.
-for f in "$SCRIPT" "$BUY" "$INTEROP" "$GROWTH" "$VENDOR" "$VERIFY" "$CONTACT" "$PROXY" "$NODECHK" "$ALERTS" "$CONSOLEAL" "$MONITOR"; do
+for f in "$SCRIPT" "$BUY" "$INTEROP" "$GROWTH" "$VENDOR" "$VERIFY" "$CONTACT" "$PROXY" "$NODECHK" "$ALERTS" "$CONSOLEAL" "$MONITOR" "$TURNKEY"; do
   [ -f "$f" ] || continue
   [ -x "$f" ] && continue
   chmod +x "$f" 2>/dev/null || true
@@ -338,6 +349,7 @@ printf '%s\n' "$current" \
   | grep -v -F "proxy-up.sh" \
   | grep -v -F "check-node.sh" \
   | grep -v -F "check-verify.sh" \
+  | grep -v -F "check-turnkey.sh" \
   | grep -v -F "alerts.sh" \
   | grep -v '^[[:space:]]*$' > /tmp/warda-cron.$$
 printf '%s\n' "$ENTRY" >> /tmp/warda-cron.$$
@@ -346,6 +358,10 @@ printf '%s\n' "$CONTACTENTRY" >> /tmp/warda-cron.$$
 printf '%s\n' "$PROXYENTRY" >> /tmp/warda-cron.$$
 printf '%s\n' "$NODEENTRY" >> /tmp/warda-cron.$$
 printf '%s\n' "$VERIFYENTRY" >> /tmp/warda-cron.$$
+# Only when the runner actually has its restricted key on this machine —
+# otherwise the probe would fail hourly for the one reason that is not an
+# outage, which is how a feed teaches its reader to ignore it.
+if [ -f "$HOME/.warda/turnkey-runner.json" ]; then printf '%s\n' "$TURNKEYENTRY" >> /tmp/warda-cron.$$; fi
 if [ -f "$OPS/alerts.json" ]; then printf '%s\n' "$ALERTSENTRY" >> /tmp/warda-cron.$$; fi
 if [ -f "$OPS/alerts.env" ] && grep -q '^CONSOLE_CRON_SECRET=.' "$OPS/alerts.env"; then printf '%s\n' "$CONSOLEALENTRY" >> /tmp/warda-cron.$$; fi
 if [ -n "$WANT_BUY" ]; then printf '%s\n' "$BUYENTRY" >> /tmp/warda-cron.$$; fi

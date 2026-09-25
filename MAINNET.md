@@ -511,6 +511,31 @@ still ask for a deposit over it. The number is on the page that offers the flow.
 **Done means:** the 100 KAS picked deliberately for mainnet rather than
 inherited from a testnet placeholder, or the window closed for real.
 
+### 3.3b The runner could not sign, and nothing said so
+
+Found on 25 September by a tool run for a different reason. The organisation's
+signing was disabled — *"Resource exhausted: Signing is disabled because your
+organization is over"* a plan limit — so the hosted runner could not have
+completed a single agent transaction. `runner/agents/first-hosted-grant.json`
+has `spent_total: 0`, so there was no spend history to look wrong.
+
+It is the same shape as the outage `ops/check-verify.sh` was written for: the
+door answers, the room behind it does not, and nothing exercises the path that
+does the work. The credential was fine. `getWhoami` would have returned
+happily throughout.
+
+**Done, for the monitor half.** `runner/tools/turnkey-probe.ts` signs 32 random
+bytes with a wallet kept for the purpose, because nothing cheaper asks the
+question — a plan limit, an expired policy, a deleted user and a revoked key
+all leave whoami working and signing dead. It runs hourly rather than every
+fifteen minutes, and that is a cost decision rather than a taste one: each run
+spends a signature against the quota it is watching, and a plan limit does not
+flap. It holds the runner's restricted key, never root; a monitor with root
+credentials would be a larger liability than the outage it watches.
+
+**Yours:** clear whatever the organisation is over, in the Turnkey dashboard.
+Until then the runner is mute.
+
 ### 3.4 The Turnkey key is broader than the design says
 
 The design said the policy should restrict the runner's key to

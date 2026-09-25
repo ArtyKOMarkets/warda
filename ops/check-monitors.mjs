@@ -41,11 +41,36 @@ const read = (p) => readFileSync(join(REPO, p), "utf8");
 // three names, so the next monitor somebody adds is covered before they think
 // about it.
 const cron = read("ops/install-cron.sh");
+
+/* The entries name their scripts through variables — VERIFY, VENDOR,
+   NODECHK, TURNKEY — so this resolves the assignments rather than listing the
+   variable names. The first version listed them, and the fourth monitor added
+   after it was invisible to this check on the day it was written: a checker
+   that has to be edited whenever the thing it checks grows is a checker that
+   silently stops covering the newest case, which is always the one most
+   likely to be wrong. */
+const vars = new Map();
+for (const m of cron.matchAll(/^([A-Z][A-Z0-9_]*)="([^"]*)"/gm)) vars.set(m[1], m[2]);
+/* Repeatedly, because the values nest: MONITOR is "$OPS/monitor.sh" and
+   VERIFY is "$OPS/check-verify.sh", so one pass leaves a fresh $OPS behind and
+   the entry still does not look like it names a check script. One pass found
+   exactly one of the four monitors — the one that happened to spell its path
+   out — and reported the other three as not needing to be checked. */
+const expand = (s) => {
+  let out = s;
+  for (let i = 0; i < 8; i++) {
+    const next = out.replace(/\$([A-Z][A-Z0-9_]*)/g, (whole, name) => vars.get(name) ?? whole);
+    if (next === out) break;
+    out = next;
+  }
+  return out;
+};
+
 for (const line of cron.split("\n")) {
   const m = line.match(/^([A-Z]+ENTRY)="([^"]*)"/);
   if (!m) continue;
   const entry = m[2];
-  if (!/ops\/check-[a-z]+\.sh|\$VERIFY|\$VENDOR|\$NODECHK/.test(entry)) continue;
+  if (!/ops\/check-[a-z]+\.sh/.test(expand(entry))) continue;
   if (!entry.includes("$MONITOR")) {
     problems.push(
       `ops/install-cron.sh: ${m[1]} schedules a check without ops/monitor.sh, so its\n` +
