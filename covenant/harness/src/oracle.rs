@@ -5,8 +5,10 @@
 //! the other half: one property that is true of any covenant carrying
 //! authority, whether or not anybody wrote it down.
 //!
-//!     An accepted transaction must not leave the holder able to do more than
-//!     it could before, minus what it just paid.
+//! ```text
+//! An accepted transaction must not leave the holder able to do more than
+//! it could before, minus what it just paid.
+//! ```
 //!
 //! A covenant supplies a `Capacity` reading of a state — named figures where
 //! HIGHER always means "can do more" — and this file does the rest. Two rules

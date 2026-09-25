@@ -57,9 +57,24 @@ to do more than it could before, minus what it just paid. 768 generated, 61
 accepted, authority grew in 0. With the epoch ratchet deliberately removed it
 fires on 8, which is how we know it can.
 
-It covers `spend`. It does not cover `delegate`, `delegate2`, `reabsorb`,
-`settle` or the exits — which is to say it does not cover delegation, the newest
-and least-reviewed surface in the protocol.
+It covered `spend` and nothing else — which is to say it did not cover
+delegation, the newest and least-reviewed surface in the protocol.
+
+**`delegate` is covered now** (`covenant/harness/src/bin/fuzz-delegate.rs`, in
+CI). A delegation pays nobody, so the parent and its child together must not be
+able to do anything the parent could do alone — and "anything" is the work:
+money is one axis, and a bigger single payment, a wider epoch allowance, a
+longer life, an earlier start and a deeper subtree are five more. An oracle
+that counted only sompi would have watched every one of those go past. Three
+holes are put back, one per axis, and all three are caught; against the
+covenant as written, none of 31 accepted delegations left the tree better off.
+
+It does not yet cover `delegate2`, `reabsorb`, `settle` or the exits. And it
+reads four of its five figures as a MAXIMUM over the tree, which cannot see
+breadth: a child born at its parent's own delegation depth does not raise the
+deepest chain the tree can build, but it gives the tree two chains of that
+depth where there was one. The file says so rather than implying coverage it
+does not have.
 
 This matters more than any other item here, and `covenant/AUDIT.md:293` says why:
 
@@ -75,7 +90,8 @@ generative oracle is the only thing here that escapes that circle.
 
 **Done means:** every entrypoint under the generative oracle, each with its own
 deliberate-hole self-check, and the accepted-but-authority-grew count at zero
-for all of them.
+for all of them. `delegate` is done; `delegate2`, `reabsorb`, `settle` and the
+exits are not.
 
 ### 1.2 The one claim that is not covered
 

@@ -107,6 +107,17 @@ jobs:
         working-directory: covenant/harness
         run: cargo run -q --bin fuzz
 
+      # The same oracle, pointed at DELEGATION — where "authority" stops being
+      # a number on one grant and becomes a property of a tree. A delegation
+      # pays nobody, so the parent and its child together must not be able to
+      # do anything the parent could do alone: not more money, and not a bigger
+      # single payment, a longer life, an earlier start or a deeper subtree.
+      # Three holes are put back, one per axis, and all three must be caught —
+      # one mutant only proves the oracle can see one thing.
+      - name: harness — a delegation never creates authority
+        working-directory: covenant/harness
+        run: cargo run -q --bin fuzz-delegate
+
       # 14 probes, each attack beside its nearest legitimate twin, judged in
       # BOTH directions: a covenant that refused everything would pass a suite
       # made only of refusals. Needs no keys and no network — the corpus is

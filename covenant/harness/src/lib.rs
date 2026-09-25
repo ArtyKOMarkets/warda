@@ -118,6 +118,23 @@ pub fn ctor_full(max_proof_depth: i64, authority: Authority, template_id: [u8; 3
 /// each of these is unchanged in the successor — without that an agent
 /// rewrites its own cap and every limit becomes decorative.
 pub fn authority_fields(root: [u8; 32], agent_xonly: [u8; 32]) -> Vec<(&'static str, Expr<'static>)> {
+    authority_fields_of(SOURCE, root, agent_xonly)
+}
+
+/// The same, for a source that is not `SOURCE`.
+///
+/// `templateId` is the one field here that is not a constant: it is a hash
+/// over the compiled prefix and suffix, so it moves when the source does. The
+/// covenant requires `parentNext.templateId == templateId`, comparing this
+/// DECLARED value against the one baked into the running bytecode — so a
+/// mutant run declaring SOURCE's hash is refused for the template rather than
+/// for the rule under test, and the mutant comes back looking clean. A mutant
+/// that cannot fire is the one failure this whole approach cannot survive.
+pub fn authority_fields_of(
+    src: &'static str,
+    root: [u8; 32],
+    agent_xonly: [u8; 32],
+) -> Vec<(&'static str, Expr<'static>)> {
     vec![
         ("agentKey", Expr::bytes(agent_xonly.to_vec())),
         ("budgetTotal", Expr::int(10_000_000_000)),
@@ -130,7 +147,7 @@ pub fn authority_fields(root: [u8; 32], agent_xonly: [u8; 32]) -> Vec<(&'static 
         ("delegationDepth", Expr::int(2)),
         // v4. Authority, not accounting: `spend` asserts it unchanged, so it
         // must equal ctor slot 12 or every successor is a different grant.
-        ("templateId", Expr::bytes(template_id_for(default_authority()).to_vec())),
+        ("templateId", Expr::bytes(template_id_of(src, default_authority()).to_vec())),
     ]
 }
 
@@ -896,6 +913,29 @@ impl Child {
 }
 
 pub fn child_state(root: [u8; 32], child_key: [u8; 32], ch: &Child) -> Expr<'static> {
+    child_state_of(SOURCE, root, child_key, ch)
+}
+
+/// Retarget a constructor vector at another source.
+///
+/// Slots 12, 13 and 14 are the template hash and the two state-region lengths,
+/// and all three are derived FROM THE COMPILED SIZE. A mutant is a different
+/// source, so it is a different size, so these are different numbers — and the
+/// covenant splices its own bytecode at those offsets to derive the successor
+/// address it demands. Carry SOURCE's numbers into a mutant compile and the
+/// splice lands in the wrong place: nothing is accepted, the mutant run comes
+/// back empty, and an empty mutant run reads as "the oracle cannot fire" when
+/// it means "the harness never ran it". That is the worst failure this file
+/// has, because it is indistinguishable from a clean result.
+pub fn for_source(mut ctor: Vec<Expr<'static>>, src: &'static str) -> Vec<Expr<'static>> {
+    let (prefix, suffix) = template_geometry_of(src);
+    ctor[12] = Expr::bytes(template_id_of(src, default_authority()).to_vec());
+    ctor[13] = Expr::int(prefix);
+    ctor[14] = Expr::int(suffix);
+    ctor
+}
+
+pub fn child_state_of(src: &'static str, root: [u8; 32], child_key: [u8; 32], ch: &Child) -> Expr<'static> {
     let (s, r, ei, es) = ch.accounting;
     struct_object(
         "State",
@@ -909,7 +949,7 @@ pub fn child_state(root: [u8; 32], child_key: [u8; 32], ch: &Child) -> Expr<'sta
             ("notBefore", Expr::int(ch.not_before)),
             ("expiresAt", Expr::int(ch.expires_at)),
             ("delegationDepth", Expr::int(ch.delegation_depth)),
-            ("templateId", Expr::bytes(template_id_for(default_authority()).to_vec())),
+            ("templateId", Expr::bytes(template_id_of(src, default_authority()).to_vec())),
             ("spentTotal", Expr::int(s)),
             ("reserved", Expr::int(r)),
             ("epochIndex", Expr::int(ei)),
@@ -971,6 +1011,10 @@ pub struct Delegate {
     /// proves the node it claims is really in its parent's tree, and how a
     /// forged one is offered the chance to prove it is not.
     pub subset: Option<(Vec<[u8; 32]>, Vec<bool>)>,
+    /// The covenant to run against. Only the mutation runs change it —
+    /// `Spend` has carried one since the oracle was written for spends, and
+    /// delegation could not be mutated at all until it had the same field.
+    pub src: &'static str,
 }
 
 impl Delegate {
@@ -982,6 +1026,7 @@ impl Delegate {
             coin_override: None,
             extra_output: false,
             subset: None,
+            src: SOURCE,
         }
     }
 
@@ -1005,8 +1050,8 @@ fn run_delegation_full(d: &Delegate) -> Result<(), TxScriptError> {
     let depth = proof_depth();
 
     let parent = compile_contract(
-        SOURCE,
-        &ctor_at_state(tree.root(), agent_xonly, depth, prev_spent, prev_reserved, 0, 0),
+        d.src,
+        &for_source(ctor_at_state(tree.root(), agent_xonly, depth, prev_spent, prev_reserved, 0, 0), d.src),
         CompileOptions::default(),
     )
     .expect("parent compiles");
@@ -1032,16 +1077,23 @@ fn run_delegation_full(d: &Delegate) -> Result<(), TxScriptError> {
 
     // Parent continuation: same authority, reserved advanced, chain pushed.
     let parent_next = compile_contract(
-        SOURCE,
-        &ctor_at_state_with_reserve(tree.root(), agent_xonly, depth, prev_spent, reserved_after, 0, 0, pushed),
+        d.src,
+        &for_source(
+            ctor_at_state_with_reserve(tree.root(), agent_xonly, depth, prev_spent, reserved_after, 0, 0, pushed),
+            d.src,
+        ),
         CompileOptions::default(),
     )
     .expect("parent successor compiles");
 
-    let child_contract = compile_contract(SOURCE, &child_ctor(tree.root(), child_key, ch, depth), CompileOptions::default())
-        .expect("child compiles");
+    let child_contract = compile_contract(
+        d.src,
+        &for_source(child_ctor(tree.root(), child_key, ch, depth), d.src),
+        CompileOptions::default(),
+    )
+    .expect("child compiles");
 
-    let mut parent_fields = authority_fields(tree.root(), agent_xonly);
+    let mut parent_fields = authority_fields_of(d.src, tree.root(), agent_xonly);
     parent_fields.push(("spentTotal", Expr::int(prev_spent)));
     parent_fields.push(("reserved", Expr::int(reserved_after)));
     parent_fields.push(("epochIndex", Expr::int(0)));
@@ -1058,7 +1110,7 @@ fn run_delegation_full(d: &Delegate) -> Result<(), TxScriptError> {
     // custom struct element type from struct literals.
     let new_states = Expr::array(
         TypeRef { base: TypeBase::Custom("State".to_string()), array_dims: vec![ArrayDim::Dynamic] },
-        vec![parent_next_state, child_state(tree.root(), child_key, ch)],
+        vec![parent_next_state, child_state_of(d.src, tree.root(), child_key, ch)],
     );
 
     let in_value: u64 = 10_000_000_000;
