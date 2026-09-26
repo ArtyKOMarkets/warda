@@ -27,7 +27,12 @@ function bench(o: { signupCode?: string; delegate?: boolean } = {}) {
     address: "kaspatest:grant", status: "ACTIVE", budgetTotal: 200_000_000n, spentTotal: 0n, reserved: 0n,
     maxPerSpend: 50_000_000n, epochRemaining: null, coin: 200_000_000n, payees: [VENDOR, RUNNER], expiresAtMs: now + 7 * 86_400_000,
   };
-  const grants = { read: async (a: string) => ((await registry.getGrant(a)) ? structuredClone(view) : null) };
+  /* `blind` makes the chain unable to find a grant it has a record for — the
+     state the hosted fleet had no way to report until 26 September, and the one
+     a covenant freeze produces: a healthy manifest and no coin at the address it
+     derives. GrantReader.read answers null rather than throwing for it. */
+  let blind = false;
+  const grants = { read: async (a: string) => (!blind && (await registry.getGrant(a)) ? structuredClone(view) : null) };
   const fees = { payee: RUNNER, perRunSompi: 1_000_000n, settleAtSompi: 10_000_000n, settleBeforeExpiryHours: 24 };
   const opsSent: string[] = [];
   const ops = createOps({ registry, now: () => now, send: async (t) => void opsSent.push(t) });
@@ -77,7 +82,8 @@ function bench(o: { signupCode?: string; delegate?: boolean } = {}) {
   };
   const raw = (method: string, path: string, key: string) =>
     api(new Request(BASE + path, { method, headers: { authorization: `Bearer ${key}` } }));
-  return { call, raw, sent, tg, siteLinks, opsSent, registry, advance: (ms: number) => void (now += ms) };
+  return { call, raw, sent, tg, siteLinks, opsSent, registry, advance: (ms: number) => void (now += ms),
+    blindChain: (on: boolean) => void (blind = on) };
 }
 
 async function onboarded(recipients = [VENDOR, RUNNER], o: { delegate?: boolean } = {}) {
@@ -358,9 +364,36 @@ test("the operator's view needs the admin secret and names no secret", async () 
   assert.equal(r.body.agents[0].runs.ok, 1);
   assert.equal(r.body.agents[0].jobs, 1);
   assert.equal(r.body.days.length, 14);
+  /* The chain IS asked now, once per agent, and the answer is on the page. Until
+     26 September this route reported a manifest's budget and spend and never
+     whether the money was where that manifest said — so the covenant-freeze
+     outage would have shown seven healthy agents. */
+  assert.equal(r.body.totals.chainAsked, true);
+  assert.equal(r.body.agents[0].located, true);
+  assert.equal(r.body.totals.unlocated, 0);
   const text = JSON.stringify(r.body);
   assert.ok(!text.includes(b.key), "no API key");
   assert.ok(!/acct_[\w-]{20,}/.test(text), "account ids are shortened");
+});
+
+test("the operator's view says when a registered grant's coin is not where its manifest says", async () => {
+  const b = await onboarded();
+  const admin = { headers: { authorization: "Bearer admin-secret-0123456789" } };
+  b.blindChain(true);
+  const r = await b.call("GET", "/v1/admin/stats", admin);
+  assert.equal(r.status, 200);
+  assert.equal(r.body.agents[0].located, false, "a record with no coin at its address is NOT located");
+  assert.equal(r.body.totals.unlocated, 1);
+  /* And the budget is still reported, unchanged. The manifest is not wrong about
+     what was granted; it is the location that is in question, and conflating the
+     two would make this page useless for the thing it was already good at. */
+  assert.match(String(r.body.agents[0].grant.budget), /\d/);
+
+  /* Back, and it says so. A permanent false is as useless as a permanent true. */
+  b.blindChain(false);
+  const again = await b.call("GET", "/v1/admin/stats", admin);
+  assert.equal(again.body.agents[0].located, true);
+  assert.equal(again.body.totals.unlocated, 0);
 });
 
 test("top-up: one waiting at a time, cancellable before any payment, then again", async () => {

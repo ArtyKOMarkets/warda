@@ -192,6 +192,27 @@ LOCATED="$OPS/check-located.sh"
 LOCATEDLOG="$HOME/Library/Logs/warda-located.log"
 LOCATEDENTRY="37 * * * * $MONITOR located $LOCATED --quiet >> $LOCATEDLOG 2>&1"
 
+# And the same question for the HOSTED fleet, at :39.
+#
+# check-located watches the grants whose manifests are in this repository. The
+# runner's are not: it keeps its records in the registry, and
+# runner/agents/first-hosted-grant.json is a snapshot of genesis that nothing
+# advances — watching it was the only failure on check-located's first real run,
+# about a grant that was perfectly fine.
+#
+# So this asks the runner instead. GET /v1/admin/stats now carries `located` per
+# agent, because the runner already had everything needed to answer it — the
+# registry, a chain connection, and a GrantReader whose own comment says null
+# means "the address the runner has on file holds nothing" — and nothing asked.
+# Through the covenant-freeze outage that page would have shown healthy agents.
+#
+# Installed only when ops/alerts.env names a runner and an admin secret. Without
+# them the probe exits 2 and the wrapper says "the CHECK cannot run", which is
+# true and not worth a schedule.
+HOSTED="$OPS/check-hosted.sh"
+HOSTEDLOG="$HOME/Library/Logs/warda-hosted.log"
+HOSTEDENTRY="39 * * * * $MONITOR hosted $HOSTED --quiet >> $HOSTEDLOG 2>&1"
+
 # The alerts. Notify-only by construction — ops/alerts.ts holds no key, signs
 # nothing and builds no transaction — so it is as safe to schedule as the
 # monitors above, and unlike them it watches YOUR grants rather than our
@@ -288,7 +309,7 @@ fi
 # So: fix it if we can, refuse if we cannot. Installing a schedule of commands
 # that cannot run is worse than installing nothing, because the crontab then
 # says the job exists.
-for f in "$SCRIPT" "$BUY" "$INTEROP" "$GROWTH" "$VENDOR" "$VERIFY" "$CONTACT" "$PROXY" "$NODECHK" "$ALERTS" "$CONSOLEAL" "$MONITOR" "$SIGNING" "$LOCATED"; do
+for f in "$SCRIPT" "$BUY" "$INTEROP" "$GROWTH" "$VENDOR" "$VERIFY" "$CONTACT" "$PROXY" "$NODECHK" "$ALERTS" "$CONSOLEAL" "$MONITOR" "$SIGNING" "$LOCATED" "$HOSTED"; do
   [ -f "$f" ] || continue
   [ -x "$f" ] && continue
   chmod +x "$f" 2>/dev/null || true
@@ -400,6 +421,7 @@ printf '%s\n' "$current" \
   | grep -v -F "check-node.sh" \
   | grep -v -F "check-verify.sh" \
   | grep -v -F "check-located.sh" \
+  | grep -v -F "check-hosted.sh" \
   | grep -v -F "check-turnkey.sh" \
   | grep -v -F "check-signing.sh" \
   | grep -v -F "alerts.sh" \
@@ -411,6 +433,9 @@ printf '%s\n' "$PROXYENTRY" >> /tmp/warda-cron.$$
 printf '%s\n' "$NODEENTRY" >> /tmp/warda-cron.$$
 printf '%s\n' "$VERIFYENTRY" >> /tmp/warda-cron.$$
 printf '%s\n' "$LOCATEDENTRY" >> /tmp/warda-cron.$$
+if grep -q '^export WARDA_RUNNER_URL=.' "$OPS/alerts.env" 2>/dev/null || grep -q '^WARDA_RUNNER_URL=.' "$OPS/alerts.env" 2>/dev/null; then
+  printf '%s\n' "$HOSTEDENTRY" >> /tmp/warda-cron.$$
+fi
 # Installed whenever the runner has a database to sign against at all. It no
 # longer needs a Turnkey key file to be present: the envelope path needs only
 # RUNNER_MASTER_KEY, and the probe itself reports a missing one as the setup

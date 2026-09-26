@@ -688,15 +688,28 @@ Turnkey email. That is fixed — an all-failed pass now alerts and exits 4, and
    the passes themselves alert — but neither one would notice a week of passes
    that bought nothing.
 
-   **And the hosted fleet has no `check-located` of its own.** The runner's grants
-   live in the registry, not in files: `runner/agents/first-hosted-grant.json` is a
-   snapshot of genesis, and its own commit says so — da9474b, *"the runner's copy
-   in Neon is the one that advances."* It was in the watch list on the first real
-   run and was the only failure, reporting a grant that is fine, which is precisely
-   the standing expected failure that teaches a person to skim. So it is out, and
-   the hosted grants are currently unwatched: nothing would notice if a hosted
-   grant went to an address the runner could not derive. That needs a probe that
-   reads the registry, which is a different credential and a different file.
+   ~~And the hosted fleet has no `check-located` of its own.~~ **Done, 26
+   September.** The runner's grants live in the registry, not in files:
+   `runner/agents/first-hosted-grant.json` is a snapshot of genesis and its own
+   commit says so — da9474b, *"the runner's copy in Neon is the one that
+   advances."* It was in `check-located`'s watch list on the first real run and was
+   the only failure, reporting a grant that is fine, which is precisely the
+   standing expected failure that teaches a person to skim.
+
+   So the question is asked where the records are. `GET /v1/admin/stats` now
+   carries `located` per agent — three-valued, because an unreachable node and a
+   moved grant are the same observation and different news — and
+   `ops/check-hosted.sh` reads it hourly at :39 through `ops/monitor.sh`. No
+   second database credential: the admin secret that already existed is the whole
+   of it.
+
+   The part worth recording is that **the runner already knew.** `GrantReader.read`
+   has said since it was written that null means *"the node is down, behind, or the
+   address the runner has on file holds nothing. It is never empty."* The operator's
+   page called `registry.getGrant` and never `grants.read`, so it reported a
+   manifest's budget and spend and never whether the money was at the address that
+   manifest derives. Through the covenant-freeze outage it would have shown a page
+   of healthy agents. The fix was one argument.
 3. The v4 → v5 migration in `covenant/MIGRATION.md` gets done, so that
    "current" and "what our grants run" stop being different answers. Six live
    grants outlive 120 days; they are the ones this class of bug keeps finding.

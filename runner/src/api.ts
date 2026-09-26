@@ -864,7 +864,15 @@ export function createApi(d: ApiDeps): (req: Request) => Promise<Response> {
         throw new HttpError(401, "the operator's view needs the admin secret");
       }
       const days = Math.min(60, Math.max(1, Number(new URL(req.url).searchParams.get("days") ?? 14) || 14));
-      return json(200, await adminStats({ store: d.store, registry: d.registry, now: now(), lastTickAt: d.ops ? await d.ops.lastTickAt() : null, days }));
+      /* `grants` passed, so the page asks the chain whether each agent's coin is
+         at the address its manifest derives. One question per agent, and by
+         GrantReader's contract it answers null rather than throwing when the
+         node cannot say — so a sleeping node degrades this route to what it
+         reported before rather than breaking it. */
+      return json(200, await adminStats({
+        store: d.store, registry: d.registry, grants: d.grants,
+        now: now(), lastTickAt: d.ops ? await d.ops.lastTickAt() : null, days,
+      }));
     }],
   ];
 

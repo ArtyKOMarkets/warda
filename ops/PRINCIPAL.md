@@ -53,17 +53,53 @@ key is thirty-two bytes and the machine's only job is to print the public half.
 
 ## The procedure
 
-**On the offline machine**, with this repo checked out (no `npm install`
-needed — `new-key.ts` uses only the SDK's own code):
+### 1. Build the bundle, on this machine
 
+    ops/principal-bundle.sh
+
+**This step did not used to exist, and the instruction it replaces was wrong.**
+It said "with this repo checked out (no `npm install` needed — `new-key.ts` uses
+only the SDK's own code)". That is false: `new-key.ts` imports `sdk/src/sign.ts`,
+which imports `@noble/curves`, and `sdk/tools/network.ts` resolves
+`@warda_protocol/kaspa` through `node_modules`. On a wiped laptop it exits with
+`ERR_MODULE_NOT_FOUND` before generating anything — and the entire premise is
+that the machine has no way to fetch what it is missing.
+
+A procedure that fails at the one step you cannot improvise around is worse than
+no procedure. It gets attempted, it fails at the far end of a trip, and the key
+gets made on the online machine "just for now", which is the exact outcome this
+document exists to prevent.
+
+So the bundle is assembled here, where the dependencies already are: the SDK's
+source, `@noble/curves`, `@noble/hashes`, and the self-link the SDK's tools
+resolve through. About 4 MB, no compiler, no install, no network.
+
+It is then **verified here**, in a temporary directory with nothing above it on
+the module path — because running it inside this repo lets Node walk upward and
+find the real `node_modules`, which is precisely how the false claim survived: it
+works everywhere except the machine it is for. The verification generates two
+keys and requires them to differ, and if anything fails it deletes the bundle
+rather than letting an unusable one be carried anywhere.
+
+Copy the directory to removable media. `MAKE-THE-KEY.txt` inside it is the rest
+of the procedure, written to be readable on a machine that cannot open this file.
+
+### 2. Make the key, on the offline machine
+
+    cd <the bundle>
     node --experimental-strip-types sdk/tools/new-key.ts --label principal \
-      > principal.key
+      --network testnet-10 > principal.key
 
-It writes the secret to `principal.key` and prints the public half. `new-key.ts`
-refuses to overwrite an existing key file — that refusal exists because on
-17 September 2026 a re-run of a pasted block wrote over a funder key and
-stranded the coin the old one controlled. `ops/check-key-writes.mjs` makes it a
-rule rather than a habit.
+It writes the secret to `principal.key` and prints the public half and its
+address on screen. `new-key.ts` refuses to overwrite an existing key file — that
+refusal exists because on 17 September 2026 a re-run of a pasted block wrote over
+a funder key and stranded the coin the old one controlled.
+`ops/check-key-writes.mjs` makes it a rule rather than a habit.
+
+Run it a second time with `>/dev/null` and check the public key printed is
+DIFFERENT. Two identical keys would mean something is returning a constant, and
+it is the one failure worth the ten seconds: a principal everybody can derive is
+a principal that receives every grant's balance for somebody else.
 
 **Write the public half down.** It is what every grant will carry and what
 every tool needs. It is meant to be readable; publishing it costs nothing.
@@ -73,7 +109,15 @@ manager that syncs, in a note, or through a chat window. Back it up the way
 you would back up a seed phrase: on paper or metal, in a second physical place,
 and never by copying the file onto a machine that is online.
 
-**Then issue grants against the public half:**
+**And take only the public half back.** Carrying the USB stick to an online
+machine to "just copy the public key off it" puts the secret on a machine that is
+online, which is the whole property being bought here. Read the public key off
+the screen and type it.
+
+Then delete the bundle from this machine. It holds no secret; leaving it around
+invites making the key in the wrong place on a day you are in a hurry.
+
+### 3. Then issue grants against the public half
 
     WARDA_SK=$(cat covenant/deploy/warda-testnet.key) \
       node --experimental-strip-types sdk/tools/genesis.ts \
@@ -83,6 +127,12 @@ and never by copying the file onto a machine that is online.
 
 The funder still signs genesis. It simply stops being the party that would
 receive the balance if the grant were ever pulled back.
+
+The v4 → v5 migration in `covenant/MIGRATION.md` is waiting on exactly this: a
+reissued grant should not be reissued under a principal that has to be separated
+again afterwards, because the principal is fixed at genesis and reissuing is the
+only way to change it. Doing them in the wrong order costs a second transaction
+per grant and a second new address for everything that references them.
 
 ## What this does NOT fix
 

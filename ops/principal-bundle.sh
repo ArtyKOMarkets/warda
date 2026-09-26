@@ -1,0 +1,147 @@
+#!/bin/bash
+# Build the bundle that generates the principal key on a machine with no network.
+#
+#     ops/principal-bundle.sh                 # build it, verify it, say where it is
+#     ops/principal-bundle.sh --out /Volumes/USB/warda-principal
+#
+# ## Why this exists
+#
+# ops/PRINCIPAL.md said, from the day it was written: "with this repo checked out
+# (no `npm install` needed — `new-key.ts` uses only the SDK's own code)".
+#
+# That is false. `sdk/tools/new-key.ts` imports `sdk/src/sign.ts`, which imports
+# `@noble/curves`, and `sdk/tools/network.ts` resolves `@warda_protocol/kaspa`
+# through node_modules. On a wiped laptop it dies with ERR_MODULE_NOT_FOUND before
+# generating anything — and the whole premise of the exercise is that the machine
+# has no way to fetch what it is missing. A procedure that fails at the one step
+# you cannot improvise around is worse than no procedure: it gets attempted, it
+# fails, and the key ends up being made on the online machine "just for now".
+#
+# So the bundle is built HERE, where the dependencies already are, and verified
+# HERE, in an isolated directory with nothing else on the module path — because a
+# bundle that is only believed to be complete is the same false claim in a new
+# place.
+#
+# ## What goes in it
+#
+# 2.5 MB: the SDK's source, @noble/curves, @noble/hashes, and the self-link the
+# SDK's own tools resolve through. No compiler, no install, no network.
+set -uo pipefail
+
+REPO="${WARDA_REPO:-$HOME/Desktop/warda}"
+export PATH="$HOME/.local/node/bin:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin"
+
+OUT=""
+for i in $(seq 1 $#); do
+  [ "${!i}" = "--out" ] && { j=$((i + 1)); OUT="${!j:-}"; }
+done
+[ -n "$OUT" ] || OUT="$REPO/principal-offline"
+
+cd "$REPO" || { echo "cannot cd to $REPO — set WARDA_REPO." >&2; exit 2; }
+
+for d in sdk node_modules/@noble/curves node_modules/@noble/hashes; do
+  [ -d "$d" ] || { echo "missing $d — run npm install in $REPO first." >&2; exit 2; }
+done
+
+if [ -e "$OUT" ]; then
+  echo "$OUT already exists. Remove it, or pass --out <somewhere else>." >&2
+  echo "  Refusing to write over it: if a previous bundle is there, it may hold a key." >&2
+  exit 2
+fi
+
+echo "building the offline bundle in $OUT"
+mkdir -p "$OUT/node_modules/@noble" "$OUT/node_modules/@warda_protocol"
+# The SOURCE, not dist. new-key.ts is run with --experimental-strip-types, so the
+# TypeScript is what executes; a dist/ would need a build on a machine that cannot
+# run one.
+cp -R sdk "$OUT/sdk"
+# Anything that could carry a secret out of here, or is simply weight.
+rm -rf "$OUT/sdk/dist" "$OUT/sdk/node_modules" "$OUT/sdk/test"
+find "$OUT/sdk" -name '*.key' -delete 2>/dev/null || true
+cp -R node_modules/@noble/curves "$OUT/node_modules/@noble/curves"
+cp -R node_modules/@noble/hashes "$OUT/node_modules/@noble/hashes"
+# How sdk/tools/network.ts reaches the package by name. A relative link, so it
+# survives being copied to a USB stick and mounted somewhere else.
+ln -s ../../sdk "$OUT/node_modules/@warda_protocol/kaspa"
+
+cat > "$OUT/MAKE-THE-KEY.txt" <<'TXT'
+The principal key. Read ops/PRINCIPAL.md first, on a machine that can read it.
+
+This directory needs no network, no npm install and no compiler. Node 20 or
+newer, and nothing else.
+
+  cd <this directory>
+  node --experimental-strip-types sdk/tools/new-key.ts --label principal \
+    --network testnet-10 > principal.key
+
+It prints the PUBLIC half and the address on screen, and writes the SECRET to
+principal.key.
+
+Then:
+
+  1. Write the public key down. It is meant to be readable and publishing it
+     costs nothing. Every grant will carry it.
+  2. Check what it wrote, without a network:
+       node --experimental-strip-types sdk/tools/new-key.ts --label check \
+         --network testnet-10 >/dev/null
+     A second run printing a DIFFERENT public key is the proof that the first
+     one was random rather than a constant.
+  3. The secret goes nowhere. Not this repo, not a syncing password manager,
+     not a note, not a chat window. Back it up like a seed phrase: paper or
+     metal, a second physical place, and never onto a machine that is online.
+  4. Take only the PUBLIC key back. If you carry the USB stick back to an
+     online machine, the secret is on a machine that is online.
+
+The public half is what genesis needs:
+
+  node --experimental-strip-types sdk/tools/genesis.ts \
+    --principal <the public key> --revocation <the ops revocation key> ...
+TXT
+
+# ---------------------------------------------------------------- verify
+#
+# In a directory of its own, with the bundle's own node_modules and nothing
+# above it. Run inside $REPO the resolver walks upward and finds the real
+# node_modules, which is exactly how the original false claim went unnoticed for
+# as long as it did: it works perfectly everywhere except the one machine it is
+# for.
+echo "verifying it in isolation"
+probe="$(mktemp -d)"
+trap 'rm -rf "$probe"' EXIT
+cp -R "$OUT" "$probe/bundle"
+first="$(cd "$probe/bundle" && node --experimental-strip-types sdk/tools/new-key.ts \
+  --label verify --network testnet-10 2>&1 >/dev/null | sed -n 's/.*public  *: \(.*\)/\1/p')"
+second="$(cd "$probe/bundle" && node --experimental-strip-types sdk/tools/new-key.ts \
+  --label verify --network testnet-10 2>&1 >/dev/null | sed -n 's/.*public  *: \(.*\)/\1/p')"
+
+fail() { echo; echo "✗ $1" >&2; echo "  The bundle is NOT usable offline. Nothing has been left in $OUT." >&2; rm -rf "$OUT"; exit 1; }
+
+case "$first" in
+  [0-9a-f]*) : ;;
+  *) fail "the bundle could not generate a key at all: ${first:-no output}" ;;
+esac
+[ "${#first}" = 64 ] || fail "the public key is ${#first} characters, not 64: $first"
+# Two runs, two keys. A bundle that returns the same key twice is generating
+# something that is not random, and that would be the one failure mode worth
+# more than the inconvenience of catching it.
+[ "$first" != "$second" ] || fail "two runs produced the SAME public key — this is not generating randomness"
+
+# And nothing that could leak: the verification made keys in a temporary copy,
+# never in $OUT.
+if find "$OUT" -name '*.key' | grep -q .; then
+  fail "the bundle contains a .key file. It must be built empty and used once, offline."
+fi
+
+echo
+echo "✓ verified: the bundle generated two different valid keys with no network"
+echo "  and nothing above it on the module path."
+echo
+echo "  $OUT  ($(du -sh "$OUT" | cut -f1))"
+echo
+echo "Copy that whole directory to removable media, take it to the offline machine,"
+echo "and follow MAKE-THE-KEY.txt inside it. Then delete it from THIS machine:"
+echo
+echo "  rm -rf $OUT"
+echo
+echo "It holds no secret — it is the means of making one, and leaving it here"
+echo "invites making the key in the wrong place on a day you are in a hurry."
