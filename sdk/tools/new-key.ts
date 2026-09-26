@@ -4,6 +4,7 @@
  *   node --experimental-strip-types tools/new-key.ts
  *   node --experimental-strip-types tools/new-key.ts --label demo-agent \\
  *     --out ../covenant/deploy/demo-agent.key
+ *   node --experimental-strip-types tools/new-key.ts --check
  *
  * Every other tool here takes keys and never makes them, which left the first
  * step of any deployment as "find a way to generate 32 random bytes" — and the
@@ -101,7 +102,22 @@ const label = flag("label", "key")!;
  * hurry", and that is the state this is guarding. `--label something-else` already
  * works for a key that is not a principal.
  */
-if (/^principal/i.test(label)) {
+/**
+ * `--check`: is this machine acceptable? Answers without generating anything.
+ *
+ * Added on 26 September after the third wrong-machine key in an hour, and this one
+ * was caused by the instruction rather than by the tool. To confirm the guard
+ * fired, I told somebody to run new-key.ts with no redirect and look for a
+ * refusal. The bundle on that machine predated the guard, so nothing refused — and
+ * a key generator that is not refusing generates a key, which went to stdout,
+ * which was a terminal, which was pasted into a chat.
+ *
+ * A command whose purpose is "check that it says no" must not be a command that
+ * makes a secret when it says yes. That is not a warning to add; it is a flag.
+ */
+const CHECK = has("check");
+
+if (/^principal/i.test(label) || CHECK) {
   const home = homedir();
   const reasons: [string, string][] = [];
 
@@ -161,7 +177,9 @@ if (/^principal/i.test(label)) {
 
   if (reasons.length > 0) {
     console.error("");
-    console.error("Refusing to generate a PRINCIPAL key on this machine.");
+    console.error(CHECK
+      ? "This machine is NOT suitable for generating a principal key."
+      : "Refusing to generate a PRINCIPAL key on this machine.");
     console.error("");
     for (const [where, what] of reasons) console.error(`  ${where.padEnd(28)} ${what}`);
     console.error("");
@@ -179,7 +197,23 @@ if (/^principal/i.test(label)) {
     console.error("that costs nothing to regenerate and everything to place wrongly is not a");
     console.error("judgement call at 5pm.");
     console.error("");
+    console.error("  --check    ask this question anywhere, without generating anything");
+    console.error("");
     process.exit(2);
+  }
+  if (CHECK) {
+    console.error("");
+    console.error("This machine shows no sign of running agents:");
+    console.error("  no crontab mentioning warda, no ~/.warda, no warda-*.log, no checkout under $HOME,");
+    console.error("  and nothing in this directory that belongs to somebody else.");
+    console.error("");
+    console.error("It cannot be PROVEN that a machine has never run an agent — a new machine that");
+    console.error("becomes one tomorrow looks exactly like this. Read ops/PRINCIPAL.md and decide;");
+    console.error("this only rules out the case that keeps happening.");
+    console.error("");
+    console.error("Nothing was generated. Drop --check when you mean it.");
+    console.error("");
+    process.exit(0);
   }
 }
 

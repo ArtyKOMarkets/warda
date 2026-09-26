@@ -61,10 +61,12 @@ function run(cwd: string, label: string, env: Record<string, string> = {}) {
      `crontab` is absent unless a case provides one — and the first version of that
      spawned "node" by name, which PATH could no longer find, so every case failed
      with a null exit code that read as the guard refusing. */
+  const { CHECKFLAG, ...rest } = env;
   const r = spawnSync(process.execPath, [
     "--experimental-strip-types", join(cwd, "sdk/tools/new-key.ts"),
     "--label", label, "--network", "testnet-10",
-  ], { cwd, encoding: "utf8", env: { ...process.env, PATH: "/nonexistent", ...env } });
+    ...(CHECKFLAG ? ["--check"] : []),
+  ], { cwd, encoding: "utf8", env: { ...process.env, PATH: "/nonexistent", ...rest } });
   return { code: r.status, out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 
@@ -149,6 +151,41 @@ test("the second run the bundle's own instructions ask for is still allowed", ()
   const key = (s: string) => /public  : ([0-9a-f]{64})/.exec(s)?.[1];
   assert.ok(key(first.out) && key(second.out));
   assert.notEqual(key(first.out), key(second.out), "two runs, two keys");
+});
+
+test("--check answers the question and generates NOTHING, either way", () => {
+  /* The third wrong-machine key was caused by the instruction, not the tool: to
+     confirm the guard fired, somebody was told to run new-key.ts with no redirect
+     and look for a refusal. The bundle there predated the guard, nothing refused,
+     and a key generator that is not refusing generates a key — to stdout, to a
+     terminal, into a chat log.
+   *
+     A command whose purpose is "check that it says no" must not make a secret when
+     it says yes. Hence a flag, and hence this test asserting the absence of key
+     material in both directions rather than only the exit code. */
+  const hex = /[0-9a-f]{64}/;
+
+  const clean = home();
+  const ok = run(bundle(clean), "principal", { HOME: clean, CHECKFLAG: "1" });
+  assert.equal(ok.code, 0, ok.out);
+  assert.match(ok.out, /shows no sign of running agents/);
+  assert.doesNotMatch(ok.out, hex, "a --check on a GOOD machine still makes no key");
+  assert.match(ok.out, /Nothing was generated/);
+
+  const dirty = home();
+  mkdirSync(join(dirty, ".warda"), { recursive: true });
+  const no = run(bundle(dirty), "principal", { HOME: dirty, CHECKFLAG: "1" });
+  assert.equal(no.code, 2, no.out);
+  assert.match(no.out, /NOT suitable/);
+  assert.doesNotMatch(no.out, hex, "and a --check on a bad one makes no key either");
+});
+
+test("--check works for any label, so it can be asked before choosing one", () => {
+  const h = home();
+  mkdirSync(join(h, ".warda"), { recursive: true });
+  const r = run(bundle(h), "anything-at-all", { HOME: h, CHECKFLAG: "1" });
+  assert.equal(r.code, 2, r.out);
+  assert.match(r.out, /NOT suitable/);
 });
 
 test("a key that is not a principal is not governed by any of this", () => {

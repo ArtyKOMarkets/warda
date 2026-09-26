@@ -116,8 +116,33 @@ for d in sdk node_modules/@noble/curves node_modules/@noble/hashes; do
 done
 
 if [ -e "$OUT" ]; then
-  echo "$OUT already exists. Remove it, or pass --out <somewhere else>." >&2
+  echo "$OUT already exists." >&2
+  echo >&2
   echo "  Refusing to write over it: if a previous bundle is there, it may hold a key." >&2
+  # WHICH bundle it is, because a stale one is the failure this paragraph exists
+  # for. On 26 September this refusal fired, the operator ran the bundle that was
+  # already there, and it predated the guard that would have stopped them — so a
+  # correct refusal to overwrite became the reason a key was made on the wrong
+  # machine. A refusal that does not say what to do next is half an answer.
+  if [ -f "$OUT/BUILT-FROM.txt" ]; then
+    echo >&2
+    echo "  The one there was built from:" >&2
+    sed 's/^/    /' "$OUT/BUILT-FROM.txt" >&2
+  else
+    echo >&2
+    echo "  It carries no BUILT-FROM.txt, so it predates 26 September and does NOT have" >&2
+    echo "  the guard that refuses to make a principal key on a machine that runs agents." >&2
+  fi
+  echo >&2
+  echo "  If it holds no key you still need, replace it:" >&2
+  echo >&2
+  echo "    rm -rf $OUT" >&2
+  echo "    ops/principal-bundle.sh" >&2
+  echo >&2
+  echo "  If it does hold one, overwrite the key first \u2014 the bytes, not the directory entry:" >&2
+  echo >&2
+  echo "    dd if=/dev/urandom of=$OUT/principal.key bs=65 count=1 conv=notrunc" >&2
+  echo "    rm -rf $OUT" >&2
   exit 2
 fi
 
@@ -136,15 +161,41 @@ cp -R node_modules/@noble/hashes "$OUT/node_modules/@noble/hashes"
 # survives being copied to a USB stick and mounted somewhere else.
 ln -s ../../sdk "$OUT/node_modules/@warda_protocol/kaspa"
 
+# Which commit this bundle came from.
+#
+# A bundle is a copy, and a copy goes stale silently. The one on this machine on
+# 26 September had been built two commits before the guard existed, the refusal
+# above correctly declined to overwrite it, and it was used — so the copy was the
+# reason the key was made on the wrong machine. A stamp makes "is this current?"
+# a question with an answer.
+{
+  echo "commit  $(git -C "$REPO" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+  echo "subject $(git -C "$REPO" log -1 --format=%s 2>/dev/null || echo unknown)"
+  echo "built   $(date -u +%FT%TZ)"
+  echo "host    $(hostname 2>/dev/null || echo unknown)"
+  echo
+  echo "Check the bundle still matches the repo before you carry it:"
+  echo "  git -C <repo> rev-parse --short HEAD"
+} > "$OUT/BUILT-FROM.txt"
+
 cat > "$OUT/MAKE-THE-KEY.txt" <<'TXT'
 The principal key. Read ops/PRINCIPAL.md first, on a machine that can read it.
 
 This directory needs no network, no npm install and no compiler. Node 20 or
 newer, and nothing else.
 
+  FIRST, ask whether this machine is even the right one. It generates nothing:
+
   cd <this directory>
+  node --experimental-strip-types sdk/tools/new-key.ts --check
+
+  It exits 0 and says so, or exits 2 and names what it found. Then:
+
   node --experimental-strip-types sdk/tools/new-key.ts --label principal \
     --network testnet-10 > principal.key
+
+  The redirect is not optional. Without it the secret goes to the screen, which
+  is how one ended up in a chat log on 26 September.
 
 It prints the PUBLIC half and the address on screen, and writes the SECRET to
 principal.key.

@@ -132,6 +132,22 @@ honest reason to want one is "I am in a hurry", which is the state being guarded
 is **allowed**, because a guard that refuses the only correct case is just a
 broken tool.
 
+**Ask first, with `--check`.** It runs every signal above and generates nothing:
+
+    node --experimental-strip-types sdk/tools/new-key.ts --check
+
+Exit 0 and it says the machine looks clean; exit 2 and it names what it found.
+This exists because the third wrong-machine key of the day was caused by the
+instruction rather than the tool: to confirm the guard fired, the command run was
+`new-key.ts --label principal` with no redirect, the bundle on that machine
+predated the guard, nothing refused — and a key generator that is not refusing
+generates a key, to stdout, to a terminal, into a chat log. A command whose purpose
+is "check that it says no" must not make a secret when it says yes.
+
+**And the redirect is not optional.** Without `> principal.key` the secret goes to
+the screen. That is the documented behaviour and it is useful for piping; it is
+also how one ends up in a transcript.
+
 **What it cannot prove** is that a machine has never run an agent. Nothing can: a
 new machine that becomes an agent machine tomorrow looks exactly like the right
 one today. What it refuses is the case that actually happened, twice — the machine
