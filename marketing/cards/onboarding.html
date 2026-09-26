@@ -1,0 +1,95 @@
+<!-- The onboarding card: post 5 of marketing/x-campaign-onboarding.md.
+
+     One card, not eight. The other seven posts in that campaign carry a terminal
+     paste, which is already a picture; this is the one whose whole content is a
+     contrast, and a contrast is what a card is for.
+
+     Both outputs are real. The tick is site/src/_quickstart.html's, the cross is
+     the quickstart's own wording, and the claim under them is the one thing on the
+     card that is an argument rather than a paste — kept to eleven words because it
+     is the sentence a reader is being asked to check rather than believe.
+
+     Style imported verbatim from cards.html: two files describing the same design
+     tokens is how the second one drifts.
+
+       cd marketing/cards
+       npm i @fontsource/barlow @fontsource/chakra-petch @fontsource/jetbrains-mono
+       node shoot-onboarding.mjs
+-->
+<!doctype html><meta charset="utf-8">
+<style>
+@font-face{font-family:CP;src:url("node_modules/@fontsource/chakra-petch/files/chakra-petch-latin-700-normal.woff2")format("woff2");font-weight:700}
+@font-face{font-family:CP;src:url("node_modules/@fontsource/chakra-petch/files/chakra-petch-latin-600-normal.woff2")format("woff2");font-weight:600}
+@font-face{font-family:BA;src:url("node_modules/@fontsource/barlow/files/barlow-latin-400-normal.woff2")format("woff2");font-weight:400}
+@font-face{font-family:BA;src:url("node_modules/@fontsource/barlow/files/barlow-latin-600-normal.woff2")format("woff2");font-weight:600}
+@font-face{font-family:JB;src:url("node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-400-normal.woff2")format("woff2");font-weight:400}
+@font-face{font-family:JB;src:url("node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-700-normal.woff2")format("woff2");font-weight:700}
+:root{--void:#06090C;--ground:#0A1014;--panel:#101A20;--edge:#1E2E37;--edgeb:#2C4350;
+--chrome:#DDE0E2;--dim:#8D989E;--faint:#5D6B73;--teal:#14D7C1;--tealb:#38F9E9;--teald:#06BBA1;
+--ghost:rgba(20,215,193,.10);--refuse:#FF6B5A;--refuseg:rgba(255,107,90,.12);--amber:#E8B23A}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#000}
+.card{width:1600px;height:900px;background:var(--void);color:var(--chrome);
+ font-family:BA,sans-serif;padding:76px 88px;position:relative;overflow:hidden;
+ display:flex;flex-direction:column}
+.card::after{content:"";position:absolute;inset:auto -300px -420px auto;width:900px;height:900px;
+ border-radius:50%;background:radial-gradient(circle,rgba(20,215,193,.055),transparent 62%)}
+.eye{font-family:JB,monospace;font-size:19px;letter-spacing:.17em;text-transform:uppercase;
+ color:var(--teal);display:flex;align-items:center;gap:16px}
+.eye::before{content:"";width:38px;height:2px;background:var(--teald)}
+h1{font-family:CP,sans-serif;font-weight:700;font-size:66px;line-height:1.04;letter-spacing:-.025em;
+ margin-top:24px;max-width:26ch}
+h1 .d,h1 .t,h1 .r{display:block}
+h1 .d{color:var(--faint)}
+h1 .t{color:var(--teal)}
+h1 .r{color:var(--refuse)}
+.sub{font-size:27px;color:var(--dim);max-width:52ch;margin-top:24px;line-height:1.45}
+.body{flex:1;display:flex;align-items:center;margin-top:34px}
+.foot{display:flex;align-items:center;justify-content:space-between;
+ font-family:JB,monospace;font-size:17px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+.foot .wm{font-family:CP,sans-serif;font-weight:700;font-size:26px;letter-spacing:.02em;
+ text-transform:none;color:var(--chrome)}
+.foot .wm b{color:var(--teal);font-weight:700}
+/* shared bits */
+.mono{font-family:JB,monospace}
+.pane{background:var(--ground);border:1px solid var(--edge);border-radius:14px;padding:30px 32px}
+.plabel{font-family:JB,monospace;font-size:16px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.big{font-family:JB,monospace;font-size:34px;color:var(--chrome);margin-top:12px}
+.tag{display:inline-block;font-family:JB,monospace;font-size:15px;letter-spacing:.14em;
+ text-transform:uppercase;padding:5px 12px;border:1px solid var(--edgeb);color:var(--faint);border-radius:4px}
+.tag.ok{border-color:var(--teald);color:var(--teal)}
+.tag.no{border-color:var(--refuse);color:var(--refuse)}
+</style>
+<style>
+/* Only what this card adds. */
+.term{background:var(--ground);border:1px solid var(--edge);border-radius:14px;
+ padding:32px 38px;font-family:JB,monospace;font-size:27px;line-height:1.62;width:100%}
+.term .cmd{color:var(--chrome)}
+.term .cmd .p{color:var(--faint)}
+.term .ok{color:var(--teal)}
+.term .no{color:var(--refuse)}
+.term .gap{height:26px}
+.claim{font-family:CP,sans-serif;font-weight:600;font-size:31px;line-height:1.34;
+ color:var(--chrome);margin:26px 0 30px;max-width:74ch}
+.claim b{color:var(--refuse);font-weight:600}
+</style>
+<body>
+
+<div class="card" id="onboarding">
+  <p class="eye">Ten minutes · minute nine</p>
+  <h1>Two payments.<span class="d">One cannot be built at all.</span></h1>
+  <div class="body">
+    <div class="term">
+      <div class="cmd"><span class="p">$</span> warda pay https://warda-demo-api.vercel.app/fact</div>
+      <div class="ok">&#10004; 0.04 KAS &middot; 200 &middot; fa7ad66b6b17&hellip;</div>
+      <div class="gap"></div>
+      <div class="cmd"><span class="p">$</span> warda pay https://somewhere-else.example/thing</div>
+      <div class="no">&#10008; that address is not on this grant's allowlist.</div>
+      <div class="no">&nbsp;&nbsp;There is nothing to sign.</div>
+    </div>
+  </div>
+  <p class="claim">The allowlist is in the script that unlocks the coin.
+    <b>No valid transaction exists</b> &mdash; not one the network would reject.</p>
+  <div class="foot"><span>testnet-10 &middot; unaudited &middot; no real money</span>
+    <span class="wm">Warda<b> Protocol</b></span></div>
+</div>

@@ -81,6 +81,8 @@ growth/listener/
 # stale the first time a figure in it changes. `node shoot.mjs` remakes them.
 marketing/cards/campaign/out/
 marketing/cards/campaign/node_modules/
+marketing/cards/*.png
+marketing/cards/node_modules/
 
 # The auditor's environment: QUOTE_SECRET signs its quotes and is a password.
 # ops/auditor.env.example is the committed shape.
