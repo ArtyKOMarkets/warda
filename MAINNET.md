@@ -681,10 +681,22 @@ Turnkey email. That is fixed — an all-failed pass now alerts and exits 4, and
    payment. `ops/check-monitors.mjs` asserts the table against buy.ts's own usage
    text so the two cannot drift.
 
-   Still open here: `ops/grants-heartbeat.sh` and `ops/listener-heartbeat.sh`
-   report that a pass ran. They are daily digests rather than watchdogs, which is
-   defensible now that the passes themselves alert — but neither one would
-   notice a week of passes that bought nothing.
+   Still open here, two things:
+
+   `ops/grants-heartbeat.sh` and `ops/listener-heartbeat.sh` report that a pass
+   ran. They are daily digests rather than watchdogs, which is defensible now that
+   the passes themselves alert — but neither one would notice a week of passes
+   that bought nothing.
+
+   **And the hosted fleet has no `check-located` of its own.** The runner's grants
+   live in the registry, not in files: `runner/agents/first-hosted-grant.json` is a
+   snapshot of genesis, and its own commit says so — da9474b, *"the runner's copy
+   in Neon is the one that advances."* It was in the watch list on the first real
+   run and was the only failure, reporting a grant that is fine, which is precisely
+   the standing expected failure that teaches a person to skim. So it is out, and
+   the hosted grants are currently unwatched: nothing would notice if a hosted
+   grant went to an address the runner could not derive. That needs a probe that
+   reads the registry, which is a different credential and a different file.
 3. The v4 → v5 migration in `covenant/MIGRATION.md` gets done, so that
    "current" and "what our grants run" stop being different answers. Six live
    grants outlive 120 days; they are the ones this class of bug keeps finding.

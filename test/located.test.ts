@@ -183,6 +183,45 @@ test("a grant that is nowhere says moved-or-ended, and does not invent a covenan
   assert.match(out, /follow-grant/, "points at the tool that walks it forward");
 });
 
+test("a manifest still at genesis is not reported as a grant that moved", async () => {
+  const node = await startFakeNode();
+  closers.push(() => node.close());
+  const dir = checkout();
+  /* The first real run of check-located had exactly one failure, and it was this
+     shape: runner/agents/first-hosted-grant.json is a snapshot of genesis that
+     nothing advances, and the message offered the two explanations that both
+     require a spend to have been recorded — "it moved and the record did not
+     follow", "it was revoked". Neither can be true of counters that have never
+     moved, and following the chain forward from a genesis state finds nothing
+     however far it walks. */
+  const fresh = { ...MANIFEST, spent_total: 0, epoch_index: 0, epoch_spent: 0 };
+  writeFileSync(join(dir, "growth/listener-grant.json"), JSON.stringify(fresh, null, 1));
+  node.utxos = [];
+  node.daaScore = BigInt(MANIFEST.not_before) + 1n;
+  const { code, out } = await run(dir, node.url);
+  assert.equal(code, 1, out);
+  assert.match(out, /still AT GENESIS/);
+  assert.match(out, /never funded|not what advances/);
+  assert.doesNotMatch(out, /follow-grant\.ts walks it forward/, "does not send a person walking the chain");
+});
+
+test("watching a manifest that nothing advances is refused, not reported", async () => {
+  const dir = checkout();
+  /* The guard on my own mistake. Putting the hosted grant back in WATCHED would
+     restore a permanent failure — an alert that is always there teaches a person
+     to skim the one day it matters — so the file refuses to run at all rather
+     than producing it. Exit 2: it cannot check, which is not the same as an
+     answer. */
+  const src = readFileSync(join(dir, "ops/check-located.ts"), "utf8");
+  writeFileSync(join(dir, "ops/check-located.ts"), src.replace(
+    'const WATCHED: [string, string][] = [["listener", "growth/listener-grant.json"]];',
+    'const WATCHED: [string, string][] = [["hosted", "runner/agents/first-hosted-grant.json"]];',
+  ));
+  const { code, out } = await run(dir, "ws://127.0.0.1:1");
+  assert.equal(code, 2, out);
+  assert.match(out, /NOT_ADVANCED says is a genesis/);
+});
+
 test("a node that cannot be reached exits 2, and concludes nothing", async () => {
   const dir = checkout();
   /* 2, not 1. ops/monitor.sh reads it as "the CHECK cannot run" and says so

@@ -92,8 +92,29 @@ const WATCHED: [string, string][] = [
   ["agent-006", "agent-006/grant-006.json"],
   ["agent-011", "x402/demo/agent-011-grant.json"],
   ["growth-batch", "growth/batch-grant.json"],
-  ["hosted", "runner/agents/first-hosted-grant.json"],
 ];
+
+/**
+ * And the one that is deliberately NOT here.
+ *
+ * `runner/agents/first-hosted-grant.json` was in this list on the first real
+ * run, and it was the only failure: nothing at its derived address, no other
+ * covenant holding it. The grant is fine. The FILE is a snapshot of genesis and
+ * is not advanced by anything — its own commit says so, da9474b: "This file is
+ * the manifest as genesis wrote it; the runner's copy in Neon is the one that
+ * advances." It shows spent_total 0 while the runner has already paid the demo
+ * vendor 0.03 KAS out of it.
+ *
+ * Which makes it exactly the standing expected failure this list's comment warns
+ * about — an alert that is always there, teaching a person to skim the one day it
+ * matters. Watching a file that is not the record cannot be made to work by
+ * trying harder; the hosted grants' record is in the registry, and reading it
+ * needs DATABASE_URL and a different probe.
+ *
+ * Open, and deliberately not solved here: the hosted fleet has no equivalent of
+ * this check. `MAINNET.md` §3.3e carries it.
+ */
+const NOT_ADVANCED = new Set(["runner/agents/first-hosted-grant.json"]);
 
 const { prefix, network } = resolveNetwork({
   network: process.env.WARDA_NETWORK ?? "testnet-10",
@@ -127,6 +148,10 @@ function stateOf(m: Record<string, unknown>, tpl: CovenantTemplate): { authority
   };
 }
 
+/** Has this manifest ever been advanced? Genesis counters are all zero. */
+const atGenesis = (m: Record<string, unknown>): boolean =>
+  BigInt((m.spent_total as number) ?? 0) === 0n && BigInt((m.epoch_index as number) ?? 0) === 0n;
+
 const addressUnder = (m: Record<string, unknown>, tpl: CovenantTemplate): string => {
   const { authority, state } = stateOf(m, tpl);
   return scriptHashToAddress(scriptHashFor(tpl, { authority, state }), prefix);
@@ -144,6 +169,14 @@ type Verdict = {
   expired?: boolean;
   elsewhere?: string;
 };
+
+for (const [name, rel] of WATCHED) {
+  if (!NOT_ADVANCED.has(rel)) continue;
+  console.error(`check-located: ${name} names ${rel}, which NOT_ADVANCED says is a genesis`);
+  console.error("  snapshot rather than a live record. Watching it produces a permanent failure.");
+  console.error("  Remove it from WATCHED, or remove it from NOT_ADVANCED and say why it advances now.");
+  process.exit(2);
+}
 
 const present = WATCHED.filter(([, p]) => existsSync(join(REPO, p)));
 if (present.length === 0) {
@@ -207,7 +240,15 @@ try {
         ? `the coin is under covenant ${elsewhere}. This manifest says ${m.covenant}, and that is what resolved here — so the MANIFEST is wrong about its own covenant, or an archive is missing.`
         : expired
           ? `the term ended at DAA ${m.expires_at} and the tip is ${tip}. Expected: an expired grant holds nothing anybody can spend.`
-          : `nothing at the derived address, and no other covenant on disk holds it either. Either it moved and the record did not follow — sdk/tools/follow-grant.ts walks it forward — or it was revoked or reclaimed.`,
+          : atGenesis(m)
+            /* A THIRD cause, and it was missing from this message on the first
+               real run — which is how a snapshot-of-genesis file read as a lost
+               grant. A manifest whose counters have never moved cannot have been
+               left behind by a spend it recorded, so either it was never funded
+               or something else advances the real record. Both are answered by
+               looking at what writes it, not by walking the chain. */
+            ? `nothing at the derived address, and this manifest is still AT GENESIS — spent_total 0, epoch 0. So either the grant was never funded, or this file is not what advances and the live record is elsewhere (the runner keeps its copy in the registry). Walking the chain forward will not help either way.`
+            : `nothing at the derived address, and no other covenant on disk holds it either. Either it moved and the record did not follow — sdk/tools/follow-grant.ts walks it forward — or it was revoked or reclaimed.`,
     });
   }
 } finally {
