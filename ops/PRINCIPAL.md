@@ -105,19 +105,37 @@ a funder key and stranded the coin the old one controlled.
 `ops/check-key-writes.mjs` makes it a rule rather than a habit.
 
 `new-key.ts` **refuses to make a principal key on a machine that runs agents**,
-and that refusal is why this section is worth re-reading even if you have done it
-before. On 26 September the key was made in the repository root on the online
-machine: the `cd` into the bundle failed, and the next line of a pasted block ran
-anyway. The document was right, had been read, and was walked straight past by a
-shell that does not stop at a failed `cd`.
+and it is worth knowing what that check does and does not prove, because it was
+wrong the first time.
 
-So it looks for the things that make a machine an agent machine — `runner/.env`,
-`ops/node.env`, `ops/alerts.env`, `covenant/deploy`, `growth/keys`, any other
-party's `*.key` in the directory — and exits 2 naming what it found. The offline
-bundle carries none of them, which is what makes it the one place this works.
-There is no `--force`; the honest reason to want one is "I am in a hurry", which
-is the state being guarded against. `sdk/test/principal-guard.test.ts` pins all
-of it, including that the bundle is allowed.
+On 26 September the key was made on the wrong machine twice within an hour. Once
+in this repository's root: the `cd` into the bundle failed — the bundle is in
+`$HOME`, not the repo — and the next line of a pasted block ran anyway. The guard
+written in response looked for `runner/.env`, `covenant/deploy` and the rest
+**relative to the current directory**, so the second attempt, run inside the
+carried bundle on the same machine, sailed through: a bundle is a directory you
+carry, and it holds none of those markers wherever it is — including on the machine
+this document forbids. The check was for the wrong noun.
+
+It asks about the machine now, using evidence a carried bundle cannot shed:
+
+| signal | why the offline machine does not have it |
+|---|---|
+| a crontab mentioning warda | the agent machine's schedule; 19 entries on the one this happened on |
+| `~/.warda` | the state directory the tools keep where they run |
+| `~/Library/Logs/warda-*.log` | what those schedules write |
+| a checkout under `$HOME`, found by its marker files | there is no reason for one to be there |
+
+Any one refuses, naming what it found, and exits 2. There is no `--force`; the
+honest reason to want one is "I am in a hurry", which is the state being guarded.
+`sdk/test/principal-guard.test.ts` pins all of it — including that a clean machine
+is **allowed**, because a guard that refuses the only correct case is just a
+broken tool.
+
+**What it cannot prove** is that a machine has never run an agent. Nothing can: a
+new machine that becomes an agent machine tomorrow looks exactly like the right
+one today. What it refuses is the case that actually happened, twice — the machine
+you are already standing at.
 
 Run it a second time with `>/dev/null` and check the public key printed is
 DIFFERENT. Two identical keys would mean something is returning a constant, and

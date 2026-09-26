@@ -26,8 +26,10 @@
  * hand to strangers. Generate a separate one.
  */
 import { randomBytes } from "node:crypto";
-import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { homedir } from "node:os";
+import { spawnSync } from "node:child_process";
 
 import { fromHex, toHex } from "../src/bytes.ts";
 import { pubkeyToAddress, type NetworkPrefix } from "../src/address.ts";
@@ -55,79 +57,127 @@ const label = flag("label", "key")!;
  *
  * The principal is the one key a grant pays out to: `revoke` and `reclaim` send
  * the whole remaining balance there and no covenant bounds it. `ops/PRINCIPAL.md`
- * is four pages on why it has to be made somewhere that has never run an agent,
- * a runner or a node — and on 26 September 2026 it was made in the repository
- * root on the machine that runs all three, because a `cd` into the offline bundle
- * failed and the next line ran anyway.
+ * is four pages on why it has to be made on a machine that has never run an
+ * agent, a runner or a node.
  *
- * That is the whole failure: the procedure was right, written down, and followed
- * by somebody who had read it. Nothing checked. A key that costs nothing to
- * regenerate and everything to place wrongly is exactly the case for a refusal
- * rather than a paragraph.
+ * ## It has now been made on the wrong machine twice in one hour
  *
- * ## What it looks for
+ * The first time, in a repository root: `cd` into the offline bundle failed and
+ * the next line of a pasted block ran anyway. This check was written in response,
+ * and it looked for `runner/.env`, `ops/node.env`, `covenant/deploy` and the rest
+ * RELATIVE TO THE CURRENT DIRECTORY.
  *
- * Not "am I in a repository" — the offline bundle IS a piece of this repository,
- * and refusing that would refuse the correct case. It looks for the things that
- * make a machine an agent machine, which the bundle deliberately does not carry:
- * other private keys, the runner's environment, a node URL, a funder. Any one of
- * them and this is the wrong machine, whatever the directory is called.
+ * The second time, inside the bundle, in $HOME, on the same machine. The guard
+ * passed — because the bundle is a directory you CARRY, so it holds none of those
+ * markers wherever it is, and "wherever" includes the machine the document
+ * forbids. I had written, in this comment, that it "looks for the things that make
+ * a machine an agent machine". It looked at a directory. The noun was wrong.
+ *
+ * ## So it asks about the MACHINE
+ *
+ * The evidence has to be something a carried bundle cannot shed, which means it
+ * cannot be relative to the working directory at all. Four signals, any one
+ * sufficient, all of them things the offline machine by definition does not have:
+ *
+ *   a crontab mentioning warda    the agent machine's schedule. 19 entries on the
+ *                                 machine this was run on; none anywhere else
+ *   ~/.warda                      the state directory the tools keep
+ *   ~/Library/Logs/warda-*.log    what those schedules write
+ *   a warda checkout under $HOME   found by its own marker files, not by name
+ *
+ * A wiped laptop or a live USB session has none of them, which is the whole
+ * definition of the machine this is for.
+ *
+ * ## What it still cannot prove
+ *
+ * That the machine has never run an agent — no check can, and a brand-new machine
+ * that will become an agent machine tomorrow looks exactly like the right one
+ * today. What it can do is refuse the case that has actually happened twice, which
+ * is the machine you are already standing at.
  *
  * ## Why there is no --force
  *
  * Because the honest reason to want one is "I know what I am doing and I am in a
- * hurry", and that is the state this is guarding. `--label something-else`
- * already works for a key that is not a principal; there is no legitimate need
- * to make a PRINCIPAL here.
+ * hurry", and that is the state this is guarding. `--label something-else` already
+ * works for a key that is not a principal.
  */
 if (/^principal/i.test(label)) {
-  const here = process.cwd();
-  const markers: [string, string][] = [
-    ["runner/.env", "the runner's environment, with its database and signing config"],
-    ["ops/node.env", "a node RPC URL, so this machine talks to the chain"],
-    ["ops/alerts.env", "the ops machine's alerting credentials"],
-    ["covenant/deploy", "the funder and agent keys this project deploys with"],
-    ["growth/keys", "the growth fleet's agent keys"],
-    ["ops/auto-issue.key", "the unattended issuer's float key"],
-  ];
-  const found = markers.filter(([rel]) => existsSync(join(here, rel)));
-  /* Other keys in the working directory count too: a directory that already holds
-     somebody else's secret is a directory something reads.
-   *
-     EXCEPT a principal's own — and that exception is not a nicety. Without it the
-     first version of this refused the SECOND run, which is the one
-     MAKE-THE-KEY.txt asks for: generate the key, then run it again and check the
-     public half differs, because two identical keys would mean this is returning
-     a constant. The guard against making the key in the wrong place had made the
-     check that it is random impossible to perform. */
+  const home = homedir();
+  const reasons: [string, string][] = [];
+
+  /* The strongest signal, and the one that cannot be carried: this machine has a
+     schedule that runs Warda. `crontab -l` exits non-zero with no crontab, which
+     is the answer the offline machine gives. */
+  try {
+    const cron = spawnSync("crontab", ["-l"], { encoding: "utf8", timeout: 5000 });
+    if (cron.status === 0 && /warda/i.test(cron.stdout ?? "")) {
+      const n = (cron.stdout ?? "").split("\n").filter((l) => /warda/i.test(l)).length;
+      reasons.push(["the crontab", `${n} scheduled Warda job(s) run on this machine`]);
+    }
+  } catch { /* no crontab command is not evidence either way */ }
+
+  if (existsSync(join(home, ".warda"))) {
+    reasons.push(["~/.warda", "the state directory the Warda tools keep on a machine they run on"]);
+  }
+  try {
+    const logs = readdirSync(join(home, "Library", "Logs")).filter((f) => /^warda-.*\.log$/.test(f));
+    if (logs.length > 0) reasons.push(["~/Library/Logs", `${logs.length} warda-*.log file(s) — something here has been running`]);
+  } catch { /* no such directory: fine, and the usual case off macOS */ }
+
+  /* A checkout found by its own marker files rather than by being called "warda",
+     two levels down from $HOME, which covers ~/Desktop/warda, ~/src/warda and the
+     rest without guessing names. */
+  const MARKERS = ["runner/.env", "ops/node.env", "ops/alerts.env", "covenant/deploy", "growth/keys", "ops/auto-issue.key"];
+  const checkouts: string[] = [];
+  const look = (dir: string, depth: number) => {
+    if (depth > 2 || checkouts.length > 0) return;
+    let entries: string[];
+    try { entries = readdirSync(dir); } catch { return; }
+    for (const name of entries) {
+      if (name.startsWith(".") && name !== ".warda") continue;
+      const p = join(dir, name);
+      try { if (!statSync(p).isDirectory()) continue; } catch { continue; }
+      const hit = MARKERS.filter((m) => existsSync(join(p, m)));
+      if (hit.length > 0) { checkouts.push(`${p} (${hit.join(", ")})`); return; }
+      look(p, depth + 1);
+    }
+  };
+  look(home, 0);
+  if (checkouts.length > 0) reasons.push(["a checkout on this machine", checkouts[0]!]);
+
+  /* And the original, cwd-relative check. Kept: it is the case where somebody is
+     standing IN the repository, and it names the thing in front of them. */
+  const hereHits = MARKERS.filter((m) => existsSync(join(process.cwd(), m)));
+  if (hereHits.length > 0) reasons.push(["this directory", hereHits.join(", ")]);
   let looseKeys: string[] = [];
   try {
-    looseKeys = readdirSync(here).filter((f) => f.endsWith(".key") && !/principal/i.test(f));
+    /* A principal's own key is NOT evidence. Without this exception the guard
+       refused the SECOND run — the one MAKE-THE-KEY.txt asks for, generate then
+       run again and check the public half differs — so the guard against making
+       the key in the wrong place made the check that it is random impossible. */
+    looseKeys = readdirSync(process.cwd()).filter((f) => f.endsWith(".key") && !/principal/i.test(f));
   } catch { /* unreadable cwd is not evidence either way */ }
+  if (looseKeys.length > 0) reasons.push(["this directory", `${looseKeys.length} other *.key file(s)`]);
 
-  if (found.length > 0 || looseKeys.length > 0) {
+  if (reasons.length > 0) {
     console.error("");
-    console.error("Refusing to generate a PRINCIPAL key here.");
+    console.error("Refusing to generate a PRINCIPAL key on this machine.");
     console.error("");
-    console.error(`  ${here}`);
-    console.error("");
-    console.error("This looks like a machine that runs agents:");
-    for (const [rel, why] of found) console.error(`  ${rel.padEnd(22)} ${why}`);
-    if (looseKeys.length > 0) {
-      console.error(`  ${String(looseKeys.length + " *.key file(s)").padEnd(22)} a directory holding secrets is a directory something reads`);
-    }
+    for (const [where, what] of reasons) console.error(`  ${where.padEnd(28)} ${what}`);
     console.error("");
     console.error("The principal receives a grant's ENTIRE remaining balance on revoke or");
-    console.error("reclaim, and no covenant bounds that. It has to be generated somewhere that");
-    console.error("has never run an agent, a runner or a node. ops/PRINCIPAL.md says why at");
-    console.error("length; this refusal exists because on 26 September a failed `cd` meant the");
-    console.error("next line ran here instead of in the offline bundle, and the key was made on");
-    console.error("this machine by somebody who had read the document.");
+    console.error("reclaim, and no covenant bounds that. It has to be generated on a machine that");
+    console.error("has never run an agent, a runner or a node — ops/PRINCIPAL.md says why at");
+    console.error("length. This refusal exists because the key was made on the wrong machine");
+    console.error("twice in one hour: once in a repository root after a failed `cd`, and once");
+    console.error("inside the carried bundle, on the same machine, past a check that was looking");
+    console.error("at the directory instead of the machine.");
     console.error("");
     console.error("  ops/principal-bundle.sh    builds and verifies what to carry");
     console.error("");
-    console.error("There is no --force. A key that costs nothing to regenerate and everything to");
-    console.error("place wrongly is not a judgement call at 5pm.");
+    console.error("Copy that to removable media and run this THERE. There is no --force: a key");
+    console.error("that costs nothing to regenerate and everything to place wrongly is not a");
+    console.error("judgement call at 5pm.");
     console.error("");
     process.exit(2);
   }

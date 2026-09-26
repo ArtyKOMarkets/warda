@@ -151,11 +151,16 @@ principal.key.
 
 Then:
 
-  If it refuses, read what it says. new-key.ts will not make a PRINCIPAL key on a
-  machine that looks like it runs agents, because on 26 September one was made in
-  a repository root when a `cd` into this bundle failed and the next line ran
-  anyway. In this bundle it will not refuse; anywhere else, it is telling you
-  something true.
+  If it refuses, read what it says and believe it. new-key.ts will not make a
+  PRINCIPAL key on a machine that shows signs of running agents — a crontab with
+  warda jobs, a ~/.warda directory, warda logs, a checkout under $HOME. It names
+  which one it found.
+
+  A refusal HERE means you are still on the machine you meant to carry this away
+  from. That is not a glitch to work around: on 26 September the key was made on
+  that machine twice within an hour, once after a failed `cd` and once inside this
+  very bundle, past a check that was looking at the directory instead of the
+  machine. There is no --force.
 
   1. Write the public key down. It is meant to be readable and publishing it
      costs nothing. Every grant will carry it.
