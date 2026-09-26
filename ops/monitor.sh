@@ -30,6 +30,20 @@
 #   still down every REMIND hours, so silence can never mean health
 #   recovered  on the first success, but only if the down was announced
 #
+# ## The exit codes it reads
+#
+# Not every non-zero is an outage, and saying so is most of this file's value.
+#
+#   0        healthy
+#   2        the probe ran and cannot check (not configured)
+#   3        the covenant refused — the grant working, not a failure
+#   4        paid and not served — sent EVERY time, it costs money each time
+#   5        every purchase failed — nothing spent, nothing bought
+#   126/127  the probe could not start
+#   anything else  down
+#
+# 3, 4 and 5 are `agents/tools/buy.ts`'s documented codes, unchanged.
+#
 # CONFIRM is 2 by default: one timed-out curl at minute 15 is not an outage,
 # and waiting one cycle costs fifteen minutes against an incident that lasted
 # days. A blip that clears on its own sends nothing at all — and because the
@@ -196,6 +210,52 @@ NOCFG
     echo "FAIL  exit 2 reported as: $(tail -n1 "$sink")"; fails=$((fails + 1))
   fi
 
+  # The buy protocol's codes, each of which used to read as "DOWN".
+  code_case() { # code_case <exit> <runs> <expected sends> <substring> <label>
+    rm -rf "$tmp/state"; : > "$sink"
+    cat > "$tmp/coded" <<CODED
+#!/bin/bash
+echo "the tool said something about exit $1" >&2
+exit $1
+CODED
+    chmod +x "$tmp/coded"
+    local i
+    for i in $(seq 1 "$2"); do
+      WARDA_NOTIFY_SINK="$sink" WARDA_MONITOR_NO_ENV=1 WARDA_REPO="$REPO" \
+        WARDA_MONITOR_STATE="$tmp/state" "$0" selftest "$tmp/coded" >/dev/null 2>&1
+    done
+    # Counted by OCCURRENCES of the headline, not by lines: the exit-4 alert is
+    # three lines long, and a line count read that as three alerts.
+    local got; got="$(grep -c -i -- "$4" "$sink" | tr -d ' ')"
+    if [ "$got" != "$3" ]; then
+      echo "FAIL  $5: expected $3 '$4' message(s) from $2 run(s), got $got"; fails=$((fails + 1)); return
+    fi
+    if grep -q "is DOWN" "$sink"; then
+      echo "FAIL  $5: still called it DOWN — $(tail -n1 "$sink")"; fails=$((fails + 1)); return
+    fi
+    echo "ok    $5"
+  }
+
+  code_case 3 2 1 "covenant REFUSED" "a covenant refusal is the grant working, not an outage"
+  code_case 5 2 1 "every purchase FAILED" "every buy failing is not the same as a refusal"
+  # Two runs, TWO alerts. The whole point: each one is another payment, so
+  # edge-triggering would swallow the second loss.
+  code_case 4 2 2 "PAID AND NOT SERVED" "paid-and-unserved is sent every single time"
+  if grep -q "Do NOT re-run" "$sink"; then
+    echo "ok    and it says what not to do, which is the instinct that doubles the loss"
+  else
+    echo "FAIL  exit 4 alert does not warn against re-running"; fails=$((fails + 1))
+  fi
+  # CONFIRM is not consulted for 4: one run, one alert.
+  rm -rf "$tmp/state"; : > "$sink"
+  WARDA_NOTIFY_SINK="$sink" WARDA_MONITOR_NO_ENV=1 WARDA_REPO="$REPO" \
+    WARDA_MONITOR_STATE="$tmp/state" "$0" selftest "$tmp/coded" >/dev/null 2>&1
+  if [ "$(grep -c "PAID AND NOT SERVED" "$sink" | tr -d ' ')" = 1 ]; then
+    echo "ok    exit 4 does not wait for CONFIRM — the money is already gone"
+  else
+    echo "FAIL  exit 4 waited for CONFIRM"; fails=$((fails + 1))
+  fi
+
   # Delivery is not assumed. With no sink and no token, nothing can be sent,
   # and the state must not record that it was.
   echo down > "$verdict"
@@ -289,6 +349,54 @@ elif [ "$code" = 2 ]; then
   headline="$name: the CHECK cannot run (exit 2)"
   again="$name: the CHECK still cannot run (exit 2)"
   aside=" The probe says it is not configured to check; this says nothing either way about $name itself."
+#
+# 3, 4 and 5 are the BUY protocol, which this wrapper now speaks because the
+# things worth watching are no longer only endpoints.
+#
+# `agents/tools/buy.ts` documents its exit codes as "the API when you call this
+# from another language", and three agents were calling it from cron with those
+# codes going into a log file. When the covenant template moved under them,
+# agent-003 and agent-005 failed every purchase for a day with nobody told —
+# the same outage as the Listener's, one directory over, and neither of their
+# wrappers had anywhere to send.
+#
+# Wrapping them means the codes have to keep their meanings here. A grant whose
+# budget has run out is not "agent-003 is DOWN": it is the grant doing exactly
+# what it was made to do, and it deserves one alert and reminders, not a daily
+# panic. `ops/check-monitors.mjs` asserts this table against buy.ts's own usage
+# text so the two cannot drift.
+elif [ "$code" = 3 ]; then
+  headline="$name: the covenant REFUSED — nothing was spent"
+  again="$name: the covenant is still refusing"
+  aside=" This is the grant enforcing its own terms, not a failure: the budget or the epoch allowance is spent. It needs a top-up or a new grant, not a fix."
+elif [ "$code" = 5 ]; then
+  headline="$name: every purchase FAILED"
+  again="$name: every purchase is still failing"
+  aside=" Distinct from a refusal: the covenant said nothing, the buys could not be made at all. Nothing was spent and nothing was bought."
+fi
+
+# Exit 4 does not belong to the state machine at all.
+#
+# "Paid and not served": the money settled and the vendor did not deliver. Every
+# occurrence is a separate loss, so edge-triggering it would suppress the second
+# one — and the second one is another payment. It is sent on every run that
+# produces it, before CONFIRM is consulted and regardless of what was announced
+# before.
+#
+# It is also the one alert that must say what NOT to do. The proof is resumable:
+# re-running the same command re-presents it and pays nothing, and "run it
+# again" is the instinct that turns one loss into two.
+if [ "$code" = 4 ]; then
+  if warda_notify "$name: PAID AND NOT SERVED. The money settled and the vendor did not deliver.
+Do NOT re-run to compensate — that buys it twice. Running the SAME command again re-presents the proof and pays nothing.
+${tail_text:-no output.}"; then
+    m_undelivered=0
+  else
+    m_undelivered=$((m_undelivered + 1))
+    echo "$name: exit 4 alert NOT delivered ($m_undelivered pending)." >&2
+  fi
+  save "$state"
+  exit "$code"
 fi
 
 send=""

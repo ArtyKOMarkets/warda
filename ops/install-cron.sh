@@ -22,9 +22,32 @@
 set -euo pipefail
 
 OPS="$HOME/Desktop/warda/ops"
+
+# ---------------------------------------------------------------------------
+# Everything below that SPENDS goes through ops/monitor.sh.
+#
+# It did not, and the cost of that was a day. `agents/tools/buy.ts` documents
+# exit codes as "the API when you call this from another language", each of these
+# wrappers translated them into a sentence, and every sentence went to
+# ~/Library/Logs/warda-*.log. When the covenant template moved on 25 September
+# the Listener, agent-003 and agent-005 failed every purchase for twenty-one
+# hours and the only reason anybody found out was an unrelated email.
+#
+# The monitors have had the answer to this since they were built — edge-triggered
+# alerting, six-hourly reminders, delivery that is not assumed — and it was
+# pointed at endpoints while the agents, which are the part that holds money,
+# reported into files.
+#
+# WARDA_MONITOR_CONFIRM=1 on all of them. CONFIRM=2 exists because one timed-out
+# curl at minute 15 is not an outage; for a job that fires once or twice a day it
+# would mean waiting a day to be told, and there is no blip to ride out — a
+# purchase either happened or it did not.
+# ---------------------------------------------------------------------------
+
+MONITOR="$OPS/monitor.sh"
 SCRIPT="$OPS/hourly-reading.sh"
 LOG="$HOME/Library/Logs/warda-agent.log"
-ENTRY="17 * * * * $SCRIPT >> $LOG 2>&1"
+ENTRY="17 * * * * $MONITOR reading $SCRIPT >> $LOG 2>&1"
 
 # Agent #003 buying agent #001's digest, once a day. Opt-in with --buy,
 # because unlike the reading this one SPENDS: about 0.04 KAS a run, against a
@@ -33,7 +56,7 @@ BUY="$OPS/daily-buy.sh"
 BUYLOG="$HOME/Library/Logs/warda-buy.log"
 # 09:41, not on the hour and not at midnight: the reading runs at :17, and a
 # purchase wants a digest that already exists rather than one being written.
-BUYENTRY="41 9 * * * $BUY >> $BUYLOG 2>&1"
+BUYENTRY="41 9 * * * WARDA_MONITOR_CONFIRM=1 $MONITOR buy $BUY >> $BUYLOG 2>&1"
 
 # Agent #005 buying from demo.kaspa-x402.org, once a day. Opt-in for the same
 # reason as --buy: it SPENDS, about 0.22 KAS a run against 2.55 remaining, so
@@ -45,7 +68,7 @@ INTEROP="$OPS/daily-interop.sh"
 INTEROPLOG="$HOME/Library/Logs/warda-interop.log"
 # 09:23: after first-contact at :07 and before #003's buy at :41, so three jobs
 # that all touch the chain are not queued behind each other.
-INTEROPENTRY="23 9 * * * $INTEROP >> $INTEROPLOG 2>&1"
+INTEROPENTRY="23 9 * * * WARDA_MONITOR_CONFIRM=1 $MONITOR interop $INTEROP >> $INTEROPLOG 2>&1"
 
 # The growth fleet's week: a batch grant, Scout buying records from
 # Researcher, drafts for a person to read. Opt-in, because it SPENDS — about
@@ -53,7 +76,7 @@ INTEROPENTRY="23 9 * * * $INTEROP >> $INTEROPLOG 2>&1"
 # morning buys, so three chain jobs are not queued behind each other.
 GROWTH="$OPS/weekly-growth.sh"
 GROWTHLOG="$HOME/Library/Logs/warda-growth.log"
-GROWTHENTRY="13 10 * * 1 $GROWTH >> $GROWTHLOG 2>&1"
+GROWTHENTRY="13 10 * * 1 WARDA_MONITOR_CONFIRM=1 $MONITOR growth $GROWTH >> $GROWTHLOG 2>&1"
 
 # The Listener: X conversations worth replying to, twice a day, to Telegram.
 # Opt-in, because it SPENDS — and unlike everything else here it spends
@@ -63,7 +86,7 @@ GROWTHENTRY="13 10 * * 1 $GROWTH >> $GROWTHLOG 2>&1"
 # jobs that touch the chain.
 LISTENER="$OPS/listener-pass.sh"
 LISTENERLOG="$HOME/Library/Logs/warda-listener.log"
-LISTENERENTRY="13 8,20 * * * $LISTENER >> $LISTENERLOG 2>&1"
+LISTENERENTRY="13 8,20 * * * WARDA_MONITOR_CONFIRM=1 $MONITOR listener $LISTENER >> $LISTENERLOG 2>&1"
 
 # The heartbeat, at 21:05 -- after the evening pass, so its report includes
 # the pass that just ran. The pass itself is deliberately silent when it finds
@@ -79,7 +102,7 @@ LISTENERENTRY="13 8,20 * * * $LISTENER >> $LISTENERLOG 2>&1"
 # ops/auto-issue.key and the float's balance is the only bound on genesis.
 AUTOISSUE="$OPS/auto-issue.sh"
 AUTOISSUELOG="$HOME/Library/Logs/warda-grants.log"
-AUTOISSUEENTRY="7,22,37,52 * * * * $AUTOISSUE >> $AUTOISSUELOG 2>&1"
+AUTOISSUEENTRY="7,22,37,52 * * * * $MONITOR grants $AUTOISSUE >> $AUTOISSUELOG 2>&1"
 
 # And once a day, what the fifteen-minute job is deliberately quiet about: a
 # float that has emptied or fragmented looks exactly like a quiet week, and
@@ -130,7 +153,6 @@ PROXYENTRY="*/5 * * * * $OPS/proxy-up.sh >> $PROXYLOG 2>&1"
 # verification outage would have been recorded, promptly, unread. The wrapper
 # turns a change of state into a message and leaves an unchanged state silent —
 # see its header for why the edge, and not the failure, is the thing to send.
-MONITOR="$OPS/monitor.sh"
 
 # The public quickstart node, checked every fifteen minutes like the vendor.
 # Same reasoning: /start is about to point a stranger at it, and the failure
@@ -146,6 +168,29 @@ NODEENTRY="*/15 * * * * $MONITOR node $OPS/check-node.sh --quiet >> $NODELOG 2>&
 VERIFY="$OPS/check-verify.sh"
 VERIFYLOG="$HOME/Library/Logs/warda-verify.log"
 VERIFYENTRY="*/15 * * * * $MONITOR verify $VERIFY --quiet >> $VERIFYLOG 2>&1"
+
+# Are our own grants where we think they are? Hourly, at :37.
+#
+# The check that did not exist on 25 September, and the only one that could have
+# caught the outage without an agent happening to run: it takes the manifests the
+# fleet actually spends from, resolves each one's covenant the way the wallet
+# does, derives the address and asks the chain. Under a wrong template every
+# answer is "empty", and it says which covenant DOES hold the coin — which is the
+# difference between "the grant is gone" and "this code is reading the wrong
+# bytecode", and the difference between an afternoon on chain and a one-line fix.
+#
+# It cannot be a CI check, and that is the point rather than a limitation: a
+# fixture's template travels with the code, so it can never disagree with it. CI
+# ran 251 SDK tests and a thirteen-shape covenant matrix through the whole outage.
+# test/located.test.ts drives THIS file against the fake node and shows it the
+# September state, which is what makes a green run of it mean anything.
+#
+# :37 — the three */15 monitors fire at 0/15/30/45 and all touch the node, and
+# this asks it up to seven questions. It is not on a critical path; it can wait
+# for a quiet minute.
+LOCATED="$OPS/check-located.sh"
+LOCATEDLOG="$HOME/Library/Logs/warda-located.log"
+LOCATEDENTRY="37 * * * * $MONITOR located $LOCATED --quiet >> $LOCATEDLOG 2>&1"
 
 # The alerts. Notify-only by construction — ops/alerts.ts holds no key, signs
 # nothing and builds no transaction — so it is as safe to schedule as the
@@ -243,7 +288,7 @@ fi
 # So: fix it if we can, refuse if we cannot. Installing a schedule of commands
 # that cannot run is worse than installing nothing, because the crontab then
 # says the job exists.
-for f in "$SCRIPT" "$BUY" "$INTEROP" "$GROWTH" "$VENDOR" "$VERIFY" "$CONTACT" "$PROXY" "$NODECHK" "$ALERTS" "$CONSOLEAL" "$MONITOR" "$SIGNING"; do
+for f in "$SCRIPT" "$BUY" "$INTEROP" "$GROWTH" "$VENDOR" "$VERIFY" "$CONTACT" "$PROXY" "$NODECHK" "$ALERTS" "$CONSOLEAL" "$MONITOR" "$SIGNING" "$LOCATED"; do
   [ -f "$f" ] || continue
   [ -x "$f" ] && continue
   chmod +x "$f" 2>/dev/null || true
@@ -354,6 +399,7 @@ printf '%s\n' "$current" \
   | grep -v -F "proxy-up.sh" \
   | grep -v -F "check-node.sh" \
   | grep -v -F "check-verify.sh" \
+  | grep -v -F "check-located.sh" \
   | grep -v -F "check-turnkey.sh" \
   | grep -v -F "check-signing.sh" \
   | grep -v -F "alerts.sh" \
@@ -364,6 +410,7 @@ printf '%s\n' "$CONTACTENTRY" >> /tmp/warda-cron.$$
 printf '%s\n' "$PROXYENTRY" >> /tmp/warda-cron.$$
 printf '%s\n' "$NODEENTRY" >> /tmp/warda-cron.$$
 printf '%s\n' "$VERIFYENTRY" >> /tmp/warda-cron.$$
+printf '%s\n' "$LOCATEDENTRY" >> /tmp/warda-cron.$$
 # Installed whenever the runner has a database to sign against at all. It no
 # longer needs a Turnkey key file to be present: the envelope path needs only
 # RUNNER_MASTER_KEY, and the probe itself reports a missing one as the setup

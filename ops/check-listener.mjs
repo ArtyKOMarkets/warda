@@ -111,7 +111,9 @@ if (existsSync(grantPath)) {
  *   * and it exits non-zero, so ops/listener-pass.sh's own alert fires too.
  *
  * And the distinction from a REFUSAL is the point. A covenant refusal is the
- * system working; it already exits 3. A pass that could not buy exits 4.
+ * system working; it already exits 3. A pass that could not buy exits 5 — not 4,
+ * which buy.ts defines as "paid, unserved" and ops/monitor.sh alerts on every
+ * single time because each occurrence is another payment.
  */
 {
   const pass = readFileSync(join(root, "growth/tools/listen.ts"), "utf8");
@@ -126,7 +128,7 @@ if (existsSync(grantPath)) {
     if (!/every purchase in this pass FAILED/i.test(pass)) {
       problems.push("growth/tools/listen.ts detects an all-failed pass but no longer says so to Telegram.");
     }
-    if (!/process\.exit\(4\)/.test(pass)) {
+    if (!/process\.exit\(5\)/.test(pass)) {
       problems.push(
         "growth/tools/listen.ts detects an all-failed pass but no longer exits non-zero,\n" +
           "    so ops/listener-pass.sh's watchdog stays quiet about it.",

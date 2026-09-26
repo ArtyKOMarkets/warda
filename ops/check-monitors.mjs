@@ -79,6 +79,99 @@ for (const line of cron.split("\n")) {
   }
 }
 
+// -------------------------------------------------------- 1c. and the SPENDERS
+//
+// The rule above covers `ops/check-*.sh` probes, which is what a monitor meant
+// when it was written: an endpoint, watched from outside. It did not cover the
+// jobs that hold money.
+//
+// So on 25 September the Listener, agent-003 and agent-005 failed every purchase
+// for twenty-one hours. All three wrappers translated buy.ts's exit code into a
+// careful sentence and appended it to ~/Library/Logs, and the monitors that had
+// been built to stop exactly this were pointed at three HTTP endpoints, all of
+// which were fine the whole time.
+//
+// Named explicitly, unlike 1's property, because there is no textual signal that
+// an entry spends — and the list being short and hand-written is the point: a
+// fourth spender is something somebody has to add here, which is a smaller
+// mistake than never noticing it was never watched.
+const SPENDERS = [
+  ["BUYENTRY", "agent-003's daily digest buy"],
+  ["INTEROPENTRY", "agent-005's daily interop buy"],
+  ["GROWTHENTRY", "the growth fleet's weekly batch"],
+  ["LISTENERENTRY", "the Listener's twice-daily pass"],
+];
+for (const [name, what] of SPENDERS) {
+  const entry = vars.get(name);
+  if (!entry) {
+    problems.push(`ops/install-cron.sh has no ${name}. ${what} is named here and does not exist there.`);
+    continue;
+  }
+  if (!entry.includes("$MONITOR")) {
+    problems.push(
+      `ops/install-cron.sh: ${name} (${what}) SPENDS and does not go through\n` +
+        `  ops/monitor.sh, so a run that could not buy reports into a log file. That is\n` +
+        `  the twenty-one-hour outage of 25 September, exactly:\n    ${entry}`,
+    );
+    continue;
+  }
+  /* CONFIRM=2 is right for a probe firing every fifteen minutes and wrong for a
+     job firing once a day: it would wait a full day before saying anything, and
+     there is no blip to ride out — a purchase either happened or it did not. */
+  if (!/WARDA_MONITOR_CONFIRM=1/.test(entry)) {
+    problems.push(
+      `ops/install-cron.sh: ${name} (${what}) is wrapped but keeps CONFIRM=2, so the\n` +
+        `  first failed run says nothing and the alert waits for the NEXT scheduled run —\n` +
+        `  a day later, or a week for the weekly one.`,
+    );
+  }
+}
+
+// ------------------------------------------------- 1d. and they mean the same thing
+//
+// `agents/tools/buy.ts` calls its exit codes "the API when you call this from
+// another language", and ops/monitor.sh is now one of the callers. If the two
+// drift, the wrapper reports a covenant refusal as an outage or — far worse — a
+// paid-and-unserved purchase as something to retry.
+const buy = read("agents/tools/buy.ts");
+const mon = read("ops/monitor.sh");
+const CODES = [
+  [3, /3\s+refused/, /\[ "\$code" = 3 \]/, "the covenant refused; nothing was spent"],
+  [4, /4\s+paid, unserved/, /\[ "\$code" = 4 \]/, "paid and not served"],
+];
+for (const [code, inBuy, inMon, meaning] of CODES) {
+  if (!inBuy.test(buy)) {
+    problems.push(
+      `agents/tools/buy.ts no longer documents exit ${code} (${meaning}) in its usage text.\n` +
+        `  ops/monitor.sh reads that code and words its alert from it; the two are a protocol.`,
+    );
+  }
+  if (!inMon.test(mon)) {
+    problems.push(
+      `ops/monitor.sh no longer handles exit ${code} (${meaning}), so it reports it as\n` +
+        `  "is DOWN" — which for ${code === 3 ? "a grant enforcing its own terms" : "money already spent"} is the wrong sentence.`,
+    );
+  }
+}
+/* 4 is the one that must not be edge-triggered: every occurrence is another
+   payment, so suppressing the second one suppresses a second loss. */
+if (!/Do NOT re-run to compensate/.test(mon)) {
+  problems.push(
+    'ops/monitor.sh\'s exit-4 alert no longer says not to re-run. Re-running is the\n' +
+      "  instinct, the proof is resumable, and the alert is where that has to be said.",
+  );
+}
+/* And listen.ts must not squat on 4. It exits 5 for "every buy failed", which is
+   the opposite situation — nothing spent — and wearing 4 would tell a person
+   money was gone. */
+if (/process\.exit\(4\)/.test(read("growth/tools/listen.ts"))) {
+  problems.push(
+    "growth/tools/listen.ts exits 4, which buy.ts defines as paid-and-unserved and\n" +
+      "  ops/monitor.sh alerts on every single time. Its own condition is that NOTHING was\n" +
+      "  spent. Use 5.",
+  );
+}
+
 // ---------------------------------------------------------------- 1b. one predicate
 //
 // install-cron.sh warns when the wrapper has no way to speak — the one moment

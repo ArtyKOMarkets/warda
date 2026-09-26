@@ -660,12 +660,31 @@ Turnkey email. That is fixed — an all-failed pass now alerts and exits 4, and
 
 **Done means:** three things, none of them "be more careful".
 
-1. A covenant freeze has a checklist step that exercises a LIVE grant end to
-   end — not a fixture, whose template travels with the code. The v5 freeze
-   ran the full 13-shape matrix and 251 SDK tests and none of that could have
-   caught this.
-2. Every monitor answers "did the thing it exists to do succeed", not "did it
-   run". Until then a green heartbeat means the cron fired.
+1. ~~A covenant freeze has a checklist step that exercises a LIVE grant end to
+   end~~ — **done, 26 September.** `covenant/FREEZE.md` is the procedure, and
+   its step 6 is `ops/check-located.ts`: it takes the manifests the fleet spends
+   from, resolves each one's covenant the way the wallet does, derives the
+   address, asks the chain, and when the coin is not there names the covenant
+   that DOES hold it. That cannot be a CI check — a fixture's template travels
+   with the code, which is why 251 SDK tests and the 13-shape matrix were green
+   throughout. `test/located.test.ts` drives it against the fake node and shows
+   it the September state; the real answer needs the real chain. It also runs
+   hourly at :37 through `ops/monitor.sh`, so the next one is found in an hour
+   rather than by an unrelated email.
+2. ~~Every monitor answers "did the thing it exists to do succeed"~~ — **the
+   spenders, done, 26 September.** `BUYENTRY`, `INTEROPENTRY`, `GROWTHENTRY` and
+   `LISTENERENTRY` go through `ops/monitor.sh` with `CONFIRM=1`, and the wrapper
+   now reads `agents/tools/buy.ts`'s exit codes rather than calling every
+   non-zero an outage: 3 is the covenant refusing (the grant working), 5 is every
+   buy failing (nothing spent), and 4 — paid and not served — is sent on **every
+   occurrence**, bypassing the state machine, because each one is another
+   payment. `ops/check-monitors.mjs` asserts the table against buy.ts's own usage
+   text so the two cannot drift.
+
+   Still open here: `ops/grants-heartbeat.sh` and `ops/listener-heartbeat.sh`
+   report that a pass ran. They are daily digests rather than watchdogs, which is
+   defensible now that the passes themselves alert — but neither one would
+   notice a week of passes that bought nothing.
 3. The v4 → v5 migration in `covenant/MIGRATION.md` gets done, so that
    "current" and "what our grants run" stop being different answers. Six live
    grants outlive 120 days; they are the ones this class of bug keeps finding.

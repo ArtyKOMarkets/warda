@@ -567,10 +567,19 @@ async function main() {
             refused: refused ?? null, funded: state.fundedBy ?? null });
   save(state);
   if (refused && !DIRECT) process.exit(3);
-  /* 4, not 1: ops/listener-pass.sh reports the code, and "the pass failed" for a
-     crash and for a pass that ran perfectly and could buy nothing are different
-     things to go and look at. */
-  if (!DIRECT && attempted > 0 && brokeCount === attempted) process.exit(4);
+  /* 5, and NOT 4.
+   *
+   * `agents/tools/buy.ts` documents its exit codes as "the API when you call
+   * this from another language", and 4 there means "paid, unserved" — the money
+   * settled and the vendor did not deliver. ops/monitor.sh sends that one on
+   * every single occurrence, without waiting for CONFIRM, because each one is
+   * another payment. Reusing 4 for "could not buy at all" would have turned
+   * "nothing was spent" into "money is gone, do not re-run", which is the
+   * wrong panic in the wrong direction.
+   *
+   * 1 would be no better: a crash and a pass that ran perfectly and could buy
+   * nothing are different things to go and look at. */
+  if (!DIRECT && attempted > 0 && brokeCount === attempted) process.exit(5);
 }
 
 void main().catch((e: Error) => { console.error(e.stack ?? e.message); process.exit(1); });

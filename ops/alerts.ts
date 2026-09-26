@@ -73,13 +73,12 @@ import {
   scriptHashFor,
   scriptHashToAddress,
   templateIdFor,
-  type CovenantTemplate,
   type GrantAuthority,
   type GrantState,
 } from "@warda_protocol/kaspa";
 import { formatKas } from "@warda_protocol/core";
 import { renewVerdict } from "@warda_protocol/router";
-import covenantTemplate from "@warda_protocol/kaspa/covenant-template.json" with { type: "json" };
+import { templateFor } from "@warda_protocol/kaspa/templates";
 
 import { rpcFrom, resolveNetwork } from "../sdk/tools/network.ts";
 import type { Chain } from "../sdk/tools/chain.ts";
@@ -243,7 +242,6 @@ export type Outcome =
   | { status: "firing"; lines: string[] }
   | { status: "undecided"; why: string };
 
-const template = covenantTemplate as unknown as CovenantTemplate;
 
 const { prefix, network } = resolveNetwork({
   prefix: flag("prefix"),
@@ -253,6 +251,16 @@ const { prefix, network } = resolveNetwork({
 
 /** Manifest -> the address the chain would hold this grant at, right now. */
 function addressOf(m: Record<string, unknown>): { state: GrantState; address: string } {
+  /* Per manifest, and this used to be one module-level `const template =
+     <the packaged one>`.
+   *
+     This file watches OTHER PEOPLE's grants and tells them when one is running
+     out. Under the wrong covenant every address it derives is well-formed and
+     empty, so every rule reads as a grant with nothing in it — a file whose
+     entire job is raising the alarm, raising it about all of them, for a reason
+     that is not on their end. It was v5 against a fleet of v4 grants for a day
+     before anyone looked here. */
+  const template = templateFor(m as { covenant?: string }, "this grant");
   const authority: GrantAuthority = {
     principalKey: m.principal as string,
     revocationKey: (m.revocation as string) ?? (m.principal as string),

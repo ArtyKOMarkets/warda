@@ -36,19 +36,19 @@ say() { warda_notify "$1" || true; }
 out=$(node --experimental-strip-types ops/grants.ts auto 2>&1)
 code=$?
 
-# Exit 2 is a setup problem — no float key, or it is the main funder. Those
-# are loud, because they mean the queue is silently not being served.
-if [ "$code" -eq 2 ]; then
-  say "Grants: the unattended issuer cannot run.
-
-$out"
-  exit 2
-fi
-
+# Failures are PASSED UP to ops/monitor.sh, which wraps this entry.
+#
+# Both branches here used to `say` — and this fires four times an hour, so a
+# persistent failure was ninety-six identical messages a day from the one script
+# in ops/ whose own comments explain why that is the thing not to do. The wrapper
+# alerts on the EDGE, reminds every six hours, and reads exit 2 as "the issuer
+# cannot run" rather than as an outage, which is exactly the distinction the
+# comment below was drawing by hand.
+#
+# What stays here is the NEWS, at the bottom: a grant going out is not a failure
+# and no state machine should be between it and the phone.
 if [ "$code" -ne 0 ]; then
-  say "Grants: the unattended issuer failed (exit $code).
-
-$out"
+  printf '%s\n' "$out" >&2
   exit "$code"
 fi
 

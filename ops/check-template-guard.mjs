@@ -62,6 +62,14 @@ const REPO = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 /* Tier 1: nobody is watching. Resolution is not a nicety here. */
 const UNATTENDED = [
+  /* `ops` was not here until the day after the outage, and ops/alerts.ts —
+     the file whose entire job is telling OTHER PEOPLE their grant is running
+     out — pinned the packaged template. Under the wrong covenant it derives an
+     empty address for every grant it watches, so the alarm fires about all of
+     them for a reason that is not on their end. Nothing on a schedule is
+     attended; the directory the schedule lives in is the last place to leave
+     off this list. */
+  "ops",
   "wallet/src",
   "runner/src",
   "mcp/src",
@@ -97,6 +105,8 @@ const ALLOWED = new Map([
   ["runner/src/funding.ts", "issues NEW grants; a grant created today is current by definition"],
   ["provider/src/handler.ts", "documents `template` as an option and defaults it; reads scripts, not manifests"],
   ["extension/src/grants.ts", "a browser bundle: imports every archive statically, cannot read files"],
+  ["ops/check-versions.mjs", "its SUBJECT is the template files; it re-derives every fingerprint from them"],
+  ["ops/check-deploys.mjs", "asserts which template files each deploy carries; it derives no address"],
   ["mcp/test/deploy-template.test.ts", "asserts about the deployed bundle's template, not about a grant"],
   ["test/template-guard.test.ts", "the unit test for this property; it holds templates on purpose"],
 ]);

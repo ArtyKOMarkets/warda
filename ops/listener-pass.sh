@@ -71,8 +71,16 @@ node --experimental-strip-types growth/tools/listen.ts \
   --save "growth/listener/run-$(date +%Y%m%dT%H%M).json"
 code=$?
 
-# Not `exec`, so there is something left to notice a failure. A pass that
-# found nothing exits 0 and says nothing, which is correct; a pass that could
-# not run at all has to say so somewhere a person looks.
-[ "$code" -eq 0 ] || say "Listener: the pass failed (exit $code). See ~/Library/Logs/warda-listener.log"
+# The exit code is PASSED UP, not announced here.
+#
+# This used to end with `[ "$code" -eq 0 ] || say "the pass failed (exit $code)"`,
+# which sent once per failure, four codes all worded the same, with no reminder
+# if it kept failing and no memory of having said it. ops/monitor.sh wraps this
+# entry now and does all four of those things properly, and it knows what the
+# codes MEAN: 3 is the covenant refusing (the grant working), 5 is every buy
+# failing (nothing spent), 4 is paid-and-unserved (sent every single time,
+# because each one is another payment).
+#
+# Two senders for one failure is how a feed teaches you to stop reading it, so
+# the one that only knew how to say "it failed" is the one that goes.
 exit "$code"
