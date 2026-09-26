@@ -76,7 +76,38 @@ while [ $# -gt 0 ]; do
   esac
   shift
 done
-[ -n "$OUT" ] || OUT="$REPO/principal-offline"
+# The default is OUTSIDE the repository, and inside it is refused.
+#
+# It used to default to $REPO/principal-offline, and the first real run left a
+# directory sitting in the working tree with `new-key.ts` in it. `*.key` is
+# gitignored so the secret could not have been committed by accident — but that is
+# the net, not the plan. The hazard is simpler: a bundle that is already in the
+# repo on the machine you are standing at is a bundle somebody runs THERE, and
+# then the principal secret exists on a machine that is online, runs agents, and
+# has WARDA_SK on it. That is the one property this whole document buys.
+#
+# So the default is $HOME, the repo is refused, and there is no --force: a flag to
+# bypass this would be used the first time it was inconvenient, which is the same
+# afternoon.
+if [ -n "$OUT" ]; then
+  case "$(cd "$(dirname "$OUT")" 2>/dev/null && pwd -P || echo "$OUT")/$(basename "$OUT")" in
+    "$(cd "$REPO" && pwd -P)"/*)
+      echo "refusing to build the bundle inside the repository." >&2
+      echo >&2
+      echo "  $OUT is under $REPO." >&2
+      echo >&2
+      echo "  A bundle already sitting in the working tree is one somebody runs there, and" >&2
+      echo "  the principal secret must never exist on a machine that runs agents. Build it" >&2
+      echo "  somewhere you will carry from:" >&2
+      echo >&2
+      echo "    ops/principal-bundle.sh                      # \$HOME/warda-principal-offline" >&2
+      echo "    ops/principal-bundle.sh --out /Volumes/USB/warda-principal" >&2
+      exit 2
+      ;;
+  esac
+else
+  OUT="$HOME/warda-principal-offline"
+fi
 
 cd "$REPO" || { echo "cannot cd to $REPO — set WARDA_REPO." >&2; exit 2; }
 

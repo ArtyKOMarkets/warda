@@ -81,6 +81,14 @@ works everywhere except the machine it is for. The verification generates two
 keys and requires them to differ, and if anything fails it deletes the bundle
 rather than letting an unusable one be carried anywhere.
 
+It writes to `$HOME/warda-principal-offline` by default and **refuses an `--out`
+inside this repository**, with no override. The first version defaulted into the
+working tree, which is how a bundle ends up being run on the machine you are
+standing at — and then the principal secret exists on a machine that is online,
+runs agents and has `WARDA_SK` on it, which is the entire property this document
+buys. (`*.key` is gitignored, so the secret could not have been *committed* by
+accident. That is the net, not the plan.)
+
 Copy the directory to removable media. `MAKE-THE-KEY.txt` inside it is the rest
 of the procedure, written to be readable on a machine that cannot open this file.
 
