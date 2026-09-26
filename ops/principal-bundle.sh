@@ -151,6 +151,12 @@ principal.key.
 
 Then:
 
+  If it refuses, read what it says. new-key.ts will not make a PRINCIPAL key on a
+  machine that looks like it runs agents, because on 26 September one was made in
+  a repository root when a `cd` into this bundle failed and the next line ran
+  anyway. In this bundle it will not refuse; anywhere else, it is telling you
+  something true.
+
   1. Write the public key down. It is meant to be readable and publishing it
      costs nothing. Every grant will carry it.
   2. Check what it wrote, without a network:

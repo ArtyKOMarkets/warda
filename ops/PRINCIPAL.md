@@ -104,6 +104,21 @@ refusal exists because on 17 September 2026 a re-run of a pasted block wrote ove
 a funder key and stranded the coin the old one controlled.
 `ops/check-key-writes.mjs` makes it a rule rather than a habit.
 
+`new-key.ts` **refuses to make a principal key on a machine that runs agents**,
+and that refusal is why this section is worth re-reading even if you have done it
+before. On 26 September the key was made in the repository root on the online
+machine: the `cd` into the bundle failed, and the next line of a pasted block ran
+anyway. The document was right, had been read, and was walked straight past by a
+shell that does not stop at a failed `cd`.
+
+So it looks for the things that make a machine an agent machine — `runner/.env`,
+`ops/node.env`, `ops/alerts.env`, `covenant/deploy`, `growth/keys`, any other
+party's `*.key` in the directory — and exits 2 naming what it found. The offline
+bundle carries none of them, which is what makes it the one place this works.
+There is no `--force`; the honest reason to want one is "I am in a hurry", which
+is the state being guarded against. `sdk/test/principal-guard.test.ts` pins all
+of it, including that the bundle is allowed.
+
 Run it a second time with `>/dev/null` and check the public key printed is
 DIFFERENT. Two identical keys would mean something is returning a constant, and
 it is the one failure worth the ten seconds: a principal everybody can derive is
@@ -111,6 +126,16 @@ a principal that receives every grant's balance for somebody else.
 
 **Write the public half down.** It is what every grant will carry and what
 every tool needs. It is meant to be readable; publishing it costs nothing.
+
+**If it ever lands on the wrong machine, it is burned.** Not "probably fine":
+overwrite it and start again. The cost is two minutes and the alternative is a key
+that receives every grant's balance, written to a disk that runs cron, holds
+`WARDA_SK`, and is in a backup.
+
+    dd if=/dev/urandom of=principal.key bs=65 count=1 conv=notrunc
+    rm -f principal.key
+
+Overwrite before unlinking: the point is the bytes, not the directory entry.
 
 **Take the secret nowhere.** It does not go in this repository, in a password
 manager that syncs, in a note, or through a chat window. Back it up the way
