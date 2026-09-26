@@ -175,6 +175,27 @@ FAKE
     echo "FAIL  missing check reported as: $(tail -n1 "$sink")"; fails=$((fails + 1))
   fi
 
+  # A probe that STARTS and reports it cannot check is the same class, and it
+  # is the one that actually happened: check-node.sh exits 2 when the funnel URL
+  # is unset, and this wrapper called that "node is DOWN, 24h 30m now" while
+  # printing the probe's own "nothing to check" underneath it.
+  rm -rf "$tmp/state"; : > "$sink"
+  cat > "$tmp/unconfigured" <<'NOCFG'
+#!/bin/bash
+echo "WARDA_PUBLIC_NODE is not set — nothing to check." >&2
+exit 2
+NOCFG
+  chmod +x "$tmp/unconfigured"
+  for i in 1 2; do
+    WARDA_NOTIFY_SINK="$sink" WARDA_MONITOR_NO_ENV=1 WARDA_REPO="$REPO" \
+      WARDA_MONITOR_STATE="$tmp/state" "$0" selftest "$tmp/unconfigured" >/dev/null 2>&1
+  done
+  if grep -q "CHECK cannot run" "$sink" && ! grep -q "is DOWN" "$sink"; then
+    echo "ok    a probe that is not configured says so, instead of blaming the endpoint"
+  else
+    echo "FAIL  exit 2 reported as: $(tail -n1 "$sink")"; fails=$((fails + 1))
+  fi
+
   # Delivery is not assumed. With no sink and no token, nothing can be sent,
   # and the state must not record that it was.
   echo down > "$verdict"
@@ -245,6 +266,18 @@ m_fails=$((m_fails + 1))
 # "a monitor that cannot start looks exactly like a monitor with nothing to
 # report." But it is a different message. Told "verify is DOWN" you go and
 # look at the endpoint, and the endpoint is fine.
+#
+# Exit 2 is the same class from the other end: the probe STARTED and said it
+# could not do its job. check-node.sh exits 2 when WARDA_PUBLIC_NODE is unset,
+# and for a day and a half this wrapper turned that into "node is DOWN, 24h 30m
+# now" while the node was up and the tunnel was up. The alert even carried the
+# probe's own words — "WARDA_PUBLIC_NODE is not set — nothing to check" —
+# directly under a headline that contradicted them, which is worse than either
+# sentence alone: it invites you to believe the headline and distrust the body.
+#
+# So 2 means "cannot check" for every probe this wraps, and the probes that
+# exit 1 for a real failure are unaffected — check-node, check-vendor and
+# check-verify all use 1 for "answered badly" and nothing else uses 2.
 headline="$name is DOWN"
 again="$name still down"
 aside=""
@@ -252,6 +285,10 @@ if [ "$code" = 127 ] || [ "$code" = 126 ]; then
   headline="$name: the CHECK could not run (exit $code)"
   again="$name: the CHECK still cannot run (exit $code)"
   aside=" The probe is missing or not executable; this says nothing either way about $name itself."
+elif [ "$code" = 2 ]; then
+  headline="$name: the CHECK cannot run (exit 2)"
+  again="$name: the CHECK still cannot run (exit 2)"
+  aside=" The probe says it is not configured to check; this says nothing either way about $name itself."
 fi
 
 send=""

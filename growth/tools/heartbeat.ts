@@ -90,7 +90,7 @@ const refusals = window.filter((p) => p.refused).length;
 if (refusals) lines.push(`${pad("refusals")}${refusals} (the covenant said no)`);
 
 const idle = window.filter((p) => !p.searches);
-if (idle.length) lines.push(`${pad("bought nothing")}${idle.length} — ${idle[idle.length - 1].why ?? "no reason recorded"}`);
+if (idle.length) lines.push(`${pad("bought nothing")}${idle.length} — ${idle[idle.length - 1]?.why ?? "no reason recorded"}`);
 
 lines.push("");
 lines.push(`${pad("last pass")}${hhmm(new Date(last.at))}, ${ago(sinceLast)} ago`);

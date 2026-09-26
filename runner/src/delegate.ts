@@ -14,7 +14,7 @@
  * above 0). Hosted grants made before sub-agents existed had none; a top-up
  * makes a successor that has.
  */
-import covenantTemplate from "@warda_protocol/kaspa/covenant-template.json" with { type: "json" };
+import { templateFor } from "@warda_protocol/kaspa/templates";
 import {
   attachDelegationSignature,
   buildUnsignedDelegation,
@@ -33,7 +33,13 @@ import type { Registry } from "./registry.ts";
 import type { KeyVault } from "./vault.ts";
 import type { FundingChain } from "./funding.ts";
 
-const TEMPLATE = covenantTemplate as unknown as CovenantTemplate;
+/* Resolved per GRANT, at the point of use.
+   A module-level `const TEMPLATE = <the packaged one>` is what stopped the
+   agent fleet on 25 September: it makes the covenant a property of the
+   installation rather than of the grant, and every address derived from the
+   pair is well-formed and empty. A runner outlives a covenant freeze by
+   definition — it holds grants issued months apart — so this is the file where
+   one pinned template is least defensible. */
 const DAA_PER_DAY = 864_000n;
 export const DELEGATION_FEE = 2_000_000n;
 const DELEGATE_COMPUTE_BUDGET = 24;
@@ -65,6 +71,7 @@ export async function delegate(o: {
         `and the agent, its jobs and its payees stay the same.`,
     );
   }
+  const TEMPLATE = templateFor(m, `${o.parent}'s grant`);
   const g = toGrant(m, rec.recipients, TEMPLATE);
   const address = scriptHashToAddress(scriptHashFor(TEMPLATE, { authority: g.authority, state: g.state }), o.prefix);
   const coin = (await o.chain.utxos(address)).find((u) => u.entry.covenantId);

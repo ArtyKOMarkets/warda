@@ -63,7 +63,6 @@ import { NodeClient } from "../src/node.ts";
 import { borshRequested, openChain, type Chain } from "./chain.ts";
 import { candidateStates, partitionPayments, type Payment } from "../src/follow.ts";
 import {
-  assertTemplateForManifest,
   scriptHashFor,
   templateIdFor,
   type CovenantTemplate,
@@ -71,7 +70,7 @@ import {
   type GrantState,
 } from "../src/template.ts";
 import { resolveNetwork, rpcFrom } from "./network.ts";
-import covenantTemplate from "@warda_protocol/kaspa/covenant-template.json" with { type: "json" };
+import { templateFor } from "../src/templates.ts";
 
 const has = (name: string) => process.argv.includes(`--${name}`);
 
@@ -89,24 +88,18 @@ if (!manifestPath) {
   process.exit(2);
 }
 const m = JSON.parse(readFileSync(manifestPath, "utf8"));
-/* The packaged template is loaded unconditionally above, and this file follows
-   a grant by deriving its address from state. Against a manifest from another
-   covenant that derivation produces an address that exists, holds nothing, and
-   reads as a grant that was never funded. */
-assertTemplateForManifest(covenantTemplate as CovenantTemplate, m, manifestPath);
-/* The template comes from the package, not from a path beside this file:
-   the published CLI carries this tool as bundled JS with no sdk/ directory
-   above it, and a template read from a guessed path is how a tool derives a
+/* Resolved, not refused.
+   This was `assertTemplateForManifest(<the packaged template>, …)`, written the
+   day the covenant was frozen so that a v4 manifest would fail loudly here
+   rather than derive a v5 address. Loud beats wrong, and it is still not right:
+   every grant this repo has on chain is v4, so refusing left the recovery tools
+   unable to operate the very grants they exist for. The archives ship in the
+   package; resolve from the fingerprint the manifest already carries. */
+/* The templates come from the PACKAGE, not from a path beside this file: the
+   published CLI carries this tool as bundled JS with no sdk/ directory above
+   it, and a template read from a guessed path is how a tool derives a
    plausible address for a covenant nobody deployed. */
-/* `as unknown as`, not a plain assertion. TypeScript infers the JSON import's
-   literal shape, where every number is `number` — and CovenantTemplate's state
-   fields are `bigint`, because sompi are u64 and a double is not. The two
-   types therefore do not overlap and the direct assertion is an error, which
-   is how this stopped typechecking (and, since prepublishOnly runs typecheck,
-   stopped being publishable) when the template became a real JSON import.
-   The values are parsed into bigints downstream; only the static type is being
-   corrected here. */
-const template = covenantTemplate as unknown as CovenantTemplate;
+const template = templateFor(m, manifestPath);
 /* Resolved and CHECKED together: a prefix and a network that disagree
    derive a well-formed address on the wrong chain, which holds nothing and
    is indistinguishable from a grant that was drained. See network.ts. */

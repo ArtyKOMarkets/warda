@@ -13,21 +13,33 @@
  *   --dry-run   check and explain; sign and send nothing
  */
 import { readFileSync } from "node:fs";
-import covenantTemplate from "@warda_protocol/kaspa/covenant-template.json" with { type: "json" };
 import { fromHex, toHex } from "../src/bytes.ts";
 import { buildUnsignedReabsorb } from "../src/reabsorb.ts";
 import { agentPublicKey, signDigest, verifyDigest } from "../src/sign.ts";
-import { templateFingerprint, type CovenantTemplate, type GrantState } from "../src/template.ts";
+import { type CovenantTemplate, type GrantState } from "../src/template.ts";
+import { templateFor } from "../src/templates.ts";
 
-const TEMPLATE = covenantTemplate as unknown as CovenantTemplate;
 const flag = (n: string) => { const i = process.argv.indexOf(`--${n}`); return i >= 0 ? process.argv[i + 1] : undefined; };
 const path = process.argv.slice(2).find((a) => a.endsWith(".json"));
 if (!path) { console.error("usage: warda return return.json --key your-revocation.key [--dry-run]"); process.exit(2); }
 const doc = JSON.parse(readFileSync(path, "utf8"));
 const d = doc.document ?? doc;
 if (d.kind !== "warda-return" || d.version !== 1) { console.error(`${path} is not a Warda return document`); process.exit(2); }
-if (d.template !== templateFingerprint(TEMPLATE)) {
-  console.error("this document was built for a different covenant template than this tool knows; update @warda_protocol/cli");
+/* The document says which covenant it was built under, so USE it rather than
+   insisting it be the current one.
+ *
+ * This read `if (d.template !== templateFingerprint(<the packaged template>))
+ * … update @warda_protocol/cli`, which was a correct check with the wrong
+ * remedy: after a covenant freeze every return document for a still-running v4
+ * grant fails it, and no version of the CLI fixes that — the document is right
+ * and the tool was looking at the wrong bytes. The archives ship in the package.
+ * A document naming a covenant that is genuinely not here still refuses, with a
+ * message that names it. */
+let TEMPLATE: CovenantTemplate;
+try {
+  TEMPLATE = templateFor({ covenant: d.template }, `${path}`);
+} catch (e) {
+  console.error(String((e as Error).message));
   process.exit(1);
 }
 const BIG = ["budgetTotal", "maxPerSpend", "epochLimit", "epochLength", "notBefore", "expiresAt", "delegationDepth", "spentTotal", "reserved", "epochIndex", "epochSpent"];

@@ -18,7 +18,7 @@
  * parent. LIFO: only the most recently created helper of a parent can be
  * returned (the reserve is a hash chain).
  */
-import covenantTemplate from "@warda_protocol/kaspa/covenant-template.json" with { type: "json" };
+import { templateFor } from "@warda_protocol/kaspa/templates";
 import {
   attachReabsorbSignatures,
   buildUnsignedReabsorb,
@@ -42,7 +42,13 @@ import type { KeyVault } from "./vault.ts";
 import type { FundingChain } from "./funding.ts";
 import type { Store } from "./store.ts";
 
-const TEMPLATE = covenantTemplate as unknown as CovenantTemplate;
+/* Resolved per GRANT, at the point of use.
+   A module-level `const TEMPLATE = <the packaged one>` is what stopped the
+   agent fleet on 25 September: it makes the covenant a property of the
+   installation rather than of the grant, and every address derived from the
+   pair is well-formed and empty. A runner outlives a covenant freeze by
+   definition — it holds grants issued months apart — so this is the file where
+   one pinned template is least defensible. */
 export const SETTLE_FEE = 5_000_000n;
 const COMPUTE_BUDGET = 24;
 const TTL_MS = 30 * 60_000;
@@ -82,9 +88,19 @@ export interface ReturnDoc {
   expiresAt: number;
 }
 
-export function planOf(doc: Pick<ReturnDoc, "authority" | "parentState" | "childState" | "prevRoot" | "parentUtxo" | "childUtxo" | "fee" | "computeBudget">): ReabsorbPlan {
+/**
+ * The plan a return document describes.
+ *
+ * `template` is taken from the DOCUMENT, which has always carried the
+ * fingerprint of the covenant the settlement was built under — it just was not
+ * read back. The old code pinned the packaged template here, so a return doc
+ * written before a covenant freeze and countersigned after it would rebuild the
+ * plan under different bytecode and derive addresses neither party agreed to.
+ * The field was in the document for exactly this and nothing used it.
+ */
+export function planOf(doc: Pick<ReturnDoc, "template" | "authority" | "parentState" | "childState" | "prevRoot" | "parentUtxo" | "childUtxo" | "fee" | "computeBudget">): ReabsorbPlan {
   return {
-    template: TEMPLATE,
+    template: templateFor({ covenant: doc.template }, "this return document"),
     authority: doc.authority,
     parentState: stateIn(doc.parentState),
     childState: stateIn(doc.childState),
@@ -107,6 +123,18 @@ export async function prepareReturn(o: {
   const cm = c.manifest as Manifest, pm = p.manifest as Manifest;
   const prevRoot = String(cm.parent_reserve_root_before ?? "");
   if (!/^[0-9a-f]{64}$/.test(prevRoot)) throw new Error("this helper's record does not say where its parent's reserve stood; it cannot be returned automatically");
+  /* One template for BOTH, and checked. A settlement is a single transaction
+     spending the child and the parent together, so they cannot be under
+     different covenants — and if the records say they are, that is a fact worth
+     refusing on rather than deriving two addresses from. */
+  const TEMPLATE = templateFor(pm, `${c.parent}'s grant`);
+  if (cm.covenant && pm.covenant && cm.covenant !== pm.covenant) {
+    throw new Error(
+      `${o.child} was issued under covenant ${cm.covenant} and its parent ${c.parent} under ` +
+        `${pm.covenant}. A settlement spends both in one transaction, so it cannot span two ` +
+        `covenants; the records disagree and nothing has been built.`,
+    );
+  }
   const cg = toGrant(cm, c.recipients, TEMPLATE), pg = toGrant(pm, p.recipients, TEMPLATE);
   const where = (g: typeof cg) => scriptHashToAddress(scriptHashFor(TEMPLATE, { authority: g.authority, state: g.state }), o.prefix);
   const pAddr = where(pg), cAddr = where(cg);
@@ -119,6 +147,9 @@ export async function prepareReturn(o: {
     blockDaaScore: u.entry.blockDaaScore.toString(), isCoinbase: u.entry.isCoinbase, covenantId: toHex(u.entry.covenantId!),
   });
   const base = {
+    /* The covenant both halves are under, stated in the document so that
+       whoever countersigns it rebuilds the same plan — see planOf. */
+    template: templateFingerprint(TEMPLATE),
     authority: pg.authority, parentState: stateOut(pg.state), childState: stateOut(cg.state), prevRoot,
     parentUtxo: coin(pc), childUtxo: coin(cc), fee: SETTLE_FEE.toString(), computeBudget: COMPUTE_BUDGET,
   };
@@ -129,7 +160,7 @@ export async function prepareReturn(o: {
   const left = cg.state.budgetTotal - cg.state.spentTotal;
   const doc: ReturnDoc = {
     kind: "warda-return", version: 1, id: `ret_${randomBytes(12).toString("hex")}`,
-    runner: o.runnerUrl, prefix: o.prefix, template: templateFingerprint(TEMPLATE),
+    runner: o.runnerUrl, prefix: o.prefix,
     parent: { agent: c.parent, address: pAddr }, child: { agent: o.child, address: cAddr },
     ...base,
     childSighash: toHex(built.childSighash),

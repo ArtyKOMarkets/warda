@@ -54,7 +54,7 @@ test("every pass on a 12h schedule gets a fresh epoch", () => {
   let t = ms(T0);
   const jitter = [1_100, -900, 400, -1_700, 2_000, -300];
   for (let i = 0; i < 16; i++) {
-    t += LEN + jitter[i % jitter.length];
+    t += LEN + jitter[i % jitter.length]!;
     const next = epochStart(anchor, t, H);
     assert.notEqual(next, anchor, `pass ${i + 1} did not roll`);
     /* And the grid never drifts, however the jitter falls. */

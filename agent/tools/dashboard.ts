@@ -48,6 +48,7 @@ import {
   type CovenantTemplate,
   type GrantState,
 } from "@warda_protocol/kaspa";
+import { templateFor } from "@warda_protocol/kaspa/templates";
 // Imported through the package rather than by path: x402's payer does the same,
 // and two copies of RecipientSet reached by different routes are two different
 // types to the compiler even when they are one file on disk.
@@ -95,9 +96,10 @@ if (!manifestPath || !recipientsPath) {
 }
 
 const m = JSON.parse(readFileSync(manifestPath, "utf8"));
-const template: CovenantTemplate = JSON.parse(
-  readFileSync(new URL("../../sdk/covenant-template.json", import.meta.url), "utf8"),
-);
+/* Resolved from the manifest. This dashboard exists to tell you where a grant's
+   coin is; pinned to the current covenant it would confidently show a funded
+   grant as empty, which is the one lie it must not tell. */
+const template: CovenantTemplate = templateFor(m, manifestPath);
 
 const members = readFileSync(recipientsPath, "utf8")
   .split(/\r?\n/)

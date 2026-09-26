@@ -144,7 +144,15 @@ const ACCOUNT = {
  * is a refusal OF. Turnkey names it — code 7 is the policy engine, code 8 is
  * the account — and the distinction was thrown away by `catch (e)`.
  */
-type Verdict = { ok: true } | { ok: false; denied: boolean; why: string };
+/* One shape, not a union.
+   It was `{ ok: true } | { ok: false; denied; why }`, which reads better and does
+   not typecheck at the call sites: those go `if (v.ok) await rollback(...)` and
+   then read `v.denied`, and an AWAITED never-returning call does not narrow — TS
+   only treats a direct call to a never-returning function as terminating. Three
+   errors, in a tool that had never been compiled because it is deliberately not
+   run from here. A flat record makes `denied` and `why` legal to read whatever
+   `ok` says, and `ok: true` fills them with the only honest values. */
+type Verdict = { ok: boolean; denied: boolean; why: string };
 
 function classify(message: string): { denied: boolean; why: string } {
   const why = message.replace(/\s+/g, " ").trim();
@@ -164,7 +172,7 @@ async function canSign(address: string): Promise<Verdict> {
       encoding: "PAYLOAD_ENCODING_HEXADECIMAL",
       hashFunction: "HASH_FUNCTION_NO_OP",
     });
-    return { ok: true };
+    return { ok: true, denied: false, why: "the signature was ACCEPTED" };
   } catch (e) {
     return { ok: false, ...classify(String((e as Error).message)) };
   }
@@ -231,7 +239,12 @@ await root.updatePolicy({
 });
 step("policy updated");
 
-const rollback = async (why: string) => {
+/* `Promise<never>`, so that `if (v.ok) await rollback(...)` NARROWS.
+   It did not, and the file stopped typechecking the moment `Verdict` grew a
+   second shape: after the `if`, `after` was still the union, so reading
+   `.denied` was an error. Declaring what this actually does — it exits —
+   is both the fix and the truth. */
+const rollback = async (why: string): Promise<never> => {
   await root.updatePolicy({ policyId: policy.policyId, policyCondition: before });
   console.error(`\n✗ ${why}`);
   console.error(`  The policy has been ROLLED BACK to:\n    ${before}`);

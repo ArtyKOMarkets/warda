@@ -49,6 +49,7 @@ import {
   type CovenantTemplate,
   type GrantState,
 } from "@warda_protocol/kaspa";
+import { templateFor } from "@warda_protocol/kaspa/templates";
 import { daaDuration, termReading } from "@warda_protocol/core";
 import { explainRefusal, type Grant } from "../../x402/src/payer.ts";
 
@@ -140,9 +141,10 @@ const settledChildren = process.argv.reduce<string[]>((acc, a, i) => {
 }, []);
 
 const m = JSON.parse(readFileSync(manifestPath, "utf8"));
-const template: CovenantTemplate = JSON.parse(
-  readFileSync(here("../../sdk/covenant-template.json"), "utf8"),
-);
+/* Resolved from the manifest. A packaged default here derives a well-formed
+   address for the wrong covenant, which reads as a grant that was drained — the
+   failure that took three agents down for twenty-one hours on 25 September. */
+const template: CovenantTemplate = templateFor(m, manifestPath);
 const prefix = "kaspatest";
 
 const members = readFileSync(recipientsPath, "utf8")

@@ -26,11 +26,15 @@ import {
   type CovenantTemplate,
   type GrantState,
 } from "@warda_protocol/kaspa";
-import rawTemplate from "@warda_protocol/kaspa/covenant-template.json" with { type: "json" };
+import { templateFor } from "@warda_protocol/kaspa/templates";
 
-/* `as unknown as`: the JSON import infers every number as `number`, and a
-   template's state fields are bigint because sompi are u64. */
-const TEMPLATE = rawTemplate as unknown as CovenantTemplate;
+/* Per MANIFEST, not one template for the run.
+   A batch touches a parent and its children, and after a covenant freeze those
+   need not be the same covenant: children issued this week are current and the
+   parent may predate the freeze. One pinned template derives right addresses
+   for some of them and plausible empty ones for the rest. */
+const templateOf = (m: { covenant?: string }, what = "this grant"): CovenantTemplate =>
+  templateFor(m, what);
 import { checkHire, checkSettle, hireTerms, uncommitted, type JobSpec } from "../src/hiring.ts";
 import { childManifestPath, load, note, runTool, save, txidFrom, type BatchRecord } from "../src/batch.ts";
 
@@ -103,7 +107,7 @@ function parentState(batch: BatchRecord): { state: GrantState; members: Recipien
     notBefore: BigInt(m.not_before),
     expiresAt: BigInt(m.expires_at),
     delegationDepth: BigInt(m.delegation_depth),
-    templateId: templateIdFor(TEMPLATE, authority),
+    templateId: templateIdFor(templateOf(m, batch.manifest), authority),
     spentTotal: BigInt(m.spent_total),
     reserved: BigInt(m.reserved),
     epochIndex: BigInt(m.epoch_index),

@@ -12,10 +12,6 @@
  * lives. An MCP server that signed would be a custodian, and the whole point
  * of Warda is that nobody has to be.
  */
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { createRequire } from "node:module";
-
 import { buildUnsignedSpend, type MerkleProof, type SpendPlan } from "@warda_protocol/kaspa";
 import { toWire, type WireTransaction } from "@warda_protocol/kaspa";
 import { fromHex, toHex } from "@warda_protocol/kaspa";
@@ -32,87 +28,18 @@ import type { MerkleProof as CoreProof } from "@warda_protocol/core";
  * protocol: swap it and every address the server derives is wrong, so a grant
  * pays into a script nobody can ever spend. It is not a parameter for the same
  * reason a wallet does not take the curve as a parameter.
- */
-let cached: CovenantTemplate[] | undefined;
-
-/** Current first: a manifest with no `covenant` field is answered with it. */
-const TEMPLATE_NAMES = [
-  "covenant-template.json",
-  "covenant-template-v5.json",
-  "covenant-template-v4.json",
-  "covenant-template-v3.json",
-  "covenant-template-v2.json",
-  "covenant-template-v1.json",
-] as const;
-
-/**
- * Where the templates come from, in order.
  *
- * The middle entry is the one that matters and the one that was missing.
- * Resolving `../../sdk/covenant-template.json` relative to this module works
- * perfectly in the repo, where the SDK lives in a directory called `sdk` — and
- * never anywhere else, because the PACKAGE is called `kaspa`. Installed from
- * npm it pointed at `node_modules/@warda_protocol/sdk/`, which does not exist,
- * so every tool that builds a transaction failed on a path nobody had reason
- * to look at. The SDK exports the files; ask the resolver for them.
+ * Delegated to the SDK, which is where the template FILES are.
  *
- * WARDA_TEMPLATE overrides the CURRENT one only. It used to be the answer to
- * "a grant issued under another covenant" — the old error message said so —
- * and that was an operator doing by hand what `templateForManifest` does from
- * the fingerprint the manifest already carries.
+ * This file used to carry its own loader — the candidate paths, the name list,
+ * the dedup by fingerprint — and so did the hosted verifier, and so did nothing
+ * in the wallet, which is what took the fleet down on 25 September: a loader
+ * that every caller reimplements is a loader a caller can skip. It moved into
+ * `@warda_protocol/kaspa/templates`. The comment that was here, about asking the
+ * resolver rather than guessing `../../sdk/`, is now there.
  */
-function templateCandidates(name: string): string[] {
-  const out: string[] = [];
-  if (name === "covenant-template.json" && process.env.WARDA_TEMPLATE) {
-    out.push(process.env.WARDA_TEMPLATE);
-  }
-  try {
-    out.push(createRequire(import.meta.url).resolve(`@warda_protocol/kaspa/${name}`));
-  } catch {
-    // Not installed as a dependency — the repo layout below still applies.
-  }
-  out.push(fileURLToPath(new URL(`../../sdk/${name}`, import.meta.url)));
-  out.push(fileURLToPath(new URL(`./${name}`, import.meta.url)));
-  return out;
-}
-
-/** Every template reachable here, current first. Missing archives are fine. */
-export function loadTemplates(): CovenantTemplate[] {
-  if (cached) return cached;
-  const found: CovenantTemplate[] = [];
-  const seen = new Set<string>();
-  const tried: string[] = [];
-  for (const name of TEMPLATE_NAMES) {
-    for (const path of templateCandidates(name)) {
-      tried.push(path);
-      let raw: string;
-      try {
-        raw = readFileSync(path, "utf8");
-      } catch {
-        continue;
-      }
-      const tpl = JSON.parse(raw) as CovenantTemplate;
-      const fp = templateFingerprint(tpl);
-      if (!seen.has(fp)) {
-        seen.add(fp);
-        found.push(tpl);
-      }
-      break;
-    }
-  }
-  if (!found.length) {
-    throw new Error(
-      `cannot read any covenant template. Tried:\n  ${tried.join("\n  ")}\n` +
-        `Set WARDA_TEMPLATE, or reinstall @warda_protocol/kaspa, which ships them.`,
-    );
-  }
-  cached = found;
-  return cached;
-}
-
-export function loadTemplate(): CovenantTemplate {
-  return loadTemplates()[0] as CovenantTemplate;
-}
+import { loadTemplate, loadTemplates } from "@warda_protocol/kaspa/templates";
+export { loadTemplate, loadTemplates };
 
 /**
  * The template a manifest was issued under.

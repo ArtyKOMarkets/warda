@@ -59,7 +59,6 @@ import {
   EMPTY_RESERVE,
   NodeClient,
   agentPublicKey,
-  assertTemplateForManifest,
   fromHex,
   pubkeyToAddress,
   resolveNode,
@@ -73,7 +72,7 @@ import {
 } from "@warda_protocol/kaspa";
 import { formatKas } from "@warda_protocol/core";
 import { authorityLeft, renewVerdict } from "@warda_protocol/router";
-import covenantTemplate from "@warda_protocol/kaspa/covenant-template.json" with { type: "json" };
+import { templateFor } from "../src/templates.ts";
 
 import { borshRequested, openChain, type Chain } from "./chain.ts";
 import { assertKeyNotPublished, resolveNetwork } from "./network.ts";
@@ -105,9 +104,13 @@ if (!manifestPath) {
 }
 const m = JSON.parse(readFileSync(manifestPath, "utf8"));
 /* This one spends: it builds the transaction that closes the old grant and
-   funds its successor. A template from another covenant would send the
-   remaining balance to an address derived from the wrong bytecode. */
-assertTemplateForManifest(covenantTemplate as CovenantTemplate, m, manifestPath);
+   funds its successor, so the template decides where the remaining balance
+   lands. Resolved from the manifest — see templates.ts for the day that stopped
+   being optional. The SUCCESSOR is a separate question and is deliberately not
+   answered here: a top-up re-funds the grant it was given, under the covenant
+   that grant was issued under. Moving a grant to a newer covenant is a
+   migration, which needs the principal, and covenant/MIGRATION.md is where it
+   is written down. */
 
 const budget = BigInt(flag("budget") ?? m.budget ?? "0");
 if (budget <= 0n) {
@@ -134,7 +137,7 @@ if (!secretHex) {
 }
 const funder = pubkeyToAddress(agentPublicKey(fromHex(secretHex)), prefix);
 
-const template = covenantTemplate as unknown as CovenantTemplate;
+const template = templateFor(m, manifestPath);
 const authority: GrantAuthority = {
   principalKey: m.principal,
   revocationKey: m.revocation ?? m.principal,

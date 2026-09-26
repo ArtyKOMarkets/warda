@@ -14,12 +14,11 @@
 import assert from "node:assert/strict";
 import { createServer, type Server } from "node:http";
 import { after, test } from "node:test";
-import covenantTemplate from "@warda_protocol/kaspa/covenant-template.json" with { type: "json" };
+import { templateFor } from "@warda_protocol/kaspa/templates";
 import type { Chain, CovenantTemplate } from "@warda_protocol/kaspa";
 import { Agent } from "../src/agent.ts";
 import { memoryStore, type Manifest } from "../src/store.ts";
 
-const TEMPLATE = covenantTemplate as unknown as CovenantTemplate;
 const PAYEE = "16e6af2030f7e4510d1a417391a7ff7ccad21864f17eef7ee035f0453e21a033";
 
 const MANIFEST: Manifest = {
@@ -43,6 +42,15 @@ const MANIFEST: Manifest = {
   epoch_spent: 3_000_000,
   reserve_root: "803b111f3c3952f7b7c9cb2bd240759e755a85ab2c6223614d08f216dd6a3bd1",
 };
+
+/* Resolved from the FIXTURE, not pinned to the packaged template.
+   `const TEMPLATE = covenantTemplate` is what let this file assert
+   `covenant: "b3e5eeefacf2021f"` in its manifest while loading v5 — the two
+   halves never met, so the pair could disagree for a day without a single test
+   going red. Resolving makes the fixture's `covenant` field load-bearing: the
+   next freeze moves the packaged template and this stays where the manifest
+   says it is. */
+const TEMPLATE = templateFor(MANIFEST, "the fixture manifest");
 
 /* The agent key is DELIBERATELY public — it is the one published on /attack,
    for a grant whose limits are enforced by the covenant rather than by

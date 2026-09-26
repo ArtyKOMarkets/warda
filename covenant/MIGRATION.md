@@ -18,6 +18,39 @@ So "migrate" means one of exactly two things, per grant:
 The second is free. Most of the work below is deciding which grants are worth
 the first.
 
+## Until then, "current" is not what these grants run
+
+Written the day after finding out the hard way.
+
+Freezing v5 made `sdk/covenant-template.json` mean something new, and for
+twenty-one hours the agents kept deriving addresses from it for v4 grants —
+valid addresses, holding nothing, reported as grants that had been drained.
+`MAINNET.md` §3.3e has the incident; what belongs here is the consequence for
+this document.
+
+**Every tool now resolves the covenant from the manifest.**
+`templateFor(manifest)`, out of `@warda_protocol/kaspa/templates`, which loads
+every archive the package ships and refuses rather than guessing. So the v4
+grants in the table below are fully operable today — spendable, delegatable,
+`follow-grant`-able, `topup`-able — with no `--template` flag anywhere. Two of
+those tools used to *refuse* a v4 manifest, which was safe and left the recovery
+tools unable to recover the grants they were written for.
+
+That is a reprieve, not a resolution. It means the migration is scheduled by the
+grants' own `expiresAt` and by what is worth reissuing, rather than by a bug.
+Two rules keep it that way:
+
+- **the archives are not tidy-up-able.** `sdk/covenant-template-v4.json` is what
+  makes 28 committed manifests spendable. `ops/check-template-guard.mjs` fails if
+  any manifest here names a covenant whose template file is missing — it checks
+  the FILE, not the entry in `covenant/versions.json`, because checking the
+  bookkeeping is how the first version of that check passed with the file
+  deleted.
+- **a new grant is v5.** Resolution is for grants that already exist; genesis has
+  no manifest to resolve from and takes the current covenant. The exemption list
+  in the guard names every place that is allowed to want "current", with the
+  reason.
+
 ## What exists, and when it stops existing
 
 Twenty-two distinct v4 grants, counted by `covenant` fingerprint across every

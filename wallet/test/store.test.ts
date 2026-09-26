@@ -9,10 +9,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { advanced, memoryStore, type Manifest } from "../src/store.ts";
 import { toGrant, toRecipientSet } from "../src/grant.ts";
-import covenantTemplate from "@warda_protocol/kaspa/covenant-template.json" with { type: "json" };
+import { templateFor } from "@warda_protocol/kaspa/templates";
 import type { CovenantTemplate, GrantState } from "@warda_protocol/kaspa";
 
-const TEMPLATE = covenantTemplate as unknown as CovenantTemplate;
 const PAYEE = "16e6af2030f7e4510d1a417391a7ff7ccad21864f17eef7ee035f0453e21a033";
 
 const MANIFEST: Manifest = {
@@ -40,6 +39,15 @@ const MANIFEST: Manifest = {
      wallet that edits your records. */
   agent_key_derived: null,
 };
+
+/* Resolved from the FIXTURE, not pinned to the packaged template.
+   `const TEMPLATE = covenantTemplate` is what let this file assert
+   `covenant: "b3e5eeefacf2021f"` in its manifest while loading v5 — the two
+   halves never met, so the pair could disagree for a day without a single test
+   going red. Resolving makes the fixture's `covenant` field load-bearing: the
+   next freeze moves the packaged template and this stays where the manifest
+   says it is. */
+const TEMPLATE = templateFor(MANIFEST, "the fixture manifest");
 
 test("the allowlist is checked against the root, not trusted", () => {
   const ok = toGrant(MANIFEST, [PAYEE], TEMPLATE);

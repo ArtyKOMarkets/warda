@@ -31,11 +31,11 @@ import { EMPTY_RESERVE } from "../src/keys.ts";
 import { NodeClient } from "../src/node.ts";
 import { RecipientSet } from "../src/recipients.ts";
 import {
-  assertTemplateForManifest,
   scriptHashFor,
   templateIdFor,
   type CovenantTemplate,
 } from "../src/template.ts";
+import { templateFor } from "../src/templates.ts";
 
 import { membersFrom } from "./members.ts";
 import { rpcFrom } from "./network.ts";
@@ -99,13 +99,10 @@ const grant = {
   },
 };
 
-const template: CovenantTemplate = JSON.parse(
-  readFileSync(new URL("../covenant-template.json", import.meta.url), "utf8"),
-);
-/* The descriptor it writes names an ADDRESS, and an agent that is handed one
-   derived from the wrong covenant pays into a script its grant cannot spend
-   from. */
-assertTemplateForManifest(template, m, path);
+/* The descriptor it writes names an ADDRESS, and an agent handed one derived
+   from the wrong covenant pays into a script its grant cannot spend from. So
+   the covenant is the manifest's to state, not this tool's to assume. */
+const template: CovenantTemplate = templateFor(m, path);
 const authority = { principalKey: m.principal, revocationKey: m.revocation ?? m.principal };
 const state = {
   agentKey: m.agent,

@@ -95,6 +95,46 @@ if (existsSync(grantPath)) {
   }
 }
 
+/* A pass that could not buy must not look like a pass with nothing to report.
+ *
+ * This is here rather than in a unit test because what it guards is a PROPERTY
+ * of the unattended pass: six of them failed every purchase over twenty-one
+ * hours, exited 0, sent nothing, and logged a quiet day, while the covenant
+ * template had moved and every buy was answering "no UTXO". The only reason it
+ * was noticed at all was an unrelated email about a different service.
+ *
+ * Two things have to hold, and they are separable — a tool that alerted without
+ * exiting non-zero would leave cron's watchdog blind, and one that exited
+ * without alerting would leave the phone blind:
+ *
+ *   * the pass says so, to the place a person actually reads;
+ *   * and it exits non-zero, so ops/listener-pass.sh's own alert fires too.
+ *
+ * And the distinction from a REFUSAL is the point. A covenant refusal is the
+ * system working; it already exits 3. A pass that could not buy exits 4.
+ */
+{
+  const pass = readFileSync(join(root, "growth/tools/listen.ts"), "utf8");
+  if (!/brokeCount\s*===\s*attempted/.test(pass)) {
+    problems.push(
+      "growth/tools/listen.ts no longer distinguishes a pass where EVERY buy failed.\n" +
+        "    Without it a broken agent reports a quiet day: the buy returns status 0 and the\n" +
+        "    ranker reads that as a search that found nothing. That is how the fleet stayed\n" +
+        "    down for twenty-one hours.",
+    );
+  } else {
+    if (!/every purchase in this pass FAILED/i.test(pass)) {
+      problems.push("growth/tools/listen.ts detects an all-failed pass but no longer says so to Telegram.");
+    }
+    if (!/process\.exit\(4\)/.test(pass)) {
+      problems.push(
+        "growth/tools/listen.ts detects an all-failed pass but no longer exits non-zero,\n" +
+          "    so ops/listener-pass.sh's watchdog stays quiet about it.",
+      );
+    }
+  }
+}
+
 if (problems.length) {
   console.error(`\nlistener: ${problems.length} disagreement(s).\n`);
   for (const p of problems) console.error(`  ${p}\n`);

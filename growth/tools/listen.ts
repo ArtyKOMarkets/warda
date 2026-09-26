@@ -385,6 +385,28 @@ async function main() {
   let spent = 0;
   let reads = 0;
   let refused: string | null = null;
+  /**
+   * Buys that could not happen — as distinct from buys the covenant refused.
+   *
+   * These two were the same thing to this file until 26 September, and the
+   * difference is the whole difference between working and broken. A covenant
+   * refusal is the system doing its job: the grant's epoch allowance is spent,
+   * the pass says so, and `exit 3` tells cron it was a real answer. A buy that
+   * FAILED — the seller is down, the node is unreachable, the grant address is
+   * wrong — was `return { status: 0, body: "" }`, which the ranker reads as a
+   * search that found nothing.
+   *
+   * So six consecutive passes over twenty-one hours found "no posts", exited 0,
+   * and sent nothing, while every purchase attempt was failing with "no UTXO at
+   * <address>" because the covenant template had changed underneath them. The
+   * agent was dead and its own log said quiet day. It was discovered from an
+   * unrelated email.
+   *
+   * A pass where every attempted buy failed is now an alert and a non-zero exit.
+   */
+  let attempted = 0;
+  let brokeCount = 0;
+  let broke: string | null = null;
 
   /* Your card, not a grant. Announced on every pass rather than once in a
      README, because the argument this whole repo makes is that an unbounded
@@ -421,6 +443,7 @@ async function main() {
     if (since) want.set("since", since);
     const target = `${XREADS}/search?${want}`;
     if (DRY) { console.error(`would buy ${target}`); return { status: 0, body: "" }; }
+    attempted++;
     if (!GRANT) { console.error("no --grant: pass one, or use --dry-run"); process.exit(2); }
     const r = await run(join(REPO, "agents/tools/buy.ts"), [
       target, "--json", "--id", "GROWTH-LISTENER", "--grant", GRANT, "--recipients", PAYEES!,
@@ -430,7 +453,14 @@ async function main() {
       refused = "the covenant refused: this grant's allowance for the epoch is spent.";
       return { status: 0, body: "" };
     }
-    if (r.code !== 0) return { status: 0, body: "" };
+    if (r.code !== 0) {
+      brokeCount++;
+      /* The FIRST failure's own words, not a count. Six passes of "3 searches
+         failed" would have said no more than the silence did; "no UTXO at
+         kaspatest:pqt9…" names the bug. */
+      broke ??= (r.stderr || r.stdout).replace(/\s+/g, " ").trim().slice(0, 300) || `buy.ts exited ${r.code}`;
+      return { status: 0, body: "" };
+    }
     spent += PRICE;
     try {
       const paid = JSON.parse(r.stdout) as { body?: unknown };
@@ -505,6 +535,20 @@ async function main() {
      message that teaches you to stop reading them. */
   if (send.length > 0 || refused) await notify(line);
 
+  /* Every buy failed, and none of them was a refusal.
+   *
+   * Announced before the state is saved and the record written, because those
+   * happen whatever this says and this is the part a person has to see. The
+   * wording is deliberately not "the pass found nothing": it found nothing
+   * BECAUSE it could not buy, and those are different days. */
+  if (!DIRECT && attempted > 0 && brokeCount === attempted && !refused) {
+    await notify(
+      `Listener: every purchase in this pass FAILED — ${brokeCount} of ${attempted}. ` +
+        `Nothing was searched and nothing was spent; this is not a quiet day.\n\n${broke}`,
+    );
+    console.error(`\nevery buy failed (${brokeCount}/${attempted}): ${broke}`);
+  }
+
   /* A watched trial advances the rotation, so a day of passes covers every
      query — but records nothing as seen and nothing as spent, because the
      posts it looked at must still be reportable once this is real.
@@ -523,6 +567,10 @@ async function main() {
             refused: refused ?? null, funded: state.fundedBy ?? null });
   save(state);
   if (refused && !DIRECT) process.exit(3);
+  /* 4, not 1: ops/listener-pass.sh reports the code, and "the pass failed" for a
+     crash and for a pass that ran perfectly and could buy nothing are different
+     things to go and look at. */
+  if (!DIRECT && attempted > 0 && brokeCount === attempted) process.exit(4);
 }
 
 void main().catch((e: Error) => { console.error(e.stack ?? e.message); process.exit(1); });

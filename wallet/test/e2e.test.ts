@@ -16,7 +16,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { after, test } from "node:test";
 
-import covenantTemplate from "@warda_protocol/kaspa/covenant-template.json" with { type: "json" };
+import { templateFor } from "@warda_protocol/kaspa/templates";
 import {
   EMPTY_RESERVE, fromHex, payToScriptHashScript, scriptHashFor, scriptHashToAddress,
   scriptPublicKeyToWire, templateIdFor, type CovenantTemplate,
@@ -31,7 +31,15 @@ import { toGrant } from "../src/grant.ts";
 const repo = (p: string) => fileURLToPath(new URL("../../" + p, import.meta.url));
 const MANIFEST = JSON.parse(readFileSync(repo("covenant/deploy/grant-demo.json"), "utf8")) as Manifest;
 const RECIPIENTS = readFileSync(repo("covenant/deploy/demo-recipients.txt"), "utf8").split(/\r?\n/);
-const TEMPLATE = covenantTemplate as unknown as CovenantTemplate;
+/* The template the MANIFEST names, not the packaged one.
+   This line read `covenantTemplate` until 26 September, and that is what made
+   these ten tests pass through the outage they existed to prevent: `fund()`
+   below derives the grant's address from TEMPLATE and the Agent derived it from
+   the same TEMPLATE, so the pair moved together and a manifest from another
+   covenant was never contradicted by anything. The fixture is a real v4 grant;
+   resolving from it is what makes the bytes under test the bytes it was issued
+   under. */
+const TEMPLATE = templateFor(MANIFEST, "the demo grant");
 /* Published on /attack on purpose: the covenant bounds this key, not secrecy. */
 const SECRET = fromHex("9fccfb08645b4a5a49f0f461b9ae7209865c234f941e9d4679e8a18da77af2ad");
 
@@ -74,7 +82,12 @@ async function bench() {
     sign: SECRET,
     url: node.url,
     networkId: "testnet-10",
-    template: TEMPLATE,
+    /* NO `template:`. The pin is what this file used to pass, and passing it
+       meant the one thing production does that a test could get wrong — picking
+       a template for a manifest — was the one thing never exercised. Unpinned,
+       Agent.open resolves from the manifest exactly as it does under cron, and
+       `fund()` above funds the address that resolution derives. Disagree and the
+       purchase finds no coin, which is the outage, in a test, in 40ms. */
   });
   closers.push(() => agent.close());
   return { node, vendor, store, agent };

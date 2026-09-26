@@ -599,6 +599,84 @@ Turnkey cannot be moved. A grant's `agentKey` is hashed into its address, so
 those grants are unspendable until Turnkey signs again or they expire — the
 first of them around 4 November.
 
+### 3.3e A covenant freeze stopped the whole fleet, and nothing noticed
+
+This one already happened. It is written as a finding rather than a risk because
+the evidence is in the purchase logs.
+
+On **25 September 14:25 UTC** `sdk/covenant-template.json` changed from v4 to v5
+— the freeze commit, whose subject says every consumer resolves by fingerprint.
+Every consumer that had been *audited* did. `Agent.open` in
+`wallet/src/agent.ts` read `options.template ?? covenantTemplate`, and every
+grant this project has on chain is v4. From the next pass onward the agents
+derived v5 addresses for v4 grants and found nothing at them:
+
+```
+attempts up to the flip : bought 55, paid-but-refused 19, failed 9, refused 2
+attempts after the flip : failed 8 — every one "no UTXO at kaspatest:pqt9lyt0…"
+agents affected         : growth/listener, agent-003, agent-005
+successes after the flip: none
+```
+
+`kaspatest:pqt9lyt0…` is what the Listener's *unchanged* manifest derives under
+v5. Under v4 it derives `kaspatest:pq8y9dpy…`, where the coin has been sitting
+the whole time. Nothing was lost, nothing moved, and no transaction was built.
+
+Three things have to be true at once for that to last twenty-one hours, and each
+is its own finding:
+
+**The wrong template is not an error.** `scriptHashFor` derives a well-formed,
+valid, empty address. There is no exception to catch and nothing downstream can
+tell it from a drained grant. The only place to notice is before the derivation
+— which is why the rule is now *resolve*, not *compare*, and why
+`ops/check-template-guard.mjs` is a rule about imports.
+
+**The check that existed looked in the wrong place.** It was written one day
+before the freeze, for exactly this failure, and it scanned `sdk/tools`. The bug
+was in `wallet/src`. It also required only that a tool *compare* its template
+with the manifest — and `follow-grant` and `topup` did compare, correctly, which
+left the two recovery tools unable to operate the six long-lived v4 grants they
+exist for. A check can be about the right property and still be pointed away from
+where the property matters.
+
+**The tests moved with the bug.** `wallet/test/e2e.test.ts` drives the real Agent
+against a fake node, and funded the grant at an address derived from the same
+pinned template the Agent was using: two wrong halves agreeing, ten tests green
+through the outage. `test/buy-e2e.test.ts` was worse — it resolved by fingerprint
+in `grantAddress` and pinned in `fundNode`, twenty lines apart, and the pin is
+what the assertion never touched. Fixing the wallet is what made those tests
+fail.
+
+**And the agent reported a quiet day.** `growth/tools/listen.ts` turned a failed
+buy into `{ status: 0 }`, which the ranker reads as a search that found nothing.
+Six passes, no posts, exit 0, no alert. It was discovered from an unrelated
+Turnkey email. That is fixed — an all-failed pass now alerts and exits 4, and
+`ops/check-listener.mjs` holds it — but the general shape is the item:
+
+> **the heartbeats report on passes, not on outcomes.** `ops/listener-heartbeat.sh`
+> reports that a pass ran. A pass that ran and could pay for nothing was, until
+> now, indistinguishable from a slow news day. The same question is open one
+> layer up for the readings and for `auto-issue`.
+
+**Done means:** three things, none of them "be more careful".
+
+1. A covenant freeze has a checklist step that exercises a LIVE grant end to
+   end — not a fixture, whose template travels with the code. The v5 freeze
+   ran the full 13-shape matrix and 251 SDK tests and none of that could have
+   caught this.
+2. Every monitor answers "did the thing it exists to do succeed", not "did it
+   run". Until then a green heartbeat means the cron fired.
+3. The v4 → v5 migration in `covenant/MIGRATION.md` gets done, so that
+   "current" and "what our grants run" stop being different answers. Six live
+   grants outlive 120 days; they are the ones this class of bug keeps finding.
+
+**Fixed on 26 September, and worth naming because the fix is the cheap part:**
+`sdk/src/templates.ts` is now the one loader, `templateFor(manifest)` is the one
+call, `wallet/src/agent.ts` / `runner/src/delegate.ts` / `runner/src/settle.ts` /
+both dashboards / `follow-grant` / `topup` / `mcp-descriptor` / `return-helper`
+resolve from the manifest, and the guard is three tiers with the unattended one
+refusing a pin outright. What took twenty-one hours was not the missing line.
+
 ### 3.4 The Turnkey key is broader than the design says
 
 The design said the policy should restrict the runner's key to

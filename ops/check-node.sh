@@ -34,6 +34,31 @@
 set -euo pipefail
 
 REPO="$HOME/Desktop/warda"
+
+# Sourced HERE, not left to the caller.
+#
+# The funnel URL lives in ops/node.env, which is untracked — it is a public URL
+# reaching a kaspad on a personal laptop, and the file's own comment says why it
+# is not in the repository. Its instructions say to source it before running
+# anything that talks to the node, and a person in a terminal does. Cron does
+# not: the crontab entry is `monitor.sh node check-node.sh --quiet` and nothing
+# in that line reads node.env.
+#
+# So from 25 September this exited 2 every fifteen minutes with "nothing to
+# check", the wrapper called that DOWN, and the reminder said the public node
+# had been down for a day while it had been up the whole time. A credential a
+# script needs and does not fetch itself is a script that works by hand and
+# fails on a schedule — the same failure listener-pass.sh has a four-line
+# comment about, one directory over.
+#
+# `set +u` around it: node.env is a plain export file, not a manifest, and a
+# `set -u` shell dies on an unset variable inside somebody else's file.
+if [ -f "$REPO/ops/node.env" ]; then
+  set +u
+  . "$REPO/ops/node.env"
+  set -u
+fi
+
 URL="${WARDA_PUBLIC_NODE:-}"
 OUT="$REPO/site/src/node-status.json"
 QUIET=0

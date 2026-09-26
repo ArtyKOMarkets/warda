@@ -44,8 +44,24 @@ const TEMPLATES = [covenantTemplate, covenantV5, covenantV4, covenantV3].map(
   (t) => t as unknown as CovenantTemplate,
 );
 
+/**
+ * The template the MANIFEST names — for BOTH halves of this file.
+ *
+ * `grantAddress` resolved and `fundNode` did not, twenty lines apart, from the
+ * covenant-freeze commit until 26 September. The mismatch was invisible because
+ * the thing under test used the packaged template too: `fundNode` put the coin
+ * at the v5 address and `Agent.open` looked for it there, so two wrong halves
+ * agreed and the assertion on line 166 — which resolves properly — was the only
+ * honest line in the file. Fixing the wallet is what made this test fail, which
+ * is the right way round.
+ *
+ * One function, called by both. A shared derivation cannot half-agree.
+ */
+const templateOf = (m: Record<string, unknown>) =>
+  templateForManifest(m as { covenant?: string }, TEMPLATES, "the demo manifest") as never;
+
 function grantAddress(m: Record<string, unknown>): string {
-  const t = templateForManifest(m as { covenant?: string }, TEMPLATES, "the demo manifest") as never;
+  const t = templateOf(m);
   const authority = { principalKey: m.principal as string, revocationKey: m.revocation as string };
   const state = {
     agentKey: m.agent as string, budgetTotal: BigInt(m.budget as number),
@@ -74,7 +90,7 @@ function workspace() {
 }
 
 function fundNode(node: FakeNode, m: Record<string, unknown>) {
-  const t = covenantTemplate as never;
+  const t = templateOf(m);
   const authority = { principalKey: m.principal as string, revocationKey: m.revocation as string };
   const state = {
     agentKey: m.agent as string, budgetTotal: BigInt(m.budget as number),

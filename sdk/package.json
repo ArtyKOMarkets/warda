@@ -16,6 +16,11 @@
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
+    "./templates": {
+      "types": "./dist/templates.d.ts",
+      "import": "./dist/templates.js",
+      "default": "./dist/templates.js"
+    },
     "./covenant-template.json": "./covenant-template.json",
     "./package.json": "./package.json",
     "./covenant-template-v1.json": "./covenant-template-v1.json",

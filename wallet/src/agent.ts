@@ -47,6 +47,7 @@
  * handed back.
  */
 import {
+  assertTemplateForManifest,
   openChain,
   type Chain,
   type CovenantTemplate,
@@ -65,7 +66,23 @@ import {
   type Signer,
   type WardaFetchEvent,
 } from "@warda_protocol/x402";
-import covenantTemplate from "@warda_protocol/kaspa/covenant-template.json" with { type: "json" };
+/**
+ * Resolved from the manifest, never defaulted.
+ *
+ * This line used to be `import covenantTemplate from ".../covenant-template.json"`
+ * and the template below used to be `options.template ?? covenantTemplate`. That
+ * default is what stopped a live agent on 25 September 2026: the packaged
+ * template became v5 the same day, this agent held a v4 grant, and the pair
+ * derived an address that exists, holds nothing and is indistinguishable from a
+ * grant that was drained. Six passes failed over twenty-one hours reporting "no
+ * UTXO" about a grant sitting untouched at the address its own manifest names.
+ *
+ * A wrong template is not a wrong answer that looks wrong. The SDK already knew
+ * this — `templateForManifest` exists, and its comment named the three tools
+ * that had not adopted it. It did not name this one, which is the only one that
+ * spends.
+ */
+import { templateFor } from "@warda_protocol/kaspa/templates";
 import { toGrant, type LoadedGrant } from "./grant.ts";
 import { advanced, type Manifest, type Store } from "./store.ts";
 
@@ -90,7 +107,15 @@ export interface AgentOptions {
   prefix?: NetworkPrefix;
   /** Network fee per payment, in sompi. */
   fee?: bigint;
-  /** Overridden only by tests that pin a template. */
+  /**
+   * Pin the template, for a test with a covenant that is not on disk.
+   *
+   * CHECKED against the manifest's `covenant` field, not trusted: pinning the
+   * wrong one is the same failure as defaulting to the wrong one, and a test
+   * that pins is exactly where a stale fingerprint survives unnoticed. A
+   * manifest with no `covenant` field accepts whatever is passed, because
+   * manifests predate the field.
+   */
   template?: CovenantTemplate;
 }
 
@@ -131,7 +156,8 @@ export class Agent {
 
   static async open(options: AgentOptions): Promise<Agent> {
     const manifest = await options.store.load();
-    const template = options.template ?? (covenantTemplate as unknown as CovenantTemplate);
+    const template = options.template ?? templateFor(manifest, "this agent's grant");
+    if (options.template) assertTemplateForManifest(options.template, manifest, "this agent's grant");
     const grant = toGrant(manifest, options.recipients, template);
 
     let chain = options.chain;
