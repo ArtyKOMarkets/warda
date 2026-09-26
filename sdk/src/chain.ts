@@ -44,6 +44,8 @@
  * than an error. `inspect` asks them of a `BorshReader` exactly as it asks
  * them of a `NodeClient`, which is why the reader implements `Inspectable`.
  */
+import { fileURLToPath } from "node:url";
+import { sep } from "node:path";
 import { env } from "./env.ts";
 import {
   NodeClient,
@@ -123,6 +125,42 @@ export interface OpenedChain {
   transport: "json" | "borsh";
 }
 
+/**
+ * Would `npm install <pkg>` — without `-g` — put a package where THIS module can
+ * see it?
+ *
+ * Exported because it decides a sentence a newcomer reads at the one moment they
+ * are most likely to give up, and a decision that shapes advice deserves a test of
+ * its own rather than a test of the paragraph it ends up in.
+ *
+ * It is one question: is this module inside the directory the user is standing in?
+ * Node resolves a bare specifier by walking up from the importing module, so a
+ * package installed into the cwd's `node_modules` is reachable from a module under
+ * the cwd and from nowhere else.
+ *
+ * The first version matched the path against `/lib/node_modules/`, which is what a
+ * global install looks like — and also what `~/proj/node_modules/@warda_protocol/kaspa`
+ * looks like, a LOCAL dependency that would then be told to use `-g`. The same
+ * error mirrored. A pattern that describes the usual shape of an answer is not the
+ * question.
+ *
+ * The separator matters: a raw `startsWith` makes `/tmp/warda-abc` a child of
+ * `/tmp/warda-a`.
+ */
+export function insideCwd(moduleUrl: string, cwd: string): boolean {
+  let self: string;
+  try {
+    self = fileURLToPath(moduleUrl);
+  } catch {
+    /* Not a file URL at all — bundled into something served, or a data: URL. No
+       claim either way, and the safer default is the advice that works from a
+       project directory. */
+    return true;
+  }
+  if (self === cwd) return true;
+  return self.startsWith(cwd.endsWith(sep) ? cwd : cwd + sep);
+}
+
 export async function openChain(options: ChainOptions = {}): Promise<OpenedChain> {
   if (!options.borsh) {
     const { client, health } = await NodeClient.open(options);
@@ -133,9 +171,33 @@ export async function openChain(options: ChainOptions = {}): Promise<OpenedChain
   try {
     mod = (await import("@warda_protocol/borsh")) as unknown as BorshModule;
   } catch {
+    /**
+     * `-g` when this is running from a global install, and it usually is.
+     *
+     * The message said `npm install @warda_protocol/borsh @kluster/kaspa-wasm`
+     * unconditionally. A newcomer follows /start, which says
+     * `npm install -g @warda_protocol/cli`, runs `warda node --borsh` because the
+     * CLI's own help says to run it first, gets this, runs exactly what it says in
+     * their project directory — and gets the identical message again, because a
+     * global bin does not resolve a local node_modules. Following the instruction
+     * literally leaves you where you started, which is the worst kind of error
+     * text: it is correct advice given to the wrong layout, and there is nothing in
+     * it to suggest that is what happened.
+     *
+     * Detected from this module's own path rather than from an env var, because
+     * that is the thing that decides the answer. Found by installing the published
+     * CLI in a clean container and walking /start as a stranger would.
+     */
+    const global = !insideCwd(import.meta.url, process.cwd());
+    const g = global ? "-g " : "";
     throw new Error(
       "borsh needs the transport package and a WASM build that can express a covenant.\n\n" +
-        "  npm install @warda_protocol/borsh @kluster/kaspa-wasm\n\n" +
+        `  npm install ${g}@warda_protocol/borsh @kluster/kaspa-wasm\n\n` +
+        (global
+          ? "The -g matters: warda is running from a global install, so a package put in a\n" +
+            "project's node_modules is invisible to it. Without it this message repeats\n" +
+            "unchanged after you have done exactly what it asked.\n\n"
+          : "") +
         "Both are optional: a node of your own makes them unnecessary.",
     );
   }
