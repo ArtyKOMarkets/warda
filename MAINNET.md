@@ -524,14 +524,26 @@ door answers, the room behind it does not, and nothing exercises the path that
 does the work. The credential was fine. `getWhoami` would have returned
 happily throughout.
 
-**Done, for the monitor half.** `runner/tools/turnkey-probe.ts` signs 32 random
-bytes with a wallet kept for the purpose, because nothing cheaper asks the
-question — a plan limit, an expired policy, a deleted user and a revoked key
-all leave whoami working and signing dead. It runs hourly rather than every
-fifteen minutes, and that is a cost decision rather than a taste one: each run
-spends a signature against the quota it is watching, and a plan limit does not
-flap. It holds the runner's restricted key, never root; a monitor with root
-credentials would be a larger liability than the outage it watches.
+**Done, for the monitor half.** `runner/tools/signing-probe.ts` asks the
+runner's own question — can it sign — of whichever vault `runner/src/boot.ts` is
+configured to use, reading that choice from the same variable rather than
+holding a second opinion about it. On Turnkey it signs with a wallet kept for
+the purpose, because nothing cheaper asks the question: a plan limit, an
+expired policy, a deleted user and a revoked key all leave whoami answering
+happily and signing dead. On the envelope it seals, opens, signs and verifies
+in memory, which costs nothing and catches the three ways that vault fails —
+a missing, truncated or rotated `RUNNER_MASTER_KEY`.
+
+It runs hourly rather than every fifteen minutes, and on the Turnkey path that
+is a cost decision rather than a taste one: each run spends a signature against
+the quota it is watching. It holds the runner's restricted key, never root; a
+monitor with root credentials would be a larger liability than the outage it
+watches.
+
+It probed Turnkey and nothing else until the runner moved off it, at which
+point a Turnkey-only probe would have alerted every six hours about a service
+the runner no longer uses — which is how a feed stops being read, and the reason
+the rename was not cosmetic.
 
 **Yours:** clear whatever the organisation is over, in the Turnkey dashboard.
 Until then the runner is mute.
@@ -564,6 +576,28 @@ remembered.
 
 **Done means:** that check run again whenever the organisation's users or
 quorum change. It is a read, so the cost of asking is nothing.
+
+### 3.3d The runner holds agent keys in software on testnet
+
+From 26 September the runner uses `EnvelopeVault`, not Turnkey: the
+organisation ran out of its free allotment — *"Signing is disabled because your
+organization is over its allotted quota. Please upgrade to a paid plan"* — and
+paying for availability on a hosted product with no users was the worse trade.
+
+Under Turnkey the runner never sees an agent secret. Under the envelope it
+unseals one in memory to sign and zeroes it after, so a runner compromise costs
+the agent keys. On testnet the money is a faucet and the grants bound it
+regardless. On mainnet it is the thing Turnkey was chosen to prevent.
+
+**Done means:** a vault on mainnet where the runner cannot read an agent
+secret — Turnkey on a paid plan, or an HSM/KMS behind the same `KeyVault`
+interface. `runner/src/vault.ts` already takes a `MasterKey`, so a KMS is a
+constructor argument rather than a rewrite.
+
+**Also true, and not fixed by the switch:** the nine agent keys already inside
+Turnkey cannot be moved. A grant's `agentKey` is hashed into its address, so
+those grants are unspendable until Turnkey signs again or they expire — the
+first of them around 4 November.
 
 ### 3.4 The Turnkey key is broader than the design says
 

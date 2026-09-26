@@ -76,8 +76,31 @@ names before it leaves the vault.
   runner never sees a secret. A Spark account also passed, untweaked; P2TR is
   used because it is Turnkey's documented Schnorr path. The vault signs once at
   creation and refuses to store a key it has not seen verify.
-- **`EnvelopeVault` (fallback, tests, local).** A 32-byte key sealed with
-  AES-256-GCM under a `MasterKey`, which a cloud KMS can replace.
+- **`EnvelopeVault` — the testnet vault since 26 September.** A 32-byte agent
+  key sealed with AES-256-GCM under a `MasterKey`, which a cloud KMS can
+  replace. `boot.ts` picks it whenever `TURNKEY_ORGANIZATION_ID` is unset.
+
+  **This changes the custody story and the change is the point of writing it
+  down.** Under Turnkey the runner never sees an agent secret; under the
+  envelope it unseals one in memory to sign and zeroes it afterwards. A runner
+  compromise therefore costs the agent keys, which is exactly what Turnkey was
+  chosen to prevent. That is acceptable on testnet, where the money is a faucet
+  and the grants bound it anyway, and it is **not acceptable on mainnet** —
+  `MAINNET.md` carries it as a blocker rather than this file carrying it as a
+  preference.
+
+  Why the switch: on 26 September Turnkey answered *"Signing is disabled
+  because your organization is over its allotted quota. Please upgrade to a
+  paid plan"*, and the hosted runner could not complete a single agent
+  transaction. Paying for availability on a product with no users yet was the
+  worse trade.
+
+  **It does not rescue the nine agents already in Turnkey.** Their keys are
+  there, a grant's `agentKey` is hashed into its address, so those grants
+  cannot be moved to another vault and are unspendable until Turnkey signs
+  again or they expire. `EnvelopeVault.signer` refuses them by name rather than
+  failing to decrypt — *"agent X's key is held by turnkey, not by this vault"*.
+  New agents use the envelope; old ones wait.
 
 **The policy, as deployed** (`runner/tools/turnkey-lockdown.ts`). The runner's
 key is a NON-ROOT Turnkey user — policies do not apply to root users, and the
