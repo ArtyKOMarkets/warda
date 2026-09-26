@@ -219,8 +219,16 @@ echo "the tool said something about exit $1" >&2
 exit $1
 CODED
     chmod +x "$tmp/coded"
-    local i
-    for i in $(seq 1 "$2"); do
+    # A counting `while`, not `for i in $(seq 1 "$2")`.
+    #
+    # $2 is 1 or 2 here so seq would behave — but BSD seq counts DOWN when the
+    # end is below the start, and ops/check-portable.mjs learned that rule an hour
+    # ago from ops/principal-bundle.sh dying on the Mac with "!i: unbound
+    # variable". A construct that is only safe because of the values it happens to
+    # get today is one somebody changes tomorrow.
+    local i=0
+    while [ "$i" -lt "$2" ]; do
+      i=$((i + 1))
       WARDA_NOTIFY_SINK="$sink" WARDA_MONITOR_NO_ENV=1 WARDA_REPO="$REPO" \
         WARDA_MONITOR_STATE="$tmp/state" "$0" selftest "$tmp/coded" >/dev/null 2>&1
     done

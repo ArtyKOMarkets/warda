@@ -43,6 +43,29 @@ const TRAPS = [
   { re: /\bgrep\s+-P\b/, why: "`grep -P` is not in BSD grep." },
   { re: /\breadlink\s+-f\b/, why: "`readlink -f` is GNU; BSD readlink has no -f." },
   { re: /\bstat\s+-c\b/, why: "`stat -c` is GNU; BSD stat uses -f." },
+  /**
+   * `seq 1 $n` where n can be 0 — and it always can.
+   *
+   * Not a GNU-only construct, which is why this list did not have it and why
+   * ops/principal-bundle.sh passed this check and then died on the Mac:
+   *
+   *     ops/principal-bundle.sh: line 36: !i: unbound variable
+   *
+   * BSD seq counts DOWN when the end is below the start, so `seq 1 0` prints
+   * "1 0" where GNU seq prints nothing. The loop that was meant not to run ran
+   * once, with an index nothing was at.
+   *
+   * The variable is the hazard: `seq 1 5` is fine on both and `seq 1 $#` is a
+   * countdown on macOS every time the argument list is empty — the default path,
+   * which is the one nobody tests.
+   */
+  {
+    re: /\bseq\s+1\s+[$"']/,
+    why:
+      "`seq 1 $n` counts DOWN on BSD when n is 0, where GNU seq prints nothing — " +
+      "so the loop runs when it should not. Use `while [ $# -gt 0 ]` with shift for " +
+      "arguments, or a C-style `for ((i=1; i<=n; i++))`.",
+  },
 ];
 
 /**

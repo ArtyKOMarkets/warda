@@ -31,9 +31,50 @@ set -uo pipefail
 REPO="${WARDA_REPO:-$HOME/Desktop/warda}"
 export PATH="$HOME/.local/node/bin:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin"
 
+# Parsed with shift, not with `for i in $(seq 1 $#)` and `${!i}`.
+#
+# That is what was here, and it worked on every Linux I tried it on and died on
+# the Mac it is for: BSD `seq 1 0` counts DOWN and prints "1 0", where GNU seq
+# prints nothing. So with no arguments the loop ran once with i=1, `${!i}`
+# expanded $1, which is unset, and `set -u` ended the script on line 36 before it
+# had done anything —
+#
+#     ops/principal-bundle.sh: line 36: !i: unbound variable
+#
+# I had tested it only with --out. The default path, which is the one anybody
+# runs first, was never executed anywhere. Same mistake as the rest of today, in
+# a new costume: the flag was tested and the default was not.
+#
+# `shift` needs no indirect expansion and no seq, and is the same in every shell
+# this could plausibly run in.
 OUT=""
-for i in $(seq 1 $#); do
-  [ "${!i}" = "--out" ] && { j=$((i + 1)); OUT="${!j:-}"; }
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --out)
+      shift
+      [ $# -gt 0 ] || { echo "--out needs a directory." >&2; exit 2; }
+      OUT="$1"
+      ;;
+    -h|--help)
+      # Literal, not `sed -n '2,12p' "$0"`: a help text sliced out of this file
+      # by line number printed the middle of a comment about BSD seq the moment
+      # the header above it grew.
+      echo "usage: ops/principal-bundle.sh [--out <directory>]"
+      echo
+      echo "Builds and verifies the bundle that generates the principal key on a"
+      echo "machine with no network. Copy the result to removable media; the"
+      echo "instructions for the offline machine are MAKE-THE-KEY.txt inside it."
+      echo
+      echo "Read ops/PRINCIPAL.md first."
+      exit 0
+      ;;
+    *)
+      echo "unknown argument: $1" >&2
+      echo "  usage: ops/principal-bundle.sh [--out <directory>]" >&2
+      exit 2
+      ;;
+  esac
+  shift
 done
 [ -n "$OUT" ] || OUT="$REPO/principal-offline"
 

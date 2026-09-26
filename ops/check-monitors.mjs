@@ -202,33 +202,23 @@ for (const f of senders) {
   );
 }
 
-// ------------------------------------------------- 2b. and the scripts can run
+// ------------------------------------------- 2b. (withdrawn — see check-portable)
 //
-// Every `.sh` in ops/ has to be mode 755 IN GIT, not just on this laptop.
+// A rule asserting mode 755 in git for every ops/*.sh was added here on
+// 26 September, after the commit that wired the spenders to the monitors dropped
+// ops/install-cron.sh's exec bit.
 //
-// install-cron.sh chmods what it installs, which covers the machine standing in
-// front of it and nothing else: a mode lost in a commit reaches every fresh
-// clone and CI, and the entry is still in the crontab saying the job exists.
-// That file's own comment puts it better than this one can — "installing a
-// schedule of commands that cannot run is worse than installing nothing."
+// `ops/check-portable.mjs` has had that rule since 16 September. So the duplicate
+// was the second copy of a check that already existed — in a file whose own
+// subject is that four copies of one Telegram curl is why the monitors went
+// unwired — and the commit message justifying it said "nobody would have found
+// out until a fresh clone ran the installer", which was false. CI runs
+// check-portable. It would have failed, loudly, on the mode change.
 //
-// Added because the commit that wired the spenders to the monitors dropped
-// install-cron.sh's exec bit: a Python rewrite of the file wrote it back at 644,
-// `git commit` recorded the mode change, and nothing would have said so until
-// somebody cloned the repo and ran the installer. The same way check-vendor.sh
-// lost its bit, which is why the chmod loop exists at all.
-const modes = spawnSync("git", ["ls-files", "-s", "ops"], { cwd: REPO, encoding: "utf8" }).stdout ?? "";
-for (const line of modes.split("\n")) {
-  const m = line.match(/^(\d{6}) \S+ \d+\t(ops\/.+\.sh)$/);
-  if (!m) continue;
-  if (m[1] !== "100755") {
-    problems.push(
-      `${m[2]} is mode ${m[1]} in git, so a fresh clone cannot execute it. cron would\n` +
-        `  fail on it every time it fired, into a log whose purpose is to be empty:\n` +
-        `    git update-index --chmod=+x ${m[2]}`,
-    );
-  }
-}
+// What actually happened is that I noticed the mode change in git's output and
+// amended it away before pushing, so CI never saw it, and I read my own catch as
+// the absence of a check. Removed rather than kept: two checks for one property
+// means one of them is the one somebody edits.
 
 // ---------------------------------------------------------------- 3. state stays local
 if (!/^ops\/monitor-state\/$/m.test(read(".gitignore"))) {
