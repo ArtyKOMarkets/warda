@@ -26,6 +26,9 @@ import {
   reabsorbSuccessorState,
   redeemScriptFrom,
   successorState,
+  // Recovery picks its template by the redeem script's own length; see
+  // `recover` below for why length, and why not the current template.
+  templateForScript,
   scriptHashFor,
   scriptHashToAddress,
   toWire,
@@ -35,6 +38,7 @@ import {
   EMPTY_RESERVE,
   type ChildTerms,
   type ExitKind,
+  type CovenantTemplate,
   type Grant,
   type GrantState as SdkGrantState,
   type NetworkPrefix,
